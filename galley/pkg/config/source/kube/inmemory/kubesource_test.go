@@ -40,7 +40,7 @@ func TestKubeSource_ApplyContent(t *testing.T) {
 
 	g.Expect(s.ContentNames()).To(Equal(map[string]struct{}{"foo": {}}))
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := s.Get(data.K8SCollection1).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 
 	g.Expect(actual[0].Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
@@ -63,7 +63,7 @@ func TestKubeSource_ApplyContent_BeforeStart(t *testing.T) {
 
 	g.Expect(s.ContentNames()).To(Equal(map[string]struct{}{"foo": {}}))
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := s.Get(data.K8SCollection1).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 
 	g.Expect(actual[0].Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
@@ -84,7 +84,7 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlN2I2V1))
 	g.Expect(err).To(BeNil())
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := s.Get(data.K8SCollection1).AllSorted()
 	g.Expect(actual).To(HaveLen(2))
 	g.Expect(actual[0].Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 	g.Expect(actual[1].Metadata.FullName).To(Equal(data.EntryN2I2V1.Metadata.FullName))
@@ -94,7 +94,7 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 
 	g.Expect(s.ContentNames()).To(Equal(map[string]struct{}{"foo": {}}))
 
-	actual = s.Get(data.Collection1).AllSorted()
+	actual = s.Get(data.K8SCollection1).AllSorted()
 	g.Expect(actual).To(HaveLen(2))
 	g.Expect(actual[0].Metadata.FullName).To(Equal(data.EntryN2I2V2.Metadata.FullName))
 	g.Expect(actual[1].Metadata.FullName).To(Equal(data.EntryN3I3V1.Metadata.FullName))
@@ -131,16 +131,16 @@ func TestKubeSource_RemoveContent(t *testing.T) {
 	s.RemoveContent("foo")
 	g.Expect(s.ContentNames()).To(Equal(map[string]struct{}{"bar": {}}))
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := s.Get(data.K8SCollection1).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 
 	events := acc.EventsWithoutOrigins()
 	g.Expect(events).To(HaveLen(6))
 	g.Expect(events[0:4]).To(ConsistOf(
-		event.FullSyncFor(data.Collection1),
-		event.AddFor(data.Collection1, data.EntryN1I1V1),
-		event.AddFor(data.Collection1, withVersion(data.EntryN2I2V1, "v2")),
-		event.AddFor(data.Collection1, withVersion(data.EntryN3I3V1, "v3"))))
+		event.FullSyncFor(data.K8SCollection1),
+		event.AddFor(data.K8SCollection1, data.EntryN1I1V1),
+		event.AddFor(data.K8SCollection1, withVersion(data.EntryN2I2V1, "v2")),
+		event.AddFor(data.K8SCollection1, withVersion(data.EntryN3I3V1, "v3"))))
 
 	//  Delete events can appear out of order.
 	g.Expect(events[4].Kind).To(Equal(event.Deleted))
@@ -148,12 +148,12 @@ func TestKubeSource_RemoveContent(t *testing.T) {
 
 	if events[4].Resource.Metadata.FullName == data.EntryN1I1V1.Metadata.FullName {
 		g.Expect(events[4:]).To(ConsistOf(
-			event.DeleteForResource(data.Collection1, data.EntryN1I1V1),
-			event.DeleteForResource(data.Collection1, withVersion(data.EntryN2I2V1, "v2"))))
+			event.DeleteForResource(data.K8SCollection1, data.EntryN1I1V1),
+			event.DeleteForResource(data.K8SCollection1, withVersion(data.EntryN2I2V1, "v2"))))
 	} else {
 		g.Expect(events[4:]).To(ConsistOf(
-			event.DeleteForResource(data.Collection1, withVersion(data.EntryN2I2V1, "v2")),
-			event.DeleteForResource(data.Collection1, data.EntryN1I1V1)))
+			event.DeleteForResource(data.K8SCollection1, withVersion(data.EntryN2I2V1, "v2")),
+			event.DeleteForResource(data.K8SCollection1, data.EntryN1I1V1)))
 	}
 }
 
@@ -169,7 +169,7 @@ func TestKubeSource_Clear(t *testing.T) {
 
 	s.Clear()
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := s.Get(data.K8SCollection1).AllSorted()
 	g.Expect(actual).To(HaveLen(0))
 
 	events := acc.EventsWithoutOrigins()
@@ -202,7 +202,7 @@ func TestKubeSource_UnparseableSegment(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, "	\n", data.YamlN2I2V1))
 	g.Expect(err).To(Not(BeNil()))
 
-	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
+	actual := removeEntryOrigins(s.Get(data.K8SCollection1).AllSorted())
 	g.Expect(actual).To(HaveLen(2))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 	g.Expect(actual[1]).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
@@ -218,7 +218,7 @@ func TestKubeSource_Unrecognized(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnrecognized))
 	g.Expect(err).To(Not(BeNil()))
 
-	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
+	actual := removeEntryOrigins(s.Get(data.K8SCollection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 }
@@ -233,7 +233,7 @@ func TestKubeSource_UnparseableResource(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnparseableResource))
 	g.Expect(err).To(Not(BeNil()))
 
-	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
+	actual := removeEntryOrigins(s.Get(data.K8SCollection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 }
@@ -248,7 +248,7 @@ func TestKubeSource_NonStringKey(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlNonStringKey))
 	g.Expect(err).To(Not(BeNil()))
 
-	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
+	actual := removeEntryOrigins(s.Get(data.K8SCollection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 }
@@ -263,7 +263,7 @@ func TestKubeSource_Service(t *testing.T) {
 	err := s.ApplyContent("foo", data.GetService())
 	g.Expect(err).To(BeNil())
 
-	actual := s.Get(k8smeta.K8SCoreV1Services).AllSorted()
+	actual := s.Get(k8smeta.K8SCoreV1Services.Name()).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0].Metadata.FullName).To(Equal(resource.NewFullName("kube-system", "kube-dns")))
 }
@@ -271,7 +271,7 @@ func TestKubeSource_Service(t *testing.T) {
 func TestSameNameDifferentKind(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewKubeSource(basicmeta.MustGet2().KubeSource().Resources())
+	s := NewKubeSource(basicmeta.MustGet2().KubeCollections())
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 	s.Start()
@@ -283,10 +283,10 @@ func TestSameNameDifferentKind(t *testing.T) {
 	events := acc.EventsWithoutOrigins()
 	g.Expect(events).To(HaveLen(4))
 	g.Expect(events).To(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection1),
-		event.FullSyncFor(basicmeta.Collection2),
-		event.AddFor(basicmeta.Collection1, data.EntryN1I1V1),
-		event.AddFor(basicmeta.Collection2, withVersion(data.EntryN1I1V1ClusterScoped, "v2"))))
+		event.FullSyncFor(data.K8SCollection1),
+		event.FullSyncFor(data.K8SCollection2),
+		event.AddFor(data.K8SCollection1, data.EntryN1I1V1),
+		event.AddFor(data.K8SCollection2, withVersion(data.EntryN1I1V1ClusterScoped, "v2"))))
 }
 
 func TestKubeSource_DefaultNamespace(t *testing.T) {
@@ -304,7 +304,7 @@ func TestKubeSource_DefaultNamespace(t *testing.T) {
 
 	expectedName := data.EntryI1V1NoNamespace.Metadata.FullName.Name
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := s.Get(data.K8SCollection1).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0].Metadata.FullName).To(Equal(resource.NewFullName(defaultNs, expectedName)))
 }
@@ -312,7 +312,7 @@ func TestKubeSource_DefaultNamespace(t *testing.T) {
 func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewKubeSource(basicmeta.MustGet2().KubeSource().Resources())
+	s := NewKubeSource(basicmeta.MustGet2().KubeCollections())
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 	s.Start()
@@ -324,7 +324,7 @@ func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
 	err := s.ApplyContent("foo", data.YamlI1V1NoNamespaceKind2)
 	g.Expect(err).To(BeNil())
 
-	actual := s.Get(data.Collection2).AllSorted()
+	actual := s.Get(data.K8SCollection2).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0].Metadata.FullName).To(Equal(data.EntryI1V1NoNamespace.Metadata.FullName))
 }
@@ -344,7 +344,7 @@ func TestKubeSource_CanHandleDocumentSeparatorInComments(t *testing.T) {
 }
 
 func setupKubeSource() (*KubeSource, *fixtures.Accumulator) {
-	s := NewKubeSource(basicmeta.MustGet().KubeSource().Resources())
+	s := NewKubeSource(basicmeta.MustGet().KubeCollections())
 
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
@@ -353,7 +353,7 @@ func setupKubeSource() (*KubeSource, *fixtures.Accumulator) {
 }
 
 func setupKubeSourceWithK8sMeta() (*KubeSource, *fixtures.Accumulator) {
-	s := NewKubeSource(k8smeta.MustGet().KubeSource().Resources())
+	s := NewKubeSource(k8smeta.MustGet().KubeCollections())
 
 	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)

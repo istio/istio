@@ -27,7 +27,7 @@ import (
 func TestSimpleTransformerProvider(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	input := data.Collection1
+	input := data.K8SCollection1
 	output := data.Collection2
 	handleFn := func(e event.Event, h event.Handler) {}
 	opts := processing.ProcessorOptions{}

@@ -24,9 +24,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
@@ -51,7 +50,7 @@ func TestNewSource(t *testing.T) {
 		_ = fakeClient(k)
 	}
 
-	r := basicmeta.MustGet().KubeSource().Resources()
+	r := basicmeta.MustGet().KubeCollections()
 
 	_ = newOrFail(t, k, r, nil)
 }
@@ -61,7 +60,7 @@ func TestStartTwice(t *testing.T) {
 	w, _, cl := createMocks()
 	defer w.Stop()
 
-	r := basicmeta.MustGet().KubeSource().Resources()
+	r := basicmeta.MustGet().KubeCollections()
 	s := newOrFail(t, cl, r, nil)
 
 	// Start it once.
@@ -80,7 +79,7 @@ func TestStartStop_WithStatusCtl(t *testing.T) {
 	defer w.Stop()
 
 	sc := &statusCtl{}
-	r := basicmeta.MustGet().KubeSource().Resources()
+	r := basicmeta.MustGet().KubeCollections()
 	s := newOrFail(t, cl, r, sc)
 
 	s.Start()
@@ -94,7 +93,7 @@ func TestStopTwiceShouldSucceed(t *testing.T) {
 	// Create the source
 	w, _, cl := createMocks()
 	defer w.Stop()
-	r := basicmeta.MustGet().KubeSource().Resources()
+	r := basicmeta.MustGet().KubeCollections()
 	s := newOrFail(t, cl, r, nil)
 
 	// Start it once.
@@ -112,7 +111,7 @@ func TestReport(t *testing.T) {
 	defer w.Stop()
 
 	sc := &statusCtl{}
-	r := basicmeta.MustGet().KubeSource().Resources()
+	r := basicmeta.MustGet().KubeCollections()
 	s := newOrFail(t, cl, r, sc)
 
 	s.Start()
@@ -120,7 +119,7 @@ func TestReport(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.Collection1,
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
@@ -138,8 +137,8 @@ func TestEvents(t *testing.T) {
 	defer wcrd.Stop()
 	defer w.Stop()
 
-	r := basicmeta.MustGet().KubeSource().Resources()
-	addCrdEvents(wcrd, r)
+	r := basicmeta.MustGet().KubeCollections()
+	addCrdEvents(wcrd, r.All())
 
 	// Create and start the source
 	s := newOrFail(t, cl, r, nil)
@@ -147,7 +146,7 @@ func TestEvents(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection1),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 	))
 	acc.Clear()
 
@@ -168,7 +167,7 @@ func TestEvents(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Added, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.AddFor(basicmeta.Collection1, toEntry(obj)),
+		event.AddFor(basicmeta.K8SCollection1.Name(), toEntry(obj)),
 	))
 
 	acc.Clear()
@@ -179,7 +178,7 @@ func TestEvents(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Modified, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.UpdateFor(basicmeta.Collection1, toEntry(obj))))
+		event.UpdateFor(basicmeta.K8SCollection1.Name(), toEntry(obj))))
 
 	acc.Clear()
 
@@ -193,7 +192,7 @@ func TestEvents(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.DeleteForResource(basicmeta.Collection1, toEntry(obj))))
+		event.DeleteForResource(basicmeta.K8SCollection1.Name(), toEntry(obj))))
 }
 
 func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
@@ -203,8 +202,8 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	defer wcrd.Stop()
 	defer w.Stop()
 
-	r := basicmeta.MustGet().KubeSource().Resources()
-	addCrdEvents(wcrd, r)
+	r := basicmeta.MustGet().KubeCollections()
+	addCrdEvents(wcrd, r.All())
 
 	sc := &statusCtl{}
 
@@ -214,7 +213,7 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection1),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 	))
 	acc.Clear()
 
@@ -235,12 +234,12 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Added, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.AddFor(basicmeta.Collection1, toEntry(obj)),
+		event.AddFor(basicmeta.K8SCollection1.Name(), toEntry(obj)),
 	))
 
 	g.Eventually(sc.latestStatusCall).ShouldNot(BeNil())
 	g.Expect(sc.latestStatusCall()).To(Equal(&statusInput{
-		col:     basicmeta.Collection1,
+		col:     basicmeta.K8SCollection1.Name(),
 		name:    resource.NewFullName("ns", "i1"),
 		version: "v1",
 		status:  nil,
@@ -254,10 +253,10 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Modified, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.UpdateFor(basicmeta.Collection1, toEntry(obj))))
+		event.UpdateFor(basicmeta.K8SCollection1.Name(), toEntry(obj))))
 
 	g.Expect(sc.latestStatusCall()).To(Equal(&statusInput{
-		col:     basicmeta.Collection1,
+		col:     basicmeta.K8SCollection1.Name(),
 		name:    resource.NewFullName("ns", "i1"),
 		version: "rv2",
 		status:  "stat",
@@ -275,7 +274,7 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.DeleteForResource(basicmeta.Collection1, toEntry(obj))))
+		event.DeleteForResource(basicmeta.K8SCollection1.Name(), toEntry(obj))))
 }
 
 func TestEvents_CRDEventAfterFullSync(t *testing.T) {
@@ -285,8 +284,8 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 	defer wcrd.Stop()
 	defer w.Stop()
 
-	r := basicmeta.MustGet().KubeSource().Resources()
-	addCrdEvents(wcrd, r)
+	r := basicmeta.MustGet().KubeCollections()
+	addCrdEvents(wcrd, r.All())
 
 	// Create and start the source
 	s := newOrFail(t, cl, r, nil)
@@ -294,11 +293,11 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection1),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 	))
 
 	acc.Clear()
-	c := toCrd(r[0])
+	c := toCrd(r.All()[0])
 	c.ResourceVersion = "v2"
 	wcrd.Send(watch.Event{
 		Type:   watch.Modified,
@@ -317,9 +316,9 @@ func TestEvents_NonAddEvent(t *testing.T) {
 	defer wcrd.Stop()
 	defer w.Stop()
 
-	r := basicmeta.MustGet().KubeSource().Resources()
-	addCrdEvents(wcrd, r)
-	c := toCrd(r[0])
+	r := basicmeta.MustGet().KubeCollections()
+	addCrdEvents(wcrd, r.All())
+	c := toCrd(r.All()[0])
 	c.ResourceVersion = "v2"
 	wcrd.Send(watch.Event{
 		Type:   watch.Modified,
@@ -343,8 +342,8 @@ func TestEvents_NoneForDisabled(t *testing.T) {
 	defer wcrd.Stop()
 	defer w.Stop()
 
-	r := basicmeta.MustGet().KubeSource().Resources()
-	addCrdEvents(wcrd, r)
+	r := basicmeta.MustGet().KubeCollections()
+	addCrdEvents(wcrd, r.All())
 
 	// Create and start the source
 	s := newOrFail(t, cl, r, nil)
@@ -360,8 +359,8 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	k := mock.NewKube()
 	wcrd := mockCrdWatch(k.APIExtClientSet)
 
-	r := basicmeta.MustGet().KubeSource().Resources()
-	addCrdEvents(wcrd, r)
+	r := basicmeta.MustGet().KubeCollections()
+	addCrdEvents(wcrd, r.All())
 
 	k.AddResponse(nil, errors.New("no cheese found"))
 
@@ -372,7 +371,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 
 	// we should get a full sync event, even if the watcher doesn't properly start.
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection1),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 	))
 
 	s.Stop()
@@ -381,7 +380,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	wcrd.Stop()
 
 	wcrd = mockCrdWatch(k.APIExtClientSet)
-	addCrdEvents(wcrd, r)
+	addCrdEvents(wcrd, r.All())
 
 	// Now start properly and get events
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
@@ -409,8 +408,8 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection1),
-		event.AddFor(basicmeta.Collection1, toEntry(obj)),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
+		event.AddFor(basicmeta.K8SCollection1.Name(), toEntry(obj)),
 	))
 }
 
@@ -426,7 +425,7 @@ func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
 	defer wcrd.Stop()
 	defer w.Stop()
 
-	r := basicmeta.MustGet().KubeSource().Resources()
+	r := basicmeta.MustGet().KubeCollections()
 
 	s := newOrFail(t, cl, r, nil)
 
@@ -435,10 +434,10 @@ func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
 	s.Update(diag.Messages{})
 }
 
-func newOrFail(t *testing.T, ifaces kube.Interfaces, r schema.KubeResources, sc status.Controller) *apiserver.Source {
+func newOrFail(t *testing.T, ifaces kube.Interfaces, r collection.Schemas, sc status.Controller) *apiserver.Source {
 	t.Helper()
 	o := apiserver.Options{
-		Resources:        r,
+		Schemas:          r,
 		ResyncPeriod:     0,
 		Client:           ifaces,
 		StatusController: sc,
@@ -466,7 +465,7 @@ func createMocks() (*mock.Watch, *mock.Watch, *mock.Kube) {
 	return w, wcrd, k
 }
 
-func addCrdEvents(w *mock.Watch, res []schema.KubeResource) {
+func addCrdEvents(w *mock.Watch, res []collection.Schema) {
 	for _, r := range res {
 		w.Send(watch.Event{
 			Object: toCrd(r),
@@ -511,22 +510,22 @@ func toEntry(obj *unstructured.Unstructured) *resource.Instance {
 	}
 }
 
-func toCrd(r schema.KubeResource) *v1beta1.CustomResourceDefinition {
+func toCrd(r collection.Schema) *v1beta1.CustomResourceDefinition {
 	return &v1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:            r.Plural + "." + r.Group,
+			Name:            r.Plural() + "." + r.Group(),
 			ResourceVersion: "v1",
 		},
 
 		Spec: v1beta1.CustomResourceDefinitionSpec{
-			Group: r.Group,
+			Group: r.Group(),
 			Names: v1beta1.CustomResourceDefinitionNames{
-				Plural: r.Plural,
-				Kind:   r.Kind,
+				Plural: r.Plural(),
+				Kind:   r.Kind(),
 			},
 			Versions: []v1beta1.CustomResourceDefinitionVersion{
 				{
-					Name: r.Version,
+					Name: r.Version(),
 				},
 			},
 			Scope: v1beta1.NamespaceScoped,
@@ -551,7 +550,7 @@ type statusInput struct {
 
 var _ status.Controller = &statusCtl{}
 
-func (s *statusCtl) Start(*rt.Provider, []schema.KubeResource) {
+func (s *statusCtl) Start(*rt.Provider, []collection.Schema) {
 	atomic.StoreInt32(&s.started, 1)
 }
 

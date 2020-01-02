@@ -36,8 +36,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 type message struct {
@@ -391,7 +391,7 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
+			sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
 
 			// If a mesh config file is specified, use it instead of the defaults
 			if testCase.meshConfigFile != "" {

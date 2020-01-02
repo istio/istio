@@ -20,8 +20,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
@@ -32,8 +32,8 @@ func TestDirect_Input_Output(t *testing.T) {
 
 	xform, _, _ := setup(g)
 
-	g.Expect(xform.Inputs()).To(Equal(collection.Names{basicmeta.Collection1}))
-	g.Expect(xform.Outputs()).To(Equal(collection.Names{basicmeta.Collection2}))
+	g.Expect(xform.Inputs()).To(Equal(collection.Names{basicmeta.K8SCollection1.Name()}))
+	g.Expect(xform.Outputs()).To(Equal(collection.Names{basicmeta.Collection2.Name()}))
 }
 
 func TestDirect_AddSync(t *testing.T) {
@@ -44,12 +44,12 @@ func TestDirect_AddSync(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.AddFor(basicmeta.Collection1, data.EntryN1I1V1))
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection1))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1.Name()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
-		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2.Name(), data.EntryN1I1V1), // XForm to Collection2
+		event.FullSyncFor(basicmeta.Collection2.Name()),
 	))
 }
 
@@ -61,12 +61,12 @@ func TestDirect_SyncAdd(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection1))
-	src.Handlers.Handle(event.AddFor(basicmeta.Collection1, data.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1.Name()))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
-		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2.Name(), data.EntryN1I1V1), // XForm to Collection2
+		event.FullSyncFor(basicmeta.Collection2.Name()),
 	))
 }
 
@@ -78,16 +78,16 @@ func TestDirect_AddUpdateDelete(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection1))
-	src.Handlers.Handle(event.AddFor(basicmeta.Collection1, data.EntryN1I1V1))
-	src.Handlers.Handle(event.UpdateFor(basicmeta.Collection1, data.EntryN1I1V2))
-	src.Handlers.Handle(event.DeleteForResource(basicmeta.Collection1, data.EntryN1I1V2))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1.Name()))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1))
+	src.Handlers.Handle(event.UpdateFor(basicmeta.K8SCollection1.Name(), data.EntryN1I1V2))
+	src.Handlers.Handle(event.DeleteForResource(basicmeta.K8SCollection1.Name(), data.EntryN1I1V2))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection2),
-		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1),
-		event.UpdateFor(basicmeta.Collection2, data.EntryN1I1V2),
-		event.DeleteForResource(basicmeta.Collection2, data.EntryN1I1V2),
+		event.FullSyncFor(basicmeta.Collection2.Name()),
+		event.AddFor(basicmeta.Collection2.Name(), data.EntryN1I1V1),
+		event.UpdateFor(basicmeta.Collection2.Name(), data.EntryN1I1V2),
+		event.DeleteForResource(basicmeta.Collection2.Name(), data.EntryN1I1V2),
 	))
 }
 
@@ -99,11 +99,11 @@ func TestDirect_SyncReset(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1.Name()))
 	src.Handlers.Handle(event.Event{Kind: event.Reset})
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection2),
+		event.FullSyncFor(basicmeta.Collection2.Name()),
 		event.Event{Kind: event.Reset},
 	))
 }
@@ -116,11 +116,11 @@ func TestDirect_InvalidEventKind(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1.Name()))
 	src.Handlers.Handle(event.Event{Kind: 55})
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection2),
+		event.FullSyncFor(basicmeta.Collection2.Name()),
 	))
 }
 
@@ -137,9 +137,9 @@ func TestDirect_NoListeners(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1.Name()))
 	src.Handlers.Handle(event.Event{Kind: event.Reset})
-	src.Handlers.Handle(event.AddFor(basicmeta.Collection1, data.EntryN1I1V1))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1))
 
 	// No crash
 }
@@ -153,12 +153,12 @@ func TestDirect_DoubleStart(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection1))
-	src.Handlers.Handle(event.AddFor(basicmeta.Collection1, data.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1.Name()))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
-		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2.Name(), data.EntryN1I1V1), // XForm to Collection2
+		event.FullSyncFor(basicmeta.Collection2.Name()),
 	))
 }
 
@@ -169,12 +169,12 @@ func TestDirect_DoubleStop(t *testing.T) {
 
 	xform.Start()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection1))
-	src.Handlers.Handle(event.AddFor(basicmeta.Collection1, data.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1.Name()))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
-		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2.Name(), data.EntryN1I1V1), // XForm to Collection2
+		event.FullSyncFor(basicmeta.Collection2.Name()),
 	))
 
 	acc.Clear()
@@ -193,12 +193,12 @@ func TestDirect_StartStopStartStop(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection1))
-	src.Handlers.Handle(event.AddFor(basicmeta.Collection1, data.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1.Name()))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
-		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2.Name(), data.EntryN1I1V1), // XForm to Collection2
+		event.FullSyncFor(basicmeta.Collection2.Name()),
 	))
 
 	acc.Clear()
@@ -206,12 +206,12 @@ func TestDirect_StartStopStartStop(t *testing.T) {
 	g.Consistently(acc.Events).Should(BeEmpty())
 
 	xform.Start()
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection1))
-	src.Handlers.Handle(event.AddFor(basicmeta.Collection1, data.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1.Name()))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
-		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2.Name(), data.EntryN1I1V1), // XForm to Collection2
+		event.FullSyncFor(basicmeta.Collection2.Name()),
 	))
 
 	acc.Clear()
@@ -227,8 +227,8 @@ func TestDirect_InvalidEvent(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection2)) // Collection2
-	src.Handlers.Handle(event.AddFor(basicmeta.Collection2, data.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection2.Name())) // Collection2
+	src.Handlers.Handle(event.AddFor(basicmeta.Collection2.Name(), data.EntryN1I1V1))
 
 	g.Consistently(acc.Events).Should(BeEmpty())
 }
