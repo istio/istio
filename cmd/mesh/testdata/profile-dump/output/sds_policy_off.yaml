@@ -616,9 +616,7 @@ values:
     replicaCount: 1
     retention: 6h
     scrapeInterval: 15s
-    security:
-      enabled: true
-    tag: v2.15.0
+    tag: v2.15.1
     tolerations: []
   security:
     dnsCerts:

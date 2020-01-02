@@ -6859,6 +6859,9 @@ spec:
 {{- if $gateway.tolerations }}
       tolerations:
 {{ toYaml $gateway.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 `)
 
@@ -7648,7 +7651,7 @@ spec:
             privileged: true
 {{- end }}
       containers:
-{{- if $gateway.sds.enabled }}
+{{- if and $gateway.sds.enabled (not .Values.global.istiod.enabled) }}
         - name: ingress-sds
 {{- if contains "/" $gateway.sds.image }}
           image: "{{ $gateway.sds.image }}"
@@ -7742,7 +7745,16 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
-        {{- if .Values.global.controlPlaneSecurityEnabled }}
+          {{- if .Values.global.istiod.enabled }}
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          {{- else }}
+          - istio-pilot.istio-system.svc:15012
+          {{- end }}
+          {{- else if .Values.global.controlPlaneSecurityEnabled }}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
@@ -7781,6 +7793,12 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+{{- if .Values.global.istiod.enabled }}
+          - name: "ISTIO_META_USER_SDS"
+            value: "true"
+          - name: CA_ADDR
+            value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+{{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -7860,6 +7878,11 @@ spec:
           - name: SDS_ENABLED
             value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
+{{- if .Values.global.istiod.enabled }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+{{ else }}
           {{ if .Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
@@ -7871,6 +7894,7 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
           {{- end }}
+{{- end }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -7883,6 +7907,15 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+{{- if .Values.global.istiod.enabled }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+{{- else }}
       {{- if $gateway.sds.enabled }}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
@@ -7899,6 +7932,7 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
+{{- end }}
       - name: istio-certs
         secret:
           secretName: istio.istio-ingressgateway-service-account
@@ -7921,6 +7955,9 @@ spec:
 {{- if $gateway.tolerations }}
       tolerations:
 {{ toYaml $gateway.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 `)
 
@@ -8324,7 +8361,7 @@ func chartsGatewaysIstioIngressTemplatesPreconfiguredYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioIngressTemplatesRoleYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- if $gateway.sds.enabled }}
+{{- if or $gateway.sds.enabled .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -8356,7 +8393,7 @@ func chartsGatewaysIstioIngressTemplatesRoleYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioIngressTemplatesRolebindingsYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- if $gateway.sds.enabled }}
+{{- if or $gateway.sds.enabled .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -9185,14 +9222,18 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     resources: {}
   {{- end }}
     securityContext:
-      runAsUser: 0
-      runAsNonRoot: false
+      allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
         add:
         - NET_ADMIN
-      {{- if .Values.global.proxy.privileged }}
-      privileged: true
-      {{- end }}
+        - NET_RAW
+        drop:
+        - ALL
+      privileged: {{ .Values.global.proxy.privileged }}
+      readOnlyRootFilesystem: false
+      runAsGroup: 0
+      runAsNonRoot: false
+      runAsUser: 0
     restartPolicy: Always
   {{- end }}
   {{  end -}}
@@ -9211,9 +9252,17 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
     resources: {}
     securityContext:
-      runAsUser: 0
-      runAsNonRoot: false
+      allowPrivilegeEscalation: true
+      capabilities:
+        add:
+        - SYS_ADMIN
+        drop:
+        - ALL
       privileged: true
+      readOnlyRootFilesystem: false
+      runAsGroup: 0
+      runAsNonRoot: false
+      runAsUser: 0
   {{ end }}
   {{- end }}
   containers:
@@ -9421,21 +9470,22 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       failureThreshold: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/failureThreshold`+"`"+` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:
-      {{- if .Values.global.proxy.privileged }}
-      privileged: true
-      {{- end }}
-      {{- if ne .Values.global.proxy.enableCoreDump true }}
-      readOnlyRootFilesystem: true
-      {{- end }}
-      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
         add:
         - NET_ADMIN
+        {{- end }}
+        drop:
+        - ALL
+      privileged: {{ .Values.global.proxy.privileged }}
+      readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
-      {{ else -}}
-      {{ if .Values.global.sds.enabled }}
-      runAsGroup: 1337
-      {{- end }}
+      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      runAsNonRoot: false
+      runAsUser: 0
+      {{- else -}}
+      runAsNonRoot: true
       runAsUser: 1337
       {{- end }}
     resources:
@@ -9949,7 +9999,7 @@ spec:
             - --port=9443
             - --healthCheckInterval=2s
             - --healthCheckFile=/tmp/health
-{{- if .Values.global.operatorManageWebhooks }}
+{{- if or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled}}
             - --reconcileWebhookConfig=false
 {{- else }}
             - --reconcileWebhookConfig=true
@@ -10027,6 +10077,9 @@ spec:
 {{- if .Values.sidecarInjectorWebhook.tolerations }}
       tolerations:
 {{ toYaml .Values.sidecarInjectorWebhook.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 `)
 
@@ -10062,7 +10115,11 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
+{{- if .Values.global.istiod.enabled }}
+        name: istio-pilot
+{{- else }}
         name: istio-sidecar-injector
+{{- end }}
         namespace: {{ .Release.Namespace }}
         path: "/inject"
 {{- if .Values.sidecarInjectorWebhook.selfSigned }}
@@ -11140,6 +11197,9 @@ spec:
 {{- if .Values.galley.tolerations }}
       tolerations:
 {{ toYaml .Values.galley.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 ---
 `)
@@ -11521,14 +11581,18 @@ template: |
     resources: {}
   {{- end }}
     securityContext:
-      runAsUser: 0
-      runAsNonRoot: false
+      allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
         add:
         - NET_ADMIN
-      {{- if .Values.global.proxy.privileged }}
-      privileged: true
-      {{- end }}
+        - NET_RAW
+        drop:
+        - ALL
+      privileged: {{ .Values.global.proxy.privileged }}
+      readOnlyRootFilesystem: false
+      runAsGroup: 0
+      runAsNonRoot: false
+      runAsUser: 0
     restartPolicy: Always
   {{- end }}
   {{  end -}}
@@ -11547,9 +11611,17 @@ template: |
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
     resources: {}
     securityContext:
-      runAsUser: 0
-      runAsNonRoot: false
+      allowPrivilegeEscalation: true
+      capabilities:
+        add:
+        - SYS_ADMIN
+        drop:
+        - ALL
       privileged: true
+      readOnlyRootFilesystem: false
+      runAsGroup: 0
+      runAsNonRoot: false
+      runAsUser: 0
   {{ end }}
   {{- end }}
   containers:
@@ -11608,12 +11680,12 @@ template: |
     - "{{ .ProxyConfig.StatsdUdpAddress }}"
   {{- end }}
   {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-    - --envoyMetricsServiceAddress
-    - "{{ .ProxyConfig.GetEnvoyMetricsService.GetAddress }}"
+    - --envoyMetricsService
+    - '{{ protoToJSON .ProxyConfig.EnvoyMetricsService }}'
   {{- end }}
   {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-    - --envoyAccessLogServiceAddress
-    - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetAddress }}"
+    - --envoyAccessLogService
+    - '{{ protoToJSON .ProxyConfig.EnvoyAccessLogService }}'
   {{- end }}
     - --proxyAdminPort
     - "{{ .ProxyConfig.ProxyAdminPort }}"
@@ -11621,7 +11693,10 @@ template: |
     - --concurrency
     - "{{ .ProxyConfig.Concurrency }}"
     {{ end -}}
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    {{- if .Values.global.istiod.enabled }}
+    - --controlPlaneAuthPolicy
+    - NONE
+    {{- else if .Values.global.controlPlaneSecurityEnabled }}
     - --controlPlaneAuthPolicy
     - MUTUAL_TLS
     {{- else }}
@@ -11644,10 +11719,14 @@ template: |
   {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
     - --templateFile=/etc/istio/custom-bootstrap/envoy_bootstrap.json
   {{- end }}
+  {{- if .Values.global.proxy.lifecycle }}
+    lifecycle:
+      {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
+    {{- end }}
     env:
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
-      value: istiod.istio-system.svc:15012
+      value: istio-pilot.istio-system.svc:15012
     - name: POD_NAME
       valueFrom:
         fieldRef:
@@ -11679,9 +11758,13 @@ template: |
     - name: ISTIO_META_POD_PORTS
       value: |-
         [
+        {{- $first := true }}
         {{- range $index1, $c := .Spec.Containers }}
           {{- range $index2, $p := $c.Ports }}
-            {{if or (ne $index1 0) (ne $index2 0)}},{{end}}{{ structToJSON $p }}
+            {{- if (structToJSON $p) }}
+            {{if not $first}},{{end}}{{ structToJSON $p }}
+            {{- $first = false }}
+            {{- end }}
           {{- end}}
         {{- end}}
         ]
@@ -11719,7 +11802,7 @@ template: |
     {{ end }}
     {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
     - name: ISTIO_META_OWNER
-      value: kubernetes://api/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
+      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
     {{- end}}
     {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
     - name: ISTIO_BOOTSTRAP_OVERRIDE
@@ -11749,20 +11832,25 @@ template: |
       failureThreshold: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/failureThreshold`+"`"+` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:
-      {{- if .Values.global.proxy.privileged }}
-      privileged: true
-      {{- end }}
-      {{- if ne .Values.global.proxy.enableCoreDump true }}
-      readOnlyRootFilesystem: true
-      {{- end }}
-      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
         add:
         - NET_ADMIN
-      {{ else -}}
+        {{- end }}
+        drop:
+        - ALL
+      privileged: {{ .Values.global.proxy.privileged }}
+      readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
+      runAsGroup: 1337
+      fsGroup: 1337
+      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      runAsNonRoot: false
+      runAsUser: 0
+      {{- else -}}
+      runAsNonRoot: true
       runAsUser: 1337
       {{- end }}
-      runAsGroup: 1337
     resources:
       {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
       requests:
@@ -12071,12 +12159,11 @@ rules:
     - "certificatesigningrequests"
     - "certificatesigningrequests/approval"
     - "certificatesigningrequests/status"
-  verbs: ["update", "create", "get", "delete"]
+  verbs: ["update", "create", "get", "delete", "watch"]
 - apiGroups: ["discovery.k8s.io"]
   resources: ["endpointslices"]
   verbs: ["get", "list", "watch"]
 ---
-{{ end }}
 
 {{ if .Values.global.istiod.enabled }}
 # Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
@@ -12086,7 +12173,8 @@ kind: ClusterRole
 metadata:
   name: istiod-{{ .Release.Namespace }}
   labels:
-    release: istiod
+    app: pilot
+    release: {{ .Release.Name }}
 rules:
   # Injector management - future plan is to be managed by operator.
   # Only needed if injection/validation are enabled
@@ -12153,7 +12241,7 @@ rules:
       - "certificatesigningrequests"
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
-    verbs: ["update", "create", "get", "delete"]
+    verbs: ["update", "create", "get", "delete", "watch"]
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
@@ -12173,6 +12261,7 @@ rules:
     resources: ["serviceaccounts"]
     verbs: ["get", "watch", "list"]
 
+{{ end }}
 {{ end }}
 `)
 
@@ -12208,7 +12297,6 @@ subjects:
     name: istio-pilot-service-account
     namespace: {{ .Release.Namespace }}
 ---
-{{ end }}
 {{ if .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -12227,6 +12315,7 @@ subjects:
     namespace: {{ .Release.Namespace }}
 
 ---
+{{ end }}
 {{ end }}
 `)
 
@@ -12563,21 +12652,9 @@ data:
     disableMixerHttpReports: false
     {{- end }}
 
-    {{- if .Values.pilot.policy.enabled }}
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
-    disablePolicyChecks: false
-
-    # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
-    # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
-    policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
-
-    {{- else }}
-
-    disablePolicyChecks: true
-
-    {{- end }}
+    disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
 
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
@@ -12618,6 +12695,11 @@ data:
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
     sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
+
+    {{- else if .Values.global.istiod.enabled }}
+
+    # Used by pilot-agent
+    sdsUdsPath: "unix:/etc/istio/proxy/SDS"
 
     {{- else }}
 
@@ -12734,7 +12816,14 @@ data:
 
     {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
     {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
+
+    {{- if .Values.global.istiod.enabled }}
+      # If port is 15012, will use SDS.
+      # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
+      controlPlaneAuthPolicy: NONE
+      discoveryAddress: {{ $defPilotHostname }}.svc:15012
+
+    {{- else if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
@@ -12868,6 +12957,8 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+      securityContext:
+        fsGroup: 1337
       containers:
         - name: discovery
 {{- if contains "/" .Values.pilot.image }}
@@ -12951,7 +13042,7 @@ spec:
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
 {{- if .Values.global.istiod.enabled }}
           - name: WEBHOOK
-            value: istiod
+            value: istio-sidecar-injector
           - name: ISTIOD_ADDR
             value: istio-pilot.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
@@ -13122,6 +13213,9 @@ spec:
 {{- if .Values.pilot.tolerations }}
       tolerations:
 {{ toYaml .Values.pilot.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 ---
 `)
@@ -13322,6 +13416,9 @@ spec:
     name: http-legacy-discovery # direct
   - port: 15014
     name: http-monitoring
+  - port: 443
+    name: https-inject
+    targetPort: 15017
   selector:
     {{- if ne .Values.version ""}}
     app: pilot
@@ -13663,7 +13760,7 @@ spec:
                 runtime: envoy.wasm.runtime.null
                 code:
                   local:
-                    inline_string: envoy.wasm.stats
+                    inline_string: envoy.wasm.metadata_exchange
 ---
 {{- if .Values.telemetry.v2.prometheus.enabled }}
 apiVersion: networking.istio.io/v1alpha3
@@ -14774,6 +14871,9 @@ spec:
 {{- if .Values.mixer.policy.tolerations }}
       tolerations:
 {{ toYaml .Values.mixer.policy.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
       containers:
       - name: mixer
@@ -29526,6 +29626,9 @@ spec:
 {{- if .Values.grafana.tolerations }}
       tolerations:
 {{ toYaml .Values.grafana.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
       volumes:
       - name: config
@@ -30378,6 +30481,13 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.kiali.tolerations }}
+      tolerations:
+{{ toYaml .Values.kiali.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
 `)
 
 func chartsIstioTelemetryKialiTemplatesDeploymentYamlBytes() ([]byte, error) {
@@ -30469,6 +30579,7 @@ kiali:
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
+  tolerations: []
   podAnnotations: {}
 
   # Specify the pod anti-affinity that allows you to constrain which nodes
@@ -32211,6 +32322,9 @@ spec:
 {{- if .Values.mixer.telemetry.tolerations }}
       tolerations:
 {{ toYaml .Values.mixer.telemetry.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
       containers:
       - name: mixer
@@ -34055,7 +34169,7 @@ data:
         action: replace
         target_label: pod_name
 
-{{- if .Values.prometheus.security.enabled }}
+{{- if .Values.security.enabled }}
     - job_name: 'kubernetes-pods-istio-secure'
       scheme: https
       tls_config:
@@ -34177,7 +34291,7 @@ spec:
       - name: istio-certs
         secret:
           defaultMode: 420
-{{- if not .Values.prometheus.security.enabled }}
+{{- if not .Values.security.enabled }}
           optional: true
 {{- end }}
           secretName: istio.default
@@ -34187,6 +34301,9 @@ spec:
 {{- if .Values.prometheus.tolerations }}
       tolerations:
 {{ toYaml .Values.prometheus.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 `)
 
@@ -34400,7 +34517,7 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
   replicaCount: 1
   hub: docker.io/prom
   image: prometheus
-  tag: v2.15.0
+  tag: v2.15.1
   retention: 6h
 
   # Controls the frequency of prometheus scraping
@@ -34430,10 +34547,6 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
 #      enabled: false
 #      port: 32090
 
-  # Indicate if Citadel is enabled, i.e., whether its generated certificates are available
-  security:
-    enabled: true
-
   nodeSelector: {}
   tolerations: []
   podAnnotations: {}
@@ -34460,7 +34573,10 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
   # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
-`)
+
+# Indicate if Citadel is enabled, i.e., whether its generated certificates are available
+security:
+  enabled: true`)
 
 func chartsIstioTelemetryPrometheusValuesYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryPrometheusValuesYaml, nil
@@ -34881,7 +34997,7 @@ spec:
       action: replace
       targetLabel: pod_name
 ---
-{{- if .Values.prometheusOperator.security.enabled }}
+{{- if .Values.security.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -34984,7 +35100,7 @@ spec:
       action: replace
       targetLabel: pod_name
 ---
-{{- if .Values.prometheusOperator.security.enabled }}
+{{- if .Values.security.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -35112,7 +35228,7 @@ var _chartsIstioTelemetryPrometheusOperatorValuesYaml = []byte(`prometheusOperat
   # a prometheus resource and/or you desire a distinct prometheus resource for Istio.
   createPrometheusResource: false
   hub: docker.io/prom
-  tag: v2.15.0
+  tag: v2.15.1
   retention: 6h
 
   service:
@@ -35120,10 +35236,6 @@ var _chartsIstioTelemetryPrometheusOperatorValuesYaml = []byte(`prometheusOperat
     nodePort:
       enabled: false
       port: 32090
-
-  # Indicate if Citadel is enabled, i.e., whether its generated certificates are available
-  security:
-    enabled: true
 
   nodeSelector: {}
   tolerations: []
@@ -35148,7 +35260,10 @@ var _chartsIstioTelemetryPrometheusOperatorValuesYaml = []byte(`prometheusOperat
   # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
-`)
+
+# Indicate if Citadel is enabled, i.e., whether its generated certificates are available
+security:
+  enabled: true`)
 
 func chartsIstioTelemetryPrometheusOperatorValuesYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryPrometheusOperatorValuesYaml, nil
@@ -35394,6 +35509,13 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.tracing.tolerations }}
+      tolerations:
+{{ toYaml .Values.tracing.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
 {{- if eq .Values.tracing.jaeger.spanStorageType "badger" }}
       volumes:
       - name: data
@@ -35518,6 +35640,13 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.tracing.tolerations }}
+      tolerations:
+{{ toYaml .Values.tracing.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
 {{ end }}
 `)
 
@@ -35609,6 +35738,13 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.tracing.tolerations }}
+      tolerations:
+{{ toYaml .Values.tracing.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
 {{ end }}
 `)
 
@@ -35845,6 +35981,7 @@ tracing:
 
   provider: jaeger
   nodeSelector: {}
+  tolerations: []
 
   # Specify the pod anti-affinity that allows you to constrain which nodes
   # your pod is eligible to be scheduled based on labels on pods that are
@@ -36294,6 +36431,9 @@ spec:
 {{- if .Values.istiocoredns.tolerations }}
       tolerations:
 {{ toYaml .Values.istiocoredns.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 `)
 
@@ -36649,6 +36789,9 @@ spec:
 {{- if .Values.certmanager.tolerations }}
       tolerations:
 {{ toYaml .Values.certmanager.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 `)
 
@@ -37346,6 +37489,9 @@ spec:
 {{- if .Values.security.tolerations }}
       tolerations:
 {{ toYaml .Values.security.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 `)
 
@@ -37826,6 +37972,9 @@ spec:
 {{- if .Values.nodeagent.tolerations }}
       tolerations:
 {{ toYaml .Values.nodeagent.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
   updateStrategy:
     type: RollingUpdate
@@ -39135,7 +39284,7 @@ spec:
       enabled: true
       replicaCount: 1
       hub: docker.io/prom
-      tag: v2.15.0
+      tag: v2.15.1
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
@@ -39145,8 +39294,6 @@ spec:
           - prometheus.local
         annotations:
         tls:
-      security:
-        enabled: true
       nodeSelector: {}
       tolerations: []
       podAntiAffinityLabelSelector: []
@@ -39379,7 +39526,6 @@ spec:
   values:
     global:
       disablePolicyChecks: false
-      controlPlaneSecurityEnabled: false
       proxy:
         accessLogFile: /dev/stdout
         resources:
