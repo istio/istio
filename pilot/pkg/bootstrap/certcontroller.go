@@ -54,7 +54,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 
 	meshConfig := s.environment.Mesh()
 	if meshConfig.GetCertificates() == nil || len(meshConfig.GetCertificates()) == 0 {
-		log.Info("nil certificate config")
+		log.Info("No certificates specified, skipping DNS certificate controller")
 		return nil
 	}
 
