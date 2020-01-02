@@ -53,7 +53,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
 	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
@@ -105,25 +104,22 @@ type Server struct {
 	// TODO(nmittler): Consider alternatives to exposing these directly
 	EnvoyXdsServer *envoyv2.DiscoveryServer
 
-	clusterID                      string
-	environment                    *model.Environment
-	configController               model.ConfigStoreCache
-	kubeClient                     kubernetes.Interface
-	startFuncs                     []startFunc
-	multicluster                   *kubecontroller.Multicluster
-	httpServer                     *http.Server
-	grpcServer                     *grpc.Server
-	secureHTTPServer               *http.Server
-	secureGRPCServer               *grpc.Server
-	secureHTTPServerDNS            *http.Server
-	secureGRPCServerDNS            *grpc.Server
-	mux                            *http.ServeMux
-	kubeRegistry                   *kubecontroller.Controller
-	sseDiscovery                   *serviceentry.Discovery
-	sseDiscoveryOptions            *serviceentry.DiscoveryOptions
-	incrementalSSEDiscoveryOptions *serviceentry.Options
-	mcpOptions                     *mcp.Options
-	certController                 *chiron.WebhookController
+	clusterID           string
+	environment         *model.Environment
+	configController    model.ConfigStoreCache
+	kubeClient          kubernetes.Interface
+	startFuncs          []startFunc
+	multicluster        *kubecontroller.Multicluster
+	httpServer          *http.Server
+	grpcServer          *grpc.Server
+	secureHTTPServer    *http.Server
+	secureGRPCServer    *grpc.Server
+	secureHTTPServerDNS *http.Server
+	secureGRPCServerDNS *grpc.Server
+	mux                 *http.ServeMux
+	kubeRegistry        *kubecontroller.Controller
+	sseDiscovery        *serviceentry.Discovery
+	certController      *chiron.WebhookController
 
 	ConfigStores []model.ConfigStoreCache
 

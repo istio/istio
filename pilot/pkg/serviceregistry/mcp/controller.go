@@ -48,7 +48,6 @@ type Controller interface {
 
 // Options stores the configurable attributes of a Control
 type Options struct {
-	ClusterID    string
 	DomainSuffix string
 	XDSUpdater   model.XDSUpdater
 	ConfigLedger ledger.Ledger
@@ -76,10 +75,6 @@ func NewController(options *Options) Controller {
 	descriptorsByMessageName := make(map[string]schema.Instance, len(schemas.Istio))
 	synced := make(map[string]bool)
 	for _, descriptor := range schemas.Istio {
-		// do not register SSE as there is a dedicated controller
-		if descriptor.Collection == schemas.SyntheticServiceEntry.Collection {
-			continue
-		}
 		// don't register duplicate descriptors for the same collection
 		if _, ok := descriptorsByMessageName[descriptor.Collection]; !ok {
 			descriptorsByMessageName[descriptor.Collection] = descriptor
