@@ -570,7 +570,7 @@ spec:
       enabled: true
       replicaCount: 1
       hub: docker.io/prom
-      tag: v2.15.0
+      tag: v2.15.1
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
@@ -580,8 +580,6 @@ spec:
           - prometheus.local
         annotations:
         tls:
-      security:
-        enabled: true
       nodeSelector: {}
       tolerations: []
       podAntiAffinityLabelSelector: []
