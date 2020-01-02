@@ -39,7 +39,7 @@ const (
 	SubjectTokenType = "urn:ietf:params:oauth:token-type:jwt"
 )
 
-var stsServerLog = log.RegisterScope("stsServerLog", "STS service debugging", 0)
+var stsServerLog = log.RegisterScope("stsserver", "STS service debugging", 0)
 
 // error code sent in a STS error response. A full list of error code is
 // defined in https://tools.ietf.org/html/rfc6749#section-5.2.

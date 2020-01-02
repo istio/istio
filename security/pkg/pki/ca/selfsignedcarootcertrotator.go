@@ -32,7 +32,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-var rootCertRotatorLog = log.RegisterScope("rootCertRotator", "Self-signed CA root cert rotator log", 0)
+var rootCertRotatorLog = log.RegisterScope("rootcertrotator", "Self-signed CA root cert rotator log", 0)
 
 type SelfSignedCARootCertRotatorConfig struct {
 	certInspector      certutil.CertUtil
