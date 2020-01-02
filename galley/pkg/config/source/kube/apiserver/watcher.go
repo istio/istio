@@ -94,10 +94,7 @@ func (w *watcher) start(syncTimeout time.Duration) {
 		// then log and send a FullSync so we don't get blocked
 		finished := make(chan struct{})
 		go func() {
-			if cache.WaitForCacheSync(done, informer.HasSynced) {
-				// Send the FullSync event after the cache syncs.
-				go w.handler.Handle(event.FullSyncFor(w.schema))
-			}
+			sendFullSyncWhenReady(w, informer)
 			close(finished)
 		}()
 		select {
@@ -108,11 +105,15 @@ func (w *watcher) start(syncTimeout time.Duration) {
 			w.handler.Handle(event.FullSyncFor(w.schema))
 		}
 	} else {
-		// If we're not using timeout, then wait synchronously for this
-		// Send the FullSync event after the cache syncs.
-		if cache.WaitForCacheSync(done, informer.HasSynced) {
-			go w.handler.Handle(event.FullSyncFor(w.schema))
-		}
+		// If we're not using timeout, wait & send synchronously
+		sendFullSyncWhenReady(w, informer)
+	}
+}
+
+func sendFullSyncWhenReady(w *watcher, informer cache.SharedInformer) {
+	// Send the FullSync event after the cache syncs.
+	if cache.WaitForCacheSync(w.done, informer.HasSynced) {
+		go w.handler.Handle(event.FullSyncFor(w.schema.Name()))
 	}
 }
 
