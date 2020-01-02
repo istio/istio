@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	"istio.io/istio/security/pkg/stsservice/mock"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 )
 
 func TestGetFederatedToken(t *testing.T) {

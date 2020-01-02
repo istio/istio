@@ -486,9 +486,9 @@ var (
 				go waitForCompletion(ctx, statusServer.Run)
 			}
 
-			// If security token service (STS) port is not zero, and Istio is running on
-			// GCP, start STS server and listen on STS port for STS requests.
-			// For STS, see https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
+			// If security token service (STS) port is not zero, start STS server and
+			// listen on STS port for STS requests. For STS, see
+			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
 			if stsPort > 0 {
 				localHostAddr := localHostIPv4
 				if proxyIPv6 {

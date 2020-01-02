@@ -21,12 +21,13 @@ import (
 	"testing"
 
 	"istio.io/istio/security/pkg/stsservice"
-	"istio.io/istio/security/pkg/stsservice/mock"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 )
 
 // TestAccessToken verifies that token manager could successfully call server and get access token.
-func TestAccessToken(t *testing.T) {
-	tm, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint := setUpTest(t)
+func TestTokenExchangePlugin(t *testing.T) {
+	tmPlugin, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint := setUpTest(t)
+	lastStatusDumpMap := make(map[string]stsservice.TokenInfo)
 	defer func() {
 		if err := ms.Stop(); err != nil {
 			t.Logf("failed to stop mock server: %v", err)
@@ -39,15 +40,20 @@ func TestAccessToken(t *testing.T) {
 		genFederatedTokenError error
 		genAccessTokenError    error
 		expectedError          string
+		expectedStatusDumpUpdate []string
 	}{
-		"token manager returns valid STS success response": {},
+		"token manager returns valid STS success response": {
+			expectedStatusDumpUpdate: []string{federatedToken, accessToken},
+		},
 		"token manager failed to return federated token": {
 			genFederatedTokenError: errors.New("fake error in generating federated access token"),
 			expectedError:          "failed to exchange federated token",
+			expectedStatusDumpUpdate: []string{},
 		},
 		"token manager failed to return access token": {
 			genAccessTokenError: errors.New("fake error in generating access token"),
 			expectedError:       "failed to exchange access token",
+			expectedStatusDumpUpdate: []string{federatedToken},
 		},
 	}
 
@@ -58,11 +64,44 @@ func TestAccessToken(t *testing.T) {
 		if tc.genFederatedTokenError != nil {
 			ms.SetGenFedTokenError(tc.genFederatedTokenError)
 		}
-		stsRespJSON, err := tm.ExchangeToken(defaultSTSRequest())
+		stsRespJSON, err := tmPlugin.ExchangeToken(defaultSTSRequest())
 		verifyToken(t, k, stsRespJSON, err, tc.expectedError)
+		stsDumpJSON, _ := tmPlugin.DumpPluginStatus()
+		lastStatusDumpMap = verifyDumpStatus(t, k, stsDumpJSON, lastStatusDumpMap, tc.expectedStatusDumpUpdate)
 		ms.SetGenAcsTokenError(nil)
 		ms.SetGenFedTokenError(nil)
 	}
+}
+
+func verifyDumpStatus(t *testing.T, tCase string, dumpJSON []byte, lastStatus map[string]stsservice.TokenInfo,
+	expected []string) map[string]stsservice.TokenInfo {
+	newStatus := &stsservice.TokensDump{}
+	if err := json.Unmarshal(dumpJSON, newStatus); err != nil {
+		t.Errorf("(Test case %s), failed to unmarshal status dump: %v", tCase, err)
+	}
+	newStatusMap := extractTokenDumpToMap(newStatus)
+	t.Logf("Dump newStatusMap:\n%v", newStatusMap)
+	t.Logf("Dump lastStatus:\n%v", lastStatus)
+	for _, exp := range expected {
+		if newVal, ok := newStatusMap[exp]; !ok {
+			t.Errorf("(Test case %s), failed to find expected token %s in status dump", tCase, exp)
+		} else {
+			if oldVal, ok := lastStatus[exp]; ok {
+				if newVal.ExpireTime == oldVal.ExpireTime || newVal.IssueTime == oldVal.IssueTime {
+					t.Errorf("(Test case %s), expected status update for %s (%v) in status dump", tCase, exp, newVal)
+				}
+			}
+		}
+	}
+	return newStatusMap
+}
+
+func extractTokenDumpToMap(newStatus *stsservice.TokensDump) map[string]stsservice.TokenInfo {
+	newStatusMap := make(map[string]stsservice.TokenInfo)
+	for _, info := range newStatus.Tokens {
+		newStatusMap[info.TokenType] = info
+	}
+	return newStatusMap
 }
 
 // verifyToken verifies the received STS response parameters and error match expectation.
