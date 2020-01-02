@@ -53,7 +53,7 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 		}
 
 		// Skip port name check for istio control plane
-		if util.IsIstioControlPlane(r.Metadata.Labels) {
+		if util.IsIstioControlPlane(r) {
 			return true
 		}
 
