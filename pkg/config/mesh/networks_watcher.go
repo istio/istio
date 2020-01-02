@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
@@ -64,7 +64,7 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 	}
 
 	ResolveHostsInNetworksConfig(meshNetworks)
-	networksdump, _ := (&jsonpb.Marshaler{}).MarshalToString(meshNetworks)
+	networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "   ")
 	log.Infof("mesh networks configuration: %s", networksdump)
 
 	w := &networksWatcher{
@@ -85,7 +85,7 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 		w.mutex.Lock()
 		if !reflect.DeepEqual(meshNetworks, w.networks) {
 			ResolveHostsInNetworksConfig(meshNetworks)
-			networksdump, _ := (&jsonpb.Marshaler{}).MarshalToString(meshNetworks)
+			networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "    ")
 			log.Infof("mesh networks configuration updated to: %s", networksdump)
 
 			// Store the new config.

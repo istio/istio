@@ -18,10 +18,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
@@ -41,10 +42,10 @@ const (
 func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) error {
 	defer func() {
 		if s.environment.Watcher != nil {
-			meshdump, _ := (&jsonpb.Marshaler{}).MarshalToString(s.environment.Mesh())
+			meshdump, _ := gogoprotomarshal.ToJSONWithIndent(s.environment.Mesh(), "    ")
 			log.Infof("mesh configuration: %s", meshdump)
 			log.Infof("version: %s", version.Info.String())
-			argsdump, _ := json.Marshal(args)
+			argsdump, _ := json.MarshalIndent(args, "", "   ")
 			log.Infof("flags: %s", argsdump)
 		}
 	}()
