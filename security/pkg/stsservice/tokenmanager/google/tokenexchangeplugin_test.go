@@ -37,22 +37,22 @@ func TestTokenExchangePlugin(t *testing.T) {
 	}()
 
 	testCases := map[string]struct {
-		genFederatedTokenError error
-		genAccessTokenError    error
-		expectedError          string
+		genFederatedTokenError   error
+		genAccessTokenError      error
+		expectedError            string
 		expectedStatusDumpUpdate []string
 	}{
 		"token manager returns valid STS success response": {
 			expectedStatusDumpUpdate: []string{federatedToken, accessToken},
 		},
 		"token manager failed to return federated token": {
-			genFederatedTokenError: errors.New("fake error in generating federated access token"),
-			expectedError:          "failed to exchange federated token",
+			genFederatedTokenError:   errors.New("fake error in generating federated access token"),
+			expectedError:            "failed to exchange federated token",
 			expectedStatusDumpUpdate: []string{},
 		},
 		"token manager failed to return access token": {
-			genAccessTokenError: errors.New("fake error in generating access token"),
-			expectedError:       "failed to exchange access token",
+			genAccessTokenError:      errors.New("fake error in generating access token"),
+			expectedError:            "failed to exchange access token",
 			expectedStatusDumpUpdate: []string{federatedToken},
 		},
 	}
