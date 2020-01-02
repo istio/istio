@@ -142,6 +142,7 @@ type WebhookParameters struct {
 	Port int
 
 	// MonitoringPort is the webhook port, e.g. typically 15014.
+	// Set to -1 to disable monitoring
 	MonitoringPort int
 
 	// HealthCheckInterval configures how frequently the health check
@@ -217,7 +218,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		})
 	}
 
-	if p.MonitoringPort != 0 {
+	if p.MonitoringPort >= 0 {
 		mon, err := startMonitor(h, p.MonitoringPort)
 		if err != nil {
 			return nil, fmt.Errorf("could not start monitoring server %v", err)
