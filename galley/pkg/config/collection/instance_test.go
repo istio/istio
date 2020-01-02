@@ -27,7 +27,7 @@ import (
 func TestInstance_Basics(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	inst := collection.New(data.Collection1)
+	inst := collection.New(data.K8SCollection1)
 
 	g.Expect(inst.Size()).To(Equal(0))
 
@@ -84,7 +84,7 @@ func TestInstance_Basics(t *testing.T) {
 func TestInstance_Clone(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	inst := collection.New(data.Collection1)
+	inst := collection.New(data.K8SCollection1)
 	inst.Set(data.EntryN1I1V1)
 	inst.Set(data.EntryN2I2V2)
 
@@ -117,7 +117,7 @@ func TestInstance_Clone(t *testing.T) {
 func TestInstance_ForEach_False(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	inst := collection.New(data.Collection1)
+	inst := collection.New(data.K8SCollection1)
 	inst.Set(data.EntryN1I1V2)
 	inst.Set(data.EntryN2I2V2)
 	inst.Set(data.EntryN3I3V1)
@@ -140,7 +140,7 @@ func TestInstance_ForEach_False(t *testing.T) {
 func TestInstance_Get(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	inst := collection.New(data.Collection1)
+	inst := collection.New(data.K8SCollection1)
 	inst.Set(data.EntryN1I1V1)
 	inst.Set(data.EntryN3I3V1)
 

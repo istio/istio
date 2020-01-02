@@ -20,8 +20,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
@@ -30,7 +30,7 @@ func TestSnapshotter_Basic(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	tr := fixtures.NewTransformer(
-		[]collection.Name{data.Collection1},
+		[]collection.Name{data.K8SCollection1},
 		[]collection.Name{data.Collection2},
 		func(tr *fixtures.Transformer, e event.Event) {
 			switch e.Kind {
@@ -89,7 +89,7 @@ func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	tr := fixtures.NewTransformer(
-		[]collection.Name{data.Collection1},
+		[]collection.Name{data.K8SCollection1},
 		[]collection.Name{data.Collection2},
 		func(tr *fixtures.Transformer, e event.Event) {
 			switch e.Kind {
@@ -121,8 +121,8 @@ func TestSnapshotterWaitForAllSync(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	tr := fixtures.NewTransformer(
-		[]collection.Name{data.Collection1, data.Collection2},
-		[]collection.Name{data.Collection1, data.Collection2},
+		[]collection.Name{data.K8SCollection1, data.Collection2},
+		[]collection.Name{data.K8SCollection1, data.Collection2},
 		func(tr *fixtures.Transformer, e event.Event) {
 			tr.Publish(e.Source, e)
 		})
@@ -131,7 +131,7 @@ func TestSnapshotterWaitForAllSync(t *testing.T) {
 
 	options := []SnapshotOptions{
 		{
-			Collections: []collection.Name{data.Collection1, data.Collection2},
+			Collections: []collection.Name{data.K8SCollection1, data.Collection2},
 			Strategy:    strategy.NewImmediate(),
 			Group:       "default",
 			Distributor: d,

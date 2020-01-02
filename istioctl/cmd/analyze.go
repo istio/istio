@@ -33,8 +33,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/kube"
@@ -145,7 +145,7 @@ istioctl analyze -L
 				selectedNamespace = ""
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(),
+			sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
 				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true)
 
 			// If we're using kube, use that as a base source.

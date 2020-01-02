@@ -20,29 +20,29 @@ import (
 	. "github.com/onsi/gomega"
 
 	coll "istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
 func TestSnapshot_Basics(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	set := coll.NewSet([]collection.Name{data.Collection1})
-	set.Collection(data.Collection1).Set(data.EntryN1I1V1)
+	set := coll.NewSet([]collection.Name{data.K8SCollection1})
+	set.Collection(data.K8SCollection1).Set(data.EntryN1I1V1)
 	sn := &Snapshot{set: set}
 
-	resources := sn.Resources(data.Collection1.String())
+	resources := sn.Resources(data.K8SCollection1.String())
 	g.Expect(resources).To(HaveLen(1))
 
 	r, err := resource.Deserialize(resources[0])
 	g.Expect(err).To(BeNil())
 	g.Expect(r).To(Equal(data.EntryN1I1V1))
 
-	v := sn.Version(data.Collection1.String())
-	g.Expect(v).To(Equal("collection1/1"))
+	v := sn.Version(data.K8SCollection1.String())
+	g.Expect(v).To(Equal(data.K8SCollection1.String() + "/1"))
 
-	expected := `[0] collection1 (@collection1/1)
+	expected := `[0] k8s/collection1 (@k8s/collection1/1)
   [0] n1/i1
 `
 	g.Expect(sn.String()).To(Equal(expected))
@@ -51,21 +51,21 @@ func TestSnapshot_Basics(t *testing.T) {
 func TestSnapshot_SerializeError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	set := coll.NewSet([]collection.Name{data.Collection1})
+	set := coll.NewSet([]collection.Name{data.K8SCollection1})
 	e := data.Event1Col1AddItem1.Resource.Clone()
 	e.Message = nil
-	set.Collection(data.Collection1).Set(e)
+	set.Collection(data.K8SCollection1).Set(e)
 	sn := &Snapshot{set: set}
 
-	resources := sn.Resources(data.Collection1.String())
+	resources := sn.Resources(data.K8SCollection1.String())
 	g.Expect(resources).To(HaveLen(0))
 }
 
 func TestSnapshot_WrongCollection(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	set := coll.NewSet([]collection.Name{data.Collection1})
-	set.Collection(data.Collection1).Set(data.Event1Col1AddItem1.Resource)
+	set := coll.NewSet([]collection.Name{data.K8SCollection1})
+	set.Collection(data.K8SCollection1).Set(data.Event1Col1AddItem1.Resource)
 	sn := &Snapshot{set: set}
 
 	g.Expect(sn.Version("foo")).To(Equal(""))

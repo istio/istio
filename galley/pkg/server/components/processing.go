@@ -34,14 +34,14 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/groups"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
@@ -103,7 +103,7 @@ func (p *Processing) Start() (err error) {
 		return
 	}
 
-	m := metadata.MustGet()
+	m := schema.MustGet()
 
 	transformProviders := transforms.Providers(m)
 
@@ -112,7 +112,7 @@ func (p *Processing) Start() (err error) {
 	for _, c := range m.AllCollectionsInSnapshots(p.args.Snapshots) {
 		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
 	}
-	kubeResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), transformProviders,
+	kubeResources := kuberesource.DisableExcludedCollections(m.KubeCollections(), transformProviders,
 		colsInSnapshots, p.args.ExcludedResourceKinds, p.args.EnableServiceDiscovery)
 
 	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
@@ -123,17 +123,15 @@ func (p *Processing) Start() (err error) {
 
 	if p.args.EnableConfigAnalysis {
 		combinedAnalyzer := analyzers.AllCombined()
-		combinedAnalyzer.RemoveSkipped(colsInSnapshots, kubeResources.DisabledCollections(), transformProviders)
+		combinedAnalyzer.RemoveSkipped(colsInSnapshots, kubeResources.DisabledCollectionNames(), transformProviders)
 
-		settings := snapshotter.AnalyzingDistributorSettings{
+		distributor = snapshotter.NewAnalyzingDistributor(snapshotter.AnalyzingDistributorSettings{
 			StatusUpdater:     updater,
 			Analyzer:          combinedAnalyzer,
 			Distributor:       distributor,
 			AnalysisSnapshots: p.args.Snapshots,
 			TriggerSnapshot:   p.args.TriggerSnapshot,
-		}
-
-		distributor = snapshotter.NewAnalyzingDistributor(settings)
+		})
 	}
 
 	processorSettings := processor.Settings{
@@ -174,7 +172,7 @@ func (p *Processing) Start() (err error) {
 	options := &source.Options{
 		Watcher:            p.mcpCache,
 		Reporter:           p.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots(metadata.SnapshotNames())),
+		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots(snapshots.SnapshotNames())),
 		ConnRateLimiter:    mcpSourceRateLimiter,
 	}
 
@@ -293,11 +291,11 @@ func (p *Processing) getKubeInterfaces() (k kube.Interfaces, err error) {
 	return
 }
 
-func (p *Processing) createSourceAndStatusUpdater(resources schema.KubeResources) (
+func (p *Processing) createSourceAndStatusUpdater(schemas collection.Schemas) (
 	src event.Source, updater snapshotter.StatusUpdater, err error) {
 
 	if p.args.ConfigPath != "" {
-		if src, err = fsNew(p.args.ConfigPath, resources, p.args.WatchConfigFiles); err != nil {
+		if src, err = fsNew(p.args.ConfigPath, schemas, p.args.WatchConfigFiles); err != nil {
 			return
 		}
 		updater = &snapshotter.InMemoryStatusUpdater{}
@@ -315,7 +313,7 @@ func (p *Processing) createSourceAndStatusUpdater(resources schema.KubeResources
 		o := apiserver.Options{
 			Client:           k,
 			ResyncPeriod:     p.args.ResyncPeriod,
-			Resources:        resources,
+			Schemas:          schemas,
 			StatusController: statusCtl,
 		}
 		s := apiserver.New(o)

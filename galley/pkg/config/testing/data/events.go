@@ -22,42 +22,42 @@ var (
 	// Event1Col1AddItem1 is a testing event
 	Event1Col1AddItem1 = event.Event{
 		Kind:     event.Added,
-		Source:   Collection1,
+		Source:   K8SCollection1,
 		Resource: EntryN1I1V1,
 	}
 
 	// Event1Col1AddItem1Broken is a testing event
 	Event1Col1AddItem1Broken = event.Event{
 		Kind:     event.Added,
-		Source:   Collection1,
+		Source:   K8SCollection1,
 		Resource: EntryN1I1V1Broken,
 	}
 
 	// Event1Col1UpdateItem1 is a testing event
 	Event1Col1UpdateItem1 = event.Event{
 		Kind:     event.Updated,
-		Source:   Collection1,
+		Source:   K8SCollection1,
 		Resource: EntryN1I1V2,
 	}
 
 	// Event1Col1DeleteItem1 is a testing event
 	Event1Col1DeleteItem1 = event.Event{
 		Kind:     event.Deleted,
-		Source:   Collection1,
+		Source:   K8SCollection1,
 		Resource: EntryN1I1V1,
 	}
 
 	// Event1Col1DeleteItem2 is a testing event
 	Event1Col1DeleteItem2 = event.Event{
 		Kind:     event.Deleted,
-		Source:   Collection1,
+		Source:   K8SCollection1,
 		Resource: EntryN2I2V2,
 	}
 
 	// Event1Col1Synced is a testing event
 	Event1Col1Synced = event.Event{
 		Kind:   event.FullSync,
-		Source: Collection1,
+		Source: K8SCollection1,
 	}
 
 	// Event1Col2Synced is a testing event
@@ -69,7 +69,7 @@ var (
 	// Event2Col1AddItem2 is a testing event
 	Event2Col1AddItem2 = event.Event{
 		Kind:     event.Added,
-		Source:   Collection1,
+		Source:   K8SCollection1,
 		Resource: EntryN2I2V2,
 	}
 
