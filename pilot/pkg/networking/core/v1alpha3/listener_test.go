@@ -1731,27 +1731,25 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	}
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
 
-	configStore := &fakes.IstioConfigStore{
-		EnvoyFilterStub: func(workloadLabels labels.Collection) *model.Config {
-			return &model.Config{
-				ConfigMeta: model.ConfigMeta{
-					Name:      "test-envoyfilter",
-					Namespace: "not-default",
-				},
-				Spec: &networking.EnvoyFilter{
-					Filters: []*networking.EnvoyFilter_Filter{
-						{
-							InsertPosition: &networking.EnvoyFilter_InsertPosition{
-								Index: networking.EnvoyFilter_InsertPosition_FIRST,
-							},
-							FilterType:   networking.EnvoyFilter_Filter_HTTP,
-							FilterName:   "envoy.lua",
-							FilterConfig: &types.Struct{},
-						},
-					},
-				},
-			}
+	envoyFilter := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "test-envoyfilter",
+			Namespace: "not-default",
 		},
+		Spec: &networking.EnvoyFilter{
+			Filters: []*networking.EnvoyFilter_Filter{
+				{
+					InsertPosition: &networking.EnvoyFilter_InsertPosition{
+						Index: networking.EnvoyFilter_InsertPosition_FIRST,
+					},
+					FilterType:   networking.EnvoyFilter_Filter_HTTP,
+					FilterName:   "envoy.lua",
+					FilterConfig: &types.Struct{},
+				},
+			},
+		},
+	}
+	configStore := &fakes.IstioConfigStore{
 		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
 			if typ == "virtual-service" {
 				result := make([]model.Config, len(virtualServices))
@@ -1759,6 +1757,9 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 					result[i] = *virtualServices[i]
 				}
 				return result, nil
+			}
+			if typ == "envoy-filter" {
+				return []model.Config{envoyFilter}, nil
 			}
 			return nil, nil
 
