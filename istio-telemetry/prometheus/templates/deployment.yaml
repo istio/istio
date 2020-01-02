@@ -63,7 +63,7 @@ spec:
       - name: istio-certs
         secret:
           defaultMode: 420
-{{- if not .Values.prometheus.security.enabled }}
+{{- if not .Values.security.enabled }}
           optional: true
 {{- end }}
           secretName: istio.default

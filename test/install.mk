@@ -44,6 +44,7 @@ run-build-ingress:
 	# Required since we can't yet kustomize the CLI ( need to switch to viper and env first )
 	bin/iop istio-micro istio-ingress ${BASE}/gateways/istio-ingress  -t \
 	  --set global.istioNamespace=istio-micro \
+	  --set global.configNamespace=istio-micro \
 	  --set global.k8sIngress.enabled=true \
       --set global.controlPlaneSecurityEnabled=false \
 	  --set global.mtls.auto=false \

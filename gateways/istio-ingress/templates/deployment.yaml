@@ -59,7 +59,7 @@ spec:
             privileged: true
 {{- end }}
       containers:
-{{- if $gateway.sds.enabled }}
+{{- if and $gateway.sds.enabled (not .Values.global.istiod.enabled) }}
         - name: ingress-sds
 {{- if contains "/" $gateway.sds.image }}
           image: "{{ $gateway.sds.image }}"
@@ -153,7 +153,16 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
-        {{- if .Values.global.controlPlaneSecurityEnabled }}
+          {{- if .Values.global.istiod.enabled }}
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          {{- else }}
+          - istio-pilot.istio-system.svc:15012
+          {{- end }}
+          {{- else if .Values.global.controlPlaneSecurityEnabled }}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
@@ -192,6 +201,12 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+{{- if .Values.global.istiod.enabled }}
+          - name: "ISTIO_META_USER_SDS"
+            value: "true"
+          - name: CA_ADDR
+            value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+{{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -271,6 +286,11 @@ spec:
           - name: SDS_ENABLED
             value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
+{{- if .Values.global.istiod.enabled }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+{{ else }}
           {{ if .Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
@@ -282,6 +302,7 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
           {{- end }}
+{{- end }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -294,6 +315,15 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+{{- if .Values.global.istiod.enabled }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+{{- else }}
       {{- if $gateway.sds.enabled }}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
@@ -310,6 +340,7 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
+{{- end }}
       - name: istio-certs
         secret:
           secretName: istio.istio-ingressgateway-service-account

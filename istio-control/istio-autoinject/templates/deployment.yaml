@@ -55,7 +55,7 @@ spec:
             - --port=9443
             - --healthCheckInterval=2s
             - --healthCheckFile=/tmp/health
-{{- if .Values.global.operatorManageWebhooks }}
+{{- if or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled}}
             - --reconcileWebhookConfig=false
 {{- else }}
             - --reconcileWebhookConfig=true

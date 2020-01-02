@@ -18,10 +18,6 @@ prometheusOperator:
       enabled: false
       port: 32090
 
-  # Indicate if Citadel is enabled, i.e., whether its generated certificates are available
-  security:
-    enabled: true
-
   nodeSelector: {}
   tolerations: []
 
@@ -45,3 +41,7 @@ prometheusOperator:
   # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
+
+# Indicate if Citadel is enabled, i.e., whether its generated certificates are available
+security:
+  enabled: true
