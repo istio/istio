@@ -216,13 +216,15 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 			wh.mu.Unlock()
 		})
 	}
-	mon, err := startMonitor(h, p.MonitoringPort)
 
-	if err != nil {
-		return nil, fmt.Errorf("could not start monitoring server %v", err)
+	if p.MonitoringPort != 0 {
+		mon, err := startMonitor(h, p.MonitoringPort)
+		if err != nil {
+			return nil, fmt.Errorf("could not start monitoring server %v", err)
+		}
+		wh.mon = mon
 	}
 
-	wh.mon = mon
 	wh.server.Handler = h
 
 	return wh, nil
@@ -237,7 +239,9 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	}()
 	defer wh.watcher.Close()
 	defer wh.server.Close()
-	defer wh.mon.monitoringServer.Close()
+	if wh.mon != nil {
+		defer wh.mon.monitoringServer.Close()
+	}
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
