@@ -150,10 +150,10 @@ func isExpectedGRPCError(err error) bool {
 	}
 
 	s := status.Convert(err)
-	if s.Code() == codes.Canceled {
+	if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
 		return true
 	}
-	if s.Message() == "client disconnected" {
+	if s.Code() == codes.Unavailable && s.Message() == "client disconnected" {
 		return true
 	}
 	return false
