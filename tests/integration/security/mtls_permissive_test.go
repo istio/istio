@@ -65,8 +65,8 @@ func verifyListener(listener *xdsapi.Listener, t *testing.T) error {
 	if !reflect.DeepEqual(mtlsChain.FilterChainMatch.ApplicationProtocols, []string{"istio"}) {
 		return errors.New("alpn is not istio")
 	}
-	if mtlsChain.TlsContext == nil {
-		return errors.New("tls context is empty")
+	if mtlsChain.TransportSocket == nil {
+		return errors.New("transport socket is empty")
 	}
 	// Second default filter chain should have empty filter chain match and no tls context.
 	defaultChain := listener.FilterChains[1]
