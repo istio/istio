@@ -68,7 +68,8 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 			Port:                args.InjectionOptions.Port,
 			HealthCheckFile:     "",
 			HealthCheckInterval: 0,
-			MonitoringPort:      s.basePort + 16, // TODO: disable the second monitoring port
+			// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
+			MonitoringPort: -1,
 		}
 
 		wh, err := inject.NewWebhook(parameters)
