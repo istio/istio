@@ -82,8 +82,14 @@ func (e *endpointsController) registerEndpointsHandler() {
 		})
 }
 
-func getProxyServiceInstancesByEndpoint(c *Controller, endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
+func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
+	return e.serviceInstances(c, proxy, proxyNamespace, e.proxyServiceInstances)
+}
+
+func (e *endpointsController) proxyServiceInstances(c *Controller, obj interface{}, proxy *model.Proxy) (string, []*model.ServiceInstance) {
 	out := make([]*model.ServiceInstance, 0)
+
+	endpoints := obj.(*v1.Endpoints)
 
 	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
 	c.RLock()
@@ -117,7 +123,7 @@ func getProxyServiceInstancesByEndpoint(c *Controller, endpoints v1.Endpoints, p
 		}
 	}
 
-	return out
+	return endpoints.Namespace, out
 }
 
 func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
@@ -206,9 +212,7 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 		}
 	}
 
-	return e.handleEvent(e, ep.Name, ep.Namespace, event, curr)
-}
-
-func (e *endpointsController) updateEDS(ep interface{}, event model.Event) {
-	e.c.updateEDS(ep.(*v1.Endpoints), event)
+	return e.handleEvent(ep.Name, ep.Namespace, event, curr, func(obj interface{}, event model.Event) {
+		e.c.updateEDS(ep, event)
+	})
 }

@@ -147,11 +147,19 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 		}
 	}
 
-	return esc.handleEvent(esc, ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, event, curr)
+	return esc.handleEvent(ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, event, curr, func(obj interface{}, event model.Event) {
+		esc.updateEDS(curr, event)
+	})
 }
 
-func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
+func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
+	return esc.serviceInstances(c, proxy, proxyNamespace, esc.proxyServiceInstances)
+}
+
+func (esc *endpointSliceController) proxyServiceInstances(c *Controller, obj interface{}, proxy *model.Proxy) (string, []*model.ServiceInstance) {
 	out := make([]*model.ServiceInstance, 0)
+
+	slice := obj.(*discoveryv1alpha1.EndpointSlice)
 
 	hostname := kube.ServiceHostname(slice.Labels[discoveryv1alpha1.LabelServiceName], slice.Namespace, c.domainSuffix)
 	c.RLock()
@@ -159,7 +167,7 @@ func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1al
 	c.RUnlock()
 
 	if svc == nil {
-		return out
+		return slice.Namespace, out
 	}
 
 	for _, port := range slice.Ports {
@@ -189,7 +197,7 @@ func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1al
 		}
 	}
 
-	return out
+	return slice.Namespace, out
 }
 
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,

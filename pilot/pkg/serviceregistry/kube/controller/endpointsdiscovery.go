@@ -16,7 +16,6 @@ package controller
 
 import (
 	v1 "k8s.io/api/core/v1"
-	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -36,42 +35,39 @@ type kubeEndpointsController interface {
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 		labelsList labels.Collection) ([]*model.ServiceInstance, error)
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance
-	updateEDS(obj interface{}, event model.Event)
 }
 
+// kubeEndpoints abstracts the common behaviour across endpoint and endpoint slices.
 type kubeEndpoints struct {
 	c        *Controller
 	informer cache.SharedIndexInformer
 }
 
-// GetProxyServiceInstances returns service instances of the given proxy.
-func (e *kubeEndpoints) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
-	var otherNamespaceEndpoints []*model.ServiceInstance
-	var sameNamespaceEndpoints []*model.ServiceInstance
+// instancesFunc provides a way to get services instances for endpoint/endpointslice.
+type instancesFunc func(c *Controller, obj interface{}, proxy *model.Proxy) (string, []*model.ServiceInstance)
+
+// updateEdsFunc is called to send eds updates for endpoints/endpointslice.
+type updateEdsFunc func(obj interface{}, event model.Event)
+
+// serviceInstances function builds proxy service instances using the passed in instancesFunc.
+func (e *kubeEndpoints) serviceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string, fn instancesFunc) []*model.ServiceInstance {
+	var otherNamespaceInstances []*model.ServiceInstance
+	var sameNamespaceInstances []*model.ServiceInstance
 
 	for _, item := range e.informer.GetStore().List() {
-		var proxyServiceInstances []*model.ServiceInstance
-		namespace := ""
-		switch item := item.(type) {
-		case *v1.Endpoints:
-			namespace = item.Namespace
-			proxyServiceInstances = getProxyServiceInstancesByEndpoint(c, *item, proxy)
-		case *discoveryv1alpha1.EndpointSlice:
-			namespace = item.Namespace
-			proxyServiceInstances = getProxyServiceInstancesByEndpointSlice(c, item, proxy)
-		}
-		if namespace == proxyNamespace {
-			sameNamespaceEndpoints = append(sameNamespaceEndpoints, proxyServiceInstances...)
+		ns, instances := fn(c, item, proxy)
+		if ns == proxyNamespace {
+			sameNamespaceInstances = append(sameNamespaceInstances, instances...)
 		} else {
-			otherNamespaceEndpoints = append(otherNamespaceEndpoints, proxyServiceInstances...)
+			otherNamespaceInstances = append(otherNamespaceInstances, instances...)
 		}
 	}
 
-	// Put the sameNamespaceEndpoints in front of otherNamespaceEndpoints so that Pilot will
-	// first use endpoints from sameNamespaceEndpoints. This makes sure if there are two endpoints
-	// referring to the same IP/port, the one in sameNamespaceEndpoints will be used. (The other one
-	// in otherNamespaceEndpoints will thus be rejected by Pilot).
-	return append(sameNamespaceEndpoints, otherNamespaceEndpoints...)
+	// Put the sameNamespaceInstances in front of otherNamespaceInstances so that Pilot will
+	// first use endpoints from sameNamespaceInstances. This makes sure if there are two endpoints
+	// referring to the same IP/port, the one in sameNamespaceInstances will be used. (The other one
+	// in otherNamespaceInstances will thus be rejected by Pilot).
+	return append(sameNamespaceInstances, otherNamespaceInstances...)
 }
 
 func (e *kubeEndpoints) HasSynced() bool {
@@ -82,7 +78,8 @@ func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 	e.informer.Run(stopCh)
 }
 
-func (e *kubeEndpoints) handleEvent(epc kubeEndpointsController, name string, namespace string, event model.Event, obj interface{}) error {
+// handleEvent processes the event.
+func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.Event, ep interface{}, fn updateEdsFunc) error {
 	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, name, namespace)
 
 	// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
@@ -102,7 +99,7 @@ func (e *kubeEndpoints) handleEvent(epc kubeEndpointsController, name string, na
 		}
 	}
 
-	epc.updateEDS(obj, event)
+	fn(ep, event)
 
 	return nil
 }
