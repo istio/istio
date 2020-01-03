@@ -81,3 +81,8 @@ func (tm *TokenManager) DumpTokenStatus() ([]byte, error) {
 	}
 	return nil, errors.New("no plugin is found")
 }
+
+// SetPlugin sets token exchange plugin for testing purposes only.
+func (tm *TokenManager) SetPlugin(p Plugin) {
+	tm.plugin = p
+}
