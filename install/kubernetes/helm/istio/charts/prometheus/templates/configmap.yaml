@@ -12,6 +12,10 @@ data:
   prometheus.yml: |-
     global:
       scrape_interval: {{ .Values.scrapeInterval }}
+    {{ if .Values.remoteWrite }}
+    remote_write:
+      {{- toYaml .Values.remoteWrite | nindent 6 }}
+    {{- end }}
     scrape_configs:
 
     - job_name: 'istio-mesh'

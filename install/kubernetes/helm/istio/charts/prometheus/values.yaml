@@ -34,6 +34,11 @@ podAntiAffinityTermLabelSelector: []
 # Controls the frequency of prometheus scraping
 scrapeInterval: 15s
 
+# Configures a remote endpoint to write metrics to. By default, this feature is
+# disabled. See the following for the configuration structure:
+# https://prometheus.io/docs/prometheus/2.12/configuration/configuration/#remote_write
+remoteWrite: {}
+
 contextPath: /prometheus
 
 ingress:
