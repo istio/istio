@@ -66,6 +66,10 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 			}
 
 			cn := tls.GetCredentialName()
+			if cn == "" {
+				continue
+			}
+
 			if !ctx.Exists(collections.K8SCoreV1Secrets.Name(), resource.NewShortOrFullName(gwNs, cn)) {
 				ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewReferencedResourceNotFound(r, "credentialName", cn))
 			}
