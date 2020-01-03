@@ -16,6 +16,9 @@ package metric
 
 import (
 	"context"
+	"encoding/binary"
+	"fmt"
+	"hash/fnv"
 	"io"
 	"strings"
 	"sync"
@@ -23,6 +26,7 @@ import (
 
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/mixer/pkg/adapter"
@@ -52,7 +56,14 @@ type buffered struct {
 	mergeTrigger int
 	mergedTS     map[uint64]*monitoringpb.TimeSeries
 
+	// retryBuffer holds timeseries that fail in push.
+	retryBuffer []*monitoringpb.TimeSeries
+	// retryCounter maps a timeseries to the attempts that it has been retried.
+	// Key is the hash of timeseries' metric name, monitored resource and start time.
+	retryCounter map[uint64]int
+
 	timeSeriesBatchSize int
+	retryLimit          int
 	pushInterval        time.Duration
 
 	env adapter.Env
@@ -122,7 +133,7 @@ func (b *buffered) mergeTimeSeries() {
 
 func (b *buffered) Send() {
 	b.tsm.Lock()
-	if len(b.mergedTS) == 0 {
+	if len(b.mergedTS) == 0 && len(b.retryBuffer) == 0 {
 		b.tsm.Unlock()
 		b.l.Debugf("No data to send to Stackdriver.")
 		return
@@ -136,7 +147,9 @@ func (b *buffered) Send() {
 	for _, v := range tmpBuffer {
 		toSend = append(toSend, v)
 	}
-	batches := batchTimeSeries(toSend, b.timeSeriesBatchSize)
+	merged := append(b.retryBuffer, toSend...)
+	b.retryBuffer = make([]*monitoringpb.TimeSeries, 0, len(b.retryBuffer))
+	batches := batchTimeSeries(merged, b.timeSeriesBatchSize)
 	// Spread monitoring API calls evenly over the push interval.
 	ns := b.pushInterval.Nanoseconds() / int64(len(batches))
 	t := time.NewTicker(time.Duration(ns))
@@ -152,6 +165,9 @@ func (b *buffered) Send() {
 		// We need to build framework level support for these kinds of async tasks. Perhaps a generic batching adapter
 		// can handle some of this complexity?
 		if err != nil {
+			if isRetryable(status.Code(err)) {
+				b.updateRetryBuffer(timeSeries)
+			}
 			b.l.Errorf("%d time series was sent and Stackdriver returned: %v\n", len(timeSeries), err) // nolint: errcheck
 			if isOutOfOrderError(err) {
 				b.l.Debugf("Given data: %v", timeSeries)
@@ -175,6 +191,36 @@ func (b *buffered) Close() error {
 	return b.closeMe.Close()
 }
 
+func (b *buffered) updateRetryBuffer(errorTS []*monitoringpb.TimeSeries) {
+	retryCounter := map[uint64]int{}
+	for _, ts := range errorTS {
+		k, err := toRetryKey(ts)
+		if err != nil {
+			b.l.Debugf("cannot generate retry key for timeseries %v: %v", ts, err)
+			continue
+		}
+		if c, ok := b.retryCounter[k]; ok {
+			attempt := c + 1
+			if attempt >= b.retryLimit {
+				continue
+			}
+			retryCounter[k] = attempt
+		} else {
+			retryCounter[k] = 0
+		}
+		b.retryBuffer = append(b.retryBuffer, ts)
+	}
+	b.retryCounter = retryCounter
+}
+
+func isRetryable(c codes.Code) bool {
+	switch c {
+	case codes.DeadlineExceeded, codes.Unavailable:
+		return true
+	}
+	return false
+}
+
 func isOutOfOrderError(err error) bool {
 	if s, ok := status.FromError(err); ok {
 		if strings.Contains(strings.ToLower(s.Message()), "order") {
@@ -182,4 +228,21 @@ func isOutOfOrderError(err error) bool {
 		}
 	}
 	return false
+}
+
+func toRetryKey(ts *monitoringpb.TimeSeries) (uint64, error) {
+	hash := fnv.New64()
+	if len(ts.Points) != 1 {
+		return 0, fmt.Errorf("timeseries has to contain exactly one point")
+	}
+
+	buf := make([]byte, 8)
+	mKey := toKey(ts.Metric, ts.Resource)
+	binary.BigEndian.PutUint64(buf, mKey)
+	_, _ = hash.Write(buf)
+
+	s := ts.Points[0].Interval.StartTime.GetSeconds()
+	binary.BigEndian.PutUint64(buf, uint64(s))
+	_, _ = hash.Write(buf)
+	return hash.Sum64(), nil
 }
