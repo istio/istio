@@ -662,7 +662,7 @@ func TestSidecarOutboundHTTPRouteConfigWithFallthroughRouteEnabled(t *testing.T)
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 		_ = os.Setenv(features.EnableFallthroughRoute.Name, "1")
 		vHostCache := make(map[int][]*route.VirtualHost)
-		config := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, routeName, vHostCache)
+		config := configgen.buildSidecarOutboundHTTPRouteConfig(&proxy, env.PushContext, routeName, vHostCache)
 
 		if config == nil {
 			t.Fatalf("got nil route for %s", routeName)
