@@ -293,7 +293,7 @@ func genStsRequest(reqType stsReqType, serverAddr string) (req *http.Request) {
 
 	if reqType == incorrectRequestMethod {
 		req, _ = http.NewRequest("GET", serverAddr, strings.NewReader(stsQuery.Encode()))
-		req.Header.Set("Content-Type", UrlEncodedForm)
+		req.Header.Set("Content-Type", URLEncodedForm)
 	} else if reqType == incorrectContentType {
 		req, _ = http.NewRequest("POST", serverAddr, strings.NewReader(stsQuery.Encode()))
 		req.Header.Set("Content-Type", "application/json")
@@ -301,7 +301,7 @@ func genStsRequest(reqType stsReqType, serverAddr string) (req *http.Request) {
 		req, _ = http.NewRequest("GET", serverAddr, nil)
 	} else {
 		req, _ = http.NewRequest("POST", serverAddr, strings.NewReader(stsQuery.Encode()))
-		req.Header.Set("Content-Type", UrlEncodedForm)
+		req.Header.Set("Content-Type", URLEncodedForm)
 	}
 	reqDump, _ := httputil.DumpRequest(req, true)
 	log.Infof("STS request: %s", string(reqDump))

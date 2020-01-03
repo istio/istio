@@ -31,8 +31,8 @@ const (
 	TokenPath = "/token"
 	// StsStatusPath is the path for dumping STS status.
 	StsStatusPath = "/stsStatus"
-	// UrlEncodedForm is the encoding type specified in a STS request.
-	UrlEncodedForm = "application/x-www-form-urlencoded"
+	// URLEncodedForm is the encoding type specified in a STS request.
+	URLEncodedForm = "application/x-www-form-urlencoded"
 	// TokenExchangeGrantType is the required value for "grant_type" parameter in a STS request.
 	TokenExchangeGrantType = "urn:ietf:params:oauth:grant-type:token-exchange"
 	// SubjectTokenType is the required token type in a STS request.
@@ -123,8 +123,8 @@ func (s *Server) validateStsRequest(req *http.Request) (stsservice.StsRequestPar
 	if req.Method != "POST" {
 		return reqParam, fmt.Errorf("request method is invalid, should be POST but get %s", req.Method)
 	}
-	if req.Header.Get("Content-Type") != UrlEncodedForm {
-		return reqParam, fmt.Errorf("request content type is invalid, should be %s but get %s", UrlEncodedForm,
+	if req.Header.Get("Content-Type") != URLEncodedForm {
+		return reqParam, fmt.Errorf("request content type is invalid, should be %s but get %s", URLEncodedForm,
 			req.Header.Get("Content-type"))
 	}
 	if parseErr := req.ParseForm(); parseErr != nil {

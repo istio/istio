@@ -48,13 +48,13 @@ func TestStsFlow(t *testing.T) {
 	federatedTokenReceivedTime := time.Time{}.String()
 	accessTokenReceivedTime := time.Time{}.String()
 	for i := 0; i < numClient; i++ {
-		resp, err := sendHttpRequestWithRetry(clients[i], genStsReq(t))
+		resp, err := sendHTTPRequestWithRetry(clients[i], genStsReq(t))
 		if err != nil {
 			t.Fatalf("client %d: failure in sending STS request: %v", i, err)
 		}
 		verifyStsResponse(t, resp)
 
-		resp, err = sendHttpRequestWithRetry(clients[i], genDumpReq(t))
+		resp, err = sendHTTPRequestWithRetry(clients[i], genDumpReq(t))
 		if err != nil {
 			t.Fatalf("client %d: failure in sending STS request: %v", i, err)
 		}
@@ -64,8 +64,8 @@ func TestStsFlow(t *testing.T) {
 }
 
 func genDumpReq(t *testing.T) (req *http.Request) {
-	dumpUrl := "http://" + stsServerAddress + stsServer.StsStatusPath
-	req, _ = http.NewRequest("GET", dumpUrl, nil)
+	dumpURL := "http://" + stsServerAddress + stsServer.StsStatusPath
+	req, _ = http.NewRequest("GET", dumpURL, nil)
 
 	reqDump, _ := httputil.DumpRequest(req, true)
 	t.Logf("status dump request:\n%s", string(reqDump))
@@ -142,15 +142,15 @@ func genStsReq(t *testing.T) (req *http.Request) {
 	stsQuery.Set("subject_token_type", stsServer.SubjectTokenType)
 	stsQuery.Set("actor_token", "")
 	stsQuery.Set("actor_token_type", "")
-	stsUrl := "http://" + stsServerAddress + stsServer.TokenPath
-	req, _ = http.NewRequest("POST", stsUrl, strings.NewReader(stsQuery.Encode()))
-	req.Header.Set("Content-Type", stsServer.UrlEncodedForm)
+	stsURL := "http://" + stsServerAddress + stsServer.TokenPath
+	req, _ = http.NewRequest("POST", stsURL, strings.NewReader(stsQuery.Encode()))
+	req.Header.Set("Content-Type", stsServer.URLEncodedForm)
 	reqDump, _ := httputil.DumpRequest(req, true)
 	t.Logf("STS request:\n%s", string(reqDump))
 	return req
 }
 
-func sendHttpRequestWithRetry(client *http.Client, req *http.Request) (resp *http.Response, err error) {
+func sendHTTPRequestWithRetry(client *http.Client, req *http.Request) (resp *http.Response, err error) {
 	for i := 0; i < 10; i++ {
 		resp, err = client.Do(req)
 		if err == nil {
