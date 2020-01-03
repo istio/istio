@@ -28,9 +28,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meshcfg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
@@ -84,8 +84,8 @@ func TestAnalyzersRun(t *testing.T) {
 	m := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Exists(data.Collection1, resource.NewFullName("", ""))
-			ctx.Report(data.Collection1, m)
+			ctx.Exists(data.K8SCollection1, resource.NewFullName("", ""))
+			ctx.Report(data.K8SCollection1, m)
 		},
 	}
 
@@ -94,14 +94,14 @@ func TestAnalyzersRun(t *testing.T) {
 		collectionAccessed = col
 	}
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "", "", cr, false)
+	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", cr, false)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
 	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
 	g.Expect(result.Messages).To(ConsistOf(m))
-	g.Expect(collectionAccessed).To(Equal(data.Collection1))
+	g.Expect(collectionAccessed).To(Equal(data.K8SCollection1))
 	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
 
@@ -116,12 +116,12 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	msg2 := msg.NewInternalError(r2, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Report(data.Collection1, msg1)
-			ctx.Report(data.Collection1, msg2)
+			ctx.Report(data.K8SCollection1, msg1)
+			ctx.Report(data.K8SCollection1, msg2)
 		},
 	}
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "ns1", "", nil, false)
+	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "ns1", "", nil, false)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
@@ -227,19 +227,19 @@ func TestResourceFiltering(t *testing.T) {
 	usedCollection := k8smeta.K8SCoreV1Services
 	a := &testAnalyzer{
 		fn:     func(_ analysis.Context) {},
-		inputs: []collection.Name{usedCollection},
+		inputs: []collection.Name{usedCollection.Name()},
 	}
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "", "", nil, true)
+	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", nil, true)
 	sa.AddRunningKubeSource(mk)
 
 	// All but the used collection should be disabled
-	for _, r := range recordedOptions.Resources {
-		if r.Collection.Name == usedCollection {
-			g.Expect(r.Disabled).To(BeFalse(), fmt.Sprintf("%s should not be disabled", r.Collection.Name))
+	for _, r := range recordedOptions.Schemas.All() {
+		if r.Name() == usedCollection.Name() {
+			g.Expect(r.IsDisabled()).To(BeFalse(), fmt.Sprintf("%s should not be disabled", r.Name()))
 		} else {
-			g.Expect(r.Disabled).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Collection.Name))
+			g.Expect(r.IsDisabled()).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Name()))
 		}
 	}
 }

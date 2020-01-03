@@ -85,11 +85,9 @@ func verifyDumpStatus(t *testing.T, tCase string, dumpJSON []byte, lastStatus ma
 	for _, exp := range expected {
 		if newVal, ok := newStatusMap[exp]; !ok {
 			t.Errorf("(Test case %s), failed to find expected token %s in status dump", tCase, exp)
-		} else {
-			if oldVal, ok := lastStatus[exp]; ok {
-				if newVal.ExpireTime == oldVal.ExpireTime || newVal.IssueTime == oldVal.IssueTime {
-					t.Errorf("(Test case %s), expected status update for %s (%v) in status dump", tCase, exp, newVal)
-				}
+		} else if oldVal, ok := lastStatus[exp]; ok {
+			if newVal.ExpireTime == oldVal.ExpireTime || newVal.IssueTime == oldVal.IssueTime {
+				t.Errorf("(Test case %s), expected status update for %s (%v) in status dump", tCase, exp, newVal)
 			}
 		}
 	}

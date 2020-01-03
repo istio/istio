@@ -30,7 +30,7 @@ func createTestEvent(t *testing.T, k event.Kind, r *resource.Instance) event.Eve
 	t.Helper()
 	return event.Event{
 		Kind:     k,
-		Source:   data.Collection1,
+		Source:   data.K8SCollection1,
 		Resource: r,
 	}
 }

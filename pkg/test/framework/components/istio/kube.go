@@ -136,7 +136,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
-		err = waitForValidationWebhook(env.Accessor)
+		err = waitForValidationWebhook(env.Accessor, cfg)
 		if err != nil {
 			i.Dump()
 			return nil, err

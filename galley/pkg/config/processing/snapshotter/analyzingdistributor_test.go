@@ -23,9 +23,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	coll "istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -72,17 +72,17 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 
 	u := &updaterMock{}
 	a := &analyzerMock{
-		collectionToAccess: data.Collection1,
+		collectionToAccess: data.K8SCollection1,
 		resourcesToReport: []*resource.Instance{
 			{
 				Origin: &rt.Origin{
-					Collection: data.Collection1,
+					Collection: data.K8SCollection1,
 					FullName:   resource.NewFullName("includedNamespace", "r1"),
 				},
 			},
 			{
 				Origin: &rt.Origin{
-					Collection: data.Collection1,
+					Collection: data.K8SCollection1,
 					FullName:   resource.NewFullName("excludedNamespace", "r2"),
 				},
 			},
@@ -99,8 +99,8 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 		StatusUpdater:      u,
 		Analyzer:           analysis.Combine("testCombined", a),
 		Distributor:        d,
-		AnalysisSnapshots:  []string{metadata.Default, metadata.SyntheticServiceEntry},
-		TriggerSnapshot:    metadata.Default,
+		AnalysisSnapshots:  []string{snapshots.Default, snapshots.SyntheticServiceEntry},
+		TriggerSnapshot:    snapshots.Default,
 		CollectionReporter: cr,
 		AnalysisNamespaces: []resource.Namespace{"includedNamespace"},
 	}
@@ -110,13 +110,13 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	sSynthetic := getTestSnapshot("c")
 	sOther := getTestSnapshot("a", "d")
 
-	ad.Distribute(metadata.SyntheticServiceEntry, sSynthetic)
-	ad.Distribute(metadata.Default, sDefault)
+	ad.Distribute(snapshots.SyntheticServiceEntry, sSynthetic)
+	ad.Distribute(snapshots.Default, sDefault)
 	ad.Distribute("other", sOther)
 
 	// Assert we sent every received snapshot to the distributor
-	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(metadata.SyntheticServiceEntry) }).Should(Equal(sSynthetic))
-	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(metadata.Default) }).Should(Equal(sDefault))
+	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(snapshots.SyntheticServiceEntry) }).Should(Equal(sSynthetic))
+	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(snapshots.Default) }).Should(Equal(sDefault))
 	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot("other") }).Should(Equal(sOther))
 
 	// Assert we triggered analysis only once, with the expected combination of snapshots
@@ -138,7 +138,7 @@ func TestAnalyzeNamespaceMessageHasNoOrigin(t *testing.T) {
 
 	u := &updaterMock{}
 	a := &analyzerMock{
-		collectionToAccess: data.Collection1,
+		collectionToAccess: data.K8SCollection1,
 		resourcesToReport: []*resource.Instance{
 			{},
 		},
@@ -149,8 +149,8 @@ func TestAnalyzeNamespaceMessageHasNoOrigin(t *testing.T) {
 		StatusUpdater:      u,
 		Analyzer:           analysis.Combine("testCombined", a),
 		Distributor:        d,
-		AnalysisSnapshots:  []string{metadata.Default},
-		TriggerSnapshot:    metadata.Default,
+		AnalysisSnapshots:  []string{snapshots.Default},
+		TriggerSnapshot:    snapshots.Default,
 		CollectionReporter: nil,
 		AnalysisNamespaces: []resource.Namespace{"includedNamespace"},
 	}
@@ -158,7 +158,7 @@ func TestAnalyzeNamespaceMessageHasNoOrigin(t *testing.T) {
 
 	sDefault := getTestSnapshot()
 
-	ad.Distribute(metadata.Default, sDefault)
+	ad.Distribute(snapshots.Default, sDefault)
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(Not(BeEmpty()))
 	g.Expect(u.messages).To(HaveLen(1))
 }
@@ -168,7 +168,7 @@ func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
 
 	u := &updaterMock{}
 	a := &analyzerMock{
-		collectionToAccess: data.Collection1,
+		collectionToAccess: data.K8SCollection1,
 		resourcesToReport: []*resource.Instance{
 			{
 				Origin: fakeOrigin{
@@ -185,8 +185,8 @@ func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
 		StatusUpdater:      u,
 		Analyzer:           analysis.Combine("testCombined", a),
 		Distributor:        d,
-		AnalysisSnapshots:  []string{metadata.Default},
-		TriggerSnapshot:    metadata.Default,
+		AnalysisSnapshots:  []string{snapshots.Default},
+		TriggerSnapshot:    snapshots.Default,
 		CollectionReporter: nil,
 		AnalysisNamespaces: []resource.Namespace{"includedNamespace"},
 	}
@@ -194,7 +194,7 @@ func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
 
 	sDefault := getTestSnapshot()
 
-	ad.Distribute(metadata.Default, sDefault)
+	ad.Distribute(snapshots.Default, sDefault)
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(Not(BeEmpty()))
 	g.Expect(u.messages).To(HaveLen(1))
 }
@@ -204,15 +204,15 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 
 	u := &updaterMock{}
 	o1 := &rt.Origin{
-		Collection: data.Collection1,
+		Collection: data.K8SCollection1,
 		FullName:   resource.NewFullName("includedNamespace", "r2"),
 	}
 	o2 := &rt.Origin{
-		Collection: data.Collection1,
+		Collection: data.K8SCollection1,
 		FullName:   resource.NewFullName("includedNamespace", "r1"),
 	}
 	a := &analyzerMock{
-		collectionToAccess: data.Collection1,
+		collectionToAccess: data.K8SCollection1,
 		resourcesToReport: []*resource.Instance{
 			{Origin: o1},
 			{Origin: o2},
@@ -224,8 +224,8 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 		StatusUpdater:      u,
 		Analyzer:           analysis.Combine("testCombined", a),
 		Distributor:        d,
-		AnalysisSnapshots:  []string{metadata.Default},
-		TriggerSnapshot:    metadata.Default,
+		AnalysisSnapshots:  []string{snapshots.Default},
+		TriggerSnapshot:    snapshots.Default,
 		CollectionReporter: nil,
 		AnalysisNamespaces: []resource.Namespace{"includedNamespace"},
 	}
@@ -233,7 +233,7 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 
 	sDefault := getTestSnapshot()
 
-	ad.Distribute(metadata.Default, sDefault)
+	ad.Distribute(snapshots.Default, sDefault)
 
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sDefault))
 	g.Expect(u.messages).To(HaveLen(2))

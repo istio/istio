@@ -491,7 +491,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-		sidecarScopeID := sidecarScope.Config.Name + "." + sidecarScope.Config.Namespace
 		for _, ingressListener := range rule.Ingress {
 			// determine the bindToPort setting for listeners. Validation guarantees that these are all IP listeners.
 			bindToPort := false
@@ -520,27 +519,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bind = getSidecarInboundBindIP(node)
 			}
 
-			instance := configgen.findServiceInstanceForIngressListener(node.ServiceInstances, ingressListener)
-
-			if instance == nil {
-				// We didn't find a matching instance. Create a dummy one because we need the right
-				// params to generate the right cluster name. CDS would have setup the cluster as
-				// as inbound|portNumber|portName|SidecarScopeID
-				attrs := model.ServiceAttributes{
-					Name: sidecarScope.Config.Name,
-					// This will ensure that the right AuthN policies are selected
-					Namespace: sidecarScope.Config.Namespace,
-				}
-				instance = &model.ServiceInstance{
-					Service: &model.Service{
-						Hostname:   host.Name(sidecarScopeID),
-						Attributes: attrs,
-					},
-					Endpoint: &model.IstioEndpoint{
-						Attributes: attrs,
-					},
-				}
-			}
+			instance := configgen.findOrCreateServiceInstance(node.ServiceInstances, ingressListener,
+				sidecarScope.Config.Name, sidecarScope.Config.Namespace)
 
 			listenerOpts := buildListenerOpts{
 				push:           push,

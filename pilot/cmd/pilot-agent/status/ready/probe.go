@@ -51,8 +51,8 @@ func (p *Probe) checkConfigStatus() error {
 		return err
 	}
 
-	CDSUpdated := s.CDSUpdatesSuccess > 0 || s.CDSUpdatesRejection > 0
-	LDSUpdated := s.LDSUpdatesSuccess > 0 || s.LDSUpdatesRejection > 0
+	CDSUpdated := s.CDSUpdatesSuccess > 0
+	LDSUpdated := s.LDSUpdatesSuccess > 0
 	if CDSUpdated && LDSUpdated {
 		p.receivedFirstUpdate = true
 		return nil

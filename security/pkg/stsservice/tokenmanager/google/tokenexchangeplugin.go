@@ -45,7 +45,7 @@ const (
 )
 
 var (
-	pluginLog              = log.RegisterScope("tokenManagerGooglePlugin", "token manager plugin debugging", 0)
+	pluginLog              = log.RegisterScope("token", "token manager plugin debugging", 0)
 	federatedTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	accessTokenEndpoint    = "https://iamcredentials.googleapis.com/v1/projects/-/" +
 		"serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"

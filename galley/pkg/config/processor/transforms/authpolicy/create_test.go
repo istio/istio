@@ -23,10 +23,10 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
 
@@ -36,19 +36,19 @@ func TestAuthPolicy_Input_Output(t *testing.T) {
 	xform, _, _ := setup(g, 0)
 
 	g.Expect(xform.Inputs()).To(Equal(collection.Names{
-		metadata.K8SAuthenticationIstioIoV1Alpha1Policies,
+		collections.K8SAuthenticationIstioIoV1Alpha1Policies.Name(),
 	}))
 	g.Expect(xform.Outputs()).To(Equal(collection.Names{
-		metadata.IstioAuthenticationV1Alpha1Policies,
+		collections.IstioAuthenticationV1Alpha1Policies.Name(),
 	}))
 
 	xform, _, _ = setup(g, 1)
 
 	g.Expect(xform.Inputs()).To(Equal(collection.Names{
-		metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies,
+		collections.K8SAuthenticationIstioIoV1Alpha1Meshpolicies.Name(),
 	}))
 	g.Expect(xform.Outputs()).To(Equal(collection.Names{
-		metadata.IstioAuthenticationV1Alpha1Meshpolicies,
+		collections.IstioAuthenticationV1Alpha1Meshpolicies.Name(),
 	}))
 }
 

@@ -33,7 +33,7 @@ func TestExpect_FullSync(t *testing.T) {
 	acc := &fixtures.Accumulator{}
 	acc.Handle(data.Event1Col1Synced)
 
-	fixtures.ExpectFullSync(t, acc, data.Collection1)
+	fixtures.ExpectFullSync(t, acc, data.K8SCollection1)
 }
 
 func TestExpect_None(t *testing.T) {
