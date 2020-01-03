@@ -124,7 +124,7 @@ const (
 	EnableProfiling = "ENABLE_PROFILING"
 	DebugPort       = "DEBUG_PORT"
 
-	pkcs8Key      = "PKCS8_KEY"
+	pkcs8Key = "PKCS8_KEY"
 )
 
 var (
