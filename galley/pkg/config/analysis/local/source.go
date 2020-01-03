@@ -19,7 +19,7 @@ import (
 	"sync"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // precedenceSource is a processor.Source implementation that combines multiple sources in precedence order
@@ -88,7 +88,7 @@ func (ph *precedenceHandler) handleFullSync(e event.Event) {
 // For each event, only pass it along to the downstream handler if the source it came from
 // had equal or higher precedence on the current resource
 func (ph *precedenceHandler) handleEvent(e event.Event) {
-	key := fmt.Sprintf("%s/%s", e.Source, e.Entry.Metadata.Name)
+	key := fmt.Sprintf("%s/%s", e.Source, e.Resource.Metadata.FullName)
 	curPrecedence, ok := ph.src.resourcePriority[key]
 	if ok && ph.precedence < curPrecedence {
 		return

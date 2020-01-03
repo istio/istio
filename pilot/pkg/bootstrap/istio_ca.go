@@ -98,7 +98,7 @@ var (
 	k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
 		"Kuberenetes service host, set automatically when running in-cluster")
 
-	// JWTPath is the well-knwon location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
+	// JWTPath is the well-known location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
 	// In a cluster that doesn't support projected JWTs we can't run the CA functionality of istiod - instead
 	// old-style Citadel must be run, with Secret created for each workload.
 	JWTPath = "./var/run/secrets/tokens/istio-token"

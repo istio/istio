@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -35,10 +36,11 @@ func TestVersion(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+			cfg := i.Settings()
 
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
-			args := []string{"version", "--remote=true"}
+			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
 			output := istioCtl.InvokeOrFail(t, args)
 

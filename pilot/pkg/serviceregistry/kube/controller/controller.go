@@ -137,6 +137,15 @@ const (
 	// does deduping. Simply doing both won't work for now, since not all Kubernetes components support EndpointSlice.
 )
 
+var EndpointModeNames = map[EndpointMode]string{
+	EndpointsOnly:     "EndpointsOnly",
+	EndpointSliceOnly: "EndpointSliceOnly",
+}
+
+func (m EndpointMode) String() string {
+	return EndpointModeNames[m]
+}
+
 var _ serviceregistry.Instance = &Controller{}
 
 // Controller is a collection of synchronized resource watchers
@@ -158,6 +167,7 @@ type Controller struct {
 
 	serviceHandlers []func(*model.Service, model.Event)
 
+	// This is only used for test
 	stop chan struct{}
 
 	sync.RWMutex
@@ -372,7 +382,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 // Stop the controller. Mostly for tests, to simplify the code (defer c.Stop())
 func (c *Controller) Stop() {
 	if c.stop != nil {
-		c.stop <- struct{}{}
+		close(c.stop)
 	}
 }
 

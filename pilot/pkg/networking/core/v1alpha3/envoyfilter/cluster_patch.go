@@ -38,37 +38,39 @@ func ApplyClusterPatches(
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.
 	out = clusters
 
-	envoyFilterWrappers := push.EnvoyFilters(proxy)
+	efw := push.EnvoyFilters(proxy)
+	if efw == nil {
+		return out
+	}
+
 	clustersRemoved := false
-	for _, efw := range envoyFilterWrappers {
-		for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
-			if cp.Operation != networking.EnvoyFilter_Patch_REMOVE &&
-				cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
+		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE &&
+			cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+			continue
+		}
+		for i := range clusters {
+			if clusters[i] == nil {
+				// deleted by the remove operation
 				continue
 			}
-			for i := range clusters {
-				if clusters[i] == nil {
-					// deleted by the remove operation
-					continue
-				}
 
-				if commonConditionMatch(proxy, patchContext, cp) && clusterMatch(clusters[i], cp) {
-					if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
-						clusters[i] = nil
-						clustersRemoved = true
-					} else {
-						proto.Merge(clusters[i], cp.Value)
-					}
+			if commonConditionMatch(patchContext, cp) && clusterMatch(clusters[i], cp) {
+				if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
+					clusters[i] = nil
+					clustersRemoved = true
+				} else {
+					proto.Merge(clusters[i], cp.Value)
 				}
 			}
 		}
+	}
 
-		// Add cluster if the operation is add, and patch context matches
-		for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
-			if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-				if commonConditionMatch(proxy, patchContext, cp) {
-					clusters = append(clusters, proto.Clone(cp.Value).(*xdsapi.Cluster))
-				}
+	// Add cluster if the operation is add, and patch context matches
+	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
+		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
+			if commonConditionMatch(patchContext, cp) {
+				clusters = append(clusters, proto.Clone(cp.Value).(*xdsapi.Cluster))
 			}
 		}
 	}

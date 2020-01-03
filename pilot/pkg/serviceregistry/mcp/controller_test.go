@@ -111,73 +111,6 @@ var (
 		},
 	}
 
-	syntheticServiceEntry0 = &networking.ServiceEntry{
-		Hosts: []string{"svc.example2.com"},
-		Ports: []*networking.Port{
-			{Number: 80, Name: "http-port", Protocol: "http"},
-			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
-		},
-		Location:   networking.ServiceEntry_MESH_EXTERNAL,
-		Resolution: networking.ServiceEntry_DNS,
-		Endpoints: []*networking.ServiceEntry_Endpoint{
-			{
-				Address: "2.2.2.2",
-				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
-			},
-			{
-				Address: "3.3.3.3",
-				Ports:   map[string]uint32{"http-port": 1080},
-			},
-			{
-				Address: "4.4.4.4",
-				Ports:   map[string]uint32{"http-port": 1080},
-				Labels:  map[string]string{"foo": "bar"},
-			},
-		},
-	}
-
-	syntheticServiceEntry1 = &networking.ServiceEntry{
-		Hosts: []string{"example2.com"},
-		Ports: []*networking.Port{
-			{Number: 80, Name: "http-port", Protocol: "http"},
-			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
-		},
-		Location:   networking.ServiceEntry_MESH_EXTERNAL,
-		Resolution: networking.ServiceEntry_DNS,
-		Endpoints: []*networking.ServiceEntry_Endpoint{
-			{
-				Address: "2.2.2.2",
-				Ports:   map[string]uint32{"http-port": 9080, "http-alt-port": 18081},
-			},
-			{
-				Address: "3.3.3.3",
-				Ports:   map[string]uint32{"http-port": 1080},
-			},
-			{
-				Address: "5.5.5.5",
-				Ports:   map[string]uint32{"http-port": 1081},
-				Labels:  map[string]string{"foo1": "bar1"},
-			},
-		},
-	}
-
-	syntheticServiceEntry2 = &networking.ServiceEntry{
-		Hosts: []string{"example3.com"},
-		Ports: []*networking.Port{
-			{Number: 80, Name: "http-port2", Protocol: "http"},
-			{Number: 8080, Name: "http-alt-port2", Protocol: "http"},
-		},
-		Location:   networking.ServiceEntry_MESH_EXTERNAL,
-		Resolution: networking.ServiceEntry_DNS,
-		Endpoints: []*networking.ServiceEntry_Endpoint{
-			{
-				Address: "2.2.2.2",
-				Ports:   map[string]uint32{"http-port2": 7082, "http-alt-port2": 18082},
-				Labels:  map[string]string{"foo3": "bar3"},
-			},
-		},
-	}
-
 	testControllerOptions = &mcp.Options{
 		DomainSuffix: "cluster.local",
 		ConfigLedger: &model.DisabledLedger{},
@@ -835,29 +768,9 @@ func convertToChange(resources []proto.Message, names []string, options ...func(
 	return out
 }
 
-func setIncremental() func(*sink.Change) {
-	return func(c *sink.Change) {
-		c.Incremental = true
-	}
-}
-
-func setRemoved(removed []string) func(*sink.Change) {
-	return func(c *sink.Change) {
-		c.Removed = removed
-	}
-}
-
 func setCollection(collection string) func(*sink.Change) {
 	return func(c *sink.Change) {
 		c.Collection = collection
-	}
-}
-
-func setAnnotations(a map[string]string) func(*sink.Change) {
-	return func(c *sink.Change) {
-		for _, obj := range c.Objects {
-			obj.Metadata.Annotations = a
-		}
 	}
 }
 
@@ -898,4 +811,36 @@ func makeMessage(value []byte, typeURL string) (proto.Message, error) {
 	}
 
 	return nil, err
+}
+
+var _ model.XDSUpdater = &FakeXdsUpdater{}
+
+type FakeXdsUpdater struct {
+	Events    chan string
+	Endpoints chan []*model.IstioEndpoint
+	EDSErr    chan error
+}
+
+func NewFakeXDS() *FakeXdsUpdater {
+	return &FakeXdsUpdater{
+		EDSErr:    make(chan error, 100),
+		Events:    make(chan string, 100),
+		Endpoints: make(chan []*model.IstioEndpoint, 100),
+	}
+}
+
+func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
+	f.Events <- "ConfigUpdate"
+}
+
+func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint) error {
+	f.Events <- "EDSUpdate"
+	f.Endpoints <- entry
+	return <-f.EDSErr
+}
+
+func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {
+}
+
+func (f *FakeXdsUpdater) ProxyUpdate(_, _ string) {
 }

@@ -30,6 +30,6 @@ func (o origin) FriendlyName() string {
 	return string(o)
 }
 
-func (o origin) Namespace() string {
+func (o origin) Namespace() resource.Namespace {
 	return ""
 }

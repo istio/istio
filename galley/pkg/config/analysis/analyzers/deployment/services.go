@@ -19,12 +19,13 @@ import (
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/annotation"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 type ServiceAssociationAnalyzer struct{}
@@ -44,14 +45,14 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 		Name:        "deployment.MultiServiceAnalyzer",
 		Description: "Checks association between services and pods",
 		Inputs: collection.Names{
-			metadata.K8SCoreV1Services,
-			metadata.K8SAppsV1Deployments,
-			metadata.K8SCoreV1Namespaces,
+			collections.K8SCoreV1Services.Name(),
+			collections.K8SAppsV1Deployments.Name(),
+			collections.K8SCoreV1Namespaces.Name(),
 		},
 	}
 }
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(metadata.K8SAppsV1Deployments, func(r *resource.Entry) bool {
+	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
 		if inMesh(r, c) {
 			s.analyzeDeployment(r, c)
 		}
@@ -60,15 +61,15 @@ func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
 }
 
 // analyzeDeployment analyzes the specific service mesh deployment
-func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Entry, c analysis.Context) {
-	d := r.Item.(*apps_v1.Deployment)
+func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c analysis.Context) {
+	d := r.Message.(*apps_v1.Deployment)
 
 	// Find matching services with resulting pod from deployment
 	matchingSvcs := s.findMatchingServices(d, c)
 
 	// If there isn't any matching service, generate message: At least one service is needed.
 	if len(matchingSvcs) == 0 {
-		c.Report(metadata.K8SAppsV1Deployments, msg.NewDeploymentRequiresServiceAssociated(r, d.Name))
+		c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewDeploymentRequiresServiceAssociated(r, d.Name))
 		return
 	}
 
@@ -89,7 +90,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Entry, c anal
 			}
 
 			// Reporting the message for the deployment, port and conflicting services.
-			c.Report(metadata.K8SAppsV1Deployments, msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames))
+			c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames))
 		}
 	}
 }
@@ -98,13 +99,13 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Entry, c anal
 func (s *ServiceAssociationAnalyzer) findMatchingServices(d *apps_v1.Deployment, c analysis.Context) []ServiceSpecWithName {
 	matchingSvcs := make([]ServiceSpecWithName, 0)
 
-	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
-		s := r.Item.(*core_v1.ServiceSpec)
+	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+		s := r.Message.(*core_v1.ServiceSpec)
 
 		sSelector := k8s_labels.SelectorFromSet(s.Selector)
 		pLabels := k8s_labels.Set(d.Spec.Template.Labels)
 		if sSelector.Matches(pLabels) {
-			matchingSvcs = append(matchingSvcs, ServiceSpecWithName{r.Metadata.Name.String(), s})
+			matchingSvcs = append(matchingSvcs, ServiceSpecWithName{r.Metadata.FullName.String(), s})
 		}
 
 		return true
@@ -140,8 +141,8 @@ func servicePortMap(svcs []ServiceSpecWithName) PortMap {
 }
 
 // inMesh returns true if deployment is in the service mesh (has sidecar)
-func inMesh(r *resource.Entry, c analysis.Context) bool {
-	d := r.Item.(*apps_v1.Deployment)
+func inMesh(r *resource.Instance, c analysis.Context) bool {
+	d := r.Message.(*apps_v1.Deployment)
 
 	// If Pod has annotation, return the injection annotation value
 	if piv, pivok := getPodSidecarInjectionStatus(d); pivok {
@@ -150,7 +151,7 @@ func inMesh(r *resource.Entry, c analysis.Context) bool {
 
 	// In case the annotation is not present but there is a auto-injection label on the namespace,
 	// return the auto-injection label status
-	if niv, nivok := getNamesSidecarInjectionStatus(d.Namespace, c); nivok {
+	if niv, nivok := getNamesSidecarInjectionStatus(resource.Namespace(d.Namespace), c); nivok {
 		return niv
 	}
 
@@ -168,10 +169,10 @@ func getPodSidecarInjectionStatus(d *apps_v1.Deployment) (enabled bool, ok bool)
 // autoInjectionEnabled returns two booleans: enabled and ok.
 // enabled is true when namespace ns has 'istio-injection' label set to 'enabled'
 // ok is true when the namespace doesn't have the label 'istio-injection'
-func getNamesSidecarInjectionStatus(ns string, c analysis.Context) (enabled bool, ok bool) {
+func getNamesSidecarInjectionStatus(ns resource.Namespace, c analysis.Context) (enabled bool, ok bool) {
 	enabled, ok = false, false
 
-	namespace := c.Find(metadata.K8SCoreV1Namespaces, resource.NewName("", ns))
+	namespace := c.Find(collections.K8SCoreV1Namespaces.Name(), resource.NewFullName("", resource.LocalName(ns)))
 	if namespace != nil {
 		enabled, ok = namespace.Metadata.Labels[injection.InjectionLabelName] == injection.InjectionLabelEnableValue, true
 	}

@@ -249,6 +249,19 @@ func (instance *ServiceInstance) GetLocality() string {
 	return GetLocalityOrDefault(instance.Endpoint.Labels[LocalityLabel], instance.Endpoint.Locality)
 }
 
+// DeepCopy creates a copy of ServiceInstance.
+func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
+	return &ServiceInstance{
+		Service:  instance.Service.DeepCopy(),
+		Endpoint: instance.Endpoint.DeepCopy(),
+		ServicePort: &Port{
+			Name:     instance.ServicePort.Name,
+			Port:     instance.ServicePort.Port,
+			Protocol: instance.ServicePort.Protocol,
+		},
+	}
+}
+
 // GetLocalityOrDefault returns the locality from the supplied label, or falls back to
 // the supplied default locality if the supplied label is empty. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
@@ -663,6 +676,11 @@ func (s *Service) DeepCopy() *Service {
 		Resolution:      s.Resolution,
 		MeshExternal:    s.MeshExternal,
 	}
+}
+
+// DeepCopy creates a clone of IstioEndpoint.
+func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
+	return copyInternal(ep).(*IstioEndpoint)
 }
 
 func copyInternal(v interface{}) interface{} {

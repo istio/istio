@@ -22,9 +22,9 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 // SecretAnalyzer checks a gateway's referenced secrets for correctness
@@ -38,23 +38,23 @@ func (a *SecretAnalyzer) Metadata() analysis.Metadata {
 		Name:        "gateway.SecretAnalyzer",
 		Description: "Checks a gateway's referenced secrets for correctness",
 		Inputs: collection.Names{
-			metadata.IstioNetworkingV1Alpha3Gateways,
-			metadata.K8SCoreV1Pods,
-			metadata.K8SCoreV1Secrets,
+			collections.IstioNetworkingV1Alpha3Gateways.Name(),
+			collections.K8SCoreV1Pods.Name(),
+			collections.K8SCoreV1Secrets.Name(),
 		},
 	}
 }
 
 // Analyze implements analysis.Analyzer
 func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Gateways, func(r *resource.Entry) bool {
-		gw := r.Item.(*v1alpha3.Gateway)
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+		gw := r.Message.(*v1alpha3.Gateway)
 
 		gwNs := getGatewayNamespace(ctx, gw)
 
 		// If we can't find a namespace for the gateway, it's because there's no matching selector. Exit early with a different message.
 		if gwNs == "" {
-			ctx.Report(metadata.IstioNetworkingV1Alpha3Gateways,
+			ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(),
 				msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String()))
 			return true
 		}
@@ -66,8 +66,8 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 			}
 
 			cn := tls.GetCredentialName()
-			if !ctx.Exists(metadata.K8SCoreV1Secrets, resource.NewShortOrFullName(gwNs, cn)) {
-				ctx.Report(metadata.IstioNetworkingV1Alpha3Gateways, msg.NewReferencedResourceNotFound(r, "credentialName", cn))
+			if !ctx.Exists(collections.K8SCoreV1Secrets.Name(), resource.NewShortOrFullName(gwNs, cn)) {
+				ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewReferencedResourceNotFound(r, "credentialName", cn))
 			}
 		}
 		return true
@@ -76,15 +76,14 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 
 // Gets the namespace for the gateway (in terms of the actual workload selected by the gateway, NOT the namespace of the Gateway CRD)
 // Assumes that all selected workloads are in the same namespace, if this is not the case which one's namespace gets returned is undefined.
-func getGatewayNamespace(ctx analysis.Context, gw *v1alpha3.Gateway) string {
-	var ns string
+func getGatewayNamespace(ctx analysis.Context, gw *v1alpha3.Gateway) resource.Namespace {
+	var ns resource.Namespace
 
 	gwSelector := labels.SelectorFromSet(gw.Selector)
-	ctx.ForEach(metadata.K8SCoreV1Pods, func(rPod *resource.Entry) bool {
-		pod := rPod.Item.(*v1.Pod)
+	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
+		pod := rPod.Message.(*v1.Pod)
 		if gwSelector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
-			podNs, _ := rPod.Metadata.Name.InterpretAsNamespaceAndName()
-			ns = podNs
+			ns = rPod.Metadata.FullName.Namespace
 			return false
 		}
 		return true

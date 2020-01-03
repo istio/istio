@@ -25,16 +25,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/meshcfg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
+	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
@@ -60,12 +62,12 @@ type SourceAnalyzer struct {
 	sources              []precedenceSourceInput
 	analyzer             *analysis.CombinedAnalyzer
 	transformerProviders transformer.Providers
-	namespace            string
-	istioNamespace       string
+	namespace            resource.Namespace
+	istioNamespace       resource.Namespace
 
 	// Which kube resources are used by this analyzer
 	// Derived from metadata and the specified analyzer and transformer providers
-	kubeResources schema.KubeResources
+	kubeResources collection.Schemas
 
 	// Hook function called when a collection is used in analysis
 	collectionReporter snapshotter.CollectionReporterFn
@@ -80,7 +82,7 @@ type AnalysisResult struct {
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace string,
+func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
 	cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
 
 	// collectionReporter hook function defaults to no-op
@@ -91,8 +93,8 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 	transformerProviders := transforms.Providers(m)
 
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
-	kubeResources := kuberesource.DisableExcludedKubeResources(
-		m.KubeSource().Resources(),
+	kubeResources := kuberesource.DisableExcludedCollections(
+		m.KubeCollections(),
 		transformerProviders,
 		analyzer.Metadata().Inputs,
 		kuberesource.DefaultExcludedResourceKinds(),
@@ -123,17 +125,18 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
 	}
 
-	var namespaces []string
+	var namespaces []resource.Namespace
 	if sa.namespace != "" {
-		namespaces = []string{sa.namespace}
+		namespaces = []resource.Namespace{sa.namespace}
 	}
 
 	var colsInSnapshots collection.Names
-	for _, c := range sa.m.AllCollectionsInSnapshots([]string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry}) {
+	for _, c := range sa.m.AllCollectionsInSnapshots([]string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry}) {
 		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
 	}
 
-	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(colsInSnapshots, sa.kubeResources.DisabledCollections(), sa.transformerProviders)
+	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(colsInSnapshots, sa.kubeResources.DisabledCollectionNames(),
+		sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 
 	updater := &snapshotter.InMemoryStatusUpdater{}
@@ -141,8 +144,8 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		StatusUpdater:      updater,
 		Analyzer:           sa.analyzer,
 		Distributor:        snapshotter.NewInMemoryDistributor(),
-		AnalysisSnapshots:  []string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry},
-		TriggerSnapshot:    metadata.LocalAnalysis,
+		AnalysisSnapshots:  []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry},
+		TriggerSnapshot:    snapshots.LocalAnalysis,
 		CollectionReporter: sa.collectionReporter,
 		AnalysisNamespaces: namespaces,
 	}
@@ -154,7 +157,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		Source:             newPrecedenceSource(sa.sources),
 		TransformProviders: sa.transformerProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry},
+		EnabledSnapshots:   []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry},
 	}
 	rt, err := processor.Initialize(processorSettings)
 	if err != nil {
@@ -192,7 +195,7 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 		}
 	}
 
-	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.Collections()})
+	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
 
 	return errs
 }
@@ -201,8 +204,8 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 // Also adds a meshcfg source from the running cluster
 func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	o := apiserver.Options{
-		Client:    k,
-		Resources: sa.kubeResources,
+		Client:  k,
+		Schemas: sa.kubeResources,
 	}
 
 	if err := sa.addRunningKubeMeshConfigSource(k); err != nil {
@@ -210,7 +213,7 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	}
 
 	src := apiserverNew(o)
-	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.Collections()})
+	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
 }
 
 // AddFileKubeMeshConfigSource adds a mesh config source based on the specified meshconfig yaml file
@@ -236,7 +239,7 @@ func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) erro
 		return fmt.Errorf("error getting KubeClient: %v", err)
 	}
 
-	meshConfigMap, err := client.CoreV1().ConfigMaps(sa.istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
 	}

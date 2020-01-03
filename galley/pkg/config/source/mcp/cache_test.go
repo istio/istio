@@ -28,8 +28,8 @@ import (
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
@@ -348,10 +348,10 @@ func sortEvents(events []event.Event) {
 }
 
 func resourceName(e event.Event) string {
-	if e.Entry == nil {
+	if e.Resource == nil {
 		return ""
 	}
-	return e.Entry.Metadata.Name.String()
+	return e.Resource.Metadata.FullName.String()
 }
 
 func protoTime(t time.Time) *types.Timestamp {
@@ -426,18 +426,18 @@ func (e output) toEvent() event.Event {
 		return event.FullSyncFor(colName)
 	}
 
-	fullName, _ := resource.NewFullName(e.name)
+	fullName, _ := resource.ParseFullName(e.name)
 	return event.Event{
 		Kind:   e.kind,
 		Source: colName,
-		Entry: &resource.Entry{
+		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
-				Name:       fullName,
+				FullName:   fullName,
 				CreateTime: eventTime,
 				Version:    "v1",
 			},
-			Item:   e.body,
-			Origin: defaultOrigin,
+			Message: e.body,
+			Origin:  defaultOrigin,
 		},
 	}
 }

@@ -86,7 +86,7 @@ func (p *Adapter) IsRequiredForServiceDiscovery() bool {
 }
 
 // JSONToEntry parses the K8s Resource in JSON form and converts it to resource entry.
-func (p *Adapter) JSONToEntry(s string) (*resource.Entry, error) {
+func (p *Adapter) JSONToEntry(s string) (*resource.Instance, error) {
 	i, err := p.ParseJSON([]byte(s))
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (p *Adapter) JSONToEntry(s string) (*resource.Entry, error) {
 		return nil, err
 	}
 
-	return ToResourceEntry(obj, nil, item), nil
+	return ToResource(obj, nil, item), nil
 
 }
 

@@ -21,10 +21,10 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 type analyzer struct {
@@ -42,16 +42,16 @@ func (a *analyzer) Metadata() Metadata {
 }
 
 // Analyze implements Analyzer
-func (a *analyzer) Analyze(ctx Context) {
+func (a *analyzer) Analyze(Context) {
 	a.ran = true
 }
 
 type context struct{}
 
-func (ctx *context) Report(c collection.Name, t diag.Message)                   {}
-func (ctx *context) Find(c collection.Name, name resource.Name) *resource.Entry { return nil }
-func (ctx *context) Exists(c collection.Name, name resource.Name) bool          { return false }
-func (ctx *context) ForEach(c collection.Name, fn IteratorFn)                   {}
+func (ctx *context) Report(collection.Name, diag.Message)                       {}
+func (ctx *context) Find(collection.Name, resource.FullName) *resource.Instance { return nil }
+func (ctx *context) Exists(collection.Name, resource.FullName) bool             { return false }
+func (ctx *context) ForEach(collection.Name, IteratorFn)                        {}
 func (ctx *context) Canceled() bool                                             { return false }
 
 func TestCombinedAnalyzer(t *testing.T) {

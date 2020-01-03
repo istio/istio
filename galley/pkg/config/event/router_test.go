@@ -36,7 +36,7 @@ func TestRouter_Single_Handle(t *testing.T) {
 
 	s := event.NewRouter()
 	acc := &fixtures.Accumulator{}
-	s = event.AddToRouter(s, data.Collection1, acc)
+	s = event.AddToRouter(s, data.K8SCollection1, acc)
 	s.Handle(data.Event1Col1AddItem1)
 
 	g.Expect(acc.Events()).To(HaveLen(1))
@@ -47,7 +47,7 @@ func TestRouter_Single_Handle_AddToNil(t *testing.T) {
 
 	var s event.Router
 	acc := &fixtures.Accumulator{}
-	s = event.AddToRouter(s, data.Collection1, acc)
+	s = event.AddToRouter(s, data.K8SCollection1, acc)
 	s.Handle(data.Event1Col1AddItem1)
 
 	g.Expect(acc.Events()).To(HaveLen(1))
@@ -70,8 +70,8 @@ func TestRouter_Single_MultiListener(t *testing.T) {
 	s := event.NewRouter()
 	acc1 := &fixtures.Accumulator{}
 	acc2 := &fixtures.Accumulator{}
-	s = event.AddToRouter(s, data.Collection1, acc1)
-	s = event.AddToRouter(s, data.Collection1, acc2)
+	s = event.AddToRouter(s, data.K8SCollection1, acc1)
+	s = event.AddToRouter(s, data.K8SCollection1, acc2)
 	s.Handle(data.Event1Col1AddItem1)
 
 	g.Expect(acc1.Events()).To(HaveLen(1))
@@ -83,7 +83,7 @@ func TestRouter_Single_Broadcast(t *testing.T) {
 
 	s := event.NewRouter()
 	acc := &fixtures.Accumulator{}
-	s = event.AddToRouter(s, data.Collection1, acc)
+	s = event.AddToRouter(s, data.K8SCollection1, acc)
 	s.Broadcast(event.Event{Kind: event.Reset})
 
 	g.Expect(acc.Events()).To(HaveLen(1))
@@ -96,7 +96,7 @@ func TestRouter_Multi_Handle(t *testing.T) {
 	acc1 := &fixtures.Accumulator{}
 	acc2 := &fixtures.Accumulator{}
 	acc3 := &fixtures.Accumulator{}
-	s = event.AddToRouter(s, data.Collection1, acc1)
+	s = event.AddToRouter(s, data.K8SCollection1, acc1)
 	s = event.AddToRouter(s, data.Collection2, acc2)
 	s = event.AddToRouter(s, data.Collection3, acc3)
 	s.Handle(data.Event1Col1AddItem1)
@@ -113,7 +113,7 @@ func TestRouter_Multi_NoTarget(t *testing.T) {
 	s := event.NewRouter()
 	acc1 := &fixtures.Accumulator{}
 	acc2 := &fixtures.Accumulator{}
-	s = event.AddToRouter(s, data.Collection1, acc1)
+	s = event.AddToRouter(s, data.K8SCollection1, acc1)
 	s = event.AddToRouter(s, data.Collection3, acc2)
 	s.Handle(data.Event3Col2AddItem1)
 
@@ -128,7 +128,7 @@ func TestRouter_Multi_Broadcast(t *testing.T) {
 	acc1 := &fixtures.Accumulator{}
 	acc2 := &fixtures.Accumulator{}
 	acc3 := &fixtures.Accumulator{}
-	s = event.AddToRouter(s, data.Collection1, acc1)
+	s = event.AddToRouter(s, data.K8SCollection1, acc1)
 	s = event.AddToRouter(s, data.Collection2, acc2)
 	s = event.AddToRouter(s, data.Collection3, acc3)
 	s.Broadcast(event.Event{Kind: event.Reset})

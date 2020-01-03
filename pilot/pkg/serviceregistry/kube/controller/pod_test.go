@@ -102,7 +102,7 @@ func cleanup(ki kubernetes.Interface) {
 func TestPodCache(t *testing.T) {
 	t.Run("fakeApiserver", func(t *testing.T) {
 		t.Parallel()
-		c, fx := newFakeController()
+		c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
 		defer c.Stop()
 		testPodCache(t, c, fx)
 	})
@@ -165,7 +165,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	c, fx := newFakeController()
+	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
 	defer c.Stop()
 	podCache := newPodCache(nil, c)
 

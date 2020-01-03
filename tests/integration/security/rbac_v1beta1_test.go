@@ -137,6 +137,9 @@ func TestV1beta1_JWT(t *testing.T) {
 				newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token2", true),
 				newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
 				newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
+				newTestCase(b, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
+				newTestCase(b, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
+				newTestCase(b, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
 				newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
 				newTestCase(c, "[NoJWT]", "", "/somePath", true),
 			}

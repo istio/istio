@@ -19,8 +19,8 @@ import (
 	"sync"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/mcp/sink"
 )
@@ -32,7 +32,7 @@ type cache struct {
 	mu                 sync.RWMutex
 	collection         collection.Name
 	handler            event.Handler
-	resources          map[resource.Name]*resource.Entry
+	resources          map[resource.FullName]*resource.Instance
 	synced             bool
 	started            bool
 	fullUpdateReceived bool
@@ -43,7 +43,7 @@ func newCache(c collection.Name) *cache {
 
 	return &cache{
 		collection: c,
-		resources:  make(map[resource.Name]*resource.Entry),
+		resources:  make(map[resource.FullName]*resource.Instance),
 	}
 }
 
@@ -65,7 +65,7 @@ func (c *cache) apply(change *sink.Change) error {
 func (c *cache) applyFull(change *sink.Change) error {
 	// For full updates, save off the old resources and clear out the map.
 	oldResources := c.resources
-	c.resources = make(map[resource.Name]*resource.Entry)
+	c.resources = make(map[resource.FullName]*resource.Instance)
 	c.fullUpdateReceived = true
 
 	// Add/update resources.
@@ -77,15 +77,15 @@ func (c *cache) applyFull(change *sink.Change) error {
 
 		// Notify the handler if we've already synced.
 		if c.synced {
-			if _, ok := oldResources[e.Metadata.Name]; ok {
+			if _, ok := oldResources[e.Metadata.FullName]; ok {
 				c.dispatchFor(e, event.Updated)
-				delete(oldResources, e.Metadata.Name)
+				delete(oldResources, e.Metadata.FullName)
 			} else {
 				c.dispatchFor(e, event.Added)
 			}
 		}
 
-		c.resources[e.Metadata.Name] = e
+		c.resources[e.Metadata.FullName] = e
 	}
 
 	if c.synced {
@@ -115,19 +115,19 @@ func (c *cache) applyIncremental(change *sink.Change) error {
 
 		// Notify the handler if we've already synced.
 		if c.synced {
-			if _, ok := c.resources[e.Metadata.Name]; ok {
+			if _, ok := c.resources[e.Metadata.FullName]; ok {
 				c.dispatchFor(e, event.Updated)
 			} else {
 				c.dispatchFor(e, event.Added)
 			}
 		}
 
-		c.resources[e.Metadata.Name] = e
+		c.resources[e.Metadata.FullName] = e
 	}
 
 	// Remove resources.
 	for _, removed := range change.Removed {
-		name, err := resource.NewFullName(removed)
+		name, err := resource.ParseFullName(removed)
 		if err != nil {
 			return fmt.Errorf("failed removing resource due to parsing error: %v", err)
 		}
@@ -195,23 +195,23 @@ func (c *cache) dispatchEvent(e event.Event) {
 	}
 }
 
-func (c *cache) dispatchFor(entry *resource.Entry, kind event.Kind) {
+func (c *cache) dispatchFor(entry *resource.Instance, kind event.Kind) {
 	e := event.Event{
-		Source: c.collection,
-		Entry:  entry,
-		Kind:   kind,
+		Source:   c.collection,
+		Resource: entry,
+		Kind:     kind,
 	}
 	c.dispatchEvent(e)
 }
 
-func deserializeEntry(obj *sink.Object) (*resource.Entry, error) {
+func deserializeEntry(obj *sink.Object) (*resource.Instance, error) {
 	metadata, err := resource.DeserializeMetadata(obj.Metadata)
 	if err != nil {
 		return nil, err
 	}
-	return &resource.Entry{
+	return &resource.Instance{
 		Metadata: metadata,
-		Item:     obj.Body,
+		Message:  obj.Body,
 		Origin:   defaultOrigin,
 	}, nil
 }

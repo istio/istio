@@ -32,6 +32,7 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -1335,6 +1336,55 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		} else if ep.Locality.Region == "region2" {
 			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
 		}
+	}
+}
+
+func TestFindServiceInstanceForIngressListener(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     7443,
+		Protocol: protocol.HTTP,
+	}
+	service := &model.Service{
+		Hostname:    host.Name("*.example.org"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.ClientSideLB,
+	}
+
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 7443,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     30,
+			},
+		},
+	}
+
+	ingress := &networking.IstioIngressListener{
+		CaptureMode:     v1alpha3.CaptureMode_NONE,
+		DefaultEndpoint: "127.0.0.1:7020",
+		Port: &v1alpha3.Port{
+			Number:   7443,
+			Name:     "grpc-core",
+			Protocol: "GRPC",
+		},
+	}
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
+	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
+		t.Fatal("Expected to return a valid instance, but got nil/default instance")
+	}
+	if instance == instances[0] {
+		t.Fatal("Expected to return a copy of instance, but got the same instance")
+	}
+	if !reflect.DeepEqual(instance, instances[0]) {
+		t.Fatal("Expected returned copy of instance to be equal, but they are different")
 	}
 }
 

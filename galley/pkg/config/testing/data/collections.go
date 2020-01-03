@@ -15,28 +15,19 @@
 package data
 
 import (
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 var (
-	// Collection1 is a testing collection
-	Collection1 = collection.NewName("collection1")
+	// K8SCollection1 is a testing collection
+	K8SCollection1 = collection.NewName("k8s/collection1")
 
 	// Collection2 is a testing collection
 	Collection2 = collection.NewName("collection2")
 
+	// K8SCollection2 is a testing collection
+	K8SCollection2 = collection.NewName("k8s/collection2")
+
 	// Collection3 is a testing collection
 	Collection3 = collection.NewName("collection3")
-
-	// CollectionNames of all collections in the test data.
-	CollectionNames = collection.Names{Collection1, Collection2, Collection3}
-
-	// Specs is the set of collection.Specs for all test data.
-	Specs = func() collection.Specs {
-		b := collection.NewSpecsBuilder()
-		b.MustAdd(collection.MustNewSpec(Collection1.String(), "google.protobuf", "google.protobuf.Empty"))
-		b.MustAdd(collection.MustNewSpec(Collection2.String(), "google.protobuf", "google.protobuf.Empty"))
-		b.MustAdd(collection.MustNewSpec(Collection3.String(), "google.protobuf", "google.protobuf.Empty"))
-		return b.Build()
-	}()
 )
