@@ -118,7 +118,7 @@ func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore
 }
 
 // GetConfigMap returns the config map with the name in the given namespace.
-func (a *Accessor) GetConfigMap(namespace, name string) (*kubeApiCore.ConfigMap, error) {
+func (a *Accessor) GetConfigMap(name, namespace string) (*kubeApiCore.ConfigMap, error) {
 	cm, err := a.set.CoreV1().ConfigMaps(namespace).Get(name, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return nil, err
