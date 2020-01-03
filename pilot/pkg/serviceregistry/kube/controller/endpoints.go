@@ -213,6 +213,7 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 	}
 
 	return e.handleEvent(ep.Name, ep.Namespace, event, curr, func(obj interface{}, event model.Event) {
+		ep := obj.(*v1.Endpoints)
 		e.c.updateEDS(ep, event)
 	})
 }

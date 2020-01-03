@@ -148,7 +148,7 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 	}
 
 	return esc.handleEvent(ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, event, curr, func(obj interface{}, event model.Event) {
-		esc.updateEDS(curr, event)
+		esc.updateEDS(obj, event)
 	})
 }
 
