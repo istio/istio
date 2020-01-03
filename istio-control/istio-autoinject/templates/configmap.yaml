@@ -73,19 +73,30 @@ data:
           address: {{ .Values.global.tracer.datadog.address }}
       {{- end }}
 
+    {{- $defPilotHostname := printf "istio-pilot%s.%s" .Values.version .Values.global.configNamespace }}
+    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
+
     {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot{{ .Values.version }}.{{ .Values.global.configNamespace }}:15011
+      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+      discoveryAddress: {{ $defPilotHostname }}:15011
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15011
+      {{- end }}
     {{- else }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot{{ .Values.version }}.{{ .Values.global.configNamespace }}:15010
+      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+      discoveryAddress: {{ $defPilotHostname }}:15010
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15010
+      {{- end }}
     {{- end }}
 ---
