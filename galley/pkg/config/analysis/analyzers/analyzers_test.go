@@ -288,6 +288,12 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
+		name:       "unnamedPortInSystemNamespace",
+		inputFiles: []string{"testdata/service-no-port-name-system-namespace.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "sidecarDefaultSelector",
 		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
 		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
