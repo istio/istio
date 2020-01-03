@@ -115,7 +115,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// Skip the istio control plane, which doesn't obey Policy/MeshPolicy MTLS
 		// rules in general and instead is controlled by the mesh option
 		// 'controlPlaneSecurityEnabled'.
-		if _, ok := r.Metadata.Labels["istio"]; ok {
+		if util.IsIstioControlPlane(r) {
 			return true
 		}
 

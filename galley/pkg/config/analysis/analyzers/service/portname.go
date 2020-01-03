@@ -16,6 +16,7 @@ package service
 
 import (
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema/collection"
@@ -44,6 +45,18 @@ func (s *PortNameAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+		svcNs := r.Metadata.FullName.Namespace
+
+		// Skip system namespaces entirely
+		if util.IsSystemNamespace(svcNs) {
+			return true
+		}
+
+		// Skip port name check for istio control plane
+		if util.IsIstioControlPlane(r) {
+			return true
+		}
+
 		s.analyzeService(r, c)
 		return true
 	})
