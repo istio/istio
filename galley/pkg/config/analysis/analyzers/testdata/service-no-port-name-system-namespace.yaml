@@ -45,8 +45,8 @@ spec:
       protocol: TCP
       port: 8080
       targetPort: 8080
-      apiVersion: v1
 ---
+apiVersion: v1
 kind: Service
 metadata:
   name: my-service4 # Skipped because of the release:istio label
