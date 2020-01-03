@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -193,6 +195,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 						Action: &route.Route_Route{
 							Route: &route.RouteAction{
 								ClusterSpecifier: &route.RouteAction_Cluster{Cluster: util.PassthroughCluster},
+								// Disable timeout instead of assuming some defaults.
+								Timeout: ptypes.DurationProto(0 * time.Millisecond),
 							},
 						},
 					},
