@@ -86,9 +86,6 @@ const (
 	// To limit the time series included in each CreateTimeSeries API call.
 	timeSeriesBatchLimit = 200
 
-	// To limit the retry attempts for time series that are failed to push.
-	maxRetryAttempt = 3
-
 	// Size of time series buffer that would trigger time series merging.
 	mergeBufferTrigger = 10000
 
@@ -187,9 +184,6 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		buffer:              []*monitoringpb.TimeSeries{},
 		mergeTrigger:        mergeBufferTrigger,
 		mergedTS:            make(map[uint64]*monitoringpb.TimeSeries),
-		retryBuffer:         []*monitoringpb.TimeSeries{},
-		retryCounter:        map[uint64]int{},
-		retryLimit:          maxRetryAttempt,
 		pushInterval:        cfg.PushInterval,
 		env:                 env,
 	}
