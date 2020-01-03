@@ -142,12 +142,29 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	}
 }
 
+// isExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
+// things are operating normally. This is basically capturing when the client disconnects.
+func isExpectedGRPCError(err error) bool {
+	if err == io.EOF {
+		return true
+	}
+
+	s := status.Convert(err)
+	if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
+		return true
+	}
+	if s.Code() == codes.Unavailable && s.Message() == "client disconnected" {
+		return true
+	}
+	return false
+}
+
 func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			if status.Code(err) == codes.Canceled || err == io.EOF {
+			if isExpectedGRPCError(err) {
 				con.mu.RLock()
 				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				con.mu.RUnlock()
