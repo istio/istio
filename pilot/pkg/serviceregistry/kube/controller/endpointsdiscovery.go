@@ -37,7 +37,7 @@ type kubeEndpointsController interface {
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance
 }
 
-// kubeEndpoints abstracts the common behaviour across endpoint and endpoint slices.
+// kubeEndpoints abstracts the common behavior across endpoint and endpoint slices.
 type kubeEndpoints struct {
 	c        *Controller
 	informer cache.SharedIndexInformer
