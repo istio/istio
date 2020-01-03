@@ -147,7 +147,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 					return fmt.Errorf("stackdriver server does not received expected server or client request count, server %v client %v", srvReceived, cltReceived)
 				}
 				return nil
-			}, retry.Delay(10*time.Second), retry.Timeout(30*time.Second))
+			}, retry.Delay(10*time.Second), retry.Timeout(40*time.Second))
 		})
 }
 
@@ -201,6 +201,7 @@ func testSetup(ctx resource.Context) (err error) {
 	}
 	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
 		"StackdriverNamespace": sdInst.GetStackdriverNamespace(),
+		"EchoNamespace":        getEchoNamespaceInstance().Name(),
 	})
 	if err != nil {
 		return

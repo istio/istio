@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: stackdriver-bootstrap-config
-  namespace: default
+  namespace: {{ .EchoNamespace }}
 data:
   custom_bootstrap.json: |
     {
