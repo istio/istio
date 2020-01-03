@@ -75,10 +75,16 @@ func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSe
 		return
 	}
 	srvWorkloads, err := srv.Workloads()
+	if err != nil {
+		return
+	}
 	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
 		"ServerPodName": srvWorkloads[0].PodName(),
 	})
+	if err != nil {
+		return
+	}
 	if err = jsonpb.UnmarshalString(sr, &srvRequestCount); err != nil {
 		return
 	}
@@ -87,10 +93,16 @@ func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSe
 		return
 	}
 	cltWorkloads, err := clt.Workloads()
+	if err != nil {
+		return
+	}
 	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
 		"ClientPodName": cltWorkloads[0].PodName(),
 	})
+	if err != nil {
+		return
+	}
 	err = jsonpb.UnmarshalString(cr, &cltRequestCount)
 	return
 }
@@ -190,6 +202,9 @@ func testSetup(ctx resource.Context) (err error) {
 	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
 		"StackdriverNamespace": sdInst.GetStackdriverNamespace(),
 	})
+	if err != nil {
+		return
+	}
 
 	err = galInst.ApplyConfig(
 		echoNsInst,
