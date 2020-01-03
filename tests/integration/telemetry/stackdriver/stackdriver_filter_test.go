@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -46,6 +47,7 @@ const (
 	stackdriverBootstrapOverride = "testdata/custom_bootstrap.yaml.tmpl"
 	serverRequestCount           = "testdata/server_request_count.json.tmpl"
 	clientRequestCount           = "testdata/client_request_count.json.tmpl"
+	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 )
 
 var (
@@ -216,6 +218,8 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
+	env := ctx.Environment().(*kube.Environment)
+	env.Accessor.WaitUntilConfigMapPresents(sdBootstrapConfigMap, getEchoNamespaceInstance().Name())
 	builder, err := echoboot.NewBuilder(ctx)
 	if err != nil {
 		return
@@ -227,7 +231,7 @@ func testSetup(ctx resource.Context) (err error) {
 			Galley:    getGalInstance(),
 			Annotations: map[echo.Annotation]*echo.AnnotationValue{
 				echo.SidecarBootstrapOverride: {
-					Value: "stackdriver-bootstrap-config",
+					Value: sdBootstrapConfigMap,
 				},
 			}}).
 		With(&srv, echo.Config{
@@ -236,7 +240,7 @@ func testSetup(ctx resource.Context) (err error) {
 			Galley:    getGalInstance(),
 			Annotations: map[echo.Annotation]*echo.AnnotationValue{
 				echo.SidecarBootstrapOverride: {
-					Value: "stackdriver-bootstrap-config",
+					Value: sdBootstrapConfigMap,
 				},
 			}}).
 		Build()
