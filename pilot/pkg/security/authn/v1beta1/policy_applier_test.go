@@ -139,7 +139,7 @@ func TestJwtFilter(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.foo.com",
 								JwksUri: jwksURI,
@@ -190,7 +190,7 @@ func TestJwtFilter(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.foo.com",
 								JwksUri: jwksURI,
@@ -203,7 +203,7 @@ func TestJwtFilter(t *testing.T) {
 				},
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer: "https://secret.bar.com",
 								Jwks:   "jwks-inline-data",
@@ -266,7 +266,7 @@ func TestJwtFilter(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer: "https://secret.foo.com",
 								Jwks:   "inline-jwks-data",
@@ -317,7 +317,7 @@ func TestJwtFilter(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.foo.com",
 								JwksUri: "http://site.not.exist",
@@ -384,17 +384,17 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		in       []*v1beta1.JWT
+		in       []*v1beta1.JWTRule
 		expected *envoy_jwt.JwtAuthentication
 	}{
 		{
 			name:     "No rule",
-			in:       []*v1beta1.JWT{},
+			in:       []*v1beta1.JWTRule{},
 			expected: nil,
 		},
 		{
 			name: "Single JWT rule",
-			in: []*v1beta1.JWT{
+			in: []*v1beta1.JWTRule{
 				{
 					Issuer:  "https://secret.foo.com",
 					JwksUri: jwksURI,
@@ -433,7 +433,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 		},
 		{
 			name: "Multiple JWT rule",
-			in: []*v1beta1.JWT{
+			in: []*v1beta1.JWTRule{
 				{
 					Issuer:  "https://secret.foo.com",
 					JwksUri: jwksURI,
@@ -488,7 +488,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 		},
 		{
 			name: "Empty Jwks URI",
-			in: []*v1beta1.JWT{
+			in: []*v1beta1.JWTRule{
 				{
 					Issuer: "https://secret.foo.com",
 				},
@@ -526,7 +526,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 		},
 		{
 			name: "Unreachable Jwks URI",
-			in: []*v1beta1.JWT{
+			in: []*v1beta1.JWTRule{
 				{
 					Issuer:  "https://secret.foo.com",
 					JwksUri: "http://site.not.exist",
@@ -655,7 +655,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.foo.com",
 								JwksUri: jwksURI,
@@ -696,7 +696,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.bar.com",
 								JwksUri: jwksURI,
@@ -709,7 +709,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 				},
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer: "https://secret.foo.com",
 								Jwks:   "jwks-inline-data",
@@ -755,7 +755,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.foo.com",
 								JwksUri: jwksURI,
@@ -768,7 +768,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 				},
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer: "https://secret.bar.com",
 								Jwks:   "jwks-inline-data",
