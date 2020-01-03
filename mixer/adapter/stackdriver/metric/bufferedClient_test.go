@@ -211,7 +211,7 @@ func TestBuffered_Close(t *testing.T) {
 }
 
 func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, withError []bool, failedTS [][]*monitoring.TimeSeries,
-	errorCode [][]codes.Code, overallCode codes.Code, t *testing.T) pushFunc {
+	overallCode codes.Code, t *testing.T) pushFunc {
 	retryPushFn := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
 		if len(expReqTS) != len(withError) || len(expReqTS) != len(failedTS) || len(expReqTS) <= *pushCount {
 			t.Errorf("args size does not match or potential out of bound. abort push operation %v %v %v %v",
@@ -289,7 +289,7 @@ func TestBuffered_Retry(t *testing.T) {
 			env := test.NewEnv(t)
 			b := buffered{
 				l:                   env,
-				pushMetrics:         createRetryPushFn(&pushCount, tt.requestTS, tt.withError, tt.failedTS, nil, tt.overallCode, t),
+				pushMetrics:         createRetryPushFn(&pushCount, tt.requestTS, tt.withError, tt.failedTS, tt.overallCode, t),
 				timeSeriesBatchSize: 100,
 				retryLimit:          5,
 				retryBuffer:         []*monitoring.TimeSeries{},
@@ -322,7 +322,7 @@ func TestBuffered_RetryCombine(t *testing.T) {
 	env := test.NewEnv(t)
 	b := buffered{
 		l:                   env,
-		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, nil, codes.Unavailable, t),
+		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, codes.Unavailable, t),
 		timeSeriesBatchSize: 100,
 		retryLimit:          5,
 		retryBuffer:         []*monitoring.TimeSeries{},
@@ -358,7 +358,7 @@ func TestBuffered_RetryMaxAttempt(t *testing.T) {
 	}
 	b := buffered{
 		l:                   l,
-		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, nil, codes.Unavailable, t),
+		pushMetrics:         createRetryPushFn(&pushCount, requestTS, withError, failedTS, codes.Unavailable, t),
 		timeSeriesBatchSize: 100,
 		retryLimit:          2,
 		retryBuffer:         []*monitoring.TimeSeries{},
