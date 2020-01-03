@@ -262,9 +262,9 @@ func getDeploymentCondition(status appsv1.DeploymentStatus, condType appsv1.Depl
 }
 
 func findResourceInSpec(kind string) string {
-	for _, r := range schema.MustGet().KubeCollections().All() {
-		if r.Kind() == kind {
-			return r.Plural()
+	for _, c := range schema.MustGet().KubeCollections().All() {
+		if c.Resource().Kind() == kind {
+			return c.Resource().Plural()
 		}
 	}
 	return ""

@@ -63,11 +63,11 @@ var (
 	serviceName = resource.NewFullName(namespace, "svc1")
 	createTime  = time.Now()
 
-	nodeCollection         = collections.K8SCoreV1Nodes.Name()
-	podCollection          = collections.K8SCoreV1Pods.Name()
-	serviceCollection      = collections.K8SCoreV1Services.Name()
-	endpointsCollection    = collections.K8SCoreV1Endpoints.Name()
-	serviceEntryCollection = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name()
+	nodeCollection         = collections.K8SCoreV1Nodes
+	podCollection          = collections.K8SCoreV1Pods
+	serviceCollection      = collections.K8SCoreV1Services
+	endpointsCollection    = collections.K8SCoreV1Endpoints
+	serviceEntryCollection = collections.IstioNetworkingV1Alpha3SyntheticServiceentries
 	serviceAnnotations     = resource.StringMap{
 		"ak1": "av1",
 	}
@@ -84,7 +84,7 @@ func TestInvalidCollectionShouldNotPanic(t *testing.T) {
 	defer rt.Stop()
 	src.Handlers.Handle(event.Event{
 		Kind:   event.Added,
-		Source: collections.IstioNetworkingV1Alpha3Gateways.Name(),
+		Source: collections.IstioNetworkingV1Alpha3Gateways,
 		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName: resource.NewFullName("ns", "svc1"),
@@ -102,19 +102,19 @@ func TestLifecycle(t *testing.T) {
 	stages := []stage{
 		{
 			name:  "NodeSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Nodes.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Nodes),
 		},
 		{
 			name:  "PodSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Pods.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Pods),
 		},
 		{
 			name:  "ServiceSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Services.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Services),
 		},
 		{
 			name:  "EndpointSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Endpoints.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Endpoints),
 			validator: func(ctx pipelineContext) {
 				expectNotifications(ctx.t, ctx.acc, 1)
 			},
@@ -382,19 +382,19 @@ func TestAddOrder(t *testing.T) {
 	initialStages := []stage{
 		{
 			name:  "NodeSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Nodes.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Nodes),
 		},
 		{
 			name:  "PodSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Pods.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Pods),
 		},
 		{
 			name:  "ServiceSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Services.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Services),
 		},
 		{
 			name:  "EndpointSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Endpoints.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Endpoints),
 		},
 	}
 
@@ -557,19 +557,19 @@ func TestDeleteOrder(t *testing.T) {
 	syncStages := []stage{
 		{
 			name:  "NodeSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Nodes.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Nodes),
 		},
 		{
 			name:  "PodSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Pods.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Pods),
 		},
 		{
 			name:  "ServiceSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Services.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Services),
 		},
 		{
 			name:  "EndpointSync",
-			event: event.FullSyncFor(collections.K8SCoreV1Endpoints.Name()),
+			event: event.FullSyncFor(collections.K8SCoreV1Endpoints),
 			validator: func(ctx pipelineContext) {
 				expectNotifications(ctx.t, ctx.acc, 1)
 			},
@@ -678,10 +678,10 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 	defer rt.Stop()
 
 	syncEvents := []event.Event{
-		event.FullSyncFor(collections.K8SCoreV1Nodes.Name()),
-		event.FullSyncFor(collections.K8SCoreV1Pods.Name()),
-		event.FullSyncFor(collections.K8SCoreV1Services.Name()),
-		event.FullSyncFor(collections.K8SCoreV1Endpoints.Name()),
+		event.FullSyncFor(collections.K8SCoreV1Nodes),
+		event.FullSyncFor(collections.K8SCoreV1Pods),
+		event.FullSyncFor(collections.K8SCoreV1Services),
+		event.FullSyncFor(collections.K8SCoreV1Endpoints),
 	}
 
 	for _, e := range syncEvents {
@@ -781,7 +781,7 @@ func newHandler() (*processing.Runtime, *fixtures.Source, *snapshotter.InMemoryD
 		Source:       event.CombineSources(src, meshSrc),
 		ProcessorProvider: func(o processing.ProcessorOptions) event.Processor {
 			xforms := serviceentry.GetProviders().Create(o)
-			xforms[0].DispatchFor(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name(), a)
+			xforms[0].DispatchFor(collections.IstioNetworkingV1Alpha3SyntheticServiceentries, a)
 			settings := []snapshotter.SnapshotOptions{
 				{
 					Group:       "syntheticServiceEntry",
@@ -1256,12 +1256,12 @@ func expectResource(
 	expectedVersionStr := fmt.Sprintf("istio/networking/v1alpha3/synthetic/serviceentries/%d", expectedVersion)
 	g.Eventually(func() string {
 		sn := dst.GetSnapshot("syntheticServiceEntry")
-		return sn.Version(serviceEntryCollection.String())
+		return sn.Version(serviceEntryCollection.Name().String())
 	}).Should(Equal(expectedVersionStr))
 
 	sn := dst.GetSnapshot("syntheticServiceEntry")
 	// Extract out the resource.
-	rs := sn.Resources(serviceEntryCollection.String())
+	rs := sn.Resources(serviceEntryCollection.Name().String())
 	if len(rs) != 1 {
 		t.Fatalf("expected snapshot resource count %d to equal %d", len(rs), 1)
 	}
@@ -1289,13 +1289,13 @@ func expectEmptySnapshot(t *testing.T, dst *snapshotter.InMemoryDistributor, exp
 	expectedVersionStr := fmt.Sprintf("istio/networking/v1alpha3/synthetic/serviceentries/%d", expectedVersion)
 	g.Eventually(func() string {
 		sn := dst.GetSnapshot("syntheticServiceEntry")
-		return sn.Version(serviceEntryCollection.String())
+		return sn.Version(serviceEntryCollection.Name().String())
 	}).Should(Equal(expectedVersionStr))
 
 	sn := dst.GetSnapshot("syntheticServiceEntry")
 
 	// Verify there are no resources in the snapshot.
-	rs := sn.Resources(serviceEntryCollection.String())
+	rs := sn.Resources(serviceEntryCollection.Name().String())
 	if len(rs) != 0 {
 		t.Fatalf("expected snapshot resource count %d to equal %d", len(rs), 0)
 	}

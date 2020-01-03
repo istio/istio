@@ -27,6 +27,15 @@ type Schemas struct {
 	byCollection map[string]Schema
 }
 
+// SchemasFor is a shortcut for creating Schemas. It uses MustAdd for each element.
+func SchemasFor(schemas ...Schema) Schemas {
+	b := NewSchemasBuilder()
+	for _, s := range schemas {
+		b.MustAdd(s)
+	}
+	return b.Build()
+}
+
 // SchemasBuilder is a builder for the schemas type.
 type SchemasBuilder struct {
 	schemas Schemas
@@ -102,7 +111,7 @@ func (s Schemas) MustFind(collection string) Schema {
 // FindByGroupAndKind searches and returns the resource spec with the given group/kind
 func (s Schemas) FindByGroupAndKind(group, kind string) (Schema, bool) {
 	for _, rs := range s.byCollection {
-		if rs.Group() == group && rs.Kind() == kind {
+		if rs.Resource().Group() == group && rs.Resource().Kind() == kind {
 			return rs, true
 		}
 	}
@@ -159,7 +168,7 @@ func (s Schemas) DisabledCollectionNames() Names {
 // Validate the schemas. Returns error if there is a problem.
 func (s Schemas) Validate() error {
 	for _, c := range s.All() {
-		if err := c.Validate(); err != nil {
+		if err := c.Resource().Validate(); err != nil {
 			return err
 		}
 	}

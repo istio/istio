@@ -21,13 +21,14 @@ import (
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
 func TestInstance_Basics(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	inst := collection.New(data.K8SCollection1)
+	inst := collection.New(basicmeta.K8SCollection1)
 
 	g.Expect(inst.Size()).To(Equal(0))
 
@@ -84,7 +85,7 @@ func TestInstance_Basics(t *testing.T) {
 func TestInstance_Clone(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	inst := collection.New(data.K8SCollection1)
+	inst := collection.New(basicmeta.K8SCollection1)
 	inst.Set(data.EntryN1I1V1)
 	inst.Set(data.EntryN2I2V2)
 
@@ -117,7 +118,7 @@ func TestInstance_Clone(t *testing.T) {
 func TestInstance_ForEach_False(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	inst := collection.New(data.K8SCollection1)
+	inst := collection.New(basicmeta.K8SCollection1)
 	inst.Set(data.EntryN1I1V2)
 	inst.Set(data.EntryN2I2V2)
 	inst.Set(data.EntryN3I3V1)
@@ -140,7 +141,7 @@ func TestInstance_ForEach_False(t *testing.T) {
 func TestInstance_Get(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	inst := collection.New(data.K8SCollection1)
+	inst := collection.New(basicmeta.K8SCollection1)
 	inst.Set(data.EntryN1I1V1)
 	inst.Set(data.EntryN3I3V1)
 

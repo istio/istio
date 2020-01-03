@@ -32,8 +32,8 @@ func TestVirtualService_Input_Output(t *testing.T) {
 
 	xform, _, _ := setupVS(g, processing.ProcessorOptions{})
 
-	g.Expect(xform.Inputs()).To(Equal(collection.Names{collections.K8SExtensionsV1Beta1Ingresses.Name()}))
-	g.Expect(xform.Outputs()).To(Equal(collection.Names{collections.IstioNetworkingV1Alpha3Virtualservices.Name()}))
+	g.Expect(xform.Inputs()).To(Equal(collection.NewSchemasBuilder().MustAdd(collections.K8SExtensionsV1Beta1Ingresses).Build()))
+	g.Expect(xform.Outputs()).To(Equal(collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Virtualservices).Build()))
 }
 
 func TestVirtualService_AddSync(t *testing.T) {
@@ -49,12 +49,12 @@ func TestVirtualService_AddSync(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses.Name(), ingress1()))
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses.Name()))
+	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), vs1()),
-		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name())))
+		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices, vs1()),
+		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices)))
 }
 
 func TestVirtualService_SyncAdd(t *testing.T) {
@@ -70,12 +70,12 @@ func TestVirtualService_SyncAdd(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses.Name(), ingress1()))
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses.Name()))
+	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name()),
-		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), vs1()),
+		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices),
+		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices, vs1()),
 	))
 }
 
@@ -92,16 +92,16 @@ func TestVirtualService_AddUpdateDelete(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses.Name()))
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses.Name(), ingress1()))
-	src.Handlers.Handle(event.UpdateFor(collections.K8SExtensionsV1Beta1Ingresses.Name(), ingress1v2()))
-	src.Handlers.Handle(event.DeleteForResource(collections.K8SExtensionsV1Beta1Ingresses.Name(), ingress1v2()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.UpdateFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1v2()))
+	src.Handlers.Handle(event.DeleteForResource(collections.K8SExtensionsV1Beta1Ingresses, ingress1v2()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name()),
-		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), vs1()),
-		event.UpdateFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), vs1v2()),
-		event.DeleteFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), vs1v2().Metadata.FullName, vs1v2().Metadata.Version),
+		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices),
+		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices, vs1()),
+		event.UpdateFor(collections.IstioNetworkingV1Alpha3Virtualservices, vs1v2()),
+		event.DeleteFor(collections.IstioNetworkingV1Alpha3Virtualservices, vs1v2().Metadata.FullName, vs1v2().Metadata.Version),
 	))
 }
 
@@ -118,11 +118,11 @@ func TestVirtualService_SyncReset(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses.Name()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
 	src.Handlers.Handle(event.Event{Kind: event.Reset})
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name()),
+		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices),
 		event.Event{Kind: event.Reset},
 	))
 }
@@ -140,11 +140,11 @@ func TestVirtualService_InvalidEventKind(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses.Name()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
 	src.Handlers.Handle(event.Event{Kind: 55})
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name()),
+		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices),
 	))
 }
 
@@ -166,9 +166,9 @@ func TestVirtualService_NoListeners(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses.Name()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
 	src.Handlers.Handle(event.Event{Kind: event.Reset})
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses.Name(), ingress1()))
+	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
 
 	// No crash
 }
@@ -187,12 +187,12 @@ func TestVirtualService_DoubleStart(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses.Name()))
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses.Name(), ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), vs1()),
-		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name()),
+		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices, vs1()),
+		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices),
 	))
 }
 
@@ -208,12 +208,12 @@ func TestVirtualService_DoubleStop(t *testing.T) {
 
 	xform.Start()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses.Name()))
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses.Name(), ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), vs1()),
-		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name()),
+		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices, vs1()),
+		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices),
 	))
 
 	acc.Clear()
@@ -236,12 +236,12 @@ func TestVirtualService_StartStopStartStop(t *testing.T) {
 
 	xform.Start()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses.Name()))
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses.Name(), ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), vs1()),
-		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name()),
+		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices, vs1()),
+		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices),
 	))
 
 	acc.Clear()
@@ -249,12 +249,12 @@ func TestVirtualService_StartStopStartStop(t *testing.T) {
 	g.Consistently(acc.Events).Should(BeEmpty())
 
 	xform.Start()
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses.Name()))
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses.Name(), ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), vs1()),
-		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name()),
+		event.AddFor(collections.IstioNetworkingV1Alpha3Virtualservices, vs1()),
+		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices),
 	))
 
 	acc.Clear()
@@ -275,7 +275,7 @@ func TestVirtualService_InvalidEvent(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name()))
+	src.Handlers.Handle(event.FullSyncFor(collections.IstioNetworkingV1Alpha3Virtualservices))
 
 	g.Consistently(acc.Events).Should(BeEmpty())
 }
@@ -288,7 +288,7 @@ func setupVS(g *GomegaWithT, o processing.ProcessorOptions) (event.Transformer, 
 	acc := &fixtures.Accumulator{}
 	xform := xforms[1]
 	src.Dispatch(xform)
-	xform.DispatchFor(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), acc)
+	xform.DispatchFor(collections.IstioNetworkingV1Alpha3Virtualservices, acc)
 
 	return xform, src, acc
 }

@@ -21,21 +21,12 @@ import (
 
 	"istio.io/istio/galley/pkg/config/schema/ast"
 	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/resource"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
-	"istio.io/istio/pkg/config/validation"
 )
 
 var (
-	virtualServiceResource = resource.Builder{
-		ProtoPackage:  "istio.io/api/networking/v1alpha3",
-		Proto:         "istio.networking.v1alpha3.VirtualService",
-		Version:       "v1alpha3",
-		Kind:          "VirtualService",
-		Plural:        "VirtualServices",
-		Group:         "networking.istio.io",
-		ValidateProto: validation.ValidateVirtualService,
-	}.Build()
+	virtualServiceResource = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 )
 
 func TestSchema_ParseAndBuild(t *testing.T) {
@@ -70,7 +61,7 @@ snapshots:
 
 resources:
   - kind:         "VirtualService"
-    plural:       "VirtualServices"
+    plural:       "virtualservices"
     group:        "networking.istio.io"
     version:      "v1alpha3"
     proto:        "istio.networking.v1alpha3.VirtualService"
@@ -163,7 +154,7 @@ collections:
     group:        "networking.istio.io"
 resources:
   - kind:         "VirtualService"
-    plural:       "VirtualServices"
+    plural:       "virtualservices"
     group:        "networking.istio.io"
     version:      "v1alpha3"
     proto:        "istio.networking.v1alpha3.VirtualService"
@@ -183,7 +174,7 @@ collections:
     group:        "networking.istio.io"
 resources:
   - kind:         "VirtualService"
-    plural:       "VirtualServices"
+    plural:       "virtualservices"
     group:        "networking.istio.io"
     version:      "v1alpha3"
     proto:        "istio.networking.v1alpha3.VirtualService"
@@ -200,7 +191,7 @@ collections:
     group:        "networking.istio.io"
 resources:
   - kind:         "VirtualService"
-    plural:       "VirtualServices"
+    plural:       "virtualservices"
     group:        "networking.istio.io"
     version:      "v1alpha3"
     proto:        "istio.networking.v1alpha3.VirtualService"
@@ -232,7 +223,7 @@ collections:
     group:        "networking.istio.io"
 resources:
   - kind:         "VirtualService"
-    plural:       "VirtualServices"
+    plural:       "virtualservices"
     group:        "networking.istio.io"
     version:      "v1alpha3"
     proto:        "istio.networking.v1alpha3.VirtualService"
@@ -253,7 +244,7 @@ collections:
     group:        "networking.istio.io"
 resources:
   - kind:         "VirtualService"
-    plural:       "VirtualServices"
+    plural:       "virtualservices"
     group:        "networking.istio.io"
     version:      "v1alpha3"
     proto:        "istio.networking.v1alpha3.VirtualService"
@@ -295,7 +286,7 @@ snapshots:
 
 resources:
   - kind:         "VirtualService"
-    plural:       "VirtualServices"
+    plural:       "virtualservices"
     group:        "networking.istio.io"
     version:      "v1alpha3"
     proto:        "istio.networking.v1alpha3.VirtualService"
@@ -363,7 +354,7 @@ func TestSchemaBasic(t *testing.T) {
 		collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"),
 	})
 
-	g.Expect(s.KubeCollections().All()[0].CanonicalResourceName()).To(Equal("networking.istio.io/v1alpha3/VirtualService"))
+	g.Expect(s.KubeCollections().All()[0].Resource().CanonicalName()).To(Equal("networking.istio.io/v1alpha3/VirtualService"))
 }
 
 func TestSchema_DirectTransform_Panic(t *testing.T) {

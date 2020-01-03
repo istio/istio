@@ -22,6 +22,37 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func TestNewSchema_Error(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	cases := []struct {
+		name string
+		b    Builder
+	}{
+		{
+			name: "empty kind",
+			b: Builder{
+				Kind:  "",
+				Proto: "google.protobuf.Empty",
+			},
+		},
+		{
+			name: "invalid proto",
+			b: Builder{
+				Kind:  "Empty",
+				Proto: "bad",
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := c.b.Build()
+			g.Expect(err).NotTo(BeNil())
+		})
+	}
+}
+
 func TestCanonicalName(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -31,19 +62,23 @@ func TestCanonicalName(t *testing.T) {
 		{
 			name: "group",
 			s: Builder{
-				Group:   "g",
-				Version: "v",
-				Kind:    "k",
-			}.Build(),
+				Group:        "g",
+				Version:      "v",
+				Kind:         "k",
+				ProtoPackage: "github.com/gogo/protobuf/types",
+				Proto:        "google.protobuf.Empty",
+			}.MustBuild(),
 			expected: "g/v/k",
 		},
 		{
 			name: "no group",
 			s: Builder{
-				Group:   "",
-				Version: "v",
-				Kind:    "k",
-			}.Build(),
+				Group:        "",
+				Version:      "v",
+				Kind:         "k",
+				ProtoPackage: "github.com/gogo/protobuf/types",
+				Proto:        "google.protobuf.Empty",
+			}.MustBuild(),
 			expected: "core/v/k",
 		},
 	}
@@ -51,7 +86,7 @@ func TestCanonicalName(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
-			g.Expect(c.s.CanonicalResourceName()).To(Equal(c.expected))
+			g.Expect(c.s.CanonicalName()).To(Equal(c.expected))
 		})
 	}
 }
@@ -60,9 +95,10 @@ func TestSchema_NewProtoInstance(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	s := Builder{
+		Kind:         "Empty",
 		ProtoPackage: "github.com/gogo/protobuf/types",
 		Proto:        "google.protobuf.Empty",
-	}.Build()
+	}.MustBuild()
 
 	p := s.NewProtoInstance()
 	g.Expect(p).To(Equal(&types.Empty{}))
@@ -83,9 +119,10 @@ func TestSchema_NewProtoInstance_Panic_Nil(t *testing.T) {
 	}
 
 	s := Builder{
+		Kind:         "Empty",
 		ProtoPackage: "github.com/gogo/protobuf/types",
 		Proto:        "google.protobuf.Empty",
-	}.Build()
+	}.MustBuild()
 
 	_ = s.NewProtoInstance()
 }
@@ -105,9 +142,10 @@ func TestSchema_NewProtoInstance_Panic_NonProto(t *testing.T) {
 	}
 
 	s := Builder{
+		Kind:         "Empty",
 		ProtoPackage: "github.com/gogo/protobuf/types",
 		Proto:        "google.protobuf.Empty",
-	}.Build()
+	}.MustBuild()
 
 	_ = s.NewProtoInstance()
 }
@@ -116,9 +154,10 @@ func TestSchema_Validate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	s := Builder{
+		Kind:         "Empty",
 		ProtoPackage: "github.com/gogo/protobuf/types",
 		Proto:        "google.protobuf.Empty",
-	}.Build()
+	}.MustBuild()
 
 	err := s.Validate()
 	g.Expect(err).To(BeNil())
@@ -128,9 +167,10 @@ func TestSchema_Validate_Failure(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	s := Builder{
+		Kind:         "Boo",
 		ProtoPackage: "github.com/gogo/protobuf/types",
 		Proto:        "boo",
-	}.Build()
+	}.BuildNoValidate()
 
 	err := s.Validate()
 	g.Expect(err).NotTo(BeNil())
@@ -143,7 +183,7 @@ func TestSchema_String(t *testing.T) {
 		Kind:         "Empty",
 		ProtoPackage: "github.com/gogo/protobuf/types",
 		Proto:        "google.protobuf.Empty",
-	}.Build()
+	}.MustBuild()
 
 	g.Expect(s.String()).To(Equal(`[Schema](Empty, "github.com/gogo/protobuf/types", google.protobuf.Empty)`))
 }

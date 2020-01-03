@@ -77,8 +77,9 @@ func (ph *precedenceHandler) Handle(e event.Event) {
 // handleFullSync handles FullSync events, which are a special case.
 // For each collection, we want to only send this once, after all upstream sources have sent theirs.
 func (ph *precedenceHandler) handleFullSync(e event.Event) {
-	ph.src.expectedCounts[e.Source]--
-	if ph.src.expectedCounts[e.Source] > 0 {
+	col := e.Source.Name()
+	ph.src.expectedCounts[col]--
+	if ph.src.expectedCounts[col] > 0 {
 		return
 	}
 	ph.src.handler.Handle(e)
@@ -88,7 +89,7 @@ func (ph *precedenceHandler) handleFullSync(e event.Event) {
 // For each event, only pass it along to the downstream handler if the source it came from
 // had equal or higher precedence on the current resource
 func (ph *precedenceHandler) handleEvent(e event.Event) {
-	key := fmt.Sprintf("%s/%s", e.Source, e.Resource.Metadata.FullName)
+	key := fmt.Sprintf("%s/%s", e.Source.Name(), e.Resource.Metadata.FullName)
 	curPrecedence, ok := ph.src.resourcePriority[key]
 	if ok && ph.precedence < curPrecedence {
 		return

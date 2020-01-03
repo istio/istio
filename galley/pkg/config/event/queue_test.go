@@ -41,7 +41,7 @@ func TestQueueWrapEmpty(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		a := wrap(i, 0)
-		g.Expect(a).To((Equal(i)))
+		g.Expect(a).To(Equal(i))
 	}
 }
 

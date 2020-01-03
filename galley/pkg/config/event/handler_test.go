@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package event
+package event_test
 
 import (
 	"testing"
@@ -20,18 +20,19 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
 func TestHandlerFromFn(t *testing.T) {
 	g := NewGomegaWithT(t)
-	var received Event
-	h := HandlerFromFn(func(e Event) {
+	var received event.Event
+	h := event.HandlerFromFn(func(e event.Event) {
 		received = e
 	})
 
-	sent := Event{
-		Kind: Added,
+	sent := event.Event{
+		Kind: event.Added,
 		Resource: &resource.Instance{
 			Message: &types.Empty{},
 		},
@@ -45,22 +46,22 @@ func TestHandlerFromFn(t *testing.T) {
 func TestHandlers(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	var received1 Event
-	h1 := HandlerFromFn(func(e Event) {
+	var received1 event.Event
+	h1 := event.HandlerFromFn(func(e event.Event) {
 		received1 = e
 	})
 
-	var received2 Event
-	h2 := HandlerFromFn(func(e Event) {
+	var received2 event.Event
+	h2 := event.HandlerFromFn(func(e event.Event) {
 		received2 = e
 	})
 
-	var hs Handlers
+	var hs event.Handlers
 	hs.Add(h1)
 	hs.Add(h2)
 
-	sent := Event{
-		Kind: Added,
+	sent := event.Event{
+		Kind: event.Added,
 		Resource: &resource.Instance{
 			Message: &types.Empty{},
 		},
@@ -75,20 +76,20 @@ func TestHandlers(t *testing.T) {
 func TestCombineHandlers(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	var received1 Event
-	h1 := HandlerFromFn(func(e Event) {
+	var received1 event.Event
+	h1 := event.HandlerFromFn(func(e event.Event) {
 		received1 = e
 	})
 
-	var received2 Event
-	h2 := HandlerFromFn(func(e Event) {
+	var received2 event.Event
+	h2 := event.HandlerFromFn(func(e event.Event) {
 		received2 = e
 	})
 
-	h3 := CombineHandlers(h1, h2)
+	h3 := event.CombineHandlers(h1, h2)
 
-	sent := Event{
-		Kind: Added,
+	sent := event.Event{
+		Kind: event.Added,
 		Resource: &resource.Instance{
 			Message: &types.Empty{},
 		},
@@ -103,15 +104,15 @@ func TestCombineHandlers(t *testing.T) {
 func TestCombineHandlers_Nil1(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	var received1 Event
-	h1 := HandlerFromFn(func(e Event) {
+	var received1 event.Event
+	h1 := event.HandlerFromFn(func(e event.Event) {
 		received1 = e
 	})
 
-	h3 := CombineHandlers(h1, nil)
+	h3 := event.CombineHandlers(h1, nil)
 
-	sent := Event{
-		Kind: Added,
+	sent := event.Event{
+		Kind: event.Added,
 		Resource: &resource.Instance{
 			Message: &types.Empty{},
 		},
@@ -125,15 +126,15 @@ func TestCombineHandlers_Nil1(t *testing.T) {
 func TestCombineHandlers_Nil2(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	var received1 Event
-	h1 := HandlerFromFn(func(e Event) {
+	var received1 event.Event
+	h1 := event.HandlerFromFn(func(e event.Event) {
 		received1 = e
 	})
 
-	h3 := CombineHandlers(nil, h1)
+	h3 := event.CombineHandlers(nil, h1)
 
-	sent := Event{
-		Kind: Added,
+	sent := event.Event{
+		Kind: event.Added,
 		Resource: &resource.Instance{
 			Message: &types.Empty{},
 		},
@@ -147,42 +148,42 @@ func TestCombineHandlers_Nil2(t *testing.T) {
 func TestCombineHandlers_MultipleHandlers(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	var received1 Event
-	h1 := HandlerFromFn(func(e Event) {
+	var received1 event.Event
+	h1 := event.HandlerFromFn(func(e event.Event) {
 		received1 = e
 	})
 
-	var received2 Event
-	h2 := HandlerFromFn(func(e Event) {
+	var received2 event.Event
+	h2 := event.HandlerFromFn(func(e event.Event) {
 		received2 = e
 	})
 
-	hs1 := &Handlers{}
+	hs1 := &event.Handlers{}
 	hs1.Add(h1)
 	hs1.Add(h2)
 
-	var received3 Event
-	h3 := HandlerFromFn(func(e Event) {
+	var received3 event.Event
+	h3 := event.HandlerFromFn(func(e event.Event) {
 		received3 = e
 	})
 
-	var received4 Event
-	h4 := HandlerFromFn(func(e Event) {
+	var received4 event.Event
+	h4 := event.HandlerFromFn(func(e event.Event) {
 		received4 = e
 	})
 
-	hs2 := &Handlers{}
+	hs2 := &event.Handlers{}
 	hs2.Add(h3)
 	hs2.Add(h4)
 
-	sent := Event{
-		Kind: Added,
+	sent := event.Event{
+		Kind: event.Added,
 		Resource: &resource.Instance{
 			Message: &types.Empty{},
 		},
 	}
 
-	hc := CombineHandlers(hs1, hs2)
+	hc := event.CombineHandlers(hs1, hs2)
 	hc.Handle(sent)
 
 	g.Expect(received1).To(Equal(sent))
@@ -192,9 +193,9 @@ func TestCombineHandlers_MultipleHandlers(t *testing.T) {
 }
 
 func TestSentinelHandler(t *testing.T) {
-	h := SentinelHandler()
-	e := Event{
-		Kind: Added,
+	h := event.SentinelHandler()
+	e := event.Event{
+		Kind: event.Added,
 		Resource: &resource.Instance{
 			Message: &types.Empty{},
 		},
