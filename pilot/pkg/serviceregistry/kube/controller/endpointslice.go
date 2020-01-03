@@ -147,7 +147,7 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 		}
 	}
 
-	return esc.handleEvent(esc, ep.Name, ep.Namespace, event, curr)
+	return esc.handleEvent(esc, ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, event, curr)
 }
 
 func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {

@@ -15,16 +15,16 @@
 package controller
 
 import (
+	v1 "k8s.io/api/core/v1"
+	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	"k8s.io/client-go/tools/cache"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/pkg/log"
-
-	v1 "k8s.io/api/core/v1"
-	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
-	"k8s.io/client-go/tools/cache"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -47,7 +47,7 @@ type kubeEndpoints struct {
 // GetProxyServiceInstances returns service instances of the given proxy.
 func (e *kubeEndpoints) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
 	var otherNamespaceEndpoints []*model.ServiceInstance
-	sameNamespaceEndpoints := make([]*model.ServiceInstance, 0)
+	var sameNamespaceEndpoints []*model.ServiceInstance
 
 	for _, item := range e.informer.GetStore().List() {
 		var proxyServiceInstances []*model.ServiceInstance
@@ -63,9 +63,6 @@ func (e *kubeEndpoints) GetProxyServiceInstances(c *Controller, proxy *model.Pro
 		if namespace == proxyNamespace {
 			sameNamespaceEndpoints = append(sameNamespaceEndpoints, proxyServiceInstances...)
 		} else {
-			if otherNamespaceEndpoints == nil {
-				otherNamespaceEndpoints = make([]*model.ServiceInstance, 0)
-			}
 			otherNamespaceEndpoints = append(otherNamespaceEndpoints, proxyServiceInstances...)
 		}
 	}
