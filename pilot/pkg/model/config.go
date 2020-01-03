@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	"github.com/mitchellh/copystructure"
 
 	"github.com/gogo/protobuf/proto"
@@ -32,6 +33,11 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
+)
+
+var (
+	// Statically link protobuf descriptors from UDPA
+	_ = udpa.TypedStruct{}
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
