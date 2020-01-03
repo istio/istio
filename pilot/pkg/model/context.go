@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -474,6 +475,18 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 		log.Errorf("failed to get service proxy service instances: %v", err)
 		return err
 	}
+
+	// Keep service instances in order of creation/hostname.
+	sort.SliceStable(instances, func(i, j int) bool {
+		if instances[i].Service != nil && instances[j].Service != nil {
+			if !instances[i].Service.CreationTime.Equal(instances[j].Service.CreationTime) {
+				return instances[i].Service.CreationTime.Before(instances[j].Service.CreationTime)
+			}
+			// Additionally, sort by hostname just in case services created automatically at the same second.
+			return instances[i].Service.Hostname < instances[j].Service.Hostname
+		}
+		return true
+	})
 
 	node.ServiceInstances = instances
 	return nil

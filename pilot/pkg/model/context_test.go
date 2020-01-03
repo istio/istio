@@ -19,15 +19,17 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/jsonpb"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/pkg/config/labels"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 )
 
 func TestNodeMetadata(t *testing.T) {
@@ -403,4 +405,45 @@ func Test_parseIstioVersion(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetServiceInstances(t *testing.T) {
+	tnow := time.Now()
+	instances := []*model.ServiceInstance{
+		{
+			Service: &model.Service{
+				CreationTime: tnow.Add(1 * time.Second),
+				Hostname:     host.Name("test1.com"),
+			},
+		},
+		{
+			Service: &model.Service{
+				CreationTime: tnow,
+				Hostname:     host.Name("test3.com"),
+			},
+		},
+		{
+			Service: &model.Service{
+				CreationTime: tnow,
+				Hostname:     host.Name("test2.com"),
+			},
+		},
+	}
+
+	serviceDiscovery := new(fakes.ServiceDiscovery)
+	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
+
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+	}
+
+	proxy := &model.Proxy{}
+	if err := proxy.SetServiceInstances(env); err != nil {
+		t.Errorf("SetServiceInstances => Got error %v", err)
+	}
+
+	assert.Equal(t, len(proxy.ServiceInstances), 3)
+	assert.Equal(t, proxy.ServiceInstances[0].Service.Hostname, host.Name("test2.com"))
+	assert.Equal(t, proxy.ServiceInstances[1].Service.Hostname, host.Name("test3.com"))
+	assert.Equal(t, proxy.ServiceInstances[2].Service.Hostname, host.Name("test1.com"))
 }
