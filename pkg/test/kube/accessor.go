@@ -216,7 +216,7 @@ func (a *Accessor) WaitUntilConfigMapPresents(name, namespace string, opts ...re
 
 		scopes.CI.Infof("Checking config map %v present...", name)
 
-		if cm, err := a.GetConfigMap(name, namespace); cm != nil || err == nil {
+		if cm, err := a.GetConfigMap(name, namespace); cm == nil || err != nil {
 			return nil, false, err
 		}
 		return nil, true, nil
