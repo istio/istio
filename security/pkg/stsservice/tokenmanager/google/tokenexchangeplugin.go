@@ -319,3 +319,9 @@ func (p *Plugin) DumpPluginStatus() ([]byte, error) {
 	statusJSON, err := json.MarshalIndent(td, "", " ")
 	return statusJSON, err
 }
+
+// SetEndpoints changes the endpoints for testing purposes only.
+func (p *Plugin) SetEndpoints(fTokenEndpoint, aTokenEndpoint string) {
+	federatedTokenEndpoint = fTokenEndpoint
+	accessTokenEndpoint = aTokenEndpoint
+}
