@@ -1457,7 +1457,6 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) 
 		nil, // authnPolicy
 		&model.IstioVersion{Major: 1, Minor: 2})
 
-	fmt.Printf("%+v\n", clusters[0])
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
 	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
@@ -1478,7 +1477,6 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 
 	for _, cluster := range clusters {
 		if cluster.Name != "BlackHoleCluster" {
-			fmt.Println(cluster.CircuitBreakers)
 			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 		}
@@ -1527,7 +1525,6 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
-		fmt.Println(cluster.CircuitBreakers)
 		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 	}
