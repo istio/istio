@@ -17,6 +17,7 @@
 .PHONY: docker.save
 .PHONY: docker.push
 
+
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
 docker: docker.all
@@ -26,6 +27,14 @@ docker: docker.all
 DOCKER_TARGETS ?= docker.pilot docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
 	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s \
 	docker.istioctl
+
+ifeq ($(TARGET_ARCH),amd64)
+	DOCKER_OPT=--build-arg DISTROLESS_IMAGE=gcr.io/distroless
+else ifeq ($(TARGET_ARCH),arm64)
+	DOCKER_OPT=--build-arg DISTROLESS_IMAGE=discolix
+else
+	DOCKER_OPT=--build-arg DISTROLESS_IMAGE=gcr.io/distroless
+endif
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -76,7 +85,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
 docker.sidecar_injector: BUILD_PRE=&& chmod 755 sidecar-injector
-docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} ${DOCKER_OPT}
 docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
 docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 	$(DOCKER_RULE)
@@ -95,7 +104,7 @@ endif
 
 # Default proxy image.
 docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent
-docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
+docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION} ${DOCKER_OPT} --build-arg ARCH=${LOCAL_ARCH}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
@@ -121,7 +130,7 @@ docker.proxytproxy: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
 
 docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery cacert.pem
-docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} ${DOCKER_OPT}
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
 docker.pilot: pilot/docker/Dockerfile.pilot
@@ -159,12 +168,12 @@ docker.app_sidecar: $(ISTIO_DOCKER)/istio-clean-iptables
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
-docker.test_policybackend: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.test_policybackend: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} ${DOCKER_OPT}
 docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
 docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
 	$(DOCKER_RULE)
 
-docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} --build-arg TARGET_ARCH=${TARGET_ARCH}
 docker.kubectl: docker/Dockerfile$$(suffix $$@)
 	$(DOCKER_RULE)
 
@@ -176,13 +185,13 @@ docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
 # mixer docker images
 
 docker.mixer: BUILD_PRE=&& chmod 755 mixs
-docker.mixer: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.mixer: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} ${DOCKER_OPT}
 docker.mixer: mixer/docker/Dockerfile.mixer
 docker.mixer: $(ISTIO_DOCKER)/mixs
 	$(DOCKER_RULE)
 
 # mixer codegen docker images
-docker.mixer_codegen: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.mixer_codegen: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} ${DOCKER_OPT}
 docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
 docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
@@ -218,7 +227,7 @@ dockerx.%:
 
 # galley docker images
 docker.galley: BUILD_PRE=&& chmod 755 galley
-docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} ${DOCKER_OPT}
 docker.galley: galley/docker/Dockerfile.galley
 docker.galley: $(ISTIO_DOCKER)/galley
 	$(DOCKER_RULE)
@@ -226,7 +235,7 @@ docker.galley: $(ISTIO_DOCKER)/galley
 # security docker images
 
 docker.citadel: BUILD_PRE=&& chmod 755 istio_ca
-docker.citadel: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.citadel: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} ${DOCKER_OPT}
 docker.citadel: security/docker/Dockerfile.citadel
 docker.citadel: $(ISTIO_DOCKER)/istio_ca
 	$(DOCKER_RULE)
@@ -238,12 +247,12 @@ docker.citadel-test: $(ISTIO_DOCKER)/istio_ca.crt
 docker.citadel-test: $(ISTIO_DOCKER)/istio_ca.key
 	$(DOCKER_RULE)
 
-docker.node-agent: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.node-agent: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} ${DOCKER_OPT}
 docker.node-agent: security/docker/Dockerfile.node-agent
 docker.node-agent: $(ISTIO_DOCKER)/node_agent
 	$(DOCKER_RULE)
 
-docker.node-agent-k8s: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.node-agent-k8s: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} ${DOCKER_OPT}
 docker.node-agent-k8s: security/docker/Dockerfile.node-agent-k8s
 docker.node-agent-k8s: $(ISTIO_DOCKER)/node_agent_k8s
 	$(DOCKER_RULE)

@@ -6,7 +6,8 @@ ARG BASE_VERSION=latest
 FROM docker.io/istio/base:${BASE_VERSION} as default
 
 # This container should only contain kubectl.  Hard-coding to use Linux K8s 1.13.10 version.
-ADD https://storage.googleapis.com/kubernetes-release/release/v1.13.10/bin/linux/amd64/kubectl /usr/bin/kubectl
+ARG TARGET_ARCH=amd64
+ADD https://storage.googleapis.com/kubernetes-release/release/v1.13.10/bin/linux/${TARGET_ARCH}/kubectl /usr/bin/kubectl
 RUN chmod +x /usr/bin/kubectl
 
 # Ensure a kubectl compatible with the container OS was used.  This is a safety

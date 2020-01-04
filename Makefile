@@ -53,11 +53,11 @@ else
 endif
 
 export TARGET_OUT ?= $(shell pwd)/out/$(TARGET_OS)_$(TARGET_ARCH)
-export TARGET_OUT_LINUX ?= $(shell pwd)/out/linux_amd64
+export TARGET_OUT_LINUX ?= $(shell pwd)/out/linux_$(TARGET_ARCH)
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
 export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
-export TARGET_OUT_LINUX = /work/out/linux_amd64
+export TARGET_OUT_LINUX = /work/out/linux_$(TARGET_ARCH)
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
 IMG ?= gcr.io/istio-testing/build-tools:master-2019-12-15T16-17-48
