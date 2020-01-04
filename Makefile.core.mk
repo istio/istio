@@ -437,8 +437,8 @@ security-test:
 common-test: build
 	go test ${T} ./pkg/...
 	go test ${T} ./tests/common/...
+	go test ${T} ./tools/istio-iptables/...
 	# Execute bash shell unit tests scripts
-	./tests/scripts/scripts_test.sh
 	./tests/scripts/istio-iptables-test.sh
 
 .PHONY: selected-pkg-test
