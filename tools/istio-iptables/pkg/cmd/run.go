@@ -22,18 +22,10 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/pkg/env"
-
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
-
 	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
-)
-
-var (
-	// TODO: Add a description.
-	disableRedirectionOnLocalLoopbackVar = env.RegisterBoolVar(constants.DisableRedirectionOnLocalLoopback, false, "")
 )
 
 type IptablesConfigurator struct {
