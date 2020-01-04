@@ -158,6 +158,42 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	sidecarConfigWithWildcard := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   7443,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
+	sidecarConfigWitHttpProxy := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   7443,
+						Protocol: "HTTP_PROXY",
+						Name:     "something",
+					},
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
 	sidecarConfigWithRegistryOnly := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Name:      "foo",
@@ -335,6 +371,22 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceSpec5 := &networking.VirtualService{
+		Hosts:    []string{"test-svc.testns.svc.cluster.local"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test-svc.testn.svc.cluster.local",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
 	virtualService1 := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      schemas.VirtualService.Type,
@@ -370,6 +422,15 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			Namespace: "not-default",
 		},
 		Spec: virtualServiceSpec4,
+	}
+	virtualService5 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      schemas.VirtualService.Type,
+			Version:   schemas.VirtualService.Version,
+			Name:      "acme-v3",
+			Namespace: "not-default",
+		},
+		Spec: virtualServiceSpec5,
 	}
 	// With the config above, RDS should return a valid route for the following route names
 	// port 9000 - [bookinfo.com:9999, *.bookinfo.com:9990], [bookinfo.com:70, *.bookinfo.com:70] but no bookinfo.com
@@ -417,7 +478,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"test.com:8080": {"test.com:8080": true, "8.8.8.8:8080": true},
+				"test.com:8080": {"test.com": true, "test.com:8080": true, "8.8.8.8": true, "8.8.8.8:8080": true},
 			},
 		},
 		{
@@ -638,6 +699,39 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfigWithRegistryOnly,
 			virtualServiceConfigs: nil,
 			expectedHosts:         map[string]map[string]bool{},
+		},
+		{
+			name:                  "wild card sidecar config, with non matching virtual service",
+			routeName:             "7443",
+			sidecarConfig:         sidecarConfigWithWildcard,
+			virtualServiceConfigs: []*model.Config{&virtualService5},
+			expectedHosts:         map[string]map[string]bool{},
+		},
+		{
+			name:                  "http proxy sidecar config, with non matching virtual service",
+			routeName:             "7443",
+			sidecarConfig:         sidecarConfigWitHttpProxy,
+			virtualServiceConfigs: []*model.Config{&virtualService5},
+			expectedHosts: map[string]map[string]bool{
+				"bookinfo.com:9999":      {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true},
+				"bookinfo.com:70":        {"bookinfo.com:70": true, "*.bookinfo.com:70": true},
+				"test-headless.com:8888": {"test-headless.com:8888": true, "*.test-headless.com:8888": true},
+				"test-private-2.com:60": {
+					"test-private-2.com": true, "test-private-2.com:60": true, "9.9.9.10": true, "9.9.9.10:60": true,
+				},
+				"test-private.com:70": {
+					"test-private.com": true, "test-private.com:70": true, "9.9.9.9": true, "9.9.9.9:70": true,
+				},
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"test.com:8080": {
+					"test.com:8080": true, "test.com": true, "8.8.8.8": true, "8.8.8.8:8080": true,
+				},
+				"test-svc.testns.svc.cluster.local:80": {
+					"test-svc.testns.svc.cluster.local": true, "test-svc.testns.svc.cluster.local:80": true,
+				},
+			},
 		},
 	}
 
