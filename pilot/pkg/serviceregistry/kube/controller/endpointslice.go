@@ -17,7 +17,6 @@ package controller
 import (
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
@@ -26,7 +25,6 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
@@ -35,8 +33,7 @@ import (
 )
 
 type endpointSliceController struct {
-	c             *Controller
-	informer      cache.SharedIndexInformer
+	kubeEndpoints
 	endpointCache *endpointSliceCache
 }
 
@@ -47,25 +44,20 @@ func newEndpointSliceController(c *Controller, sharedInformers informers.SharedI
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
-		c:             c,
-		informer:      informer,
+		kubeEndpoints: kubeEndpoints{
+			c:        c,
+			informer: informer,
+		},
 		endpointCache: newEndpointSliceCache(),
 	}
 	registerHandlers(informer, c.queue, "EndpointSlice", out.onEvent)
 	return out
 }
 
-func (e *endpointSliceController) HasSynced() bool {
-	return e.informer.HasSynced()
-}
-
-func (e *endpointSliceController) Run(stopCh <-chan struct{}) {
-	e.informer.Run(stopCh)
-}
-
-func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, event model.Event) {
+func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event) {
+	slice := es.(*discoveryv1alpha1.EndpointSlice)
 	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
-	hostname := kube.ServiceHostname(svcName, slice.Namespace, c.domainSuffix)
+	hostname := kube.ServiceHostname(svcName, slice.Namespace, esc.c.domainSuffix)
 
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
@@ -75,14 +67,14 @@ func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discovery
 				continue
 			}
 			for _, a := range e.Addresses {
-				pod := c.pods.getPodByIP(a)
+				pod := esc.c.pods.getPodByIP(a)
 				if pod == nil {
 					// This can not happen in usual case
 					if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
 						log.Warnf("Endpoint without pod %s %s.%s", a, svcName, slice.Namespace)
 
-						if c.metrics != nil {
-							c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, a)
+						if esc.c.metrics != nil {
+							esc.c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, a)
 						}
 						// TODO: keep them in a list, and check when pod events happen !
 						continue
@@ -119,7 +111,7 @@ func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discovery
 						Labels:          labels,
 						UID:             uid,
 						ServiceAccount:  sa,
-						Network:         c.endpointNetwork(a),
+						Network:         esc.c.endpointNetwork(a),
 						Locality:        locality,
 						Attributes:      model.ServiceAttributes{Name: svcName, Namespace: slice.Namespace},
 						TLSMode:         tlsMode,
@@ -129,15 +121,15 @@ func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discovery
 		}
 	}
 
-	e.endpointCache.Update(hostname, slice.Name, endpoints)
+	esc.endpointCache.Update(hostname, slice.Name, endpoints)
 
 	log.Infof("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
 
-	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), slice.Namespace, e.endpointCache.Get(hostname))
+	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace, esc.endpointCache.Get(hostname))
 }
 
-func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
-	if err := e.c.checkReadyForEvents(); err != nil {
+func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
+	if err := esc.c.checkReadyForEvents(); err != nil {
 		return err
 	}
 
@@ -155,48 +147,19 @@ func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) e
 		}
 	}
 
-	// Headless services are handled differently
-	if features.EnableHeadlessService.Get() {
-		svcName := ep.Labels[discoveryv1alpha1.LabelServiceName]
-		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(svcName, ep.Namespace)); obj != nil {
-			svc := obj.(*v1.Service)
-			// if the service is headless service, trigger a full push.
-			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{ep.Namespace: {}}})
-				return nil
-			}
-		}
-	}
-
-	// Otherwise, do standard endpoint update
-	e.updateEDSSlice(e.c, ep, event)
-
-	return nil
+	return esc.handleEvent(ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, event, curr, func(obj interface{}, event model.Event) {
+		esc.updateEDS(obj, event)
+	})
 }
 
-func (e *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
-	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
-	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
-
-	for _, item := range e.informer.GetStore().List() {
-		slice := item.(*discoveryv1alpha1.EndpointSlice)
-		endpoints := &endpointsForPodInSameNS
-		if slice.Namespace != proxyNamespace {
-			endpoints = &endpointsForPodInDifferentNS
-		}
-
-		*endpoints = append(*endpoints, getProxyServiceInstancesByEndpointSlice(c, slice, proxy)...)
-	}
-
-	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
-	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
-	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
-	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
-	return append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
+	return esc.serviceInstances(c, proxy, proxyNamespace, esc.proxyServiceInstances)
 }
 
-func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
+func (esc *endpointSliceController) proxyServiceInstances(c *Controller, obj interface{}, proxy *model.Proxy) (string, []*model.ServiceInstance) {
 	out := make([]*model.ServiceInstance, 0)
+
+	slice := obj.(*discoveryv1alpha1.EndpointSlice)
 
 	hostname := kube.ServiceHostname(slice.Labels[discoveryv1alpha1.LabelServiceName], slice.Namespace, c.domainSuffix)
 	c.RLock()
@@ -204,7 +167,7 @@ func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1al
 	c.RUnlock()
 
 	if svc == nil {
-		return out
+		return slice.Namespace, out
 	}
 
 	for _, port := range slice.Ports {
@@ -234,13 +197,13 @@ func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1al
 		}
 	}
 
-	return out
+	return slice.Namespace, out
 }
 
-func (e *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
+func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
-	slices, err := v1alpha1.NewEndpointSliceLister(e.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
+	slices, err := v1alpha1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, nil
