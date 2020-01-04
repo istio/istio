@@ -94,6 +94,9 @@ type Options struct {
 
 	// Debug server port from which node_agent serves SDS configuration dumps
 	DebugPort int
+
+	// Whether to generate PKCS#8 private keys.
+	Pkcs8Keys bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
