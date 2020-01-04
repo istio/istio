@@ -123,6 +123,8 @@ const (
 	MonitoringPort  = "MONITORING_PORT"
 	EnableProfiling = "ENABLE_PROFILING"
 	DebugPort       = "DEBUG_PORT"
+
+	pkcs8Key = "PKCS8_KEY"
 )
 
 var (
@@ -208,6 +210,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 			os.Exit(1)
 		}
 		workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
+		workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
 		workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 		workloadSecretCache = cache.NewSecretCache(wSecretFetcher, sds.NotifyProxy, workloadSdsCacheOptions)
 	} else {
@@ -254,6 +257,7 @@ var (
 		"Debug endpoints dump SDS configuration and connection data from this port").Get()
 	enableProfilingEnv = env.RegisterBoolVar(EnableProfiling, true,
 		"Enabling profiling when monitoring Citadel agent").Get()
+	pkcs8KeyEnv = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 )
 
 func applyEnvVars(cmd *cobra.Command) {
@@ -328,6 +332,7 @@ func applyEnvVars(cmd *cobra.Command) {
 	}
 
 	serverOptions.DebugPort = debugPortEnv
+	serverOptions.Pkcs8Keys = pkcs8KeyEnv
 }
 
 func validateOptions() error {

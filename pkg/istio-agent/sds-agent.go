@@ -67,7 +67,7 @@ var (
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
-
+	pkcs8KeysEnv                       = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 	// Location of a custom-mounted root (for example using Secret)
 	mountedRoot = "/etc/certs/root-cert.pem"
 
@@ -114,6 +114,8 @@ const (
 	// The environmental variable name for the initial backoff in milliseconds.
 	// example value format like "10"
 	InitialBackoff = "INITIAL_BACKOFF_MSEC"
+
+	pkcs8Key = "PKCS8_KEY"
 )
 
 var (
@@ -389,6 +391,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 	ret.CaClient = caClient
 
 	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
+	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
 	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 	workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
 	return
@@ -425,6 +428,7 @@ func applyEnvVars() {
 	serverOptions.CAProviderName = caProviderEnv
 	serverOptions.CAEndpoint = caEndpointEnv
 	serverOptions.TrustDomain = trustDomainEnv
+	serverOptions.Pkcs8Keys = pkcs8KeysEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRefreshGraceDuration = secretRefreshGraceDurationEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
