@@ -103,6 +103,8 @@ var (
 	cdsBuildErrPushes = pushes.With(typeTag.Value("cds_builderr"))
 	edsPushes         = pushes.With(typeTag.Value("eds"))
 	edsSendErrPushes  = pushes.With(typeTag.Value("eds_senderr"))
+	egdsPushes        = pushes.With(typeTag.Value("egds"))
+	egdsSendErrPushes = pushes.With(typeTag.Value("egds_senderr"))
 	ldsPushes         = pushes.With(typeTag.Value("lds"))
 	ldsSendErrPushes  = pushes.With(typeTag.Value("lds_senderr"))
 	ldsBuildErrPushes = pushes.With(typeTag.Value("lds_builderr"))
@@ -117,10 +119,11 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
-	cdsPushTime = pushTime.With(typeTag.Value("cds"))
-	edsPushTime = pushTime.With(typeTag.Value("eds"))
-	ldsPushTime = pushTime.With(typeTag.Value("lds"))
-	rdsPushTime = pushTime.With(typeTag.Value("rds"))
+	cdsPushTime  = pushTime.With(typeTag.Value("cds"))
+	edsPushTime  = pushTime.With(typeTag.Value("eds"))
+	egdsPushTime = pushTime.With(typeTag.Value("egds"))
+	ldsPushTime  = pushTime.With(typeTag.Value("lds"))
+	rdsPushTime  = pushTime.With(typeTag.Value("rds"))
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesQueueTime = monitoring.NewDistribution(

@@ -115,6 +115,8 @@ type XdsEvent struct {
 	// Only EDS for the listed clusters will be sent.
 	edsUpdatedServices map[string]struct{}
 
+	egdsUpdatedGroups map[string]struct{}
+
 	namespacesUpdated map[string]struct{}
 
 	configTypesUpdated map[resource.GroupVersionKind]struct{}
@@ -522,13 +524,24 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
+
+		if len(con.Clusters) <= 0 {
+			return nil
+		}
+
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
-		if len(con.Clusters) > 0 {
-			if err := s.pushEds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices); err != nil {
-				return err
-			}
+		var err error
+		if pushEv.egdsUpdatedGroups != nil {
+			err = s.pushEgds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices, pushEv.egdsUpdatedGroups)
+		} else {
+			err = s.pushEds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices)
 		}
+
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}
 

@@ -227,7 +227,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
-	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push)
+	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push, "")
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
@@ -492,6 +492,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	if !f {
 		egdsGroup = &EndpointGroups{
 			NamePrefix: fmt.Sprintf("%s-%s-%s", serviceName, namespace, clusterID),
+			GroupSize:  s.Env.Mesh().GetEgdsGroupSize(),
 		}
 	}
 
@@ -602,11 +603,32 @@ func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContex
 	return l
 }
 
+func (s *DiscoveryServer) getServiceGroupNames(clusterName string, proxy *model.Proxy, push *model.PushContext) map[string]struct{} {
+	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+
+	push.Mutex.Lock()
+	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+	push.Mutex.Unlock()
+
+	s.mutex.RLock()
+	se, _ := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
+	s.mutex.RUnlock()
+
+	names := make(map[string]struct{})
+	for _, shard := range se.Shards {
+		for name := range shard.IstioEndpointGroups {
+			names[name] = struct{}{}		
+		}
+	}
+
+	return names
+}
+
 // loadAssignmentsForClusterIsolated return the endpoints for a proxy in an isolated namespace
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
 // perf tests. The logic to compute is based on the current UpdateClusterInc
 func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, push *model.PushContext,
-	clusterName string) *xdsapi.ClusterLoadAssignment {
+	clusterName string, groupName string) *xdsapi.ClusterLoadAssignment {
 	// TODO: fail-safe, use the old implementation based on some flag.
 	// Users who make sure all DestinationRules are in the right namespace and don't have override may turn it on
 	// (some very-large scale customers are in this category)
@@ -631,6 +653,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
 	}
 
+
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
 	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
 	// EDS to STRICT_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
@@ -643,12 +666,6 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return nil
 	}
 
-	svcPort, f := svc.Ports.GetByPort(port)
-	if !f {
-		// Shouldn't happen here - but just in case fallback
-		return s.loadAssignmentsForClusterLegacy(push, clusterName)
-	}
-
 	// The service was never updated - do the full update
 	s.mutex.RLock()
 	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
@@ -658,32 +675,63 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
 	}
 
-	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push)
 
-	return &xdsapi.ClusterLoadAssignment{
-		ClusterName: clusterName,
-		Endpoints:   locEps,
-	}
-}
+	var cla *xdsapi.ClusterLoadAssignment
+	if util.IsIstioVersionGE14(proxy) && push.Mesh.GetEgdsGroupSize() > 0 {
+		// Use the new EGDS way to send endpoints more efficiently
+		cla = buildAssignmentWithEgds(se, clusterName)
+	} else {
+		// Use traditional embedded endpoints way
+		svcPort, f := svc.Ports.GetByPort(port)
+		if !f {
+			// Shouldn't happen here - but just in case fallback
+			return s.loadAssignmentsForClusterLegacy(push, clusterName)
+		}
 
-func (s *DiscoveryServer) generateEndpoints(
-	clusterName string, proxy *model.Proxy, push *model.PushContext, edsUpdatedServices map[string]struct{},
-) *xdsapi.ClusterLoadAssignment {
-	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-	if edsUpdatedServices != nil {
-		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
-			// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
-			// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
-			return nil
+		locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push, groupName)
+
+		cla = &xdsapi.ClusterLoadAssignment{
+			ClusterName: clusterName,
+			Endpoints:   locEps,
 		}
 	}
 
-	l := s.loadAssignmentsForClusterIsolated(proxy, push, clusterName)
+	return cla
+}
 
+func buildAssignmentWithEgds(se *EndpointShards, clusterName string) *xdsapi.ClusterLoadAssignment {
+	epGroups := make([]*xdsapi.Egds, 0)
+	for _, shard := range se.Shards {
+		for name := range shard.IstioEndpointGroups {
+			egds := &xdsapi.Egds{
+				ConfigSource: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
+					},
+				},
+				EndpointGroupName: name,
+			}
+
+			epGroups = append(epGroups, egds)
+		}
+	}
+
+	return &xdsapi.ClusterLoadAssignment{
+		ClusterName:    clusterName,
+		EndpointGroups: epGroups,
+	}
+}
+
+func (s *DiscoveryServer) generateLoadAssignment(clusterName string, groupName string, proxy *model.Proxy, push *model.PushContext) *xdsapi.ClusterLoadAssignment {
+	l := s.loadAssignmentsForClusterIsolated(proxy, push, clusterName, groupName)
 	if l == nil {
 		return nil
 	}
 
+	return applyEndpointFilters(proxy, push, l)
+}
+
+func applyEndpointFilters(proxy *model.Proxy, push *model.PushContext, l *xdsapi.ClusterLoadAssignment) *xdsapi.ClusterLoadAssignment {
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints
 	if push.Networks != nil && len(push.Networks.Networks) > 0 {
@@ -705,9 +753,67 @@ func (s *DiscoveryServer) generateEndpoints(
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		clonedCLA := util.CloneClusterLoadAssignment(l)
 		l = &clonedCLA
-		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, lbSetting, enableFailover)
+
+		// Failover should only be enabled when there is an outlier detection, otherwise Envoy
+		// will never detect the hosts are unhealthy and redirect traffic.
+		enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, proxy, l.ClusterName)
+		var localityLbSettings = push.Mesh.LocalityLbSetting
+		if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
+			localityLbSettings = loadBalancerSettings.LocalityLbSetting
+		}
+		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, localityLbSettings, enableFailover)
 	}
+
 	return l
+}
+
+// pushEgds is pushing updated EGDS resources for a single connection. This method will only be called when the EGDS feature was enabled.
+func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, version string,
+	edsUpdatedServices map[string]struct{}, egdsUpdatedGroups map[string]struct{}) error {
+	pushStart := time.Now()
+	groups := make([]*xdsapi.EndpointGroup, len(edsUpdatedServices))
+
+	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
+	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
+	for _, clusterName := range con.Clusters {
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+		if edsUpdatedServices != nil {
+			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
+				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
+				continue
+			}
+		}
+
+		for groupName := range s.getServiceGroupNames(clusterName, con.node, push) {
+			if egdsUpdatedGroups != nil {
+				if _, f := egdsUpdatedGroups[groupName]; !f {
+					// This happens in a incremental EGDS push
+					continue
+				}
+			}
+
+			l := s.generateLoadAssignment(clusterName, groupName, con.node, push)
+			g := &xdsapi.EndpointGroup{
+				Name: groupName,
+				Endpoints: l.Endpoints,
+			}
+
+			groups = append(groups, g)
+		}
+	}
+
+	response := endpointGroupDiscoveryResponse(groups, version, push.Version)
+	err := con.send(response)
+	egdsPushTime.Record(time.Since(pushStart).Seconds())
+	if err != nil {
+		adsLog.Warnf("EGDS: Send failure %s: %v", con.ConID, err)
+		recordSendError(egdsSendErrPushes, err)
+		return err
+	}
+	egdsPushes.Increment()
+
+	return nil
 }
 
 // pushEds is pushing EDS updates for a single connection. Called the first time
@@ -716,24 +822,38 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	pushStart := time.Now()
 	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
 	endpoints := 0
-	empty := 0
+	groupCount := 0
+	empty := make([]string, 0)
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range con.Clusters {
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+		if edsUpdatedServices != nil {
+			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
+				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
+				continue
+			}
+		}
 
-		l := s.generateEndpoints(clusterName, con.node, push, edsUpdatedServices)
+		l := s.generateLoadAssignment(clusterName, "", con.node, push)
 		if l == nil {
 			continue
 		}
 
-		for _, e := range l.Endpoints {
-			endpoints += len(e.LbEndpoints)
+		if l.EndpointGroups != nil {
+			groupCount += len(l.EndpointGroups)
+		} else {
+			for _, e := range l.Endpoints {
+				endpoints += len(e.LbEndpoints)
+			}
+
+			if len(l.Endpoints) == 0 {
+				empty = append(empty, clusterName)
+			}
 		}
 
-		if len(l.Endpoints) == 0 {
-			empty++
-		}
 		loadAssignments = append(loadAssignments, l)
 	}
 
@@ -748,12 +868,13 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	edsPushes.Increment()
 
 	if edsUpdatedServices == nil {
-		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
-			con.node.ID, len(con.Clusters), endpoints, empty)
+		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v groupCount:%d",
+			con.node.ID, len(con.Clusters), endpoints, empty, groupCount)
 	} else {
-		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
-			con.node.ID, len(con.Clusters), endpoints, empty)
+		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v groupCount:%d",
+			con.node.ID, len(con.Clusters), endpoints, empty, groupCount)
 	}
+
 	return nil
 }
 
@@ -892,20 +1013,36 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 	return out
 }
 
+func endpointGroupDiscoveryResponse(groups []*xdsapi.EndpointGroup, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
+	out := &xdsapi.DiscoveryResponse{
+		TypeUrl:     EndpointGroupType,
+		VersionInfo: version,
+		Nonce:       nonce(noncePrefix),
+	}
+
+	for _, group := range groups {
+		resource := util.MessageToAny(group)
+		out.Resources = append(out.Resources, resource)
+	}
+
+	return out
+}
+
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func buildLocalityLbEndpointsFromShards(
 	shards *EndpointShards,
 	svcPort *model.Port,
 	epLabels labels.Collection,
 	clusterName string,
-	push *model.PushContext) []*endpoint.LocalityLbEndpoints {
-	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
+	push *model.PushContext,
+	groupName string) []*endpoint.LocalityLbEndpoints {
+	allEndpoints := make([]*model.IstioEndpoint, 0)
 
 	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
-	for _, group := range shards.Shards {
-		endpoints := group.IstioEndpoints
+	for _, groups := range shards.Shards {
+		endpoints := groups.getEndpoints(groupName)
 
 		for _, ep := range endpoints {
 			if svcPort.Name != ep.ServicePortName {
@@ -916,23 +1053,41 @@ func buildLocalityLbEndpointsFromShards(
 				continue
 			}
 
-			locLbEps, found := localityEpMap[ep.Locality]
-			if !found {
-				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality:    util.ConvertLocality(ep.Locality),
-					LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
-				}
-				localityEpMap[ep.Locality] = locLbEps
-			}
-			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network,
-					ep.LbWeight, ep.TLSMode, push)
-			}
-			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
-
+			allEndpoints = append(allEndpoints, ep)
 		}
 	}
 	shards.mutex.Unlock()
+
+	locEps := buildLocalityLbEndpoints(allEndpoints, push)
+
+	if len(locEps) == 0 {
+		push.AddMetric(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+	}
+
+	updateEdsStats(locEps, clusterName)
+
+	return locEps
+}
+
+func buildLocalityLbEndpoints(endpoints []*model.IstioEndpoint, push *model.PushContext) []*endpoint.LocalityLbEndpoints {
+	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
+
+	for _, ep := range endpoints {
+		locLbEps, found := localityEpMap[ep.Locality]
+		if !found {
+			locLbEps = &endpoint.LocalityLbEndpoints{
+				Locality:    util.ConvertLocality(ep.Locality),
+				LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
+			}
+			localityEpMap[ep.Locality] = locLbEps
+		}
+		if ep.EnvoyEndpoint == nil {
+			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network,
+				ep.LbWeight, ep.TLSMode, push)
+		}
+
+		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
+	}
 
 	locEps := make([]*endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
@@ -945,12 +1100,6 @@ func buildLocalityLbEndpointsFromShards(
 		}
 		locEps = append(locEps, locLbEps)
 	}
-
-	if len(locEps) == 0 {
-		push.AddMetric(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-	}
-
-	updateEdsStats(locEps, clusterName)
 
 	return locEps
 }
