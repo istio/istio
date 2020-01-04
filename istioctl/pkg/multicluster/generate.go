@@ -78,7 +78,7 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 	typedValues := &operatorV1alpha1.Values{
 		Gateways: &operatorV1alpha1.GatewaysConfig{
 			IstioIngressgateway: &operatorV1alpha1.IngressGatewayConfig{
-				Env: map[string]string{
+				Env: map[string]interface{}{
 					"ISTIO_MESH_NETWORK": current.Network,
 				},
 			},
