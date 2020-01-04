@@ -176,7 +176,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-	sidecarConfigWitHttpProxy := &model.Config{
+	sidecarConfigWitHTTPProxy := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Name:      "foo",
 			Namespace: "not-default",
@@ -710,7 +710,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		{
 			name:                  "http proxy sidecar config, with non matching virtual service",
 			routeName:             "7443",
-			sidecarConfig:         sidecarConfigWitHttpProxy,
+			sidecarConfig:         sidecarConfigWitHTTPProxy,
 			virtualServiceConfigs: []*model.Config{&virtualService5},
 			expectedHosts: map[string]map[string]bool{
 				"bookinfo.com:9999":      {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true},
