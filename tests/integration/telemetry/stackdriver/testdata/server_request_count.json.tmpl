@@ -19,13 +19,5 @@
           "source_workload_name": "clt-v1",
           "source_workload_namespace": "{{ .EchoNamespace }}"
        }
-    },
-    "resource": {
-       "type": "k8s_container",
-       "labels": {
-          "container_name": "istio-proxy",
-          "namespace_name": "{{ .EchoNamespace }}",
-          "pod_name": "{{ .ServerPodName }}"
-       }
     }
 }

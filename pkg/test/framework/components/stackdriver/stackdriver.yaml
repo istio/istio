@@ -19,8 +19,10 @@ metadata:
     app: stackdriver
 spec:
   ports:
+  - name: grpc
+    port: 8090
   - name: http
-    port: 80
+    port: 8091
   selector:
     app: stackdriver
 ---
@@ -43,4 +45,5 @@ spec:
         imagePullPolicy: Always
         name: stackdriver
         ports:
-        - containerPort: 80
+        - containerPort: 8090
+        - containerPort: 8091
