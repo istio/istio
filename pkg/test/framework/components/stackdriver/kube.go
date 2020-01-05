@@ -107,8 +107,8 @@ func newKube(ctx resource.Context) (Instance, error) {
 
 func (c *kubeComponent) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
 	client := http.Client{
-                Timeout: 5 * time.Second,
-        }
+		Timeout: 5 * time.Second,
+	}
 	resp, err := client.Get("http://" + c.forwarder.Address() + "/timeseries")
 	if err != nil {
 		return []*monitoringpb.TimeSeries{}, err
