@@ -236,8 +236,11 @@
 // ../../data/profiles/minimal.yaml
 // ../../data/profiles/remote.yaml
 // ../../data/profiles/sds.yaml
+// ../../data/translateConfig/reverseTranslateConfig-1.4.yaml
+// ../../data/translateConfig/reverseTranslateConfig-1.5.yaml
 // ../../data/translateConfig/translateConfig-1.3.yaml
 // ../../data/translateConfig/translateConfig-1.4.yaml
+// ../../data/translateConfig/translateConfig-1.5.yaml
 // ../../data/versions.yaml
 package vfs
 
@@ -39806,6 +39809,66 @@ func profilesSdsYaml() (*asset, error) {
 	return a, nil
 }
 
+var _translateconfigReversetranslateconfig14Yaml = []byte(`kubernetesPatternMapping:
+  "{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env"
+  "{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec"
+  "{{.ValueComponentName}}.imagePullPolicy":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy"
+  "{{.ValueComponentName}}.nodeSelector":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.NodeSelector"
+  "{{.ValueComponentName}}.tolerations":           "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Tolerations"
+  "{{.ValueComponentName}}.podDisruptionBudget":   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodDisruptionBudget"
+  "{{.ValueComponentName}}.podAnnotations":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodAnnotations"
+  "{{.ValueComponentName}}.priorityClassName":     "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PriorityClassName"
+  "{{.ValueComponentName}}.readinessProbe":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReadinessProbe"
+  "{{.ValueComponentName}}.replicaCount":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReplicaCount"
+  "{{.ValueComponentName}}.resources":             "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Resources"
+  "{{.ValueComponentName}}.rollingMaxSurge":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy"
+  "{{.ValueComponentName}}.rollingMaxUnavailable": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy"`)
+
+func translateconfigReversetranslateconfig14YamlBytes() ([]byte, error) {
+	return _translateconfigReversetranslateconfig14Yaml, nil
+}
+
+func translateconfigReversetranslateconfig14Yaml() (*asset, error) {
+	bytes, err := translateconfigReversetranslateconfig14YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/reverseTranslateConfig-1.4.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _translateconfigReversetranslateconfig15Yaml = []byte(`kubernetesPatternMapping:
+  "{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env"
+  "{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec"
+  "{{.ValueComponentName}}.imagePullPolicy":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy"
+  "{{.ValueComponentName}}.nodeSelector":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.NodeSelector"
+  "{{.ValueComponentName}}.tolerations":           "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Tolerations"
+  "{{.ValueComponentName}}.podDisruptionBudget":   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodDisruptionBudget"
+  "{{.ValueComponentName}}.podAnnotations":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodAnnotations"
+  "{{.ValueComponentName}}.priorityClassName":     "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PriorityClassName"
+  "{{.ValueComponentName}}.readinessProbe":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReadinessProbe"
+  "{{.ValueComponentName}}.replicaCount":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReplicaCount"
+  "{{.ValueComponentName}}.resources":             "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Resources"
+  "{{.ValueComponentName}}.rollingMaxSurge":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy"
+  "{{.ValueComponentName}}.rollingMaxUnavailable": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy"`)
+
+func translateconfigReversetranslateconfig15YamlBytes() ([]byte, error) {
+	return _translateconfigReversetranslateconfig15Yaml, nil
+}
+
+func translateconfigReversetranslateconfig15Yaml() (*asset, error) {
+	bytes, err := translateconfigReversetranslateconfig15YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/reverseTranslateConfig-1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _translateconfigTranslateconfig13Yaml = []byte(`apiMapping:
   Hub:
     outPath: "global.hub"
@@ -40270,6 +40333,241 @@ func translateconfigTranslateconfig14Yaml() (*asset, error) {
 	return a, nil
 }
 
+var _translateconfigTranslateconfig15Yaml = []byte(`apiMapping:
+  Hub:
+    outPath: "global.hub"
+  Tag:
+    outPath: "global.tag"
+  K8SDefaults:
+    outPath: "global.resources"
+  DefaultNamespace:
+    outPath: "global.istioNamespace"
+  ConfigManagement.Components.Namespace:
+    outPath: "global.configNamespace"
+  Policy.Components.Namespace:
+    outPath: "global.policyNamespace"
+  Telemetry.Components.Namespace:
+    outPath: "global.telemetryNamespace"
+  Security.Components.Namespace:
+    outPath: "global.securityNamespace"
+kubernetesMapping:
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Affinity":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Env":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.HpaSpec":
+    outPath: "[HorizontalPodAutoscaler:{{.ResourceName}}].spec"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ImagePullPolicy":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.NodeSelector":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodDisruptionBudget":
+    outPath: "[PodDisruptionBudget:{{.ResourceName}}].spec"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodAnnotations":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PriorityClassName":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName."
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReadinessProbe":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReplicaCount":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.replicas"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Resources":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Strategy":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.strategy"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Tolerations":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"
+toFeature:
+  Base:               Base
+  Pilot:              TrafficManagement
+  Galley:             ConfigManagement
+  Injector:           AutoInjection
+  Policy:             Policy
+  Telemetry:          Telemetry
+  Citadel:            Security
+  CertManager:        Security
+  NodeAgent:          Security
+  IngressGateway:     Gateways
+  EgressGateway:      Gateways
+  Cni:                Cni
+  CoreDNS:            CoreDNS
+  Grafana:            ThirdParty
+  Prometheus:         ThirdParty
+  Tracing:            ThirdParty
+  PrometheusOperator: ThirdParty
+  Kiali:              ThirdParty
+globalNamespaces:
+  Pilot:      "istioNamespace"
+  Galley:     "configNamespace"
+  Telemetry:  "telemetryNamespace"
+  Policy:     "policyNamespace"
+  Prometheus: "prometheusNamespace"
+  Citadel:    "securityNamespace"
+featureMaps:
+  Base:
+    Components:
+      - Base
+  TrafficManagement:
+    Components:
+      - Pilot
+  Policy:
+    Components:
+      - Policy
+  Telemetry:
+    Components:
+      - Telemetry
+  Security:
+    Components:
+      - Citadel
+      - CertManager
+      - NodeAgent
+  ConfigManagement:
+    Components:
+      - Galley
+  AutoInjection:
+    Components:
+      - Injector
+  Gateways:
+    Components:
+      - IngressGateway
+      - EgressGateway
+  Cni:
+    Components:
+      - Cni
+  CoreDNS:
+    Components:
+      - CoreDNS
+  ThirdParty:
+    Components:
+      - Grafana
+      - Prometheus
+      - Tracing
+      - PrometheusOperator
+      - Kiali
+
+componentMaps:
+  Base:
+    ToHelmValuesTreeRoot: "global"
+    HelmSubdir:           "base"
+  Pilot:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-pilot"
+    ContainerName:        "discovery"
+    HelmSubdir:           "istio-control/istio-discovery"
+    ToHelmValuesTreeRoot: "pilot"
+  Galley:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-galley"
+    ContainerName:        "galley"
+    HelmSubdir:           "istio-control/istio-config"
+    ToHelmValuesTreeRoot: "galley"
+  Injector:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-sidecar-injector"
+    ContainerName:        "sidecar-injector-webhook"
+    HelmSubdir:           "istio-control/istio-autoinject"
+    ToHelmValuesTreeRoot: "sidecarInjectorWebhook"
+  Policy:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-policy"
+    ContainerName:        "mixer"
+    HelmSubdir:           "istio-policy"
+    ToHelmValuesTreeRoot: "mixer.policy"
+  Telemetry:
+    ResourceType:        "Deployment"
+    ResourceName:         "istio-telemetry"
+    ContainerName:        "mixer"
+    HelmSubdir:           "istio-telemetry/mixer-telemetry"
+    ToHelmValuesTreeRoot: "mixer.telemetry"
+  Citadel:
+    ResourceType:        "Deployment"
+    ResourceName:         "istio-citadel"
+    ContainerName:        "citadel"
+    HelmSubdir:           "security/citadel"
+    ToHelmValuesTreeRoot: "security"
+  NodeAgent:
+    ResourceType:         "DaemonSet"
+    ResourceName:         "istio-nodeagent"
+    ContainerName:        "nodeagent"
+    HelmSubdir:           "security/nodeagent"
+    ToHelmValuesTreeRoot: "nodeagent"
+  CertManager:
+    ResourceType:        "Deployment"
+    ResourceName:         "certmanager"
+    ContainerName:        "certmanager"
+    HelmSubdir:           "security/certmanager"
+    ToHelmValuesTreeRoot: "certmanager"
+  IngressGateway:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-ingressgateway"
+    ContainerName:        "istio-proxy"
+    HelmSubdir:           "gateways/istio-ingress"
+    ToHelmValuesTreeRoot: "gateways.istio-ingressgateway"
+  EgressGateway:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-egressgateway"
+    ContainerName:        "istio-proxy"
+    HelmSubdir:           "gateways/istio-egress"
+    ToHelmValuesTreeRoot: "gateways.istio-egressgateway"
+  Cni:
+    ResourceType:         "DaemonSet"
+    ResourceName:         "istio-cni-node"
+    ContainerName:        "install-cni"
+    HelmSubdir:           "istio-cni"
+    ToHelmValuesTreeRoot: "cni"
+  CoreDNS:
+    ResourceType:         "Deployment"
+    ResourceName:         "istiocoredns"
+    ContainerName:        "coredns"
+    HelmSubdir:           "istiocoredns"
+    ToHelmValuesTreeRoot: "istiocoredns"
+  Tracing:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-tracing"
+    ContainerName:        "jaeger"
+    HelmSubdir:           "istio-telemetry/tracing"
+    ToHelmValuesTreeRoot: "tracing.jaeger"
+  PrometheusOperator:
+    ResourceType:         "Deployment"
+    ResourceName:         "prometheus"
+    ContainerName:        "prometheus"
+    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    ToHelmValuesTreeRoot: "prometheus"
+  Kiali:
+    ResourceType:         "Deployment"
+    ResourceName:         "kiali"
+    ContainerName:        "kiali"
+    HelmSubdir:           "istio-telemetry/kiali"
+    ToHelmValuesTreeRoot: "kiali"
+  Grafana:
+    ResourceType:        "Deployment"
+    ResourceName:         "grafana"
+    ContainerName:        "grafana"
+    HelmSubdir:           "istio-telemetry/grafana"
+    ToHelmValuesTreeRoot: "grafana"
+  Prometheus:
+    ResourceType:         "Deployment"
+    ResourceName:         "prometheus"
+    ContainerName:        "prometheus"
+    HelmSubdir:           "istio-telemetry/prometheus"
+    ToHelmValuesTreeRoot: "prometheus"
+`)
+
+func translateconfigTranslateconfig15YamlBytes() ([]byte, error) {
+	return _translateconfigTranslateconfig15Yaml, nil
+}
+
+func translateconfigTranslateconfig15Yaml() (*asset, error) {
+	bytes, err := translateconfigTranslateconfig15YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/translateConfig-1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   supportedIstioVersions: 1.3.0
   recommendedIstioVersions: 1.3.0
@@ -40617,8 +40915,11 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/minimal.yaml":                                                               profilesMinimalYaml,
 	"profiles/remote.yaml":                                                                profilesRemoteYaml,
 	"profiles/sds.yaml":                                                                   profilesSdsYaml,
+	"translateConfig/reverseTranslateConfig-1.4.yaml":                                     translateconfigReversetranslateconfig14Yaml,
+	"translateConfig/reverseTranslateConfig-1.5.yaml":                                     translateconfigReversetranslateconfig15Yaml,
 	"translateConfig/translateConfig-1.3.yaml":                                            translateconfigTranslateconfig13Yaml,
 	"translateConfig/translateConfig-1.4.yaml":                                            translateconfigTranslateconfig14Yaml,
+	"translateConfig/translateConfig-1.5.yaml":                                            translateconfigTranslateconfig15Yaml,
 	"versions.yaml":                                                                       versionsYaml,
 }
 
@@ -41010,8 +41311,11 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"sds.yaml":     &bintree{profilesSdsYaml, map[string]*bintree{}},
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
-		"translateConfig-1.3.yaml": &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
-		"translateConfig-1.4.yaml": &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
+		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},
+		"reverseTranslateConfig-1.5.yaml": &bintree{translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
+		"translateConfig-1.3.yaml":        &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
+		"translateConfig-1.4.yaml":        &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
+		"translateConfig-1.5.yaml":        &bintree{translateconfigTranslateconfig15Yaml, map[string]*bintree{}},
 	}},
 	"versions.yaml": &bintree{versionsYaml, map[string]*bintree{}},
 }}
