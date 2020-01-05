@@ -603,16 +603,13 @@ func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContex
 	return l
 }
 
-func (s *DiscoveryServer) getServiceGroupNames(clusterName string, proxy *model.Proxy, push *model.PushContext) map[string]struct{} {
-	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-
-	push.Mutex.Lock()
-	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-	push.Mutex.Unlock()
-
+func (s *DiscoveryServer) getServiceGroupNames(hostname string, namespace string) map[string]struct{} {
 	s.mutex.RLock()
-	se, _ := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
+	se, f := s.EndpointShardsByService[string(hostname)][namespace]
 	s.mutex.RUnlock()
+	if !f {
+		return nil
+	}
 
 	names := make(map[string]struct{})
 	for _, shard := range se.Shards {
@@ -624,26 +621,9 @@ func (s *DiscoveryServer) getServiceGroupNames(clusterName string, proxy *model.
 	return names
 }
 
-// loadAssignmentsForClusterIsolated return the endpoints for a proxy in an isolated namespace
-// Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
-// perf tests. The logic to compute is based on the current UpdateClusterInc
-func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, push *model.PushContext,
-	clusterName string, groupName string) *xdsapi.ClusterLoadAssignment {
-	// TODO: fail-safe, use the old implementation based on some flag.
-	// Users who make sure all DestinationRules are in the right namespace and don't have override may turn it on
-	// (some very-large scale customers are in this category)
-
+func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *model.Proxy, push *model.PushContext) *xdsapi.ClusterLoadAssignment {
 	// This code is similar with the update code.
-	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
-
-	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
-	// (public/private) as well as sidecar scopes allowing import of
-	// specific destination rules, the destination rule for a given
-	// namespace should be determined based on the sidecar scope or the
-	// proxy's config namespace. As such, this code searches through all
-	// destination rules, public and private and returns a completely
-	// arbitrary destination rule's subset labels!
-	subsetLabels := push.SubsetToLabels(proxy, subsetName, hostname)
+	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 
 	push.Mutex.Lock()
 	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
@@ -675,25 +655,91 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
 	}
 
+	epGroups := make([]*xdsapi.Egds, 0)
+	for _, shard := range se.Shards {
+		for name := range shard.IstioEndpointGroups {
+			egds := &xdsapi.Egds{
+				ConfigSource: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
+					},
+				},
+				EndpointGroupName: name,
+			}
 
-	var cla *xdsapi.ClusterLoadAssignment
-	if util.IsIstioVersionGE14(proxy) && push.Mesh.GetEgdsGroupSize() > 0 {
-		// Use the new EGDS way to send endpoints more efficiently
-		cla = buildAssignmentWithEgds(se, clusterName)
-	} else {
-		// Use traditional embedded endpoints way
-		svcPort, f := svc.Ports.GetByPort(port)
-		if !f {
-			// Shouldn't happen here - but just in case fallback
-			return s.loadAssignmentsForClusterLegacy(push, clusterName)
+			epGroups = append(epGroups, egds)
 		}
+	}
 
-		locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push, groupName)
+	return &xdsapi.ClusterLoadAssignment{
+		ClusterName:    clusterName,
+		EndpointGroups: epGroups,
+	}
+}
 
-		cla = &xdsapi.ClusterLoadAssignment{
-			ClusterName: clusterName,
-			Endpoints:   locEps,
-		}
+// loadAssignmentsForClusterIsolated return the endpoints for a proxy in an isolated namespace
+// Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
+// perf tests. The logic to compute is based on the current UpdateClusterInc
+func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, push *model.PushContext,
+	clusterName string, groupName string) *xdsapi.ClusterLoadAssignment {
+	// TODO: fail-safe, use the old implementation based on some flag.
+	// Users who make sure all DestinationRules are in the right namespace and don't have override may turn it on
+	// (some very-large scale customers are in this category)
+
+	// This code is similar with the update code.
+	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+
+	push.Mutex.Lock()
+	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+	push.Mutex.Unlock()
+	if svc == nil {
+		// Shouldn't happen here - but just in case fallback
+		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+	}
+
+
+	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
+	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
+	// EDS to STRICT_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
+	// will update "XdsConnection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check guards
+	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
+	// automatically.
+	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
+	if svc.Resolution == model.DNSLB {
+		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %v, skipping it.", clusterName, svc.Resolution)
+		return nil
+	}
+
+	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
+	// (public/private) as well as sidecar scopes allowing import of
+	// specific destination rules, the destination rule for a given
+	// namespace should be determined based on the sidecar scope or the
+	// proxy's config namespace. As such, this code searches through all
+	// destination rules, public and private and returns a completely
+	// arbitrary destination rule's subset labels!
+	subsetLabels := push.SubsetToLabels(proxy, subsetName, hostname)
+
+	// The service was never updated - do the full update
+	s.mutex.RLock()
+	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
+	s.mutex.RUnlock()
+	if !f {
+		// Shouldn't happen here - but just in case fallback
+		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+	}
+
+	// Use traditional embedded endpoints way
+	svcPort, f := svc.Ports.GetByPort(port)
+	if !f {
+		// Shouldn't happen here - but just in case fallback
+		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+	}
+
+	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push, groupName)
+
+	cla := &xdsapi.ClusterLoadAssignment{
+		ClusterName: clusterName,
+		Endpoints:   locEps,
 	}
 
 	return cla
@@ -722,16 +768,12 @@ func buildAssignmentWithEgds(se *EndpointShards, clusterName string) *xdsapi.Clu
 	}
 }
 
-func (s *DiscoveryServer) generateLoadAssignment(clusterName string, groupName string, proxy *model.Proxy, push *model.PushContext) *xdsapi.ClusterLoadAssignment {
+func (s *DiscoveryServer) generateEndpoints(clusterName string, groupName string, proxy *model.Proxy, push *model.PushContext) *xdsapi.ClusterLoadAssignment {
 	l := s.loadAssignmentsForClusterIsolated(proxy, push, clusterName, groupName)
 	if l == nil {
 		return nil
 	}
 
-	return applyEndpointFilters(proxy, push, l)
-}
-
-func applyEndpointFilters(proxy *model.Proxy, push *model.PushContext, l *xdsapi.ClusterLoadAssignment) *xdsapi.ClusterLoadAssignment {
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints
 	if push.Networks != nil && len(push.Networks.Networks) > 0 {
@@ -785,7 +827,16 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 			}
 		}
 
-		for groupName := range s.getServiceGroupNames(clusterName, con.node, push) {
+		push.Mutex.Lock()
+		svc := con.node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+		push.Mutex.Unlock()
+		if svc == nil {
+			// Should not happen, EGDS data not exists
+			adsLog.Warnf("EGDS: missing data for cluster %s, node id %s", clusterName, con.ConID)
+			continue
+		}
+
+		for groupName := range s.getServiceGroupNames(clusterName, svc.Attributes.Namespace) {
 			if egdsUpdatedGroups != nil {
 				if _, f := egdsUpdatedGroups[groupName]; !f {
 					// This happens in a incremental EGDS push
@@ -793,7 +844,7 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 				}
 			}
 
-			l := s.generateLoadAssignment(clusterName, groupName, con.node, push)
+			l := s.generateEndpoints(clusterName, groupName, con.node, push)
 			g := &xdsapi.EndpointGroup{
 				Name: groupName,
 				Endpoints: l.Endpoints,
@@ -816,9 +867,62 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 	return nil
 }
 
+func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
+	pushStart := time.Now()
+	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
+	endpoints := 0
+	groupCount := 0
+	empty := make([]string, 0)
+
+	// EGDS not supported or enabled, use legacy method
+	if !util.IsIstioVersionGE14(con.node) || push.Mesh.GetEgdsGroupSize() == 0 {
+		return s.pushEdsLegacy(push, con, version, edsUpdatedServices)
+	}
+
+	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
+	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
+	for _, clusterName := range con.Clusters {
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+		if edsUpdatedServices != nil {
+			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
+				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
+				continue
+			}
+		}
+
+		l := s.generateEgdsForCluster(clusterName, con.node, push)
+		if l == nil {
+			continue
+		}
+
+		loadAssignments = append(loadAssignments, l)
+	}
+
+	response := endpointDiscoveryResponse(loadAssignments, version, push.Version)
+	err := con.send(response)
+	edsPushTime.Record(time.Since(pushStart).Seconds())
+	if err != nil {
+		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
+		recordSendError(edsSendErrPushes, err)
+		return err
+	}
+	edsPushes.Increment()
+
+	if edsUpdatedServices == nil {
+		adsLog.Infof("EDS: PUSH for node:%s clusters:%d groupCount:%d",
+			con.node.ID, len(con.Clusters), endpoints, empty, groupCount)
+	} else {
+		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d groupCount:%d",
+			con.node.ID, len(con.Clusters), endpoints, empty, groupCount)
+	}
+
+	return nil
+}
+
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
-func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
+func (s *DiscoveryServer) pushEdsLegacy(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
 	pushStart := time.Now()
 	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
 	endpoints := 0
@@ -837,7 +941,8 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 			}
 		}
 
-		l := s.generateLoadAssignment(clusterName, "", con.node, push)
+		l := s.generateEndpoints(clusterName, "", con.node, push)
+
 		if l == nil {
 			continue
 		}
@@ -861,17 +966,17 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
-		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
+		adsLog.Warnf("EDS(LEGACY): Send failure %s: %v", con.ConID, err)
 		recordSendError(edsSendErrPushes, err)
 		return err
 	}
 	edsPushes.Increment()
 
 	if edsUpdatedServices == nil {
-		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v groupCount:%d",
+		adsLog.Infof("EDS(LEGACY): PUSH for node:%s clusters:%d endpoints:%d empty:%v groupCount:%d",
 			con.node.ID, len(con.Clusters), endpoints, empty, groupCount)
 	} else {
-		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v groupCount:%d",
+		adsLog.Infof("EDS(LEGACY): PUSH INC for node:%s clusters:%d endpoints:%d empty:%v groupCount:%d",
 			con.node.ID, len(con.Clusters), endpoints, empty, groupCount)
 	}
 
