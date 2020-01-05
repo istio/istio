@@ -276,8 +276,8 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.cert = &pair
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
+			log.Debugf("Injector watch update: %+v", event)
 			// use a timer to debounce configuration updates
-			log.Infoa("Injector watch", event.Name)
 			if (event.IsModify() || event.IsCreate()) && timerC == nil {
 				timerC = time.After(watchDebounceDelay)
 			}
@@ -717,7 +717,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return toAdmissionResponse(err)
 	}
 
-	log.Infof("AdmissionResponse: patch=%v\n", string(patchBytes))
+	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
 
 	reviewResponse := v1beta1.AdmissionResponse{
 		Allowed: true,
