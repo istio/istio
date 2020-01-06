@@ -40,8 +40,11 @@ iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 1024 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 21 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
-iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 4321 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 4321 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 4321 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 4444 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 4444 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 4444 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 9.9.0.0/16 -j RETURN
