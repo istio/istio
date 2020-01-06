@@ -53,8 +53,9 @@ func addFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "mesh",
-		Short: "Command line Istio install utility.",
+		Use:          "mesh",
+		Short:        "Command line Istio install utility.",
+		SilenceUsage: true,
 		Long: "This command uses the Istio operator code to generate templates, query configurations and perform " +
 			"utility operations.",
 	}
