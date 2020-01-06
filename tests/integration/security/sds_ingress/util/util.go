@@ -92,19 +92,23 @@ var IngressCredentialCaCertB = IngressCredential{
 // nolint: interfacer
 func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames []string,
 	ingressType ingress.CallType, ingressCred IngressCredential) {
-	// Get namespace for ingress gateway pod.
+	// Create Kubernetes secret for ingress gateway
+	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
-	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+	var ns = namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace).Name()
+	if istioCfg.Values["gateways.istio-ingressgateway.sds.secretsNamespace"] != "" {
+		ns = istioCfg.Values["gateways.istio-ingressgateway.sds.secretsNamespace"]
+		kubeAccessor.CreateNamespace(ns, "istio-testing")
+	}
 
 	if len(credNames) == 0 {
 		t.Log("no credential names are specified, skip creating ingress secret")
 		return
 	}
-	// Create Kubernetes secret for ingress gateway
-	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
 	for _, cn := range credNames {
-		secret := createSecret(ingressType, cn, systemNS.Name(), ingressCred)
-		err := kubeAccessor.CreateSecret(systemNS.Name(), secret)
+		secret := createSecret(ingressType, cn, ns, ingressCred)
+		err := kubeAccessor.CreateSecret(ns, secret)
 		if err != nil {
 			t.Errorf("Failed to create secret (error: %s)", err)
 		}
@@ -113,13 +117,13 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 	maxRetryNumber := 5
 	checkRetryInterval := time.Second * 1
 	for _, cn := range credNames {
-		t.Logf("Check ingress Kubernetes secret %s:%s...", systemNS.Name(), cn)
+		t.Logf("Check ingress Kubernetes secret %s:%s...", ns, cn)
 		for i := 0; i < maxRetryNumber; i++ {
-			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
+			_, err := kubeAccessor.GetSecret(ns).Get(cn, metav1.GetOptions{})
 			if err != nil {
 				time.Sleep(checkRetryInterval)
 			} else {
-				t.Logf("Secret %s:%s is ready.", systemNS.Name(), cn)
+				t.Logf("Secret %s:%s is ready.", ns, cn)
 				break
 			}
 		}
