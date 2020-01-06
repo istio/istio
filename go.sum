@@ -673,6 +673,9 @@ github.com/yl2chen/cidranger v0.0.0-20180214081945-928b519e5268 h1:lkoOjizoHqOcE
 github.com/yl2chen/cidranger v0.0.0-20180214081945-928b519e5268/go.mod h1:mq0zhomp/G6rRTb0dvHWXRHr/2+Qgeq5hMXfJ670+i4=
 github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3 h1:CX+AUpiV2hZ3OaPM/TSWtkOWxsCIgNHCrjiOKIAGjSo=
 github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3/go.mod h1:aEV29XrmTYFr3CiRxZeGHpkvbwq+prZduBqMaascyCU=
+gitlab.alibaba-inc.com/AliMesh/go-control-plane v0.9.1/go.mod h1:G1fbsNGAFpC1aaERrShZQVdUV2ZuZuv6FCl2v9JNSxQ=
+gitlab.alibaba-inc.com/AliMesh/go-control-plane v0.9.2-0.20200106085130-5bfed9090b2d/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
+gitlab.alibaba-inc.com/one-mesh/api v0.0.0-20200102031908-44e822ed4a84/go.mod h1:RXD9cVQsBOLpIb38NOMOa48DXvBtNdrA7bTHLMyuhvM=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738/go.mod h1:dnLIgRNXwCJa5e+c6mIZCrds/GIG4ncV9HhK5PX7jPg=
 go.mongodb.org/mongo-driver v1.0.3/go.mod h1:u7ryQJ+DOzQmeO7zB6MHyr8jkEQvC8vH7qLUO4lqsUM=
