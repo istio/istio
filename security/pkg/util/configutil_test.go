@@ -88,8 +88,9 @@ func TestInsertDataToConfigMap(t *testing.T) {
 				ktesting.NewCreateAction(gvr, namespaceName, createConfigMap(namespaceName, configMapName,
 					map[string]string{dataName: "test-data"})),
 			},
-			expectedErr: "error when creating configmap: no permission to create configmap",
-			client:      creatConfigMapDisabledClient(),
+			expectedErr: fmt.Sprintf("error when creating configmap %v: no permission to create configmap",
+				configMapName),
+			client: creatConfigMapDisabledClient(),
 		},
 	}
 
@@ -176,8 +177,9 @@ func TestInsertDataToConfigMapWithRetry(t *testing.T) {
 				ktesting.NewCreateAction(gvr, namespaceName, createConfigMap(namespaceName, configMapName,
 					map[string]string{dataName: "test-data"})),
 			},
-			expectedErr: "error when creating configmap: no permission to create configmap",
-			client:      creatConfigMapDisabledClient(),
+			expectedErr: fmt.Sprintf("error when creating configmap %v: no permission to create configmap",
+				configMapName),
+			client: creatConfigMapDisabledClient(),
 		},
 	}
 
