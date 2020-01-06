@@ -23,7 +23,7 @@ import (
 )
 
 func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations, g galley.Instance, p pilot.Instance) echo.Config {
-	return echo.Config{
+	out := echo.Config{
 		Service:        name,
 		Namespace:      ns,
 		ServiceAccount: true,
@@ -48,4 +48,11 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 		Galley: g,
 		Pilot:  p,
 	}
+
+	// for headless service with selector, the port and target port must be equal
+	// Ref: https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
+	if headless {
+		out.Ports[0].ServicePort = 8090
+	}
+	return out
 }
