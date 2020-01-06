@@ -67,7 +67,7 @@ const (
 	// Every namespaceResyncPeriod, namespaceUpdated() will be invoked
 	// for every namespace. This value must be configured so Citadel
 	// can update its CA certificate in a ConfigMap in every namespace.
-	namespaceResyncPeriod = time.Second * 5
+	namespaceResyncPeriod = time.Second * 30
 
 	recommendedMinGracePeriodRatio = 0.2
 	recommendedMaxGracePeriodRatio = 0.8
