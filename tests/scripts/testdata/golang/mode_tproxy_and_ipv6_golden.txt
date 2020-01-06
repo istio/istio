@@ -49,8 +49,11 @@ iptables -t mangle -A ISTIO_INBOUND -p tcp -m socket -j ISTIO_DIVERT
 iptables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
 iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
-iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 4321 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 4321 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 4321 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 4444 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 4444 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 4444 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 iptables -t nat -I PREROUTING 1 -i eth1 -j RETURN
@@ -68,8 +71,11 @@ ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 8888 -j RETURN
 ip6tables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_IN_REDIRECT
 ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN
-ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 4321 -j ISTIO_IN_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 4321 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 4321 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 4444 -j ISTIO_IN_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 4444 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 4444 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -d 2019:db8::/32 -j RETURN
