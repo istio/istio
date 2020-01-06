@@ -32,7 +32,7 @@ import (
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
-	cacheHandler
+	informer cache.SharedIndexInformer
 
 	sync.RWMutex
 	// podsByIP maintains stable pod IP to name key mapping
@@ -43,19 +43,18 @@ type PodCache struct {
 	c *Controller
 }
 
-func newPodCache(ch cacheHandler, c *Controller) *PodCache {
+func newPodCache(informer cache.SharedIndexInformer, c *Controller) *PodCache {
 	out := &PodCache{
-		cacheHandler: ch,
-		c:            c,
-		podsByIP:     make(map[string]string),
+		informer: informer,
+		c:        c,
+		podsByIP: make(map[string]string),
 	}
 
-	ch.handler.Append(out.event)
 	return out
 }
 
-// event updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) event(_, curr interface{}, ev model.Event) error {
+// onEvent updates the IP-based index (pc.podsByIP).
+func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	pc.Lock()
 	defer pc.Unlock()
 

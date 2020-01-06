@@ -32,8 +32,8 @@ func TestHandlerFromFn(t *testing.T) {
 
 	sent := Event{
 		Kind: Added,
-		Entry: &resource.Entry{
-			Item: &types.Empty{},
+		Resource: &resource.Instance{
+			Message: &types.Empty{},
 		},
 	}
 
@@ -61,8 +61,8 @@ func TestHandlers(t *testing.T) {
 
 	sent := Event{
 		Kind: Added,
-		Entry: &resource.Entry{
-			Item: &types.Empty{},
+		Resource: &resource.Instance{
+			Message: &types.Empty{},
 		},
 	}
 
@@ -89,8 +89,8 @@ func TestCombineHandlers(t *testing.T) {
 
 	sent := Event{
 		Kind: Added,
-		Entry: &resource.Entry{
-			Item: &types.Empty{},
+		Resource: &resource.Instance{
+			Message: &types.Empty{},
 		},
 	}
 
@@ -112,8 +112,8 @@ func TestCombineHandlers_Nil1(t *testing.T) {
 
 	sent := Event{
 		Kind: Added,
-		Entry: &resource.Entry{
-			Item: &types.Empty{},
+		Resource: &resource.Instance{
+			Message: &types.Empty{},
 		},
 	}
 
@@ -134,8 +134,8 @@ func TestCombineHandlers_Nil2(t *testing.T) {
 
 	sent := Event{
 		Kind: Added,
-		Entry: &resource.Entry{
-			Item: &types.Empty{},
+		Resource: &resource.Instance{
+			Message: &types.Empty{},
 		},
 	}
 
@@ -177,8 +177,8 @@ func TestCombineHandlers_MultipleHandlers(t *testing.T) {
 
 	sent := Event{
 		Kind: Added,
-		Entry: &resource.Entry{
-			Item: &types.Empty{},
+		Resource: &resource.Instance{
+			Message: &types.Empty{},
 		},
 	}
 
@@ -195,8 +195,8 @@ func TestSentinelHandler(t *testing.T) {
 	h := SentinelHandler()
 	e := Event{
 		Kind: Added,
-		Entry: &resource.Entry{
-			Item: &types.Empty{},
+		Resource: &resource.Instance{
+			Message: &types.Empty{},
 		},
 	}
 

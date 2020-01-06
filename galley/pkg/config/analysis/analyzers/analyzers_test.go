@@ -19,6 +19,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -30,13 +31,14 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 type message struct {
@@ -45,10 +47,11 @@ type message struct {
 }
 
 type testCase struct {
-	name       string
-	inputFiles []string
-	analyzer   analysis.Analyzer
-	expected   []message
+	name           string
+	inputFiles     []string
+	meshConfigFile string // Optional
+	analyzer       analysis.Analyzer
+	expected       []message
 }
 
 // Some notes on setting up tests for Analyzers:
@@ -69,6 +72,15 @@ var testGrid = []testCase{
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 			{msg.MisplacedAnnotation, "Namespace staging"},
+		},
+	},
+	{
+		name:           "mtlsAnalyzerAutoMtlsSkips",
+		inputFiles:     []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
+		meshConfigFile: "testdata/mesh-with-automtls.yaml",
+		analyzer:       &auth.MTLSAnalyzer{},
+		expected:       []message{
+			// With autoMtls enabled, we should not generate a message
 		},
 	},
 	{
@@ -234,6 +246,16 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewaySecret",
+		inputFiles: []string{"testdata/gateway-secrets.yaml"},
+		analyzer:   &gateway.SecretAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Gateway defaultgateway-bogusCredentialName"},
+			{msg.ReferencedResourceNotFound, "Gateway customgateway-wrongnamespace"},
+			{msg.ReferencedResourceNotFound, "Gateway bogusgateway"},
+		},
+	},
+	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
 		analyzer:   &injection.Analyzer{},
@@ -249,6 +271,28 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.IstioProxyVersionMismatch, "Pod details-v1-pod-old.enabled-namespace"},
 		},
+	},
+	{
+		name:       "portNameNotFollowConvention",
+		inputFiles: []string{"testdata/service-no-port-name.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected: []message{
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service2.my-namespace2"},
+		},
+	},
+	{
+		name:       "namedPort",
+		inputFiles: []string{"testdata/service-port-name.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected:   []message{},
+	},
+	{
+		name:       "unnamedPortInSystemNamespace",
+		inputFiles: []string{"testdata/service-no-port-name-system-namespace.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name:       "sidecarDefaultSelector",
@@ -354,8 +398,23 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
+			sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
 
+			// If a mesh config file is specified, use it instead of the defaults
+			if testCase.meshConfigFile != "" {
+				err := sa.AddFileKubeMeshConfig(testCase.meshConfigFile)
+				if err != nil {
+					t.Fatalf("Error applying mesh config file %s: %v", testCase.meshConfigFile, err)
+				}
+			}
+
+			// Include default resources
+			err := sa.AddDefaultResources()
+			if err != nil {
+				t.Fatalf("Error adding default resources: %v", err)
+			}
+
+			// Gather test files
 			var files []io.Reader
 			for _, f := range testCase.inputFiles {
 				of, err := os.Open(f)
@@ -365,19 +424,20 @@ func TestAnalyzers(t *testing.T) {
 				files = append(files, of)
 			}
 
-			err := sa.AddReaderKubeSource(files)
+			// Include resources from test files
+			err = sa.AddReaderKubeSource(files)
 			if err != nil {
 				t.Fatalf("Error setting up file kube source on testcase %s: %v", testCase.name, err)
 			}
 			cancel := make(chan struct{})
 
+			// Run the analysis
 			result, err := sa.Analyze(cancel)
 			if err != nil {
 				t.Fatalf("Error running analysis on testcase %s: %v", testCase.name, err)
 			}
 
-			actualMsgs := extractFields(result.Messages)
-			g.Expect(actualMsgs).To(ConsistOf(testCase.expected))
+			g.Expect(extractFields(result.Messages)).To(ConsistOf(testCase.expected), "%v", prettyPrintMessages(result.Messages))
 		})
 	}
 
@@ -449,7 +509,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 // Pull just the fields we want to check out of diag.Message
-func extractFields(msgs []diag.Message) []message {
+func extractFields(msgs diag.Messages) []message {
 	result := make([]message, 0)
 	for _, m := range msgs {
 		expMsg := message{
@@ -461,4 +521,13 @@ func extractFields(msgs []diag.Message) []message {
 		result = append(result, expMsg)
 	}
 	return result
+}
+
+func prettyPrintMessages(msgs diag.Messages) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Analyzer messages: %d\n", len(msgs))
+	for _, m := range msgs {
+		fmt.Fprintf(&sb, "\t%s\n", m.String())
+	}
+	return sb.String()
 }

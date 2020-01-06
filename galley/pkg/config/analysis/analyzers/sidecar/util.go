@@ -15,11 +15,10 @@ package sidecar
 
 import "istio.io/istio/galley/pkg/config/resource"
 
-func getNames(entries []*resource.Entry) []string {
-	var names []string
+func getNames(entries []*resource.Instance) []string {
+	names := make([]string, 0, len(entries))
 	for _, rs := range entries {
-		_, name := rs.Metadata.Name.InterpretAsNamespaceAndName()
-		names = append(names, name)
+		names = append(names, string(rs.Metadata.FullName.Name))
 	}
 	return names
 }

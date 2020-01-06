@@ -83,7 +83,7 @@ func convertServices(cfg model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.MCP),
+							ServiceRegistry: string(serviceregistry.External),
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
@@ -98,7 +98,7 @@ func convertServices(cfg model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.MCP),
+							ServiceRegistry: string(serviceregistry.External),
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
@@ -115,7 +115,7 @@ func convertServices(cfg model.Config) []*model.Service {
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
-					ServiceRegistry: string(serviceregistry.MCP),
+					ServiceRegistry: string(serviceregistry.External),
 					Name:            hostname,
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
@@ -147,18 +147,23 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
 
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address:     addr,
-			Family:      family,
-			Port:        int(instancePort),
-			ServicePort: convertPort(servicePort),
-			Network:     endpoint.Network,
-			Locality:    endpoint.Locality,
-			LbWeight:    endpoint.Weight,
+		Endpoint: &model.IstioEndpoint{
+			Address:         addr,
+			Family:          family,
+			EndpointPort:    instancePort,
+			ServicePortName: servicePort.Name,
+			Network:         endpoint.Network,
+			Locality:        endpoint.Locality,
+			LbWeight:        endpoint.Weight,
+			Labels:          endpoint.Labels,
+			TLSMode:         tlsMode,
+			Attributes: model.ServiceAttributes{
+				Name:      service.Attributes.Name,
+				Namespace: service.Attributes.Namespace,
+			},
 		},
-		Service: service,
-		Labels:  endpoint.Labels,
-		TLSMode: tlsMode,
+		Service:     service,
+		ServicePort: convertPort(servicePort),
 	}
 }
 
@@ -177,14 +182,19 @@ func convertInstances(cfg model.Config, services []*model.Service) []*model.Serv
 				// Do not use serviceentry.hosts as a service entry is converted into
 				// multiple services (one for each host)
 				out = append(out, &model.ServiceInstance{
-					Endpoint: model.NetworkEndpoint{
-						Address:     string(service.Hostname),
-						Port:        int(serviceEntryPort.Number),
-						ServicePort: convertPort(serviceEntryPort),
+					Endpoint: &model.IstioEndpoint{
+						Address:         string(service.Hostname),
+						EndpointPort:    serviceEntryPort.Number,
+						ServicePortName: serviceEntryPort.Name,
+						Labels:          nil,
+						TLSMode:         model.DisabledTLSModeLabel,
+						Attributes: model.ServiceAttributes{
+							Name:      service.Attributes.Name,
+							Namespace: service.Attributes.Namespace,
+						},
 					},
-					Service: service,
-					Labels:  nil,
-					TLSMode: model.DisabledTLSModeLabel,
+					Service:     service,
+					ServicePort: convertPort(serviceEntryPort),
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {

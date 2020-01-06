@@ -309,7 +309,13 @@ func (sc *SecretController) saAdded(obj interface{}) {
 
 // Handles the event where a service account is deleted.
 func (sc *SecretController) saDeleted(obj interface{}) {
-	acct := obj.(*v1.ServiceAccount)
+	acct, ok := obj.(*v1.ServiceAccount)
+	if !ok {
+		// OnDelete can get an object of type DeletedFinalStateUnknown if it misses the delete event.
+		// Citadel should not proceed in that case
+		k8sControllerLog.Warnf("Failed to convert to serviceaccount object: %v", obj)
+		return
+	}
 	sc.deleteSecret(acct.GetName(), acct.GetNamespace())
 	sc.monitoring.ServiceAccountDeletion.Increment()
 }
@@ -351,6 +357,10 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 		}
 		if errors.IsAlreadyExists(err) {
 			k8sControllerLog.Infof("Secret %s/%s already exists, skip", saNamespace, GetSecretName(saName))
+			return
+		}
+		if errors.IsForbidden(err) { // kube-apiserver returns Forbidden while destination namespace is Terminating
+			k8sControllerLog.Errorf("Failed to create secret %s/%s, it's forbidden, (error: %s)", saNamespace, GetSecretName(saName), err)
 			return
 		}
 		k8sControllerLog.Errorf("Failed to create secret %s/%s in attempt %v/%v, (error: %s)",

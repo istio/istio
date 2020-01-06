@@ -66,7 +66,7 @@ function build_images() {
   targets="docker.pilot docker.proxyv2 "
   targets+="docker.app docker.test_policybackend docker.kubectl "
   targets+="docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.node-agent-k8s"
-  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make docker
+  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
 function kind_load_images() {
@@ -115,7 +115,7 @@ function cleanup_kind_cluster() {
 }
 
 function setup_kind_cluster() {
-  IMAGE="${1:-kindest/node:v1.16.2}"
+  IMAGE="${1:-kindest/node:v1.17.0}"
   NAME="${2:-istio-testing}"
   CONFIG="${3:-}"
   # Delete any previous e2e KinD cluster

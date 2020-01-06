@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 )
@@ -38,8 +39,10 @@ func All() []analysis.Analyzer {
 		&deployment.ServiceAssociationAnalyzer{},
 		&deprecation.FieldAnalyzer{},
 		&gateway.IngressGatewayPortAnalyzer{},
+		&gateway.SecretAnalyzer{},
 		&injection.Analyzer{},
 		&injection.VersionAnalyzer{},
+		&service.PortNameAnalyzer{},
 		&sidecar.DefaultSelectorAnalyzer{},
 		&sidecar.SelectorAnalyzer{},
 		&virtualservice.ConflictingMeshGatewayHostsAnalyzer{},

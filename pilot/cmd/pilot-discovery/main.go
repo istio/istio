@@ -78,7 +78,7 @@ var (
 			stop := make(chan struct{})
 
 			// Create the server for the discovery service.
-			discoveryServer, err := bootstrap.NewServer(serverArgs)
+			discoveryServer, err := bootstrap.NewServer(&serverArgs)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}

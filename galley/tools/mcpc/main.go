@@ -34,7 +34,8 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -326,7 +327,7 @@ func main() {
 		}
 	}
 
-	for _, collection := range metadata.MustGet().AllCollectionsInSnapshots(metadata.SnapshotNames()) {
+	for _, collection := range schema.MustGet().AllCollectionsInSnapshots(snapshots.SnapshotNames()) {
 
 		switch {
 		// pilot sortedCollections

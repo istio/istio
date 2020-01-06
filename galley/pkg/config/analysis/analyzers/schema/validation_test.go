@@ -23,10 +23,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/analysis/testing/fixtures"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema"
 )
 
@@ -36,7 +37,7 @@ func TestCorrectArgs(t *testing.T) {
 	m1 := &v1alpha3.VirtualService{}
 
 	testSchema := schema.Instance{
-		Collection: metadata.IstioNetworkingV1Alpha3Virtualservices.String(),
+		Collection: collections.IstioNetworkingV1Alpha3Virtualservices.Name().String(),
 		Validate: func(name, ns string, msg proto.Message) (errs error) {
 			g.Expect(name).To(Equal("name"))
 			g.Expect(ns).To(Equal("ns"))
@@ -46,11 +47,11 @@ func TestCorrectArgs(t *testing.T) {
 		},
 	}
 	ctx := &fixtures.Context{
-		Entries: []*resource.Entry{
+		Resources: []*resource.Instance{
 			{
-				Item: &v1alpha3.VirtualService{},
+				Message: &v1alpha3.VirtualService{},
 				Metadata: resource.Metadata{
-					Name: resource.NewName("ns", "name"),
+					FullName: resource.NewFullName("ns", "name"),
 				},
 			},
 		},
@@ -60,7 +61,7 @@ func TestCorrectArgs(t *testing.T) {
 }
 
 func TestSchemaValidationWrapper(t *testing.T) {
-	testCol := metadata.IstioNetworkingV1Alpha3Virtualservices
+	testCol := collections.IstioNetworkingV1Alpha3Virtualservices.Name()
 
 	m1 := &v1alpha3.VirtualService{}
 	m2 := &v1alpha3.VirtualService{}
@@ -92,9 +93,9 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	t.Run("NoErrors", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 		ctx := &fixtures.Context{
-			Entries: []*resource.Entry{
+			Resources: []*resource.Instance{
 				{
-					Item: m1,
+					Message: m1,
 				},
 			},
 		}
@@ -106,9 +107,9 @@ func TestSchemaValidationWrapper(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		ctx := &fixtures.Context{
-			Entries: []*resource.Entry{
+			Resources: []*resource.Instance{
 				{
-					Item: m2,
+					Message: m2,
 				},
 			},
 		}
@@ -120,9 +121,9 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	t.Run("MultiError", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 		ctx := &fixtures.Context{
-			Entries: []*resource.Entry{
+			Resources: []*resource.Instance{
 				{
-					Item: m3,
+					Message: m3,
 				},
 			},
 		}

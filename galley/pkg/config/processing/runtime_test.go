@@ -44,12 +44,12 @@ func TestRuntime_Startup_NoMeshConfig(t *testing.T) {
 	f.rt.Start()
 	defer f.rt.Stop()
 
-	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	coll := basicmeta.K8SCollection1
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
-	f.src.Get(coll).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	g.Consistently(f.p.acc.Events).Should(HaveLen(0))
 	g.Consistently(f.p.HasStarted).Should(BeFalse())
@@ -66,7 +66,7 @@ func TestRuntime_Startup_MeshConfig_Arrives_No_Resources(t *testing.T) {
 
 	g.Eventually(f.p.acc.Events).Should(HaveLen(3))
 	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection1),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.FullSyncFor(meshcfg.IstioMeshconfig),
 		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
 	))
@@ -80,18 +80,18 @@ func TestRuntime_Startup_MeshConfig_Arrives(t *testing.T) {
 	f.rt.Start()
 	defer f.rt.Stop()
 
-	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	coll := basicmeta.K8SCollection1
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
-	f.src.Get(coll).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 	g.Eventually(f.p.acc.Events).Should(HaveLen(4))
 	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.AddFor(basicmeta.Collection1, r),
-		event.FullSyncFor(basicmeta.Collection1),
+		event.AddFor(basicmeta.K8SCollection1.Name(), r),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.FullSyncFor(meshcfg.IstioMeshconfig),
 		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
 	))
@@ -105,12 +105,12 @@ func TestRuntime_Startup_Stop(t *testing.T) {
 	f := initFixture()
 	f.rt.Start()
 
-	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	coll := basicmeta.K8SCollection1
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
-	f.src.Get(coll).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 
@@ -127,12 +127,12 @@ func TestRuntime_Start_Start_Stop(t *testing.T) {
 	f.rt.Start()
 	f.rt.Start() // Double start
 
-	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	coll := basicmeta.K8SCollection1
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
-	f.src.Get(coll).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 	g.Eventually(f.p.acc.Events).Should(HaveLen(4))
@@ -147,12 +147,12 @@ func TestRuntime_Start_Stop_Stop(t *testing.T) {
 	f := initFixture()
 	f.rt.Start()
 
-	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	coll := basicmeta.K8SCollection1
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
-	f.src.Get(coll).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 
@@ -170,24 +170,24 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 	f.rt.Start()
 	defer f.rt.Stop()
 
-	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	coll := basicmeta.K8SCollection1
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
-	f.src.Get(coll).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.AddFor(meshcfg.IstioMeshconfig, &resource.Entry{
+		event.AddFor(meshcfg.IstioMeshconfig, &resource.Instance{
 			Metadata: resource.Metadata{
-				Name: meshcfg.ResourceName,
+				FullName: meshcfg.ResourceName,
 			},
-			Item: meshcfg.Default(),
+			Message: meshcfg.Default(),
 		}),
 		event.FullSyncFor(meshcfg.IstioMeshconfig),
-		event.AddFor(coll, r),
-		event.FullSyncFor(coll),
+		event.AddFor(coll.Name(), r),
+		event.FullSyncFor(coll.Name()),
 	))
 
 	oldSessionID := f.rt.currentSessionID()
@@ -207,13 +207,13 @@ func TestRuntime_Event_Before_Start(t *testing.T) {
 
 	f := initFixture()
 
-	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	coll := basicmeta.K8SCollection1
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
 	f.src.Start()
-	f.src.Get(coll).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	g.Consistently(f.p.acc.Events).Should(HaveLen(0))
 }
@@ -306,7 +306,7 @@ func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
 
 	f.meshsrc.Set(meshcfg.Default())
 	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.Collection1),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.FullSyncFor(meshcfg.IstioMeshconfig),
 		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
 	))
@@ -319,7 +319,7 @@ func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
 
 	g.Eventually(f.rt.currentSessionID).Should(Equal(oldSessionID + 1))
 	g.Eventually(f.p.acc.Events).Should(And(
-		ContainElement(event.FullSyncFor(basicmeta.Collection1)),
+		ContainElement(event.FullSyncFor(basicmeta.K8SCollection1.Name())),
 		ContainElement(event.FullSyncFor(meshcfg.IstioMeshconfig)),
 		ContainElement(event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())))))
 
@@ -338,7 +338,7 @@ func newFixture() *fixture {
 	p := &testProcessor{}
 	f := &fixture{
 		meshsrc: meshcfg.NewInmemory(),
-		src:     inmemory.NewKubeSource(basicmeta.MustGet().KubeSource().Resources()),
+		src:     inmemory.NewKubeSource(basicmeta.MustGet().KubeCollections()),
 		mockSrc: &testSource{},
 		p:       p,
 	}
@@ -445,11 +445,11 @@ func (t *testProcessor) HasStarted() bool {
 	return t.started
 }
 
-func meshConfigEntry(m *v1alpha1.MeshConfig) *resource.Entry { // nolint:interfacer
-	return &resource.Entry{
+func meshConfigEntry(m *v1alpha1.MeshConfig) *resource.Instance { // nolint:interfacer
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("istio-system", "meshconfig"),
+			FullName: resource.NewFullName("istio-system", "meshconfig"),
 		},
-		Item: m,
+		Message: m,
 	}
 }

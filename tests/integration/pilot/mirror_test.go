@@ -155,7 +155,7 @@ metadata:
 spec:
   egress:
   - hosts:
-    - "istio-system/*"
+    - "%s/*"
     - "./b.%s.svc.%s"
     - "*/%s"
   outboundTrafficPolicy:
@@ -179,7 +179,8 @@ func TestMirroringExternalService(t *testing.T) {
 		mirrorHost:        fakeExternalURL,
 		mirrorClusterName: fakeExternalURL,
 		fnInjectConfig: func(ns namespace.Instance, instances [3]echo.Instance) {
-			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, ns.Name(), instances[1].Config().Domain, fakeExternalURL))
+			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, i.Settings().ConfigNamespace, ns.Name(),
+				instances[1].Config().Domain, fakeExternalURL))
 			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
 			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)

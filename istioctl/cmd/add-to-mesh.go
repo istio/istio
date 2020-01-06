@@ -79,8 +79,63 @@ func addToMeshCmd() *cobra.Command {
 		},
 	}
 	addToMeshCmd.AddCommand(svcMeshifyCmd())
-	addToMeshCmd.AddCommand(externalSvcMeshifyCmd())
+	addToMeshCmd.AddCommand(deploymentMeshifyCmd())
+	externalSvcMeshifyCmd := externalSvcMeshifyCmd()
+	hideInheritedFlags(externalSvcMeshifyCmd, "meshConfigFile", "meshConfigMapName", "injectConfigFile",
+		"injectConfigMapName", "valuesFile")
+	addToMeshCmd.AddCommand(externalSvcMeshifyCmd)
+	addToMeshCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
+		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
+	addToMeshCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
+		"injection configuration filename. Cannot be used with --injectConfigMapName")
+	addToMeshCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
+		"injection values configuration filename.")
+
+	addToMeshCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
+		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
+	addToMeshCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
+		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
 	return addToMeshCmd
+}
+
+func deploymentMeshifyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "deployment",
+		Short: "Add deployment to Istio service mesh",
+		Long: `istioctl experimental add-to-mesh deployment restarts pods with the Istio sidecar.  Use 'add-to-mesh'
+to test deployments for compatibility with Istio.  If your deployment does not function after
+using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
+See https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
+THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+`,
+		Example: `istioctl experimental add-to-mesh deployment productpage-v1`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return fmt.Errorf("expecting deployment name")
+			}
+			client, err := interfaceFactory(kubeconfig)
+			if err != nil {
+				return err
+			}
+			var sidecarTemplate, valuesConfig string
+			ns := handlers.HandleNamespace(namespace, defaultNamespace)
+			writer := cmd.OutOrStdout()
+
+			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig)
+			if err != nil {
+				return err
+			}
+			dep, err := client.AppsV1().Deployments(ns).Get(args[0], metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("deployment %q does not exist", args[0])
+			}
+			deps := []appsv1.Deployment{}
+			deps = append(deps, *dep)
+			return injectSideCarIntoDeployment(client, deps, sidecarTemplate, valuesConfig,
+				args[0], ns, meshConfig, writer)
+		},
+	}
+	return cmd
 }
 
 func svcMeshifyCmd() *cobra.Command {
@@ -122,18 +177,6 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				args[0], ns, meshConfig, writer)
 		},
 	}
-	cmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
-		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
-	cmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
-		"injection configuration filename. Cannot be used with --injectConfigMapName")
-	cmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
-		"injection values configuration filename.")
-
-	cmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
-		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
-	cmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
-		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
-
 	return cmd
 }
 
@@ -408,6 +451,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 		Ports:      ports,
 		Endpoints:  eps,
 		Resolution: v1alpha3.ServiceEntry_STATIC,
+		Location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
 	}
 
 	// Because we are placing into an Unstructured, place as a map instead

@@ -17,20 +17,19 @@ package auth
 import (
 	"fmt"
 
-	"istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
-
 	v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/galley/pkg/config/analysis/msg"
-
+	"istio.io/api/authentication/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth/mtls"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 const missingResourceName = "(none)"
@@ -64,13 +63,13 @@ func (s *MTLSAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks for misconfigurations of MTLS policy when autoMtls is disabled",
 		// Each analyzer should register the collections that it needs to use as input.
 		Inputs: collection.Names{
-			metadata.K8SCoreV1Pods,
-			metadata.K8SCoreV1Namespaces,
-			metadata.K8SCoreV1Services,
-			metadata.IstioAuthenticationV1Alpha1Meshpolicies,
-			metadata.IstioAuthenticationV1Alpha1Policies,
-			metadata.IstioMeshV1Alpha1MeshConfig,
-			metadata.IstioNetworkingV1Alpha3Destinationrules,
+			collections.K8SCoreV1Pods.Name(),
+			collections.K8SCoreV1Namespaces.Name(),
+			collections.K8SCoreV1Services.Name(),
+			collections.IstioAuthenticationV1Alpha1Meshpolicies.Name(),
+			collections.IstioAuthenticationV1Alpha1Policies.Name(),
+			collections.IstioMeshV1Alpha1MeshConfig.Name(),
+			collections.IstioNetworkingV1Alpha3Destinationrules.Name(),
 		},
 	}
 }
@@ -89,7 +88,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	}
 
 	// The mesh config object includes a default value for this already, so it should be set
-	rootNamespace := mc.GetRootNamespace()
+	rootNamespace := resource.Namespace(mc.GetRootNamespace())
 
 	// Loop over all services, building up a list of selectors for each. This is
 	// used to determine which pods are in which services, and determine whether
@@ -104,8 +103,9 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// number. Tracking this means we can normalize to port number later.
 	fqdnToNameToPort := make(map[string]map[string]uint32)
 
-	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
-		svcNs, svcName := r.Metadata.Name.InterpretAsNamespaceAndName()
+	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+		svcNs := r.Metadata.FullName.Namespace
+		svcName := r.Metadata.FullName.Name
 
 		// Skip system namespaces entirely
 		if util.IsSystemNamespace(svcNs) {
@@ -115,14 +115,14 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// Skip the istio control plane, which doesn't obey Policy/MeshPolicy MTLS
 		// rules in general and instead is controlled by the mesh option
 		// 'controlPlaneSecurityEnabled'.
-		if _, ok := r.Metadata.Labels["istio"]; ok {
+		if util.IsIstioControlPlane(r) {
 			return true
 		}
 
-		svc := r.Item.(*v1.ServiceSpec)
+		svc := r.Message.(*v1.ServiceSpec)
 
 		svcSelector := k8s_labels.SelectorFromSet(svc.Selector)
-		fqdn := util.ConvertHostToFQDN(svcNs, svcName)
+		fqdn := util.ConvertHostToFQDN(svcNs, string(svcName))
 		for _, port := range svc.Ports {
 			// Ignore non-TCP protocols (UDP and others). Can be revisited once
 			// https://github.com/istio/istio/issues/1430 is closed.
@@ -148,13 +148,13 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// checking). If we find no pods at all that match, also assume there's
 		// no sidecar.
 		var foundMatchingPods bool
-		c.ForEach(metadata.K8SCoreV1Pods, func(pr *resource.Entry) bool {
+		c.ForEach(collections.K8SCoreV1Pods.Name(), func(pr *resource.Instance) bool {
 			// If it's not in our namespace, we're not interested
-			podNs, _ := pr.Metadata.Name.InterpretAsNamespaceAndName()
+			podNs := pr.Metadata.FullName.Namespace
 			if podNs != svcNs {
 				return true
 			}
-			pod := pr.Item.(*v1.Pod)
+			pod := pr.Message.(*v1.Pod)
 			podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
 
 			if svcSelector.Empty() || !svcSelector.Matches(podLabels) {
@@ -187,50 +187,49 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// that we will collect the namespace name for all resource types - this
 	// ensures our analyzer still behaves correctly even if namespaces are
 	// implicitly defined.
-	namespaces := make(map[string]struct{})
+	namespaces := make(map[resource.Namespace]struct{})
 
-	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
-		_, name := r.Metadata.Name.InterpretAsNamespaceAndName()
-		namespaces[name] = struct{}{}
+	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
+		namespaces[resource.Namespace(r.Metadata.FullName.Name)] = struct{}{}
 		return true
 	})
 
 	pc := mtls.NewPolicyChecker(fqdnToNameToPort)
-	meshPolicyResource := c.Find(metadata.IstioAuthenticationV1Alpha1Meshpolicies, resource.NewName("", "default"))
+	meshPolicyResource := c.Find(collections.IstioAuthenticationV1Alpha1Meshpolicies.Name(), resource.NewFullName("", "default"))
 	if meshPolicyResource != nil {
-		err := pc.AddMeshPolicy(meshPolicyResource, meshPolicyResource.Item.(*v1alpha1.Policy))
+		err := pc.AddMeshPolicy(meshPolicyResource, meshPolicyResource.Message.(*v1alpha1.Policy))
 		if err != nil {
-			c.Report(metadata.IstioAuthenticationV1Alpha1Meshpolicies, msg.NewInternalError(meshPolicyResource, err.Error()))
+			c.Report(collections.IstioAuthenticationV1Alpha1Meshpolicies.Name(), msg.NewInternalError(meshPolicyResource, err.Error()))
 			return
 		}
 	}
 
-	c.ForEach(metadata.IstioAuthenticationV1Alpha1Policies, func(r *resource.Entry) bool {
-		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	c.ForEach(collections.IstioAuthenticationV1Alpha1Policies.Name(), func(r *resource.Instance) bool {
+		ns := r.Metadata.FullName.Namespace
 		namespaces[ns] = struct{}{}
 
-		err := pc.AddPolicy(r, r.Item.(*v1alpha1.Policy))
+		err := pc.AddPolicy(r, r.Message.(*v1alpha1.Policy))
 		if err != nil {
 			// AddPolicy can return a NamedPortInPolicyNotFoundError - if it
 			// does we can print a useful message.
 			// TODO this should be in its own analyzer, and ignored here.
 			if missingPortNameErr, ok := err.(mtls.NamedPortInPolicyNotFoundError); ok {
-				c.Report(metadata.IstioAuthenticationV1Alpha1Meshpolicies,
+				c.Report(collections.IstioAuthenticationV1Alpha1Meshpolicies.Name(),
 					msg.NewPolicySpecifiesPortNameThatDoesntExist(r, missingPortNameErr.PortName, missingPortNameErr.FQDN))
 				return true
 			}
-			c.Report(metadata.IstioAuthenticationV1Alpha1Meshpolicies, msg.NewInternalError(r, err.Error()))
+			c.Report(collections.IstioAuthenticationV1Alpha1Meshpolicies.Name(), msg.NewInternalError(r, err.Error()))
 			return false
 		}
 		return true
 	})
 
 	drc := mtls.NewDestinationRuleChecker(rootNamespace)
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Destinationrules, func(r *resource.Entry) bool {
-		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	c.ForEach(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), func(r *resource.Instance) bool {
+		ns := r.Metadata.FullName.Namespace
 		namespaces[ns] = struct{}{}
 
-		drc.AddDestinationRule(r, r.Item.(*v1alpha3.DestinationRule))
+		drc.AddDestinationRule(r, r.Message.(*v1alpha3.DestinationRule))
 		return true
 	})
 
@@ -248,16 +247,16 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// missing resource string
 		globalDRName := missingResourceName
 		if globalDR != nil {
-			globalDRName = globalDR.Metadata.Name.String()
+			globalDRName = globalDR.Metadata.FullName.String()
 		}
 		c.Report(
-			metadata.IstioAuthenticationV1Alpha1Meshpolicies,
+			collections.IstioAuthenticationV1Alpha1Meshpolicies.Name(),
 			msg.NewMTLSPolicyConflict(
 				mpr.Resource,
 				anyK8sServiceHost,
 				globalDRName,
 				globalMtls,
-				mpr.Resource.Metadata.Name.String(),
+				mpr.Resource.Metadata.FullName.String(),
 				mpr.MTLSMode.String()))
 		globalMTLSMisconfigured = true
 	}
@@ -269,14 +268,14 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// special missing resource string
 		globalPolicyName := missingResourceName
 		if mpr.Resource != nil {
-			globalPolicyName = mpr.Resource.Metadata.Name.String()
+			globalPolicyName = mpr.Resource.Metadata.FullName.String()
 		}
 		c.Report(
-			metadata.IstioNetworkingV1Alpha3Destinationrules,
+			collections.IstioNetworkingV1Alpha3Destinationrules.Name(),
 			msg.NewMTLSPolicyConflict(
 				globalDR,
 				anyK8sServiceHost,
-				globalDR.Metadata.Name.String(),
+				globalDR.Metadata.FullName.String(),
 				globalMtls,
 				globalPolicyName,
 				mpr.MTLSMode.String()))
@@ -297,13 +296,13 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			var err error
 			tsPolicy, err = pc.IsServiceMTLSEnforced(ts)
 			if err != nil {
-				c.Report(metadata.IstioAuthenticationV1Alpha1Policies, msg.NewInternalError(nil, err.Error()))
+				c.Report(collections.IstioAuthenticationV1Alpha1Policies.Name(), msg.NewInternalError(nil, err.Error()))
 				return
 			}
 		}
 
 		// Extract out the namespace for the target service
-		tsNamespace, _ := util.GetNamespaceAndNameFromFQDN(ts.FQDN())
+		tsNamespace := util.GetFullNameFromFQDN(ts.FQDN()).Namespace
 
 		for ns := range namespaces {
 			mtlsUsed, matchingDR := drc.DoesNamespaceUseMTLSToService(ns, tsNamespace, ts)
@@ -321,10 +320,10 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 				// Check to see if our mismatch is due to a missing sidecar. If
 				// so, use a different analyzer message.
 				if _, ok := fqdnsWithoutSidecars[ts.FQDN()]; ok {
-					c.Report(metadata.IstioNetworkingV1Alpha3Destinationrules,
+					c.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(),
 						msg.NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar(
 							matchingDR,
-							matchingDR.Metadata.Name.String(),
+							matchingDR.Metadata.FullName.String(),
 							ts.String()))
 					continue
 				}
@@ -334,16 +333,16 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 					// the special missing resource string
 					matchingDRName := missingResourceName
 					if matchingDR != nil {
-						matchingDRName = matchingDR.Metadata.Name.String()
+						matchingDRName = matchingDR.Metadata.FullName.String()
 					}
 					c.Report(
-						metadata.IstioAuthenticationV1Alpha1Policies,
+						collections.IstioAuthenticationV1Alpha1Policies.Name(),
 						msg.NewMTLSPolicyConflict(
 							tsPolicy.Resource,
 							ts.String(),
 							matchingDRName,
 							mtlsUsed,
-							tsPolicy.Resource.Metadata.Name.String(),
+							tsPolicy.Resource.Metadata.FullName.String(),
 							tsPolicy.MTLSMode.String()))
 				}
 				if matchingDR != nil {
@@ -351,14 +350,14 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 					// the special missing resource string
 					policyName := missingResourceName
 					if tsPolicy.Resource != nil {
-						policyName = tsPolicy.Resource.Metadata.Name.String()
+						policyName = tsPolicy.Resource.Metadata.FullName.String()
 					}
 					c.Report(
-						metadata.IstioNetworkingV1Alpha3Destinationrules,
+						collections.IstioNetworkingV1Alpha3Destinationrules.Name(),
 						msg.NewMTLSPolicyConflict(
 							matchingDR,
 							ts.String(),
-							matchingDR.Metadata.Name.String(),
+							matchingDR.Metadata.FullName.String(),
 							mtlsUsed,
 							policyName,
 							tsPolicy.MTLSMode.String()))

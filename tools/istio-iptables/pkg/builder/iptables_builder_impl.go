@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
-
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -110,11 +108,11 @@ func (rb *IptablesBuilderImpl) buildRules(command string, rules []*Rule) [][]str
 }
 
 func (rb *IptablesBuilderImpl) BuildV4() [][]string {
-	return rb.buildRules(dependencies.IPTABLES, rb.rules.rulesv4)
+	return rb.buildRules(constants.IPTABLES, rb.rules.rulesv4)
 }
 
 func (rb *IptablesBuilderImpl) BuildV6() [][]string {
-	return rb.buildRules(dependencies.IP6TABLES, rb.rules.rulesv6)
+	return rb.buildRules(constants.IP6TABLES, rb.rules.rulesv6)
 }
 
 func (rb *IptablesBuilderImpl) constructIptablesRestoreContents(tableRulesMap map[string][]string) string {

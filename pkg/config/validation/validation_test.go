@@ -3924,42 +3924,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "key missing",
-			in: &security_beta.AuthorizationPolicy{
-				Selector: &api.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app":     "httpbin",
-						"version": "v1",
-					},
-				},
-				Rules: []*security_beta.Rule{
-					{
-						From: []*security_beta.Rule_From{
-							{
-								Source: &security_beta.Source{
-									Principals: []string{"sa1"},
-								},
-							},
-						},
-						To: []*security_beta.Rule_To{
-							{
-								Operation: &security_beta.Operation{
-									Methods: []string{"GET"},
-								},
-							},
-						},
-						When: []*security_beta.Condition{
-							{
-								Values: []string{"v1", "v2"},
-							},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name: "empty selector: key",
+			name: "selector-empty-value",
 			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -3968,10 +3933,10 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
-			name: "empty selector: value",
+			name: "selector-empty-key",
 			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -3983,7 +3948,168 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "invalid attribute",
+			name: "selector-wildcard-value",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin-*",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "selector-wildcard-key",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app-*": "httpbin",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "from-empty",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "source-nil",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "source-empty",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "to-empty",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						To: []*security_beta.Rule_To{},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "operation-nil",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						To: []*security_beta.Rule_To{
+							{},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "operation-empty",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "condition-key-missing",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						When: []*security_beta.Condition{
+							{
+								Values: []string{"v1", "v2"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "condition-key-empty",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						When: []*security_beta.Condition{
+							{
+								Key:    "",
+								Values: []string{"v1", "v2"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "condition-value-missing",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						When: []*security_beta.Condition{
+							{
+								Key: "source.principal",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "condition-unknown",
 			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -4006,9 +4132,11 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ValidateAuthorizationPolicy("", "", c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateAuthorizationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateAuthorizationPolicy("", "", c.in); (got == nil) != c.valid {
+				t.Errorf("got: %v\nwant: %v", got, c.valid)
+			}
+		})
 	}
 }
 
@@ -5044,7 +5172,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "empty jwt rule",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
-				JwtRules: []*security_beta.JWT{
+				JwtRules: []*security_beta.JWTRule{
 					{},
 				},
 			},
@@ -5054,7 +5182,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "empty issuer",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
-				JwtRules: []*security_beta.JWT{
+				JwtRules: []*security_beta.JWTRule{
 					{
 						Issuer: "",
 					},
@@ -5066,7 +5194,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "bad JwksUri - no protocol",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
-				JwtRules: []*security_beta.JWT{
+				JwtRules: []*security_beta.JWTRule{
 					{
 						Issuer:  "foo.com",
 						JwksUri: "foo.com",
@@ -5079,7 +5207,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "bad JwksUri - invalid port",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
-				JwtRules: []*security_beta.JWT{
+				JwtRules: []*security_beta.JWTRule{
 					{
 						Issuer:  "foo.com",
 						JwksUri: "https://foo.com:not-a-number",
@@ -5098,7 +5226,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 						"version": "",
 					},
 				},
-				JwtRules: []*security_beta.JWT{
+				JwtRules: []*security_beta.JWTRule{
 					{
 						Issuer:  "foo.com",
 						JwksUri: "https://foo.com/cert",
@@ -5117,7 +5245,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 						"":    "v1",
 					},
 				},
-				JwtRules: []*security_beta.JWT{
+				JwtRules: []*security_beta.JWTRule{
 					{
 						Issuer:  "foo.com",
 						JwksUri: "https://foo.com/cert",
@@ -5130,7 +5258,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "bad header location",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
-				JwtRules: []*security_beta.JWT{
+				JwtRules: []*security_beta.JWTRule{
 					{
 						Issuer:  "foo.com",
 						JwksUri: "https://foo.com",
@@ -5149,7 +5277,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "bad param location",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
-				JwtRules: []*security_beta.JWT{
+				JwtRules: []*security_beta.JWTRule{
 					{
 						Issuer:     "foo.com",
 						JwksUri:    "https://foo.com",
@@ -5163,7 +5291,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "good",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
-				JwtRules: []*security_beta.JWT{
+				JwtRules: []*security_beta.JWTRule{
 					{
 						Issuer:  "foo.com",
 						JwksUri: "https://foo.com",

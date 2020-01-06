@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"strings"
 	"sync"
@@ -69,6 +70,15 @@ const (
 	// Timeout the K8s update/delete notification threads. This is to make sure to unblock the
 	// secret watch main thread in case those child threads got stuck due to any reason.
 	notifyK8sSecretTimeout = 30 * time.Second
+
+	// The well-known path for an existing certificate chain file
+	existingCertChainFile = "./etc/certs/cert-chain.pem"
+
+	// The well-known path for an existing key file
+	existingKeyFile = "./etc/certs/key.pem"
+
+	// The well-known path for an existing root certificate file
+	existingRootCertFile = "./etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
@@ -105,6 +115,9 @@ type Options struct {
 
 	// set this flag to true if skip validate format for certificate chain returned from CA.
 	SkipValidateCert bool
+
+	// Whether to generate PKCS#8 private keys.
+	Pkcs8Keys bool
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -205,6 +218,33 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	}
 
 	conIDresourceNamePrefix := cacheLogPrefix(connectionID, resourceName)
+
+	// When there are existing root certificates, or private key and certificate under
+	// a well known path, they are used in the SDS response.
+	// In the current implementation, the file update events are not handled and if
+	// the files are updated, a user may restart Envoy to pick up the updated files.
+	// TODO (lei-tang): if updating files are supported, add a file watcher for
+	// the files under the well known path.
+	sdsFromFile := false
+	var err error
+	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(existingRootCertFile) {
+		sdsFromFile = true
+		ns, err = sc.generateRootCertFromExistingFile(existingRootCertFile, token, connKey)
+	} else if connKey.ResourceName == WorkloadKeyCertResourceName &&
+		sc.keyCertificateExist(existingCertChainFile, existingKeyFile) {
+		sdsFromFile = true
+		ns, err = sc.generateKeyCertFromExistingFiles(existingCertChainFile, existingKeyFile, token, connKey)
+	}
+	if sdsFromFile {
+		if err != nil {
+			cacheLog.Errorf("%s failed to generate secret for proxy: %v, by loading from files",
+				conIDresourceNamePrefix, err)
+			return nil, err
+		}
+		sc.secrets.Store(connKey, *ns)
+		return ns, nil
+	}
+
 	if resourceName != RootCertReqResourceName {
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
@@ -238,7 +278,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	if sc.rootCert == nil {
 		cacheLog.Errorf("%s failed to get root cert for proxy", conIDresourceNamePrefix)
 		return nil, errors.New("failed to get root cert")
-
 	}
 
 	t := time.Now()
@@ -567,12 +606,98 @@ func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, t ti
 	}, nil
 }
 
+// If there is existing root certificates under a well known path, return true.
+// Otherwise, return false.
+func (sc *SecretCache) rootCertificateExist(filePath string) bool {
+	b, err := ioutil.ReadFile(filePath)
+	if err != nil || len(b) == 0 {
+		return false
+	}
+	return true
+}
+
+// If there is an existing private key and certificate under a well known path, return true.
+// Otherwise, return false.
+func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
+	b, err := ioutil.ReadFile(certPath)
+	if err != nil || len(b) == 0 {
+		return false
+	}
+	b, err = ioutil.ReadFile(keyPath)
+	if err != nil || len(b) == 0 {
+		return false
+	}
+
+	return true
+}
+
+// Generate a root certificate item from the existing root certificate file
+// under a well known path.
+func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*model.SecretItem, error) {
+	rootCert, err := ioutil.ReadFile(rootCertPath)
+	if err != nil {
+		return nil, err
+	}
+
+	t := time.Now()
+	var certExpireTime time.Time
+	if certExpireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(rootCert); err != nil {
+		cacheLog.Errorf("failed to extract expiration time in the root certificate loaded from file: %v", err)
+		return nil, fmt.Errorf("failed to extract expiration time in the root certificate loaded from file: %v", err)
+	}
+
+	// Set the rootCert
+	sc.rootCertMutex.Lock()
+	sc.rootCert = rootCert
+	sc.rootCertMutex.Unlock()
+
+	return &model.SecretItem{
+		ResourceName: connKey.ResourceName,
+		RootCert:     rootCert,
+		ExpireTime:   certExpireTime,
+		Token:        token,
+		CreatedTime:  t,
+		Version:      t.String(),
+	}, nil
+}
+
+// Generate a key and certificate item from the existing key certificate files
+// under a well known path.
+func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, token string, connKey ConnKey) (*model.SecretItem, error) {
+	certChain, err := ioutil.ReadFile(certChainPath)
+	if err != nil {
+		return nil, err
+	}
+	keyPEM, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	t := time.Now()
+	var certExpireTime time.Time
+	if certExpireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain); err != nil {
+		cacheLog.Errorf("failed to extract expiration time in the certificate loaded from file: %v", err)
+		return nil, fmt.Errorf("failed to extract expiration time in the certificate loaded from file: %v", err)
+	}
+
+	return &model.SecretItem{
+		CertificateChain: certChain,
+		PrivateKey:       keyPEM,
+		ResourceName:     connKey.ResourceName,
+		Token:            token,
+		CreatedTime:      t,
+		ExpireTime:       certExpireTime,
+		Version:          t.String(),
+	}, nil
+}
+
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
 		return sc.generateGatewaySecret(token, connKey, t)
 	}
+
 	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
 	// call authentication provider specific plugins to exchange token if necessary.
 	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
@@ -590,12 +715,13 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
 	if err != nil {
 		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
-			" resource name. The failed jwt above is: %s", conIDresourceNamePrefix, err, token)
+			" resource name.", conIDresourceNamePrefix, err)
 		csrHostName = connKey.ResourceName
 	}
 	options := util.CertOptions{
 		Host:       csrHostName,
 		RSAKeySize: keySize,
+		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 	}
 
 	// Generate the cert/key, send CSR to CA.

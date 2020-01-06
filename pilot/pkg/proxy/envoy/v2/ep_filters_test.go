@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"reflect"
 	"sort"
 	"testing"
 
@@ -27,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 )
@@ -41,6 +43,12 @@ type LbEpInfo struct {
 type LocLbEpInfo struct {
 	lbEps  []LbEpInfo
 	weight uint32
+}
+
+var expectedMetadata = &structpb.Struct{
+	Fields: map[string]*structpb.Value{
+		model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "istio"}},
+	},
 }
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
@@ -173,6 +181,15 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 				}
 
 				for _, lbEp := range ep.LbEndpoints {
+					if lbEp.Metadata == nil {
+						t.Errorf("Expected endpoint metadata")
+					} else {
+						// ensure that all endpoints (direct ones and remote gateway endpoints have the tls mode label.
+						m := lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]
+						if !reflect.DeepEqual(m, expectedMetadata) {
+							t.Errorf("Did not find the expected tlsMode metadata. got %v, want %v", m, expectedMetadata)
+						}
+					}
 					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
 					found := false
 					for _, wantLbEp := range tt.want[i].lbEps {
@@ -345,6 +362,15 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 				}
 
 				for _, lbEp := range ep.LbEndpoints {
+					if lbEp.Metadata == nil {
+						t.Errorf("Expected endpoint metadata")
+					} else {
+						// ensure that all endpoints (direct ones and remote gateway endpoints have the tls mode label.
+						m := lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]
+						if !reflect.DeepEqual(m, expectedMetadata) {
+							t.Errorf("Did not find the expected tlsMode metadata. got %v, want %v", m, expectedMetadata)
+						}
+					}
 					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
 					found := false
 					for _, wantLbEp := range tt.want[i].lbEps {
@@ -477,6 +503,11 @@ func createLbEndpoints(lbEpsInfo []*LbEpInfo) []*endpoint.LbEndpoint {
 									StringValue: "kubernetes://dummy",
 								},
 							},
+						},
+					},
+					util.EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "istio"}},
 						},
 					},
 				},

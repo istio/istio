@@ -26,8 +26,9 @@ import (
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
-	workloadSelector labels.Instance
-	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
+	workloadSelector  labels.Instance
+	Patches           map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
+	DeprecatedFilters []*networking.EnvoyFilter_Filter
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
@@ -48,7 +49,10 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 	out := &EnvoyFilterWrapper{}
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
+	} else {
+		out.workloadSelector = localEnvoyFilter.WorkloadLabels
 	}
+	out.DeprecatedFilters = localEnvoyFilter.Filters
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
 		cpw := &EnvoyFilterConfigPatchWrapper{
@@ -82,4 +86,28 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 		out.Patches[cp.ApplyTo] = append(out.Patches[cp.ApplyTo], cpw)
 	}
 	return out
+}
+
+func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
+	if cp.Match.Proxy == nil {
+		return true
+	}
+
+	if cp.ProxyVersionRegex != nil {
+		ver := proxy.Metadata.IstioVersion
+		if ver == "" {
+			// we do not have a proxy version but the user has a regex. so this is a mismatch
+			return false
+		}
+		if !cp.ProxyVersionRegex.MatchString(ver) {
+			return false
+		}
+	}
+
+	for k, v := range cp.Match.Proxy.Metadata {
+		if proxy.Metadata.Raw[k] != v {
+			return false
+		}
+	}
+	return true
 }

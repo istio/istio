@@ -1,0 +1,201 @@
+# Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace "default". This policy will deny all requests to namespace "default" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-namespace-deny-all
+  namespace: default
+spec:
+  {}
+---
+# Generated for service "productpage" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: productpage
+      env: env1
+      machine: machine1
+      tag: tag1
+      version: v1
+---
+# Generated for service "productpage" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target1
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: productpage
+      env: env1
+      machine: machine2
+      tag: tag1
+      version: v1
+---
+# Generated for service "productpage" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target2
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: productpage
+      env: env1
+      machine: machine1
+      tag: tag2
+      version: v1
+---
+# Generated for service "productpage" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target3
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: productpage
+      env: env1
+      machine: machine2
+      tag: tag2
+      version: v1
+---
+# Generated for service "productpage" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target4
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: productpage
+      env: env2
+      machine: machine1
+      tag: tag1
+      version: v1
+---
+# Generated for service "productpage" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target5
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: productpage
+      env: env2
+      machine: machine2
+      tag: tag1
+      version: v1
+---
+# Generated for service "productpage" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target6
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: productpage
+      env: env2
+      machine: machine1
+      tag: tag2
+      version: v1
+---
+# Generated for service "productpage" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target7
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: productpage
+      env: env2
+      machine: machine2
+      tag: tag2
+      version: v1
+---

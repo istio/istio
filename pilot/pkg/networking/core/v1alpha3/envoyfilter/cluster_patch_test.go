@@ -220,8 +220,8 @@ func TestApplyClusterPatches(t *testing.T) {
 				AllowMetadata: true,
 			}, LbPolicy: xdsapi.Cluster_RING_HASH, DnsLookupFamily: xdsapi.Cluster_V6_ONLY,
 		},
-		{Name: "new-cluster1", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
-		{Name: "new-cluster2", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
+		{Name: "new-cluster1"},
+		{Name: "new-cluster2"},
 	}
 
 	sidecarInboundIn := []*xdsapi.Cluster{

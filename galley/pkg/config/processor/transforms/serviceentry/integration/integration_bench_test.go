@@ -25,13 +25,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/testing/mock"
@@ -112,10 +113,10 @@ func BenchmarkEndpointChurn(b *testing.B) {
 		newEndpoints(ips...),
 	}
 
-	m := metadata.MustGet()
-	src := newSource(b, ki, m.KubeSource().Resources())
+	m := schema.MustGet()
+	src := newSource(b, ki, m.KubeCollections())
 	distributor := newFakeDistributor(b.N)
-	transformProviders := transforms.Providers(metadata.MustGet())
+	transformProviders := transforms.Providers(schema.MustGet())
 
 	processorSettings := processor.Settings{
 		Metadata:           m,
@@ -123,15 +124,15 @@ func BenchmarkEndpointChurn(b *testing.B) {
 		Source:             src,
 		TransformProviders: transformProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{metadata.SyntheticServiceEntry},
+		EnabledSnapshots:   []string{snapshots.SyntheticServiceEntry},
 	}
-	processor, err := processor.Initialize(processorSettings)
+	p, err := processor.Initialize(processorSettings)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	distributor.waitForSnapshot()
-	go processor.Start()
+	go p.Start()
 
 	lenUpdateEvents := len(updateEntries)
 	updateIndex := 0
@@ -159,7 +160,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	distributor.await()
 
 	b.StopTimer()
-	processor.Stop()
+	p.Stop()
 	b.StartTimer()
 }
 
@@ -295,7 +296,7 @@ func (d *fakeDistributor) waitForSnapshot() {
 	d.snapshotCond.L.Unlock()
 }
 
-func (d *fakeDistributor) Distribute(name string, s *snapshotter.Snapshot) {
+func (d *fakeDistributor) Distribute(string, *snapshotter.Snapshot) {
 	d.cond.Broadcast()
 
 	d.counter++
@@ -310,10 +311,6 @@ func (d *fakeDistributor) await() {
 	d.cond.L.Lock()
 	defer d.cond.L.Unlock()
 	d.cond.Wait()
-}
-
-func (d *fakeDistributor) ClearSnapshot(name string) {
-	// Do nothing.
 }
 
 func newEndpoints(ips ...string) coreV1.Endpoints {
@@ -365,11 +362,11 @@ func newKubeClient(b *testing.B, ki kube.Interfaces) kubernetes.Interface {
 	return kubeClient
 }
 
-func newSource(b *testing.B, ifaces kube.Interfaces, resources schema.KubeResources) event.Source {
+func newSource(b *testing.B, ifaces kube.Interfaces, resources collection.Schemas) event.Source {
 	o := apiserver.Options{
 		Client:       ifaces,
 		ResyncPeriod: 0,
-		Resources:    resources,
+		Schemas:      resources,
 	}
 	src := apiserver.New(o)
 	if src == nil {
