@@ -16,6 +16,9 @@ base:
   enabled: true
 cni:
   enabled: false
+  components:
+    cni:
+      namespace: kube-system
 configManagement:
   components:
     galley:
