@@ -86,7 +86,7 @@ const (
 	caPrivateKeyID = "ca-key.pem"
 
 	// The name of the ConfigMap in each namespace storing the CA cert of self-signed CA.
-	CACertNamespaceConfigMap = "istio-ca-ns-configmap"
+	CACertNamespaceConfigMap = "istio-ca-namespace"
 	// The data name in the ConfigMap of each namespace storing the CA cert of self-signed CA.
 	CACertNamespaceConfigMapDataName = "ca-cert-ns.pem"
 	CACertNamespaceInsertInterval    = time.Second
@@ -420,7 +420,7 @@ func (sc *SecretController) namespaceUpdated(oldObj, newObj interface{}) {
 		// for every namespace. If a namespace does not have the Citadel CA
 		// certificate or the certificate in a ConfigMap of the namespace is not
 		// up to date, Citadel updates the certificate in the namespace.
-		// For simplifying the implementation and no overhead for reading from the ConfigMap,
+		// For simplifying the implementation and no overhead for reading the certificate from the ConfigMap,
 		// simply updates the ConfigMap to the current Citadel CA certificate.
 		err := certutil.InsertDataToConfigMapWithRetry(sc.core, newNs.GetName(), certEncoded, CACertNamespaceConfigMap,
 			CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)

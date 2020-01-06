@@ -221,6 +221,7 @@ func creatConfigMapDisabledClient() *fake.Clientset {
 	return client
 }
 
+// nolint: unparam
 func createConfigMap(namespace, configName string, data map[string]string) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
