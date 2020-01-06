@@ -47,7 +47,7 @@ type ServiceEntryStore struct {
 
 	changeMutex    sync.RWMutex
 	lastChange     time.Time
-	computeIndexes bool
+	refreshIndexes bool
 }
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
@@ -57,7 +57,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 		store:          store,
 		ip2instance:    map[string][]*model.ServiceInstance{},
 		instances:      map[host.Name]map[string][]*model.ServiceInstance{},
-		computeIndexes: true,
+		refreshIndexes: true,
 	}
 	if configController != nil {
 		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(old, curr model.Config, event model.Event) {
@@ -79,7 +79,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 			// Recomputing the index here is too expensive - lazy build when it is needed.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()
-			c.computeIndexes = fp // Only recompute indexes if services have changed.
+			c.refreshIndexes = fp // Only recompute indexes if services have changed.
 			c.changeMutex.Unlock()
 
 			if fp {
@@ -91,7 +91,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 				c.XdsUpdater.ConfigUpdate(pushReq)
 			} else {
 				instances := convertInstances(curr, cs)
-				// If only instances have changed, just update the indexes for the changes instances.
+				// If only instances have changed, just update the indexes for the changed instances.
 				c.updateExistingInstances(instances)
 				endpoints := make([]*model.IstioEndpoint, 0)
 				for _, instance := range instances {
@@ -190,10 +190,11 @@ func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList
 // match any of the supplied labels. All instances match an empty tag list.
 func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 	labels labels.Collection) ([]*model.ServiceInstance, error) {
-	d.maybeComputeIndexes()
+	d.maybeRefreshIndexes()
 
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
+
 	out := make([]*model.ServiceInstance, 0)
 
 	instances, found := d.instances[svc.Hostname][svc.Attributes.Namespace]
@@ -210,14 +211,14 @@ func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 	return out, nil
 }
 
-// maybeComputeIndexes will iterate all ServiceEntries, convert to ServiceInstance (expensive),
+// maybeRefreshIndexes will iterate all ServiceEntries, convert to ServiceInstance (expensive),
 // and populate the 'by host' and 'by ip' maps, if needed.
-func (d *ServiceEntryStore) maybeComputeIndexes() {
+func (d *ServiceEntryStore) maybeRefreshIndexes() {
 	d.changeMutex.RLock()
-	compute := d.computeIndexes
+	refreshNeeded := d.refreshIndexes
 	d.changeMutex.RUnlock()
 
-	if !compute {
+	if !refreshNeeded {
 		return
 	}
 
@@ -236,7 +237,7 @@ func (d *ServiceEntryStore) maybeComputeIndexes() {
 	// Without this pilot becomes very unstable even with few 100 ServiceEntry objects - the N_clusters * N_update generates too much garbage ( yaml to proto)
 	// This is reset on any change in ServiceEntries that neeeds index recomputation.
 	d.changeMutex.Lock()
-	d.computeIndexes = false
+	d.refreshIndexes = false
 	d.changeMutex.Unlock()
 }
 
@@ -283,7 +284,7 @@ func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
-	d.maybeComputeIndexes()
+	d.maybeRefreshIndexes()
 
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
@@ -300,7 +301,8 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 }
 
 func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
-	d.maybeComputeIndexes()
+	d.maybeRefreshIndexes()
+
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
 
