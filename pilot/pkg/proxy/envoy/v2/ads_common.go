@@ -86,6 +86,7 @@ const (
 	EDS
 	LDS
 	RDS
+	EGDS
 )
 
 // TODO: merge with ProxyNeedsPush
@@ -99,6 +100,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 		out[EDS] = true
 		out[LDS] = true
 		out[RDS] = true
+		out[EGDS] = true
 		return out
 	}
 
@@ -117,19 +119,23 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
+				out[EGDS] = true
 			case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
+				out[EGDS] = true
 			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
+				out[EGDS] = true			
 			case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
+				out[EGDS] = true
 			case collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
 				collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
 				// LDS must be pushed, otherwise RDS is not reloaded
@@ -140,6 +146,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
+				out[EGDS] = true
 			case collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
 				collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
 				collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
@@ -151,9 +158,10 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
+				out[EGDS] = true
 			}
 			// To return asap
-			if len(out) == 4 {
+			if len(out) == 5 {
 				return out
 			}
 		}
@@ -171,14 +179,17 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
+				out[EGDS] = true
 			case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
+				out[EGDS] = true
 			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
+				out[EGDS] = true
 			case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
 				collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
 				collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
@@ -188,6 +199,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
+				out[EGDS] = true
 			case collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
 				collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
 				collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
@@ -199,9 +211,10 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
+				out[EGDS] = true
 			}
 			// To return asap
-			if len(out) == 4 {
+			if len(out) == 5 {
 				return out
 			}
 		}

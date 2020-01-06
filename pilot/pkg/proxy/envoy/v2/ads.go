@@ -87,12 +87,14 @@ type XdsConnection struct {
 	CDSClusters  []*xdsapi.Cluster
 
 	// Last nonce sent and ack'd (timestamps) used for debugging
-	ClusterNonceSent, ClusterNonceAcked   string
-	ListenerNonceSent, ListenerNonceAcked string
-	RouteNonceSent, RouteNonceAcked       string
-	RouteVersionInfoSent                  string
-	EndpointNonceSent, EndpointNonceAcked string
-	EndpointPercent                       int
+	ClusterNonceSent, ClusterNonceAcked             string
+	ListenerNonceSent, ListenerNonceAcked           string
+	RouteNonceSent, RouteNonceAcked                 string
+	RouteVersionInfoSent                            string
+	EndpointNonceSent, EndpointNonceAcked           string
+	EndpointGroupNonceSent, EndpointGroupNonceAcked string
+	EndpointGroupVersionInfoSent                    string
+	EndpointPercent                                 int
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -374,6 +376,52 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if err != nil {
 					return err
 				}
+			case EndpointGroupType:
+				if discReq.ErrorDetail != nil {
+					errCode := codes.Code(discReq.ErrorDetail.Code)
+					adsLog.Warnf("ADS:EGDS: ACK ERROR %v %s %s:%s", peerAddr, con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
+					incrementXDSRejects(edsReject, con.node.ID, errCode.String())
+					continue
+				}
+
+				groups := discReq.GetResourceNames()
+				// Groups are all empty, no data to send back, do nothing.
+				if len(groups) == 0 {
+					continue
+				}
+
+				// Check versions.
+				if discReq.ResponseNonce != "" {
+					con.mu.RLock()
+					egdsNonceSent := con.EndpointGroupNonceSent
+					egdsVersionInfoSent := con.EndpointGroupVersionInfoSent
+					con.mu.RUnlock()
+
+					if egdsNonceSent != "" && egdsNonceSent != discReq.ResponseNonce {
+						adsLog.Debugf("ADS:EGDS: Expired nonce received %s %s, sent %s, received %s",
+							peerAddr, con.ConID, egdsNonceSent, discReq.ResponseNonce)
+						egdsExpiredNonce.Increment()
+						continue
+					}
+					if discReq.VersionInfo == egdsVersionInfoSent {
+						adsLog.Debugf("ADS:EGDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+						con.mu.Lock()
+						con.EndpointGroupNonceAcked = discReq.ResponseNonce
+						con.mu.Unlock()
+						continue
+					}
+				}
+
+				updatedGroups := make(map[string]struct{})
+				for _, group := range groups {
+					updatedGroups[group] = struct{}{}
+				}
+
+				adsLog.Debugf("ADS:EGDS: REQ %s %s groups:%d", peerAddr, con.ConID, len(updatedGroups))
+				err := s.pushEgds(s.globalPushContext(), con, versionInfo(), nil, updatedGroups)
+				if err != nil {
+					return err
+				}
 
 			default:
 				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
@@ -575,18 +623,28 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	}
+
+	if len(con.Clusters) > 0 && pushTypes[EGDS] {
+		err := s.pushEgds(pushEv.push, con, currentVersion, nil, nil)
+		if err != nil {
+			return err
+		}
+	}
+
 	if con.LDSWatch && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
 	}
+
 	if len(con.Routes) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
 	}
+
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
 }
@@ -761,9 +819,11 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 				conn.RouteNonceSent = res.Nonce
 			case EndpointType:
 				conn.EndpointNonceSent = res.Nonce
+			case EndpointGroupType:
+				conn.EndpointGroupNonceSent = res.Nonce
 			}
 		}
-		if res.TypeUrl == RouteType {
+		if res.TypeUrl == RouteType || res.TypeUrl == EndpointGroupType {
 			conn.RouteVersionInfoSent = res.VersionInfo
 		}
 		conn.mu.Unlock()

@@ -886,7 +886,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	empty := make([]string, 0)
 
 	// EGDS not supported or enabled, use legacy method
-	if !util.IsIstioVersionGE14(con.node) || push.Mesh.GetEgdsGroupSize() == 0 {
+	if !IsIstioVersionGE14(node) || mesh.GetEgdsGroupSize() <= 0 {
 		return s.pushEdsLegacy(push, con, version, edsUpdatedServices)
 	}
 

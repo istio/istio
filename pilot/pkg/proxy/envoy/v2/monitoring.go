@@ -69,6 +69,12 @@ var (
 		"Total number of RDS messages with an expired nonce.",
 	)
 
+	egdsExpiredNonce = monitoring.NewSum(
+		"pilot_egds_expired_nonce",
+		"Total number of EGDS messages with an expired nonce.",
+	)
+
+
 	totalXDSRejects = monitoring.NewSum(
 		"pilot_total_xds_rejects",
 		"Total number of XDS responses from pilot rejected by proxy.",

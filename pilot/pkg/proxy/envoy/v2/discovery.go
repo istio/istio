@@ -467,6 +467,11 @@ func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct
 	prevEps := g.IstioEndpoints
 	g.IstioEndpoints = newEps
 
+	// Means the EGDS feature has been disabled globally
+	if g.GroupSize <= 0 {
+		return nil
+	}
+
 	if len(newEps) > len(prevEps)*2 || len(newEps) < len(prevEps)/2 {
 		return g.reshard()
 	}
@@ -561,9 +566,6 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 	// Total number of slices
 	g.GroupCount = uint32(math.Ceil(float64(len(eps)) / float64(g.GroupSize)))
 
-	// Changed EGDS resource names
-	names := make(map[string]struct{})
-
 	for _, ep := range eps {
 		key := g.makeGroupKey(ep)
 
@@ -572,9 +574,7 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 		} else {
 			group = append(group, ep)
 		}
-
-		names[key] = struct{}{}
 	}
 
-	return names
+	return nil
 }
