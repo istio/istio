@@ -105,6 +105,9 @@ type Options struct {
 
 	// set this flag to true if skip validate format for certificate chain returned from CA.
 	SkipValidateCert bool
+
+	// Whether to generate PKCS#8 private keys.
+	Pkcs8Keys bool
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -596,6 +599,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	options := util.CertOptions{
 		Host:       csrHostName,
 		RSAKeySize: keySize,
+		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 	}
 
 	// Generate the cert/key, send CSR to CA.
