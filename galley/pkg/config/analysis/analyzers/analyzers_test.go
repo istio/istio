@@ -19,6 +19,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -401,12 +402,19 @@ func TestAnalyzers(t *testing.T) {
 
 			// If a mesh config file is specified, use it instead of the defaults
 			if testCase.meshConfigFile != "" {
-				err := sa.AddFileKubeMeshConfigSource(testCase.meshConfigFile)
+				err := sa.AddFileKubeMeshConfig(testCase.meshConfigFile)
 				if err != nil {
 					t.Fatalf("Error applying mesh config file %s: %v", testCase.meshConfigFile, err)
 				}
 			}
 
+			// Include default resources
+			err := sa.AddDefaultResources()
+			if err != nil {
+				t.Fatalf("Error adding default resources: %v", err)
+			}
+
+			// Gather test files
 			var files []io.Reader
 			for _, f := range testCase.inputFiles {
 				of, err := os.Open(f)
@@ -416,19 +424,20 @@ func TestAnalyzers(t *testing.T) {
 				files = append(files, of)
 			}
 
-			err := sa.AddReaderKubeSource(files)
+			// Include resources from test files
+			err = sa.AddReaderKubeSource(files)
 			if err != nil {
 				t.Fatalf("Error setting up file kube source on testcase %s: %v", testCase.name, err)
 			}
 			cancel := make(chan struct{})
 
+			// Run the analysis
 			result, err := sa.Analyze(cancel)
 			if err != nil {
 				t.Fatalf("Error running analysis on testcase %s: %v", testCase.name, err)
 			}
 
-			actualMsgs := extractFields(result.Messages)
-			g.Expect(actualMsgs).To(ConsistOf(testCase.expected))
+			g.Expect(extractFields(result.Messages)).To(ConsistOf(testCase.expected), "%v", prettyPrintMessages(result.Messages))
 		})
 	}
 
@@ -500,7 +509,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 // Pull just the fields we want to check out of diag.Message
-func extractFields(msgs []diag.Message) []message {
+func extractFields(msgs diag.Messages) []message {
 	result := make([]message, 0)
 	for _, m := range msgs {
 		expMsg := message{
@@ -512,4 +521,13 @@ func extractFields(msgs []diag.Message) []message {
 		result = append(result, expMsg)
 	}
 	return result
+}
+
+func prettyPrintMessages(msgs diag.Messages) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Analyzer messages: %d\n", len(msgs))
+	for _, m := range msgs {
+		fmt.Fprintf(&sb, "\t%s\n", m.String())
+	}
+	return sb.String()
 }
