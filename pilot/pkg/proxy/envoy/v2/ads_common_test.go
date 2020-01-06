@@ -80,19 +80,19 @@ func TestPushTypeFor(t *testing.T) {
 			name:        "configTypes is empty",
 			proxy:       sidecar,
 			configTypes: nil,
-			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true, EGDS: true},
 		},
 		{
 			name:        "configTypes is empty",
 			proxy:       gateway,
 			configTypes: nil,
-			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true, EGDS: true},
 		},
 		{
 			name:        "sidecar updated for sidecar proxy",
 			proxy:       sidecar,
 			configTypes: []resource.GroupVersionKind{collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind()},
-			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true, EGDS: true},
 		},
 		{
 			name:        "sidecar updated for gateway proxy",
@@ -128,25 +128,25 @@ func TestPushTypeFor(t *testing.T) {
 			name:        "authenticationpolicy updated",
 			proxy:       sidecar,
 			configTypes: []resource.GroupVersionKind{collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind()},
-			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, EGDS: true},
 		},
 		{
 			name:        "authenticationpolicy updated",
 			proxy:       gateway,
 			configTypes: []resource.GroupVersionKind{collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind()},
-			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, EGDS: true},
 		},
 		{
 			name:        "unknown type updated",
 			proxy:       sidecar,
 			configTypes: []resource.GroupVersionKind{{Kind: "unknown"}},
-			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true, EGDS: true},
 		},
 		{
 			name:        "unknown type updated",
 			proxy:       gateway,
 			configTypes: []resource.GroupVersionKind{},
-			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true, EGDS: true},
 		},
 		{
 			name:  "gateway and virtualservice updated for gateway proxy",
@@ -160,7 +160,7 @@ func TestPushTypeFor(t *testing.T) {
 			proxy: sidecar,
 			configTypes: []resource.GroupVersionKind{collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 				collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()},
-			expect: map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect: map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true, EGDS: true},
 		},
 	}
 
