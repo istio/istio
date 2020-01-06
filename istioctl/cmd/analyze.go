@@ -115,6 +115,9 @@ istioctl analyze -k -d false
 # Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
 istioctl analyze -k --suppress "IST0103=Pod mypod.testing"
 
+# Analyze the current live cluster and suppress PodMissingProxy for all pods in namespace 'testing'
+istioctl analyze -k --suppress "IST0103=Pod *.testing"
+
 # List available analyzers
 istioctl analyze -L
 `,
@@ -308,7 +311,8 @@ istioctl analyze -L
 		"Analyze all namespaces")
 	analysisCmd.PersistentFlags().StringArrayVarP(&suppress, "suppress", "S", []string{},
 		"Suppress reporting a message code on a specific resource. Values are supplied in the form "+
-			`<code>=<resource> (e.g. '--suppress "IST0102=DestinationRule primary-dr.default"'). Can be repeated.`)
+			`<code>=<resource> (e.g. '--suppress "IST0102=DestinationRule primary-dr.default"'). Can be repeated. `+
+			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
 	return analysisCmd
 }
 
