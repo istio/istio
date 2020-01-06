@@ -67,7 +67,7 @@ type AnalyzingDistributorSettings struct {
 	CollectionReporter CollectionReporterFn
 
 	// Namespaces that should be analyzed
-	AnalysisNamespaces []string
+	AnalysisNamespaces []resource.Namespace
 
 	// Suppressions that suppress a set of matching messages.
 	Suppressions []AnalysisSuppression
@@ -84,8 +84,7 @@ type AnalysisSuppression struct {
 	// K8s resources it has the same form as used by istioctl (e.g.
 	// "DestinationRule default.istio-system"). Note that globbing wildcards are
 	// supported (e.g. "DestinationRule *.istio-system").
-	ResourceName       string
-	AnalysisNamespaces []resource.Namespace
+	ResourceName string
 }
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
@@ -188,7 +187,12 @@ func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
 	return &Snapshot{set: coll.NewSetFromCollections(collections)}
 }
 
-func filterMessages(messages diag.Messages, namespaces map[string]struct{}, suppressions []AnalysisSuppression) diag.Messages {
+func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
+	nsNames := make(map[string]struct{})
+	for k := range namespaces {
+		nsNames[k.String()] = struct{}{}
+	}
+
 	var msgs diag.Messages
 FilterMessages:
 	for _, m := range messages {
@@ -197,7 +201,7 @@ FilterMessages:
 		// namespace). Also kept are cluster-level resources where the namespace is
 		// the empty string. If no such limit is specified, keep them all.
 		if len(namespaces) > 0 && m.Origin != nil && m.Origin.Namespace() != "" {
-			if _, ok := namespaces[m.Origin.Namespace()]; !ok {
+			if _, ok := nsNames[m.Origin.Namespace().String()]; !ok {
 				continue FilterMessages
 			}
 		}

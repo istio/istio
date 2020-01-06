@@ -246,18 +246,18 @@ func TestAnalyzeSuppressesMessages(t *testing.T) {
 
 	u := &updaterMock{}
 	o1 := &rt.Origin{
-		Collection: data.Collection1,
+		Collection: data.K8SCollection1,
 		Kind:       "foobar",
-		Name:       resource.NewName("includedNamespace", "r2"),
+		FullName:   resource.NewFullName("includedNamespace", "r2"),
 	}
 	o2 := &rt.Origin{
-		Collection: data.Collection1,
+		Collection: data.K8SCollection1,
 		Kind:       "foobar",
-		Name:       resource.NewName("includedNamespace", "r1"),
+		FullName:   resource.NewFullName("includedNamespace", "r1"),
 	}
 	a := &analyzerMock{
-		collectionToAccess: data.Collection1,
-		entriesToReport: []*resource.Entry{
+		collectionToAccess: data.K8SCollection1,
+		resourcesToReport: []*resource.Instance{
 			{Origin: o1},
 			{Origin: o2},
 		},
@@ -272,17 +272,17 @@ func TestAnalyzeSuppressesMessages(t *testing.T) {
 		StatusUpdater:      u,
 		Analyzer:           analysis.Combine("testCombined", a),
 		Distributor:        d,
-		AnalysisSnapshots:  []string{metadata.Default},
-		TriggerSnapshot:    metadata.Default,
+		AnalysisSnapshots:  []string{snapshots.Default},
+		TriggerSnapshot:    snapshots.Default,
 		CollectionReporter: nil,
-		AnalysisNamespaces: []string{"includedNamespace"},
+		AnalysisNamespaces: []resource.Namespace{"includedNamespace"},
 		Suppressions:       []AnalysisSuppression{s},
 	}
 	ad := NewAnalyzingDistributor(settings)
 
 	sDefault := getTestSnapshot()
 
-	ad.Distribute(metadata.Default, sDefault)
+	ad.Distribute(snapshots.Default, sDefault)
 
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sDefault))
 	g.Expect(u.messages).To(HaveLen(1))
@@ -295,23 +295,23 @@ func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
 	u := &updaterMock{}
 	// o1 and o2 have the same prefix, but o3 does not
 	o1 := &rt.Origin{
-		Collection: data.Collection1,
+		Collection: data.K8SCollection1,
 		Kind:       "foobar",
-		Name:       resource.NewName("includedNamespace", "r2"),
+		FullName:   resource.NewFullName("includedNamespace", "r2"),
 	}
 	o2 := &rt.Origin{
-		Collection: data.Collection1,
+		Collection: data.K8SCollection1,
 		Kind:       "foobar",
-		Name:       resource.NewName("includedNamespace", "r1"),
+		FullName:   resource.NewFullName("includedNamespace", "r1"),
 	}
 	o3 := &rt.Origin{
-		Collection: data.Collection1,
+		Collection: data.K8SCollection1,
 		Kind:       "foobar",
-		Name:       resource.NewName("includedNamespace", "x1"),
+		FullName:   resource.NewFullName("includedNamespace", "x1"),
 	}
 	a := &analyzerMock{
-		collectionToAccess: data.Collection1,
-		entriesToReport: []*resource.Entry{
+		collectionToAccess: data.K8SCollection1,
+		resourcesToReport: []*resource.Instance{
 			{Origin: o1},
 			{Origin: o2},
 			{Origin: o3},
@@ -327,17 +327,17 @@ func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
 		StatusUpdater:      u,
 		Analyzer:           analysis.Combine("testCombined", a),
 		Distributor:        d,
-		AnalysisSnapshots:  []string{metadata.Default},
-		TriggerSnapshot:    metadata.Default,
+		AnalysisSnapshots:  []string{snapshots.Default},
+		TriggerSnapshot:    snapshots.Default,
 		CollectionReporter: nil,
-		AnalysisNamespaces: []string{"includedNamespace"},
+		AnalysisNamespaces: []resource.Namespace{"includedNamespace"},
 		Suppressions:       []AnalysisSuppression{s},
 	}
 	ad := NewAnalyzingDistributor(settings)
 
 	sDefault := getTestSnapshot()
 
-	ad.Distribute(metadata.Default, sDefault)
+	ad.Distribute(snapshots.Default, sDefault)
 
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sDefault))
 	g.Expect(u.messages).To(HaveLen(1))

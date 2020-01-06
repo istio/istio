@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"encoding/json"
 	"fmt"
 	"io"
