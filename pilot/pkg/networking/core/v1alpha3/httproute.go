@@ -271,10 +271,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 	// this listener and not all virtual services accessible to this proxy.
 	virtualServices = egressListener.VirtualServices()
 
-	// When generating RDS for ports created via the SidecarScope, we treat
-	// these ports as HTTP proxy style ports. All services attached to this listener
-	// must feature in this RDS route irrespective of the service port.
-	if egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil {
+	// When generating RDS for ports created via the SidecarScope, we treat ports as HTTP proxy style ports
+	// if ports protocol is HTTP_PROXY.
+	if egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil &&
+		protocol.Parse(egressListener.IstioListener.Port.Protocol) == protocol.HTTP_PROXY {
 		listenerPort = 0
 	}
 
