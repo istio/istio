@@ -10,6 +10,10 @@ replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538
 
 replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.20191011211953-adfac697dc5b
 
+replace github.com/envoyproxy/go-control-plane => gitlab.alibaba-inc.com/AliMesh/go-control-plane/tree/egds-dev v0.9.1
+
+replace istio.io/api => gitlab.alibaba-inc.com/one-mesh/api/tree/feature-eds-patch v0.0.0-20191120195622-f0abe0c81e59
+
 require (
 	cloud.google.com/go v0.50.0
 	cloud.google.com/go/logging v1.0.0
