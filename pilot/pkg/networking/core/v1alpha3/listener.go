@@ -1820,13 +1820,11 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		fl := &accesslogconfig.FileAccessLog{
 			Path: pluginParams.Push.Mesh.AccessLogFile,
 		}
-
+		buildAccessLog(pluginParams.Node, fl, pluginParams.Push)
 		acc := &accesslog.AccessLog{
 			Name:       wellknown.FileAccessLog,
 			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 		}
-
-		buildAccessLog(pluginParams.Node, fl, pluginParams.Push)
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
 
