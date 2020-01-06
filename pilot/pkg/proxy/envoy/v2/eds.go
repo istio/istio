@@ -752,7 +752,7 @@ func (s *DiscoveryServer) loadAssignmentFailback(clusterName string, groupName s
 	}
 
 	// Shouldn't happen here - unable to genereate EGDS data
-	adsLog.Warnf("EGDS: missing data for cluster %s, namespace %s, group %s", clusterName, groupName)
+	adsLog.Warnf("EGDS: missing data for cluster %s, group %s", clusterName, groupName)
 	return nil
 }
 
