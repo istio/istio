@@ -960,7 +960,7 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 	}
 
 	setConsecErrs := func(errs, enforcing **wrappers.UInt32Value, v uint32) {
-		*errs =  &wrappers.UInt32Value{Value: v}
+		*errs = &wrappers.UInt32Value{Value: v}
 
 		if v > 0 {
 			v = 100
