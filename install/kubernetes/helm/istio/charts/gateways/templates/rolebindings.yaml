@@ -6,7 +6,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ $key }}-sds
+  {{- if $spec.sds.secretsNamespace }}
+  namespace: {{ $spec.sds.secretsNamespace }}
+  {{- else }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
