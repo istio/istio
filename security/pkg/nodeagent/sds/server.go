@@ -40,6 +40,9 @@ const (
 
 // Options provides all of the configuration parameters for secret discovery service.
 type Options struct {
+	// PluginNames is plugins' name for certain authentication provider.
+	PluginNames []string
+
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
 
@@ -63,9 +66,6 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
-	// PluginNames is plugins' name for certain authentication provider.
-	PluginNames []string
-
 	// The Vault CA address.
 	VaultAddress string
 
@@ -81,19 +81,23 @@ type Options struct {
 	// The Vault TLS root certificate.
 	VaultTLSRootCert string
 
-	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
-	EnableWorkloadSDS bool
-
-	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
-	EnableIngressGatewaySDS bool
-	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
-	AlwaysValidTokenFlag bool
-
 	// Recycle job running interval (to clean up staled sds client connections).
 	RecycleInterval time.Duration
 
 	// Debug server port from which node_agent serves SDS configuration dumps
 	DebugPort int
+
+	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
+	EnableWorkloadSDS bool
+
+	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
+	EnableIngressGatewaySDS bool
+
+	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
+	AlwaysValidTokenFlag bool
+
+	// Whether to generate PKCS#8 private keys.
+	Pkcs8Keys bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
