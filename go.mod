@@ -12,7 +12,7 @@ replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.2019101121
 
 replace github.com/envoyproxy/go-control-plane => gitlab.alibaba-inc.com/AliMesh/go-control-plane v0.9.2-0.20200106085130-5bfed9090b2d
 
-replace istio.io/api => gitlab.alibaba-inc.com/one-mesh/api v0.0.0-20200102031908-44e822ed4a84
+replace istio.io/api => gitlab.alibaba-inc.com/one-mesh/api v0.0.0-20200106115821-b69fd30a2f0e
 
 require (
 	cloud.google.com/go v0.50.0
