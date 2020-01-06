@@ -10,7 +10,7 @@ replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538
 
 replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.20191011211953-adfac697dc5b
 
-replace github.com/envoyproxy/go-control-plane => gitlab.alibaba-inc.com/AliMesh/go-control-plane feature-eds-patch
+replace github.com/envoyproxy/go-control-plane => gitlab.alibaba-inc.com/AliMesh/go-control-plane egds-dev
 
 replace istio.io/api => gitlab.alibaba-inc.com/one-mesh/api feature-eds-patch
 
