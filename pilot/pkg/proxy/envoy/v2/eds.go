@@ -881,9 +881,7 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
 	pushStart := time.Now()
 	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
-	endpoints := 0
 	groupCount := 0
-	empty := make([]string, 0)
 
 	// EGDS not supported or enabled, use legacy method
 	if !util.IsIstioVersionGE14(con.node) || s.Env.Mesh().GetEgdsGroupSize() <= 0 {
@@ -922,10 +920,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 	if edsUpdatedServices == nil {
 		adsLog.Infof("EDS: PUSH for node:%s clusters:%d groupCount:%d",
-			con.node.ID, len(con.Clusters), endpoints, empty, groupCount)
+			con.node.ID, len(con.Clusters), groupCount)
 	} else {
 		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d groupCount:%d",
-			con.node.ID, len(con.Clusters), endpoints, empty, groupCount)
+			con.node.ID, len(con.Clusters), groupCount)
 	}
 
 	return nil
