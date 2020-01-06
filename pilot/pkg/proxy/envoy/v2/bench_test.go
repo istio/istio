@@ -138,7 +138,7 @@ func BenchmarkEDS(b *testing.B) {
 
 				loadAssignments := make([]*envoy_api_v2.ClusterLoadAssignment, 0)
 				for svc := 0; svc < tt.services; svc++ {
-					l := s.loadAssignmentsForClusterIsolated(proxy, push, fmt.Sprintf("outbound|80||foo-%d.com", svc))
+					l := s.loadAssignmentsForClusterIsolated(proxy, push, fmt.Sprintf("outbound|80||foo-%d.com", svc), "")
 
 					if l == nil {
 						continue
