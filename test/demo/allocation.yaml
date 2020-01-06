@@ -95,23 +95,6 @@ spec:
               cpu: 50m
               memory: 100Mi
 ---
-
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: istio-sidecar-injector
-  namespace: istio-system
-spec:
-  template:
-    spec:
-      containers:
-        - name: sidecar-injector-webhook
-          resources:
-            requests:
-              cpu: 50m
-              memory: 100Mi
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:

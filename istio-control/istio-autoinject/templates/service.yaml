@@ -1,3 +1,4 @@
+{{- if not .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,3 +14,4 @@ spec:
     targetPort: 9443
   selector:
     istio: sidecar-injector
+{{- end }}

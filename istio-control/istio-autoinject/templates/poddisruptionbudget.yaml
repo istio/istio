@@ -1,3 +1,4 @@
+{{- if not .Values.global.istiod.enabled }}
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
@@ -15,4 +16,5 @@ spec:
       app: sidecar-injector
       release: {{ .Release.Name }}
       istio: sidecar-injector
+{{- end }}
 {{- end }}
