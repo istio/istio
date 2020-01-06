@@ -569,6 +569,11 @@ func (k *KubeInfo) Teardown() error {
 			}
 		}
 		if *useOperator {
+			//save operator logs
+			log.Info("Saving istio-operator logs")
+			if err := util.FetchAndSaveClusterLogs("istio-operator", k.TmpDir, k.KubeConfig); err != nil {
+				log.Errorf("Failed to save operator logs: %v", err)
+			}
 			// Need an operator unique delete procedure
 			if _, err := util.Shell("kubectl -n istio-operator delete IstioControlPlane example-istiocontrolplane"); err != nil {
 				log.Errorf("Failed to delete the Istio CR.")
@@ -1039,7 +1044,6 @@ func (k *KubeInfo) waitForIstioOperator() error {
 		if time.Now().After(timeout) {
 			return errors.New("timeout waiting for istio operator to deploy Istio")
 		}
-
 		out, err := util.ShellSilent(get)
 		if err == nil && strings.Contains(out, "HEALTHY") {
 			break

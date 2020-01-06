@@ -153,11 +153,11 @@ func (sd *MemServiceDiscovery) AddInstance(service host.Name, instance *model.Se
 	instance.Service = svc
 	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
 
-	key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
+	key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
 	instanceList := sd.instancesByPortNum[key]
 	sd.instancesByPortNum[key] = append(instanceList, instance)
 
-	key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
 	instanceList = sd.instancesByPortName[key]
 	sd.instancesByPortName[key] = append(instanceList, instance)
 }
@@ -165,14 +165,15 @@ func (sd *MemServiceDiscovery) AddInstance(service host.Name, instance *model.Se
 // AddEndpoint adds an endpoint to a service.
 func (sd *MemServiceDiscovery) AddEndpoint(service host.Name, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
 	instance := &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: address,
-			Port:    port,
-			ServicePort: &model.Port{
-				Name:     servicePortName,
-				Port:     servicePort,
-				Protocol: protocol.HTTP,
-			},
+		Endpoint: &model.IstioEndpoint{
+			Address:         address,
+			ServicePortName: servicePortName,
+			EndpointPort:    uint32(port),
+		},
+		ServicePort: &model.Port{
+			Name:     servicePortName,
+			Port:     servicePort,
+			Protocol: protocol.HTTP,
 		},
 	}
 	sd.AddInstance(service, instance)
@@ -214,27 +215,21 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, en
 
 		instance := &model.ServiceInstance{
 			Service: svc,
-			Labels:  e.Labels,
-			Endpoint: model.NetworkEndpoint{
-				Address: e.Address,
-				ServicePort: &model.Port{
-					Name:     e.ServicePortName,
-					Port:     p.Port,
-					Protocol: protocol.HTTP,
-				},
-				Locality: e.Locality,
-				LbWeight: e.LbWeight,
+			ServicePort: &model.Port{
+				Name:     e.ServicePortName,
+				Port:     p.Port,
+				Protocol: protocol.HTTP,
 			},
-			ServiceAccount: e.ServiceAccount,
+			Endpoint: e,
 		}
 		sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
 
-		key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
+		key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
 
 		instanceList := sd.instancesByPortNum[key]
 		sd.instancesByPortNum[key] = append(instanceList, instance)
 
-		key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+		key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
 		instanceList = sd.instancesByPortName[key]
 		sd.instancesByPortName[key] = append(instanceList, instance)
 

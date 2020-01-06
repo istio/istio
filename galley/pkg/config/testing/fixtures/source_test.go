@@ -58,9 +58,9 @@ func TestSource_Handle(t *testing.T) {
 	s.Start()
 
 	e := event.Event{
-		Kind:   event.Added,
-		Source: data.Collection1,
-		Entry:  nil,
+		Kind:     event.Added,
+		Source:   data.K8SCollection1,
+		Resource: nil,
 	}
 	s.Handle(e)
 

@@ -47,7 +47,9 @@ func newService(hostname string, labels map[string]string, t *testing.T) *model.
 			},
 			Hostname: host.Name(hostname),
 		},
-		Labels: labels,
+		Endpoint: &model.IstioEndpoint{
+			Labels: labels,
+		},
 	}
 }
 

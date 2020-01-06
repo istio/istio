@@ -38,6 +38,13 @@ ifneq ($(INTEGRATION_TEST_WORKDIR),)
     _INTEGRATION_TEST_WORKDIR_FLAG = --istio.test.work_dir $(INTEGRATION_TEST_WORKDIR)
 endif
 
+# $(_INTEGRATION_TEST_INSTALL_TYPE) specifies the installation type for a test.
+# Useful to override individual targets, as right now the makefile doesn't easily allow this
+_INTEGRATION_TEST_INSTALL_TYPE =
+ifneq ($(TEST_USE_OPERATOR),)
+    _INTEGRATION_TEST_INSTALL_TYPE = --istio.test.kube.operator
+endif
+
 # $(INTEGRATION_TEST_KUBECONFIG) specifies the kube config file to be used. If not specified, then
 # ~/.kube/config is used.
 # TODO: This probably needs to be more intelligent and take environment variables into account.
@@ -55,6 +62,7 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	${_INTEGRATION_TEST_INSTALL_TYPE} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Test targets to run with the new installer. Some targets are filtered now as they are not yet working
@@ -65,20 +73,16 @@ TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification
 
 # Various tests have issues with the operator currently
 # When running in operator mode, skip these tests, until these issues are resolved:
-# /mcp: https://github.com/istio/installer/pull/566
 # /sds_citadel_control_plane_auth_disabled: https://github.com/istio/istio/issues/19109
 # /sds_citadel_flow: https://github.com/istio/istio/issues/19109
-# /servertracing: https://github.com/istio/istio/issues/19177
 # /pilot/ingress: https://github.com/istio/istio/issues/19352
 # /telemetry/metrics: https://github.com/istio/istio/issues/19352
 # /istioio: These tests are tightly coupled to installation method
 OPERATOR_TEST_PACKAGES = $(shell go list ./tests/integration/... \
   | grep -v /qualification \
   | grep -v /examples \
-  | grep -v /mcp \
   | grep -v /sds_citadel_control_plane_auth_disabled \
   | grep -v /sds_citadel_flow \
-  | grep -v /servertracing \
   | grep -v /pilot/ingress \
   | grep -v /telemetry/metrics \
   | grep -v /istioio \
@@ -133,6 +137,7 @@ test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	${_INTEGRATION_TEST_INSTALL_TYPE} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 test.integration.istioio.kube.postsubmit: test.integration.istioio.kube.presubmit
@@ -166,6 +171,7 @@ test.integration.kube: istioctl | $(JUNIT_REPORT)
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	${_INTEGRATION_TEST_INSTALL_TYPE} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Presubmit integration tests targeting Kubernetes environment.
@@ -179,6 +185,7 @@ test.integration.kube.presubmit: istioctl | $(JUNIT_REPORT)
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	${_INTEGRATION_TEST_INSTALL_TYPE} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Integration tests that detect race condition for native environment.

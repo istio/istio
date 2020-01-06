@@ -1436,12 +1436,13 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 	return nil
 }
 
-func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
+// EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
+func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	// this should never happen
 	if proxy == nil {
 		return nil
 	}
-	out := make([]*EnvoyFilterWrapper, 0)
+	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
 	// and then add the ones from proxy's own namespace
@@ -1450,7 +1451,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 		// if there is a workload selector, check for matching workload labels
 		for _, efw := range ps.envoyFiltersByNamespace[ps.Mesh.RootNamespace] {
 			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
-				out = append(out, efw)
+				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 			}
 		}
 	}
@@ -1459,9 +1460,31 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
 			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
-				out = append(out, efw)
+				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 			}
 		}
+	}
+
+	var out *EnvoyFilterWrapper
+	if len(matchedEnvoyFilters) > 0 {
+		out = &EnvoyFilterWrapper{
+			// no need populate workloadSelector, as it is not used later.
+			Patches: make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper),
+		}
+	}
+	// merge EnvoyFilterWrapper
+	for _, efw := range matchedEnvoyFilters {
+		for applyTo, cps := range efw.Patches {
+			if out.Patches[applyTo] == nil {
+				out.Patches[applyTo] = []*EnvoyFilterConfigPatchWrapper{}
+			}
+			for _, cp := range cps {
+				if proxyMatch(proxy, cp) {
+					out.Patches[applyTo] = append(out.Patches[applyTo], cp)
+				}
+			}
+		}
+		out.DeprecatedFilters = append(out.DeprecatedFilters, efw.DeprecatedFilters...)
 	}
 
 	return out

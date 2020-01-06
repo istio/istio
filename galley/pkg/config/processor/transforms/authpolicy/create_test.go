@@ -23,10 +23,10 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
 
@@ -36,19 +36,19 @@ func TestAuthPolicy_Input_Output(t *testing.T) {
 	xform, _, _ := setup(g, 0)
 
 	g.Expect(xform.Inputs()).To(Equal(collection.Names{
-		metadata.K8SAuthenticationIstioIoV1Alpha1Policies,
+		collections.K8SAuthenticationIstioIoV1Alpha1Policies.Name(),
 	}))
 	g.Expect(xform.Outputs()).To(Equal(collection.Names{
-		metadata.IstioAuthenticationV1Alpha1Policies,
+		collections.IstioAuthenticationV1Alpha1Policies.Name(),
 	}))
 
 	xform, _, _ = setup(g, 1)
 
 	g.Expect(xform.Inputs()).To(Equal(collection.Names{
-		metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies,
+		collections.K8SAuthenticationIstioIoV1Alpha1Meshpolicies.Name(),
 	}))
 	g.Expect(xform.Outputs()).To(Equal(collection.Names{
-		metadata.IstioAuthenticationV1Alpha1Meshpolicies,
+		collections.IstioAuthenticationV1Alpha1Meshpolicies.Name(),
 	}))
 }
 
@@ -95,7 +95,7 @@ func TestAuthPolicy_AddUpdateDelete(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	r2 := input()
-	r2.Item.(*authn.Policy).OriginIsOptional = true
+	r2.Message.(*authn.Policy).OriginIsOptional = true
 
 	for i := 0; i < 2; i++ {
 		xform, src, acc := setup(g, i)
@@ -278,7 +278,7 @@ func TestAuthPolicy_InvalidProto(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	r := input()
-	r.Item = &types.Struct{}
+	r.Message = &types.Struct{}
 
 	for i := 0; i < 2; i++ {
 		xform, src, acc := setup(g, i)
@@ -308,12 +308,12 @@ func setup(g *GomegaWithT, i int) (event.Transformer, *fixtures.Source, *fixture
 	return xforms[i], src, acc
 }
 
-func input() *resource.Entry {
-	return &resource.Entry{
+func input() *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns", "ap"),
+			FullName: resource.NewFullName("ns", "ap"),
 		},
-		Item: &authn.Policy{
+		Message: &authn.Policy{
 			PeerIsOptional: true,
 			Peers: []*authn.PeerAuthenticationMethod{
 				{
@@ -326,12 +326,12 @@ func input() *resource.Entry {
 	}
 }
 
-func output() *resource.Entry {
-	return &resource.Entry{
+func output() *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns", "ap"),
+			FullName: resource.NewFullName("ns", "ap"),
 		},
-		Item: &authn.Policy{
+		Message: &authn.Policy{
 			PeerIsOptional: true,
 			Peers: []*authn.PeerAuthenticationMethod{
 				{

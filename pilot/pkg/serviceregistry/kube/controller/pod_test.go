@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -103,7 +102,7 @@ func cleanup(ki kubernetes.Interface) {
 func TestPodCache(t *testing.T) {
 	t.Run("fakeApiserver", func(t *testing.T) {
 		t.Parallel()
-		c, fx := newFakeController()
+		c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
 		defer c.Stop()
 		testPodCache(t, c, fx)
 	})
@@ -129,8 +128,8 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		generatePod("128.0.0.2", "cpod2", "nsa", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
 		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
 	}
-	cache.WaitForCacheSync(c.stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
-		c.services.informer.HasSynced, c.endpoints.informer.HasSynced)
+	cache.WaitForCacheSync(c.stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
+		c.services.HasSynced, c.endpoints.HasSynced)
 
 	for _, pod := range pods {
 		pod := pod
@@ -166,23 +165,23 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	handler := &kube.ChainHandler{}
-	c, fx := newFakeController()
-	podCache := newPodCache(cacheHandler{handler: handler}, c)
+	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+	defer c.Stop()
+	podCache := newPodCache(nil, c)
 
-	f := podCache.event
+	f := podCache.onEvent
 
 	ns := "default"
 	ip := "172.0.3.35"
 	pod1 := metav1.ObjectMeta{Name: "pod1", Namespace: ns}
-	if err := f(nil, &v1.Pod{ObjectMeta: pod1}, model.EventAdd); err != nil {
+	if err := f(&v1.Pod{ObjectMeta: pod1}, model.EventAdd); err != nil {
 		t.Error(err)
 	}
 
 	// The first time pod occur
 	fx.Wait("xds")
 
-	if err := f(&v1.Pod{ObjectMeta: pod1}, &v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodPending}}, model.EventUpdate); err != nil {
+	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodPending}}, model.EventUpdate); err != nil {
 		t.Error(err)
 	}
 
@@ -191,11 +190,11 @@ func TestPodCacheEvents(t *testing.T) {
 	}
 
 	pod2 := metav1.ObjectMeta{Name: "pod2", Namespace: ns}
-	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodPending}},
+	if err := f(
 		&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventUpdate); err != nil {
 		t.Error(err)
 	}
-	if err := f(nil, &v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodRunning}}, model.EventAdd); err != nil {
+	if err := f(&v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodRunning}}, model.EventAdd); err != nil {
 		t.Error(err)
 	}
 
@@ -203,7 +202,7 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
 	}
 
-	if err := f(nil, &v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventDelete); err != nil {
+	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventDelete); err != nil {
 		t.Error(err)
 	}
 
@@ -211,7 +210,7 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
 	}
 
-	if err := f(nil, &v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventDelete); err != nil {
+	if err := f(&v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventDelete); err != nil {
 		t.Error(err)
 	}
 

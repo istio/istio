@@ -158,7 +158,7 @@ type Port struct {
 
 	// Port number where the service can be reached. Does not necessarily
 	// map to the corresponding port numbers for the instances behind the
-	// service. See NetworkEndpoint definition below.
+	// service.
 	Port int `json:"port"`
 
 	// Protocol to be used for the port.
@@ -168,7 +168,7 @@ type Port struct {
 // PortList is a set of ports
 type PortList []*Port
 
-// AddressFamily indicates the kind of transport used to reach a NetworkEndpoint
+// AddressFamily indicates the kind of transport used to reach an IstioEndpoint
 type AddressFamily int
 
 const (
@@ -206,56 +206,6 @@ const (
 	trafficDirectionInboundSrvPrefix = string(TrafficDirectionInbound) + "_"
 )
 
-// NetworkEndpoint defines a network address (IP:port) associated with an instance of the
-// service. A service has one or more instances each running in a
-// container/VM/pod. If a service has multiple ports, then the same
-// instance IP is expected to be listening on multiple ports (one per each
-// service port). Note that the port associated with an instance does not
-// have to be the same as the port associated with the service. Depending
-// on the network setup (NAT, overlays), this could vary.
-//
-// For e.g., if catalog.mystore.com is accessible through port 80 and 8080,
-// and it maps to an instance with IP 172.16.0.1, such that connections to
-// port 80 are forwarded to port 55446, and connections to port 8080 are
-// forwarded to port 33333,
-//
-// then internally, we have two two endpoint structs for the
-// service catalog.mystore.com
-//  --> 172.16.0.1:54546 (with ServicePort pointing to 80) and
-//  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
-type NetworkEndpoint struct {
-	// Family indicates what type of endpoint, such as TCP or Unix Domain Socket.
-	Family AddressFamily
-
-	// Address of the network endpoint. If Family is `AddressFamilyTCP`, it is
-	// typically an IPv4 address. If Family is `AddressFamilyUnix`, it is the
-	// path to the domain socket.
-	Address string
-
-	// Port number where this instance is listening for connections This
-	// need not be the same as the port where the service is accessed.
-	// e.g., catalog.mystore.com:8080 -> 172.16.0.1:55446
-	// Ignored for `AddressFamilyUnix`.
-	Port int
-
-	// Port declaration from the service declaration This is the port for
-	// the service associated with this instance (e.g.,
-	// catalog.mystore.com)
-	ServicePort *Port
-
-	// Defines a platform-specific workload instance identifier (optional).
-	UID string
-
-	// The network where this endpoint is present
-	Network string
-
-	// The locality where the endpoint is present. / separated string
-	Locality string
-
-	// The load balancing weight associated with this endpoint.
-	LbWeight uint32
-}
-
 // Probe represents a health probe associated with an instance of service.
 type Probe struct {
 	Port *Port  `json:"port,omitempty"`
@@ -270,7 +220,7 @@ type ProbeList []*Probe
 // description (which is oblivious to various versions) and a set of labels
 // that describe the service version associated with this instance.
 //
-// Since a ServiceInstance has a single NetworkEndpoint, which has a single port,
+// Since a ServiceInstance has a single IstioEndpoint, which has a single port,
 // multiple ServiceInstances are required to represent a workload that listens
 // on multiple ports.
 //
@@ -279,16 +229,14 @@ type ProbeList []*Probe
 //
 // For example, the set of service instances associated with catalog.mystore.com
 // are modeled like this
-//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-//      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-//      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+//      --> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
+//      --> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
+//      --> IstioEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+//      --> IstioEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
-	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
-	Service        *Service        `json:"service,omitempty"`
-	Labels         labels.Instance `json:"labels,omitempty"`
-	ServiceAccount string          `json:"serviceaccount,omitempty"`
-	TLSMode        string          `json:"tlsMode,omitempty"`
+	Service     *Service       `json:"service,omitempty"`
+	ServicePort *Port          `json:"servicePort,omitempty"`
+	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
 // GetLocality returns the availability zone from an instance. If service instance label for locality
@@ -298,7 +246,20 @@ type ServiceInstance struct {
 //
 // This is used by CDS/EDS to group the endpoints by locality.
 func (instance *ServiceInstance) GetLocality() string {
-	return GetLocalityOrDefault(instance.Labels[LocalityLabel], instance.Endpoint.Locality)
+	return GetLocalityOrDefault(instance.Endpoint.Labels[LocalityLabel], instance.Endpoint.Locality)
+}
+
+// DeepCopy creates a copy of ServiceInstance.
+func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
+	return &ServiceInstance{
+		Service:  instance.Service.DeepCopy(),
+		Endpoint: instance.Endpoint.DeepCopy(),
+		ServicePort: &Port{
+			Name:     instance.ServicePort.Name,
+			Port:     instance.ServicePort.Port,
+			Protocol: instance.ServicePort.Protocol,
+		},
+	}
 }
 
 // GetLocalityOrDefault returns the locality from the supplied label, or falls back to
@@ -316,22 +277,28 @@ func GetLocalityOrDefault(label, defaultLocality string) string {
 	return defaultLocality
 }
 
-// IstioEndpoint has the information about a single address+port for a specific
-// service and shard.
+// IstioEndpoint defines a network address (IP:port) associated with an instance of the
+// service. A service has one or more instances each running in a
+// container/VM/pod. If a service has multiple ports, then the same
+// instance IP is expected to be listening on multiple ports (one per each
+// service port). Note that the port associated with an instance does not
+// have to be the same as the port associated with the service. Depending
+// on the network setup (NAT, overlays), this could vary.
 //
-// TODO: Replace NetworkEndpoint and ServiceInstance with Istio endpoints
-// - ServicePortName replaces ServicePort, since port number and protocol may not
-// be available when endpoint callbacks are made.
-// - It no longer splits into one ServiceInstance and one NetworkEndpoint - both
-// are in a single struct
-// - doesn't have a pointer to Service - the full Service object may not be available at
-// the time the endpoint is received. The service name is used as a key and used to reconcile.
-// - it has a cached EnvoyEndpoint object - to avoid re-allocating it for each request and
-// client.
+// For e.g., if catalog.mystore.com is accessible through port 80 and 8080,
+// and it maps to an instance with IP 172.16.0.1, such that connections to
+// port 80 are forwarded to port 55446, and connections to port 8080 are
+// forwarded to port 33333,
+//
+// then internally, we have two two endpoint structs for the
+// service catalog.mystore.com
+//  --> 172.16.0.1:54546 (with ServicePort pointing to 80) and
+//  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
+//
+// TODO: Investigate removing ServiceInstance entirely.
 type IstioEndpoint struct {
-
 	// Labels points to the workload or deployment labels.
-	Labels map[string]string
+	Labels labels.Instance
 
 	// Family indicates what type of endpoint, such as TCP or Unix Domain Socket.
 	// Default is TCP.
@@ -417,17 +384,17 @@ type ServiceDiscovery interface {
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
 	// any of the supplied labels. All instances match an empty tag list.
 	//
-	// For example, consider the example of catalog.mystore.com as described in NetworkEndpoints
+	// For example, consider an example of catalog.mystore.com:
 	// Instances(catalog.myservice.com, 80) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+	//      --> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
+	//      --> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
+	//      --> IstioEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+	//      --> IstioEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 	//
 	// Calling Instances with specific labels returns a trimmed list.
 	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
+	//      --> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
+	//      --> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and labels.
@@ -446,13 +413,13 @@ type ServiceDiscovery interface {
 	// will return an empty slice.
 	//
 	// There are two reasons why this returns multiple ServiceInstances instead of one:
-	// - A ServiceInstance has a single NetworkEndpoint which has a single Port.  But a Service
+	// - A ServiceInstance has a single IstioEndpoint which has a single Port.  But a Service
 	//   may have many ports.  So a workload implementing such a Service would need
 	//   multiple ServiceInstances, one for each port.
 	// - A single workload may implement multiple logical Services.
 	//
 	// In the second case, multiple services may be implemented by the same physical port number,
-	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
+	// though with a different ServicePort and IstioEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
@@ -709,6 +676,11 @@ func (s *Service) DeepCopy() *Service {
 		Resolution:      s.Resolution,
 		MeshExternal:    s.MeshExternal,
 	}
+}
+
+// DeepCopy creates a clone of IstioEndpoint.
+func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
+	return copyInternal(ep).(*IstioEndpoint)
 }
 
 func copyInternal(v interface{}) interface{} {

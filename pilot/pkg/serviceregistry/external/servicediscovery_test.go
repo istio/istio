@@ -427,22 +427,22 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 
 	sort.Slice(instances, func(i, j int) bool {
 		if instances[i].Service.Hostname == instances[j].Service.Hostname {
-			if instances[i].Endpoint.Port == instances[j].Endpoint.Port {
+			if instances[i].Endpoint.EndpointPort == instances[j].Endpoint.EndpointPort {
 				if instances[i].Endpoint.Address == instances[j].Endpoint.Address {
-					if len(instances[i].Labels) == len(instances[j].Labels) {
-						iLabels := labelsToSlice(instances[i].Labels)
-						jLabels := labelsToSlice(instances[j].Labels)
+					if len(instances[i].Endpoint.Labels) == len(instances[j].Endpoint.Labels) {
+						iLabels := labelsToSlice(instances[i].Endpoint.Labels)
+						jLabels := labelsToSlice(instances[j].Endpoint.Labels)
 						for k := range iLabels {
 							if iLabels[k] < jLabels[k] {
 								return true
 							}
 						}
 					}
-					return len(instances[i].Labels) < len(instances[j].Labels)
+					return len(instances[i].Endpoint.Labels) < len(instances[j].Endpoint.Labels)
 				}
 				return instances[i].Endpoint.Address < instances[j].Endpoint.Address
 			}
-			return instances[i].Endpoint.Port < instances[j].Endpoint.Port
+			return instances[i].Endpoint.EndpointPort < instances[j].Endpoint.EndpointPort
 		}
 		return instances[i].Service.Hostname < instances[j].Service.Hostname
 	})

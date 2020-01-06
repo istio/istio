@@ -20,8 +20,8 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -61,10 +61,11 @@ func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 	c := collection.NewName(a.s.Collection)
 
-	ctx.ForEach(c, func(r *resource.Entry) bool {
-		ns, name := r.Metadata.Name.InterpretAsNamespaceAndName()
+	ctx.ForEach(c, func(r *resource.Instance) bool {
+		ns := r.Metadata.FullName.Namespace
+		name := r.Metadata.FullName.Name
 
-		err := a.s.Validate(name, ns, r.Item)
+		err := a.s.Validate(string(name), string(ns), r.Message)
 		if err != nil {
 			if multiErr, ok := err.(*multierror.Error); ok {
 				for _, err := range multiErr.WrappedErrors() {

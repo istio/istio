@@ -36,8 +36,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 type message struct {
@@ -46,10 +46,11 @@ type message struct {
 }
 
 type testCase struct {
-	name       string
-	inputFiles []string
-	analyzer   analysis.Analyzer
-	expected   []message
+	name           string
+	inputFiles     []string
+	meshConfigFile string // Optional
+	analyzer       analysis.Analyzer
+	expected       []message
 }
 
 // Some notes on setting up tests for Analyzers:
@@ -70,6 +71,15 @@ var testGrid = []testCase{
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 			{msg.MisplacedAnnotation, "Namespace staging"},
+		},
+	},
+	{
+		name:           "mtlsAnalyzerAutoMtlsSkips",
+		inputFiles:     []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
+		meshConfigFile: "testdata/mesh-with-automtls.yaml",
+		analyzer:       &auth.MTLSAnalyzer{},
+		expected:       []message{
+			// With autoMtls enabled, we should not generate a message
 		},
 	},
 	{
@@ -235,6 +245,16 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewaySecret",
+		inputFiles: []string{"testdata/gateway-secrets.yaml"},
+		analyzer:   &gateway.SecretAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Gateway defaultgateway-bogusCredentialName"},
+			{msg.ReferencedResourceNotFound, "Gateway customgateway-wrongnamespace"},
+			{msg.ReferencedResourceNotFound, "Gateway bogusgateway"},
+		},
+	},
+	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
 		analyzer:   &injection.Analyzer{},
@@ -264,6 +284,12 @@ var testGrid = []testCase{
 	{
 		name:       "namedPort",
 		inputFiles: []string{"testdata/service-port-name.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected:   []message{},
+	},
+	{
+		name:       "unnamedPortInSystemNamespace",
+		inputFiles: []string{"testdata/service-no-port-name-system-namespace.yaml"},
 		analyzer:   &service.PortNameAnalyzer{},
 		expected:   []message{},
 	},
@@ -371,7 +397,15 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
+			sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
+
+			// If a mesh config file is specified, use it instead of the defaults
+			if testCase.meshConfigFile != "" {
+				err := sa.AddFileKubeMeshConfigSource(testCase.meshConfigFile)
+				if err != nil {
+					t.Fatalf("Error applying mesh config file %s: %v", testCase.meshConfigFile, err)
+				}
+			}
 
 			var files []io.Reader
 			for _, f := range testCase.inputFiles {

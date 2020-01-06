@@ -43,12 +43,18 @@ for file in "$@"; do
   for variant in ${DOCKER_ALL_VARIANTS}; do
     image=${file#docker.}
     tag="${TAG}"
-    output="${image}"
     # The default variant has no suffix, others do
     if [[ "${variant}" != "default" ]]; then
       tag+="-${variant}"
-      output+="-${variant}"
     fi
+
+    # Output locally (like `docker build`) by default, or push
+    # Push requires using container driver. See https://github.com/docker/buildx#working-with-builder-instances
+    output='output = ["type=docker"]'
+    if [[ -n "${DOCKERX_PUSH:-}" ]]; then
+      output='output = ["type=registry"]'
+    fi
+
     cat <<EOF >> "${config}"
 target "$image-$variant" {
     context = "${out}/${file}"
@@ -57,7 +63,10 @@ target "$image-$variant" {
     args = {
       BASE_VERSION = "${BASE_VERSION}"
       BASE_DISTRIBUTION = "${variant}"
+      proxy_version = "istio-proxy:${PROXY_REPO_SHA}"
+      istio_version = "${VERSION}"
     }
+    ${output}
 }
 EOF
     # For the default variant, create an alias so we can do things like `build pilot` instead of `build pilot-default`

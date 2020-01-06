@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
@@ -33,20 +34,22 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/queue"
 )
 
 // controller is a collection of synchronized resource watchers.
 // Caches are thread-safe
 type controller struct {
 	client *Client
-	queue  kube.Queue
-	kinds  map[string]cacheHandler
+	queue  queue.Instance
+	kinds  map[string]*cacheHandler
 }
 
 type cacheHandler struct {
+	c        *controller
+	schema   schema.Instance
 	informer cache.SharedIndexInformer
-	handler  *kube.ChainHandler
+	handlers []func(model.Config, model.Config, model.Event)
 }
 
 type ValidateFunc func(interface{}) error
@@ -83,11 +86,11 @@ func init() {
 func NewController(client *Client, options controller2.Options) model.ConfigStoreCache {
 	log.Infof("CRD controller watching namespaces %q", options.WatchedNamespace)
 
-	// Queue requires a time duration for a retry delay after a handler error
+	// The queue requires a time duration for a retry delay after a handler error
 	out := &controller{
 		client: client,
-		queue:  kube.NewQueue(1 * time.Second),
-		kinds:  make(map[string]cacheHandler),
+		queue:  queue.NewQueue(1 * time.Second),
+		kinds:  make(map[string]*cacheHandler),
 	}
 
 	// add stores for CRD kinds
@@ -99,7 +102,7 @@ func NewController(client *Client, options controller2.Options) model.ConfigStor
 }
 
 func (c *controller) addInformer(schema schema.Instance, namespace string, resyncPeriod time.Duration) {
-	c.kinds[schema.Type] = c.createInformer(crd.KnownTypes[schema.Type].Object.DeepCopyObject(), schema.Type, resyncPeriod,
+	c.kinds[schema.Type] = c.newCacheHandler(schema, crd.KnownTypes[schema.Type].Object.DeepCopyObject(), schema.Type, resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 			result = crd.KnownTypes[schema.Type].Collection.DeepCopyObject()
 			rc, ok := c.client.clientset[crd.APIVersion(&schema)]
@@ -132,9 +135,7 @@ func (c *controller) addInformer(schema schema.Instance, namespace string, resyn
 		})
 }
 
-// notify is the first handler in the handler chain.
-// Returning an error causes repeated execution of the entire chain.
-func (c *controller) notify(old, curr interface{}, event model.Event) error {
+func (c *controller) checkReadyForEvents(curr interface{}) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
@@ -145,42 +146,52 @@ func (c *controller) notify(old, curr interface{}, event model.Event) error {
 	return nil
 }
 
-func (c *controller) createInformer(
+func (c *controller) newCacheHandler(
+	schema schema.Instance,
 	o runtime.Object,
 	otype string,
 	resyncPeriod time.Duration,
 	lf cache.ListFunc,
-	wf cache.WatchFunc) cacheHandler {
-	handler := &kube.ChainHandler{}
-	handler.Append(c.notify)
-
+	wf cache.WatchFunc) *cacheHandler {
 	// TODO: finer-grained index (perf)
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{ListFunc: lf, WatchFunc: wf}, o,
 		resyncPeriod, cache.Indexers{})
+
+	h := &cacheHandler{
+		c:        c,
+		schema:   schema,
+		informer: informer,
+	}
 
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
+				c.queue.Push(func() error {
+					return h.onEvent(nil, obj, model.EventAdd)
+				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
-					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
+					c.queue.Push(func() error {
+						return h.onEvent(old, cur, model.EventUpdate)
+					})
 				} else {
 					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
-				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
+				c.queue.Push(func() error {
+					return h.onEvent(nil, obj, model.EventDelete)
+				})
 			},
 		})
 
-	return cacheHandler{informer: informer, handler: handler}
+	return h
 }
 
 func handleValidationFailure(obj interface{}, err error) {
@@ -200,31 +211,46 @@ func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
+func (h *cacheHandler) onEvent(old, curr interface{}, event model.Event) error {
+	if err := h.c.checkReadyForEvents(curr); err != nil {
+		return err
+	}
+
+	var currItem, oldItem crd.IstioObject
+	var currConfig, oldConfig *model.Config
+	var err error
+
+	ok := false
+
+	if currItem, ok = curr.(crd.IstioObject); !ok {
+		log.Warnf("New Object can not be converted to Istio Object %v", curr)
+		return nil
+	}
+	if currConfig, err = crd.ConvertObject(h.schema, currItem, h.c.client.domainSuffix); err != nil {
+		log.Warnf("error translating new object for schema %#v : %v\n Object:\n%#v", h.schema, err, curr)
+		return nil
+	}
+	// oldItem can be nil for new entries. So we should default it.
+	if oldItem, ok = old.(crd.IstioObject); !ok {
+		oldConfig = &model.Config{}
+	} else if oldConfig, err = crd.ConvertObject(h.schema, oldItem, h.c.client.domainSuffix); err != nil {
+		log.Warnf("error translating old object for schema %#v : %v\n Object:\n%#v", h.schema, err, old)
+		return nil
+	}
+
+	for _, f := range h.handlers {
+		f(*oldConfig, *currConfig, event)
+	}
+	return nil
+}
+
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Config, model.Event)) {
-	s, exists := c.ConfigDescriptor().GetByType(typ)
+	h, exists := c.kinds[typ]
 	if !exists {
 		return
 	}
-	c.kinds[typ].handler.Append(func(old, curr interface{}, ev model.Event) error {
-		curritem, ok := curr.(crd.IstioObject)
-		if ok {
-			config, err := crd.ConvertObject(s, curritem, c.client.domainSuffix)
-			if err != nil {
-				log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, curr)
-			} else {
-				olditem, ok := old.(crd.IstioObject)
-				oldconfig := &model.Config{}
-				if ok {
-					oldconfig, err = crd.ConvertObject(s, olditem, c.client.domainSuffix)
-					if err != nil {
-						log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, old)
-					}
-				}
-				f(*oldconfig, *config, ev)
-			}
-		}
-		return nil
-	})
+
+	h.handlers = append(h.handlers, f)
 }
 
 func (c *controller) Version() string {

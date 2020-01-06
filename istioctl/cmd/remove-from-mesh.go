@@ -49,8 +49,39 @@ func removeFromMeshCmd() *cobra.Command {
 		},
 	}
 	removeFromMeshCmd.AddCommand(svcUnMeshifyCmd())
+	removeFromMeshCmd.AddCommand(deploymentUnMeshifyCmd())
 	removeFromMeshCmd.AddCommand(externalSvcUnMeshifyCmd())
 	return removeFromMeshCmd
+}
+
+func deploymentUnMeshifyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "deployment",
+		Short: "Remove deployment from Istio service mesh",
+		Long: `istioctl experimental remove-from-mesh deployment restarts pods with the Istio sidecar un-injected.
+THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+`,
+		Example: `istioctl experimental remove-from-mesh deployment productpage-v1`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return fmt.Errorf("expecting deployment name")
+			}
+			client, err := interfaceFactory(kubeconfig)
+			if err != nil {
+				return err
+			}
+			ns := handlers.HandleNamespace(namespace, defaultNamespace)
+			writer := cmd.OutOrStdout()
+			dep, err := client.AppsV1().Deployments(ns).Get(args[0], metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("deployment %q does not exist", args[0])
+			}
+			deps := []appsv1.Deployment{}
+			deps = append(deps, *dep)
+			return unInjectSideCarFromDeployment(client, deps, args[0], ns, writer)
+		},
+	}
+	return cmd
 }
 
 func svcUnMeshifyCmd() *cobra.Command {

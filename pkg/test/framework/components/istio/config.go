@@ -172,7 +172,7 @@ func (c *Config) IsMtlsEnabled() bool {
 
 func (c *Config) IstioControlPlane() string {
 	data := c.ControlPlaneValues
-	if c.ValuesFile != "" {
+	if data == "" && c.ValuesFile != "" {
 		var err error
 		data, err = file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
 		if err != nil {

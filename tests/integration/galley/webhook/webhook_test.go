@@ -29,6 +29,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -37,7 +39,6 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	tkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -117,7 +118,7 @@ func TestWebhook(t *testing.T) {
 
 					log.Infof("Initial cert serial numbers: %v", startingSN)
 
-					env.DeleteSecret(istioNs, "istio.istio-galley-service-account")
+					_ = env.DeleteSecret(istioNs, "istio.istio-galley-service-account")
 
 					retry.UntilSuccessOrFail(t, func() error {
 						updated := fetchWebhookCertSerialNumbersOrFail(t, addr)
@@ -137,7 +138,9 @@ func TestWebhook(t *testing.T) {
 					env.DeleteClusterRole(fmt.Sprintf("istio-galley-%v", istioNs))
 
 					// Verify webhook config is deleted
-					env.WaitForValidatingWebhookDeletion(vwcName)
+					if err := env.WaitForValidatingWebhookDeletion(vwcName); err != nil {
+						t.Fatal(err)
+					}
 				})
 		})
 }
@@ -250,7 +253,7 @@ func fetchWebhookCertSerialNumbersOrFail(t *testing.T, addr string) []string { /
 	if err != nil {
 		t.Fatalf("webhook request failed: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	if resp.TLS == nil {
 		t.Fatal("server did not provide certificates")

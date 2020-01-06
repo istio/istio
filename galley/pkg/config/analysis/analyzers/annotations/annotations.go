@@ -21,9 +21,9 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 // K8sAnalyzer checks for misplaced and invalid Istio annotations in K8s resources
@@ -39,35 +39,35 @@ func (*K8sAnalyzer) Metadata() analysis.Metadata {
 		Name:        "annotations.K8sAnalyzer",
 		Description: "Checks for misplaced and invalid Istio annotations in Kubernetes resources",
 		Inputs: collection.Names{
-			metadata.K8SCoreV1Namespaces,
-			metadata.K8SCoreV1Services,
-			metadata.K8SCoreV1Pods,
-			metadata.K8SAppsV1Deployments,
+			collections.K8SCoreV1Namespaces.Name(),
+			collections.K8SCoreV1Services.Name(),
+			collections.K8SCoreV1Pods.Name(),
+			collections.K8SAppsV1Deployments.Name(),
 		},
 	}
 }
 
 // Analyze implements analysis.Analyzer
 func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
-		fa.allowAnnotations(r, ctx, "Namespace", metadata.K8SCoreV1Namespaces)
+	ctx.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Namespace", collections.K8SCoreV1Namespaces.Name())
 		return true
 	})
-	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
-		fa.allowAnnotations(r, ctx, "Service", metadata.K8SCoreV1Services)
+	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Service", collections.K8SCoreV1Services.Name())
 		return true
 	})
-	ctx.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Entry) bool {
-		fa.allowAnnotations(r, ctx, "Pod", metadata.K8SCoreV1Pods)
+	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Pod", collections.K8SCoreV1Pods.Name())
 		return true
 	})
-	ctx.ForEach(metadata.K8SAppsV1Deployments, func(r *resource.Entry) bool {
-		fa.allowAnnotations(r, ctx, "Deployment", metadata.K8SAppsV1Deployments)
+	ctx.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Deployment", collections.K8SAppsV1Deployments.Name())
 		return true
 	})
 }
 
-func (*K8sAnalyzer) allowAnnotations(r *resource.Entry, ctx analysis.Context, kind string, collectionType collection.Name) {
+func (*K8sAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, kind string, collectionType collection.Name) {
 	if len(r.Metadata.Annotations) == 0 {
 		return
 	}

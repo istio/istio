@@ -81,82 +81,82 @@ metadata:
   selfLink: ""`
 	invalidSvcList = `
 apiVersion: v1
-items: 
-  - 
+items:
+  -
     apiVersion: v1
     kind: Service
-    metadata: 
+    metadata:
       name: details
-    spec: 
-      ports: 
-        - 
+    spec:
+      ports:
+        -
           name: details
           port: 9080
-  - 
+  -
     apiVersion: v1
     kind: Service
-    metadata: 
+    metadata:
       name: hello
-    spec: 
-      ports: 
-        - 
+    spec:
+      ports:
+        -
           port: 80
           protocol: TCP
 kind: List
-metadata: 
+metadata:
   resourceVersion: ""`
 	udpService = `
 kind: Service
-metadata: 
+metadata:
   name: hello
-spec: 
-  ports: 
-    - 
+spec:
+  ports:
+    -
       protocol: udp`
 	skippedService = `
 kind: Service
-metadata: 
+metadata:
   name: hello
   namespace: istio-system
-spec: 
-  ports: 
-    - 
+spec:
+  ports:
+    -
       name: http
       port: 9080`
 	validPortNamingSvc = `
 apiVersion: v1
 kind: Service
-metadata: 
+metadata:
   name: hello
-spec: 
-  ports: 
+spec:
+  ports:
     - name: http
       port: 9080`
 	validPortNamingWithSuffixSvc = `
 apiVersion: v1
 kind: Service
-metadata: 
+metadata:
   name: hello
-spec: 
-  ports: 
+spec:
+  ports:
     - name: http-hello
       port: 9080`
 	invalidPortNamingSvc = `
 apiVersion: v1
 kind: Service
-metadata: 
+metadata:
   name: hello
-spec: 
-  ports: 
+spec:
+  ports:
     - name: hello
       port: 9080`
 	portNameMissingSvc = `
 apiVersion: v1
 kind: Service
-metadata: 
+metadata:
   name: hello
-spec: 
-  ports: 
+spec:
+  ports:
   - protocol: TCP`
 	validVirtualService = `
 apiVersion: networking.istio.io/v1alpha3
@@ -242,7 +242,7 @@ metadata:
   name: istio-system`
 	invalidMixerKind = `
 apiVersion: config.istio.io/v1alpha2
-kind: validator
+kind: instance
 metadata:
   name: invalid-kind
 spec:`
@@ -264,7 +264,7 @@ spec:`
 	skippedDeployment = `
 apiVersion: apps/v1
 kind: Deployment
-metadata: 
+metadata:
   name: hello
   namespace: istio-system
 spec: ~`

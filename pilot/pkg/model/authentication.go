@@ -83,11 +83,6 @@ func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
 
 func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config) {
 	for _, config := range configs {
-		if config.Namespace == policy.rootNamespace && config.Name != "default" {
-			// Validation should prevent non-singleton global policy, but it's ok to check and log just in case.
-			log.Warnf("Ignore non default RequestAuthentication config in root namespace: %s/%s", config.Namespace, config.Name)
-			continue
-		}
 		policy.requestAuthentications[config.Namespace] =
 			append(policy.requestAuthentications[config.Namespace], config)
 	}
@@ -97,26 +92,29 @@ func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config)
 func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
 	workloadLabels labels.Collection) []*Config {
 	configs := make([]*Config, 0)
-	if nsConfig, ok := policy.requestAuthentications[namespace]; ok {
-		for idx := range nsConfig {
-			cfg := &nsConfig[idx]
-			if namespace != cfg.Namespace {
-				// Should never come here. Log warning just in case.
-				log.Warnf("Seeing config %s with namespace %s in map entry for %s. Ignored", cfg.Name, cfg.Namespace, namespace)
-				continue
-			}
-			spec := cfg.Spec.(*v1beta1.RequestAuthentication)
-			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-			if workloadLabels.IsSupersetOf(selector) {
-				configs = append(configs, cfg)
+	lookupInNamespaces := []string{namespace}
+	if namespace != policy.rootNamespace {
+		// Only check the root namespace if the (workload) namespace is not already the root namespace
+		// to avoid double inclusion.
+		lookupInNamespaces = append(lookupInNamespaces, policy.rootNamespace)
+	}
+	for _, ns := range lookupInNamespaces {
+		if nsConfig, ok := policy.requestAuthentications[ns]; ok {
+			for idx := range nsConfig {
+				cfg := &nsConfig[idx]
+				if ns != cfg.Namespace {
+					// Should never come here. Log warning just in case.
+					log.Warnf("Seeing config %s with namespace %s in map entry for %s. Ignored", cfg.Name, cfg.Namespace, ns)
+					continue
+				}
+				spec := cfg.Spec.(*v1beta1.RequestAuthentication)
+				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+				if workloadLabels.IsSupersetOf(selector) {
+					configs = append(configs, cfg)
+				}
 			}
 		}
 	}
 
-	if rootConfig, ok := policy.requestAuthentications[policy.rootNamespace]; ok {
-		for idx := range rootConfig {
-			configs = append(configs, &rootConfig[idx])
-		}
-	}
 	return configs
 }
