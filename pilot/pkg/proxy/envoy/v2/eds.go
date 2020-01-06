@@ -494,6 +494,8 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			NamePrefix: fmt.Sprintf("%s-%s-%s", serviceName, namespace, clusterID),
 			GroupSize:  s.Env.Mesh().GetEgdsGroupSize(),
 		}
+
+		ep.Shards[clusterID] = egdsGroup
 	}
 
 	egdsUpdates := egdsGroup.accept(istioEndpoints)
