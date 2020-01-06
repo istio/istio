@@ -2679,7 +2679,7 @@ func TestValidateDestinationRule(t *testing.T) {
 			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 3,
+					ConsecutiveErrors:     3,
 					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
 				},
 			},
