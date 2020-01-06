@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -65,6 +66,9 @@ type SourceAnalyzer struct {
 	namespace            resource.Namespace
 	istioNamespace       resource.Namespace
 
+	// Mesh config for this analyzer. This can come from multiple sources, and the last added version will take precedence.
+	meshCfg *v1alpha1.MeshConfig
+
 	// Which kube resources are used by this analyzer
 	// Derived from metadata and the specified analyzer and transformer providers
 	kubeResources collection.Schemas
@@ -102,6 +106,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 
 	sa := &SourceAnalyzer{
 		m:                    m,
+		meshCfg:              meshcfg.Default(),
 		sources:              make([]precedenceSourceInput, 0),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
@@ -111,8 +116,6 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		collectionReporter:   cr,
 	}
 
-	sa.addMeshConfigSource(meshcfg.Default())
-
 	return sa
 }
 
@@ -120,10 +123,15 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) {
 	var result AnalysisResult
 
-	// We need more than the default mesh config we always start with
-	if len(sa.sources) <= 1 {
+	// We need at least one non-meshcfg source
+	if len(sa.sources) == 0 {
 		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
 	}
+
+	// Create a source representing mesh config. There should be exactly one of these.
+	meshsrc := meshcfg.NewInmemory()
+	meshsrc.Set(sa.meshCfg)
+	sa.sources = append(sa.sources, precedenceSourceInput{src: meshsrc, cols: collection.Names{meshcfg.IstioMeshconfig}})
 
 	var namespaces []resource.Namespace
 	if sa.namespace != "" {
@@ -201,7 +209,7 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 }
 
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
-// Also adds a meshcfg source from the running cluster
+// Also tries to get mesh config from the running cluster, if it can
 func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	o := apiserver.Options{
 		Client:  k,
@@ -216,8 +224,8 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
 }
 
-// AddFileKubeMeshConfigSource adds a mesh config source based on the specified meshconfig yaml file
-func (sa *SourceAnalyzer) AddFileKubeMeshConfigSource(file string) error {
+// AddFileKubeMeshConfig gets mesh config from the specified yaml file
+func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
 	by, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
@@ -228,9 +236,30 @@ func (sa *SourceAnalyzer) AddFileKubeMeshConfigSource(file string) error {
 		return err
 	}
 
-	sa.addMeshConfigSource(cfg)
-
+	sa.meshCfg = cfg
 	return nil
+}
+
+// AddDefaultResources adds some basic dummy Istio resources, based on mesh configuration.
+// This is useful for files-only analysis cases where we don't expect the user to be including istio system resources
+// and don't want to generate false positives because they aren't there.
+// Respect mesh config when deciding which default resources should be generated
+func (sa *SourceAnalyzer) AddDefaultResources() error {
+	var readers []io.Reader
+
+	if sa.meshCfg.GetIngressControllerMode() != v1alpha1.MeshConfig_OFF {
+		ingressResources, err := getDefaultIstioIngressGateway(sa.istioNamespace.String(), sa.meshCfg.GetIngressService())
+		if err != nil {
+			return err
+		}
+		readers = append(readers, strings.NewReader(ingressResources))
+	}
+
+	if len(readers) == 0 {
+		return nil
+	}
+
+	return sa.AddReaderKubeSource(readers)
 }
 
 func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) error {
@@ -254,14 +283,6 @@ func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) erro
 		return fmt.Errorf("error parsing mesh config: %v", err)
 	}
 
-	sa.addMeshConfigSource(cfg)
-
+	sa.meshCfg = cfg
 	return nil
-}
-
-// addMeshConfigSource adds a mesh config source. The last added source takes precedence over the others, without any sort of merging.
-func (sa *SourceAnalyzer) addMeshConfigSource(cfg *v1alpha1.MeshConfig) {
-	meshsrc := meshcfg.NewInmemory()
-	meshsrc.Set(cfg)
-	sa.sources = append(sa.sources, precedenceSourceInput{src: meshsrc, cols: collection.Names{meshcfg.IstioMeshconfig}})
 }

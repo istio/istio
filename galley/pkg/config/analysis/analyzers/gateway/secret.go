@@ -93,11 +93,5 @@ func getGatewayNamespace(ctx analysis.Context, gw *v1alpha3.Gateway) resource.Na
 		return true
 	})
 
-	// If we're selecting the default ingressgateway, but can't find it, assume it exists and is in istio-system
-	// https://github.com/istio/istio/issues/19579 should make this unnecessary
-	if ns == "" && gw.Selector["istio"] == "ingressgateway" {
-		ns = "istio-system"
-	}
-
 	return ns
 }
