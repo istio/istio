@@ -45,28 +45,22 @@ type ServiceEntryStore struct {
 	// Endpoints table. Key is the fqdn hostname and namespace
 	instances map[host.Name]map[string][]*model.ServiceInstance
 
-	changeMutex  sync.RWMutex
-	lastChange   time.Time
-	updateNeeded bool
+	changeMutex    sync.RWMutex
+	lastChange     time.Time
+	computeIndexes bool
 }
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
 func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater) *ServiceEntryStore {
 	c := &ServiceEntryStore{
-		XdsUpdater:   xdsUpdater,
-		store:        store,
-		ip2instance:  map[string][]*model.ServiceInstance{},
-		instances:    map[host.Name]map[string][]*model.ServiceInstance{},
-		updateNeeded: true,
+		XdsUpdater:     xdsUpdater,
+		store:          store,
+		ip2instance:    map[string][]*model.ServiceInstance{},
+		instances:      map[host.Name]map[string][]*model.ServiceInstance{},
+		computeIndexes: true,
 	}
 	if configController != nil {
 		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(old, curr model.Config, event model.Event) {
-			// Recomputing the index here is too expensive.
-			c.changeMutex.Lock()
-			c.lastChange = time.Now()
-			c.updateNeeded = true
-			c.changeMutex.Unlock()
-
 			cs := convertServices(curr)
 
 			// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
@@ -82,6 +76,12 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 				}
 			}
 
+			// Recomputing the index here is too expensive - lazy build when it is needed.
+			c.changeMutex.Lock()
+			c.lastChange = time.Now()
+			c.computeIndexes = fp // Only recompute indexes if services have changed.
+			c.changeMutex.Unlock()
+
 			if fp {
 				pushReq := &model.PushRequest{
 					Full:               true,
@@ -91,6 +91,8 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 				c.XdsUpdater.ConfigUpdate(pushReq)
 			} else {
 				instances := convertInstances(curr, cs)
+				// If only instances have changed, just update the indexes for the changes instances.
+				c.updateExistingInstances(instances)
 				endpoints := make([]*model.IstioEndpoint, 0)
 				for _, instance := range instances {
 					for _, port := range instance.Service.Ports {
@@ -188,7 +190,7 @@ func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList
 // match any of the supplied labels. All instances match an empty tag list.
 func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 	labels labels.Collection) ([]*model.ServiceInstance, error) {
-	d.update()
+	d.maybeComputeIndexes()
 
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
@@ -208,39 +210,22 @@ func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 	return out, nil
 }
 
-// update will iterate all ServiceEntries, convert to ServiceInstance (expensive),
-// and populate the 'by host' and 'by ip' maps.
-func (d *ServiceEntryStore) update() {
+// maybeComputeIndexes will iterate all ServiceEntries, convert to ServiceInstance (expensive),
+// and populate the 'by host' and 'by ip' maps, if needed.
+func (d *ServiceEntryStore) maybeComputeIndexes() {
 	d.changeMutex.RLock()
-	if !d.updateNeeded {
-		d.changeMutex.RUnlock()
+	compute := d.computeIndexes
+	d.changeMutex.RUnlock()
+
+	if !compute {
 		return
 	}
-	d.changeMutex.RUnlock()
 
 	di := map[host.Name]map[string][]*model.ServiceInstance{}
 	dip := map[string][]*model.ServiceInstance{}
 
 	for _, cfg := range d.store.ServiceEntries() {
-		for _, instance := range convertInstances(cfg, nil) {
-
-			out, found := di[instance.Service.Hostname][instance.Service.Attributes.Namespace]
-			if !found {
-				out = []*model.ServiceInstance{}
-			}
-			out = append(out, instance)
-			if _, f := di[instance.Service.Hostname]; !f {
-				di[instance.Service.Hostname] = map[string][]*model.ServiceInstance{}
-			}
-			di[instance.Service.Hostname][instance.Service.Attributes.Namespace] = out
-
-			byip, found := dip[instance.Endpoint.Address]
-			if !found {
-				byip = []*model.ServiceInstance{}
-			}
-			byip = append(byip, instance)
-			dip[instance.Endpoint.Address] = byip
-		}
+		updateInstances(convertInstances(cfg, nil), di, dip)
 	}
 
 	d.storeMutex.Lock()
@@ -248,13 +233,47 @@ func (d *ServiceEntryStore) update() {
 	d.ip2instance = dip
 	d.storeMutex.Unlock()
 
-	// Without this pilot will become very unstable even with few 100 ServiceEntry
-	// objects - the N_clusters * N_update generates too much garbage
-	// ( yaml to proto)
-	// This is reset on any change in ServiceEntries
+	// Without this pilot becomes very unstable even with few 100 ServiceEntry objects - the N_clusters * N_update generates too much garbage ( yaml to proto)
+	// This is reset on any change in ServiceEntries that neeeds index recomputation.
 	d.changeMutex.Lock()
-	d.updateNeeded = false
+	d.computeIndexes = false
 	d.changeMutex.Unlock()
+}
+
+// updateExistingInstances updates the indexes (by host, byip maps) for the passed in instances.
+func (d *ServiceEntryStore) updateExistingInstances(instances []*model.ServiceInstance) {
+	d.storeMutex.Lock()
+	// First, delete the existing instances to avoid leaking memory.
+	for _, instance := range instances {
+		delete(d.instances[instance.Service.Hostname], instance.Service.Attributes.Namespace)
+		delete(d.instances, instance.Service.Hostname)
+		delete(d.ip2instance, instance.Endpoint.Address)
+	}
+	// Update the indexes with new instances.
+	updateInstances(instances, d.instances, d.ip2instance)
+	d.storeMutex.Unlock()
+}
+
+// updateInstances updates the instance data to the passed in maps.
+func updateInstances(instances []*model.ServiceInstance, instancemap map[host.Name]map[string][]*model.ServiceInstance,
+	ip2instance map[string][]*model.ServiceInstance) {
+	for _, instance := range instances {
+		out, found := instancemap[instance.Service.Hostname][instance.Service.Attributes.Namespace]
+		if !found {
+			out = []*model.ServiceInstance{}
+		}
+		out = append(out, instance)
+		if _, f := instancemap[instance.Service.Hostname]; !f {
+			instancemap[instance.Service.Hostname] = map[string][]*model.ServiceInstance{}
+		}
+		instancemap[instance.Service.Hostname][instance.Service.Attributes.Namespace] = out
+		byip, found := ip2instance[instance.Endpoint.Address]
+		if !found {
+			byip = []*model.ServiceInstance{}
+		}
+		byip = append(byip, instance)
+		ip2instance[instance.Endpoint.Address] = byip
+	}
 }
 
 // returns true if an instance's port matches with any in the provided list
@@ -264,7 +283,8 @@ func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
-	d.update()
+	d.maybeComputeIndexes()
+
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
 
@@ -280,7 +300,7 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 }
 
 func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
-	d.update()
+	d.maybeComputeIndexes()
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
 

@@ -137,15 +137,26 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 		makeInstance(tcpStatic, "2.2.2.2", 444, tcpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
 	}
 
-	instances, err := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{"2.2.2.2"}})
-	if err != nil {
-		t.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
+	done := make(chan bool)
+	for i := 0; i < 25; i++ {
+		go func() {
+			instances, err := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{"2.2.2.2"}})
+			if err != nil {
+				t.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
+			}
+			sortServiceInstances(instances)
+			sortServiceInstances(expectedInstances)
+			if err := compare(t, instances, expectedInstances); err != nil {
+				t.Error(err)
+			}
+			done <- true
+		}()
 	}
-	sortServiceInstances(instances)
-	sortServiceInstances(expectedInstances)
-	if err := compare(t, instances, expectedInstances); err != nil {
-		t.Error(err)
+
+	for i := 0; i < 25; i++ {
+		<-done
 	}
+
 }
 
 // Keeping this test for legacy - but it never happens in real life.
