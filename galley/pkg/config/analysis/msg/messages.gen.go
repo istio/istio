@@ -90,6 +90,32 @@ var (
 	PortNameIsNotUnderNamingConvention = diag.NewMessageType(diag.Info, "IST0118", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port.")
 )
 
+// All returns a list of all known message types.
+func All() []*diag.MessageType {
+	return []*diag.MessageType{
+		InternalError,
+		Deprecated,
+		ReferencedResourceNotFound,
+		NamespaceNotInjected,
+		PodMissingProxy,
+		GatewayPortNotOnWorkload,
+		IstioProxyVersionMismatch,
+		SchemaValidationError,
+		MisplacedAnnotation,
+		UnknownAnnotation,
+		ConflictingMeshGatewayVirtualServiceHosts,
+		ConflictingSidecarWorkloadSelectors,
+		MultipleSidecarsWithoutWorkloadSelectors,
+		VirtualServiceDestinationPortSelectorRequired,
+		MTLSPolicyConflict,
+		PolicySpecifiesPortNameThatDoesntExist,
+		DestinationRuleUsesMTLSForWorkloadWithoutSidecar,
+		DeploymentAssociatedToMultipleServices,
+		DeploymentRequiresServiceAssociated,
+		PortNameIsNotUnderNamingConvention,
+	}
+}
+
 // NewInternalError returns a new diag.Message based on InternalError.
 func NewInternalError(r *resource.Instance, detail string) diag.Message {
 	return diag.NewMessage(
