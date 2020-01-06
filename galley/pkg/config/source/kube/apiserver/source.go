@@ -129,7 +129,7 @@ func (s *Source) Start() {
 	a := s.provider.GetAdapter(crdKubeResource.Resource())
 	s.crdWatcher = newWatcher(crdKubeResource, a, s.statusCtl)
 	s.crdWatcher.dispatch(event.HandlerFromFn(s.onCrdEvent))
-	s.crdWatcher.start(s.options.SyncTimeout)
+	s.crdWatcher.start()
 }
 
 func (s *Source) onCrdEvent(e event.Event) {
@@ -223,17 +223,10 @@ func (s *Source) startWatchers() {
 		s.statusCtl.Start(s.provider, resources)
 	}
 
-	var wg sync.WaitGroup
 	for c, w := range s.watchers {
-		w := w
 		scope.Source.Debuga("Source.Start: starting watcher: ", c)
-		wg.Add(1)
-		go func() {
-			w.start(s.options.SyncTimeout)
-			wg.Done()
-		}()
+		w.start()
 	}
-	wg.Wait()
 }
 
 // Stop implements processor.Source

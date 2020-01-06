@@ -15,7 +15,6 @@
 package local
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -49,10 +48,9 @@ import (
 )
 
 const (
-	domainSuffix       = "cluster.local"
-	meshConfigMapKey   = "mesh"
-	meshConfigMapName  = "istio"
-	defaultSyncTimeout = 10 * time.Second
+	domainSuffix      = "cluster.local"
+	meshConfigMapKey  = "mesh"
+	meshConfigMapName = "istio"
 )
 
 // Patch table
@@ -78,6 +76,9 @@ type SourceAnalyzer struct {
 
 	// Hook function called when a collection is used in analysis
 	collectionReporter snapshotter.CollectionReporterFn
+
+	// How long to wait for snapshot + analysis to complete before aborting
+	timeout time.Duration
 }
 
 // AnalysisResult represents the returnable results of an analysis execution
@@ -90,7 +91,7 @@ type AnalysisResult struct {
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
+	cr snapshotter.CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *SourceAnalyzer {
 
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
@@ -117,6 +118,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
+		timeout:              timeout,
 	}
 
 	return sa
@@ -155,7 +157,10 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 
-	updater := &snapshotter.InMemoryStatusUpdater{}
+	updater := &snapshotter.InMemoryStatusUpdater{
+		WaitTimeout: sa.timeout,
+	}
+
 	distributorSettings := snapshotter.AnalyzingDistributorSettings{
 		StatusUpdater:      updater,
 		Analyzer:           sa.analyzer,
@@ -179,16 +184,17 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	if err != nil {
 		return result, err
 	}
+
 	rt.Start()
 	defer rt.Stop()
 
 	scope.Analysis.Debugf("Waiting for analysis messages to be available...")
-	if updater.WaitForReport(cancel) {
-		result.Messages = updater.Get()
-		return result, nil
+	if err := updater.WaitForReport(cancel); err != nil {
+		return result, fmt.Errorf("failed to get analysis result: %v", err)
 	}
 
-	return result, errors.New("cancelled")
+	result.Messages = updater.Get()
+	return result, nil
 }
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
@@ -220,9 +226,8 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	o := apiserver.Options{
-		Client:      k,
-		Schemas:     sa.kubeResources,
-		SyncTimeout: defaultSyncTimeout,
+		Client:  k,
+		Schemas: sa.kubeResources,
 	}
 
 	if err := sa.addRunningKubeMeshConfigSource(k); err != nil {

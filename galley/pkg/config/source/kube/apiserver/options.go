@@ -33,8 +33,5 @@ type Options struct {
 
 	StatusController status.Controller
 
-	// If set, we will wait this long for a resource to sync before giving up and sending a FullSync event.
-	SyncTimeout time.Duration
-
 	// TODO: Add target namespaces here when we do namespace specific listeners.
 }

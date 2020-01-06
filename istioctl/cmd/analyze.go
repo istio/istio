@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
@@ -69,6 +70,7 @@ var (
 	msgOutputFormat string
 	meshCfgFile     string
 	allNamespaces   bool
+	analysisTimeout time.Duration
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -135,7 +137,7 @@ istioctl analyze -L
 			}
 
 			sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
-				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true)
+				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 
 			// If we're using kube, use that as a base source.
 			if useKube {
@@ -174,6 +176,7 @@ istioctl analyze -L
 
 			// Do the analysis
 			result, err := sa.Analyze(cancel)
+
 			if err != nil {
 				return err
 			}
@@ -276,6 +279,8 @@ istioctl analyze -L
 		"Overrides the mesh config values to use for analysis.")
 	analysisCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false,
 		"Analyze all namespaces")
+	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
+		"the duration to wait before failing")
 	return analysisCmd
 }
 

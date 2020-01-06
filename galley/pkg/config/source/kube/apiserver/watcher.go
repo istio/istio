@@ -16,7 +16,6 @@ package apiserver
 
 import (
 	"sync"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -51,7 +50,7 @@ func newWatcher(r collection.Schema, a *rt.Adapter, s status.Controller) *watche
 	}
 }
 
-func (w *watcher) start(syncTimeout time.Duration) {
+func (w *watcher) start() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.done != nil {
@@ -86,35 +85,14 @@ func (w *watcher) start(syncTimeout time.Duration) {
 	done := make(chan struct{})
 	w.done = done
 
-	// Start CRD shared informer and wait for it to sync.
+	// Start CRD shared informer and wait for it to exit.
 	go informer.Run(done)
-
-	if syncTimeout > 0 {
-		// If we time out waiting for this (e.g. if the current user doesn't have permissions to list or watch a resource),
-		// then log and send a FullSync so we don't get blocked
-		finished := make(chan struct{})
-		go func() {
-			sendFullSyncWhenReady(w, informer)
-			close(finished)
-		}()
-		select {
-		case <-finished:
-			// Proceed normally
-		case <-time.After(syncTimeout):
-			scope.Source.Errorf("Timed out waiting for sync from informer for %q (%q), sending FullSync anyway", w.schema.Name(), w.schema.Resource().CanonicalName())
-			w.handler.Handle(event.FullSyncFor(w.schema))
-		}
-	} else {
-		// If we're not using timeout, wait & send synchronously
-		sendFullSyncWhenReady(w, informer)
-	}
-}
-
-func sendFullSyncWhenReady(w *watcher, informer cache.SharedInformer) {
 	// Send the FullSync event after the cache syncs.
-	if cache.WaitForCacheSync(w.done, informer.HasSynced) {
-		go w.handler.Handle(event.FullSyncFor(w.schema.Name()))
-	}
+	go func() {
+		if cache.WaitForCacheSync(done, informer.HasSynced) {
+			go w.handler.Handle(event.FullSyncFor(w.schema.Name()))
+		}
+	}()
 }
 
 func (w *watcher) stop() {
