@@ -15,8 +15,9 @@
 package snapshotter
 
 import (
-	"path/filepath"
 	"sync"
+
+	"github.com/ryanuber/go-glob"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -206,7 +207,7 @@ FilterMessages:
 				continue
 			}
 
-			if match, err := filepath.Match(s.ResourceName, m.Origin.FriendlyName()); err != nil || !match {
+			if !glob.Glob(s.ResourceName, m.Origin.FriendlyName()) {
 				continue
 			}
 			scope.Analysis.Debugf("Suppressing code %s on resource %s due to suppressions list", m.Type.Code(), m.Origin.FriendlyName())
