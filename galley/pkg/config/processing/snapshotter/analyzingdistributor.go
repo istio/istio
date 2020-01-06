@@ -81,7 +81,8 @@ type AnalysisSuppression struct {
 
 	// ResourceName is the name of the resource to suppress the message for. For
 	// K8s resources it has the same form as used by istioctl (e.g.
-	// "DestinationRule default.istio-system").
+	// "DestinationRule default.istio-system"). Note that globbing wildcards are
+	// supported (e.g. "DestinationRule *.istio-system").
 	ResourceName string
 }
 
