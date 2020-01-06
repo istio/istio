@@ -16,9 +16,9 @@ package v2
 
 import (
 	"fmt"
-	"strings"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -68,7 +68,7 @@ const (
 	ClusterType = typePrefix + "Cluster"
 	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
 	EndpointType = typePrefix + "ClusterLoadAssignment"
-	// EndpointGroupType is used for EGDS and ADS endpoint group discovery. Typically after EDS 
+	// EndpointGroupType is used for EGDS and ADS endpoint group discovery. Typically after EDS
 	// requests if EGDS was enabled.
 	EndpointGroupType = typePrefix + "EndpointGroup"
 	// ListenerType is sent after clusters and endpoints.
@@ -148,7 +148,7 @@ type EndpointGroups struct {
 	// has 1:1 mapping relationship
 	NamePrefix string
 
-	// The designed size of each endpoint group. The actual size may be slightly different from this.  
+	// The designed size of each endpoint group. The actual size may be slightly different from this.
 	GroupSize uint32
 
 	// The number of groups constructed.
@@ -156,7 +156,7 @@ type EndpointGroups struct {
 
 	// A reference copy of all endpoints within groups. This is used to support old method.
 	IstioEndpoints []*model.IstioEndpoint
-	
+
 	// A map stores the endpoint groups. The key is the name of each group.
 	IstioEndpointGroups map[string][]*model.IstioEndpoint
 }
@@ -179,7 +179,6 @@ func (g *EndpointGroups) getEndpoints(groupName string) []*model.IstioEndpoint {
 
 	return nil
 }
-
 
 // ExtractEndpointGroupKeys extracts the keys within the group name string
 // the key can be the form of "[hostname]-[namespace]-[clusterID]-[groupID]"
@@ -474,7 +473,7 @@ func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct
 
 	// Calculate the diff in memory
 
-	added := make([]*model.IstioEndpoint, len(newEps))
+	added := make([]*model.IstioEndpoint, 0, len(newEps))
 
 MainAddedLoop:
 	for _, nep := range newEps {
@@ -487,7 +486,7 @@ MainAddedLoop:
 		added = append(added, nep)
 	}
 
-	removed := make([]*model.IstioEndpoint, len(prevEps))
+	removed := make([]*model.IstioEndpoint, 0, len(prevEps))
 
 MainRemovedLoop:
 	for _, pep := range prevEps {
@@ -528,7 +527,7 @@ func (g *EndpointGroups) updateEndpointGroups(updated []*model.IstioEndpoint, re
 		if _, f := updatedGroupKeys[key]; !f {
 			_, f := updatedGroups[key]
 			if !f {
-				updatedGroups[key] = make([]*model.IstioEndpoint, g.GroupSize)
+				updatedGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
 			}
 
 			updatedGroups[key] = append(updatedGroups[key], ep)
@@ -569,7 +568,7 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 		key := g.makeGroupKey(ep)
 
 		if group, f := g.IstioEndpointGroups[key]; !f {
-			g.IstioEndpointGroups[key] = make([]*model.IstioEndpoint, g.GroupSize)
+			g.IstioEndpointGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
 		} else {
 			group = append(group, ep)
 		}

@@ -614,7 +614,7 @@ func (s *DiscoveryServer) getServiceGroupNames(hostname string, namespace string
 	names := make(map[string]struct{})
 	for _, shard := range se.Shards {
 		for name := range shard.IstioEndpointGroups {
-			names[name] = struct{}{}		
+			names[name] = struct{}{}
 		}
 	}
 
@@ -629,10 +629,10 @@ func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *mode
 	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 	push.Mutex.Unlock()
 	if svc == nil {
-		// Shouldn't happen here - but just in case fallback
-		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+		// Shouldn't happen here - unable to genereate EGDS data
+		adsLog.Warnf("EGDS: missing data for cluster %s", clusterName)
+		return nil
 	}
-
 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
 	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
@@ -651,8 +651,9 @@ func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *mode
 	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
 	s.mutex.RUnlock()
 	if !f {
-		// Shouldn't happen here - but just in case fallback
-		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+		// Shouldn't happen here - unable to genereate EGDS data
+		adsLog.Warnf("EGDS: missing data for cluster %s", clusterName)
+		return nil
 	}
 
 	epGroups := make([]*xdsapi.Egds, 0)
@@ -693,10 +694,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 	push.Mutex.Unlock()
 	if svc == nil {
-		// Shouldn't happen here - but just in case fallback
-		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+		// Should not happen, just in case
+		return s.loadAssignmentFailback(clusterName, groupName, push)
 	}
-
 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
 	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
@@ -724,15 +724,14 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
 	s.mutex.RUnlock()
 	if !f {
-		// Shouldn't happen here - but just in case fallback
-		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+		// Should not happen, just in case
+		return s.loadAssignmentFailback(clusterName, groupName, push)
 	}
 
-	// Use traditional embedded endpoints way
 	svcPort, f := svc.Ports.GetByPort(port)
 	if !f {
-		// Shouldn't happen here - but just in case fallback
-		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+		// Should not happen, just in case
+		return s.loadAssignmentFailback(clusterName, groupName, push)
 	}
 
 	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push, groupName)
@@ -743,6 +742,18 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	}
 
 	return cla
+}
+
+func (s *DiscoveryServer) loadAssignmentFailback(clusterName string, groupName string, 
+	push *model.PushContext) *xdsapi.ClusterLoadAssignment {
+	if groupName == "" {
+		// Shouldn't happen here - but just in case fallback
+		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+	}
+
+	// Shouldn't happen here - unable to genereate EGDS data
+	adsLog.Warnf("EGDS: missing data for cluster %s, namespace %s, group %s", clusterName, groupName)
+	return nil
 }
 
 func buildAssignmentWithEgds(se *EndpointShards, clusterName string) *xdsapi.ClusterLoadAssignment {
@@ -846,7 +857,7 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 
 			l := s.generateEndpoints(clusterName, groupName, con.node, push)
 			g := &xdsapi.EndpointGroup{
-				Name: groupName,
+				Name:      groupName,
 				Endpoints: l.Endpoints,
 			}
 
