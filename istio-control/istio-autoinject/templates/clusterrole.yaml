@@ -1,3 +1,4 @@
+{{- if not .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -16,4 +17,5 @@ rules:
   resources: ["mutatingwebhookconfigurations"]
   resourceNames: ["istio-sidecar-injector", "istio-sidecar-injector-{{.Release.Namespace}}"]
   verbs: ["get", "list", "watch", "patch"]
+{{- end }}
 {{- end }}

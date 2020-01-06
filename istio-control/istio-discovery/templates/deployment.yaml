@@ -273,7 +273,7 @@ spec:
       # Optional - image should have
       - name: inject
         configMap:
-          name: inject
+          name: istio-sidecar-injector
           optional: true
 
       {{ else }}

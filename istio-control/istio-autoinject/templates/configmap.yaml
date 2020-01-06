@@ -1,3 +1,4 @@
+{{- if not .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -100,3 +101,4 @@ data:
       {{- end }}
     {{- end }}
 ---
+{{- end }}

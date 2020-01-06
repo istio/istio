@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: inject
+  name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -11,12 +11,20 @@ data:
     {{ .Values | toJson }}
 
   # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
-  # and istiod webhook functionality. Policy is no longer used.
+  # and istiod webhook functionality.
   #
-  # Istiod config map should not use Values - it is a 'primary' config object, users should be able
+  # New fields should not use Values - it is a 'primary' config object, users should be able
   # to fine tune it or use it with kube-inject.
   config: |-
-    policy: enabled
+    policy: {{ .Values.global.proxy.autoInject }}
+    alwaysInjectSelector:
+      {{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
+    neverInjectSelector:
+      {{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
+    injectedAnnotations:
+      {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
+      "{{ $key }}": "{{ $val }}"
+      {{- end }}
 
 {{ .Files.Get "files/injection-template.yaml" | trim | indent 4 }}
 
