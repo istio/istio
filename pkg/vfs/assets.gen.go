@@ -38950,6 +38950,9 @@ spec:
   # Istio CNI feature
   cni:
     enabled: false
+    components:
+      cni:
+        namespace: kube-system
 
   # Global values passed through to helm global.yaml.
   values:
