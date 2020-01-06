@@ -130,15 +130,17 @@ func TestWebhook(t *testing.T) {
 					}, retry.Timeout(5*time.Minute))
 				})
 
-			// NOTE: Keep this as the last test! It deletes the istio-system namespaces. All subsequent kube tests will fail.
-			// Verify that removing galley's namespace results in the webhook configuration being removed
+			// NOTE: Keep this as the last test! It deletes the istio-galley clusterrole. All subsequent kube tests will fail.
+			// Verify that removing galley's clusterrole results in the webhook configuration being removed.
 			ctx.NewSubTest("webhookUninstall").
 				Run(func(ctx framework.TestContext) {
-					// Remove galley's namespace
-					_ = env.DeleteNamespace(istioNs)
+					// Remove Galley's clusterrole
+					env.DeleteClusterRole(fmt.Sprintf("istio-galley-%v", istioNs))
 
 					// Verify webhook config is deleted
-					_ = env.WaitForValidatingWebhookDeletion(vwcName)
+					if err := env.WaitForValidatingWebhookDeletion(vwcName); err != nil {
+						t.Fatal(err)
+					}
 				})
 		})
 }
