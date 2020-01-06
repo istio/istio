@@ -113,10 +113,11 @@ istioctl analyze -d true a.yaml b.yaml services.yaml
 istioctl analyze -k -d false
 
 # Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
-istioctl analyze -k --suppress "IST0103=Pod mypod.testing"
+istioctl analyze -k -S "IST0103=Pod mypod.testing"
 
-# Analyze the current live cluster and suppress PodMissingProxy for all pods in namespace 'testing'
-istioctl analyze -k --suppress "IST0103=Pod *.testing"
+# Analyze the current live cluster and suppress PodMissingProxy for all pods in namespace 'testing',
+# and suppress MisplacedAnnotation on deployment foobar in namespace default.
+istioctl analyze -k -S "IST0103=Pod *.testing" -S "IST0107=Deployment foobar.default"
 
 # List available analyzers
 istioctl analyze -L
