@@ -471,7 +471,7 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 		return err
 	}
 	// --noflush to prevent flushing/deleting previous contents from table
-	iptConfigurator.ext.Run(cmd, "--noflush", rulesFile.Name())
+	iptConfigurator.ext.RunOrFail(cmd, "--noflush", rulesFile.Name())
 	return nil
 }
 
