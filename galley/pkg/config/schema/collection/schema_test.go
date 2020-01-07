@@ -12,29 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package collection
+package collection_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/schema/resource"
 )
 
 func TestSchema_NewSchema(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, err := Builder{
-		Name: "foo",
-		Schema: resource.Builder{
-			Kind:         "Empty",
-			ProtoPackage: "github.com/gogo/protobuf/types",
-			Proto:        "google.protobuf.Empty",
-		}.MustBuild(),
+	s, err := collection.Builder{
+		Name:     "foo",
+		Resource: emptyResource,
 	}.Build()
 	g.Expect(err).To(BeNil())
-	g.Expect(s.Name()).To(Equal(NewName("foo")))
+	g.Expect(s.Name()).To(Equal(collection.NewName("foo")))
 	g.Expect(s.Resource().ProtoPackage()).To(Equal("github.com/gogo/protobuf/types"))
 	g.Expect(s.Resource().Proto()).To(Equal("google.protobuf.Empty"))
 }
@@ -42,13 +39,9 @@ func TestSchema_NewSchema(t *testing.T) {
 func TestSchema_NewSchema_Error(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	_, err := Builder{
-		Name: "$",
-		Schema: resource.Builder{
-			Kind:         "Empty",
-			ProtoPackage: "github.com/gogo/protobuf/types",
-			Proto:        "google.protobuf.Empty",
-		}.MustBuild(),
+	_, err := collection.Builder{
+		Name:     "$",
+		Resource: emptyResource,
 	}.Build()
 	g.Expect(err).NotTo(BeNil())
 }
@@ -60,15 +53,11 @@ func TestSchema_MustNewSchema(t *testing.T) {
 		g.Expect(r).To(BeNil())
 	}()
 
-	s := Builder{
-		Name: "foo",
-		Schema: resource.Builder{
-			Kind:         "Empty",
-			ProtoPackage: "github.com/gogo/protobuf/types",
-			Proto:        "google.protobuf.Empty",
-		}.MustBuild(),
+	s := collection.Builder{
+		Name:     "foo",
+		Resource: emptyResource,
 	}.MustBuild()
-	g.Expect(s.Name()).To(Equal(NewName("foo")))
+	g.Expect(s.Name()).To(Equal(collection.NewName("foo")))
 	g.Expect(s.Resource().ProtoPackage()).To(Equal("github.com/gogo/protobuf/types"))
 	g.Expect(s.Resource().Proto()).To(Equal("google.protobuf.Empty"))
 }
@@ -80,8 +69,9 @@ func TestSchema_MustNewSchema_Error(t *testing.T) {
 		g.Expect(r).NotTo(BeNil())
 	}()
 
-	Builder{Name: "$",
-		Schema: resource.Builder{
+	collection.Builder{
+		Name: "$",
+		Resource: resource.Builder{
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
 		}.MustBuild(),
@@ -91,10 +81,11 @@ func TestSchema_MustNewSchema_Error(t *testing.T) {
 func TestSchema_String(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := Builder{
+	s := collection.Builder{
 		Name: "foo",
-		Schema: resource.Builder{
+		Resource: resource.Builder{
 			Kind:         "Empty",
+			Plural:       "empties",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
 		}.MustBuild(),

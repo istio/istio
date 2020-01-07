@@ -225,7 +225,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 		s, err := collection.Builder{
 			Name:     c.Name,
 			Disabled: c.Disabled,
-			Schema:   r,
+			Resource: r,
 		}.Build()
 		if err != nil {
 			return nil, err

@@ -37,8 +37,9 @@ import (
 var (
 	testCollection = collection.Builder{
 		Name: "ns/mycol",
-		Schema: resource2.Builder{
+		Resource: resource2.Builder{
 			Kind:         "Empty",
+			Plural:       "empties",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
 		}.MustBuild(),
