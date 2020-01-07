@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 	"text/template"
+	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -122,7 +123,7 @@ spec:
 					}
 				}
 				return nil
-			})
+			}, retry.Timeout(time.Minute * 3))
 			u, err := env.GetUnstructured(gvr, ns.Name(), "knative-service")
 			if err != nil {
 				t.Fatalf("couldn't get route: %v", err)
