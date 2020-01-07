@@ -41,7 +41,6 @@ const (
 	defaultMinGracePeriod     = 10 * time.Minute
 	sidecarInjectorSvcAccount = "istio-sidecar-injector-service-account"
 	sidecarInjectorSvc        = "istio-sidecar-injector"
-	dataName                  = "test-data-name"
 )
 
 var (
@@ -595,10 +594,6 @@ func TestRetroactiveNamespaceActivation(t *testing.T) {
 		Resource: "secrets",
 		Version:  "v1",
 	}
-	configMapSchema := schema.GroupVersionResource{
-		Resource: "configmaps",
-		Version:  "v1",
-	}
 
 	testCases := map[string]struct {
 		enableNamespacesByDefault bool
@@ -619,9 +614,6 @@ func TestRetroactiveNamespaceActivation(t *testing.T) {
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("test", map[string]string{})),
 				ktesting.NewCreateAction(saSchema, "test", createServiceAccount("test-sa", "test")),
-				ktesting.NewGetAction(configMapSchema, "test", CACertNamespaceConfigMap),
-				ktesting.NewCreateAction(configMapSchema, "test", createConfigMap("test", CACertNamespaceConfigMap,
-					map[string]string{dataName: "test-data"})),
 				ktesting.NewListAction(saSchema, schema.GroupVersionKind{}, "test", metav1.ListOptions{}),
 				ktesting.NewCreateAction(secretSchema, "test", k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test", nil, nil, nil, nil, nil, IstioSecretType)),
 			},
@@ -636,9 +628,6 @@ func TestRetroactiveNamespaceActivation(t *testing.T) {
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("test", map[string]string{})),
 				ktesting.NewCreateAction(saSchema, "test", createServiceAccount("test-sa", "test")),
-				ktesting.NewGetAction(configMapSchema, "test", CACertNamespaceConfigMap),
-				ktesting.NewCreateAction(configMapSchema, "test", createConfigMap("test", CACertNamespaceConfigMap,
-					map[string]string{dataName: "test-data"})),
 			},
 		},
 	}
@@ -727,16 +716,5 @@ func createNS(name string, labels map[string]string) *v1.Namespace {
 			Name:   name,
 			Labels: labels,
 		},
-	}
-}
-
-// nolint: unparam
-func createConfigMap(namespace, configName string, data map[string]string) *v1.ConfigMap {
-	return &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      configName,
-			Namespace: namespace,
-		},
-		Data: data,
 	}
 }

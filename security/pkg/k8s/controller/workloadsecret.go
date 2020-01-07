@@ -16,7 +16,6 @@ package controller
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -62,12 +61,9 @@ const (
 	// The key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 
-	secretNamePrefix   = "istio."
-	secretResyncPeriod = time.Minute
-	// Every namespaceResyncPeriod, namespaceUpdated() will be invoked
-	// for every namespace. This value must be configured so Citadel
-	// can update its CA certificate in a ConfigMap in every namespace.
-	namespaceResyncPeriod = time.Second * 30
+	secretNamePrefix      = "istio."
+	secretResyncPeriod    = time.Minute
+	namespaceResyncPeriod = time.Second * 5
 
 	recommendedMinGracePeriodRatio = 0.2
 	recommendedMaxGracePeriodRatio = 0.8
@@ -84,13 +80,6 @@ const (
 	caCertID = "ca-cert.pem"
 	// caPrivateKeyID is the private key file of CA.
 	caPrivateKeyID = "ca-key.pem"
-
-	// The name of the ConfigMap in each namespace storing the CA cert of self-signed CA.
-	CACertNamespaceConfigMap = "istio-ca-namespace"
-	// The data name in the ConfigMap of each namespace storing the CA cert of self-signed CA.
-	CACertNamespaceConfigMapDataName = "ca-cert-ns.pem"
-	CACertNamespaceInsertInterval    = time.Second
-	CACertNamespaceInsertTimeout     = time.Second * 2
 )
 
 var k8sControllerLog = log.RegisterScope("k8sController", "Citadel kubernetes controller log", 0)
@@ -268,7 +257,6 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 	c.namespaceStore, c.namespaceController =
 		cache.NewInformer(namespaceLW, &v1.Namespace{}, namespaceResyncPeriod, cache.ResourceEventHandlerFuncs{
 			UpdateFunc: c.namespaceUpdated,
-			AddFunc:    c.namespaceAdded,
 		})
 
 	return c, nil
@@ -411,26 +399,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 
 func (sc *SecretController) namespaceUpdated(oldObj, newObj interface{}) {
 	oldNs := oldObj.(*v1.Namespace)
-	newNs, ok := newObj.(*v1.Namespace)
-
-	if ok {
-		rootCert := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
-		certEncoded := base64.StdEncoding.EncodeToString(rootCert)
-		// Every namespaceResyncPeriod, namespaceUpdated() will be invoked
-		// for every namespace. If a namespace does not have the Citadel CA
-		// certificate or the certificate in a ConfigMap of the namespace is not
-		// up to date, Citadel updates the certificate in the namespace.
-		// For simplifying the implementation and no overhead for reading the certificate from the ConfigMap,
-		// simply updates the ConfigMap to the current Citadel CA certificate.
-		err := certutil.InsertDataToConfigMapWithRetry(sc.core, newNs.GetName(), certEncoded, CACertNamespaceConfigMap,
-			CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)
-		if err != nil {
-			log.Errorf("error when updating CA cert in configmap: %v", err)
-		} else {
-			log.Debugf("updated CA cert in configmap %v in ns %v",
-				CACertNamespaceConfigMap, newNs.GetName())
-		}
-	}
+	newNs := newObj.(*v1.Namespace)
 
 	oldManaged := sc.namespaceIsManaged(oldNs)
 	newManaged := sc.namespaceIsManaged(newNs)
@@ -438,25 +407,6 @@ func (sc *SecretController) namespaceUpdated(oldObj, newObj interface{}) {
 	if !oldManaged && newManaged {
 		sc.enableNamespaceRetroactive(newNs.GetName())
 		return
-	}
-}
-
-// When a namespace is created, Citadel adds its public CA certificate
-// to a well known configmap in the namespace.
-func (sc *SecretController) namespaceAdded(obj interface{}) {
-	ns, ok := obj.(*v1.Namespace)
-
-	if ok {
-		rootCert := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
-		certEncoded := base64.StdEncoding.EncodeToString(rootCert)
-		err := certutil.InsertDataToConfigMapWithRetry(sc.core, ns.GetName(), certEncoded, CACertNamespaceConfigMap,
-			CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)
-		if err != nil {
-			log.Errorf("error when inserting CA cert to configmap: %v", err)
-		} else {
-			log.Debugf("inserted CA cert to configmap %v in ns %v",
-				CACertNamespaceConfigMap, ns.GetName())
-		}
 	}
 }
 
