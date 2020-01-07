@@ -168,8 +168,8 @@ func (s *Service) Run() error {
 			continue
 		}
 
-			hasAtLeastOneListener = true
-			go restoreOriginalAddress(l, s.Config, c)
+		hasAtLeastOneListener = true
+		go restoreOriginalAddress(l, s.Config, c)
 
 	}
 	if hasAtLeastOneListener {
