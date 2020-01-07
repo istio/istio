@@ -17,6 +17,7 @@ package serviceentry
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -99,17 +100,17 @@ func (c *SyntheticServiceEntryController) List(typ, namespace string) (out []mod
 				out = append(out, *config)
 			}
 		}
-		return out, nil
+	} else {
+		byNamespace := c.configStore[namespace]
+		for _, config := range byNamespace {
+			out = append(out, *config)
+		}
 	}
 
-	byNamespace, ok := c.configStore[namespace]
-	if !ok {
-		return nil, nil
-	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
 
-	for _, config := range byNamespace {
-		out = append(out, *config)
-	}
 	return out, nil
 }
 
@@ -122,15 +123,14 @@ func (c *SyntheticServiceEntryController) Apply(change *sink.Change) error {
 
 	defer atomic.AddUint32(&c.synced, 1)
 
-	if len(change.Objects) == 0 {
-		return nil
-	}
-
 	if change.Incremental {
 		// removed first
 		c.removeConfig(change.Removed)
 		c.incrementalUpdate(change.Objects)
 	} else {
+		if len(change.Objects) == 0 {
+			return nil
+		}
 		c.configStoreUpdate(change.Objects)
 	}
 
@@ -149,8 +149,8 @@ func (c *SyntheticServiceEntryController) dispatch(config model.Config, event mo
 }
 
 // RegisterEventHandler registers a handler using the type as a key
+// Note: currently it is not called
 func (c *SyntheticServiceEntryController) RegisterEventHandler(_ string, handler func(model.Config, model.Config, model.Event)) {
-	// TODO: investigate why it is called more than one
 	if c.eventHandler == nil {
 		c.eventHandler = handler
 	}
@@ -201,6 +201,8 @@ func (c *SyntheticServiceEntryController) removeConfig(configName []string) {
 	if len(configName) == 0 {
 		return
 	}
+
+	namespacesUpdated := map[string]struct{}{}
 	c.configStoreMu.Lock()
 	defer c.configStoreMu.Unlock()
 
@@ -215,7 +217,16 @@ func (c *SyntheticServiceEntryController) removeConfig(configName []string) {
 			if len(byNamespace) == 0 {
 				delete(byNamespace, namespace)
 			}
+			namespacesUpdated[namespace] = struct{}{}
 		}
+	}
+
+	if c.XDSUpdater != nil {
+		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			Full:               true,
+			ConfigTypesUpdated: map[string]struct{}{schemas.SyntheticServiceEntry.Type: {}},
+			NamespacesUpdated:  namespacesUpdated,
+		})
 	}
 }
 
