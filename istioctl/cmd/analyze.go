@@ -106,11 +106,11 @@ istioctl analyze a.yaml b.yaml
 istioctl analyze --use-kube=false a.yaml b.yaml
 
 # Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
-istioctl analyze -k -S "IST0103=Pod mypod.testing"
+istioctl analyze -S "IST0103=Pod mypod.testing"
 
 # Analyze the current live cluster and suppress PodMissingProxy for all pods in namespace 'testing',
 # and suppress MisplacedAnnotation on deployment foobar in namespace default.
-istioctl analyze -k -S "IST0103=Pod *.testing" -S "IST0107=Deployment foobar.default"
+istioctl analyze -S "IST0103=Pod *.testing" -S "IST0107=Deployment foobar.default"
 
 # List available analyzers
 istioctl analyze -L
@@ -165,13 +165,12 @@ istioctl analyze -L
 				}
 
 				if !codeIsValid {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Supplied message code '%s' is an unknown message code and will be ignored.\n", parts[0])
-				} else {
-					suppressions = append(suppressions, snapshotter.AnalysisSuppression{
-						Code:         parts[0],
-						ResourceName: parts[1],
-					})
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Supplied message code '%s' is an unknown message code.\n", parts[0])
 				}
+				suppressions = append(suppressions, snapshotter.AnalysisSuppression{
+					Code:         parts[0],
+					ResourceName: parts[1],
+				})
 			}
 			sa.SetSuppressions(suppressions)
 
