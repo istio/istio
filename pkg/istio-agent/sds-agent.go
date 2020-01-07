@@ -355,7 +355,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			} else {
 				rootCert, err = ioutil.ReadFile(k8sCAPath)
 				if err != nil {
-					log.Warnf("Failed to load K8S cert, assume IP secure network: ", err)
+					log.Warnf("Failed to load K8S cert, assume IP secure network: %v", err)
 					serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
 				} else {
 					log.Info("Using default istiod CA, with K8S certificates for SDS")
