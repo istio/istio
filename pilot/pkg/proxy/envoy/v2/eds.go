@@ -31,7 +31,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -623,63 +622,6 @@ func (s *DiscoveryServer) getServiceGroupNames(hostname string, namespace string
 	return names
 }
 
-func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *model.Proxy, push *model.PushContext) *xdsapi.ClusterLoadAssignment {
-	// This code is similar with the update code.
-	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-
-	push.Mutex.Lock()
-	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-	push.Mutex.Unlock()
-	if svc == nil {
-		// Shouldn't happen here - unable to genereate EGDS data
-		adsLog.Warnf("EGDS: missing data for cluster %s", clusterName)
-		return nil
-	}
-
-	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
-	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
-	// EDS to STRICT_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
-	// will update "XdsConnection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check guards
-	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
-	// automatically.
-	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
-	if svc.Resolution == model.DNSLB {
-		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %v, skipping it.", clusterName, svc.Resolution)
-		return nil
-	}
-
-	// The service was never updated - do the full update
-	s.mutex.RLock()
-	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
-	s.mutex.RUnlock()
-	if !f {
-		// Shouldn't happen here - unable to genereate EGDS data
-		adsLog.Warnf("EGDS: missing data for cluster %s", clusterName)
-		return nil
-	}
-
-	epGroups := make([]*xdsapi.Egds, 0)
-	for _, shard := range se.Shards {
-		for name := range shard.IstioEndpointGroups {
-			egds := &xdsapi.Egds{
-				ConfigSource: &core.ConfigSource{
-					ConfigSourceSpecifier: &core.ConfigSource_Ads{
-						Ads: &core.AggregatedConfigSource{},
-					},
-				},
-				EndpointGroupName: name,
-			}
-
-			epGroups = append(epGroups, egds)
-		}
-	}
-
-	return &xdsapi.ClusterLoadAssignment{
-		ClusterName:    clusterName,
-		EndpointGroups: epGroups,
-	}
-}
-
 // loadAssignmentsForClusterIsolated return the endpoints for a proxy in an isolated namespace
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
 // perf tests. The logic to compute is based on the current UpdateClusterInc
@@ -1123,21 +1065,6 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 	}
 	for _, loadAssignment := range loadAssignments {
 		resource := util.MessageToAny(loadAssignment)
-		out.Resources = append(out.Resources, resource)
-	}
-
-	return out
-}
-
-func endpointGroupDiscoveryResponse(groups []*xdsapi.EndpointGroup, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
-	out := &xdsapi.DiscoveryResponse{
-		TypeUrl:     EndpointGroupType,
-		VersionInfo: version,
-		Nonce:       nonce(noncePrefix),
-	}
-
-	for _, group := range groups {
-		resource := util.MessageToAny(group)
 		out.Resources = append(out.Resources, resource)
 	}
 
