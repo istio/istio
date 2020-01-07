@@ -166,7 +166,7 @@ istioctl analyze -L
 				}
 
 				if !codeIsValid {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Supplied message code '%s' is an unknown message code.\n", parts[0])
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Supplied message code '%s' is an unknown message code and will not have any effect.\n", parts[0])
 				}
 				suppressions = append(suppressions, snapshotter.AnalysisSuppression{
 					Code:         parts[0],
