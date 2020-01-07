@@ -25,36 +25,44 @@ var (
 	K8SCollection2 = basicmeta.MustGet2().KubeCollections().MustFind("k8s/collection2")
 
 	Foo = collection.Builder{
-		Name: "foo",
-		Schema: resource.Builder{
+		Name:         "foo",
+		VariableName: "Foo",
+		Resource: resource.Builder{
 			Kind:         "Foo",
+			Plural:       "Foos",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
 		}.MustBuild(),
 	}.MustBuild()
 
 	Bar = collection.Builder{
-		Name: "bar",
-		Schema: resource.Builder{
+		Name:         "bar",
+		VariableName: "Bar",
+		Resource: resource.Builder{
 			Kind:         "Bar",
+			Plural:       "Bars",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
 		}.MustBuild(),
 	}.MustBuild()
 
 	Boo = collection.Builder{
-		Name: "boo",
-		Schema: resource.Builder{
+		Name:         "boo",
+		VariableName: "Boo",
+		Resource: resource.Builder{
 			Kind:         "Boo",
+			Plural:       "Boos",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
 		}.MustBuild(),
 	}.MustBuild()
 
 	Baz = collection.Builder{
-		Name: "baz",
-		Schema: resource.Builder{
+		Name:         "baz",
+		VariableName: "Baz",
+		Resource: resource.Builder{
 			Kind:         "Baz",
+			Plural:       "Bazes",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
 		}.MustBuild(),

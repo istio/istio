@@ -22,33 +22,126 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestNewSchema_Error(t *testing.T) {
-	g := NewGomegaWithT(t)
-
+func TestValidate(t *testing.T) {
 	cases := []struct {
-		name string
-		b    Builder
+		name        string
+		b           Builder
+		expectError bool
 	}{
 		{
-			name: "empty kind",
+			name: "valid",
 			b: Builder{
-				Kind:  "",
-				Proto: "google.protobuf.Empty",
+				Kind:         "Empty",
+				Plural:       "Empties",
+				ProtoPackage: "github.com/gogo/protobuf/types",
+				Proto:        "google.protobuf.Empty",
 			},
+			expectError: false,
+		},
+		{
+			name: "invalid kind",
+			b: Builder{
+				Kind:         "",
+				Plural:       "Empties",
+				ProtoPackage: "github.com/gogo/protobuf/types",
+				Proto:        "google.protobuf.Empty",
+			},
+			expectError: true,
+		},
+		{
+			name: "invalid plural",
+			b: Builder{
+				Kind:         "Empty",
+				Plural:       "",
+				ProtoPackage: "github.com/gogo/protobuf/types",
+				Proto:        "google.protobuf.Empty",
+			},
+			expectError: true,
 		},
 		{
 			name: "invalid proto",
 			b: Builder{
-				Kind:  "Empty",
-				Proto: "bad",
+				Kind:         "Boo",
+				Plural:       "Boos",
+				ProtoPackage: "github.com/gogo/protobuf/types",
+				Proto:        "boo",
 			},
+			expectError: true,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			err := c.b.BuildNoValidate().Validate()
+			if c.expectError {
+				g.Expect(err).ToNot(BeNil())
+			} else {
+				g.Expect(err).To(BeNil())
+			}
+		})
+	}
+}
+
+func TestBuild(t *testing.T) {
+	cases := []struct {
+		name        string
+		b           Builder
+		expectError bool
+	}{
+		{
+			name: "valid",
+			b: Builder{
+				Kind:         "Empty",
+				Plural:       "Empties",
+				ProtoPackage: "github.com/gogo/protobuf/types",
+				Proto:        "google.protobuf.Empty",
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid kind",
+			b: Builder{
+				Kind:         "",
+				Plural:       "Empties",
+				ProtoPackage: "github.com/gogo/protobuf/types",
+				Proto:        "google.protobuf.Empty",
+			},
+			expectError: true,
+		},
+		{
+			name: "invalid plural",
+			b: Builder{
+				Kind:         "Empty",
+				Plural:       "",
+				ProtoPackage: "github.com/gogo/protobuf/types",
+				Proto:        "google.protobuf.Empty",
+			},
+			expectError: true,
+		},
+		{
+			name: "invalid proto",
+			b: Builder{
+				Kind:         "Boo",
+				Plural:       "Boos",
+				ProtoPackage: "github.com/gogo/protobuf/types",
+				Proto:        "boo",
+			},
+			expectError: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
 			_, err := c.b.Build()
-			g.Expect(err).NotTo(BeNil())
+			if c.expectError {
+				g.Expect(err).ToNot(BeNil())
+			} else {
+				g.Expect(err).To(BeNil())
+			}
 		})
 	}
 }
@@ -65,6 +158,7 @@ func TestCanonicalName(t *testing.T) {
 				Group:        "g",
 				Version:      "v",
 				Kind:         "k",
+				Plural:       "ks",
 				ProtoPackage: "github.com/gogo/protobuf/types",
 				Proto:        "google.protobuf.Empty",
 			}.MustBuild(),
@@ -76,6 +170,7 @@ func TestCanonicalName(t *testing.T) {
 				Group:        "",
 				Version:      "v",
 				Kind:         "k",
+				Plural:       "ks",
 				ProtoPackage: "github.com/gogo/protobuf/types",
 				Proto:        "google.protobuf.Empty",
 			}.MustBuild(),
@@ -91,20 +186,22 @@ func TestCanonicalName(t *testing.T) {
 	}
 }
 
-func TestSchema_NewProtoInstance(t *testing.T) {
+func TestNewProtoInstance(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	s := Builder{
 		Kind:         "Empty",
+		Plural:       "Empties",
 		ProtoPackage: "github.com/gogo/protobuf/types",
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
-	p := s.NewProtoInstance()
+	p, err := s.NewProtoInstance()
+	g.Expect(err).To(BeNil())
 	g.Expect(p).To(Equal(&types.Empty{}))
 }
 
-func TestSchema_NewProtoInstance_Panic_Nil(t *testing.T) {
+func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
 	g := NewGomegaWithT(t)
 	defer func() {
 		r := recover()
@@ -124,10 +221,10 @@ func TestSchema_NewProtoInstance_Panic_Nil(t *testing.T) {
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
-	_ = s.NewProtoInstance()
+	_ = s.MustNewProtoInstance()
 }
 
-func TestSchema_NewProtoInstance_Panic_NonProto(t *testing.T) {
+func TestNewProtoInstance_Panic_NonProto(t *testing.T) {
 	g := NewGomegaWithT(t)
 	defer func() {
 		r := recover()
@@ -143,44 +240,20 @@ func TestSchema_NewProtoInstance_Panic_NonProto(t *testing.T) {
 
 	s := Builder{
 		Kind:         "Empty",
+		Plural:       "empties",
 		ProtoPackage: "github.com/gogo/protobuf/types",
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
-	_ = s.NewProtoInstance()
+	_ = s.MustNewProtoInstance()
 }
 
-func TestSchema_Validate(t *testing.T) {
+func TestString(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	s := Builder{
 		Kind:         "Empty",
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	}.MustBuild()
-
-	err := s.Validate()
-	g.Expect(err).To(BeNil())
-}
-
-func TestSchema_Validate_Failure(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	s := Builder{
-		Kind:         "Boo",
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "boo",
-	}.BuildNoValidate()
-
-	err := s.Validate()
-	g.Expect(err).NotTo(BeNil())
-}
-
-func TestSchema_String(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	s := Builder{
-		Kind:         "Empty",
+		Plural:       "Empties",
 		ProtoPackage: "github.com/gogo/protobuf/types",
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()

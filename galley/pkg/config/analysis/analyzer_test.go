@@ -129,8 +129,9 @@ func expectCollections(g *GomegaWithT, actualSet map[collection.Name]struct{}, e
 func newSchema(name string) collection.Schema {
 	return collection.Builder{
 		Name: name,
-		Schema: resource2.Builder{
+		Resource: resource2.Builder{
 			Kind:         name,
+			Plural:       name + "s",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
 		}.MustBuild(),
