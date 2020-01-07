@@ -220,7 +220,7 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	// With ingress off, we shouldn't generate any default resources
 	ingressOffMeshCfg := tempFileFromString(t, "ingressControllerMode: 'OFF'")

@@ -90,7 +90,7 @@ func (w *watcher) start() {
 	// Send the FullSync event after the cache syncs.
 	go func() {
 		if cache.WaitForCacheSync(done, informer.HasSynced) {
-			go w.handler.Handle(event.FullSyncFor(w.schema.Name()))
+			go w.handler.Handle(event.FullSyncFor(w.schema))
 		}
 	}()
 }
