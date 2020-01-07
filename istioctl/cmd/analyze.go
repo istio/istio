@@ -18,12 +18,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"os"
 	"runtime"
 	"sort"
 	"strings"
+
+	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 
 	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
