@@ -52,7 +52,6 @@ var rootCmd = &cobra.Command{
 		}
 
 		iptConfigurator := NewIptablesConfigurator(cfg, ext)
-		iptConfigurator.run()
 		if !cfg.SkipRuleApply {
 			iptConfigurator.run()
 		}
