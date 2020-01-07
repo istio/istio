@@ -57,14 +57,14 @@ func (w *watcher) start() {
 		panic("watcher.start: already started")
 	}
 
-	scope.Source.Debugf("Starting watcher for %q (%q)", w.schema.Name(), w.schema.CanonicalResourceName())
+	scope.Source.Debugf("Starting watcher for %q (%q)", w.schema.Name(), w.schema.Resource().CanonicalName())
 
 	informer, err := w.adapter.NewInformer()
 	if err != nil {
-		scope.Source.Errorf("unable to start watcher for %q: %v", w.schema.CanonicalResourceName(), err)
+		scope.Source.Errorf("unable to start watcher for %q: %v", w.schema.Resource().CanonicalName(), err)
 		// Send a FullSync event, even if the informer is not available. This will ensure that the processing backend
 		// will still work, in absence of CRDs.
-		w.handler.Handle(event.FullSyncFor(w.schema.Name()))
+		w.handler.Handle(event.FullSyncFor(w.schema))
 		return
 	}
 
@@ -89,7 +89,7 @@ func (w *watcher) start() {
 	go informer.Run(done)
 	// Send the FullSync event after the cache syncs.
 	if cache.WaitForCacheSync(done, informer.HasSynced) {
-		go w.handler.Handle(event.FullSyncFor(w.schema.Name()))
+		go w.handler.Handle(event.FullSyncFor(w.schema))
 	}
 }
 
@@ -133,7 +133,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 
 	e := event.Event{
 		Kind:     c,
-		Source:   w.schema.Name(),
+		Source:   w.schema,
 		Resource: r,
 	}
 

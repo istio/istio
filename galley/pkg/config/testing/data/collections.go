@@ -16,18 +16,47 @@ package data
 
 import (
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/resource"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 )
 
 var (
-	// K8SCollection1 is a testing collection
-	K8SCollection1 = collection.NewName("k8s/collection1")
-
-	// Collection2 is a testing collection
-	Collection2 = collection.NewName("collection2")
-
 	// K8SCollection2 is a testing collection
-	K8SCollection2 = collection.NewName("k8s/collection2")
+	K8SCollection2 = basicmeta.MustGet2().KubeCollections().MustFind("k8s/collection2")
 
-	// Collection3 is a testing collection
-	Collection3 = collection.NewName("collection3")
+	Foo = collection.Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			Kind:         "Foo",
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.MustBuild(),
+	}.MustBuild()
+
+	Bar = collection.Builder{
+		Name: "bar",
+		Schema: resource.Builder{
+			Kind:         "Bar",
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.MustBuild(),
+	}.MustBuild()
+
+	Boo = collection.Builder{
+		Name: "boo",
+		Schema: resource.Builder{
+			Kind:         "Boo",
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.MustBuild(),
+	}.MustBuild()
+
+	Baz = collection.Builder{
+		Name: "baz",
+		Schema: resource.Builder{
+			Kind:         "Baz",
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.MustBuild(),
+	}.MustBuild()
 )

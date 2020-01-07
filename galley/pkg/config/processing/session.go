@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -221,7 +222,7 @@ func (s *session) handle(e event.Event) {
 	if e.Kind != event.Reset {
 		s.buffer.Handle(e)
 
-		if e.Source == meshcfg.IstioMeshconfig {
+		if e.SourceName() == collections.IstioMeshV1Alpha1MeshConfig.Name() {
 			s.handleMeshEvent(e)
 		}
 		return

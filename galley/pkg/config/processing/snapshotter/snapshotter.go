@@ -75,7 +75,7 @@ func (a *accumulator) Handle(e event.Event) {
 	switch e.Kind {
 	case event.Added:
 		a.collection.Set(e.Resource)
-		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitoring.RecordStateTypeCount(e.Source.Name().String(), a.collection.Size())
 		monitorEntry(e.Source, e.Resource.Metadata.FullName, true)
 
 	case event.Updated:
@@ -83,7 +83,7 @@ func (a *accumulator) Handle(e event.Event) {
 
 	case event.Deleted:
 		a.collection.Remove(e.Resource.Metadata.FullName)
-		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitoring.RecordStateTypeCount(e.Source.Name().String(), a.collection.Size())
 		monitorEntry(e.Source, e.Resource.Metadata.FullName, false)
 
 	case event.FullSync:
@@ -106,12 +106,16 @@ func (a *accumulator) reset() {
 	a.collection.Clear()
 }
 
-func monitorEntry(col collection.Name, resourceName resource.FullName, added bool) {
+func monitorEntry(col collection.Schema, resourceName resource.FullName, added bool) {
 	value := 1
 	if !added {
 		value = 0
 	}
-	monitoring.RecordDetailedStateType(string(resourceName.Namespace), string(resourceName.Name), col, value)
+	colName := collection.Name("")
+	if col != nil {
+		colName = col.Name()
+	}
+	monitoring.RecordDetailedStateType(string(resourceName.Namespace), string(resourceName.Name), colName, value)
 }
 
 // NewSnapshotter returns a new Snapshotter.
@@ -125,17 +129,17 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) (*Sn
 	}
 
 	for _, xform := range xforms {
-		for _, i := range xform.Inputs() {
+		for _, i := range xform.Inputs().All() {
 			s.selector = event.AddToRouter(s.selector, i, xform)
 		}
 
-		for _, o := range xform.Outputs() {
-			a, found := s.accumulators[o]
+		for _, o := range xform.Outputs().All() {
+			a, found := s.accumulators[o.Name()]
 			if !found {
 				a = &accumulator{
 					collection: coll.New(o),
 				}
-				s.accumulators[o] = a
+				s.accumulators[o.Name()] = a
 			}
 			a.reqSyncCount++
 			xform.DispatchFor(o, a)

@@ -36,8 +36,8 @@ import (
 )
 
 type serviceEntryTransformer struct {
-	inputs  collection.Names
-	outputs collection.Names
+	inputs  collection.Schemas
+	outputs collection.Schemas
 	options processing.ProcessorOptions
 
 	converter *converter.Instance
@@ -86,7 +86,7 @@ func (t *serviceEntryTransformer) Start() {
 	}
 	t.statsCtx = statsCtx
 
-	t.fullSyncCtr = len(t.Inputs())
+	t.fullSyncCtr = len(t.Inputs().All())
 }
 
 // Stop implements event.Transformer
@@ -97,20 +97,20 @@ func (t *serviceEntryTransformer) Stop() {
 }
 
 // DispatchFor implements event.Transformer
-func (t *serviceEntryTransformer) DispatchFor(c collection.Name, h event.Handler) {
-	switch c {
+func (t *serviceEntryTransformer) DispatchFor(c collection.Schema, h event.Handler) {
+	switch c.Name() {
 	case collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name():
 		t.handler = event.CombineHandlers(t.handler, h)
 	}
 }
 
 // Inputs implements event.Transformer
-func (t *serviceEntryTransformer) Inputs() collection.Names {
+func (t *serviceEntryTransformer) Inputs() collection.Schemas {
 	return t.inputs
 }
 
 // Outputs implements event.Transformer
-func (t *serviceEntryTransformer) Outputs() collection.Names {
+func (t *serviceEntryTransformer) Outputs() collection.Schemas {
 	return t.outputs
 }
 
@@ -120,7 +120,7 @@ func (t *serviceEntryTransformer) Handle(e event.Event) {
 	case event.FullSync:
 		t.fullSyncCtr--
 		if t.fullSyncCtr == 0 {
-			t.dispatch(event.FullSyncFor(t.Outputs()[0]))
+			t.dispatch(event.FullSyncFor(collections.IstioNetworkingV1Alpha3SyntheticServiceentries))
 		}
 		return
 
@@ -135,7 +135,7 @@ func (t *serviceEntryTransformer) Handle(e event.Event) {
 		panic(fmt.Errorf("transformer.Handle: Unexpected event received: %v", e))
 	}
 
-	switch e.Source {
+	switch e.Source.Name() {
 	case collections.K8SCoreV1Endpoints.Name():
 		// Update the projections
 		t.handleEndpointsEvent(e)
@@ -149,7 +149,7 @@ func (t *serviceEntryTransformer) Handle(e event.Event) {
 		// Update the pod cache.
 		t.podHandler.Handle(e)
 	default:
-		panic(fmt.Errorf("received event with unexpected collection: %v", e.Source))
+		panic(fmt.Errorf("received event with unexpected collection: %v", e.Source.Name()))
 	}
 }
 
@@ -228,7 +228,7 @@ func (t *serviceEntryTransformer) dispatch(e event.Event) {
 func (t *serviceEntryTransformer) sendDelete(name resource.FullName) {
 	e := event.Event{
 		Kind:   event.Deleted,
-		Source: collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name(),
+		Source: collections.IstioNetworkingV1Alpha3SyntheticServiceentries,
 		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName: name,
@@ -242,7 +242,7 @@ func (t *serviceEntryTransformer) sendDelete(name resource.FullName) {
 func (t *serviceEntryTransformer) sendUpdate(r *resource.Instance) {
 	e := event.Event{
 		Kind:     event.Updated,
-		Source:   collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name(),
+		Source:   collections.IstioNetworkingV1Alpha3SyntheticServiceentries,
 		Resource: r,
 	}
 

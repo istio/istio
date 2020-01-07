@@ -84,7 +84,7 @@ func (pc *cacheImpl) GetPodByIP(ip string) (Info, bool) {
 
 // Handle implements event.Handler
 func (pc *cacheImpl) Handle(e event.Event) {
-	switch e.Source {
+	switch e.Source.Name() {
 	case collections.K8SCoreV1Nodes.Name():
 		pc.handleNode(e)
 	case collections.K8SCoreV1Pods.Name():

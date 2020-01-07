@@ -15,6 +15,7 @@
 package resource
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -27,8 +28,8 @@ import (
 type Schema interface {
 	fmt.Stringer
 
-	// CanonicalResourceName of the resource.
-	CanonicalResourceName() string
+	// CanonicalName of the resource.
+	CanonicalName() string
 
 	// IsClusterScoped indicates that this resource is scoped to a particular namespace within a cluster.
 	IsClusterScoped() bool
@@ -60,6 +61,10 @@ type Schema interface {
 	// ValidateProto validates that the given protocol buffer message is of the correct type for this schema
 	// and that the contents are valid.
 	ValidateProto(name, namespace string, config proto.Message) error
+
+	// Equal is a helper function for testing equality between Schema instances. This supports comparison
+	// with the cmp library.
+	Equal(other Schema) bool
 }
 
 // Builder for a Schema.
@@ -89,8 +94,33 @@ type Builder struct {
 	ValidateProto validation.ValidateFunc
 }
 
-// NewSchema creates a new Schema instance with the given configuration.
-func (b Builder) Build() Schema {
+// Build a Schema instance.
+func (b Builder) Build() (Schema, error) {
+	s := b.BuildNoValidate()
+
+	// Validate the schema.
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+// MustBuild calls Build and panics if it fails.
+func (b Builder) MustBuild() Schema {
+	s, err := b.Build()
+	if err != nil {
+		panic(fmt.Sprintf("MustBuild: %v", err))
+	}
+	return s
+}
+
+// BuildNoValidate builds the Schema without checking the fields.
+func (b Builder) BuildNoValidate() Schema {
+	if b.ValidateProto == nil {
+		b.ValidateProto = validation.EmptyValidate
+	}
+
 	return &immutableSchema{
 		clusterScoped: b.ClusterScoped,
 		kind:          b.Kind,
@@ -142,7 +172,7 @@ func (s *immutableSchema) ProtoPackage() string {
 	return s.protoPackage
 }
 
-func (s *immutableSchema) CanonicalResourceName() string {
+func (s *immutableSchema) CanonicalName() string {
 	if s.group == "" {
 		return "core/" + s.version + "/" + s.kind
 	}
@@ -150,6 +180,9 @@ func (s *immutableSchema) CanonicalResourceName() string {
 }
 
 func (s *immutableSchema) Validate() error {
+	if s.kind == "" {
+		return errors.New("kind must be specified")
+	}
 	if getProtoMessageType(s.proto) == nil {
 		return fmt.Errorf("proto message not found: %v", s.proto)
 	}
@@ -181,6 +214,16 @@ func (s *immutableSchema) NewProtoInstance() proto.Message {
 
 func (s *immutableSchema) ValidateProto(name, namespace string, config proto.Message) error {
 	return s.validateProto(name, namespace, config)
+}
+
+func (s *immutableSchema) Equal(o Schema) bool {
+	return s.IsClusterScoped() == o.IsClusterScoped() &&
+		s.Kind() == o.Kind() &&
+		s.Plural() == o.Plural() &&
+		s.Group() == o.Group() &&
+		s.Version() == o.Version() &&
+		s.Proto() == o.Proto() &&
+		s.ProtoPackage() == o.ProtoPackage()
 }
 
 // getProtoMessageType returns the Go lang type of the proto with the specified name.

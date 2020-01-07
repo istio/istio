@@ -24,7 +24,7 @@ var (
 			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCollection1 describes the collection k8s/collection1
@@ -40,7 +40,7 @@ var (
 			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// All contains all collections in the system.
