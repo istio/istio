@@ -102,9 +102,6 @@ endif
 ifdef TAG
 ENV_VARS+=-e TAG="$(TAG)"
 endif
-ifdef GOPRIVATE
-ENV_VARS+=-e GOPRIVATE="$(GOPRIVATE)"
-endif
 
 RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
 	-e IN_BUILD_CONTAINER="$(BUILD_WITH_CONTAINER)" \
