@@ -30,14 +30,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
-)
-
-const (
-	statsFilterConfig            = "testdata/stats_filter.yaml"
-	metadataExchangeFilterConfig = "testdata/metadata_exchange_filter.yaml"
 )
 
 var (
@@ -148,9 +142,11 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	// disable telemetry and mixer filter
-	cfg.Values["global.disablePolicyChecks"] = "true"
-	cfg.Values["mixer.telemetry.enabled"] = "false"
+	// disable mixer telemetry and enable telemetry v2
+	cfg.Values["telemetry.enabled"] = "true"
+	cfg.Values["telemetry.v1.enabled"] = "false"
+	cfg.Values["telemetry.v2.enabled"] = "true"
+	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
 }
 
 func testSetup(ctx resource.Context) (err error) {
@@ -180,20 +176,9 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	// Apply metadata exchange filter and stats filter.
-	statsFilterFile, err := file.AsString(statsFilterConfig)
-	if err != nil {
-		return
-	}
-	exchangeFilterFile, err := file.AsString(metadataExchangeFilterConfig)
-	if err != nil {
-		return
-	}
 	err = galInst.ApplyConfig(
 		bookinfoNsInst,
 		bookingfoGatewayFile,
-		statsFilterFile,
-		exchangeFilterFile,
 	)
 	if err != nil {
 		return
