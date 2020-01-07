@@ -41,7 +41,7 @@ func TestBasicStartStop(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	defer c.Stop()
 
 	c.Report(diag.Messages{})
@@ -54,8 +54,8 @@ func TestDoubleStart(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	defer c.Stop()
 
 	c.Report(diag.Messages{})
@@ -68,7 +68,7 @@ func TestDoubleStop(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	g.Consistently(cl.Actions).Should(BeEmpty())
 	c.Stop()
@@ -81,8 +81,8 @@ func TestNoReconcilation(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", "s1")
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", "s1")
 	defer c.Stop()
 
 	g.Consistently(cl.Actions).Should(BeEmpty())
@@ -105,8 +105,8 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", s)
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	c.Report(diag.Messages{})
 	defer c.Stop()
 
@@ -133,10 +133,10 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
-		basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", s)
+		basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -164,10 +164,10 @@ func TestBasicReconcilation_AfterUpdate_Othersubfield(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
-		basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", s)
+		basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -197,15 +197,15 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -237,15 +237,15 @@ func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -273,15 +273,15 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, fmt.Errorf("cheese not found"))
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -308,15 +308,15 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 		return
 	})
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -340,15 +340,15 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"), // message for an older version
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()

@@ -44,7 +44,7 @@ const (
 )
 
 var (
-	fullName = resource.NewName(namespace, serviceName)
+	fullName = resource.NewFullName(namespace, serviceName)
 
 	tnow = time.Now()
 
@@ -57,10 +57,10 @@ var (
 func TestServiceDefaults(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	service := &resource.Entry{
+	service := &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    fullName,
-			Version: version,
+			FullName: fullName,
+			Version:  version,
 
 			CreateTime: tnow,
 			Labels: resource.StringMap{
@@ -72,7 +72,7 @@ func TestServiceDefaults(t *testing.T) {
 				"a2": "v2",
 			},
 		},
-		Item: &coreV1.ServiceSpec{
+		Message: &coreV1.ServiceSpec{
 			ClusterIP: ip,
 			Ports: []coreV1.ServicePort{
 				{
@@ -85,7 +85,7 @@ func TestServiceDefaults(t *testing.T) {
 	}
 
 	expectedMeta := resource.Metadata{
-		Name:       service.Metadata.Name,
+		FullName:   service.Metadata.FullName,
 		CreateTime: tnow,
 		Labels: resource.StringMap{
 			"l1": "v1",
@@ -122,18 +122,18 @@ func TestServiceResolution(t *testing.T) {
 	externalName := "myexternalsvc"
 	tests := []struct {
 		name       string
-		endpoints  *resource.Entry
-		service    *resource.Entry
+		endpoints  *resource.Instance
+		service    *resource.Instance
 		resolution networking.ServiceEntry_Resolution
 	}{
 		{
 			name: "DNS resolution",
-			service: &resource.Entry{
+			service: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
-				Item: &coreV1.ServiceSpec{
+				Message: &coreV1.ServiceSpec{
 					Type:         coreV1.ServiceTypeExternalName,
 					ExternalName: externalName,
 				},
@@ -142,12 +142,12 @@ func TestServiceResolution(t *testing.T) {
 		},
 		{
 			name: "NONE resolution",
-			service: &resource.Entry{
+			service: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
-				Item: &coreV1.ServiceSpec{
+				Message: &coreV1.ServiceSpec{
 					ClusterIP: constants.UnspecifiedIP,
 				},
 			},
@@ -155,12 +155,12 @@ func TestServiceResolution(t *testing.T) {
 		},
 		{
 			name: "STATIC resolution",
-			endpoints: &resource.Entry{
+			endpoints: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
-				Item: &coreV1.Endpoints{
+				Message: &coreV1.Endpoints{
 					ObjectMeta: metaV1.ObjectMeta{},
 					Subsets: []coreV1.EndpointSubset{
 						{
@@ -180,12 +180,12 @@ func TestServiceResolution(t *testing.T) {
 					},
 				},
 			},
-			service: &resource.Entry{
+			service: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
-				Item: &coreV1.ServiceSpec{
+				Message: &coreV1.ServiceSpec{
 					ClusterIP: constants.UnspecifiedIP,
 				},
 			},
@@ -193,12 +193,12 @@ func TestServiceResolution(t *testing.T) {
 		},
 		{
 			name: "STATIC resolution",
-			endpoints: &resource.Entry{
+			endpoints: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
-				Item: &coreV1.Endpoints{
+				Message: &coreV1.Endpoints{
 					ObjectMeta: metaV1.ObjectMeta{},
 					Subsets: []coreV1.EndpointSubset{
 						{
@@ -229,12 +229,12 @@ func TestServiceResolution(t *testing.T) {
 					},
 				},
 			},
-			service: &resource.Entry{
+			service: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
-				Item: &coreV1.ServiceSpec{
+				Message: &coreV1.ServiceSpec{
 					Type: coreV1.ServiceTypeNodePort,
 					Ports: []coreV1.ServicePort{
 						{
@@ -271,22 +271,22 @@ func TestServiceResolution(t *testing.T) {
 func TestServiceExportTo(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	service := &resource.Entry{
+	service := &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 			Annotations: resource.StringMap{
 				annotation.NetworkingExportTo.Name: "c, a, b",
 			},
 		},
-		Item: &coreV1.ServiceSpec{
+		Message: &coreV1.ServiceSpec{
 			ClusterIP: ip,
 		},
 	}
 
 	expectedMeta := resource.Metadata{
-		Name:       fullName,
+		FullName:   fullName,
 		CreateTime: tnow,
 		Annotations: resource.StringMap{
 			annotation.NetworkingExportTo.Name:            "c, a, b",
@@ -312,19 +312,19 @@ func TestNoNamespaceShouldUseDefault(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	ip := "10.0.0.1"
-	service := &resource.Entry{
+	service := &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:       resource.NewName("", serviceName),
+			FullName:   resource.NewFullName("", serviceName),
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
-		Item: &coreV1.ServiceSpec{
+		Message: &coreV1.ServiceSpec{
 			ClusterIP: ip,
 		},
 	}
 
 	expectedMeta := resource.Metadata{
-		Name:       service.Metadata.Name,
+		FullName:   service.Metadata.FullName,
 		CreateTime: tnow,
 		Annotations: resource.StringMap{
 			annotation.AlphaNetworkingServiceVersion.Name: "v1",
@@ -400,13 +400,13 @@ func TestServicePortValidation(t *testing.T) {
 		t.Run(c.description, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
-			service := &resource.Entry{
+			service := &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					Version:    resource.Version("v1"),
 					CreateTime: tnow,
 				},
-				Item: &coreV1.ServiceSpec{
+				Message: &coreV1.ServiceSpec{
 					ClusterIP: ip,
 					Ports: []coreV1.ServicePort{
 						{
@@ -419,7 +419,7 @@ func TestServicePortValidation(t *testing.T) {
 			}
 
 			expectedMeta := resource.Metadata{
-				Name:       service.Metadata.Name,
+				FullName:   service.Metadata.FullName,
 				CreateTime: tnow,
 				Annotations: resource.StringMap{
 					annotation.AlphaNetworkingServiceVersion.Name: version,
@@ -474,13 +474,13 @@ func TestServicePorts(t *testing.T) {
 		t.Run(fmt.Sprintf("%s_[%s]", c.proto, c.name), func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
-			service := &resource.Entry{
+			service := &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					Version:    resource.Version("v1"),
 					CreateTime: tnow,
 				},
-				Item: &coreV1.ServiceSpec{
+				Message: &coreV1.ServiceSpec{
 					ClusterIP: ip,
 					Ports: []coreV1.ServicePort{
 						{
@@ -493,7 +493,7 @@ func TestServicePorts(t *testing.T) {
 			}
 
 			expectedMeta := resource.Metadata{
-				Name:       service.Metadata.Name,
+				FullName:   service.Metadata.FullName,
 				CreateTime: tnow,
 				Annotations: resource.StringMap{
 					annotation.AlphaNetworkingServiceVersion.Name: version,
@@ -544,19 +544,19 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
-			service := &resource.Entry{
+			service := &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					Version:    resource.Version("v1"),
 					CreateTime: tnow,
 				},
-				Item: &coreV1.ServiceSpec{
+				Message: &coreV1.ServiceSpec{
 					ClusterIP: c.clusterIP,
 				},
 			}
 
 			expectedMeta := resource.Metadata{
-				Name:       service.Metadata.Name,
+				FullName:   service.Metadata.FullName,
 				CreateTime: tnow,
 				Annotations: resource.StringMap{
 					annotation.AlphaNetworkingServiceVersion.Name: version,
@@ -582,13 +582,13 @@ func TestExternalService(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	externalName := "myexternalsvc"
-	service := &resource.Entry{
+	service := &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
-		Item: &coreV1.ServiceSpec{
+		Message: &coreV1.ServiceSpec{
 			Type:         coreV1.ServiceTypeExternalName,
 			ExternalName: externalName,
 			Ports: []coreV1.ServicePort{
@@ -602,7 +602,7 @@ func TestExternalService(t *testing.T) {
 	}
 
 	expectedMeta := resource.Metadata{
-		Name:       service.Metadata.Name,
+		FullName:   service.Metadata.FullName,
 		CreateTime: tnow,
 		Annotations: resource.StringMap{
 			annotation.AlphaNetworkingServiceVersion.Name: version,
@@ -638,13 +638,13 @@ func TestExternalService(t *testing.T) {
 func TestEndpointsWithNoSubsets(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	endpoints := &resource.Entry{
+	endpoints := &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
-		Item: &coreV1.Endpoints{},
+		Message: &coreV1.Endpoints{},
 	}
 
 	expectedMeta := resource.Metadata{
@@ -674,33 +674,33 @@ func TestEndpoints(t *testing.T) {
 		ip1: {
 			NodeName:           "node1",
 			Locality:           l1,
-			FullName:           resource.NewName(namespace, "pod1"),
+			FullName:           resource.NewFullName(namespace, "pod1"),
 			ServiceAccountName: "sa1",
 			Labels:             podLabels,
 		},
 		ip2: {
 			NodeName:           "node2",
 			Locality:           l2,
-			FullName:           resource.NewName(namespace, "pod2"),
+			FullName:           resource.NewFullName(namespace, "pod2"),
 			ServiceAccountName: "sa2",
 			Labels:             podLabels,
 		},
 		ip3: {
 			NodeName:           "node1", // Also on node1
 			Locality:           l1,
-			FullName:           resource.NewName(namespace, "pod3"),
+			FullName:           resource.NewFullName(namespace, "pod3"),
 			ServiceAccountName: "sa1", // Same service account as pod1 to test duplicates.
 			Labels:             podLabels,
 		},
 	}
 
-	endpoints := &resource.Entry{
+	endpoints := &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
-		Item: &coreV1.Endpoints{
+		Message: &coreV1.Endpoints{
 			ObjectMeta: metaV1.ObjectMeta{},
 			Subsets: []coreV1.EndpointSubset{
 				{
@@ -799,13 +799,13 @@ func TestEndpoints(t *testing.T) {
 func TestEndpointsPodNotFound(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	endpoints := &resource.Entry{
+	endpoints := &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
-		Item: &coreV1.Endpoints{
+		Message: &coreV1.Endpoints{
 			ObjectMeta: metaV1.ObjectMeta{},
 			Subsets: []coreV1.EndpointSubset{
 				{
@@ -855,19 +855,19 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 	cache := fakePodCache{
 		ip: {
 			NodeName:           "node1",
-			FullName:           resource.NewName(namespace, "pod1"),
+			FullName:           resource.NewFullName(namespace, "pod1"),
 			ServiceAccountName: "sa1",
 			Labels:             podLabels,
 		},
 	}
 
-	endpoints := &resource.Entry{
+	endpoints := &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
-		Item: &coreV1.Endpoints{
+		Message: &coreV1.Endpoints{
 			Subsets: []coreV1.EndpointSubset{
 				{
 					Addresses: []coreV1.EndpointAddress{
@@ -911,7 +911,7 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 	g.Expect(actual).To(Equal(expected))
 }
 
-func doConvert(t *testing.T, service *resource.Entry, endpoints *resource.Entry, pods pod.Cache) (resource.Metadata, networking.ServiceEntry) {
+func doConvert(t *testing.T, service *resource.Instance, endpoints *resource.Instance, pods pod.Cache) (resource.Metadata, networking.ServiceEntry) {
 	actualMeta := newMetadata()
 	actual := newServiceEntry()
 	c := newInstance(pods)

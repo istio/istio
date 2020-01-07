@@ -25,10 +25,11 @@ import (
 )
 
 const (
-	GCPProject    = "gcp_project"
-	GCPCluster    = "gcp_gke_cluster_name"
-	GCPLocation   = "gcp_location"
-	GCEInstanceID = "gcp_gce_instance_id"
+	GCPProject       = "gcp_project"
+	GCPProjectNumber = "gcp_project_number"
+	GCPCluster       = "gcp_gke_cluster_name"
+	GCPLocation      = "gcp_location"
+	GCEInstanceID    = "gcp_gce_instance_id"
 )
 
 var (
@@ -54,6 +55,7 @@ type metadataFn func() (string, error)
 type gcpEnv struct {
 	shouldFillMetadata shouldFillFn
 	projectIDFn        metadataFn
+	numericProjectIDFn metadataFn
 	locationFn         metadataFn
 	clusterNameFn      metadataFn
 	instanceIDFn       metadataFn
@@ -71,6 +73,7 @@ func NewGCP() Environment {
 	return &gcpEnv{
 		shouldFillMetadata: metadata.OnGCE,
 		projectIDFn:        metadata.ProjectID,
+		numericProjectIDFn: metadata.NumericProjectID,
 		locationFn:         clusterLocationFn,
 		clusterNameFn:      clusterNameFn,
 		instanceIDFn:       metadata.InstanceID,
@@ -89,6 +92,9 @@ func (e *gcpEnv) Metadata() map[string]string {
 	}
 	if pid, err := e.projectIDFn(); err == nil {
 		md[GCPProject] = pid
+	}
+	if npid, err := e.numericProjectIDFn(); err == nil {
+		md[GCPProjectNumber] = npid
 	}
 	if l, err := e.locationFn(); err == nil {
 		md[GCPLocation] = l

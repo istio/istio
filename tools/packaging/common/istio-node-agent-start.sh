@@ -46,11 +46,9 @@ ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 
 EXEC_USER=${EXEC_USER:-istio-proxy}
 
-if [ -z "${CITADEL_ADDRESS:-}" ]; then
-  CITADEL_ADDRESS=istio-citadel:8060
-fi
-
+CITADEL_ADDRESS=${CITADEL_ADDRESS:-istio-citadel:8060}
 CERTS_DIR=${CERTS_DIR:-/etc/certs}
+NODE_AGENT_EXTRA_ARGS=${NODE_AGENT_EXTRA_ARGS:-}
 
 CITADEL_ARGS=(
   "--ca-address" "${CITADEL_ADDRESS}"
@@ -60,7 +58,7 @@ CITADEL_ARGS=(
 )
 
 if [ "${EXEC_USER}" == "${USER:-}" ] ; then
-  "${ISTIO_BIN_BASE}/node_agent" "${CITADEL_ARGS[@]}"
+  "${ISTIO_BIN_BASE}/node_agent" "${CITADEL_ARGS[@]}" "${NODE_AGENT_EXTRA_ARGS}"
 else
-  su -s /bin/sh -c "exec ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS[*]}" "${EXEC_USER}"
+  su -s /bin/sh -c "exec ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS[*]} ${NODE_AGENT_EXTRA_ARGS}" "${EXEC_USER}"
 fi

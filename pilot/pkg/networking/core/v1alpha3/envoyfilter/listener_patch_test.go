@@ -28,6 +28,7 @@ import (
 	fault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -647,7 +648,18 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 	}
-	gatewayProxy := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
+
+	gatewayProxy := &model.Proxy{
+		Type:            model.Router,
+		ConfigNamespace: "not-default",
+		Metadata: &model.NodeMetadata{
+			IstioVersion: "1.2.2",
+			Raw: map[string]interface{}{
+				"foo": "sidecar",
+				"bar": "proxy",
+			},
+		},
+	}
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
@@ -724,34 +736,32 @@ func TestApplyListenerPatches(t *testing.T) {
 // This benchmark measures the performance of Telemetry V2 EnvoyFilter patches. The intent here is to
 // measure overhead of using EnvoyFilters rather than native code.
 func BenchmarkTelemetryV2Filters(b *testing.B) {
-	l := []*xdsapi.Listener{
-		{
-			Name: "another-listener",
-			Address: &core.Address{
-				Address: &core.Address_SocketAddress{
-					SocketAddress: &core.SocketAddress{
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: 80,
-						},
+	l := &xdsapi.Listener{
+		Name: "another-listener",
+		Address: &core.Address{
+			Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: 80,
 					},
 				},
 			},
-			ListenerFilters: []*listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
-			FilterChains: []*listener.FilterChain{
-				{
-					Filters: []*listener.Filter{
-						{
-							Name: xdsutil.HTTPConnectionManager,
-							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									XffNumTrustedHops: 4,
-									HttpFilters: []*http_conn.HttpFilter{
-										{Name: "http-filter3"},
-										{Name: xdsutil.Router},
-										{Name: "http-filter2"},
-									},
-								}),
-							},
+		},
+		ListenerFilters: []*listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
+		FilterChains: []*listener.FilterChain{
+			{
+				Filters: []*listener.Filter{
+					{
+						Name: xdsutil.HTTPConnectionManager,
+						ConfigType: &listener.Filter_TypedConfig{
+							TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+								XffNumTrustedHops: 4,
+								HttpFilters: []*http_conn.HttpFilter{
+									{Name: "http-filter3"},
+									{Name: xdsutil.Router},
+									{Name: "http-filter2"},
+								},
+							}),
 						},
 					},
 				},
@@ -802,8 +812,9 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 	var got interface{}
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
+		copied := proto.Clone(l)
 		got = ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, sidecarProxy, push,
-			l, false)
+			[]*xdsapi.Listener{copied.(*xdsapi.Listener)}, false)
 	}
 	_ = got
 }

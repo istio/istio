@@ -24,8 +24,8 @@ func TestMetadata_Clone_NilMaps(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	m := Metadata{
-		Name:    NewName("ns1", "rs1"),
-		Version: Version("v1"),
+		FullName: NewFullName("ns1", "rs1"),
+		Version:  Version("v1"),
 	}
 
 	c := m.Clone()
@@ -36,7 +36,7 @@ func TestMetadata_Clone_NonNilMaps(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	m := Metadata{
-		Name:        NewName("ns1", "rs1"),
+		FullName:    NewFullName("ns1", "rs1"),
 		Version:     Version("v1"),
 		Annotations: map[string]string{"foo": "bar"},
 		Labels:      map[string]string{"l1": "l2"},

@@ -67,7 +67,7 @@ var (
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
-
+	pkcs8KeysEnv                       = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 	// Location of a custom-mounted root (for example using Secret)
 	mountedRoot = "/etc/certs/root-cert.pem"
 
@@ -114,6 +114,8 @@ const (
 	// The environmental variable name for the initial backoff in milliseconds.
 	// example value format like "10"
 	InitialBackoff = "INITIAL_BACKOFF_MSEC"
+
+	pkcs8Key = "PKCS8_KEY"
 )
 
 var (
@@ -199,7 +201,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool) *SDSAgent {
 		ac.RequireCerts = true
 		// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
 		if discHost == "localhost" {
-			discHost = "istiod.istio-system"
+			discHost = "istiod.istio-system.svc"
 		}
 		ac.SAN = discHost
 	}
@@ -254,9 +256,9 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 			string(tok))
 		if err != nil {
 			if fail {
-				log.Fatala("Failed to get certificates", err)
+				log.Fatalf("Failed to get certificates: %v", err)
 			} else {
-				log.Warna("Failed to get certificate from CA", err)
+				log.Warnf("Failed to get certificate from CA: %v", err)
 			}
 		} else {
 			log.Infoa("Got initial certificate valid until ", si.ExpireTime)
@@ -278,9 +280,9 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 			string(tok))
 		if err != nil {
 			if fail {
-				log.Fatala("Failed to get certificates", err)
+				log.Fatalf("Failed to get certificates: %v", err)
 			} else {
-				log.Warna("Failed to get certificate from CA", err)
+				log.Warnf("Failed to get certificate from CA: %v ", err)
 			}
 		}
 		if sir != nil {
@@ -337,7 +339,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 		if _, err := os.Stat(mountedRoot); err == nil {
 			rootCert, err = ioutil.ReadFile(mountedRoot)
 			if err != nil {
-				log.Warna("Failed to load existing citadel root", err)
+				log.Warnf("Failed to load existing citadel root: %v", err)
 			} else {
 				explicitSecret = true
 			}
@@ -353,7 +355,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			} else {
 				rootCert, err = ioutil.ReadFile(k8sCAPath)
 				if err != nil {
-					log.Warna("Failed to load K8S cert, assume IP secure network ", err)
+					log.Warnf("Failed to load K8S cert, assume IP secure network: %v", err)
 					serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
 				} else {
 					log.Info("Using default istiod CA, with K8S certificates for SDS")
@@ -362,7 +364,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			}
 		} else {
 			// Explicitly configured CA
-			log.Infoa("Using user-configured CA", serverOptions.CAEndpoint)
+			log.Infoa("Using user-configured CA ", serverOptions.CAEndpoint)
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15010") {
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
@@ -370,7 +372,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
 				rootCert, err = ioutil.ReadFile(k8sCAPath)
 				if err != nil {
-					log.Fatala("Invalid config - port 15012 expects a K8S-signed certificate but certs missing", err)
+					log.Fatalf("Invalid config - port 15012 expects a K8S-signed certificate but certs missing: %v", err)
 				}
 			}
 		}
@@ -389,6 +391,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 	ret.CaClient = caClient
 
 	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
+	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
 	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 	workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
 	return
@@ -425,6 +428,7 @@ func applyEnvVars() {
 	serverOptions.CAProviderName = caProviderEnv
 	serverOptions.CAEndpoint = caEndpointEnv
 	serverOptions.TrustDomain = trustDomainEnv
+	serverOptions.Pkcs8Keys = pkcs8KeysEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRefreshGraceDuration = secretRefreshGraceDurationEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv

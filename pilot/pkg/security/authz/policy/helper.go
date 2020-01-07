@@ -56,7 +56,13 @@ func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *
 			},
 			Hostname: host.Name(hostname),
 		},
-		Labels: labels,
+		Endpoint: &model.IstioEndpoint{
+			Attributes: model.ServiceAttributes{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Labels: labels,
+		},
 	}
 
 	serviceMetadata, err := authz_model.NewServiceMetadata(name, namespace, serviceInstance)

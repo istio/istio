@@ -66,7 +66,14 @@ func createFakeKubeconfigFileOrDie(t *testing.T) (string, *api.Config) {
 		t.Fatalf("could not write fake kubeconfig data to %v: %v", kubeconfigPath, err)
 	}
 
-	out, _, err := latest.Codec.Decode([]byte(fakeKubeconfigData), nil, nil)
+	// Temporary workaround until https://github.com/kubernetes/kubernetes/pull/86414 merges
+	into := &api.Config{
+		Clusters:   map[string]*api.Cluster{},
+		AuthInfos:  map[string]*api.AuthInfo{},
+		Contexts:   map[string]*api.Context{},
+		Extensions: map[string]runtime.Object{},
+	}
+	out, _, err := latest.Codec.Decode([]byte(fakeKubeconfigData), nil, into)
 	if err != nil {
 		t.Fatalf("could not decode fake kubeconfig: %v", err)
 	}

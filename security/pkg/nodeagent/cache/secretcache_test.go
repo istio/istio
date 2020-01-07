@@ -183,6 +183,30 @@ FWy1
 		},
 		Type: "test-tls-secret",
 	}
+	// The cert chain in ./testdata/cert-chain.pem
+	testDataCertChain = []byte(`-----BEGIN CERTIFICATE-----
+MIIDnzCCAoegAwIBAgIJAON1ifrBZ2/BMA0GCSqGSIb3DQEBCwUAMIGLMQswCQYD
+VQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTESMBAGA1UEBwwJU3Vubnl2YWxl
+MQ4wDAYDVQQKDAVJc3RpbzENMAsGA1UECwwEVGVzdDEQMA4GA1UEAwwHUm9vdCBD
+QTEiMCAGCSqGSIb3DQEJARYTdGVzdHJvb3RjYUBpc3Rpby5pbzAgFw0xODAxMjQx
+OTE1NTFaGA8yMTE3MTIzMTE5MTU1MVowWTELMAkGA1UEBhMCVVMxEzARBgNVBAgT
+CkNhbGlmb3JuaWExEjAQBgNVBAcTCVN1bm55dmFsZTEOMAwGA1UEChMFSXN0aW8x
+ETAPBgNVBAMTCElzdGlvIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEAyzCxr/xu0zy5rVBiso9ffgl00bRKvB/HF4AX9/ytmZ6Hqsy13XIQk8/u/By9
+iCvVwXIMvyT0CbiJq/aPEj5mJUy0lzbrUs13oneXqrPXf7ir3HzdRw+SBhXlsh9z
+APZJXcF93DJU3GabPKwBvGJ0IVMJPIFCuDIPwW4kFAI7R/8A5LSdPrFx6EyMXl7K
+M8jekC0y9DnTj83/fY72WcWX7YTpgZeBHAeeQOPTZ2KYbFal2gLsar69PgFS0Tom
+ESO9M14Yit7mzB1WDK2z9g3r+zLxENdJ5JG/ZskKe+TO4Diqi5OJt/h8yspS1ck8
+LJtCole9919umByg5oruflqIlQIDAQABozUwMzALBgNVHQ8EBAMCAgQwDAYDVR0T
+BAUwAwEB/zAWBgNVHREEDzANggtjYS5pc3Rpby5pbzANBgkqhkiG9w0BAQsFAAOC
+AQEAltHEhhyAsve4K4bLgBXtHwWzo6SpFzdAfXpLShpOJNtQNERb3qg6iUGQdY+w
+A2BpmSkKr3Rw/6ClP5+cCG7fGocPaZh+c+4Nxm9suMuZBZCtNOeYOMIfvCPcCS+8
+PQ/0hC4/0J3WJKzGBssaaMufJxzgFPPtDJ998kY8rlROghdSaVt423/jXIAYnP3Y
+05n8TGERBj7TLdtIVbtUIx3JHAo3PWJywA6mEDovFMJhJERp9sDHIr1BbhXK1TFN
+Z6HNH6gInkSSMtvC4Ptejb749PTaePRPF7ID//eq/3AH8UK50F3TQcLjEqWUsJUn
+aFKltOc+RAjzDklcUPeG4Y6eMA==
+-----END CERTIFICATE-----`)
+	testDataCertChainExpireTime, _ = nodeagentutil.ParseCertAndGetExpiryTimestamp(testDataCertChain)
 )
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {
@@ -879,6 +903,147 @@ func TestSetAlwaysValidTokenFlag(t *testing.T) {
 	}
 }
 
+func TestRootCertificateExists(t *testing.T) {
+	testCases := map[string]struct {
+		certPath     string
+		expectResult bool
+	}{
+		"cert not exist": {
+			certPath:     "./invalid-path/invalid-file",
+			expectResult: false,
+		},
+		"cert valid": {
+			certPath:     "./testdata/cert-chain.pem",
+			expectResult: true,
+		},
+	}
+
+	sc := createSecretCache()
+	for _, tc := range testCases {
+		ret := sc.rootCertificateExist(tc.certPath)
+		if tc.expectResult != ret {
+			t.Errorf("unexpected result is returned!")
+		}
+	}
+}
+
+func TestKeyCertificateExist(t *testing.T) {
+	testCases := map[string]struct {
+		certPath     string
+		keyPath      string
+		expectResult bool
+	}{
+		"cert not exist": {
+			certPath:     "./invalid-path/invalid-file",
+			keyPath:      "./testdata/cert-chain.pem",
+			expectResult: false,
+		},
+		"key not exist": {
+			certPath:     "./testdata/cert-chain.pem",
+			keyPath:      "./invalid-path/invalid-file",
+			expectResult: false,
+		},
+		"key and cert valid": {
+			certPath:     "./testdata/cert-chain.pem",
+			keyPath:      "./testdata/cert-chain.pem",
+			expectResult: true,
+		},
+	}
+
+	sc := createSecretCache()
+	for _, tc := range testCases {
+		ret := sc.keyCertificateExist(tc.certPath, tc.keyPath)
+		if tc.expectResult != ret {
+			t.Errorf("unexpected result is returned!")
+		}
+	}
+}
+
+func TestGenerateRootCertFromExistingFile(t *testing.T) {
+	sc := createSecretCache()
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
+	defer func() {
+		sc.Close()
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
+	}()
+
+	connID1 := "proxy1-id"
+	cases := []struct {
+		certPath        string
+		connID          string
+		expectedSecrets *model.SecretItem
+	}{
+		{
+			certPath: "./testdata/cert-chain.pem",
+			connID:   connID1,
+			expectedSecrets: &model.SecretItem{
+				ResourceName: RootCertReqResourceName,
+				RootCert:     testDataCertChain,
+				ExpireTime:   testDataCertChainExpireTime,
+			},
+		},
+	}
+
+	for _, c := range cases {
+		es := c.expectedSecrets
+		key := ConnKey{
+			ConnectionID: c.connID,
+			ResourceName: es.ResourceName,
+		}
+		gotSecret, err := sc.generateRootCertFromExistingFile("./testdata/cert-chain.pem",
+			"token", key)
+		if err != nil {
+			t.Fatalf("Failed to get secrets: %v", err)
+		}
+		if err := verifyRootCASecret(gotSecret, es); err != nil {
+			t.Errorf("Secret verification failed: %v", err)
+		}
+	}
+}
+
+func TestGenerateKeyCertFromExistingFiles(t *testing.T) {
+	sc := createSecretCache()
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
+	defer func() {
+		sc.Close()
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
+	}()
+
+	connID1 := "proxy1-id"
+	cases := []struct {
+		certPath        string
+		connID          string
+		expectedSecrets *model.SecretItem
+	}{
+		{
+			certPath: "./testdata/cert-chain.pem",
+			connID:   connID1,
+			expectedSecrets: &model.SecretItem{
+				ResourceName:     WorkloadKeyCertResourceName,
+				CertificateChain: testDataCertChain,
+				ExpireTime:       testDataCertChainExpireTime,
+				PrivateKey:       testDataCertChain,
+			},
+		},
+	}
+
+	for _, c := range cases {
+		es := c.expectedSecrets
+		key := ConnKey{
+			ConnectionID: c.connID,
+			ResourceName: es.ResourceName,
+		}
+		gotSecret, err := sc.generateKeyCertFromExistingFiles("./testdata/cert-chain.pem",
+			"./testdata/cert-chain.pem", "token", key)
+		if err != nil {
+			t.Fatalf("Failed to get secrets: %v", err)
+		}
+		if err := verifySecret(gotSecret, es); err != nil {
+			t.Errorf("Secret verification failed: %v", err)
+		}
+	}
+}
+
 func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem) error {
 	if expectedSecret.ResourceName != gotSecret.ResourceName {
 		return fmt.Errorf("resource name verification error: expected %s but got %s", expectedSecret.ResourceName,
@@ -891,6 +1056,22 @@ func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem)
 	if !bytes.Equal(expectedSecret.PrivateKey, gotSecret.PrivateKey) {
 		return fmt.Errorf("k8sKey verification error: expected %v but got %v", expectedSecret.PrivateKey,
 			gotSecret.PrivateKey)
+	}
+	return nil
+}
+
+func verifyRootCASecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem) error {
+	if expectedSecret.ResourceName != gotSecret.ResourceName {
+		return fmt.Errorf("resource name verification error: expected %s but got %s", expectedSecret.ResourceName,
+			gotSecret.ResourceName)
+	}
+	if !bytes.Equal(expectedSecret.RootCert, gotSecret.RootCert) {
+		return fmt.Errorf("root cert verification error: expected %v but got %v", expectedSecret.RootCert,
+			gotSecret.RootCert)
+	}
+	if expectedSecret.ExpireTime != gotSecret.ExpireTime {
+		return fmt.Errorf("root cert expiration time verification error: expected %v but got %v",
+			expectedSecret.ExpireTime, gotSecret.ExpireTime)
 	}
 	return nil
 }

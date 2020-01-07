@@ -23,20 +23,20 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/istioctl/pkg/util/handlers"
-
 	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
 	"istio.io/pkg/env"
 
+	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -63,7 +63,6 @@ func (f FileParseError) Error() string {
 var (
 	listAnalyzers   bool
 	useKube         bool
-	useDiscovery    bool
 	failureLevel    = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
 	outputLevel     = messageThreshold{diag.Info}    // messages at least this level will be included in the output
 	colorize        bool
@@ -94,20 +93,14 @@ func Analyze() *cobra.Command {
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
 		Example: `
-# Analyze yaml files
-istioctl analyze a.yaml b.yaml
-
 # Analyze the current live cluster
-istioctl analyze -k
+istioctl analyze
 
 # Analyze the current live cluster, simulating the effect of applying additional yaml files
-istioctl analyze -k a.yaml b.yaml
+istioctl analyze a.yaml b.yaml
 
-# Analyze yaml files, overriding service discovery to enabled
-istioctl analyze -d true a.yaml b.yaml services.yaml
-
-# Analyze the current live cluster, overriding service discovery to disabled
-istioctl analyze -k -d false
+# Analyze yaml files without connecting to a live cluster
+istioctl analyze --use-kube=false a.yaml b.yaml
 
 # List available analyzers
 istioctl analyze -L
@@ -132,16 +125,19 @@ istioctl analyze -L
 			}
 			cancel := make(chan struct{})
 
-			// If not explicitly specified, the discovery flag should match useKube
-			if !cmd.Flags().Changed("discovery") {
-				useDiscovery = useKube
-			}
-
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
 			selectedNamespace := handlers.HandleNamespace(namespace, defaultNamespace)
 
-			var k cfgKube.Interfaces
+			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
+			if allNamespaces {
+				selectedNamespace = ""
+			}
+
+			sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
+				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true)
+
+			// If we're using kube, use that as a base source.
 			if useKube {
 				// Set up the kube client
 				config := kube.BuildClientCmd(kubeconfig, configContext)
@@ -149,20 +145,22 @@ istioctl analyze -L
 				if err != nil {
 					return err
 				}
-				k = cfgKube.NewInterfaces(restConfig)
-
-			}
-
-			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
-			if allNamespaces {
-				selectedNamespace = ""
-			}
-
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, istioNamespace, nil, useDiscovery)
-
-			// If we're using kube, use that as a base source.
-			if k != nil {
+				k := cfgKube.NewInterfaces(restConfig)
 				sa.AddRunningKubeSource(k)
+			}
+
+			// If we explicitly specify mesh config, use it.
+			// This takes precedence over default mesh config or mesh config from a running Kube instance.
+			if meshCfgFile != "" {
+				_ = sa.AddFileKubeMeshConfig(meshCfgFile)
+			}
+
+			// If we're not using kube (files only), add defaults for some resources we expect to be provided by Istio
+			if !useKube {
+				err := sa.AddDefaultResources()
+				if err != nil {
+					return err
+				}
 			}
 
 			// If files are provided, treat them (collectively) as a source.
@@ -172,12 +170,6 @@ istioctl analyze -L
 					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) adding files: %v", err)
 					parseErrors++
 				}
-			}
-
-			// If we explicitly specify mesh config, use it.
-			// This takes precedence over default mesh config or mesh config from a running Kube instance.
-			if meshCfgFile != "" {
-				_ = sa.AddFileKubeMeshConfigSource(meshCfgFile)
 			}
 
 			// Do the analysis
@@ -268,12 +260,8 @@ istioctl analyze -L
 
 	analysisCmd.PersistentFlags().BoolVarP(&listAnalyzers, "list-analyzers", "L", false,
 		"List the analyzers available to run. Suppresses normal execution.")
-	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
-		"Use live Kubernetes cluster for analysis")
-	analysisCmd.PersistentFlags().BoolVarP(&useDiscovery, "discovery", "d", false, // Note that this default val gets overridden to match --use-kube
-		"'true' to enable service discovery, 'false' to disable it. "+
-			"Defaults to true if --use-kube is set, false otherwise. "+
-			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
+	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", true,
+		"Use live Kubernetes cluster for analysis. Set --use-kube=false to analyze files only.")
 	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
 		"Default true.  Disable with '=false' or set $TERM to dumb")
 	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
@@ -286,7 +274,7 @@ istioctl analyze -L
 		fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
 	analysisCmd.PersistentFlags().StringVar(&meshCfgFile, "meshConfigFile", "",
 		"Overrides the mesh config values to use for analysis.")
-	analysisCmd.PersistentFlags().BoolVar(&allNamespaces, "all-namespaces", false,
+	analysisCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false,
 		"Analyze all namespaces")
 	return analysisCmd
 }

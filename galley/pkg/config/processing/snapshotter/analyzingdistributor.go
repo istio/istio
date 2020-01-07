@@ -20,8 +20,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -65,7 +65,7 @@ type AnalyzingDistributorSettings struct {
 	CollectionReporter CollectionReporterFn
 
 	// Namespaces that should be analyzed
-	AnalysisNamespaces []string
+	AnalysisNamespaces []resource.Namespace
 }
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
@@ -107,7 +107,7 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 		d.cancelAnalysis = nil
 	}
 
-	namespaces := make(map[string]struct{})
+	namespaces := make(map[resource.Namespace]struct{})
 	for _, ns := range d.s.AnalysisNamespaces {
 		namespaces[ns] = struct{}{}
 	}
@@ -128,7 +128,7 @@ func (d *AnalyzingDistributor) isAnalysisSnapshot(s string) bool {
 	return false
 }
 
-func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name string, s *Snapshot, namespaces map[string]struct{}) {
+func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name string, s *Snapshot, namespaces map[resource.Namespace]struct{}) {
 	// For analysis, we use a combined snapshot
 	ctx := &context{
 		sn:                 d.getCombinedSnapshot(),
@@ -195,18 +195,18 @@ type context struct {
 var _ analysis.Context = &context{}
 
 // Report implements analysis.Context
-func (c *context) Report(col collection.Name, m diag.Message) {
+func (c *context) Report(_ collection.Name, m diag.Message) {
 	c.messages.Add(m)
 }
 
 // Find implements analysis.Context
-func (c *context) Find(col collection.Name, name resource.Name) *resource.Entry {
+func (c *context) Find(col collection.Name, name resource.FullName) *resource.Instance {
 	c.collectionReporter(col)
 	return c.sn.Find(col, name)
 }
 
 // Exists implements analysis.Context
-func (c *context) Exists(col collection.Name, name resource.Name) bool {
+func (c *context) Exists(col collection.Name, name resource.FullName) bool {
 	c.collectionReporter(col)
 	return c.Find(col, name) != nil
 }

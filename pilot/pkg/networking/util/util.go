@@ -75,11 +75,11 @@ const (
 
 	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
 	// endpoint level plantext transport socket configuration
-	EnvoyRawBufferSocketName = "raw_buffer"
+	EnvoyRawBufferSocketName = "envoy.transport_sockets.raw_buffer"
 
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
-	EnvoyTLSSocketName = "tls"
+	EnvoyTLSSocketName = "envoy.transport_sockets.tls"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -170,11 +170,11 @@ func BuildAddress(bind string, port uint32) *core.Address {
 	}
 }
 
-// GetNetworkEndpointAddress returns an Envoy v2 API `Address` that represents this NetworkEndpoint
-func GetNetworkEndpointAddress(n *model.NetworkEndpoint) *core.Address {
+// GetEndpointAddress returns an Envoy v2 API `Address` that represents this IstioEndpoint
+func GetEndpointAddress(n *model.IstioEndpoint) *core.Address {
 	switch n.Family {
 	case model.AddressFamilyTCP:
-		return BuildAddress(n.Address, uint32(n.Port))
+		return BuildAddress(n.Address, n.EndpointPort)
 	case model.AddressFamilyUnix:
 		return &core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: n.Address}}}
 	default:

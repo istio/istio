@@ -62,18 +62,23 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 			ConfigFile:          filepath.Join(injectPath, "config"),
 			ValuesFile:          filepath.Join(injectPath, "values"),
 			MeshFile:            args.Mesh.ConfigFile,
-			CertFile:            filepath.Join(DNSCertDir, "cert-chain.pem"),
-			KeyFile:             filepath.Join(DNSCertDir, "key.pem"),
+			Env:                 s.environment,
+			CertFile:            filepath.Join(dnsCertDir, "cert-chain.pem"),
+			KeyFile:             filepath.Join(dnsCertDir, "key.pem"),
 			Port:                args.InjectionOptions.Port,
 			HealthCheckFile:     "",
 			HealthCheckInterval: 0,
-			MonitoringPort:      s.basePort + 16, // TODO: disable the second monitoring port
+			// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
+			MonitoringPort: -1,
 		}
 
 		wh, err := inject.NewWebhook(parameters)
 		if err != nil {
 			return fmt.Errorf("failed to create injection webhook: %v", err)
 		}
+		// Patch cert if a webhook config name is provided.
+		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
+		// operator or CI/CD
 		if webhookConfigName.Get() != "" {
 			s.addStartFunc(func(stop <-chan struct{}) error {
 				if err := patchCertLoop(s.kubeClient, stop); err != nil {
@@ -82,6 +87,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 				return nil
 			})
 		}
+		s.webhook = wh
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			go wh.Run(stop)
 			return nil
@@ -133,7 +139,7 @@ func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 
 				if oldConfig.ResourceVersion != newConfig.ResourceVersion {
 					for i, w := range newConfig.Webhooks {
-						if w.Name == webhookConfigName.Get() && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
+						if w.Name == webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
 							log.Infof("Detected a change in CABundle, patching MutatingWebhookConfiguration again")
 							shouldPatch <- struct{}{}
 							break

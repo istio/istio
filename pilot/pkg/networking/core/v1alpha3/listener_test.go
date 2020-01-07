@@ -127,7 +127,7 @@ var (
 					Namespace: "not-default",
 				},
 			},
-			Labels: nil,
+			Endpoint: &model.IstioEndpoint{},
 		},
 	}
 	virtualServiceSpec = &networking.VirtualService{
@@ -1291,7 +1291,7 @@ func TestHttpProxyListener(t *testing.T) {
 	proxy.ServiceInstances = nil
 	env.Mesh().ProxyHttpPort = 15007
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	httpProxy := configgen.buildHTTPProxy(&proxy, env.PushContext, nil)
+	httpProxy := configgen.buildHTTPProxy(&proxy, env.PushContext)
 	f := httpProxy.FilterChains[0].Filters[0]
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 
@@ -1702,16 +1702,9 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 	}
 }
 
-func buildEndpoint(service *model.Service) model.NetworkEndpoint {
-	return model.NetworkEndpoint{
-		ServicePort: service.Ports[0],
-		Port:        8080,
-	}
-}
-
 func buildServiceInstance(service *model.Service, instanceIP string) *model.ServiceInstance {
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: &model.IstioEndpoint{
 			Address: instanceIP,
 		},
 		Service: service,
@@ -1729,33 +1722,34 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
+			},
+			ServicePort: s.Ports[0],
 		}
 	}
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
 
-	configStore := &fakes.IstioConfigStore{
-		EnvoyFilterStub: func(workloadLabels labels.Collection) *model.Config {
-			return &model.Config{
-				ConfigMeta: model.ConfigMeta{
-					Name:      "test-envoyfilter",
-					Namespace: "not-default",
-				},
-				Spec: &networking.EnvoyFilter{
-					Filters: []*networking.EnvoyFilter_Filter{
-						{
-							InsertPosition: &networking.EnvoyFilter_InsertPosition{
-								Index: networking.EnvoyFilter_InsertPosition_FIRST,
-							},
-							FilterType:   networking.EnvoyFilter_Filter_HTTP,
-							FilterName:   "envoy.lua",
-							FilterConfig: &types.Struct{},
-						},
-					},
-				},
-			}
+	envoyFilter := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "test-envoyfilter",
+			Namespace: "not-default",
 		},
+		Spec: &networking.EnvoyFilter{
+			Filters: []*networking.EnvoyFilter_Filter{
+				{
+					InsertPosition: &networking.EnvoyFilter_InsertPosition{
+						Index: networking.EnvoyFilter_InsertPosition_FIRST,
+					},
+					FilterType:   networking.EnvoyFilter_Filter_HTTP,
+					FilterName:   "envoy.lua",
+					FilterConfig: &types.Struct{},
+				},
+			},
+		},
+	}
+	configStore := &fakes.IstioConfigStore{
 		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
 			if typ == "virtual-service" {
 				result := make([]model.Config, len(virtualServices))
@@ -1763,6 +1757,9 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 					result[i] = *virtualServices[i]
 				}
 				return result, nil
+			}
+			if typ == "envoy-filter" {
+				return []model.Config{envoyFilter}, nil
 			}
 			return nil, nil
 

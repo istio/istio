@@ -140,13 +140,13 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string, push *model.PushContext) (*endpoint.LbEndpoint, error) {
-	err := model.ValidateNetworkEndpointAddress(e)
+func toEnvoyEndpoint(e *model.IstioEndpoint, push *model.PushContext) (*endpoint.LbEndpoint, error) {
+	err := model.ValidateEndpointAddress(e)
 	if err != nil {
 		return nil, err
 	}
 
-	addr := util.GetNetworkEndpointAddress(e)
+	addr := util.GetEndpointAddress(e)
 
 	epWeight := e.LbWeight
 	if epWeight == 0 {
@@ -166,7 +166,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string, pu
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, tlsMode, push)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, e.TLSMode, push)
 
 	return ep, nil
 }
@@ -282,26 +282,13 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 
 				// This loses track of grouping (shards)
-				endpoints, err := registry.InstancesByPort(svc, port.Port, labels.Collection{})
+				instances, err := registry.InstancesByPort(svc, port.Port, labels.Collection{})
 				if err != nil {
 					return err
 				}
 
-				for _, ep := range endpoints {
-					entries = append(entries, &model.IstioEndpoint{
-						Family:          ep.Endpoint.Family,
-						Address:         ep.Endpoint.Address,
-						EndpointPort:    uint32(ep.Endpoint.Port),
-						ServicePortName: port.Name,
-						Labels:          ep.Labels,
-						UID:             ep.Endpoint.UID,
-						ServiceAccount:  ep.ServiceAccount,
-						Network:         ep.Endpoint.Network,
-						Locality:        ep.GetLocality(),
-						LbWeight:        ep.Endpoint.LbWeight,
-						Attributes:      ep.Service.Attributes,
-						TLSMode:         ep.TLSMode,
-					})
+				for _, inst := range instances {
+					entries = append(entries, inst.Endpoint)
 				}
 			}
 
@@ -554,7 +541,7 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance, push *model.PushContext) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.TLSMode, push)
+		lbEp, err := toEnvoyEndpoint(instance.Endpoint, push)
 		if err != nil {
 			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Increment()
@@ -669,6 +656,54 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	}
 }
 
+func (s *DiscoveryServer) generateEndpoints(
+	clusterName string, proxy *model.Proxy, push *model.PushContext, edsUpdatedServices map[string]struct{},
+) *xdsapi.ClusterLoadAssignment {
+	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+	if edsUpdatedServices != nil {
+		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+			// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
+			// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
+			return nil
+		}
+	}
+
+	l := s.loadAssignmentsForClusterIsolated(proxy, push, clusterName)
+
+	if l == nil {
+		return nil
+	}
+
+	// If networks are set (by default they aren't) apply the Split Horizon
+	// EDS filter on the endpoints
+	if push.Networks != nil && len(push.Networks.Networks) > 0 {
+		endpoints := EndpointsByNetworkFilter(push, proxy.Metadata.Network, l.Endpoints)
+		filteredCLA := &xdsapi.ClusterLoadAssignment{
+			ClusterName: l.ClusterName,
+			Endpoints:   endpoints,
+			Policy:      l.Policy,
+		}
+		l = filteredCLA
+	}
+
+	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
+	if push.Mesh.LocalityLbSetting != nil {
+		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
+		clonedCLA := util.CloneClusterLoadAssignment(l)
+		l = &clonedCLA
+
+		// Failover should only be enabled when there is an outlier detection, otherwise Envoy
+		// will never detect the hosts are unhealthy and redirect traffic.
+		enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, proxy, clusterName)
+		var localityLbSettings = push.Mesh.LocalityLbSetting
+		if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
+			localityLbSettings = loadBalancerSettings.LocalityLbSetting
+		}
+		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, localityLbSettings, enableFailover)
+	}
+	return l
+}
+
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
@@ -681,47 +716,9 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range con.Clusters {
 
-		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-		if edsUpdatedServices != nil {
-			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
-				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
-				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
-				continue
-			}
-		}
-
-		l := s.loadAssignmentsForClusterIsolated(con.node, push, clusterName)
-
+		l := s.generateEndpoints(clusterName, con.node, push, edsUpdatedServices)
 		if l == nil {
 			continue
-		}
-
-		// If networks are set (by default they aren't) apply the Split Horizon
-		// EDS filter on the endpoints
-		if push.Networks != nil && len(push.Networks.Networks) > 0 {
-			endpoints := EndpointsByNetworkFilter(push, con.node.Metadata.Network, l.Endpoints)
-			filteredCLA := &xdsapi.ClusterLoadAssignment{
-				ClusterName: l.ClusterName,
-				Endpoints:   endpoints,
-				Policy:      l.Policy,
-			}
-			l = filteredCLA
-		}
-
-		// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
-		if push.Mesh.LocalityLbSetting != nil {
-			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
-			clonedCLA := util.CloneClusterLoadAssignment(l)
-			l = &clonedCLA
-
-			// Failover should only be enabled when there is an outlier detection, otherwise Envoy
-			// will never detect the hosts are unhealthy and redirect traffic.
-			enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, con.node, clusterName)
-			var localityLbSettings = push.Mesh.LocalityLbSetting
-			if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
-				localityLbSettings = loadBalancerSettings.LocalityLbSetting
-			}
-			loadbalancer.ApplyLocalityLBSetting(con.node.Locality, l, localityLbSettings, enableFailover)
 		}
 
 		for _, e := range l.Endpoints {

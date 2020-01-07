@@ -15,7 +15,10 @@
 package cmd
 
 import (
+	"fmt"
+	"net"
 	"os"
+	"os/user"
 	"strconv"
 	"strings"
 
@@ -23,6 +26,8 @@ import (
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
+	"istio.io/pkg/env"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -30,22 +35,34 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	envoyUserVar = env.RegisterStringVar(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
+)
+
 var rootCmd = &cobra.Command{
 	Use:  "istio-iptables",
 	Long: "Script responsible for setting up port forwarding for Istio sidecar.",
-	Run: func(cmd *cobra.Command, args []string)  {
-		config := constructConfig()
-		iptConfigurator := NewIptablesConfigurator(config)
-		if !config.SkipRuleApply {
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg := constructConfig()
+		var ext dep.Dependencies
+		if cfg.DryRun {
+			ext = &dep.StdoutStubDependencies{}
+		} else {
+			ext = &dep.RealDependencies{}
+		}
+
+		iptConfigurator := NewIptablesConfigurator(cfg, ext)
+		iptConfigurator.run()
+		if !cfg.SkipRuleApply {
 			iptConfigurator.run()
 		}
-		if config.RunValidation {
-			hostIP, err := iptConfigurator.ext.GetLocalIP()
+		if cfg.RunValidation {
+			hostIP, err := getLocalIP()
 			if err != nil {
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
 			}
-			validator := validation.NewValidator(config, hostIP)
+			validator := validation.NewValidator(cfg, hostIP)
 
 			if validator.Run() != nil {
 				os.Exit(constants.ValidationErrorCode)
@@ -55,7 +72,9 @@ var rootCmd = &cobra.Command{
 }
 
 func constructConfig() *config.Config {
-	return &config.Config{
+	cfg := &config.Config{
+		DryRun:                  viper.GetBool(constants.DryRun),
+		RestoreFormat:           viper.GetBool(constants.RestoreFormat),
 		ProxyPort:               viper.GetString(constants.EnvoyPort),
 		InboundCapturePort:      viper.GetString(constants.InboundCapturePort),
 		ProxyUID:                viper.GetString(constants.ProxyUID),
@@ -69,13 +88,53 @@ func constructConfig() *config.Config {
 		OutboundIPRangesInclude: viper.GetString(constants.ServiceCidr),
 		OutboundIPRangesExclude: viper.GetString(constants.ServiceExcludeCidr),
 		KubevirtInterfaces:      viper.GetString(constants.KubeVirtInterfaces),
-		DryRun:                  viper.GetBool(constants.DryRun),
-		EnableInboundIPv6s:      nil,
-		RestoreFormat:           viper.GetBool(constants.RestoreFormat),
 		IptablesProbePort:       uint16(viper.GetUint(constants.IptablesProbePort)),
 		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
 		RunValidation:           viper.GetBool(constants.RunValidation),
 	}
+
+	// TODO: Make this more configurable, maybe with a whitelist of users to be captured for output instead of a blacklist.
+	if cfg.ProxyUID == "" {
+		usr, err := user.Lookup(envoyUserVar.Get())
+		var userID string
+		// Default to the UID of ENVOY_USER and root
+		if err != nil {
+			userID = constants.DefaultProxyUID
+		} else {
+			userID = usr.Uid
+		}
+		// If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list
+		// for the CA agent.
+		cfg.ProxyUID = userID + ",0"
+	}
+	// For TPROXY as its uid and gid are same.
+	if cfg.ProxyGID == "" {
+		cfg.ProxyGID = cfg.ProxyUID
+	}
+
+	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
+	podIP, err := getLocalIP()
+	if err != nil {
+		panic(err)
+	}
+	cfg.EnableInboundIPv6 = podIP.To4() == nil
+
+	return cfg
+}
+
+// getLocalIP returns the local IP address
+func getLocalIP() (net.IP, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			return ipnet.IP, nil
+		}
+	}
+	return nil, fmt.Errorf("no valid local IP address found")
 }
 
 func handleError(err error) {

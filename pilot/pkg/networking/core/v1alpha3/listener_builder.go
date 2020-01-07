@@ -44,17 +44,16 @@ var (
 	blackholeStructMarshalling *listener.Filter
 
 	dummyServiceInstance = &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Port:        15006,
-			ServicePort: &model.Port{},
+		Service:     &model.Service{},
+		ServicePort: &model.Port{},
+		Endpoint: &model.IstioEndpoint{
+			EndpointPort: 15006,
 		},
-		Service: &model.Service{},
 	}
 )
 
 func init() {
-	blackholeAnyMarshalling = newBlackholeFilter(true)
-	blackholeStructMarshalling = newBlackholeFilter(false)
+	blackholeAnyMarshalling = newBlackholeFilter()
 }
 
 // A stateful listener builder
@@ -204,13 +203,10 @@ func (builder *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigG
 
 func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) *ListenerBuilder {
-
-	noneMode := node.GetInterceptionMode() == model.InterceptionNone
-
 	// Do not generate any management port listeners if the user has specified a SidecarScope object
 	// with ingress listeners. Specifying the ingress listener implies that the user wants
 	// to only have those specific listeners and nothing else, in the inbound path.
-	if node.SidecarScope.HasCustomIngressListeners || noneMode {
+	if node.SidecarScope.HasCustomIngressListeners || node.GetInterceptionMode() == model.InterceptionNone {
 		return builder
 	}
 	// Let ServiceDiscovery decide which IP and Port are used for management if
@@ -398,21 +394,17 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 }
 
 // Creates a new filter that will always send traffic to the blackhole cluster
-func newBlackholeFilter(enableAny bool) *listener.Filter {
+func newBlackholeFilter() *listener.Filter {
 	tcpProxy := &tcp_proxy.TcpProxy{
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
 
 	filter := &listener.Filter{
-		Name: xdsutil.TCPProxy,
+		Name:       xdsutil.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	}
 
-	if enableAny {
-		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-	} else {
-		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-	}
 	return filter
 }
 
@@ -451,13 +443,8 @@ func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 		}
 		setAccessLog(push, node, tcpProxy)
 		tcpProxyFilter := &listener.Filter{
-			Name: xdsutil.TCPProxy,
-		}
-
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			tcpProxyFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-		} else {
-			tcpProxyFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+			Name:       xdsutil.TCPProxy,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 		}
 
 		in := &plugin.InputParams{
@@ -543,12 +530,8 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl,
 		connectionManager := buildHTTPConnectionManager(in, httpOpts, mutable.FilterChains[0].HTTP)
 
 		filter := &listener.Filter{
-			Name: xdsutil.HTTPConnectionManager,
-		}
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)}
-		} else {
-			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(connectionManager)}
+			Name:       xdsutil.HTTPConnectionManager,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
 		}
 
 		filterChainMatch := listener.FilterChainMatch{
@@ -588,13 +571,9 @@ func newTCPProxyOutboundListenerFilter(push *model.PushContext, node *model.Prox
 	}
 
 	filter := listener.Filter{
-		Name: xdsutil.TCPProxy,
+		Name:       xdsutil.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	}
 
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-	} else {
-		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-	}
 	return &filter
 }

@@ -75,15 +75,17 @@ func (instance *ServiceInstance) Validate() error {
 		errs = multierror.Append(errs, err)
 	}
 
-	if err := instance.Labels.Validate(); err != nil {
-		errs = multierror.Append(errs, err)
+	if instance.Endpoint != nil {
+		if err := instance.Endpoint.Labels.Validate(); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+
+		if err := validation.ValidatePort(int(instance.Endpoint.EndpointPort)); err != nil {
+			errs = multierror.Append(errs, err)
+		}
 	}
 
-	if err := validation.ValidatePort(instance.Endpoint.Port); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	port := instance.Endpoint.ServicePort
+	port := instance.ServicePort
 	if port == nil {
 		errs = multierror.Append(errs, fmt.Errorf("missing service port"))
 	} else if instance.Service != nil {
@@ -105,21 +107,21 @@ func (instance *ServiceInstance) Validate() error {
 	return errs
 }
 
-// ValidateNetworkEndpointAddress checks the Address field of a NetworkEndpoint. If the family is TCP, it checks the
+// ValidateEndpointAddress checks the Address field of an IstioEndpoint. If the family is TCP, it checks the
 // address is a valid IP address. If the family is Unix, it checks the address is a valid socket file path.
-func ValidateNetworkEndpointAddress(n *NetworkEndpoint) error {
-	switch n.Family {
+func ValidateEndpointAddress(ep *IstioEndpoint) error {
+	switch ep.Family {
 	case AddressFamilyTCP:
-		ipAddr := net.ParseIP(n.Address) // Typically it is an IP address
+		ipAddr := net.ParseIP(ep.Address) // Typically it is an IP address
 		if ipAddr == nil {
-			if err := validation.ValidateFQDN(n.Address); err != nil { // Otherwise could be an FQDN
-				return errors.New("invalid address " + n.Address)
+			if err := validation.ValidateFQDN(ep.Address); err != nil { // Otherwise could be an FQDN
+				return errors.New("invalid address " + ep.Address)
 			}
 		}
 	case AddressFamilyUnix:
-		return validation.ValidateUnixAddress(n.Address)
+		return validation.ValidateUnixAddress(ep.Address)
 	default:
-		panic(fmt.Sprintf("unhandled Family %v", n.Family))
+		panic(fmt.Sprintf("unhandled Family %v", ep.Family))
 	}
 	return nil
 }

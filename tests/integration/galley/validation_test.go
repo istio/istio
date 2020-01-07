@@ -22,8 +22,8 @@ import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/testdata/validation"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/testdatasets/validation"
 	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework"
@@ -140,47 +140,15 @@ func TestValidation(t *testing.T) {
 
 var ignoredCRDs = []string{
 	// We don't validate K8s resources
+	"/v1/Endpoints",
 	"/v1/Namespace",
 	"/v1/Node",
 	"/v1/Pod",
-	"/v1/Endpoints",
+	"/v1/Secret",
 	"/v1/Service",
-	"extensions/v1beta1/Ingress",
 	"apps/v1/Deployment",
+	"extensions/v1beta1/Ingress",
 	"networking.istio.io/v1alpha3/SyntheticServiceEntry",
-
-	// Legacy Mixer CRDs are ignored
-	"config.istio.io/v1alpha2/cloudwatch",
-	"config.istio.io/v1alpha2/statsd",
-	"config.istio.io/v1alpha2/stdio",
-	"config.istio.io/v1alpha2/listentry",
-	"config.istio.io/v1alpha2/metric",
-	"config.istio.io/v1alpha2/stackdriver",
-	"config.istio.io/v1alpha2/kubernetes",
-	"config.istio.io/v1alpha2/quota",
-	"config.istio.io/v1alpha2/zipkin",
-	"config.istio.io/v1alpha2/prometheus",
-	"config.istio.io/v1alpha2/redisquota",
-	"config.istio.io/v1alpha2/reportnothing",
-	"config.istio.io/v1alpha2/edge",
-	"config.istio.io/v1alpha2/noop",
-	"config.istio.io/v1alpha2/signalfx",
-	"config.istio.io/v1alpha2/solarwinds",
-	"config.istio.io/v1alpha2/apikey",
-	"config.istio.io/v1alpha2/bypass",
-	"config.istio.io/v1alpha2/dogstatsd",
-	"config.istio.io/v1alpha2/kubernetesenv",
-	"config.istio.io/v1alpha2/listchecker",
-	"config.istio.io/v1alpha2/tracespan",
-	"config.istio.io/v1alpha2/authorization",
-	"config.istio.io/v1alpha2/fluentd",
-	"config.istio.io/v1alpha2/memquota",
-	"config.istio.io/v1alpha2/opa",
-	"config.istio.io/v1alpha2/checknothing",
-	"config.istio.io/v1alpha2/circonus",
-	"config.istio.io/v1alpha2/denier",
-	"config.istio.io/v1alpha2/logentry",
-	"config.istio.io/v1alpha2/rbac",
 }
 
 func TestEnsureNoMissingCRDs(t *testing.T) {
@@ -197,8 +165,8 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 
 			recognized := make(map[string]struct{})
 
-			for _, r := range metadata.MustGet().KubeSource().Resources() {
-				s := strings.Join([]string{r.Group, r.Version, r.Kind}, "/")
+			for _, r := range schema.MustGet().KubeCollections().All() {
+				s := strings.Join([]string{r.Resource().Group(), r.Resource().Version(), r.Resource().Kind()}, "/")
 				recognized[s] = struct{}{}
 			}
 

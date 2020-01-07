@@ -42,7 +42,7 @@ mkdir -p "$COVERAGEDIR"
 
 
 # Setup environment needed by some tests.
-make -f Makefile.core.mk sync
+make -f Makefile.core.mk init
 
 # coverage test needs to run one package per command.
 # This script runs nproc/2 in parallel.

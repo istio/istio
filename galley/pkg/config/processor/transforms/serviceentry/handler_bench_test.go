@@ -20,11 +20,11 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,7 +62,7 @@ var (
 		"Label4": "LabelValue4",
 		"Label5": "LabelValue5",
 	}
-	benchServiceName = "service1"
+	benchServiceName = resource.LocalName("service1")
 )
 
 func BenchmarkEndpointNoChange(b *testing.B) {
@@ -75,20 +75,20 @@ func BenchmarkEndpointNoChange(b *testing.B) {
 
 	// Add the service.
 	handler.Handle(event.Event{
-		Kind:  event.Added,
-		Entry: newService(),
+		Kind:     event.Added,
+		Resource: newService(),
 	})
 
 	// Add the endpoints for all IPs.
 	handler.Handle(event.Event{
-		Kind:  event.Added,
-		Entry: newEndpoints(ips...),
+		Kind:     event.Added,
+		Resource: newEndpoints(ips...),
 	})
 
 	// Create an update event with no changes to the endpoints.
 	updateEvent := event.Event{
-		Kind:  event.Updated,
-		Entry: newEndpoints(ips...),
+		Kind:     event.Updated,
+		Resource: newEndpoints(ips...),
 	}
 
 	version := uint64(1)
@@ -96,7 +96,7 @@ func BenchmarkEndpointNoChange(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		updateEvent.Entry.Metadata.Version = resource.Version(strconv.FormatUint(version, 10))
+		updateEvent.Resource.Metadata.Version = resource.Version(strconv.FormatUint(version, 10))
 		version++
 		handler.Handle(updateEvent)
 	}
@@ -112,18 +112,18 @@ func BenchmarkEndpointChurn(b *testing.B) {
 
 	// Add the service.
 	handler.Handle(event.Event{
-		Kind:  event.Added,
-		Entry: newService(),
+		Kind:     event.Added,
+		Resource: newService(),
 	})
 
 	// Add the endpoints for all IPs.
 	handler.Handle(event.Event{
-		Kind:  event.Added,
-		Entry: newEndpoints(ips...),
+		Kind:     event.Added,
+		Resource: newEndpoints(ips...),
 	})
 
 	// Create a sequence of endpoint updates to simulate pod churn.
-	updateEntries := []*resource.Entry{
+	updateEntries := []*resource.Instance{
 		// Slowly take away a few (the even indices).
 		newEndpoints(ips[1], ips[2], ips[3], ips[4], ips[5], ips[6], ips[7], ips[8], ips[9]),
 		newEndpoints(ips[1], ips[3], ips[4], ips[5], ips[6], ips[7], ips[8], ips[9]),
@@ -143,8 +143,8 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	updateEvents := make([]event.Event, 0, len(updateEntries))
 	for _, entry := range updateEntries {
 		updateEvents = append(updateEvents, event.Event{
-			Kind:  event.Updated,
-			Entry: entry,
+			Kind:     event.Updated,
+			Resource: entry,
 		})
 	}
 
@@ -158,7 +158,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 		// Get the next update event.
 		update := updateEvents[updateIndex]
 		updateIndex = (updateIndex + 1) % lenUpdateEvents
-		update.Entry.Metadata.Version = resource.Version(strconv.FormatUint(version, 10))
+		update.Resource.Metadata.Version = resource.Version(strconv.FormatUint(version, 10))
 		version++
 
 		handler.Handle(update)
@@ -173,18 +173,18 @@ func loadNodesAndPods(handler event.Handler) {
 		nodeName := "node" + strconv.Itoa(i)
 		handler.Handle(event.Event{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Nodes,
-			Entry: &resource.Entry{
+			Source: collections.K8SCoreV1Nodes,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       resource.NewName("", nodeName),
-					Version:    resource.Version("0"),
+					FullName:   resource.NewFullName("", resource.LocalName(nodeName)),
+					Version:    "0",
 					CreateTime: createTime,
 					Labels: resource.StringMap{
 						pod.LabelZoneRegion:        region,
 						pod.LabelZoneFailureDomain: zone,
 					},
 				},
-				Item: &coreV1.NodeSpec{},
+				Message: &coreV1.NodeSpec{},
 			},
 		})
 
@@ -194,17 +194,17 @@ func loadNodesAndPods(handler event.Handler) {
 		saIndex = (saIndex + 1) % len(serviceAccounts)
 		handler.Handle(event.Event{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: &resource.Entry{
+			Source: collections.K8SCoreV1Pods,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:       resource.NewName(namespace, podName),
-					Version:    resource.Version("0"),
+					FullName:   resource.NewFullName(namespace, resource.LocalName(podName)),
+					Version:    "0",
 					CreateTime: createTime,
 				},
-				Item: &coreV1.Pod{
+				Message: &coreV1.Pod{
 					ObjectMeta: metaV1.ObjectMeta{
 						Name:      podName,
-						Namespace: namespace,
+						Namespace: namespace.String(),
 					},
 					Spec: coreV1.PodSpec{
 						NodeName:           nodeName,
@@ -220,16 +220,16 @@ func loadNodesAndPods(handler event.Handler) {
 	}
 }
 
-func newService() *resource.Entry {
-	return &resource.Entry{
+func newService() *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:        resource.NewName(namespace, benchServiceName),
-			Version:     resource.Version("0"),
+			FullName:    resource.NewFullName(namespace, benchServiceName),
+			Version:     "0",
 			CreateTime:  createTime,
 			Labels:      labels,
 			Annotations: annos,
 		},
-		Item: &coreV1.ServiceSpec{
+		Message: &coreV1.ServiceSpec{
 			Type:      coreV1.ServiceTypeClusterIP,
 			ClusterIP: "10.0.0.0",
 			Ports: []coreV1.ServicePort{
@@ -253,25 +253,25 @@ func newService() *resource.Entry {
 	}
 }
 
-func newEndpoints(ips ...string) *resource.Entry {
+func newEndpoints(ips ...string) *resource.Instance {
 	addresses := make([]coreV1.EndpointAddress, 0, len(ips))
 	for _, ip := range ips {
 		addresses = append(addresses, coreV1.EndpointAddress{
 			IP: ip,
 		})
 	}
-	return &resource.Entry{
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:        resource.NewName(namespace, benchServiceName),
-			Version:     resource.Version("0"),
+			FullName:    resource.NewFullName(namespace, benchServiceName),
+			Version:     "0",
 			CreateTime:  createTime,
 			Labels:      labels,
 			Annotations: annos,
 		},
-		Item: &coreV1.Endpoints{
+		Message: &coreV1.Endpoints{
 			ObjectMeta: metaV1.ObjectMeta{
-				Name:              benchServiceName,
-				Namespace:         namespace,
+				Name:              benchServiceName.String(),
+				Namespace:         namespace.String(),
 				CreationTimestamp: metaV1.Time{Time: createTime},
 				Labels:            labels,
 				Annotations:       annos,

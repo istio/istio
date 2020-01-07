@@ -17,6 +17,10 @@ package bootstrap
 import (
 	"time"
 
+	"istio.io/pkg/env"
+
+	"istio.io/istio/pkg/config/constants"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -111,4 +115,28 @@ type DiscoveryServiceOptions struct {
 type InjectionOptions struct {
 	InjectionDirectory string
 	Port               int
+}
+
+var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+
+// Apply default value to PilotArgs
+func (p *PilotArgs) Default() {
+	// If the namespace isn't set, try looking it up from the environment.
+	if p.Namespace == "" {
+		p.Namespace = podNamespaceVar.Get()
+	}
+
+	if p.KeepaliveOptions == nil {
+		p.KeepaliveOptions = istiokeepalive.DefaultOption()
+	}
+	if p.Config.ClusterRegistriesNamespace == "" {
+		if p.Namespace != "" {
+			p.Config.ClusterRegistriesNamespace = p.Namespace
+		} else {
+			p.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
+		}
+	}
+	if p.BasePort == 0 {
+		p.BasePort = 15000
+	}
 }

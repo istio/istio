@@ -50,7 +50,7 @@ func New(domain string, pods pod.Cache) *Instance {
 
 // Convert applies the conversion function from k8s Service and Endpoints to ServiceEntry. The
 // ServiceEntry is passed as an argument (out) in order to enable object reuse in the future.
-func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, outMeta *resource.Metadata,
+func (i *Instance) Convert(service *resource.Instance, endpoints *resource.Instance, outMeta *resource.Metadata,
 	out *networking.ServiceEntry) error {
 	// we want to build the endpoints and then services
 	// as availability of endpoints can impact determining
@@ -62,13 +62,13 @@ func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, o
 }
 
 // convertService applies the k8s Service to the output.
-func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) {
+func (i *Instance) convertService(service *resource.Instance, outMeta *resource.Metadata, out *networking.ServiceEntry) {
 	if service == nil {
 		// For testing only. Production code will always provide a non-nil service.
 		return
 	}
 
-	spec := service.Item.(*coreV1.ServiceSpec)
+	spec := service.Message.(*coreV1.ServiceSpec)
 	location := networking.ServiceEntry_MESH_INTERNAL
 	endpoints := out.Endpoints
 	if len(endpoints) == 0 {
@@ -107,13 +107,13 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 	for _, port := range spec.Ports {
 		p, err := convertPort(port)
 		if err != nil {
-			scope.Processing.Warnf("convertService: failed to convert port %v for service %s (skipping): %v", port, service.Metadata.Name, err)
+			scope.Processing.Warnf("convertService: failed to convert port %v for service %s (skipping): %v", port, service.Metadata.FullName, err)
 			continue
 		}
 		ports = append(ports, p)
 	}
 
-	host := serviceHostname(service.Metadata.Name, i.domain)
+	host := serviceHostname(service.Metadata.FullName, i.domain)
 
 	// Store everything in the ServiceEntry.
 	out.Hosts = []string{host}
@@ -130,7 +130,7 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 	out.ExportTo = convertExportTo(service.Metadata.Annotations)
 
 	// Convert Metadata
-	outMeta.Name = service.Metadata.Name
+	outMeta.FullName = service.Metadata.FullName
 	outMeta.Labels = service.Metadata.Labels.Clone()
 
 	// Convert the creation time.
@@ -167,12 +167,12 @@ func convertExportTo(annotations resource.StringMap) []string {
 }
 
 // convertEndpoints applies the k8s Endpoints to the output.
-func (i *Instance) convertEndpoints(endpoints *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) {
+func (i *Instance) convertEndpoints(endpoints *resource.Instance, outMeta *resource.Metadata, out *networking.ServiceEntry) {
 	if endpoints == nil {
 		return
 	}
 
-	spec := endpoints.Item.(*coreV1.Endpoints)
+	spec := endpoints.Message.(*coreV1.Endpoints)
 	// Store the subject alternate names in a set to avoid duplicates.
 	subjectAltNameSet := make(map[string]struct{})
 	eps := make([]*networking.ServiceEntry_Endpoint, 0)
@@ -270,8 +270,9 @@ func convertExternalServiceEndpoints(
 }
 
 // serviceHostname produces FQDN for a k8s service
-func serviceHostname(fullName resource.Name, domainSuffix string) string {
-	namespace, name := fullName.InterpretAsNamespaceAndName()
+func serviceHostname(fullName resource.FullName, domainSuffix string) string {
+	namespace := string(fullName.Namespace)
+	name := string(fullName.Name)
 	if namespace == "" {
 		namespace = coreV1.NamespaceDefault
 	}
