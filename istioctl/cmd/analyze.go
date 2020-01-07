@@ -15,10 +15,10 @@
 package cmd
 
 import (
-	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"encoding/json"
 	"fmt"
 	"io"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"os"
 	"runtime"
 	"sort"
@@ -159,7 +159,7 @@ istioctl analyze -L
 				})
 			}
 			sa.SetSuppressions(suppressions)
-			
+
 			// If we're using kube, use that as a base source.
 			if useKube {
 				// Set up the kube client
