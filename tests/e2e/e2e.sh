@@ -62,5 +62,5 @@ make istioctl
 # docker images, rather than pull them. Pulling the images could result in image set A and
 # image set B being tested in the same operator PR e2e check. This would emerge as flakey e2e
 # test code.
-HUB="gcr.io/istio-testing" TAG="latest" E2E_ARGS="--use_operator --use_local_cluster=true --kube_inject_configmap=inject --test_logs_path=${ARTIFACTS}" make e2e_simple_noauth
+HUB="gcr.io/istio-testing" TAG="latest" E2E_ARGS="--use_operator --use_local_cluster=true --test_logs_path=${ARTIFACTS}" make e2e_simple_noauth
 popd

@@ -9769,7 +9769,8 @@ func chartsIstioControlIstioAutoinjectTemplates_helpersTpl() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+var _chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-sidecar-injector-{{ .Release.Namespace }}
@@ -9787,6 +9788,7 @@ rules:
   resources: ["mutatingwebhookconfigurations"]
   resourceNames: ["istio-sidecar-injector", "istio-sidecar-injector-{{.Release.Namespace}}"]
   verbs: ["get", "list", "watch", "patch"]
+{{- end }}
 {{- end }}`)
 
 func chartsIstioControlIstioAutoinjectTemplatesClusterroleYamlBytes() ([]byte, error) {
@@ -9804,7 +9806,8 @@ func chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml() (*asset, error)
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+var _chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-sidecar-injector-admin-role-binding-{{ .Release.Namespace }}
@@ -9820,6 +9823,7 @@ subjects:
   - kind: ServiceAccount
     name: istio-sidecar-injector-service-account
     namespace: {{ .Release.Namespace }}
+{{- end }}
 `)
 
 func chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYamlBytes() ([]byte, error) {
@@ -9837,7 +9841,8 @@ func chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml = []byte(`apiVersion: v1
+var _chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: injector-mesh
@@ -9912,22 +9917,34 @@ data:
           address: {{ .Values.global.tracer.datadog.address }}
       {{- end }}
 
+    {{- $defPilotHostname := printf "istio-pilot%s.%s" .Values.version .Values.global.configNamespace }}
+    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
+
     {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot{{ .Values.version }}.{{ .Values.global.configNamespace }}:15011
+      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+      discoveryAddress: {{ $defPilotHostname }}:15011
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15011
+      {{- end }}
     {{- else }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot{{ .Values.version }}.{{ .Values.global.configNamespace }}:15010
+      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+      discoveryAddress: {{ $defPilotHostname }}:15010
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15010
+      {{- end }}
     {{- end }}
 ---
+{{- end }}
 `)
 
 func chartsIstioControlIstioAutoinjectTemplatesConfigmapYamlBytes() ([]byte, error) {
@@ -9945,7 +9962,8 @@ func chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
+var _chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-sidecar-injector
@@ -10084,6 +10102,7 @@ spec:
       tolerations:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
+{{- end }}
 `)
 
 func chartsIstioControlIstioAutoinjectTemplatesDeploymentYamlBytes() ([]byte, error) {
@@ -10208,7 +10227,8 @@ func chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml() (*asset, er
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+var _chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -10225,6 +10245,7 @@ spec:
       app: sidecar-injector
       release: {{ .Release.Name }}
       istio: sidecar-injector
+{{- end }}
 {{- end }}
 `)
 
@@ -10243,7 +10264,8 @@ func chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml() (*asset
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesServiceYaml = []byte(`apiVersion: v1
+var _chartsIstioControlIstioAutoinjectTemplatesServiceYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
+apiVersion: v1
 kind: Service
 metadata:
   name: istio-sidecar-injector
@@ -10258,6 +10280,7 @@ spec:
     targetPort: 9443
   selector:
     istio: sidecar-injector
+{{- end }}
 `)
 
 func chartsIstioControlIstioAutoinjectTemplatesServiceYamlBytes() ([]byte, error) {
@@ -10275,7 +10298,8 @@ func chartsIstioControlIstioAutoinjectTemplatesServiceYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml = []byte(`apiVersion: v1
+var _chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
+apiVersion: v1
 kind: ServiceAccount
 {{- if .Values.global.imagePullSecrets }}
 imagePullSecrets:
@@ -10290,6 +10314,7 @@ metadata:
     app: sidecarInjectorWebhook
     release: {{ .Release.Name }}
     istio: sidecar-injector
+{{- end }}
 `)
 
 func chartsIstioControlIstioAutoinjectTemplatesServiceaccountYamlBytes() ([]byte, error) {
@@ -10307,7 +10332,8 @@ func chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml() (*asset, err
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml = []byte(`{{- if not .Values.global.omitSidecarInjectorConfigMap }}
+var _chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
+{{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10333,6 +10359,7 @@ data:
       "{{ $key }}": "{{ $val }}"
     {{- end }}
 
+{{- end }}
 {{- end }}
 `)
 
@@ -11729,7 +11756,11 @@ template: |
     env:
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
+    {{- if .Values.global.configNamespace }}
+      value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+    {{- else }}
       value: istio-pilot.istio-system.svc:15012
+    {{- end }}
     - name: POD_NAME
       valueFrom:
         fieldRef:
@@ -13175,7 +13206,7 @@ spec:
       # Optional - image should have
       - name: inject
         configMap:
-          name: inject
+          name: istio-sidecar-injector
           optional: true
 
       {{ else }}
@@ -13323,7 +13354,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml = []by
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: inject
+  name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -13332,12 +13363,20 @@ data:
     {{ .Values | toJson }}
 
   # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
-  # and istiod webhook functionality. Policy is no longer used.
+  # and istiod webhook functionality.
   #
-  # Istiod config map should not use Values - it is a 'primary' config object, users should be able
+  # New fields should not use Values - it is a 'primary' config object, users should be able
   # to fine tune it or use it with kube-inject.
   config: |-
-    policy: enabled
+    policy: {{ .Values.global.proxy.autoInject }}
+    alwaysInjectSelector:
+      {{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
+    neverInjectSelector:
+      {{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
+    injectedAnnotations:
+      {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
+      "{{ $key }}": "{{ $val }}"
+      {{- end }}
 
 {{ .Files.Get "files/injection-template.yaml" | trim | indent 4 }}
 
@@ -13756,14 +13795,17 @@ spec:
         operation: INSERT_BEFORE
         value:
           name: envoy.filters.http.wasm
-          config:
-            config:
-              configuration: envoy.wasm.metadata_exchange
-              vm_config:
-                runtime: envoy.wasm.runtime.null
-                code:
-                  local:
-                    inline_string: envoy.wasm.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                configuration: envoy.wasm.metadata_exchange
+                vm_config:
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.metadata_exchange
 ---
 {{- if .Values.telemetry.v2.prometheus.enabled }}
 apiVersion: networking.istio.io/v1alpha3
@@ -13792,20 +13834,23 @@ spec:
         operation: INSERT_BEFORE
         value:
           name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_outbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  local:
-                    inline_string: envoy.wasm.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -13821,20 +13866,23 @@ spec:
         operation: INSERT_BEFORE
         value:
           name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_inbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_inbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  local:
-                    inline_string: envoy.wasm.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
     - applyTo: HTTP_FILTER
       match:
         context: GATEWAY
@@ -13850,20 +13898,23 @@ spec:
         operation: INSERT_BEFORE
         value:
           name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_outbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  local:
-                    inline_string: envoy.wasm.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
 ---
 {{- end }}
 
@@ -13894,20 +13945,23 @@ spec:
         operation: INSERT_BEFORE
         value:
           name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stackdriver_outbound
-              configuration: |
-                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
-                {{- else }}
-                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 8 }}
-                {{- end }}
-              vm_config:
-                vm_id: stackdriver_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  local: { inline_string: envoy.wasm.null.stackdriver }
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_outbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -13923,20 +13977,23 @@ spec:
         operation: INSERT_BEFORE
         value:
           name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stackdriver_inbound
-              configuration: |
-                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
-                {{- else }}
-                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 16 }}
-                {{- end }}
-              vm_config:
-                vm_id: stackdriver_inbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  local: { inline_string: envoy.wasm.null.stackdriver }
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_inbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
     - applyTo: HTTP_FILTER
       match:
         context: GATEWAY
@@ -13952,20 +14009,23 @@ spec:
         operation: INSERT_BEFORE
         value:
           name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stackdriver_outbound
-              configuration: |
-                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s", "disable_host_header_fallback": true}
-                {{- else }}
-                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 16 }}
-                {{- end }}
-              vm_config:
-                vm_id: stackdriver_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  local: { inline_string: envoy.wasm.null.stackdriver }
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_outbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s", "disable_host_header_fallback": true}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
 ---
 {{- end}}
 {{- end}}
@@ -14115,6 +14175,26 @@ mixer:
   policy:
     enabled: false
 
+sidecarInjectorWebhook:
+  # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
+  # always skip the injection on pods that match that label selector, regardless of the global policy.
+  # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
+  neverInjectSelector: []
+  alwaysInjectSelector: []
+
+  # injectedAnnotations are additional annotations that will be added to the pod spec after injection
+  # This is primarily to support PSP annotations. For example, if you defined a PSP with the annotations:
+  #
+  # annotations:
+  #   apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
+  #   apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
+  #
+  # The PSP controller would add corresponding annotations to the pod spec for each container. However, this happens before
+  # the inject adds additional containers, so we must specify them explicitly here. With the above example, we could specify:
+  # injectedAnnotations:
+  #   container.apparmor.security.beta.kubernetes.io/istio-init: runtime/default
+  #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
+  injectedAnnotations: {}
 
 telemetry:
   enabled: true
@@ -15975,7 +16055,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "citadel_server_authentication_failure_count{job=\"citadel\"}\t",
+          "expr": "citadel_server_authentication_failure_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Authentication Failure Count",
@@ -16848,14 +16928,14 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
           "refId": "A"
         },
         {
-          "expr": "galley_mcp_source_clients_total",
+          "expr": "istio_mcp_clients_total{component=\"galley\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "clients_total",
           "refId": "B"
         },
         {
-          "expr": "go_goroutines{job=\"galley\"}/galley_mcp_source_clients_total",
+          "expr": "go_goroutines{job=\"galley\"}/sum(istio_mcp_clients_total{component=\"galley\"}) without (component)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "avg_goroutines_per_client",
@@ -17827,7 +17907,7 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(galley_mcp_source_clients_total)",
+          "expr": "sum(istio_mcp_clients_total{component=\"galley\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Clients",
@@ -17912,7 +17992,7 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by(collection)(irate(galley_mcp_source_request_acks_total[1m]) * 60)",
+          "expr": "sum by(collection)(irate(istio_mcp_request_acks_total{component=\"galley\"}[1m]) * 60)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "",
@@ -17997,7 +18077,7 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(galley_mcp_source_request_nacks_total[1m]) * 60",
+          "expr": "rate(istio_mcp_request_nacks_total{component=\"galley\"}[1m]) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -18104,54 +18184,6 @@ func chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson() (*asset, error) 
 }
 
 var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "5.2.3"
-    },
-    {
-      "type": "panel",
-      "id": "graph",
-      "name": "Graph",
-      "version": "5.0.0"
-    },
-    {
-      "type": "datasource",
-      "id": "prometheus",
-      "name": "Prometheus",
-      "version": "5.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "singlestat",
-      "name": "Singlestat",
-      "version": "5.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "table",
-      "name": "Table",
-      "version": "5.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "text",
-      "name": "Text",
-      "version": "5.0.0"
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -18259,7 +18291,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       ],
       "thresholds": "",
       "title": "Global Request Volume",
-      "transparent": false,
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -18341,7 +18372,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       ],
       "thresholds": "95, 99, 99.5",
       "title": "Global Success Rate (non-5xx responses)",
-      "transparent": false,
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -18423,7 +18453,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       ],
       "thresholds": "",
       "title": "4xxs",
-      "transparent": false,
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -18505,7 +18534,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       ],
       "thresholds": "",
       "title": "5xxs",
-      "transparent": false,
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -18518,6 +18546,331 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "valueName": "avg"
     },
     {
+      "cacheTimeout": null,
+      "colorBackground": false,
+      "colorValue": false,
+      "colors": [
+        "#299c46",
+        "rgba(237, 129, 40, 0.89)",
+        "#d44a3a"
+      ],
+      "format": "none",
+      "gauge": {
+        "maxValue": 100,
+        "minValue": 0,
+        "show": false,
+        "thresholdLabels": false,
+        "thresholdMarkers": true
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 0,
+        "y": 6
+      },
+      "id": 113,
+      "interval": null,
+      "links": [],
+      "mappingType": 1,
+      "mappingTypes": [
+        {
+          "name": "value to text",
+          "value": 1
+        },
+        {
+          "name": "range to text",
+          "value": 2
+        }
+      ],
+      "maxDataPoints": 100,
+      "nullPointMode": "connected",
+      "nullText": null,
+      "postfix": "",
+      "postfixFontSize": "50%",
+      "prefix": "",
+      "prefixFontSize": "50%",
+      "rangeMaps": [
+        {
+          "from": "null",
+          "text": "N/A",
+          "to": "null"
+        }
+      ],
+      "sparkline": {
+        "fillColor": "rgba(31, 118, 189, 0.18)",
+        "full": false,
+        "lineColor": "rgb(31, 120, 193)",
+        "show": true
+      },
+      "tableColumn": "",
+      "targets": [
+        {
+          "expr": "sum(galley_istio_networking_virtualservices) / count(up{job=\"galley\"})",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "A"
+        }
+      ],
+      "thresholds": "",
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Virtual Services",
+      "type": "singlestat",
+      "valueFontSize": "80%",
+      "valueMaps": [
+        {
+          "op": "=",
+          "text": "N/A",
+          "value": "null"
+        }
+      ],
+      "valueName": "current"
+    },
+    {
+      "cacheTimeout": null,
+      "colorBackground": false,
+      "colorValue": false,
+      "colors": [
+        "#299c46",
+        "rgba(237, 129, 40, 0.89)",
+        "#d44a3a"
+      ],
+      "format": "none",
+      "gauge": {
+        "maxValue": 100,
+        "minValue": 0,
+        "show": false,
+        "thresholdLabels": false,
+        "thresholdMarkers": true
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 6,
+        "y": 6
+      },
+      "id": 114,
+      "interval": null,
+      "links": [],
+      "mappingType": 1,
+      "mappingTypes": [
+        {
+          "name": "value to text",
+          "value": 1
+        },
+        {
+          "name": "range to text",
+          "value": 2
+        }
+      ],
+      "maxDataPoints": 100,
+      "nullPointMode": "connected",
+      "nullText": null,
+      "postfix": "",
+      "postfixFontSize": "50%",
+      "prefix": "",
+      "prefixFontSize": "50%",
+      "rangeMaps": [
+        {
+          "from": "null",
+          "text": "N/A",
+          "to": "null"
+        }
+      ],
+      "sparkline": {
+        "fillColor": "rgba(31, 118, 189, 0.18)",
+        "full": false,
+        "lineColor": "rgb(31, 120, 193)",
+        "show": true
+      },
+      "tableColumn": "",
+      "targets": [
+        {
+          "expr": "sum(galley_istio_networking_destinationrules) / count(up{job=\"galley\"})",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "A"
+        }
+      ],
+      "thresholds": "",
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Destination Rules",
+      "type": "singlestat",
+      "valueFontSize": "80%",
+      "valueMaps": [
+        {
+          "op": "=",
+          "text": "N/A",
+          "value": "null"
+        }
+      ],
+      "valueName": "current"
+    },
+    {
+      "cacheTimeout": null,
+      "colorBackground": false,
+      "colorValue": false,
+      "colors": [
+        "#299c46",
+        "rgba(237, 129, 40, 0.89)",
+        "#d44a3a"
+      ],
+      "format": "none",
+      "gauge": {
+        "maxValue": 100,
+        "minValue": 0,
+        "show": false,
+        "thresholdLabels": false,
+        "thresholdMarkers": true
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 6
+      },
+      "id": 115,
+      "interval": null,
+      "links": [],
+      "mappingType": 1,
+      "mappingTypes": [
+        {
+          "name": "value to text",
+          "value": 1
+        },
+        {
+          "name": "range to text",
+          "value": 2
+        }
+      ],
+      "maxDataPoints": 100,
+      "nullPointMode": "connected",
+      "nullText": null,
+      "postfix": "",
+      "postfixFontSize": "50%",
+      "prefix": "",
+      "prefixFontSize": "50%",
+      "rangeMaps": [
+        {
+          "from": "null",
+          "text": "N/A",
+          "to": "null"
+        }
+      ],
+      "sparkline": {
+        "fillColor": "rgba(31, 118, 189, 0.18)",
+        "full": false,
+        "lineColor": "rgb(31, 120, 193)",
+        "show": true
+      },
+      "tableColumn": "",
+      "targets": [
+        {
+          "expr": "sum(galley_istio_networking_gateways) / count(up{job=\"galley\"})",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "A"
+        }
+      ],
+      "thresholds": "",
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Gateways",
+      "type": "singlestat",
+      "valueFontSize": "80%",
+      "valueMaps": [
+        {
+          "op": "=",
+          "text": "N/A",
+          "value": "null"
+        }
+      ],
+      "valueName": "current"
+    },
+    {
+      "cacheTimeout": null,
+      "colorBackground": false,
+      "colorValue": false,
+      "colors": [
+        "#299c46",
+        "rgba(237, 129, 40, 0.89)",
+        "#d44a3a"
+      ],
+      "format": "none",
+      "gauge": {
+        "maxValue": 100,
+        "minValue": 0,
+        "show": false,
+        "thresholdLabels": false,
+        "thresholdMarkers": true
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
+      "id": 116,
+      "interval": null,
+      "links": [],
+      "mappingType": 1,
+      "mappingTypes": [
+        {
+          "name": "value to text",
+          "value": 1
+        },
+        {
+          "name": "range to text",
+          "value": 2
+        }
+      ],
+      "maxDataPoints": 100,
+      "nullPointMode": "connected",
+      "nullText": null,
+      "postfix": "",
+      "postfixFontSize": "50%",
+      "prefix": "",
+      "prefixFontSize": "50%",
+      "rangeMaps": [
+        {
+          "from": "null",
+          "text": "N/A",
+          "to": "null"
+        }
+      ],
+      "sparkline": {
+        "fillColor": "rgba(31, 118, 189, 0.18)",
+        "full": false,
+        "lineColor": "rgb(31, 120, 193)",
+        "show": true
+      },
+      "tableColumn": "",
+      "targets": [
+        {
+          "expr": "sum(galley_istio_authentication_meshpolicies) / count(up{job=\"galley\"})",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "refId": "A"
+        }
+      ],
+      "thresholds": "",
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Authentication Mesh Policies",
+      "type": "singlestat",
+      "valueFontSize": "80%",
+      "valueMaps": [
+        {
+          "op": "=",
+          "text": "N/A",
+          "value": "null"
+        }
+      ],
+      "valueName": "current"
+    },
+    {
       "columns": [],
       "datasource": "Prometheus",
       "fontSize": "100%",
@@ -18525,7 +18878,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "h": 21,
         "w": 24,
         "x": 0,
-        "y": 6
+        "y": 9
       },
       "hideTimeOverride": false,
       "id": 73,
@@ -18757,7 +19110,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "timeFrom": null,
       "title": "HTTP/GRPC Workloads",
       "transform": "table",
-      "transparent": false,
       "type": "table"
     },
     {
@@ -18768,7 +19120,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "h": 18,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 30
       },
       "hideTimeOverride": false,
       "id": 109,
@@ -18925,7 +19277,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "timeFrom": null,
       "title": "TCP Workloads",
       "transform": "table",
-      "transparent": false,
       "type": "table"
     },
     {
@@ -18939,7 +19290,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 45
+        "y": 48
       },
       "id": 111,
       "legend": {
@@ -18976,6 +19327,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Istio Components by Version",
       "tooltip": {
@@ -18983,7 +19335,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "sort": 0,
         "value_type": "individual"
       },
-      "transparent": false,
       "type": "graph",
       "xaxis": {
         "buckets": null,
@@ -19017,7 +19368,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
     }
   ],
   "refresh": "5s",
-  "schemaVersion": 16,
+  "schemaVersion": 18,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -19054,7 +19405,8 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
   },
   "timezone": "browser",
   "title": "Istio Mesh Dashboard",
-  "version": 4
+  "uid": "G8wLrJIZk",
+  "version": 5
 }
 `)
 
