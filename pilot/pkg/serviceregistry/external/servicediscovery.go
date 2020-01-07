@@ -93,10 +93,10 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 				instances := convertInstances(curr, cs)
 				// If only instances have changed, just update the indexes for the changed instances.
 				c.updateExistingInstances(instances)
-				endpointsByHostName := make(map[string][]*model.IstioEndpoint)
+				endpointsByHostname := make(map[string][]*model.IstioEndpoint)
 				for _, instance := range instances {
 					for _, port := range instance.Service.Ports {
-						endpointsByHostName[string(instance.Service.Hostname)] = append(endpointsByHostName[string(instance.Service.Hostname)],
+						endpointsByHostname[string(instance.Service.Hostname)] = append(endpointsByHostname[string(instance.Service.Hostname)],
 							&model.IstioEndpoint{
 								Address:         instance.Endpoint.Address,
 								EndpointPort:    uint32(port.Port),
@@ -115,7 +115,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 					}
 				}
 
-				for host, eps := range endpointsByHostName {
+				for host, eps := range endpointsByHostname {
 					_ = c.XdsUpdater.EDSUpdate(c.Cluster(), host, curr.Namespace, eps)
 				}
 
