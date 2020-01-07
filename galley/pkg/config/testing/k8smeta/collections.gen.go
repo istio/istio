@@ -13,9 +13,10 @@ var (
 
 	// K8SAppsV1Deployments describes the collection k8s/apps/v1/deployments
 	K8SAppsV1Deployments = collection.Builder{
-		Name:     "k8s/apps/v1/deployments",
-		Disabled: false,
-		Schema: resource.Builder{
+		Name:         "k8s/apps/v1/deployments",
+		VariableName: "K8SAppsV1Deployments",
+		Disabled:     false,
+		Resource: resource.Builder{
 			Group:         "apps",
 			Kind:          "Deployment",
 			Plural:        "deployments",
@@ -29,9 +30,10 @@ var (
 
 	// K8SCoreV1Endpoints describes the collection k8s/core/v1/endpoints
 	K8SCoreV1Endpoints = collection.Builder{
-		Name:     "k8s/core/v1/endpoints",
-		Disabled: false,
-		Schema: resource.Builder{
+		Name:         "k8s/core/v1/endpoints",
+		VariableName: "K8SCoreV1Endpoints",
+		Disabled:     false,
+		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Endpoints",
 			Plural:        "endpoints",
@@ -45,9 +47,10 @@ var (
 
 	// K8SCoreV1Namespaces describes the collection k8s/core/v1/namespaces
 	K8SCoreV1Namespaces = collection.Builder{
-		Name:     "k8s/core/v1/namespaces",
-		Disabled: false,
-		Schema: resource.Builder{
+		Name:         "k8s/core/v1/namespaces",
+		VariableName: "K8SCoreV1Namespaces",
+		Disabled:     false,
+		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Namespace",
 			Plural:        "namespaces",
@@ -61,9 +64,10 @@ var (
 
 	// K8SCoreV1Nodes describes the collection k8s/core/v1/nodes
 	K8SCoreV1Nodes = collection.Builder{
-		Name:     "k8s/core/v1/nodes",
-		Disabled: false,
-		Schema: resource.Builder{
+		Name:         "k8s/core/v1/nodes",
+		VariableName: "K8SCoreV1Nodes",
+		Disabled:     false,
+		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Node",
 			Plural:        "nodes",
@@ -77,9 +81,10 @@ var (
 
 	// K8SCoreV1Pods describes the collection k8s/core/v1/pods
 	K8SCoreV1Pods = collection.Builder{
-		Name:     "k8s/core/v1/pods",
-		Disabled: false,
-		Schema: resource.Builder{
+		Name:         "k8s/core/v1/pods",
+		VariableName: "K8SCoreV1Pods",
+		Disabled:     false,
+		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Pod",
 			Plural:        "pods",
@@ -93,9 +98,10 @@ var (
 
 	// K8SCoreV1Services describes the collection k8s/core/v1/services
 	K8SCoreV1Services = collection.Builder{
-		Name:     "k8s/core/v1/services",
-		Disabled: false,
-		Schema: resource.Builder{
+		Name:         "k8s/core/v1/services",
+		VariableName: "K8SCoreV1Services",
+		Disabled:     false,
+		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Service",
 			Plural:        "services",
@@ -110,9 +116,10 @@ var (
 	// K8SExtensionsV1Beta1Ingresses describes the collection
 	// k8s/extensions/v1beta1/ingresses
 	K8SExtensionsV1Beta1Ingresses = collection.Builder{
-		Name:     "k8s/extensions/v1beta1/ingresses",
-		Disabled: false,
-		Schema: resource.Builder{
+		Name:         "k8s/extensions/v1beta1/ingresses",
+		VariableName: "K8SExtensionsV1Beta1Ingresses",
+		Disabled:     false,
+		Resource: resource.Builder{
 			Group:         "extensions",
 			Kind:          "Ingress",
 			Plural:        "ingresses",

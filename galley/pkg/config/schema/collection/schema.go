@@ -27,6 +27,9 @@ type Schema interface {
 	// Name of the collection.
 	Name() Name
 
+	// VariableName is a utility method used to help with codegen. It provides the name of a Schema instance variable.
+	VariableName() string
+
 	// Resource is the schema for resources contained in this collection.
 	Resource() resource.Schema
 
@@ -43,12 +46,10 @@ type Schema interface {
 
 // Config for the creation of a Schema
 type Builder struct {
-	// Schema for the resources contained within the collection.
-	resource.Schema
-
-	// Name of the collection.
-	Name     string
-	Disabled bool
+	Name         string
+	VariableName string
+	Disabled     bool
+	Resource     resource.Schema
 }
 
 // Build a Schema instance.
@@ -56,11 +57,15 @@ func (b Builder) Build() (Schema, error) {
 	if !IsValidName(b.Name) {
 		return nil, fmt.Errorf("invalid collection name: %s", b.Name)
 	}
+	if b.Resource == nil {
+		return nil, fmt.Errorf("collection %s: resource must be non-nil", b.Name)
+	}
 
-	return &immutableSchema{
-		name:     NewName(b.Name),
-		disabled: b.Disabled,
-		Schema:   b.Schema,
+	return &schemaImpl{
+		name:         NewName(b.Name),
+		variableName: b.VariableName,
+		disabled:     b.Disabled,
+		resource:     b.Resource,
 	}, nil
 }
 
@@ -74,30 +79,35 @@ func (b Builder) MustBuild() Schema {
 	return s
 }
 
-type immutableSchema struct {
-	resource.Schema
-	name     Name
-	disabled bool
+type schemaImpl struct {
+	resource     resource.Schema
+	name         Name
+	variableName string
+	disabled     bool
 }
 
 // String interface method implementation.
-func (s *immutableSchema) String() string {
-	return fmt.Sprintf("[Schema](%s, %q, %s)", s.name, s.ProtoPackage(), s.Proto())
+func (s *schemaImpl) String() string {
+	return fmt.Sprintf("[Schema](%s, %q, %s)", s.name, s.resource.ProtoPackage(), s.resource.Proto())
 }
 
-func (s *immutableSchema) Name() Name {
+func (s *schemaImpl) Name() Name {
 	return s.name
 }
 
-func (s *immutableSchema) Resource() resource.Schema {
-	return s.Schema
+func (s *schemaImpl) VariableName() string {
+	return s.variableName
 }
 
-func (s *immutableSchema) IsDisabled() bool {
+func (s *schemaImpl) Resource() resource.Schema {
+	return s.resource
+}
+
+func (s *schemaImpl) IsDisabled() bool {
 	return s.disabled
 }
 
-func (s *immutableSchema) Disable() Schema {
+func (s *schemaImpl) Disable() Schema {
 	if s.disabled {
 		return s
 	}
@@ -107,7 +117,7 @@ func (s *immutableSchema) Disable() Schema {
 	return &cpy
 }
 
-func (s *immutableSchema) Equal(o Schema) bool {
+func (s *schemaImpl) Equal(o Schema) bool {
 	return s.name == o.Name() &&
 		s.disabled == o.IsDisabled() &&
 		s.Resource().Equal(o.Resource())

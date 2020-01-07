@@ -75,14 +75,16 @@ func (t Providers) RequiredInputsFor(outputs collection.Names) map[collection.Na
 	// For each transform, map output to inputs
 	outToIn := make(map[collection.Name]map[collection.Name]struct{})
 	for _, xfp := range t {
-		for _, out := range xfp.Outputs().All() {
+		xfp.Outputs().ForEach(func(out collection.Schema) (outDone bool) {
 			if _, ok := outToIn[out.Name()]; !ok {
 				outToIn[out.Name()] = make(map[collection.Name]struct{})
 			}
-			for _, in := range xfp.Inputs().All() {
+			xfp.Inputs().ForEach(func(in collection.Schema) (inDone bool) {
 				outToIn[out.Name()][in.Name()] = struct{}{}
-			}
-		}
+				return
+			})
+			return
+		})
 	}
 
 	// 2. For each input collection, get its inputs using the above mapping and include them in the output set

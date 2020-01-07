@@ -77,14 +77,14 @@ transforms:
 					b := collection.NewSchemasBuilder()
 					b.MustAdd(
 						collection.Builder{
-							Name:   "k8s/networking.istio.io/v1alpha3/virtualservices",
-							Schema: virtualServiceResource,
+							Name:     "k8s/networking.istio.io/v1alpha3/virtualservices",
+							Resource: virtualServiceResource,
 						}.MustBuild(),
 					)
 					b.MustAdd(
 						collection.Builder{
-							Name:   "istio/networking.istio.io/v1alpha3/virtualservices",
-							Schema: virtualServiceResource,
+							Name:     "istio/networking.istio.io/v1alpha3/virtualservices",
+							Resource: virtualServiceResource,
 						}.MustBuild(),
 					)
 					return b.Build()
@@ -93,8 +93,8 @@ transforms:
 					b := collection.NewSchemasBuilder()
 					b.MustAdd(
 						collection.Builder{
-							Name:   "k8s/networking.istio.io/v1alpha3/virtualservices",
-							Schema: virtualServiceResource,
+							Name:     "k8s/networking.istio.io/v1alpha3/virtualservices",
+							Resource: virtualServiceResource,
 						}.MustBuild(),
 					)
 					return b.Build()
@@ -306,11 +306,11 @@ func TestSchemaBasic(t *testing.T) {
 
 	b := collection.NewSchemasBuilder()
 	b.MustAdd(collection.Builder{
-		Name:   "k8s/networking.istio.io/v1alpha3/virtualservices",
-		Schema: virtualServiceResource,
+		Name:     "k8s/networking.istio.io/v1alpha3/virtualservices",
+		Resource: virtualServiceResource,
 	}.MustBuild())
 	b.MustAdd(collection.Builder{Name: "istio/networking.istio.io/v1alpha3/virtualservices",
-		Schema: virtualServiceResource,
+		Resource: virtualServiceResource,
 	}.MustBuild())
 	fixtures.ExpectEqual(t, s.AllCollections(), b.Build())
 	g.Expect(s.AllCollectionsInSnapshots([]string{"default"})).To(ConsistOf("istio/networking.istio.io/v1alpha3/virtualservices"))
@@ -337,8 +337,8 @@ func TestSchemaBasic(t *testing.T) {
 
 	fixtures.ExpectEqual(t, s.KubeCollections().All(), []collection.Schema{
 		collection.Builder{
-			Name:   "k8s/networking.istio.io/v1alpha3/virtualservices",
-			Schema: virtualServiceResource,
+			Name:     "k8s/networking.istio.io/v1alpha3/virtualservices",
+			Resource: virtualServiceResource,
 		}.MustBuild(),
 	})
 

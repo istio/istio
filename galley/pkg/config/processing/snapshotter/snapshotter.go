@@ -129,11 +129,12 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) (*Sn
 	}
 
 	for _, xform := range xforms {
-		for _, i := range xform.Inputs().All() {
+		xform.Inputs().ForEach(func(i collection.Schema) (done bool) {
 			s.selector = event.AddToRouter(s.selector, i, xform)
-		}
+			return
+		})
 
-		for _, o := range xform.Outputs().All() {
+		xform.Outputs().ForEach(func(o collection.Schema) (done bool) {
 			a, found := s.accumulators[o.Name()]
 			if !found {
 				a = &accumulator{
@@ -143,7 +144,8 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) (*Sn
 			}
 			a.reqSyncCount++
 			xform.DispatchFor(o, a)
-		}
+			return
+		})
 	}
 
 	for _, o := range settings {

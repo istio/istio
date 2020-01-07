@@ -45,7 +45,7 @@ func (p *Provider) getDynamicAdapter(r resource.Schema) *Adapter {
 				return nil, fmt.Errorf("extractResource: not unstructured: %v", o)
 			}
 
-			pr := r.NewProtoInstance()
+			pr := r.MustNewProtoInstance()
 			if err := pb.UnmarshalData(pr, u.Object["spec"]); err != nil {
 				return nil, err
 			}
