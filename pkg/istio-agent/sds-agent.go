@@ -256,9 +256,9 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 			string(tok))
 		if err != nil {
 			if fail {
-				log.Fatala("Failed to get certificates", err)
+				log.Fatalf("Failed to get certificates: %v", err)
 			} else {
-				log.Warna("Failed to get certificate from CA", err)
+				log.Warnf("Failed to get certificate from CA: %v", err)
 			}
 		} else {
 			log.Infoa("Got initial certificate valid until ", si.ExpireTime)
@@ -280,9 +280,9 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 			string(tok))
 		if err != nil {
 			if fail {
-				log.Fatala("Failed to get certificates", err)
+				log.Fatalf("Failed to get certificates: %v", err)
 			} else {
-				log.Warna("Failed to get certificate from CA", err)
+				log.Warnf("Failed to get certificate from CA: %v ", err)
 			}
 		}
 		if sir != nil {
@@ -339,7 +339,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 		if _, err := os.Stat(mountedRoot); err == nil {
 			rootCert, err = ioutil.ReadFile(mountedRoot)
 			if err != nil {
-				log.Warna("Failed to load existing citadel root", err)
+				log.Warnf("Failed to load existing citadel root: %v", err)
 			} else {
 				explicitSecret = true
 			}
@@ -355,7 +355,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			} else {
 				rootCert, err = ioutil.ReadFile(k8sCAPath)
 				if err != nil {
-					log.Warna("Failed to load K8S cert, assume IP secure network ", err)
+					log.Warnf("Failed to load K8S cert, assume IP secure network: %v", err)
 					serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
 				} else {
 					log.Info("Using default istiod CA, with K8S certificates for SDS")
@@ -364,7 +364,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			}
 		} else {
 			// Explicitly configured CA
-			log.Infoa("Using user-configured CA", serverOptions.CAEndpoint)
+			log.Infoa("Using user-configured CA ", serverOptions.CAEndpoint)
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15010") {
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
@@ -372,7 +372,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
 				rootCert, err = ioutil.ReadFile(k8sCAPath)
 				if err != nil {
-					log.Fatala("Invalid config - port 15012 expects a K8S-signed certificate but certs missing", err)
+					log.Fatalf("Invalid config - port 15012 expects a K8S-signed certificate but certs missing: %v", err)
 				}
 			}
 		}

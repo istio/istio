@@ -25,9 +25,10 @@ import (
 	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	resource2 "istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/testing/data"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
@@ -72,17 +73,17 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 
 	u := &updaterMock{}
 	a := &analyzerMock{
-		collectionToAccess: data.K8SCollection1,
+		collectionToAccess: basicmeta.K8SCollection1.Name(),
 		resourcesToReport: []*resource.Instance{
 			{
 				Origin: &rt.Origin{
-					Collection: data.K8SCollection1,
+					Collection: basicmeta.K8SCollection1.Name(),
 					FullName:   resource.NewFullName("includedNamespace", "r1"),
 				},
 			},
 			{
 				Origin: &rt.Origin{
-					Collection: data.K8SCollection1,
+					Collection: basicmeta.K8SCollection1.Name(),
 					FullName:   resource.NewFullName("excludedNamespace", "r2"),
 				},
 			},
@@ -106,9 +107,14 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	}
 	ad := NewAnalyzingDistributor(settings)
 
-	sDefault := getTestSnapshot("a", "b")
-	sSynthetic := getTestSnapshot("c")
-	sOther := getTestSnapshot("a", "d")
+	schemaA := newSchema("a")
+	schemaB := newSchema("b")
+	schemaC := newSchema("c")
+	schemaD := newSchema("d")
+
+	sDefault := getTestSnapshot(schemaA, schemaB)
+	sSynthetic := getTestSnapshot(schemaC)
+	sOther := getTestSnapshot(schemaA, schemaD)
 
 	ad.Distribute(snapshots.SyntheticServiceEntry, sSynthetic)
 	ad.Distribute(snapshots.Default, sDefault)
@@ -120,7 +126,7 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot("other") }).Should(Equal(sOther))
 
 	// Assert we triggered analysis only once, with the expected combination of snapshots
-	sCombined := getTestSnapshot("a", "b", "c")
+	sCombined := getTestSnapshot(schemaA, schemaB, schemaC)
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sCombined))
 
 	// Verify the collection reporter hook was called
@@ -138,7 +144,7 @@ func TestAnalyzeNamespaceMessageHasNoOrigin(t *testing.T) {
 
 	u := &updaterMock{}
 	a := &analyzerMock{
-		collectionToAccess: data.K8SCollection1,
+		collectionToAccess: basicmeta.K8SCollection1.Name(),
 		resourcesToReport: []*resource.Instance{
 			{},
 		},
@@ -168,7 +174,7 @@ func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
 
 	u := &updaterMock{}
 	a := &analyzerMock{
-		collectionToAccess: data.K8SCollection1,
+		collectionToAccess: basicmeta.K8SCollection1.Name(),
 		resourcesToReport: []*resource.Instance{
 			{
 				Origin: fakeOrigin{
@@ -204,15 +210,15 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 
 	u := &updaterMock{}
 	o1 := &rt.Origin{
-		Collection: data.K8SCollection1,
+		Collection: basicmeta.K8SCollection1.Name(),
 		FullName:   resource.NewFullName("includedNamespace", "r2"),
 	}
 	o2 := &rt.Origin{
-		Collection: data.K8SCollection1,
+		Collection: basicmeta.K8SCollection1.Name(),
 		FullName:   resource.NewFullName("includedNamespace", "r1"),
 	}
 	a := &analyzerMock{
-		collectionToAccess: data.K8SCollection1,
+		collectionToAccess: basicmeta.K8SCollection1.Name(),
 		resourcesToReport: []*resource.Instance{
 			{Origin: o1},
 			{Origin: o2},
@@ -246,17 +252,17 @@ func TestAnalyzeSuppressesMessages(t *testing.T) {
 
 	u := &updaterMock{}
 	o1 := &rt.Origin{
-		Collection: data.K8SCollection1,
+		Collection: basicmeta.K8SCollection1.Name(),
 		Kind:       "foobar",
 		FullName:   resource.NewFullName("includedNamespace", "r2"),
 	}
 	o2 := &rt.Origin{
-		Collection: data.K8SCollection1,
+		Collection: basicmeta.K8SCollection1.Name(),
 		Kind:       "foobar",
 		FullName:   resource.NewFullName("includedNamespace", "r1"),
 	}
 	a := &analyzerMock{
-		collectionToAccess: data.K8SCollection1,
+		collectionToAccess: basicmeta.K8SCollection1.Name(),
 		resourcesToReport: []*resource.Instance{
 			{Origin: o1},
 			{Origin: o2},
@@ -295,22 +301,22 @@ func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
 	u := &updaterMock{}
 	// o1 and o2 have the same prefix, but o3 does not
 	o1 := &rt.Origin{
-		Collection: data.K8SCollection1,
+		Collection: basicmeta.K8SCollection1.Name(),
 		Kind:       "foobar",
 		FullName:   resource.NewFullName("includedNamespace", "r2"),
 	}
 	o2 := &rt.Origin{
-		Collection: data.K8SCollection1,
+		Collection: basicmeta.K8SCollection1.Name(),
 		Kind:       "foobar",
 		FullName:   resource.NewFullName("includedNamespace", "r1"),
 	}
 	o3 := &rt.Origin{
-		Collection: data.K8SCollection1,
+		Collection: basicmeta.K8SCollection1.Name(),
 		Kind:       "foobar",
 		FullName:   resource.NewFullName("includedNamespace", "x1"),
 	}
 	a := &analyzerMock{
-		collectionToAccess: data.K8SCollection1,
+		collectionToAccess: basicmeta.K8SCollection1.Name(),
 		resourcesToReport: []*resource.Instance{
 			{Origin: o1},
 			{Origin: o2},
@@ -344,14 +350,25 @@ func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
 	g.Expect(u.messages[0].Origin).To(Equal(o3))
 }
 
-func getTestSnapshot(names ...string) *Snapshot {
+func getTestSnapshot(schemas ...collection.Schema) *Snapshot {
 	c := make([]*coll.Instance, 0)
-	for _, name := range names {
-		c = append(c, coll.New(collection.NewName(name)))
+	for _, s := range schemas {
+		c = append(c, coll.New(s))
 	}
 	return &Snapshot{
 		set: coll.NewSetFromCollections(c),
 	}
+}
+
+func newSchema(name string) collection.Schema {
+	return collection.Builder{
+		Name: name,
+		Schema: resource2.Builder{
+			Kind:         name,
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.MustBuild(),
+	}.MustBuild()
 }
 
 var _ resource.Origin = fakeOrigin{}

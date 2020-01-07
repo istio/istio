@@ -22,10 +22,13 @@ import (
 
 // Schema for a collection.
 type Schema interface {
-	resource.Schema
+	fmt.Stringer
 
 	// Name of the collection.
 	Name() Name
+
+	// Resource is the schema for resources contained in this collection.
+	Resource() resource.Schema
 
 	// IsDisabled indicates whether or not this collection is disabled.
 	IsDisabled() bool
@@ -65,7 +68,7 @@ func (b Builder) Build() (Schema, error) {
 func (b Builder) MustBuild() Schema {
 	s, err := b.Build()
 	if err != nil {
-		panic(fmt.Sprintf("MustNewSchema: %v", err))
+		panic(fmt.Sprintf("MustBuild: %v", err))
 	}
 
 	return s
@@ -86,6 +89,10 @@ func (s *immutableSchema) Name() Name {
 	return s.name
 }
 
+func (s *immutableSchema) Resource() resource.Schema {
+	return s.Schema
+}
+
 func (s *immutableSchema) IsDisabled() bool {
 	return s.disabled
 }
@@ -103,11 +110,5 @@ func (s *immutableSchema) Disable() Schema {
 func (s *immutableSchema) Equal(o Schema) bool {
 	return s.name == o.Name() &&
 		s.disabled == o.IsDisabled() &&
-		s.IsClusterScoped() == o.IsClusterScoped() &&
-		s.Kind() == o.Kind() &&
-		s.Plural() == o.Plural() &&
-		s.Group() == o.Group() &&
-		s.Version() == o.Version() &&
-		s.Proto() == o.Proto() &&
-		s.ProtoPackage() == o.ProtoPackage()
+		s.Resource().Equal(o.Resource())
 }

@@ -30,9 +30,10 @@ func TestSchemas_Basic(t *testing.T) {
 	s := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 	err := b.Add(s)
 	g.Expect(err).To(BeNil())
@@ -53,9 +54,10 @@ func TestSchemas_MustAdd(t *testing.T) {
 	s := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 	b.MustAdd(s)
 }
@@ -71,9 +73,10 @@ func TestSchemas_MustRegister_Panic(t *testing.T) {
 	s := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 	b.MustAdd(s)
 	b.MustAdd(s)
@@ -86,9 +89,10 @@ func TestSchemasBuilder_Remove(t *testing.T) {
 	s := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 	b.MustAdd(s)
 
@@ -104,9 +108,10 @@ func TestSchemasBuilder_RemoveSpecs(t *testing.T) {
 	s := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	b1 := NewSchemasBuilder()
@@ -128,9 +133,10 @@ func TestSchemas_Find(t *testing.T) {
 	s := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	b.MustAdd(s)
@@ -156,9 +162,10 @@ func TestSchemas_MustFind(t *testing.T) {
 	s := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	b.MustAdd(s)
@@ -180,9 +187,10 @@ func TestSchemas_MustFind_Panic(t *testing.T) {
 	s := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	b.MustAdd(s)
@@ -202,7 +210,7 @@ func TestSchema_FindByGroupAndKind(t *testing.T) {
 			Proto:        "google.protobuf.Empty",
 			Group:        "mygroup",
 			Kind:         "Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	b.MustAdd(s)
@@ -227,7 +235,7 @@ func TestSchema_MustFind(t *testing.T) {
 			Proto:        "google.protobuf.Empty",
 			Group:        "mygroup",
 			Kind:         "Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	b.MustAdd(s)
@@ -256,16 +264,18 @@ func TestSchemas_CollectionNames(t *testing.T) {
 	s1 := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 	s2 := Builder{
 		Name: "bar",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 	b.MustAdd(s1)
 	b.MustAdd(s2)
@@ -282,16 +292,18 @@ func TestSchemas_Validate(t *testing.T) {
 	s1 := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 	s2 := Builder{
 		Name: "bar",
 		Schema: resource.Builder{
+			Kind:         "Empty",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 	b.MustAdd(s1)
 	b.MustAdd(s2)
@@ -307,9 +319,10 @@ func TestSchemas_Validate_Error(t *testing.T) {
 	s1 := Builder{
 		Name: "foo",
 		Schema: resource.Builder{
+			Kind:         "Zoo",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "zoo",
-		}.Build(),
+		}.BuildNoValidate(),
 	}.MustBuild()
 	b.MustAdd(s1)
 

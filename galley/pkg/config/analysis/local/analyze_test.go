@@ -84,8 +84,8 @@ func TestAnalyzersRun(t *testing.T) {
 	m := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Exists(data.K8SCollection1, resource.NewFullName("", ""))
-			ctx.Report(data.K8SCollection1, m)
+			ctx.Exists(basicmeta.K8SCollection1.Name(), resource.NewFullName("", ""))
+			ctx.Report(basicmeta.K8SCollection1.Name(), m)
 		},
 	}
 
@@ -101,7 +101,7 @@ func TestAnalyzersRun(t *testing.T) {
 	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
 	g.Expect(result.Messages).To(ConsistOf(m))
-	g.Expect(collectionAccessed).To(Equal(data.K8SCollection1))
+	g.Expect(collectionAccessed).To(Equal(basicmeta.K8SCollection1.Name()))
 	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
 
@@ -116,8 +116,8 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	msg2 := msg.NewInternalError(r2, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Report(data.K8SCollection1, msg1)
-			ctx.Report(data.K8SCollection1, msg2)
+			ctx.Report(basicmeta.K8SCollection1.Name(), msg1)
+			ctx.Report(basicmeta.K8SCollection1.Name(), msg2)
 		},
 	}
 

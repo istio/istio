@@ -41,7 +41,7 @@ var (
 			Version: "v1beta1",
 			Plural:  "customresourcedefinitions",
 			Kind:    "CustomResourceDefinition",
-		}.Build(),
+		}.BuildNoValidate(),
 	}.MustBuild()
 )
 
@@ -117,7 +117,7 @@ func (s *Source) Start() {
 	s.expectedResources = make(map[string]collection.Schema)
 	s.foundResources = make(map[string]bool)
 	for _, r := range s.options.Schemas.All() {
-		key := asKey(r.Group(), r.Kind())
+		key := asKey(r.Resource().Group(), r.Resource().Kind())
 		s.expectedResources[key] = r
 	}
 	// Releasing the lock here to avoid deadlock on crdWatcher between the existing one and a newly started one.
@@ -126,7 +126,7 @@ func (s *Source) Start() {
 	// Start the CRD listener. When the listener is fully-synced, the listening of actual resources will start.
 	scope.Source.Infof("Beginning CRD Discovery, to figure out resources that are available...")
 	s.provider = rt.NewProvider(s.options.Client, s.options.ResyncPeriod)
-	a := s.provider.GetAdapter(crdKubeResource)
+	a := s.provider.GetAdapter(crdKubeResource.Resource())
 	s.crdWatcher = newWatcher(crdKubeResource, a, s.statusCtl)
 	s.crdWatcher.dispatch(event.HandlerFromFn(s.onCrdEvent))
 	s.crdWatcher.start()
@@ -157,7 +157,7 @@ func (s *Source) onCrdEvent(e event.Event) {
 		key := asKey(g, k)
 		r, ok := s.expectedResources[key]
 		if ok {
-			scope.Source.Debugf("Marking resource as available: %v", r.CanonicalResourceName())
+			scope.Source.Debugf("Marking resource as available: %v", r.Resource().CanonicalName())
 			s.foundResources[key] = true
 			s.expectedResources[key] = r
 		}
@@ -187,18 +187,18 @@ func (s *Source) startWatchers() {
 	}
 
 	sort.Slice(resources, func(i, j int) bool {
-		return strings.Compare(resources[i].CanonicalResourceName(), resources[j].CanonicalResourceName()) < 0
+		return strings.Compare(resources[i].Resource().CanonicalName(), resources[j].Resource().CanonicalName()) < 0
 	})
 
 	scope.Source.Info("Creating watchers for Kubernetes CRDs")
 	s.watchers = make(map[collection.Name]*watcher)
 	for i, r := range resources {
-		a := s.provider.GetAdapter(r)
+		a := s.provider.GetAdapter(r.Resource())
 
-		found := s.foundResources[asKey(r.Group(), r.Kind())]
+		found := s.foundResources[asKey(r.Resource().Group(), r.Resource().Kind())]
 
 		scope.Source.Infof("[%d]", i)
-		scope.Source.Infof("  Source:       %s", r.CanonicalResourceName())
+		scope.Source.Infof("  Source:       %s", r.Resource().CanonicalName())
 		scope.Source.Infof("  Name:  		 %s", r.Name())
 		scope.Source.Infof("  Built-in:     %v", a.IsBuiltIn())
 		scope.Source.Infof("  Disabled:     %v", r.IsDisabled())
@@ -210,7 +210,7 @@ func (s *Source) startWatchers() {
 		// For everything else, create a watcher.
 		if (!a.IsBuiltIn() && !found) || r.IsDisabled() {
 			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Name())
-			s.handlers.Handle(event.FullSyncFor(r.Name()))
+			s.handlers.Handle(event.FullSyncFor(r))
 		} else {
 			col := newWatcher(r, a, s.statusCtl)
 			col.dispatch(s.handlers)

@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
@@ -31,13 +32,13 @@ import (
 func TestCollection_Start_Empty(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	col := NewCollection(data.K8SCollection1)
+	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
 	col.Start()
 
-	expected := []event.Event{event.FullSyncFor(data.K8SCollection1)}
+	expected := []event.Event{event.FullSyncFor(basicmeta.K8SCollection1)}
 	actual := acc.Events()
 	g.Expect(actual).To(Equal(expected))
 }
@@ -51,14 +52,14 @@ func TestCollection_Start_Element(t *testing.T) {
 	}()
 	scope.Source.SetOutputLevel(log.DebugLevel)
 
-	col := NewCollection(data.K8SCollection1)
+	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
 	col.Set(data.Event1Col1AddItem1.Resource)
 	col.Start()
 
-	expected := []event.Event{data.Event1Col1AddItem1, event.FullSyncFor(data.K8SCollection1)}
+	expected := []event.Event{data.Event1Col1AddItem1, event.FullSyncFor(basicmeta.K8SCollection1)}
 	actual := acc.Events()
 	g.Expect(actual).To(Equal(expected))
 }
@@ -66,7 +67,7 @@ func TestCollection_Start_Element(t *testing.T) {
 func TestCollection_Update(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	col := NewCollection(data.K8SCollection1)
+	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
@@ -77,7 +78,7 @@ func TestCollection_Update(t *testing.T) {
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
-		event.FullSyncFor(data.K8SCollection1),
+		event.FullSyncFor(basicmeta.K8SCollection1),
 		data.Event1Col1UpdateItem1}
 
 	actual := acc.Events()
@@ -87,7 +88,7 @@ func TestCollection_Update(t *testing.T) {
 func TestCollection_Delete(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	col := NewCollection(data.K8SCollection1)
+	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
@@ -98,7 +99,7 @@ func TestCollection_Delete(t *testing.T) {
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
-		event.FullSyncFor(data.K8SCollection1),
+		event.FullSyncFor(basicmeta.K8SCollection1),
 		data.Event1Col1DeleteItem1}
 
 	actual := acc.Events()
@@ -108,7 +109,7 @@ func TestCollection_Delete(t *testing.T) {
 func TestCollection_Delete_NoItem(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	col := NewCollection(data.K8SCollection1)
+	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
@@ -119,7 +120,7 @@ func TestCollection_Delete_NoItem(t *testing.T) {
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
-		event.FullSyncFor(data.K8SCollection1)}
+		event.FullSyncFor(basicmeta.K8SCollection1)}
 
 	actual := acc.Events()
 	g.Expect(actual).To(Equal(expected))
@@ -128,7 +129,7 @@ func TestCollection_Delete_NoItem(t *testing.T) {
 func TestCollection_Clear_BeforeStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	col := NewCollection(data.K8SCollection1)
+	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
@@ -138,7 +139,7 @@ func TestCollection_Clear_BeforeStart(t *testing.T) {
 
 	col.Start()
 
-	expected := []event.Event{event.FullSyncFor(data.K8SCollection1)}
+	expected := []event.Event{event.FullSyncFor(basicmeta.K8SCollection1)}
 	actual := acc.Events()
 	g.Expect(actual).To(Equal(expected))
 }
@@ -146,7 +147,7 @@ func TestCollection_Clear_BeforeStart(t *testing.T) {
 func TestCollection_Clear_AfterStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	col := NewCollection(data.K8SCollection1)
+	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
@@ -158,7 +159,7 @@ func TestCollection_Clear_AfterStart(t *testing.T) {
 	expected := []interface{}{
 		data.Event1Col1AddItem1,
 		data.Event2Col1AddItem2,
-		event.FullSyncFor(data.K8SCollection1),
+		event.FullSyncFor(basicmeta.K8SCollection1),
 		data.Event1Col1DeleteItem1,
 		data.Event1Col1DeleteItem2,
 	}
@@ -170,7 +171,7 @@ func TestCollection_Clear_AfterStart(t *testing.T) {
 func TestCollection_StopStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	col := NewCollection(data.K8SCollection1)
+	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
@@ -179,7 +180,7 @@ func TestCollection_StopStart(t *testing.T) {
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
-		event.FullSyncFor(data.K8SCollection1)}
+		event.FullSyncFor(basicmeta.K8SCollection1)}
 
 	g.Eventually(acc.Events).Should(Equal(expected))
 
@@ -193,7 +194,7 @@ func TestCollection_StopStart(t *testing.T) {
 func TestCollection_AllSorted(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	col := NewCollection(data.K8SCollection1)
+	col := NewCollection(basicmeta.K8SCollection1)
 
 	col.Set(data.EntryN1I1V1)
 	col.Set(data.EntryN2I2V2)

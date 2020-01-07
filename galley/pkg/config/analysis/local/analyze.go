@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube"
@@ -134,7 +135,12 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	// Create a source representing mesh config. There should be exactly one of these.
 	meshsrc := meshcfg.NewInmemory()
 	meshsrc.Set(sa.meshCfg)
-	sa.sources = append(sa.sources, precedenceSourceInput{src: meshsrc, cols: collection.Names{meshcfg.IstioMeshconfig}})
+	sa.sources = append(sa.sources, precedenceSourceInput{
+		src: meshsrc,
+		cols: collection.Names{
+			collections.IstioMeshV1Alpha1MeshConfig.Name(),
+		},
+	})
 
 	var namespaces []resource.Namespace
 	if sa.namespace != "" {
