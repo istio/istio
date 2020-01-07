@@ -74,7 +74,7 @@ var (
 		cmd.DefaultMaxWorkloadCertTTL,
 		"The max TTL of issued workload certificates.")
 
-	selfSignedCACertTTL = env.RegisterDurationVar("CITADEL_SELF_SIGNED_CA_CERT_TTL",
+	SelfSignedCACertTTL = env.RegisterDurationVar("CITADEL_SELF_SIGNED_CA_CERT_TTL",
 		cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate.")
 
@@ -191,6 +191,8 @@ func (s *Server) RunCA(grpc *grpc.Server, opts *CAOptions, stopCh <-chan struct{
 		log.Warnf("Failed to start GRPC server with error: %v", serverErr)
 	}
 	log.Info("Istiod CA has started")
+
+	s.ca = ca
 
 	nc, err := NewNamespaceController(ca, s.kubeClient.CoreV1())
 	if err != nil {
@@ -348,10 +350,13 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.Is
 
 		// readSigningCertOnly set to false - it doesn't seem to be used in Citadel, nor do we have a way
 		// to set it only for one job.
+		// maxCertTTL in NewSelfSignedIstioCAOptions() is set to be the same as
+		// SelfSignedCACertTTL because the istiod certificate issued by Citadel
+		// will have a TTL equal to SelfSignedCACertTTL.
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
-			selfSignedRootCertGracePeriodPercentile.Get(), selfSignedCACertTTL.Get(),
+			selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
+			SelfSignedCACertTTL.Get(), opts.TrustDomain, true,
 			opts.Namespace, -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
