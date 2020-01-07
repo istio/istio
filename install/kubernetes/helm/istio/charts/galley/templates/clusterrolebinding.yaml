@@ -15,23 +15,3 @@ subjects:
   - kind: ServiceAccount
     name: istio-galley-service-account
     namespace: {{ .Release.Namespace }}
-{{- if .Values.enableAnalysis }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-galley-analysis-role-binding-{{ .Release.Namespace }}
-  labels:
-    app: {{ template "galley.name" . }}
-    chart: {{ template "galley.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-analyze
-subjects:
-  - kind: ServiceAccount
-    name: istio-galley-service-account
-    namespace: {{ .Release.Namespace }}
-{{- end }}
