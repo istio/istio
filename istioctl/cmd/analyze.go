@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"os"
 	"runtime"
@@ -153,10 +154,24 @@ istioctl analyze -L
 				if len(parts) != 2 {
 					return fmt.Errorf("%s is not a valid suppression value. See istioctl analyze --help", s)
 				}
-				suppressions = append(suppressions, snapshotter.AnalysisSuppression{
-					Code:         parts[0],
-					ResourceName: parts[1],
-				})
+				// Check to see if the supplied code is valid. If not, emit a
+				// warning but continue.
+				codeIsValid := false
+				for _, at := range msg.All() {
+					if at.Code() == parts[0] {
+						codeIsValid = true
+						break
+					}
+				}
+
+				if !codeIsValid {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Supplied message code '%s' is an unknown message code and will be ignored.\n", parts[0])
+				} else {
+					suppressions = append(suppressions, snapshotter.AnalysisSuppression{
+						Code:         parts[0],
+						ResourceName: parts[1],
+					})
+				}
 			}
 			sa.SetSuppressions(suppressions)
 
