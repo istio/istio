@@ -37,9 +37,9 @@ const (
 	// for every namespace. This value must be configured so Citadel
 	// can update its CA certificate in a ConfigMap in every namespace.
 	namespaceResyncPeriod = time.Second * 30
-	// The name of the ConfigMap in each namespace storing the CA cert of self-signed CA.
-	CACertNamespaceConfigMap = "istio-ca-namespace"
-	// The data name in the ConfigMap of each namespace storing the CA cert of self-signed CA.
+	// The name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
+	CACertNamespaceConfigMap = "istio-ca-root-cert"
+	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMapDataName = "ca-cert-ns.pem"
 	CACertNamespaceInsertInterval    = time.Second
 	CACertNamespaceInsertTimeout     = time.Second * 2
