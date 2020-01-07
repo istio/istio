@@ -101,13 +101,13 @@ type Options struct {
 }
 
 // String produces a stringified version of the arguments for debugging.
-func (p *Options) String() string {
+func (o Options) String() string {
 	buf := &bytes.Buffer{}
 
-	fmt.Fprintf(buf, "DomainSuffix: %s\n", p.DomainSuffix)
-	fmt.Fprintf(buf, "Port: %d\n", p.Port)
-	fmt.Fprintf(buf, "CertFile: %s\n", p.CertFile)
-	fmt.Fprintf(buf, "KeyFile: %s\n", p.KeyFile)
+	fmt.Fprintf(buf, "DomainSuffix: %s\n", o.DomainSuffix)
+	fmt.Fprintf(buf, "Port: %d\n", o.Port)
+	fmt.Fprintf(buf, "CertFile: %s\n", o.CertFile)
+	fmt.Fprintf(buf, "KeyFile: %s\n", o.KeyFile)
 
 	return buf.String()
 }
@@ -488,21 +488,16 @@ func validatePort(port int) error {
 }
 
 // Validate tests if the Options has valid params.
-func (p *Options) Validate() error {
-	if p == nil {
-		return errors.New("nil Options")
-	}
-
+func (o Options) Validate() error {
 	var errs *multierror.Error
-	if len(p.CertFile) == 0 {
+	if len(o.CertFile) == 0 {
 		errs = multierror.Append(errs, errors.New("cert file not specified"))
 	}
-	if len(p.KeyFile) == 0 {
+	if len(o.KeyFile) == 0 {
 		errs = multierror.Append(errs, errors.New("key file not specified"))
 	}
-	if err := validatePort(int(p.Port)); err != nil {
+	if err := validatePort(int(o.Port)); err != nil {
 		errs = multierror.Append(errs, err)
 	}
-
 	return errs.ErrorOrNil()
 }

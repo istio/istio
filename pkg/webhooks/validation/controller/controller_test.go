@@ -203,15 +203,14 @@ const (
 func createTestController(t *testing.T) *fakeController {
 	fakeClient := fake.NewSimpleClientset()
 	o := Options{
-		WatchedNamespace:     namespace,
-		ResyncPeriod:         time.Minute,
-		CAPath:               caPath,
-		WebhookConfigName:    galleyWebhookName,
-		WebhookConfigPath:    configPath,
-		ServiceName:          istiod,
-		Client:               fakeClient,
-		GalleyDeploymentName: galleyDeploymentName,
-		ClusterRoleName:      istiodClusterRole,
+		WatchedNamespace:      namespace,
+		ResyncPeriod:          time.Minute,
+		CAPath:                caPath,
+		WebhookConfigName:     galleyWebhookName,
+		WebhookConfigPath:     configPath,
+		ServiceName:           istiod,
+		DeferToDeploymentName: galleyDeploymentName,
+		ClusterRoleName:       istiodClusterRole,
 	}
 
 	caChanged := make(chan bool, 10)
@@ -259,7 +258,7 @@ func createTestController(t *testing.T) *fakeController {
 	}
 
 	var err error
-	fc.Controller, err = newController(o, newFileWatcher, readFile, reconcileDone)
+	fc.Controller, err = newController(o, fakeClient, newFileWatcher, readFile, reconcileDone)
 	if err != nil {
 		t.Fatalf("failed to create test controller: %v", err)
 	}
@@ -274,15 +273,15 @@ func createTestController(t *testing.T) *fakeController {
 }
 
 func (fc *fakeController) ValidatingWebhookConfigurations() kubeTypedAdmission.ValidatingWebhookConfigurationInterface {
-	return fc.o.Client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+	return fc.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 }
 
 func (fc *fakeController) Endpoints() kubeTypedCore.EndpointsInterface {
-	return fc.o.Client.CoreV1().Endpoints(fc.o.WatchedNamespace)
+	return fc.client.CoreV1().Endpoints(fc.o.WatchedNamespace)
 }
 
 func (fc *fakeController) Deployments() kubeTypedApp.DeploymentInterface {
-	return fc.o.Client.AppsV1().Deployments(fc.o.WatchedNamespace)
+	return fc.client.AppsV1().Deployments(fc.o.WatchedNamespace)
 }
 
 func reconcileHelper(t *testing.T, c *fakeController) {
