@@ -214,7 +214,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 	}
 
 	lbe := adscConn.GetEndpoints()["outbound|8080||flipflop.com"]
-	if len(lbe.Endpoints) != 0 {
+	if !(lbe == nil || len(lbe.Endpoints) == 0) {
 		t.Fatalf("There should be no endpoints for outbound|8080||flipflop.com. Endpoints:\n%v", adscConn.EndpointsJSON())
 	}
 
