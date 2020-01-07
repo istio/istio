@@ -15,10 +15,10 @@ base:
       enabled: true
   enabled: true
 cni:
-  enabled: false
   components:
     cni:
       namespace: kube-system
+  enabled: false
 configManagement:
   components:
     galley:
@@ -205,7 +205,7 @@ trafficManagement:
             path: /ready
             port: 8080
           initialDelaySeconds: 5
-          periodSeconds: 30
+          periodSeconds: 5
           timeoutSeconds: 5
         resources:
           requests:
