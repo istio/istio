@@ -52,7 +52,7 @@ func DiscoverWithTimeout(timeout time.Duration) Environment {
 
 	go func() {
 		wg.Wait()
-		done <- true
+		close(done)
 	}()
 
 	timer := time.NewTimer(timeout)
@@ -61,7 +61,12 @@ func DiscoverWithTimeout(timeout time.Duration) Environment {
 	case p := <-plat:
 		return p
 	case <-done:
-		return &Unknown{}
+		select {
+		case p := <-plat:
+			return p
+		default:
+			return &Unknown{}
+		}
 	case <-timer.C:
 		return &Unknown{}
 	}
