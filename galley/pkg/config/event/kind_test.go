@@ -12,21 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package event
+package event_test
 
 import (
 	"testing"
+
+	"istio.io/istio/galley/pkg/config/event"
 )
 
 func TestEventKind_String(t *testing.T) {
-	tests := map[Kind]string{
-		None:     "None",
-		Added:    "Added",
-		Updated:  "Updated",
-		Deleted:  "Deleted",
-		FullSync: "FullSync",
-		Reset:    "Reset",
-		55:       "<<Unknown Kind 55>>",
+	tests := map[event.Kind]string{
+		event.None:     "None",
+		event.Added:    "Added",
+		event.Updated:  "Updated",
+		event.Deleted:  "Deleted",
+		event.FullSync: "FullSync",
+		event.Reset:    "Reset",
+		55:             "<<Unknown Kind 55>>",
 	}
 
 	for i, e := range tests {

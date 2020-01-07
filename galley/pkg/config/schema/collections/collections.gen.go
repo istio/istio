@@ -25,7 +25,7 @@ var (
 			ProtoPackage:  "istio.io/api/authentication/v1alpha1",
 			ClusterScoped: true,
 			ValidateProto: validation.ValidateAuthenticationPolicy,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioAuthenticationV1Alpha1Policies describes the collection
@@ -42,7 +42,7 @@ var (
 			ProtoPackage:  "istio.io/api/authentication/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateAuthenticationPolicy,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioConfigV1Alpha2Adapters describes the collection
@@ -59,7 +59,7 @@ var (
 			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioConfigV1Alpha2Httpapispecbindings describes the collection
@@ -76,7 +76,7 @@ var (
 			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateHTTPAPISpecBinding,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioConfigV1Alpha2Httpapispecs describes the collection
@@ -93,7 +93,7 @@ var (
 			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateHTTPAPISpec,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioConfigV1Alpha2Templates describes the collection
@@ -110,7 +110,7 @@ var (
 			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioMeshV1Alpha1MeshConfig describes the collection
@@ -127,7 +127,7 @@ var (
 			ProtoPackage:  "istio.io/api/mesh/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioMixerV1ConfigClientQuotaspecbindings describes the collection
@@ -144,7 +144,7 @@ var (
 			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateQuotaSpecBinding,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioMixerV1ConfigClientQuotaspecs describes the collection
@@ -161,7 +161,7 @@ var (
 			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateQuotaSpec,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioNetworkingV1Alpha3Destinationrules describes the collection
@@ -178,7 +178,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateDestinationRule,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioNetworkingV1Alpha3Envoyfilters describes the collection
@@ -195,7 +195,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateEnvoyFilter,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioNetworkingV1Alpha3Gateways describes the collection
@@ -212,7 +212,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateGateway,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioNetworkingV1Alpha3Serviceentries describes the collection
@@ -229,7 +229,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceEntry,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioNetworkingV1Alpha3Sidecars describes the collection
@@ -246,7 +246,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateSidecar,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioNetworkingV1Alpha3SyntheticServiceentries describes the collection
@@ -263,7 +263,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceEntry,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioNetworkingV1Alpha3Virtualservices describes the collection
@@ -280,7 +280,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateVirtualService,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioPolicyV1Beta1Attributemanifests describes the collection
@@ -297,7 +297,7 @@ var (
 			ProtoPackage:  "istio.io/api/policy/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioPolicyV1Beta1Handlers describes the collection
@@ -314,7 +314,7 @@ var (
 			ProtoPackage:  "istio.io/api/policy/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioPolicyV1Beta1Instances describes the collection
@@ -331,7 +331,7 @@ var (
 			ProtoPackage:  "istio.io/api/policy/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioPolicyV1Beta1Rules describes the collection
@@ -348,7 +348,7 @@ var (
 			ProtoPackage:  "istio.io/api/policy/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioRbacV1Alpha1Clusterrbacconfigs describes the collection
@@ -365,7 +365,7 @@ var (
 			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
 			ClusterScoped: true,
 			ValidateProto: validation.ValidateClusterRbacConfig,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioRbacV1Alpha1Rbacconfigs describes the collection
@@ -382,7 +382,7 @@ var (
 			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateRbacConfig,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioRbacV1Alpha1Servicerolebindings describes the collection
@@ -399,7 +399,7 @@ var (
 			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceRoleBinding,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioRbacV1Alpha1Serviceroles describes the collection
@@ -416,7 +416,7 @@ var (
 			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceRole,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioSecurityV1Beta1Authorizationpolicies describes the collection
@@ -433,7 +433,7 @@ var (
 			ProtoPackage:  "istio.io/api/security/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateAuthorizationPolicy,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// IstioSecurityV1Beta1Requestauthentications describes the collection
@@ -450,7 +450,7 @@ var (
 			ProtoPackage:  "istio.io/api/security/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateRequestAuthentication,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SAppsV1Deployments describes the collection k8s/apps/v1/deployments
@@ -466,7 +466,7 @@ var (
 			ProtoPackage:  "k8s.io/api/apps/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SAuthenticationIstioIoV1Alpha1Meshpolicies describes the collection
@@ -483,7 +483,7 @@ var (
 			ProtoPackage:  "istio.io/api/authentication/v1alpha1",
 			ClusterScoped: true,
 			ValidateProto: validation.ValidateAuthenticationPolicy,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SAuthenticationIstioIoV1Alpha1Policies describes the collection
@@ -500,7 +500,7 @@ var (
 			ProtoPackage:  "istio.io/api/authentication/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateAuthenticationPolicy,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SConfigIstioIoV1Alpha2Adapters describes the collection
@@ -517,7 +517,7 @@ var (
 			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SConfigIstioIoV1Alpha2Attributemanifests describes the collection
@@ -534,7 +534,7 @@ var (
 			ProtoPackage:  "istio.io/api/policy/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SConfigIstioIoV1Alpha2Handlers describes the collection
@@ -551,7 +551,7 @@ var (
 			ProtoPackage:  "istio.io/api/policy/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SConfigIstioIoV1Alpha2Httpapispecbindings describes the collection
@@ -568,7 +568,7 @@ var (
 			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateHTTPAPISpecBinding,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SConfigIstioIoV1Alpha2Httpapispecs describes the collection
@@ -585,7 +585,7 @@ var (
 			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateHTTPAPISpec,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SConfigIstioIoV1Alpha2Instances describes the collection
@@ -602,7 +602,7 @@ var (
 			ProtoPackage:  "istio.io/api/policy/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SConfigIstioIoV1Alpha2Quotaspecbindings describes the collection
@@ -619,7 +619,7 @@ var (
 			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateQuotaSpecBinding,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SConfigIstioIoV1Alpha2Quotaspecs describes the collection
@@ -636,7 +636,7 @@ var (
 			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateQuotaSpec,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SConfigIstioIoV1Alpha2Rules describes the collection
@@ -653,7 +653,7 @@ var (
 			ProtoPackage:  "istio.io/api/policy/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SConfigIstioIoV1Alpha2Templates describes the collection
@@ -670,7 +670,7 @@ var (
 			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Endpoints describes the collection k8s/core/v1/endpoints
@@ -686,7 +686,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Namespaces describes the collection k8s/core/v1/namespaces
@@ -702,7 +702,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Nodes describes the collection k8s/core/v1/nodes
@@ -718,7 +718,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Pods describes the collection k8s/core/v1/pods
@@ -734,7 +734,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Secrets describes the collection k8s/core/v1/secrets
@@ -750,7 +750,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Services describes the collection k8s/core/v1/services
@@ -766,7 +766,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SExtensionsV1Beta1Ingresses describes the collection
@@ -783,7 +783,7 @@ var (
 			ProtoPackage:  "k8s.io/api/extensions/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SNetworkingIstioIoV1Alpha3Destinationrules describes the collection
@@ -800,7 +800,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateDestinationRule,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SNetworkingIstioIoV1Alpha3Envoyfilters describes the collection
@@ -817,7 +817,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateEnvoyFilter,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SNetworkingIstioIoV1Alpha3Gateways describes the collection
@@ -834,7 +834,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateGateway,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SNetworkingIstioIoV1Alpha3Serviceentries describes the collection
@@ -851,7 +851,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceEntry,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SNetworkingIstioIoV1Alpha3Sidecars describes the collection
@@ -868,7 +868,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateSidecar,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SNetworkingIstioIoV1Alpha3Virtualservices describes the collection
@@ -885,7 +885,7 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateVirtualService,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SRbacIstioIoV1Alpha1Clusterrbacconfigs describes the collection
@@ -902,7 +902,7 @@ var (
 			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
 			ClusterScoped: true,
 			ValidateProto: validation.ValidateClusterRbacConfig,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SRbacIstioIoV1Alpha1Policy describes the collection
@@ -919,7 +919,7 @@ var (
 			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceRoleBinding,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SRbacIstioIoV1Alpha1Rbacconfigs describes the collection
@@ -936,7 +936,7 @@ var (
 			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateRbacConfig,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SRbacIstioIoV1Alpha1Serviceroles describes the collection
@@ -953,7 +953,7 @@ var (
 			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceRole,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SSecurityIstioIoV1Beta1Authorizationpolicies describes the collection
@@ -970,7 +970,7 @@ var (
 			ProtoPackage:  "istio.io/api/security/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateAuthorizationPolicy,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SSecurityIstioIoV1Beta1Requestauthentications describes the
@@ -987,7 +987,7 @@ var (
 			ProtoPackage:  "istio.io/api/security/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateRequestAuthentication,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// All contains all collections in the system.

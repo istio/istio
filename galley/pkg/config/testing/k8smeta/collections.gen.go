@@ -24,7 +24,7 @@ var (
 			ProtoPackage:  "k8s.io/api/apps/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Endpoints describes the collection k8s/core/v1/endpoints
@@ -40,7 +40,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Namespaces describes the collection k8s/core/v1/namespaces
@@ -56,7 +56,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Nodes describes the collection k8s/core/v1/nodes
@@ -72,7 +72,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Pods describes the collection k8s/core/v1/pods
@@ -88,7 +88,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SCoreV1Services describes the collection k8s/core/v1/services
@@ -104,7 +104,7 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// K8SExtensionsV1Beta1Ingresses describes the collection
@@ -121,7 +121,7 @@ var (
 			ProtoPackage:  "k8s.io/api/extensions/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// All contains all collections in the system.

@@ -101,7 +101,7 @@ var (
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// Foo describes a really cool foo thing
@@ -117,7 +117,7 @@ var (
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 

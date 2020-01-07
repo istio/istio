@@ -30,19 +30,19 @@ import (
 func GetProviders() transformer.Providers {
 	return []transformer.Provider{
 		transformer.NewSimpleTransformerProvider(
-			collections.K8SAuthenticationIstioIoV1Alpha1Policies.Name(),
-			collections.IstioAuthenticationV1Alpha1Policies.Name(),
-			handler(collections.IstioAuthenticationV1Alpha1Policies.Name()),
+			collections.K8SAuthenticationIstioIoV1Alpha1Policies,
+			collections.IstioAuthenticationV1Alpha1Policies,
+			handler(collections.IstioAuthenticationV1Alpha1Policies),
 		),
 		transformer.NewSimpleTransformerProvider(
-			collections.K8SAuthenticationIstioIoV1Alpha1Meshpolicies.Name(),
-			collections.IstioAuthenticationV1Alpha1Meshpolicies.Name(),
-			handler(collections.IstioAuthenticationV1Alpha1Meshpolicies.Name()),
+			collections.K8SAuthenticationIstioIoV1Alpha1Meshpolicies,
+			collections.IstioAuthenticationV1Alpha1Meshpolicies,
+			handler(collections.IstioAuthenticationV1Alpha1Meshpolicies),
 		),
 	}
 }
 
-func handler(destination collection.Name) func(e event.Event, h event.Handler) {
+func handler(destination collection.Schema) func(e event.Event, h event.Handler) {
 	return func(e event.Event, h event.Handler) {
 		e = e.WithSource(destination)
 

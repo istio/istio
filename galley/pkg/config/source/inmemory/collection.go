@@ -27,22 +27,22 @@ import (
 
 // Collection is an in-memory collection that implements event.Source
 type Collection struct {
-	mu         sync.RWMutex // TODO: We should be able to get rid of this mutex.
-	collection collection.Name
-	handler    event.Handler
-	resources  map[resource.FullName]*resource.Instance
-	synced     bool
+	mu        sync.RWMutex // TODO: We should be able to get rid of this mutex.
+	schema    collection.Schema
+	handler   event.Handler
+	resources map[resource.FullName]*resource.Instance
+	synced    bool
 }
 
 var _ event.Source = &Collection{}
 
 // NewCollection returns a new in-memory collection.
-func NewCollection(c collection.Name) *Collection {
-	scope.Source.Debuga("  Creating in-memory collection: ", c)
+func NewCollection(s collection.Schema) *Collection {
+	scope.Source.Debuga("  Creating in-memory collection: ", s.Name())
 
 	return &Collection{
-		collection: c,
-		resources:  make(map[resource.FullName]*resource.Instance),
+		schema:    s,
+		resources: make(map[resource.FullName]*resource.Instance),
 	}
 }
 
@@ -56,7 +56,7 @@ func (c *Collection) Start() {
 		c.dispatchFor(e, event.Added)
 	}
 
-	c.dispatchEvent(event.FullSyncFor(c.collection))
+	c.dispatchEvent(event.FullSyncFor(c.schema))
 }
 
 // Stop dispatching events and reset internal state.
@@ -70,7 +70,7 @@ func (c *Collection) Stop() {
 // Dispatch an event handler to receive resource events.
 func (c *Collection) Dispatch(handler event.Handler) {
 	if scope.Source.DebugEnabled() {
-		scope.Source.Debugf("Collection.Dispatch: (collection: %-50v, handler: %T)", c.collection, handler)
+		scope.Source.Debugf("Collection.Dispatch: (collection: %-50v, handler: %T)", c.schema.Name(), handler)
 	}
 
 	c.handler = event.CombineHandlers(c.handler, handler)
@@ -103,7 +103,7 @@ func (c *Collection) Clear() {
 		for _, entry := range c.resources {
 			e := event.Event{
 				Kind:     event.Deleted,
-				Source:   c.collection,
+				Source:   c.schema,
 				Resource: entry,
 			}
 
@@ -116,7 +116,7 @@ func (c *Collection) Clear() {
 
 func (c *Collection) dispatchEvent(e event.Event) {
 	if scope.Source.DebugEnabled() {
-		scope.Source.Debugf(">>> Collection.dispatchEvent: (col: %-50s): %v", c.collection, e)
+		scope.Source.Debugf(">>> Collection.dispatchEvent: (col: %-50s): %v", c.schema.Name(), e)
 	}
 	if c.handler != nil {
 		c.handler.Handle(e)
@@ -125,7 +125,7 @@ func (c *Collection) dispatchEvent(e event.Event) {
 
 func (c *Collection) dispatchFor(r *resource.Instance, kind event.Kind) {
 	e := event.Event{
-		Source:   c.collection,
+		Source:   c.schema,
 		Resource: r,
 		Kind:     kind,
 	}
@@ -141,7 +141,7 @@ func (c *Collection) Remove(n resource.FullName) {
 	if found {
 		e := event.Event{
 			Kind:     event.Deleted,
-			Source:   c.collection,
+			Source:   c.schema,
 			Resource: entry,
 		}
 

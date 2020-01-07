@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	resource2 "istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
@@ -145,9 +146,7 @@ func TestEvents(t *testing.T) {
 	acc := start(s)
 	defer s.Stop()
 
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
-	))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta.K8SCollection1))
 	acc.Clear()
 
 	obj := &unstructured.Unstructured{
@@ -166,9 +165,8 @@ func TestEvents(t *testing.T) {
 	obj = obj.DeepCopy()
 	w.Send(watch.Event{Type: watch.Added, Object: obj})
 
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.AddFor(basicmeta.K8SCollection1.Name(), toEntry(obj)),
-	))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.AddFor(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 
 	acc.Clear()
 
@@ -177,8 +175,8 @@ func TestEvents(t *testing.T) {
 
 	w.Send(watch.Event{Type: watch.Modified, Object: obj})
 
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.UpdateFor(basicmeta.K8SCollection1.Name(), toEntry(obj))))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.UpdateFor(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 
 	acc.Clear()
 
@@ -191,8 +189,8 @@ func TestEvents(t *testing.T) {
 
 	w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.DeleteForResource(basicmeta.K8SCollection1.Name(), toEntry(obj))))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.DeleteForResource(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 }
 
 func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
@@ -212,9 +210,7 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	acc := start(s)
 	defer s.Stop()
 
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
-	))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta.K8SCollection1))
 	acc.Clear()
 
 	obj := &unstructured.Unstructured{
@@ -233,9 +229,8 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	obj = obj.DeepCopy()
 	w.Send(watch.Event{Type: watch.Added, Object: obj})
 
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.AddFor(basicmeta.K8SCollection1.Name(), toEntry(obj)),
-	))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.AddFor(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 
 	g.Eventually(sc.latestStatusCall).ShouldNot(BeNil())
 	g.Expect(sc.latestStatusCall()).To(Equal(&statusInput{
@@ -252,8 +247,8 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 
 	w.Send(watch.Event{Type: watch.Modified, Object: obj})
 
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.UpdateFor(basicmeta.K8SCollection1.Name(), toEntry(obj))))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.UpdateFor(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 
 	g.Expect(sc.latestStatusCall()).To(Equal(&statusInput{
 		col:     basicmeta.K8SCollection1.Name(),
@@ -273,13 +268,11 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 
 	w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.DeleteForResource(basicmeta.K8SCollection1.Name(), toEntry(obj))))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.DeleteForResource(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 }
 
 func TestEvents_CRDEventAfterFullSync(t *testing.T) {
-	g := NewGomegaWithT(t)
-
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
 	defer w.Stop()
@@ -292,9 +285,7 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 	acc := start(s)
 	defer s.Stop()
 
-	g.Eventually(acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
-	))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta.K8SCollection1))
 
 	acc.Clear()
 	c := toCrd(r.All()[0])
@@ -304,9 +295,7 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 		Object: c,
 	})
 
-	g.Eventually(acc.Events).Should(ContainElement(
-		event.Event{Kind: event.Reset},
-	))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.Event{Kind: event.Reset})
 }
 
 func TestEvents_NonAddEvent(t *testing.T) {
@@ -354,8 +343,6 @@ func TestEvents_NoneForDisabled(t *testing.T) {
 }
 
 func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
-	g := NewGomegaWithT(t)
-
 	k := mock.NewKube()
 	wcrd := mockCrdWatch(k.APIExtClientSet)
 
@@ -370,9 +357,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	acc := start(s)
 
 	// we should get a full sync event, even if the watcher doesn't properly start.
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
-	))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta.K8SCollection1))
 
 	s.Stop()
 
@@ -407,10 +392,9 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 
 	defer s.Stop()
 
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
-		event.AddFor(basicmeta.K8SCollection1.Name(), toEntry(obj)),
-	))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc,
+		event.AddFor(basicmeta.K8SCollection1, toEntry(obj, basicmeta.K8SCollection1.Resource())),
+		event.FullSyncFor(basicmeta.K8SCollection1))
 }
 
 func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
@@ -496,13 +480,14 @@ func mockCrdWatch(cl *extfake.Clientset) *mock.Watch {
 	return w
 }
 
-func toEntry(obj *unstructured.Unstructured) *resource.Instance {
+func toEntry(obj *unstructured.Unstructured, schema resource2.Schema) *resource.Instance {
 	return &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName:    resource.NewFullName(resource.Namespace(obj.GetNamespace()), resource.LocalName(obj.GetName())),
 			Labels:      obj.GetLabels(),
 			Annotations: obj.GetAnnotations(),
 			Version:     resource.Version(obj.GetResourceVersion()),
+			Schema:      schema,
 		},
 		Message: &types.Struct{
 			Fields: make(map[string]*types.Value),
@@ -510,7 +495,8 @@ func toEntry(obj *unstructured.Unstructured) *resource.Instance {
 	}
 }
 
-func toCrd(r collection.Schema) *v1beta1.CustomResourceDefinition {
+func toCrd(schema collection.Schema) *v1beta1.CustomResourceDefinition {
+	r := schema.Resource()
 	return &v1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:            r.Plural() + "." + r.Group(),

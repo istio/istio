@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
@@ -65,11 +66,10 @@ func TestRuntime_Startup_MeshConfig_Arrives_No_Resources(t *testing.T) {
 	f.meshsrc.Set(meshcfg.Default())
 
 	g.Eventually(f.p.acc.Events).Should(HaveLen(3))
-	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
-		event.FullSyncFor(meshcfg.IstioMeshconfig),
-		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
-	))
+	fixtures.ExpectEventsEventually(t, &f.p.acc,
+		event.FullSyncFor(basicmeta.K8SCollection1),
+		event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig),
+		event.AddFor(collections.IstioMeshV1Alpha1MeshConfig, meshConfigEntry(meshcfg.Default())))
 	g.Eventually(f.p.HasStarted).Should(BeTrue())
 }
 
@@ -89,12 +89,12 @@ func TestRuntime_Startup_MeshConfig_Arrives(t *testing.T) {
 
 	f.meshsrc.Set(meshcfg.Default())
 	g.Eventually(f.p.acc.Events).Should(HaveLen(4))
-	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.AddFor(basicmeta.K8SCollection1.Name(), r),
-		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
-		event.FullSyncFor(meshcfg.IstioMeshconfig),
-		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
-	))
+	fixtures.ExpectEventsEventually(t, &f.p.acc,
+		event.AddFor(basicmeta.K8SCollection1, r),
+		event.FullSyncFor(basicmeta.K8SCollection1),
+		event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig),
+		event.AddFor(collections.IstioMeshV1Alpha1MeshConfig, meshConfigEntry(meshcfg.Default())),
+	)
 
 	g.Eventually(f.p.HasStarted).Should(BeTrue())
 }
@@ -178,17 +178,18 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
-	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.AddFor(meshcfg.IstioMeshconfig, &resource.Instance{
+	fixtures.ExpectEventsEventually(t, &f.p.acc,
+		event.AddFor(collections.IstioMeshV1Alpha1MeshConfig, &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName: meshcfg.ResourceName,
+				Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 			},
 			Message: meshcfg.Default(),
 		}),
-		event.FullSyncFor(meshcfg.IstioMeshconfig),
-		event.AddFor(coll.Name(), r),
-		event.FullSyncFor(coll.Name()),
-	))
+		event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig),
+		event.AddFor(coll, r),
+		event.FullSyncFor(coll),
+	)
 
 	oldSessionID := f.rt.currentSessionID()
 
@@ -286,11 +287,11 @@ func TestRuntime_MeshEvent_WhileBuffering(t *testing.T) {
 	f.rt.Start()
 	g.Eventually(f.rt.currentSessionState).Should(Equal(buffering))
 
-	f.mockSrc.h.Handle(event.DeleteFor(meshcfg.IstioMeshconfig, meshcfg.ResourceName, resource.Version("vxx")))
+	f.mockSrc.h.Handle(event.DeleteFor(collections.IstioMeshV1Alpha1MeshConfig, meshcfg.ResourceName, "vxx"))
 
 	g.Consistently(f.rt.currentSessionState).Should(Equal(buffering))
 
-	f.mockSrc.h.Handle(event.FullSyncFor(meshcfg.IstioMeshconfig))
+	f.mockSrc.h.Handle(event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig))
 
 	g.Eventually(f.rt.currentSessionState).Should(Equal(processing))
 
@@ -305,23 +306,23 @@ func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
 	defer f.rt.Stop()
 
 	f.meshsrc.Set(meshcfg.Default())
-	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
-		event.FullSyncFor(meshcfg.IstioMeshconfig),
-		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
-	))
+	fixtures.ExpectEventsEventually(t, &f.p.acc,
+		event.FullSyncFor(basicmeta.K8SCollection1),
+		event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig),
+		event.AddFor(collections.IstioMeshV1Alpha1MeshConfig, meshConfigEntry(meshcfg.Default())),
+	)
 
 	oldSessionID := f.rt.currentSessionID()
 	f.p.acc.Clear()
 
 	// Send a mesh event out-of-band
-	f.mockSrc.h.Handle(event.DeleteFor(meshcfg.IstioMeshconfig, meshcfg.ResourceName, resource.Version("vxx")))
+	f.mockSrc.h.Handle(event.DeleteFor(collections.IstioMeshV1Alpha1MeshConfig, meshcfg.ResourceName, "vxx"))
 
 	g.Eventually(f.rt.currentSessionID).Should(Equal(oldSessionID + 1))
-	g.Eventually(f.p.acc.Events).Should(And(
-		ContainElement(event.FullSyncFor(basicmeta.K8SCollection1.Name())),
-		ContainElement(event.FullSyncFor(meshcfg.IstioMeshconfig)),
-		ContainElement(event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())))))
+	fixtures.ExpectEventsEventually(t, &f.p.acc,
+		event.FullSyncFor(basicmeta.K8SCollection1),
+		event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig),
+		event.AddFor(collections.IstioMeshV1Alpha1MeshConfig, meshConfigEntry(meshcfg.Default())))
 
 	g.Eventually(f.p.HasStarted).Should(BeTrue())
 }
@@ -449,6 +450,7 @@ func meshConfigEntry(m *v1alpha1.MeshConfig) *resource.Instance { // nolint:inte
 	return &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("istio-system", "meshconfig"),
+			Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 		},
 		Message: m,
 	}

@@ -192,7 +192,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			return nil, fmt.Errorf("failed locating proto validation function %s", ar.Validate)
 		}
 
-		r := resource.Builder{
+		r, err := resource.Builder{
 			ClusterScoped: ar.ClusterScoped,
 			Kind:          ar.Kind,
 			Plural:        ar.Plural,
@@ -202,8 +202,11 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			ProtoPackage:  ar.ProtoPackage,
 			ValidateProto: validateFn,
 		}.Build()
+		if err != nil {
+			return nil, err
+		}
 
-		key := resourceKey(r.Group(), r.Kind())
+		key := resourceKey(ar.Group, ar.Kind)
 		if _, ok := resources[key]; ok {
 			return nil, fmt.Errorf("found duplicate resource for resource (%s)", key)
 		}
