@@ -93,8 +93,8 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 				instances := convertInstances(curr, cs)
 				// If only instances have changed, just update the indexes for the changed instances.
 				c.updateExistingInstances(instances)
-				endpoints := make([]*model.IstioEndpoint, 0)
 				for _, instance := range instances {
+					endpoints := make([]*model.IstioEndpoint, 0)
 					for _, port := range instance.Service.Ports {
 						endpoints = append(endpoints, &model.IstioEndpoint{
 							Address:         instance.Endpoint.Address,
@@ -112,8 +112,8 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 							TLSMode: instance.Endpoint.TLSMode,
 						})
 					}
+					_ = c.XdsUpdater.EDSUpdate(c.Cluster(), string(instance.Service.Hostname), curr.Namespace, endpoints)
 				}
-				_ = c.XdsUpdater.EDSUpdate(c.Cluster(), curr.Name, curr.Namespace, endpoints)
 			}
 		})
 	}
