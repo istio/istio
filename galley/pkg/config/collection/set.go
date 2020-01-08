@@ -29,9 +29,10 @@ type Set struct {
 // NewSet returns a new set of collections for the given schemas.
 func NewSet(schemas collection.Schemas) *Set {
 	c := make(map[collection.Name]*Instance)
-	for _, s := range schemas.All() {
+	schemas.ForEach(func(s collection.Schema) (done bool) {
 		c[s.Name()] = New(s)
-	}
+		return
+	})
 
 	return &Set{
 		collections: c,

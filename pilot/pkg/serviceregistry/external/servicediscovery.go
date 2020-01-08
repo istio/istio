@@ -100,27 +100,32 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 				instances := convertInstances(curr, cs)
 				// If only instances have changed, just update the indexes for the changed instances.
 				c.updateExistingInstances(instances)
-				endpoints := make([]*model.IstioEndpoint, 0)
+				endpointsByHostname := make(map[string][]*model.IstioEndpoint)
 				for _, instance := range instances {
 					for _, port := range instance.Service.Ports {
-						endpoints = append(endpoints, &model.IstioEndpoint{
-							Address:         instance.Endpoint.Address,
-							EndpointPort:    uint32(port.Port),
-							ServicePortName: port.Name,
-							Labels:          instance.Endpoint.Labels,
-							UID:             instance.Endpoint.UID,
-							ServiceAccount:  instance.Endpoint.ServiceAccount,
-							Network:         instance.Endpoint.Network,
-							Locality:        instance.Endpoint.Locality,
-							Attributes: model.ServiceAttributes{
-								Name:      instance.Service.Attributes.Name,
-								Namespace: instance.Service.Attributes.Namespace,
-							},
-							TLSMode: instance.Endpoint.TLSMode,
-						})
+						endpointsByHostname[string(instance.Service.Hostname)] = append(endpointsByHostname[string(instance.Service.Hostname)],
+							&model.IstioEndpoint{
+								Address:         instance.Endpoint.Address,
+								EndpointPort:    uint32(port.Port),
+								ServicePortName: port.Name,
+								Labels:          instance.Endpoint.Labels,
+								UID:             instance.Endpoint.UID,
+								ServiceAccount:  instance.Endpoint.ServiceAccount,
+								Network:         instance.Endpoint.Network,
+								Locality:        instance.Endpoint.Locality,
+								Attributes: model.ServiceAttributes{
+									Name:      instance.Service.Attributes.Name,
+									Namespace: instance.Service.Attributes.Namespace,
+								},
+								TLSMode: instance.Endpoint.TLSMode,
+							})
 					}
 				}
-				_ = c.XdsUpdater.EDSUpdate(c.Cluster(), curr.Name, curr.Namespace, endpoints)
+
+				for host, eps := range endpointsByHostname {
+					_ = c.XdsUpdater.EDSUpdate(c.Cluster(), host, curr.Namespace, eps)
+				}
+
 			}
 		})
 	}
