@@ -274,7 +274,7 @@ func (fc *fakeController) Deployments() kubeTypedApp.DeploymentInterface {
 	return fc.o.Client.AppsV1().Deployments(fc.o.WatchedNamespace)
 }
 
-// ensure that at least one reconcilation attempt has completed after the provided function is invoked.
+// ensure that at least one reconciliation attempt has completed after the provided function is invoked.
 func (fc *fakeController) barrier(t *testing.T, fn func()) {
 	t.Helper()
 	g := NewGomegaWithT(t)
