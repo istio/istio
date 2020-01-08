@@ -702,14 +702,16 @@ func copyInternal(v interface{}) interface{} {
 	return copied
 }
 
+// HashUint32 returns the hash code of IstioEndpoint in uint32 format
 func (ep *IstioEndpoint) HashUint32() uint32 {
 	if ep == nil {
 		return 0
 	}
 
-	s := fmt.Sprintf("%s-%s-%s-%d-%d", ep.Address, ep.Network, ep.Locality, ep.LbWeight, ep.EndpointPort)
 	h := fnv.New32a()
-	h.Write([]byte(s))
+	h.Write([]byte(fmt.Sprintf("%s-%s-%s-%d-%d", ep.Address, ep.Network, ep.Locality, ep.LbWeight, ep.EndpointPort)))
 
-	return h.Sum32()
+	sum := h.Sum32()
+
+	return sum
 }

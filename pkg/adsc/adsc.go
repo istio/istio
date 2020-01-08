@@ -36,6 +36,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	istiolog "istio.io/pkg/log"
+	ep "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
 // Config for the ADS connection.
@@ -95,6 +96,9 @@ type ADSC struct {
 	// All received endpoints, keyed by cluster name
 	eds map[string]*xdsapi.ClusterLoadAssignment
 
+	// All received endpoint groups, keyed by cluster name
+	egds map[string]map[string]*xdsapi.EndpointGroup
+
 	// Metadata has the node metadata to send to pilot.
 	// If nil, the defaults will be used.
 	Metadata *pstruct.Struct
@@ -115,6 +119,9 @@ const (
 	clusterType = typePrefix + "Cluster"
 	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
 	endpointType = typePrefix + "ClusterLoadAssignment"
+	// EndpointGroupType is used for EGDS and ADS endpoint group discovery. Typically after EDS
+	// requests if EGDS was enabled.
+	endpointGroupType = typePrefix + "EndpointGroup"
 	// ListenerType is sent after clusters and endpoints.
 	listenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
@@ -259,6 +266,7 @@ func (a *ADSC) handleRecv() {
 		clusters := []*xdsapi.Cluster{}
 		routes := []*xdsapi.RouteConfiguration{}
 		eds := []*xdsapi.ClusterLoadAssignment{}
+		groups := []*xdsapi.EndpointGroup{}
 		for _, rsc := range msg.Resources { // Any
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
@@ -278,6 +286,10 @@ func (a *ADSC) handleRecv() {
 				ll := &xdsapi.RouteConfiguration{}
 				_ = proto.Unmarshal(valBytes, ll)
 				routes = append(routes, ll)
+			} else if rsc.TypeUrl == endpointGroupType {
+				ll := &xdsapi.EndpointGroup{}
+				_ = proto.Unmarshal(valBytes, ll)
+				groups = append(groups, ll)
 			}
 		}
 
@@ -297,6 +309,9 @@ func (a *ADSC) handleRecv() {
 		}
 		if len(routes) > 0 {
 			a.handleRDS(routes)
+		}
+		if len(groups) > 0{
+			a.handleEGDS(groups)
 		}
 	}
 
@@ -380,6 +395,7 @@ type TCPListener struct {
 	Target string
 }
 
+// Target is the target endpoint
 type Target struct {
 
 	// Address is a go address, extracted from the mangled cluster name.
@@ -389,6 +405,7 @@ type Target struct {
 	Endpoints map[string]Endpoint
 }
 
+// Endpoint is the service endpoint
 type Endpoint struct {
 	// Weight extracted from eds
 	Weight int
@@ -505,27 +522,66 @@ func (a *ADSC) node() *core.Node {
 	return n
 }
 
+// Send triggers a send event to Pilot with specified resource type
 func (a *ADSC) Send(req *xdsapi.DiscoveryRequest) error {
 	req.Node = a.node()
 	req.ResponseNonce = time.Now().String()
 	return a.stream.Send(req)
 }
 
+func (a *ADSC) handleEGDS(groups []*xdsapi.EndpointGroup) {
+	egds := make(map[string]map[string]*xdsapi.EndpointGroup)
+	for _, group := range groups {
+		clusterName, groupName := ep.ExtractClusterGroupKeys(group.Name)
+
+		if egds[clusterName] == nil {
+			egds[clusterName] = make(map[string]*xdsapi.EndpointGroup)
+		}
+
+		egds[clusterName][groupName] = group
+	}
+
+	a.egds = egds
+
+	a.Updates <- "egds"
+}
+
 func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 	la := map[string]*xdsapi.ClusterLoadAssignment{}
 	edsSize := 0
 	ep := 0
+	egdsEnabled := false
+	edsLegency := false
+
 	for _, cla := range eds {
-		edsSize += proto.Size(cla)
 		la[cla.ClusterName] = cla
-		ep += len(cla.Endpoints)
+
+		if len(cla.GetEndpointGroups()) > 0 {
+			egdsEnabled = true
+		} else {
+			edsLegency = true
+		}
 	}
 
-	adscLog.Infof("eds: %d size=%d ep=%d", len(eds), edsSize, ep)
-	if adscLog.DebugEnabled() {
-		b, _ := json.MarshalIndent(eds, " ", " ")
-		adscLog.Info(string(b))
+	if edsLegency && egdsEnabled {
+		panic("Both legacy endpoints and egds returned!")
 	}
+
+	if egdsEnabled {
+		a.parseEdsWithEgdsEnabled(eds)
+	} else {
+		for _, cla := range eds {
+			edsSize += proto.Size(cla)
+			ep += len(cla.Endpoints)
+		}
+	
+		adscLog.Infof("eds: %d size=%d ep=%d", len(eds), edsSize, ep)
+		if adscLog.DebugEnabled() {
+			b, _ := json.MarshalIndent(eds, " ", " ")
+			adscLog.Info(string(b))
+		}
+	}
+
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
 		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
@@ -658,6 +714,32 @@ func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse) {
 	})
 }
 
+func (a *ADSC) parseEdsWithEgdsEnabled(eds []*xdsapi.ClusterLoadAssignment) {
+	egdsNames := make([]string, 0)
+	egdsSize := 0
+
+	for _, cla := range eds {
+		egdsSize += proto.Size(cla)
+		for _, group := range cla.GetEndpointGroups() {
+			egdsNames = append(egdsNames, group.GetEndpointGroupName())
+		}
+
+		// Reset the group map for the specified cluster
+		delete(a.egds, cla.GetClusterName())
+	}
+
+	adscLog.Infof("egds: %d size=%d", len(egdsNames), egdsSize)
+	if adscLog.DebugEnabled() {
+		b, _ := json.MarshalIndent(eds, " ", " ")
+		adscLog.Info(string(b))
+	}
+
+	if len(egdsNames) > 0 {
+		// send EGDS request now
+		a.sendRsc(endpointGroupType, egdsNames)
+	}
+}
+
 // GetHTTPListeners returns all the http listeners.
 func (a *ADSC) GetHTTPListeners() map[string]*xdsapi.Listener {
 	a.mutex.Lock()
@@ -693,7 +775,7 @@ func (a *ADSC) GetRoutes() map[string]*xdsapi.RouteConfiguration {
 	return a.routes
 }
 
-// GetEndpoints returns all the routes.
+// GetEndpoints returns all the eds resources.
 func (a *ADSC) GetEndpoints() map[string]*xdsapi.ClusterLoadAssignment {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()

@@ -384,13 +384,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					continue
 				}
 
-				groups := discReq.GetResourceNames()
-				// Groups are all empty, no data to send back, do nothing.
-				if len(groups) == 0 {
-					continue
-				}
+				clusterGroups := discReq.GetResourceNames()
 
-				// Check versions.
+				// This is an acknowledgement
 				if discReq.ResponseNonce != "" {
 					con.mu.RLock()
 					egdsNonceSent := con.EndpointGroupNonceSent
@@ -403,6 +399,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						egdsExpiredNonce.Increment()
 						continue
 					}
+
 					if discReq.VersionInfo == egdsVersionInfoSent {
 						adsLog.Debugf("ADS:EGDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 						con.mu.Lock()
@@ -412,13 +409,17 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 				}
 
+				updatedClusters := make(map[string]struct{})
 				updatedGroups := make(map[string]struct{})
-				for _, group := range groups {
-					updatedGroups[group] = struct{}{}
+				for _, clusterGroup := range clusterGroups {
+					clusterName, groupName := ExtractClusterGroupKeys(clusterGroup)
+
+					updatedClusters[clusterName] = struct{}{}
+					updatedGroups[groupName] = struct{}{}
 				}
 
 				adsLog.Debugf("ADS:EGDS: REQ %s %s groups:%d", peerAddr, con.ConID, len(updatedGroups))
-				err := s.pushEgds(s.globalPushContext(), con, versionInfo(), nil, updatedGroups)
+				err := s.pushEgds(s.globalPushContext(), con, versionInfo(), updatedClusters, updatedGroups)
 				if err != nil {
 					return err
 				}
@@ -581,7 +582,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		// (may need a throttle)
 		var err error
 		if pushEv.egdsUpdatedGroups != nil {
-			err = s.pushEgds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices, pushEv.egdsUpdatedGroups)
+			err = s.pushEgds(pushEv.push, con, versionInfo(), nil, pushEv.egdsUpdatedGroups)
 		} else {
 			err = s.pushEds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices)
 		}
@@ -655,6 +656,7 @@ func adsClientCount() int {
 	return len(adsClients)
 }
 
+// ProxyUpdate updates the specified proxy with a full push
 func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	var connection *XdsConnection
 
@@ -823,9 +825,13 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 				conn.EndpointGroupNonceSent = res.Nonce
 			}
 		}
-		if res.TypeUrl == RouteType || res.TypeUrl == EndpointGroupType {
+		if res.TypeUrl == RouteType {
 			conn.RouteVersionInfoSent = res.VersionInfo
 		}
+		if res.TypeUrl == EndpointGroupType {
+			conn.EndpointGroupVersionInfoSent = res.VersionInfo
+		}
+
 		conn.mu.Unlock()
 		done <- err
 	}()

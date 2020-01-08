@@ -59,9 +59,7 @@ func (g *EndpointGroups) getEndpoints(groupName string) []*model.IstioEndpoint {
 		return g.IstioEndpoints
 	}
 
-	_, _, _, groupID := ExtractEndpointGroupKeys(groupName)
-
-	if eps, f := g.IstioEndpointGroups[groupID]; f {
+	if eps, f := g.IstioEndpointGroups[groupName]; f {
 		return eps
 	}
 
@@ -81,6 +79,21 @@ func ExtractEndpointGroupKeys(groupName string) (string, string, string, string)
 	}
 
 	return keys[0], keys[1], keys[2], keys[3]
+}
+
+// ExtractClusterGroupKeys the keys from proxy requested resource names. It can be
+// the format "clusterName@groupName"
+func ExtractClusterGroupKeys(clusterGroupName string) (string, string) {
+	if clusterGroupName == "" {
+		return "", ""
+	}
+
+	keys := strings.Split(clusterGroupName, "@")
+	if len(keys) != 2 {
+		return "", ""
+	}
+
+	return keys[0], keys[1]
 }
 
 func endpointGroupDiscoveryResponse(groups []*xdsapi.EndpointGroup, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
@@ -137,21 +150,22 @@ func (s *DiscoveryServer) generateEndpoints(clusterName string, groupName string
 
 // pushEgds is pushing updated EGDS resources for a single connection. This method will only be called when the EGDS feature was enabled.
 func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, version string,
-	edsUpdatedServices map[string]struct{}, egdsUpdatedGroups map[string]struct{}) error {
+	updatedClusters map[string]struct{}, updatedGroups map[string]struct{}) error {
 	pushStart := time.Now()
-	groups := make([]*xdsapi.EndpointGroup, len(edsUpdatedServices))
+	groups := make([]*xdsapi.EndpointGroup, 0, len(updatedGroups))
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range con.Clusters {
-		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-		if edsUpdatedServices != nil {
-			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+		if updatedClusters != nil {
+			if _, ok := updatedClusters[clusterName]; !ok {
 				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
 				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
 				continue
 			}
 		}
+
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 
 		push.Mutex.Lock()
 		svc := con.node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
@@ -163,8 +177,8 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 		}
 
 		for groupName := range s.getServiceGroupNames(clusterName, svc.Attributes.Namespace) {
-			if egdsUpdatedGroups != nil {
-				if _, f := egdsUpdatedGroups[groupName]; !f {
+			if updatedGroups != nil {
+				if _, f := updatedGroups[groupName]; !f {
 					// This happens in a incremental EGDS push
 					continue
 				}
@@ -172,7 +186,7 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 
 			l := s.generateEndpoints(clusterName, groupName, con.node, push)
 			g := &xdsapi.EndpointGroup{
-				Name:      groupName,
+				Name:      MakeClusterGroupKey(clusterName, groupName),
 				Endpoints: l.Endpoints,
 			}
 
@@ -230,14 +244,14 @@ func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *mode
 
 	epGroups := make([]*xdsapi.Egds, 0)
 	for _, shard := range se.Shards {
-		for name := range shard.IstioEndpointGroups {
+		for groupName := range shard.IstioEndpointGroups {
 			egds := &xdsapi.Egds{
 				ConfigSource: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
 				},
-				EndpointGroupName: name,
+				EndpointGroupName: MakeClusterGroupKey(clusterName, groupName),
 			}
 
 			epGroups = append(epGroups, egds)
@@ -260,7 +274,7 @@ func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct
 	}
 
 	currentMax := int(g.GroupSize * g.GroupCount)
-	if len(newEps) > currentMax*2 || len(newEps) < currentMax/2 {
+	if len(newEps) > currentMax*2 || len(newEps) < currentMax/2 || len(prevEps) <= 0 {
 		return g.reshard()
 	}
 
@@ -317,7 +331,7 @@ func (g *EndpointGroups) updateEndpointGroups(updated []*model.IstioEndpoint, re
 	for _, ep := range g.IstioEndpoints {
 		key := g.makeGroupKey(ep)
 
-		if _, f := updatedGroupKeys[key]; !f {
+		if _, f := updatedGroupKeys[key]; f {
 			_, f := updatedGroups[key]
 			if !f {
 				updatedGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
@@ -345,6 +359,11 @@ func (g *EndpointGroups) makeGroupKey(ep *model.IstioEndpoint) string {
 	return key
 }
 
+// MakeClusterGroupKey generates the clusterGroup key returned to proxy
+func MakeClusterGroupKey(clusterName string, groupName string) string {
+	return fmt.Sprintf("%s@%s", clusterName, groupName)
+}
+
 func (g *EndpointGroups) reshard() map[string]struct{} {
 	eps := g.IstioEndpoints
 
@@ -365,11 +384,11 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 	for _, ep := range eps {
 		key := g.makeGroupKey(ep)
 
-		if group, f := g.IstioEndpointGroups[key]; !f {
+		if eps, f := g.IstioEndpointGroups[key]; !f {
 			// Should never happen
 			panic(fmt.Sprintf("unexpect group key: %s", key))
 		} else {
-			group = append(group, ep)
+			g.IstioEndpointGroups[key] = append(eps, ep)
 		}
 	}
 

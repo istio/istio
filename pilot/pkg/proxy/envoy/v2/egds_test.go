@@ -113,7 +113,7 @@ func adsConnectWithEgdsAndWait(t *testing.T, ip int) *adsc.ADSC {
 		t.Fatal("Error connecting ", err)
 	}
 	adscConn.Watch()
-	_, err = adscConn.Wait(99999*time.Second, "eds", "lds", "cds", "rds", "egds")
+	_, err = adscConn.Wait(10*time.Second, "eds", "lds", "cds", "rds", "egds")
 	if err != nil {
 		t.Fatal("Error getting initial config ", err)
 	}

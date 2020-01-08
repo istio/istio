@@ -604,7 +604,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContex
 	return l
 }
 
-func (s *DiscoveryServer) getServiceGroupNames(hostname string, namespace string) map[string]struct{} {
+func (s *DiscoveryServer) getServiceGroupNames(clusterName string, namespace string) map[string]struct{} {
+	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+
 	s.mutex.RLock()
 	se, f := s.EndpointShardsByService[string(hostname)][namespace]
 	s.mutex.RUnlock()
