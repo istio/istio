@@ -1109,7 +1109,9 @@ func buildLocalityLbEndpointsFromShards(
 		push.AddMetric(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 	}
 
-	updateEdsStats(locEps, clusterName)
+	if groupName == "" {
+		updateEdsStats(locEps, clusterName)
+	}
 
 	return locEps
 }

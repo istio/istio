@@ -530,18 +530,19 @@ func (a *ADSC) Send(req *xdsapi.DiscoveryRequest) error {
 }
 
 func (a *ADSC) handleEGDS(groups []*xdsapi.EndpointGroup) {
-	egds := make(map[string]map[string]*xdsapi.EndpointGroup)
+	if a.egds == nil {
+		a.egds = make(map[string]map[string]*xdsapi.EndpointGroup)
+	}
+	
 	for _, group := range groups {
 		clusterName, groupName := ep.ExtractClusterGroupKeys(group.Name)
 
-		if egds[clusterName] == nil {
-			egds[clusterName] = make(map[string]*xdsapi.EndpointGroup)
+		if a.egds[clusterName] == nil {
+			a.egds[clusterName] = make(map[string]*xdsapi.EndpointGroup)
 		}
 
-		egds[clusterName][groupName] = group
+		a.egds[clusterName][groupName] = group
 	}
-
-	a.egds = egds
 
 	a.Updates <- "egds"
 }

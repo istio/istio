@@ -285,7 +285,7 @@ func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct
 MainAddedLoop:
 	for _, nep := range newEps {
 		for _, pep := range prevEps {
-			if cmp.Equal(nep, pep) == true {
+			if cmpIstioEndpoint(nep, pep) == true {
 				continue MainAddedLoop
 			}
 		}
@@ -298,7 +298,7 @@ MainAddedLoop:
 MainRemovedLoop:
 	for _, pep := range prevEps {
 		for _, nep := range newEps {
-			if cmp.Equal(pep, nep) == true {
+			if cmpIstioEndpoint(pep, nep) == true {
 				continue MainRemovedLoop
 			}
 		}
@@ -341,6 +341,14 @@ func (g *EndpointGroups) updateEndpointGroups(updated []*model.IstioEndpoint, re
 		}
 	}
 
+	// If there is still no key mapped, it means the group has no endpoints now
+	// However we still need to map it
+	for key := range updatedGroupKeys {
+		if _, f := updatedGroups[key]; !f {
+			updatedGroups[key] = make([]*model.IstioEndpoint, 0, 0)
+		}
+	}
+
 	// Changed EGDS resource names
 	names := make(map[string]struct{})
 
@@ -350,6 +358,22 @@ func (g *EndpointGroups) updateEndpointGroups(updated []*model.IstioEndpoint, re
 	}
 
 	return names
+}
+
+func cmpIstioEndpoint(from *model.IstioEndpoint, other *model.IstioEndpoint) bool {
+	if from == nil || other == nil {
+		return false
+	}
+
+	// When comparing, the cached EnvoyEndpoint should be removed.
+	// A shallow copy is enough
+	copyA := from
+	copyB := other
+
+	copyA.EnvoyEndpoint = nil
+	copyB.EnvoyEndpoint = nil
+
+	return cmp.Equal(copyA, copyB)
 }
 
 func (g *EndpointGroups) makeGroupKey(ep *model.IstioEndpoint) string {

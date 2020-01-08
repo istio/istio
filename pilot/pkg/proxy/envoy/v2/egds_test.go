@@ -224,10 +224,45 @@ func TestPushEdsWithEgds(t *testing.T) {
 	server, tearDown := iniPilotServerWithEgds(t)
 	defer tearDown()
 
-	addInitSvcAndEndpoints(server)
+	svc := addInitSvcAndEndpoints(server)
 
+	// Receive full push
 	adscConn := adsConnectWithEgdsAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
+
+	// We remove 2 endpoints from each locality
+	istioEndpoints := make([]*model.IstioEndpoint, 0, 10)
+	for i := 9; i < 15; i++ {
+		ep := &model.IstioEndpoint{
+			Address:         fmt.Sprintf("127.0.0.%d", i),
+			EndpointPort:    uint32(testEnv.Ports().BackendPort),
+			ServicePortName: "http",
+			Locality:        "za",
+			ServiceAccount:  "hello-za",
+		}
+
+		istioEndpoints = append(istioEndpoints, ep)
+	}
+
+	for i := 2; i < 7; i++ {
+		ep := &model.IstioEndpoint{
+			Address:         fmt.Sprintf("127.0.0.%d", i),
+			EndpointPort:    uint32(testEnv.Ports().BackendPort),
+			ServicePortName: "http",
+			Locality:        "az",
+			ServiceAccount:  "hello-sa",
+		}
+
+		istioEndpoints = append(istioEndpoints, ep)
+	}
+
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints(string(svc.Hostname), svc.Attributes.Namespace, istioEndpoints)
+
+	// We should receive EGDS updates
+	_, err := adscConn.Wait(10*time.Second, "egds")
+	if err != nil {
+		t.Errorf("failed while receiving EGDS updates. Reason: %s", err)
+	}
 }
 
 func TestBuildEndpointGroup(t *testing.T) {
