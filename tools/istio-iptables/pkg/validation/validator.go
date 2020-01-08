@@ -158,7 +158,6 @@ func restoreOriginalAddress(l net.Listener, config *Config, c chan<- ReturnCode)
 func (s *Service) Run() error {
 	// at most 2 message: ipv4 and ipv6
 	c := make(chan ReturnCode, 2)
-	//listeners := make([]net.Listener, len(s.Config.ServerListenAddress))
 	hasAtLeastOneListener := false
 	for _, addr := range s.Config.ServerListenAddress {
 		l, err := net.Listen("tcp", addr)
@@ -176,9 +175,9 @@ func (s *Service) Run() error {
 		// bump at least one since we currently support either v4 or v6
 		<-c
 		return nil
-	} else {
-		return fmt.Errorf("no listener available: %s", strings.Join(s.Config.ServerListenAddress, ","))
 	}
+	return fmt.Errorf("no listener available: %s", strings.Join(s.Config.ServerListenAddress, ","))
+
 }
 
 func (c *Client) Run() error {
@@ -186,6 +185,9 @@ func (c *Client) Run() error {
 	serverOriginalAddress := fmt.Sprintf("%s:%d", c.Config.ServerOriginalIP, c.Config.ServerOriginalPort)
 	if c.Config.ServerOriginalIP.To4() == nil {
 		laddr, err = net.ResolveTCPAddr("tcp", "[::1]:0")
+		if err != nil {
+			return err
+		}
 		serverOriginalAddress = fmt.Sprintf("[%s]:%d", c.Config.ServerOriginalIP, c.Config.ServerOriginalPort)
 	}
 	raddr, err := net.ResolveTCPAddr("tcp", serverOriginalAddress)
