@@ -135,18 +135,18 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	// Verify we only reported messages in the AnalysisNamespaces
 	g.Expect(u.messages).To(HaveLen(1))
 	for _, m := range u.messages {
-		g.Expect(m.Origin.Namespace()).To(Equal(resource.Namespace("includedNamespace")))
+		g.Expect(m.Resource.Origin.Namespace()).To(Equal(resource.Namespace("includedNamespace")))
 	}
 }
 
-func TestAnalyzeNamespaceMessageHasNoOrigin(t *testing.T) {
+func TestAnalyzeNamespaceMessageHasNoResource(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	u := &updaterMock{}
 	a := &analyzerMock{
 		collectionToAccess: basicmeta.K8SCollection1.Name(),
 		resourcesToReport: []*resource.Instance{
-			{},
+			nil,
 		},
 	}
 	d := NewInMemoryDistributor()
@@ -209,20 +209,22 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	u := &updaterMock{}
-	o1 := &rt.Origin{
-		Collection: basicmeta.K8SCollection1.Name(),
-		FullName:   resource.NewFullName("includedNamespace", "r2"),
+	r1 := &resource.Instance{
+		Origin: &rt.Origin{
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("includedNamespace", "r2"),
+		},
 	}
-	o2 := &rt.Origin{
-		Collection: basicmeta.K8SCollection1.Name(),
-		FullName:   resource.NewFullName("includedNamespace", "r1"),
+	r2 := &resource.Instance{
+		Origin: &rt.Origin{
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("includedNamespace", "r1"),
+		},
 	}
+
 	a := &analyzerMock{
 		collectionToAccess: basicmeta.K8SCollection1.Name(),
-		resourcesToReport: []*resource.Instance{
-			{Origin: o1},
-			{Origin: o2},
-		},
+		resourcesToReport:  []*resource.Instance{r1, r2},
 	}
 	d := NewInMemoryDistributor()
 
@@ -243,8 +245,8 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sDefault))
 	g.Expect(u.messages).To(HaveLen(2))
-	g.Expect(u.messages[0].Origin).To(Equal(o2))
-	g.Expect(u.messages[1].Origin).To(Equal(o1))
+	g.Expect(u.messages[0].Resource).To(Equal(r2))
+	g.Expect(u.messages[1].Resource).To(Equal(r1))
 }
 
 func getTestSnapshot(schemas ...collection.Schema) *Snapshot {

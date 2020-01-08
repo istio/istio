@@ -149,11 +149,12 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 		msgs = ctx.messages
 	} else {
 		for _, m := range ctx.messages {
-			if m.Origin != nil && m.Origin.Namespace() != "" {
-				if _, ok := namespaces[m.Origin.Namespace()]; !ok {
+			if m.Resource != nil && m.Resource.Origin.Namespace() != "" {
+				if _, ok := namespaces[m.Resource.Origin.Namespace()]; !ok {
 					continue
 				}
 			}
+
 			msgs = append(msgs, m)
 		}
 	}

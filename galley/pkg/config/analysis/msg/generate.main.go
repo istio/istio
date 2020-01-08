@@ -147,21 +147,13 @@ func All() []*diag.MessageType {
 func New{{.Name}}(r *resource.Instance{{range .Args}}, {{.Name}} {{.Type}}{{end}}) diag.Message {
 	return diag.NewMessage(
 		{{.Name}},
-		originOrNil(r),
+		r,
 		{{- range .Args}}
 			{{.Name}},
 		{{- end}}
 	)
 }
 {{end}}
-
-func originOrNil(r *resource.Instance) resource.Origin {
-	var o resource.Origin
-	if r != nil {
-		o = r.Origin
-	}
-	return o
-}
 `
 
 func generate(m *messages) (string, error) {
