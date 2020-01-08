@@ -21,7 +21,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/helm"
 	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/tpath"
@@ -32,9 +32,9 @@ import (
 	"istio.io/pkg/version"
 )
 
-// getICPS creates an IstioControlPlaneSpec from the following sources, overlaid sequentially:
-// 1. Compiled in base, or optionally base from path pointed to in ICP stored at inFilename.
-// 2. Profile overlay, if non-default overlay is selected. This also comes either from compiled in or path specified in ICP contained in inFilename.
+// getIOPS creates an IstioOperatorSpec from the following sources, overlaid sequentially:
+// 1. Compiled in base, or optionally base from path pointed to in IOP stored at inFilename.
+// 2. Profile overlay, if non-default overlay is selected. This also comes either from compiled in or path specified in IOP contained in inFilename.
 // 3. User overlay stored in inFilename.
 // 4. setOverlayYAML, which comes from --set flag passed to manifest command.
 //
@@ -42,9 +42,9 @@ import (
 // ones that are compiled in. If it does, the starting point will be the base and profile YAMLs at that file path.
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
-func genICPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Logger) (string, *v1alpha2.IstioControlPlaneSpec, error) {
+func genIOPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
 	overlayYAML := ""
-	var overlayICPS *v1alpha2.IstioControlPlaneSpec
+	var overlayIOPS *v1alpha1.IstioOperatorSpec
 	set := make(map[string]interface{})
 	err := yaml.Unmarshal([]byte(setOverlayYAML), &set)
 	if err != nil {
@@ -55,11 +55,11 @@ func genICPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Log
 		if err != nil {
 			return "", nil, fmt.Errorf("could not read values from file %s: %s", inFilename, err)
 		}
-		overlayICPS, overlayYAML, err = unmarshalAndValidateICP(string(b), force)
+		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(string(b), force)
 		if err != nil {
 			return "", nil, err
 		}
-		profile = overlayICPS.Profile
+		profile = overlayIOPS.Profile
 	}
 	if setProfile, ok := set["profile"]; ok {
 		profile = setProfile.(string)
@@ -77,7 +77,7 @@ func genICPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Log
 		}
 	}
 
-	// This contains the IstioControlPlane CR.
+	// This contains the IstioOperator CR.
 	baseCRYAML, err := helm.ReadProfileYAML(profile)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not read the profile values for %s: %s", profile, err)
@@ -99,7 +99,7 @@ func genICPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Log
 		}
 	}
 
-	_, baseYAML, err := unmarshalAndValidateICP(baseCRYAML, force)
+	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force)
 	if err != nil {
 		return "", nil, err
 	}
@@ -124,7 +124,7 @@ func genICPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Log
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
-	if _, err := unmarshalAndValidateICPS(mergedYAML, force, l); err != nil {
+	if _, err := unmarshalAndValidateIOPS(mergedYAML, force, l); err != nil {
 		return "", nil, err
 	}
 
@@ -134,15 +134,15 @@ func genICPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Log
 		return "", nil, fmt.Errorf("could not overlay --set values over merged: %s", err)
 	}
 
-	finalICPS, err := unmarshalAndValidateICPS(finalYAML, force, l)
+	finalIOPS, err := unmarshalAndValidateIOPS(finalYAML, force, l)
 	if err != nil {
 		return "", nil, err
 	}
-	return finalYAML, finalICPS, nil
+	return finalYAML, finalIOPS, nil
 }
 
 func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string, force bool, l *Logger) (string, error) {
-	finalYAML, finalICPS, err := genICPS(inFilename, profile, setOverlayYAML, "", force, l)
+	finalYAML, finalIOPS, err := genIOPS(inFilename, profile, setOverlayYAML, "", force, l)
 	if err != nil {
 		return "", err
 	}
@@ -153,7 +153,7 @@ func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath
 	}
 
 	if helmValues {
-		finalYAML, err = t.TranslateHelmValues(finalICPS, "")
+		finalYAML, err = t.TranslateHelmValues(finalIOPS, "")
 		if err != nil {
 			return "", err
 		}
@@ -167,40 +167,40 @@ func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath
 	return finalYAML, err
 }
 
-func unmarshalAndValidateICP(crYAML string, force bool) (*v1alpha2.IstioControlPlaneSpec, string, error) {
+func unmarshalAndValidateIOP(crYAML string, force bool) (*v1alpha1.IstioOperatorSpec, string, error) {
 	// TODO: add GVK handling as appropriate.
 	if crYAML == "" {
-		return &v1alpha2.IstioControlPlaneSpec{}, "", nil
+		return &v1alpha1.IstioOperatorSpec{}, "", nil
 	}
-	icps, _, err := manifest.ParseK8SYAMLToIstioControlPlaneSpec(crYAML)
+	iops, _, err := manifest.ParseK8SYAMLToIstioOperatorSpec(crYAML)
 	if err != nil {
 		return nil, "", fmt.Errorf("could not unmarshal the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)
 	}
-	if errs := validate.CheckIstioControlPlaneSpec(icps, false); len(errs) != 0 {
+	if errs := validate.CheckIstioOperatorSpec(iops, false); len(errs) != 0 {
 		if !force {
 			return nil, "", fmt.Errorf("input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s", errs, crYAML)
 		}
 	}
-	icpsYAML, err := util.MarshalWithJSONPB(icps)
+	iopsYAML, err := util.MarshalWithJSONPB(iops)
 	if err != nil {
 		return nil, "", fmt.Errorf("could not marshal: %s", err)
 	}
-	return icps, icpsYAML, nil
+	return iops, iopsYAML, nil
 }
 
-func unmarshalAndValidateICPS(icpsYAML string, force bool, l *Logger) (*v1alpha2.IstioControlPlaneSpec, error) {
-	icps := &v1alpha2.IstioControlPlaneSpec{}
-	if err := util.UnmarshalWithJSONPB(icpsYAML, icps); err != nil {
-		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, icpsYAML)
+func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
+	iops := &v1alpha1.IstioOperatorSpec{}
+	if err := util.UnmarshalWithJSONPB(iopsYAML, iops); err != nil {
+		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
-	if errs := validate.CheckIstioControlPlaneSpec(icps, true); len(errs) != 0 {
+	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
 		if !force {
 			l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
 			return nil, fmt.Errorf(errs.Error())
 		}
 		l.logAndError("Proceeding despite the following validation errors: \n", errs.Error())
 	}
-	return icps, nil
+	return iops, nil
 }
 
 func getConfigSubtree(manifest, path string) (string, error) {

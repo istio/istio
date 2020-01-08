@@ -19,7 +19,7 @@ import (
 
 	"github.com/kr/pretty"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/version"
 )
@@ -34,17 +34,14 @@ func TestProtoToValuesV13(t *testing.T) {
 		{
 			desc: "default success",
 			yamlStr: `
-defaultNamespace: istio-system
-cni:
-  components:
-    cni:
-      namespace: kube-system
+meshConfig:
+  rootNamespace: istio-system
 `,
 			want: `certmanager:
   enabled: false
   namespace: istio-system
 cni:
-  namespace: kube-system
+  namespace: istio-system
 galley:
   enabled: false
   namespace: istio-system
@@ -105,17 +102,14 @@ tracing:
 			yamlStr: `
 hub: docker.io/istio
 tag: 1.2.3
-defaultNamespace: istio-system
-cni:
-  components:
-    cni:
-      namespace: kube-system
+meshConfig:
+  rootNamespace: istio-system
 `,
 			want: `certmanager:
   enabled: false
   namespace: istio-system
 cni:
-  namespace: kube-system
+  namespace: istio-system
 galley:
   enabled: false
   namespace: istio-system
@@ -181,7 +175,7 @@ tracing:
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			ispec := &v1alpha2.IstioControlPlaneSpec{}
+			ispec := &v1alpha1.IstioOperatorSpec{}
 			err := util.UnmarshalWithJSONPB(tt.yamlStr, ispec)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
@@ -236,9 +230,14 @@ func TestNewTranslator(t *testing.T) {
 			name:         "version 1.6",
 			minorVersion: version.NewMinorVersion(1, 6),
 			wantVer:      "1.5",
-			wantErr:      false,
+			wantErr:      true,
 		},
-	}
+		{
+			name:         "version 1.99",
+			minorVersion: version.NewMinorVersion(1, 99),
+			wantVer:      "",
+			wantErr:      true,
+		}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := NewTranslator(tt.minorVersion)

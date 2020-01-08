@@ -22,16 +22,15 @@ import (
 
 	"github.com/hashicorp/go-version"
 
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/manifest"
-
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
 // hook is a callout function that may be called during an upgrade to check state or modify the cluster.
 // hooks should only be used for version-specific actions.
-type hook func(kubeClient manifest.ExecClient, sourceICPS, targetICPS *v1alpha2.IstioControlPlaneSpec) util.Errors
+type hook func(kubeClient manifest.ExecClient, sourceIOPS, targetIOPS *v1alpha1.IstioOperatorSpec) util.Errors
 type hooks []hook
 
 // hookVersionMapping is a mapping between a hashicorp/go-version formatted constraints for the source and target
@@ -46,8 +45,8 @@ type hookVersionMapping struct {
 type HookCommonParams struct {
 	SourceVer  string
 	TargetVer  string
-	SourceICPS *v1alpha2.IstioControlPlaneSpec
-	TargetICPS *v1alpha2.IstioControlPlaneSpec
+	SourceIOPS *v1alpha1.IstioOperatorSpec
+	TargetIOPS *v1alpha1.IstioOperatorSpec
 }
 
 var (
@@ -102,7 +101,7 @@ func runUpgradeHooks(hml []hookVersionMapping, kubeClient manifest.ExecClient, h
 		}
 		for _, hf := range h.hooks {
 			log.Infof("Running hook %s", hf)
-			errs = util.AppendErrs(errs, hf(kubeClient, hc.SourceICPS, hc.TargetICPS))
+			errs = util.AppendErrs(errs, hf(kubeClient, hc.SourceIOPS, hc.TargetIOPS))
 		}
 	}
 	return errs
@@ -145,8 +144,8 @@ func checkConstraint(verStr, constraintStr string) (bool, error) {
 	return constraint.Check(ver), nil
 }
 
-func checkInitCrdJobs(kubeClient manifest.ExecClient, currentICPS, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
-	pl, err := kubeClient.PodsForSelector(currentICPS.DefaultNamespace, "")
+func checkInitCrdJobs(kubeClient manifest.ExecClient, currentIOPS, _ *v1alpha1.IstioOperatorSpec) util.Errors {
+	pl, err := kubeClient.PodsForSelector(currentIOPS.MeshConfig.RootNamespace, "")
 	if err != nil {
 		return util.NewErrs(fmt.Errorf("failed to list pods: %v", err))
 	}

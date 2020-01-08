@@ -1,18 +1,38 @@
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  defaultNamespace: istio-system
-  trafficManagement:
-    enabled: true
-  policy:
-    enabled: true
-  telemetry:
-    enabled: true
-  security:
-    enabled: true
-  configManagement:
-    enabled: true
-  autoInjection:
-    enabled: true
-  gateways:
-    enabled: true
+  components:
+    base:
+      enabled: true
+    pilot:
+      enabled: true
+    policy:
+      enabled: true
+    telemetry:
+      enabled: true
+    proxy:
+      enabled: true
+    sidecarInjector:
+      enabled: true
+    citadel:
+      enabled: true
+    nodeAgent:
+      enabled: false
+    galley:
+      enabled: true
+    cni:
+      enabled: false
+    ingressGateways:
+      - namespace: istio-system
+        name: istio-ingressgateway
+        enabled: true
+    egressGateways:
+      - namespace: istio-system
+        name: istio-egressgateway
+        enabled: true
+
+  addonComponents:
+    prometheus:
+      enabled: true
+    coreDNS:
+      enabled: true

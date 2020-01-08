@@ -44,7 +44,7 @@ type operatorInitArgs struct {
 	operatorNamespace string
 	// istioNamespace is the namespace Istio is installed into.
 	istioNamespace string
-	// inFilename is the path to the input IstioControlPlane CR.
+	// inFilename is the path to the input IstioOperator CR.
 	inFilename string
 
 	// kubeConfigPath is the path to kube config file.
@@ -196,7 +196,7 @@ func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource strin
 	if err != nil {
 		return "", "", err
 	}
-	mergedICPS, err := unmarshalAndValidateICPS(mergedYAML, true, l)
+	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, true, l)
 	if err != nil {
 		return "", "", err
 	}
@@ -206,7 +206,7 @@ func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource strin
 		return "", "", fmt.Errorf("could not read values from file %s: %s", filePath, err)
 	}
 	customResource = string(b)
-	istioNamespace = mergedICPS.DefaultNamespace
+	istioNamespace = mergedIOPS.MeshConfig.RootNamespace
 	return
 }
 

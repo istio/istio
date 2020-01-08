@@ -23,7 +23,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	iopv1alpha1 "istio.io/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/operator/pkg/kubectlcmd"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
@@ -41,14 +41,14 @@ type manifestMigrateArgs struct {
 
 func addManifestMigrateFlags(cmd *cobra.Command, args *manifestMigrateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.namespace, "namespace", "n", defaultNamespace,
-		" Default namespace for output IstioControlPlane CustomResource")
+		" Default namespace for output IstioOperator CustomResource")
 }
 
 func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate [<filepath>]",
-		Short: "Migrates a file containing Helm values to IstioControlPlane format",
-		Long:  "The migrate subcommand migrates a configuration from Helm values format to IstioControlPlane format.",
+		Short: "Migrates a file containing Helm values to IstioOperator format",
+		Long:  "The migrate subcommand migrates a configuration from Helm values format to IstioOperator format.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return fmt.Errorf("migrate accepts optional single filepath")
@@ -91,24 +91,18 @@ func translateFunc(values []byte, l *Logger) error {
 		return fmt.Errorf("error creating values.yaml translator: %s", err)
 	}
 
-	translatedYAML, _, err := ts.TranslateFromValueToSpec(values)
+	translatedIOPS, err := ts.TranslateFromValueToSpec(values)
 	if err != nil {
 		return fmt.Errorf("error translating values.yaml: %s", err)
 	}
 
-	translatedICPS := &v1alpha2.IstioControlPlaneSpec{}
-	err = util.UnmarshalWithJSONPB(translatedYAML, translatedICPS)
-	if err != nil {
-		return err
-	}
-
-	isCP := &v1alpha2.IstioControlPlane{Spec: translatedICPS, Kind: "IstioControlPlane", ApiVersion: "install.istio.io/v1alpha2"}
+	isCP := &iopv1alpha1.IstioOperator{Spec: translatedIOPS, Kind: "IstioOperator", ApiVersion: "install.istio.io/v1alpha1"}
 
 	ms := jsonpb.Marshaler{}
 	gotString, err := ms.MarshalToString(isCP)
 	l.logAndPrint("there is a known issue about the proto tag above, check https://github.com/istio/istio/issues/19735 for more details.\n\n")
 	if err != nil {
-		return fmt.Errorf("error marshaling translated IstioControlPlane: %s", err)
+		return fmt.Errorf("error marshaling translated IstioOperator: %s", err)
 	}
 
 	isCPYaml, err := yaml.JSONToYAML([]byte(gotString))
@@ -150,5 +144,6 @@ func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l
 	if err != nil {
 		return fmt.Errorf("error marshaling untyped map to YAML: %s", err)
 	}
+
 	return translateFunc(res, l)
 }

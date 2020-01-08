@@ -41,7 +41,7 @@ popd
 cd "${ROOT}"
 export GO111MODULE=on
 
-# this command would generate a migrated profile in IstioControlPlane CR format
+# this command would generate a migrated profile in IstioOperator CR format
 # and the diff with current profile as reference to update.
 function run_migrate_command() {
     local profile="${1}"

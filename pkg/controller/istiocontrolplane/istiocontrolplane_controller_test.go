@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/kr/pretty"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,120 +29,57 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/operator/v1alpha1"
+	iop "istio.io/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/operator/pkg/helmreconciler"
+	"istio.io/operator/pkg/name"
 )
 
 var (
-	minimalStatus = map[string]*v1alpha2.InstallStatus_VersionStatus{
-		"Pilot": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Base": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
+	healthyVersionStatus = &v1alpha1.IstioOperatorSpec_VersionStatus{
+		Status:       v1alpha1.IstioOperatorSpec_HEALTHY,
+		StatusString: "HEALTHY",
 	}
-	defaultStatus = map[string]*v1alpha2.InstallStatus_VersionStatus{
-		"Base": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Pilot": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Policy": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Telemetry": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Injector": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Citadel": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Galley": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Prometheus": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"IngressGateway": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
+	minimalStatus = map[string]*v1alpha1.IstioOperatorSpec_VersionStatus{
+		string(name.IstioBaseComponentName): healthyVersionStatus,
+		string(name.PilotComponentName):     healthyVersionStatus,
 	}
-	demoStatus = map[string]*v1alpha2.InstallStatus_VersionStatus{
-		"Base": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Pilot": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Policy": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Telemetry": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Injector": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Citadel": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Galley": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Prometheus": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"IngressGateway": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Grafana": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Kiali": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Tracing": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"EgressGateway": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
+	defaultStatus = map[string]*v1alpha1.IstioOperatorSpec_VersionStatus{
+		string(name.IstioBaseComponentName):       healthyVersionStatus,
+		string(name.PilotComponentName):           healthyVersionStatus,
+		string(name.SidecarInjectorComponentName): healthyVersionStatus,
+		string(name.PolicyComponentName):          healthyVersionStatus,
+		string(name.TelemetryComponentName):       healthyVersionStatus,
+		string(name.CitadelComponentName):         healthyVersionStatus,
+		string(name.GalleyComponentName):          healthyVersionStatus,
+		string(name.IngressComponentName):         healthyVersionStatus,
+		string(name.AddonComponentName):           healthyVersionStatus,
 	}
-	sdsStatus = map[string]*v1alpha2.InstallStatus_VersionStatus{
-		"Base": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Pilot": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Policy": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Telemetry": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Injector": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Citadel": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Galley": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"Prometheus": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"IngressGateway": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
-		"NodeAgent": {
-			Status: v1alpha2.InstallStatus_HEALTHY,
-		},
+	demoStatus = map[string]*v1alpha1.IstioOperatorSpec_VersionStatus{
+		string(name.IstioBaseComponentName):       healthyVersionStatus,
+		string(name.PilotComponentName):           healthyVersionStatus,
+		string(name.SidecarInjectorComponentName): healthyVersionStatus,
+		string(name.PolicyComponentName):          healthyVersionStatus,
+		string(name.TelemetryComponentName):       healthyVersionStatus,
+		string(name.CitadelComponentName):         healthyVersionStatus,
+		string(name.GalleyComponentName):          healthyVersionStatus,
+		string(name.IngressComponentName):         healthyVersionStatus,
+		string(name.EgressComponentName):          healthyVersionStatus,
+		string(name.AddonComponentName):           healthyVersionStatus,
+	}
+	sdsStatus = map[string]*v1alpha1.IstioOperatorSpec_VersionStatus{
+		string(name.IstioBaseComponentName):       healthyVersionStatus,
+		string(name.PilotComponentName):           healthyVersionStatus,
+		string(name.SidecarInjectorComponentName): healthyVersionStatus,
+		string(name.PolicyComponentName):          healthyVersionStatus,
+		string(name.TelemetryComponentName):       healthyVersionStatus,
+		string(name.CitadelComponentName):         healthyVersionStatus,
+		string(name.GalleyComponentName):          healthyVersionStatus,
+		string(name.NodeAgentComponentName):       healthyVersionStatus,
+		string(name.IngressComponentName):         healthyVersionStatus,
+		string(name.AddonComponentName):           healthyVersionStatus,
 	}
 )
 
@@ -151,8 +89,8 @@ type testCase struct {
 	targetProfile  string
 }
 
-// TestICPController_SwitchProfile
-func TestICPController_SwitchProfile(t *testing.T) {
+// TestIOPController_SwitchProfile
+func TestIOPController_SwitchProfile(t *testing.T) {
 	cases := []testCase{
 		{
 			description:    "switch profile from minimal to default",
@@ -190,26 +128,29 @@ func testSwitchProfile(t *testing.T, c testCase) {
 	t.Helper()
 	name := "example-istiocontrolplane"
 	namespace := "istio-system"
-	icp := &v1alpha2.IstioControlPlane{
-		Kind:       "IstioControlPlane",
-		ApiVersion: "install.istio.io/v1alpha2",
+	iop := &iop.IstioOperator{
+		Kind:       "IstioOperator",
+		ApiVersion: "install.istio.io/v1alpha1",
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: &v1alpha2.IstioControlPlaneSpec{
+		Spec: &v1alpha1.IstioOperatorSpec{
 			Profile: c.initialProfile,
+			MeshConfig: &mesh.MeshConfig{
+				RootNamespace: "istio-system",
+			},
 		},
 	}
 	objs := []runtime.Object{
-		icp,
+		iop,
 	}
 
 	s := scheme.Scheme
-	s.AddKnownTypes(v1alpha2.SchemeGroupVersion, icp)
+	s.AddKnownTypes(validation.SchemeGroupVersion, iop)
 	cl := fake.NewFakeClientWithScheme(s, objs...)
 	factory := &helmreconciler.Factory{CustomizerFactory: &IstioRenderingCustomizerFactory{}}
-	r := &ReconcileIstioControlPlane{client: cl, scheme: s, factory: factory}
+	r := &ReconcileIstioOperator{client: cl, scheme: s, factory: factory}
 
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -221,16 +162,16 @@ func testSwitchProfile(t *testing.T, c testCase) {
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
 	}
-	// check ICP status
-	succeed, err := checkICPStatus(cl, req.NamespacedName, c.initialProfile)
+	// check IOP status
+	succeed, err := checkIOPStatus(cl, req.NamespacedName, c.initialProfile)
 	if !succeed || err != nil {
-		t.Fatalf("failed to get expected IstioControlPlane status: (%v)", err)
+		t.Fatalf("failed to get initial expected IstioOperator status: (%v)", err)
 	}
 
-	//update IstioControlPlane : switch profile from minimal to default and reconcile
-	err = switchIstioControlPlaneProfile(cl, req.NamespacedName, c.targetProfile)
+	//update IstioOperator : switch profile from minimal to default and reconcile
+	err = switchIstioOperatorProfile(cl, req.NamespacedName, c.targetProfile)
 	if err != nil {
-		t.Fatalf("failed to update IstioControlPlane: (%v)", err)
+		t.Fatalf("failed to update IstioOperator: (%v)", err)
 	}
 	res, err = r.Reconcile(req)
 	if err != nil {
@@ -239,19 +180,19 @@ func testSwitchProfile(t *testing.T, c testCase) {
 	if res.Requeue {
 		t.Error("reconcile requeue which is not expected")
 	}
-	// check ICP status
-	succeed, err = checkICPStatus(cl, req.NamespacedName, c.targetProfile)
+	// check IOP status
+	succeed, err = checkIOPStatus(cl, req.NamespacedName, c.targetProfile)
 	if !succeed || err != nil {
-		t.Fatalf("failed to get expected IstioControlPlane status: (%v)", err)
+		t.Fatalf("failed to get expected target IstioOperator status: (%v)", err)
 	}
 }
 
-func statusExpected(s1, s2 *v1alpha2.InstallStatus_VersionStatus) bool {
+func statusExpected(s1, s2 *v1alpha1.IstioOperatorSpec_VersionStatus) bool {
 	return s1.Status.String() == s2.Status.String()
 }
 
-func switchIstioControlPlaneProfile(cl client.Client, key client.ObjectKey, profile string) error {
-	instance := &v1alpha2.IstioControlPlane{}
+func switchIstioOperatorProfile(cl client.Client, key client.ObjectKey, profile string) error {
+	instance := &iop.IstioOperator{}
 	err := cl.Get(context.TODO(), key, instance)
 	if err != nil {
 		return err
@@ -265,14 +206,13 @@ func switchIstioControlPlaneProfile(cl client.Client, key client.ObjectKey, prof
 	}
 	return nil
 }
-func checkICPStatus(cl client.Client, key client.ObjectKey, profile string) (bool, error) {
-
-	instance := &v1alpha2.IstioControlPlane{}
+func checkIOPStatus(cl client.Client, key client.ObjectKey, profile string) (bool, error) {
+	instance := &iop.IstioOperator{}
 	err := cl.Get(context.TODO(), key, instance)
 	if err != nil {
 		return false, err
 	}
-	var status map[string]*v1alpha2.InstallStatus_VersionStatus
+	var status map[string]*v1alpha1.IstioOperatorSpec_VersionStatus
 	switch profile {
 	case "minimal":
 		status = minimalStatus
@@ -283,19 +223,19 @@ func checkICPStatus(cl client.Client, key client.ObjectKey, profile string) (boo
 	case "demo":
 		status = demoStatus
 	}
-	installStatus := instance.GetStatus()
-	size := len(installStatus.Status)
+	spec := instance.Spec
+	size := len(spec.ComponentStatus)
 	expectedSize := len(status)
 	if size != expectedSize {
-		return false, fmt.Errorf("status size(%v) is not equal to expected status size (%v)", size, expectedSize)
+		return false, fmt.Errorf("status got: %s, want: %s", pretty.Sprint(spec.ComponentStatus), pretty.Sprint(status))
 	}
-	for k, v := range installStatus.Status {
+	for k, v := range spec.ComponentStatus {
 		if s, ok := status[k]; ok {
 			if !statusExpected(s, v) {
-				return false, fmt.Errorf("failed to get Expected IstioControlPlane status: (%s)", k)
+				return false, fmt.Errorf("failed to get Expected IstioOperator status: (%s)", k)
 			}
 		} else {
-			return false, fmt.Errorf("failed to find Expected IstioControlPlane status: (%s)", k)
+			return false, fmt.Errorf("failed to find Expected IstioOperator status: (%s)", k)
 		}
 	}
 	return true, nil

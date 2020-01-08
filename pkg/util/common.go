@@ -26,11 +26,11 @@ import (
 
 var (
 	scope = log.RegisterScope("util", "util", 0)
-	// IstioOperatorGVK is GVK for IstioControlPlane
+	// IstioOperatorGVK is GVK for IstioOperator
 	IstioOperatorGVK = schema.GroupVersionKind{
 		Version: "v1alpha2",
 		Group:   "install.istio.io",
-		Kind:    "IstioControlPlane",
+		Kind:    "IstioOperator",
 	}
 )
 

@@ -1,12 +1,13 @@
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  coreDNS:
-    enabled: true
+  addonComponents:
+    coreDNS:
+      enabled: true
 
-  gateways:
-    components:
-      egressGateway:
+  components:
+    egressGateways:
+      - name: istio-egressgateway
         enabled: true
 
   values:

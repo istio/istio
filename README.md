@@ -22,9 +22,9 @@ istio/operator.
 
 This repo reorganizes the current [Helm installation parameters](https://istio.io/docs/reference/config/installation-options/) into two groups:
 
-- The new [platform level installation API](pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto), for managing
+- The new [platform level installation API](https://github.com/istio/api/mesh/v1alpha1/operator.proto), for managing
 K8s settings like resources, auto scaling, pod disruption budgets and others defined in the
-[KubernetesResourceSpec](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto#L411)
+[KubernetesResourceSpec](https://github.com/istio/api/blob/7791470ecc4c5e123589ff2b781f47b1bcae6ddd/operator/v1alpha1/component.proto)
 - The configuration API that currently uses the
 [Helm installation parameters](https://istio.io/docs/reference/config/installation-options/) for backwards
 compatibility. This API is for managing the Istio control plane configuration settings.
@@ -51,8 +51,8 @@ In the new API, the same profile would be selected through a CustomResource (CR)
 ```yaml
 # sds.yaml
 
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   profile: sds
 ```
@@ -61,7 +61,7 @@ See [Select a specific configuration_profile](#select-a-specific-configuration-p
 
 If you don't specify a configuration profile, Istio is installed using the `default` configuration profile. All
 profiles listed in istio.io are available by default, or `profile:` can point to a local file path to reference a custom
-profile base to use as a starting point for customization. See the [API reference](pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto)
+profile base to use as a starting point for customization. See the [API reference](https://github.com/istio/api/operator/v1alpha1/operator.proto)
 for details.
 
 ## Developer quick start
@@ -111,11 +111,11 @@ the file deploy/operator.yaml to point to your docker hub:
           image: docker.io/<your-account>/operator
 ```
 
-Install the controller manifest and example IstioControlResource CR:
+Install the controller manifest and example IstioOperator CR:
 
 ```bash
 kubectl apply -k deploy/
-kubectl apply -f deploy/crds/istio_v1alpha2_istiocontrolplane_cr.yaml 
+kubectl apply -f deploy/crds/istio_v1alpha1_istiooperator_cr.yaml 
 ```
 
 This installs the controller into the cluster in the istio-operator namespace. The controller in turns installs
@@ -142,10 +142,10 @@ dlv debug --headless --listen=:2345 --api-version=2 -- server
 
 The CLI and controller share the same API and codebase for generating manifests from the API. You can think of the
 controller as the CLI command `mesh manifest apply` running in a loop in a pod in the cluster and using the config
-from the in-cluster IstioControlPlane CustomResource (CR). 
+from the in-cluster IstioOperator CustomResource (CR). 
 There are two major differences:
 1. The controller does not accept any dynamic user config through flags. All user interaction is through the
-IstioControlPlane CR.
+IstioOperator CR.
 1. The controller has additional logic that mirrors istioctl commands like upgrade, but is driven from the declarative
 API rather than command line.
 
@@ -222,7 +222,7 @@ The profile dump sub-command supports a couple of useful flags:
 - `config-path`: select the root for the configuration subtree you want to see e.g. just show Pilot:
 
 ```bash
-mesh profile dump --config-path trafficManagement.components.pilot
+mesh profile dump --config-path components.pilot
 ```
 
 - `set`: set a value in the configuration before dumping the resulting profile e.g. show the minimal profile:
@@ -238,8 +238,8 @@ The simplest customization is to select a profile different to `default` e.g. `s
 
 ```yaml
 # sds-install.yaml
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   profile: sds
 ```
@@ -257,8 +257,8 @@ After running the command, the Helm charts are rendered using `data/profiles/sds
 The compiled in charts and profiles are used by default, but you can specify a file path, for example:
 
 ```yaml
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   profile: /usr/home/bob/go/src/github.com/ostromart/istio-installer/data/profiles/default.yaml
   installPackagePath: /usr/home/bob/go/src/github.com/ostromart/istio-installer/data/charts/
@@ -268,17 +268,17 @@ You can mix and match these approaches. For example, you can use a compiled-in c
 local file system.
 
 #### Migration from values.yaml
-The following command takes helm values.yaml files and output the new IstioControlPlaneSpec:
+The following command takes helm values.yaml files and output the new IstioOperatorSpec:
 ```bash
 mesh manifest migrate /usr/home/bob/go/src/istio.io/installer/istio-control/istio-discovery/values.yaml
 ```
 
-If a directory is specified, all files called "values.yaml" under the directory will be converted into a single combined IstioControlPlaneSpec:
+If a directory is specified, all files called "values.yaml" under the directory will be converted into a single combined IstioOperatorSpec:
 ```bash
 mesh manifest migrate /usr/home/bob/go/src/istio.io/installer/istio-control
 ```
 
-If no file is specified, the IstioControlPlane CR in the kube config cluster is used as an input:
+If no file is specified, the IstioOperator CR in the kube config cluster is used as an input:
 ```bash
 mesh manifest migrate
 ```
@@ -291,48 +291,37 @@ mesh manifest diff ./out/helm-template/manifest.yaml ./out/mesh-manifest/manifes
 
 ### New API customization
 
-The [new platform level installation API](pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto)
+The [new platform level installation API](https://github.com/istio/api/operator/v1alpha1/operator.proto)
 defines install time parameters like feature and component enablement and namespace, and K8s settings like resources, HPA spec etc. in a structured way.
 The simplest customization is to turn features and components on and off. For example, to turn off all policy ([samples/sds-policy-off.yaml](samples/sds-policy-off.yaml)):
 
 ```yaml
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   profile: sds
-  policy:
-    enabled: false
+  components:
+    policy:
+      enabled: false
 ```
 
 The operator validates the configuration and automatically detects syntax errors. Helm lacks this capability. If you are
 using Helm values that are incompatible, the schema validation used in the operator may reject input that is valid for
-Helm. Another customization is to define custom namespaces for features ([samples/trafficManagement-namespace.yaml](samples/trafficManagement-namespace.yaml)):
+Helm. 
+Each Istio component has K8s settings, and these can be overridden from the defaults using official K8s APIs rather than
+Istio defined schemas ([samples/pilot-k8s.yaml](samples/pilot-k8s.yaml)):
 
 ```yaml
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  trafficManagement:
-    components:
-      namespace: istio-control-custom
-```
-
-The traffic management feature comprises Pilot and Proxy components. Each of these components has K8s
-settings, and these can be overridden from the defaults using official K8s APIs rather than Istio defined schemas
- ([samples/pilot-k8s.yaml](samples/pilot-k8s.yaml)):
-
-```yaml
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
-spec:
-  trafficManagement:
-    components:
-      pilot:
-        k8s:
-          resources:
-            requests:
-              cpu: 1000m # override from default 500m
-              memory: 4096Mi # ... default 2048Mi
+  components:
+    pilot:
+      k8s:
+        resources:
+          requests:
+            cpu: 1000m # override from default 500m
+            memory: 4096Mi # ... default 2048Mi
           hpaSpec:
             maxReplicas: 10 # ... default 5
             minReplicas: 2  # ... default 1
@@ -347,7 +336,7 @@ spec:
 ```
 
 The K8s settings are defined in detail in the
-[operator API](pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto).
+[operator API](https://github.com/istio/api/operator/v1alpha1/operator.proto).
 The settings are the same for all components, so a user can configure pilot K8s settings in exactly the same, consistent
 way as galley settings. Supported K8s settings currently include:
 
@@ -373,13 +362,13 @@ be used for reference. All K8s overlay values are also validated in the operator
 The new platform install API above deals with K8s level settings. The remaining values.yaml parameters deal with Istio
 control plane operation rather than installation. For the time being, the operator just passes these through to the Helm
 charts unmodified (but validated through a
-[schema](pkg/apis/istio/v1alpha2/values_types.go)). Values.yaml settings
+[schema](pkg/apis/istio/v1alpha1/values_types.proto)). Values.yaml settings
 are overridden the same way as the new API, though a customized CR overlaid over default values for the selected
 profile. Here's an example of overriding some global level default values ([samples/values-global.yaml](samples/values-global.yaml)):
 
 ```yaml
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   profile: sds
   values:
@@ -392,8 +381,8 @@ Values overrides can also be specified for a particular component
  ([samples/values-pilot.yaml](samples/values-pilot.yaml)):
 
 ```yaml
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   values:
     mixer:
@@ -410,29 +399,25 @@ possible to overlay the generated K8s resources before they are applied with use
 override some container level values in the Pilot container  ([samples/pilot-advanced-override.yaml](samples/pilot-advanced-override.yaml)):
 
 ```yaml
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  trafficManagement:
-    enabled: true
-    components:
-      proxy:
-        enabled: false
-      pilot:
-        k8s:
-          overlays:
-          - kind: Deployment
-            name: istio-pilot
-            patches:
-            - path: spec.template.spec.containers.[name:discovery].args.[30m]
-              value: "60m" # OVERRIDDEN
-            - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
-              value: 8090 # OVERRIDDEN
-          - kind: Service
-            name: istio-pilot
-            patches:
-            - path: spec.ports.[name:grpc-xds].port
-              value: 15099 # OVERRIDDEN
+  components:
+    pilot:
+      k8s:
+        overlays:
+        - kind: Deployment
+          name: istio-pilot
+          patches:
+          - path: spec.template.spec.containers.[name:discovery].args.[30m]
+            value: "60m" # OVERRIDDEN
+          - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
+            value: 8090 # OVERRIDDEN
+        - kind: Service
+          name: istio-pilot
+          patches:
+          - path: spec.ports.[name:grpc-xds].port
+            value: 15099 # OVERRIDDEN
 ```
 
 The user-defined overlay uses a path spec that includes the ability to select list items by key. In the example above,

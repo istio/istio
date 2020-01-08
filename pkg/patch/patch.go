@@ -91,7 +91,7 @@ import (
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/object"
 	"istio.io/operator/pkg/tpath"
 	"istio.io/operator/pkg/util"
@@ -105,7 +105,7 @@ var (
 // YAMLManifestPatch patches a base YAML in the given namespace with a list of overlays.
 // Each overlay has the format described in the K8SObjectOverlay definition.
 // It returns the patched manifest YAML.
-func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K8SObjectOverlay) (string, error) {
+func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha1.K8SObjectOverlay) (string, error) {
 	baseObjs, err := object.ParseK8sObjectsFromYAMLManifest(baseYAML)
 	if err != nil {
 		return "", err
@@ -177,7 +177,7 @@ func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K
 
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
 // or a list of errors otherwise.
-func applyPatches(base *object.K8sObject, patches []*v1alpha2.K8SObjectOverlay_PathValue) (outYAML []byte, errs util.Errors) {
+func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_PathValue) (outYAML []byte, errs util.Errors) {
 	bo := make(map[interface{}]interface{})
 	by, err := base.YAML()
 	if err != nil {
@@ -188,6 +188,10 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha2.K8SObjectOverlay_P
 		return nil, util.NewErrs(err)
 	}
 	for _, p := range patches {
+		if strings.TrimSpace(p.Path) == "" {
+			scope.Warnf("value=%s has empty path, skip\n", p.Value)
+			continue
+		}
 		scope.Debugf("applying path=%s, value=%s\n", p.Path, p.Value)
 		inc, _, err := tpath.GetPathContext(bo, util.PathFromString(p.Path))
 		if err != nil {
@@ -205,8 +209,8 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha2.K8SObjectOverlay_P
 
 // objectOverrideMap converts oos, a slice of object overlays, into a map of the same overlays where the key is the
 // object manifest.Hash.
-func objectOverrideMap(oos []*v1alpha2.K8SObjectOverlay, namespace string) map[string][]*v1alpha2.K8SObjectOverlay_PathValue {
-	ret := make(map[string][]*v1alpha2.K8SObjectOverlay_PathValue)
+func objectOverrideMap(oos []*v1alpha1.K8SObjectOverlay, namespace string) map[string][]*v1alpha1.K8SObjectOverlay_PathValue {
+	ret := make(map[string][]*v1alpha1.K8SObjectOverlay_PathValue)
 	for _, o := range oos {
 		ret[object.Hash(o.Kind, namespace, o.Name)] = o.Patches
 	}

@@ -39,11 +39,11 @@ mandiff: update-charts
 
 fmt: format-go tidy-go
 
-gen: generate-values generate-types generate-vfs tidy-go mirror-licenses
+gen: generate-v1alpha1 generate-vfs tidy-go mirror-licenses
 
 gen-check: clean gen check-clean-repo
 
-clean: clean-values clean-types clean-vfs clean-charts
+clean: clean-values clean-vfs clean-charts
 
 update-charts: installer.sha
 	@scripts/run_update_charts.sh `cat installer.sha`
@@ -85,7 +85,7 @@ docker.save: docker
 docker.all: docker docker.push
 
 update-goldens:
-	@REFRESH_GOLDEN=true go test -v ./cmd/mesh/...
+	@UPDATE_GOLDENS=true go test -v ./cmd/mesh/...
 
 e2e:
 	@HUB=$(HUB) TAG=$(TAG) bash -c tests/e2e/e2e.sh
@@ -109,42 +109,22 @@ protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front
 
 ########################
 
-types_v1alpha2_path := pkg/apis/istio/v1alpha2
-types_v1alpha2_protos := $(wildcard $(types_v1alpha2_path)/*.proto)
-types_v1alpha2_pb_gos := $(types_v1alpha2_protos:.proto=.pb.go)
-types_v1alpha2_pb_pythons := $(patsubst $(types_v1alpha2_path)/%.proto,$(python_output_path)/$(types_v1alpha2_path)/%_pb2.py,$(types_v1alpha2_protos))
-types_v1alpha2_pb_docs := $(types_v1alpha2_path)/v1alpha2.pb.html
-types_v1alpha2_openapi := $(types_v1alpha2_protos:.proto=.json)
+v1alpha1_path := pkg/apis/istio/v1alpha1
+v1alpha1_protos := $(wildcard $(v1alpha1_path)/*.proto)
+v1alpha1_pb_gos := $(v1alpha1_protos:.proto=.pb.go)
+v1alpha1_pb_pythons := $(patsubst $(v1alpha1_path)/%.proto,$(python_output_path)/$(v1alpha1_path)/%_pb2.py,$(v1alpha1_protos))
+v1alpha1_pb_docs := $(v1alpha1_path)/v1alpha1.pb.html
+v1alpha1_openapi := $(v1alpha1_protos:.proto=.json)
 
-$(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons): $(types_v1alpha2_protos)
-	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(types_v1alpha2_path) $(protoc_gen_python_plugin) $^
+$(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons): $(v1alpha1_protos)
+	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(v1alpha1_path) $(protoc_gen_python_plugin) $^
 	@cp -r ${TMPDIR}/pkg/* pkg/
 	@rm -fr ${TMPDIR}/pkg
-	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
-	@sed -i 's|<key,value,effect>|\&lt\;key,value,effect\&gt\;|g' $(types_v1alpha2_path)/v1alpha2.pb.html
-	@sed -i 's|<operator>|\&lt\;operator\&gt\;|g' $(types_v1alpha2_path)/v1alpha2.pb.html
+	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(v1alpha1_path)/values_types.pb.go
 
-generate-types: $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons)
-
-clean-types:
-	@rm -fr $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons)
-
-values_v1alpha1_path := pkg/apis/istio/v1alpha1
-values_v1alpha1_protos := $(wildcard $(values_v1alpha1_path)/values_types*.proto)
-values_v1alpha1_pb_gos := $(values_v1alpha1_protos:.proto=.pb.go)
-values_v1alpha1_pb_pythons := $(patsubst $(values_v1alpha1_path)/%.proto,$(python_output_path)/$(values_v1alpha1_path)/%_pb2.py,$(values_v1alpha1_protos))
-values_v1alpha1_pb_docs := $(values_v1alpha1_path)/v1alpha1.pb.html
-values_v1alpha1_openapi := $(values_v1alpha1_protos:.proto=.json)
-
-$(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_pythons): $(values_v1alpha1_protos)
-	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(values_v1alpha1_path) $(protoc_gen_python_plugin) $^
-	@cp -r ${TMPDIR}/pkg/* pkg/
-	@rm -fr ${TMPDIR}/pkg
-	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(values_v1alpha1_path)/values_types.pb.go
-
-generate-values: $(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_pythons)
+generate-v1alpha1: $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons)
 
 clean-values:
-	@rm -fr $(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_pythons)
+	@rm -fr $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons)
 
 include common/Makefile.common.mk

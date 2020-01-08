@@ -1,23 +1,33 @@
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  policy:
-    enabled: false
+  components:
+    pilot:
+      enabled: true
+    policy:
+      enabled: false
+    telemetry:
+      enabled: false
+    proxy:
+      enabled: false
+    sidecarInjector:
+      enabled: false
+    citadel:
+      enabled: false
+    nodeAgent:
+      enabled: false
+    galley:
+      enabled: false
+    cni:
+      enabled: false
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
+    egressGateways:
 
-  telemetry:
-    enabled: false
-
-  security:
-    enabled: false
-
-  configManagement:
-    enabled: false
-
-  autoInjection:
-    enabled: false
-
-  gateways:
-    enabled: false
+  addonComponents:
+    prometheus:
+      enabled: false
 
   values:
     global:

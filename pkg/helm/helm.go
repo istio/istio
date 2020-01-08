@@ -142,7 +142,7 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	return sb.String(), nil
 }
 
-// GenerateHubTagOverlay creates an IstioControlPlaneSpec overlay YAML for hub and tag.
+// GenerateHubTagOverlay creates an IstioOperatorSpec overlay YAML for hub and tag.
 func GenerateHubTagOverlay(hub, tag string) (string, error) {
 	hubTagYAMLTemplate := `
 hub: {{.Hub}}

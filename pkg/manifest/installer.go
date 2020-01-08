@@ -22,10 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
-
-	// For kubeclient GCP auth
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"time" // For kubeclient GCP auth
 
 	"github.com/ghodss/yaml"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,12 +37,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+
+	// For GCP auth functionality.
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	kubectlutil "k8s.io/kubectl/pkg/util/deployment"
 	"k8s.io/utils/pointer"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/operator/pkg/helm"
 	"istio.io/operator/pkg/kubectlcmd"
 	"istio.io/operator/pkg/name"
 	"istio.io/operator/pkg/object"
@@ -107,14 +108,10 @@ var (
 			name.NodeAgentComponentName,
 			name.CertManagerComponentName,
 			name.SidecarInjectorComponentName,
+			name.CNIComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
-			name.CNIComponentName,
-			name.PrometheusOperatorComponentName,
-			name.PrometheusComponentName,
-			name.GrafanaComponentName,
-			name.KialiComponentName,
-			name.TracingComponentName,
+			name.AddonComponentName,
 		},
 	}
 
@@ -137,27 +134,27 @@ func init() {
 
 }
 
-// ParseK8SYAMLToIstioControlPlaneSpec parses a IstioControlPlane CustomResource YAML string and unmarshals in into
-// an IstioControlPlaneSpec object. It returns the object and an API group/version with it.
-func ParseK8SYAMLToIstioControlPlaneSpec(yml string) (*v1alpha2.IstioControlPlaneSpec, *schema.GroupVersionKind, error) {
+// ParseK8SYAMLToIstioOperatorSpec parses a IstioOperator CustomResource YAML string and unmarshals in into
+// an IstioOperatorSpec object. It returns the object and an API group/version with it.
+func ParseK8SYAMLToIstioOperatorSpec(yml string) (*v1alpha1.IstioOperatorSpec, *schema.GroupVersionKind, error) {
 	o, err := object.ParseYAMLToK8sObject([]byte(yml))
 	if err != nil {
 		return nil, nil, err
 	}
 	spec, ok := o.UnstructuredObject().Object["spec"]
 	if !ok {
-		return nil, nil, fmt.Errorf("spec is missing from IstioControlPlane YAML")
+		return nil, nil, fmt.Errorf("spec is missing from IstioOperator YAML")
 	}
 	y, err := yaml.Marshal(spec)
 	if err != nil {
 		return nil, nil, err
 	}
-	icp := &v1alpha2.IstioControlPlaneSpec{}
-	if err := util.UnmarshalWithJSONPB(string(y), icp); err != nil {
+	iop := &v1alpha1.IstioOperatorSpec{}
+	if err := util.UnmarshalWithJSONPB(string(y), iop); err != nil {
 		return nil, nil, err
 	}
 	gvk := o.GroupVersionKind()
-	return icp, &gvk, nil
+	return iop, &gvk, nil
 }
 
 // RenderToDir writes manifests to a local filesystem directory tree.
@@ -170,11 +167,8 @@ func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun bool) erro
 func renderRecursive(manifests name.ManifestMap, installTree componentTree, outputDir string, dryRun bool) error {
 	for k, v := range installTree {
 		componentName := string(k)
-		ym := manifests[k]
-		if ym == "" {
-			logAndPrint("Manifest for %s not found, skip.", componentName)
-			continue
-		}
+		// In cases (like gateways) where multiple instances can exist, concatenate the manifests and apply as one.
+		ym := strings.Join(manifests[k], helm.YAMLSeparator)
 		logAndPrint("Rendering: %s", componentName)
 		dirName := filepath.Join(outputDir, componentName)
 		if !dryRun {
@@ -230,7 +224,7 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 				<-s
 				log.Infof("Prerequisite for %s has completed, proceeding with install.", c)
 			}
-			applyOut, appliedObjects := ApplyManifest(c, m, version.String(), *opts)
+			applyOut, appliedObjects := ApplyManifest(c, strings.Join(m, helm.YAMLSeparator), version.String(), *opts)
 			mu.Lock()
 			out[c] = applyOut
 			allAppliedObjects = append(allAppliedObjects, appliedObjects...)

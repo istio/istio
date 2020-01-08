@@ -17,9 +17,10 @@ package istiocontrolplane
 import (
 	"strconv"
 
+	"istio.io/operator/pkg/apis/istio/v1alpha1"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/helmreconciler"
 	"istio.io/operator/pkg/util"
 )
@@ -129,7 +130,7 @@ var (
 )
 
 // NewPruningDetails creates a new PruningDetails object specific to the instance.
-func NewIstioPruningDetails(instance *v1alpha2.IstioControlPlane) helmreconciler.PruningDetails {
+func NewIstioPruningDetails(instance *v1alpha1.IstioOperator) helmreconciler.PruningDetails {
 	name := instance.GetName()
 	generation := strconv.FormatInt(instance.GetGeneration(), 10)
 	return &helmreconciler.SimplePruningDetails{

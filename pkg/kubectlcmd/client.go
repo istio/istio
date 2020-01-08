@@ -41,7 +41,7 @@ type Client struct {
 type Options struct {
 	// Path to the kubeconfig file.
 	Kubeconfig string
-	// Name of the kubeconfig context to use.
+	// ComponentName of the kubeconfig context to use.
 	Context string
 
 	// namespace - k8s namespace for kubectl command

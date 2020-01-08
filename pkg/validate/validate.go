@@ -19,28 +19,24 @@ import (
 	"net/url"
 	"reflect"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/util"
 )
 
 var (
 	// defaultValidations maps a data path to a validation function.
 	defaultValidations = map[string]ValidatorFunc{
-		"Hub":               validateHub,
-		"Tag":               validateTag,
-		"BaseSpecPath":      validateInstallPackagePath,
-		"CustomPackagePath": validateInstallPackagePath,
-		"DefaultNamespace":  validateDefaultNamespace,
+		"Hub":                validateHub,
+		"Tag":                validateTag,
+		"InstallPackagePath": validateInstallPackagePath,
 	}
 	// requiredValues lists all the values that must be non-empty.
-	requiredValues = map[string]bool{
-		"DefaultNamespace": true,
-	}
+	requiredValues = map[string]bool{}
 )
 
-// CheckIstioControlPlaneSpec validates the values in the given Installer spec, using the field map defaultValidations to
+// CheckIstioOperatorSpec validates the values in the given Installer spec, using the field map defaultValidations to
 // call the appropriate validation function.
-func CheckIstioControlPlaneSpec(is *v1alpha2.IstioControlPlaneSpec, checkRequired bool) (errs util.Errors) {
+func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequired bool) (errs util.Errors) {
 	errs = CheckValues(is.Values)
 	return util.AppendErrs(errs, validate(defaultValidations, is, nil, checkRequired))
 }
@@ -136,10 +132,6 @@ func validateHub(path util.Path, val interface{}) util.Errors {
 
 func validateTag(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, TagRegexp)
-}
-
-func validateDefaultNamespace(path util.Path, val interface{}) util.Errors {
-	return validateWithRegex(path, val, ObjectNameRegexp)
 }
 
 func validateInstallPackagePath(path util.Path, val interface{}) util.Errors {
