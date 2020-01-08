@@ -63,5 +63,5 @@ func TestManifestMigrate(t *testing.T) {
 }
 
 func runManifestMigrate(path string) (string, error) {
-	return runCommand("manifest migrate " + path)
+	return runCommand("manifest migrate --logtostderr " + path)
 }
