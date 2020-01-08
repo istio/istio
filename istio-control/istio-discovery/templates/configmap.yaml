@@ -258,7 +258,21 @@ data:
           address: {{ .Values.global.tracer.datadog.address }}
       {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
       tracing:
-        stackdriver: {}
+        stackdriver:
+          # enables trace output to stdout.
+          debug: {{ $.Values.global.tracer.stackdriver.debug }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+          # The global default max number of attributes per span.
+          maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+          # The global default max number of annotation events per span.
+          maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+          # The global default max number of message events per span.
+          maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+        {{- end }}
       {{- end }}
 
     {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
