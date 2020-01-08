@@ -16,9 +16,9 @@ package v2
 
 import (
 	"fmt"
-	"time"
-	"strings"
 	"math"
+	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -259,7 +259,8 @@ func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct
 		return nil
 	}
 
-	if len(newEps) > len(prevEps)*2 || len(newEps) < len(prevEps)/2 {
+	currentMax := int(g.GroupSize * g.GroupCount)
+	if len(newEps) > currentMax*2 || len(newEps) < currentMax/2 {
 		return g.reshard()
 	}
 
@@ -353,11 +354,20 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 	// Total number of slices
 	g.GroupCount = uint32(math.Ceil(float64(len(eps)) / float64(g.GroupSize)))
 
+	// Generate all groups first. Since groups won't change until next reshard event
+	for ix := uint32(0); ix < g.GroupCount; ix++ {
+		key := fmt.Sprintf("%s-%d", g.NamePrefix, ix)
+		if _, f := g.IstioEndpointGroups[key]; !f {
+			g.IstioEndpointGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
+		}
+	}
+
 	for _, ep := range eps {
 		key := g.makeGroupKey(ep)
 
 		if group, f := g.IstioEndpointGroups[key]; !f {
-			g.IstioEndpointGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
+			// Should never happen
+			panic(fmt.Sprintf("unexpect group key: %s", key))
 		} else {
 			group = append(group, ep)
 		}
