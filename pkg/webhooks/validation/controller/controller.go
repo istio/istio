@@ -34,12 +34,12 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/kubectl/pkg/scheme"
 
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/filewatcher"
@@ -81,9 +81,6 @@ type Options struct {
 	// when this ClusterRole is deleted.
 	ClusterRoleName string
 
-	// Enable galley validation controller.
-	Enabled bool
-
 	// If true, the controller will run but actively try to remove the
 	// validatingwebhookconfiguration instead of creating it. This is
 	// useful in cases where validation was previously enabled and
@@ -124,9 +121,9 @@ type Controller struct {
 	queue             workqueue.RateLimitingInterface
 	sharedInformers   informers.SharedInformerFactory
 	endpointReadyOnce bool
+	fw                filewatcher.FileWatcher
 
 	// unittest hooks
-	caFileWatcher filewatcher.FileWatcher
 	readFile      readFileFunc
 	reconcileDone func()
 }
@@ -242,7 +239,7 @@ func newController(
 	c := &Controller{
 		o:             o,
 		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
-		caFileWatcher: caFileWatcher,
+		fw:            caFileWatcher,
 		readFile:      readFile,
 		reconcileDone: reconcileDone,
 		ownerRefs:     findClusterRoleOwnerRefs(o.Client, o.ClusterRoleName),
@@ -282,15 +279,15 @@ func (c *Controller) Start(stop <-chan struct{}) {
 func (c *Controller) startFileWatcher(stop <-chan struct{}) {
 	for {
 		select {
-		case ev := <-c.caFileWatcher.Events(c.o.WebhookConfigPath):
+		case ev := <-c.fw.Events(c.o.WebhookConfigPath):
 			req := &reconcileRequest{fmt.Sprintf("Webhook configuration changed: %v", ev)}
 			c.queue.Add(req)
-		case ev := <-c.caFileWatcher.Events(c.o.CAPath):
+		case ev := <-c.fw.Events(c.o.CAPath):
 			req := &reconcileRequest{fmt.Sprintf("CA file changed: %v", ev)}
 			c.queue.Add(req)
-		case err := <-c.caFileWatcher.Errors(c.o.WebhookConfigPath):
+		case err := <-c.fw.Errors(c.o.WebhookConfigPath):
 			scope.Warnf("error watching local webhook configuration: %v", err)
-		case err := <-c.caFileWatcher.Errors(c.o.CAPath):
+		case err := <-c.fw.Errors(c.o.CAPath):
 			scope.Warnf("error watching local CA bundle: %v", err)
 		case <-stop:
 			return
@@ -507,11 +504,34 @@ func buildValidatingWebhookConfiguration(
 	return config, nil
 }
 
+var (
+	// Let a runtime.Decoder handle API defaulting for us when it decodes the object.
+	codec            = serializer.NewCodecFactory(runtime.NewScheme())
+	universalDecoder = codec.UniversalDeserializer()
+
+	failurePolicyFail  = kubeApiAdmission.Fail
+	sideEffectsUnknown = kubeApiAdmission.SideEffectClassUnknown
+)
+
 func decodeValidatingConfig(encoded []byte) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
 	var config kubeApiAdmission.ValidatingWebhookConfiguration
-	if err := runtime.DecodeInto(scheme.Codecs.UniversalDecoder(), encoded, &config); err != nil {
+	if err := runtime.DecodeInto(universalDecoder, encoded, &config); err != nil {
 		return nil, err
 	}
+
+	// fill in missing defaults to minimize desired vs. actual diffs later.
+	for i := 0; i < len(config.Webhooks); i++ {
+		if config.Webhooks[i].FailurePolicy == nil {
+			config.Webhooks[i].FailurePolicy = &failurePolicyFail
+		}
+		if config.Webhooks[i].NamespaceSelector == nil {
+			config.Webhooks[i].NamespaceSelector = &kubeApiMeta.LabelSelector{}
+		}
+		if config.Webhooks[i].SideEffects == nil {
+			config.Webhooks[i].SideEffects = &sideEffectsUnknown
+		}
+	}
+
 	return &config, nil
 }
 

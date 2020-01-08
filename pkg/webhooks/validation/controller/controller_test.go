@@ -28,6 +28,7 @@ import (
 	kubeApiApp "k8s.io/api/apps/v1"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -91,6 +92,9 @@ var (
 					Resources:   []string{"*"},
 				},
 			}},
+			FailurePolicy:     &failurePolicyFail,
+			NamespaceSelector: &kubeApiMeta.LabelSelector{},
+			SideEffects:       &sideEffectsUnknown,
 		}, {
 			Name: "hook1",
 			ClientConfig: kubeApiAdmission.WebhookClientConfig{Service: &kubeApiAdmission.ServiceReference{
@@ -106,10 +110,13 @@ var (
 					Resources:   []string{"*"},
 				},
 			}},
+			FailurePolicy:     &failurePolicyFail,
+			NamespaceSelector: &kubeApiMeta.LabelSelector{},
+			SideEffects:       &sideEffectsUnknown,
 		}},
 	}
-	codec                            = scheme.Codecs.LegacyCodec(kubeApiAdmission.SchemeGroupVersion)
-	istiodWebhookConfigEncoded       = runtime.EncodeOrDie(codec, unpatchedIstiodWebhookConfig)
+	admissionCodec                   = scheme.Codecs.LegacyCodec(kubeApiAdmission.SchemeGroupVersion)
+	istiodWebhookConfigEncoded       = runtime.EncodeOrDie(admissionCodec, unpatchedIstiodWebhookConfig)
 	webhookConfigWithCABundle0       *kubeApiAdmission.ValidatingWebhookConfiguration
 	galleyWebhookConfigWithCABundle1 *kubeApiAdmission.ValidatingWebhookConfiguration
 
@@ -393,7 +400,7 @@ func TestController_CertAndConfigFileChange(t *testing.T) {
 	se := kubeApiAdmission.SideEffectClassUnknown
 	webconfigAfterConfigUpdate.Webhooks[0].SideEffects = &se
 	c.injectedMu.Lock()
-	c.injectedConfig = []byte(runtime.EncodeOrDie(codec, webconfigAfterConfigUpdate))
+	c.injectedConfig = []byte(runtime.EncodeOrDie(admissionCodec, webconfigAfterConfigUpdate))
 	c.injectedMu.Unlock()
 	c.fakeWatcher.InjectEvent(c.o.WebhookConfigPath, fsnotify.Event{Name: c.o.WebhookConfigPath, Op: fsnotify.Write})
 
