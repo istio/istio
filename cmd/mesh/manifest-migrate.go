@@ -106,6 +106,7 @@ func translateFunc(values []byte, l *Logger) error {
 
 	ms := jsonpb.Marshaler{}
 	gotString, err := ms.MarshalToString(isCP)
+	l.logAndPrint("there is a known issue about the proto tag above, check https://github.com/istio/istio/issues/19735 for more details.\n\n")
 	if err != nil {
 		return fmt.Errorf("error marshaling translated IstioControlPlane: %s", err)
 	}
