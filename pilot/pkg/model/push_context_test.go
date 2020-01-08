@@ -427,6 +427,7 @@ func TestJwtAuthNPolicy(t *testing.T) {
 			Attributes: ServiceAttributes{Namespace: c.namespace},
 		}
 
+		// nolint: staticcheck
 		if got, _ := ps.AuthenticationPolicyForWorkload(service, &c.port); got.GetOrigins()[0].GetJwt().GetJwksUri() != c.expectedJwksURI {
 			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%v: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, c.expectedJwksURI)
 		}
