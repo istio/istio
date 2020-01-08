@@ -55,7 +55,7 @@ func (fx *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
 }
 
 func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, namespace string, event model.Event) {
-	fx.Events <- "svcupdate"
+	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
 func TestController(t *testing.T) {
@@ -301,7 +301,7 @@ func TestServiceEntryDelete(t *testing.T) {
 	store := memory.Make(configDescriptor)
 	configController := memory.NewController(store)
 
-	eventch := make(chan string)
+	eventch := make(chan Event)
 
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
@@ -342,8 +342,8 @@ func TestServiceEntryDelete(t *testing.T) {
 	}
 
 	handler := <-eventch
-	if handler != "xds" {
-		t.Fatalf("Expected config update to be called, but got %s", handler)
+	if handler.kind != "xds" {
+		t.Fatalf("Expected config update to be called, but got %v", handler)
 	}
 
 	// delete service entry.
@@ -355,12 +355,12 @@ func TestServiceEntryDelete(t *testing.T) {
 
 	// Validate that it triggers SvcUpdate event then followed by full push.
 	handler = <-eventch
-	if handler != "svcupdate" {
-		t.Fatalf("Expected svc update to be called, but got %s", handler)
+	if handler.kind != "svcupdate" && handler.host != "httpbin.default.svc.cluster.local" && handler.namespace == "test-ns" {
+		t.Fatalf("Expected svc update to be called, but got %v", handler)
 	}
 
 	handler = <-eventch
-	if handler != "xds" {
-		t.Fatalf("Expected config update to be called, but got %s", handler)
+	if handler.kind != "xds" {
+		t.Fatalf("Expected config update to be called, but got %v", handler)
 	}
 }
