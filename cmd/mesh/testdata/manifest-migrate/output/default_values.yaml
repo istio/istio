@@ -71,6 +71,7 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
+          serviceAnnotations: {}
           strategy:
             rollingUpdate:
               maxSurge: 100%
@@ -103,6 +104,7 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
+          serviceAnnotations: {}
           strategy:
             rollingUpdate:
               maxSurge: 100%

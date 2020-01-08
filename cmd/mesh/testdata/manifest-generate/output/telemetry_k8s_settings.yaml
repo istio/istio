@@ -7338,12 +7338,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-telemetry
-  namespace: istio-telemetry
+  annotations:
+    cloud.google.com/load-balancer-type: internal
   labels:
     app: mixer
     istio: mixer
     release: istio
+  name: istio-telemetry
+  namespace: istio-telemetry
 spec:
   ports:
   - name: grpc-mixer
@@ -7357,6 +7359,7 @@ spec:
   selector:
     istio: mixer
     istio-mixer-type: telemetry
+
 ---
 
 
