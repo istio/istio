@@ -532,6 +532,9 @@ message KubernetesResourcesSpec {
     // k8s toleration
     // https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
     repeated k8s.io.api.core.v1.Toleration tolerations = 14;
+    // k8s service annotations.
+    // https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    map<string, string> service_annotations = 15;
 
     // Overlays for k8s resources in rendered manifests.
     repeated k8sObjectOverlay overlays = 100;

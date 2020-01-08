@@ -50,3 +50,5 @@ spec:
             requests:
               cpu: 888m
               memory: 999Mi
+          serviceAnnotations:
+            cloud.google.com/load-balancer-type: "internal"
