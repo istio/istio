@@ -45,7 +45,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("validation", "CRD validation debugging", 0)
+var scope = log.RegisterScope("validationServer", "validation webhook server", 0)
 
 var (
 	runtimeScheme = runtime.NewScheme()

@@ -41,13 +41,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/kubectl/pkg/scheme"
 
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
-
-	"istio.io/istio/pkg/config/labels"
 )
 
-var scope = log.RegisterScope("webhook controller", "webhook controller", 0)
+var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
 
 type Options struct {
 	Client kubernetes.Interface
@@ -66,7 +65,7 @@ type Options struct {
 	// match the name in the config template.
 	WebhookConfigName string
 
-	// File path to the validatingwebhookconfiguration template
+	// File path to the validatingwebhookconfiguration template.
 	WebhookConfigPath string
 
 	// Name of the service running the webhook server.
@@ -78,7 +77,7 @@ type Options struct {
 	GalleyDeploymentName string
 
 	// Name of the ClusterRole that the controller should assign
-	// cluster-scoped ownership to. The webhook config will be GC'c
+	// cluster-scoped ownership to. The webhook config will be GC'd
 	// when this ClusterRole is deleted.
 	ClusterRoleName string
 
@@ -108,10 +107,10 @@ func (o Options) Validate() error {
 	if o.ServiceName == "" || !labels.IsDNS1123Label(o.ServiceName) {
 		errs = multierror.Append(errs, fmt.Errorf("invalid service name: %q", o.ServiceName))
 	}
-	if len(o.CAPath) == 0 {
+	if o.CAPath == "" {
 		errs = multierror.Append(errs, errors.New("CA cert file not specified"))
 	}
-	if len(o.WebhookConfigPath) == 0 {
+	if o.WebhookConfigPath == "" {
 		errs = multierror.Append(errs, errors.New("webhook config file not specified"))
 	}
 	return errs
@@ -327,7 +326,7 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 	return true
 }
 
-// reconcileRequest the desired state with the kube-apiserver.
+// reconcile the desired state with the kube-apiserver.
 func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	defer func() {
 		if c.reconcileDone != nil {

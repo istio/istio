@@ -29,7 +29,6 @@ const (
 )
 
 var (
-
 	// reasonTag holds the error reason for the context.
 	reasonTag tag.Key
 )
