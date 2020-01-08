@@ -683,7 +683,7 @@ func (s *Server) initSDSCA(args *PilotArgs) {
 		s.RunCA(s.secureGRPCServerDNS, &CAOptions{
 			TrustDomain: s.environment.Mesh().TrustDomain,
 			Namespace:   args.Namespace,
-		})
+		}, stop)
 		return nil
 	})
 }
