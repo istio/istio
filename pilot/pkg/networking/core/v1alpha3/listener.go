@@ -2156,9 +2156,10 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 
 	for _, incomingFilterChain := range incoming {
 		conflictFound := false
+		replacedFallthrough := false
 
 	compareWithExisting:
-		for i, existingFilterChain := range currentListenerEntry.listener.FilterChains {
+		for i, existingFilterChain := range newFilterChains {
 			if isMatchAllFilterChain(existingFilterChain) {
 				// This is a catch all filter chain.
 				// We can only merge with a non-catch all filter chain
@@ -2166,7 +2167,8 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 				if isMatchAllFilterChain(incomingFilterChain) {
 					// replace fallthrough filter chain with the real service one
 					if isFallthroughFilterChain(existingFilterChain) {
-						currentListenerEntry.listener.FilterChains[i] = incomingFilterChain
+						replacedFallthrough = true
+						newFilterChains[i] = incomingFilterChain
 						continue
 					}
 					// NOTE: While pluginParams.Service can be nil,
@@ -2221,7 +2223,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 			}
 		}
 
-		if !conflictFound {
+		if !conflictFound && !replacedFallthrough {
 			// There is no conflict with any filter chain in the existing listener.
 			// So append the new filter chains to the existing listener's filter chains
 			newFilterChains = append(newFilterChains, incomingFilterChain)
