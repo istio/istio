@@ -56,9 +56,10 @@ func (i *SelfSubjectAccessReviewImpl) Create(sar *authorizationapi.SelfSubjectAc
 }
 
 // CreateContext implements authorizationv1.SelfSubjectAccessReviewInterface
-func (i *SelfSubjectAccessReviewImpl) CreateContext(ctx context.Context, sar *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error) {
-	panic("not implemented")
+func (i *SelfSubjectAccessReviewImpl) CreateContext(ctx context.Context,
+	sar *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error) {
 
+	panic("not implemented")
 }
 
 // DisallowResourceAttributes is a helper for testing that marks particular resource attributes as not allowed in the mock.
