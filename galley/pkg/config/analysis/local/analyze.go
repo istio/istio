@@ -55,6 +55,11 @@ const (
 	meshConfigMapName = "istio"
 )
 
+// Psuedo-constants, since golang doesn't support a true const slice/array
+var (
+	requiredPerms = []string{"list", "watch"}
+)
+
 // Patch table
 var (
 	apiserverNew = apiserver.New
@@ -310,8 +315,9 @@ func (sa *SourceAnalyzer) disableKubeResourcesWithoutPermissions(client kubernet
 	resultBuilder := collection.NewSchemasBuilder()
 
 	for _, s := range sa.kubeResources.All() {
-		if !s.IsDisabled() && !hasPermissionsOnCollection(client, s, []string{"list", "watch"}) {
-			scope.Analysis.Infof("Skipping resource %q since the user doesn't have required permissions", s.Resource().CanonicalName())
+		if !s.IsDisabled() && !hasPermissionsOnCollection(client, s, requiredPerms) {
+			scope.Analysis.Errorf("Skipping resource %q since the current user doesn't have required permissions %v",
+				s.Resource().CanonicalName(), requiredPerms)
 			s = s.Disable()
 		}
 
