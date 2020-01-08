@@ -55,7 +55,7 @@ const (
 	meshConfigMapName = "istio"
 )
 
-// Psuedo-constants, since golang doesn't support a true const slice/array
+// Pseudo-constants, since golang doesn't support a true const slice/array
 var (
 	requiredPerms = []string{"list", "watch"}
 )
