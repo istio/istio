@@ -23,7 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	v1 "k8s.io/api/authorization/v1"
+	authorizationapi "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -326,9 +326,9 @@ func (sa *SourceAnalyzer) disableKubeResourcesWithoutPermissions(client kubernet
 
 func hasPermissionsOnCollection(client kubernetes.Interface, s collection.Schema, verbs []string) bool {
 	for _, verb := range verbs {
-		sar := &v1.SelfSubjectAccessReview{
-			Spec: v1.SelfSubjectAccessReviewSpec{
-				ResourceAttributes: &v1.ResourceAttributes{
+		sar := &authorizationapi.SelfSubjectAccessReview{
+			Spec: authorizationapi.SelfSubjectAccessReviewSpec{
+				ResourceAttributes: &authorizationapi.ResourceAttributes{
 					Verb:     verb,
 					Group:    s.Resource().Group(),
 					Resource: s.Resource().CanonicalName(),
