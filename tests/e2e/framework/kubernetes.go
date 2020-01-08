@@ -575,7 +575,7 @@ func (k *KubeInfo) Teardown() error {
 				log.Errorf("Failed to save operator logs: %v", err)
 			}
 			// Need an operator unique delete procedure
-			if _, err := util.Shell("kubectl -n istio-operator delete IstioControlPlane example-istiocontrolplane"); err != nil {
+			if _, err := util.Shell("kubectl -n istio-operator delete IstioOperator example-istiocontrolplane"); err != nil {
 				log.Errorf("Failed to delete the Istio CR.")
 				return err
 			}
@@ -1038,7 +1038,7 @@ EOF`, k.KubeConfig, dummyValidationRule)
 
 func (k *KubeInfo) waitForIstioOperator() error {
 
-	get := fmt.Sprintf(`kubectl --kubeconfig=%s get icp example-istiocontrolplane -n istio-operator -o yaml`, k.KubeConfig)
+	get := fmt.Sprintf(`kubectl --kubeconfig=%s get iop example-istiocontrolplane -n istio-operator -o yaml`, k.KubeConfig)
 	timeout := time.Now().Add(istioOperatorTimeout)
 	for {
 		if time.Now().After(timeout) {
@@ -1234,7 +1234,7 @@ func replacePattern(content []byte, src, dest string) []byte {
 
 // This code is in need of a reimplementation and some rethinking. An in-place
 // modification on the raw manifest is the wrong approach. This model is also
-// not portable to our future around IstioControlPlane where we don't necessarily
+// not portable to our future around IstioOperator where we don't necessarily
 // have a manifest to in place modify...
 func (k *KubeInfo) generateIstio(src, dst string) error {
 	content, err := ioutil.ReadFile(src)
