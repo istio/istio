@@ -15,6 +15,7 @@ package v2_test
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/adsc"
 	"testing"
 	"time"
 
@@ -102,6 +103,25 @@ func iniPilotServerWithEgds(t *testing.T) (*bootstrap.Server, util.TearDownFunc)
 	localIP = getLocalIP()
 
 	return server, tearDown
+}
+
+func adsConnectWithEgdsAndWait(t *testing.T, ip int) *adsc.ADSC {
+	adscConn, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+		IP: testIP(uint32(ip)),
+	})
+	if err != nil {
+		t.Fatal("Error connecting ", err)
+	}
+	adscConn.Watch()
+	_, err = adscConn.Wait(99999*time.Second, "eds", "lds", "cds", "rds", "egds")
+	if err != nil {
+		t.Fatal("Error getting initial config ", err)
+	}
+
+	if len(adscConn.GetEndpoints()) == 0 {
+		t.Fatal("No endpoints")
+	}
+	return adscConn
 }
 
 func TestEndpointGroupReshard(t *testing.T) {
@@ -200,13 +220,15 @@ func TestEndpointGroupReshard(t *testing.T) {
 	}
 }
 
-// func TestPushEdsWithEgds(t *testing.T) {
-// 	server, tearDown := iniPilotServerWithEgds(t)
-// 	defer tearDown()
+func TestPushEdsWithEgds(t *testing.T) {
+	server, tearDown := iniPilotServerWithEgds(t)
+	defer tearDown()
 
-// 	svc := addInitSvcAndEndpoints(server)
-// 	hostname := svc.Hostname
-// }
+	addInitSvcAndEndpoints(server)
+
+	adscConn := adsConnectWithEgdsAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+}
 
 func TestBuildEndpointGroup(t *testing.T) {
 	server, tearDown := iniPilotServerWithEgds(t)
@@ -246,7 +268,7 @@ func TestBuildEndpointGroup(t *testing.T) {
 
 	// Now test the endpoint group name
 	for ix := 0; ix < 8; ix++ {
-		groupName := fmt.Sprintf("%s-%s-%s-%d", hostname, svc.Attributes.Namespace, memClusterID, ix)
+		groupName := fmt.Sprintf("%s|%s|%s|%d", hostname, svc.Attributes.Namespace, memClusterID, ix)
 		if endpoints, f := shards[memClusterID].IstioEndpointGroups[groupName]; !f {
 			t.Errorf("Expect group name %s not found", groupName)
 		} else {

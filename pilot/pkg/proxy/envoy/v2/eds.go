@@ -490,7 +490,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	egdsGroup, f := ep.Shards[clusterID]
 	if !f {
 		egdsGroup = &EndpointGroups{
-			NamePrefix: fmt.Sprintf("%s-%s-%s", serviceName, namespace, clusterID),
+			NamePrefix: fmt.Sprintf("%s|%s|%s", serviceName, namespace, clusterID),
 			GroupSize:  s.Env.Mesh().GetEgdsGroupSize(),
 		}
 

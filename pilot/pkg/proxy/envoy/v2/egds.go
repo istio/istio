@@ -59,7 +59,7 @@ func (g *EndpointGroups) getEndpoints(groupName string) []*model.IstioEndpoint {
 		return g.IstioEndpoints
 	}
 
-	_, _, groupID := ExtractEndpointGroupKeys(groupName)
+	_, _, _, groupID := ExtractEndpointGroupKeys(groupName)
 
 	if eps, f := g.IstioEndpointGroups[groupID]; f {
 		return eps
@@ -70,17 +70,17 @@ func (g *EndpointGroups) getEndpoints(groupName string) []*model.IstioEndpoint {
 
 // ExtractEndpointGroupKeys extracts the keys within the group name string
 // the key can be the form of "[hostname]-[namespace]-[clusterID]-[groupID]"
-func ExtractEndpointGroupKeys(groupName string) (string, string, string) {
+func ExtractEndpointGroupKeys(groupName string) (string, string, string, string) {
 	if groupName == "" {
-		return "", "", ""
+		return "", "", "", ""
 	}
 
-	keys := strings.Split(groupName, "-")
-	if len(keys) != 3 {
-		return "", "", ""
+	keys := strings.Split(groupName, "|")
+	if len(keys) != 4 {
+		return "", "", "", ""
 	}
 
-	return keys[0], keys[1], keys[2]
+	return keys[0], keys[1], keys[2], keys[3]
 }
 
 func endpointGroupDiscoveryResponse(groups []*xdsapi.EndpointGroup, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
@@ -340,7 +340,7 @@ func (g *EndpointGroups) updateEndpointGroups(updated []*model.IstioEndpoint, re
 
 func (g *EndpointGroups) makeGroupKey(ep *model.IstioEndpoint) string {
 	index := ep.HashUint32() % g.GroupCount
-	key := fmt.Sprintf("%s-%d", g.NamePrefix, index)
+	key := fmt.Sprintf("%s|%d", g.NamePrefix, index)
 
 	return key
 }
@@ -356,7 +356,7 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 
 	// Generate all groups first. Since groups won't change until next reshard event
 	for ix := uint32(0); ix < g.GroupCount; ix++ {
-		key := fmt.Sprintf("%s-%d", g.NamePrefix, ix)
+		key := fmt.Sprintf("%s|%d", g.NamePrefix, ix)
 		if _, f := g.IstioEndpointGroups[key]; !f {
 			g.IstioEndpointGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
 		}
