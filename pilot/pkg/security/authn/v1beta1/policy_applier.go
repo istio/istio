@@ -167,12 +167,15 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 	}
 	providers := map[string]*envoy_jwt.JwtProvider{}
 	for i, jwtRule := range jwtRules {
-		// TODO(diemtvu): set forward based on input spec after https://github.com/istio/api/pull/1172
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:            jwtRule.Issuer,
 			Audiences:         jwtRule.Audiences,
-			Forward:           false,
+			Forward:           jwtRule.ForwardOriginalToken,
 			PayloadInMetadata: jwtRule.Issuer,
+		}
+
+		if len(jwtRule.OutputPayloadToHeader) > 0 {
+			provider.ForwardPayloadHeader = jwtRule.OutputPayloadToHeader
 		}
 
 		for _, location := range jwtRule.FromHeaders {
