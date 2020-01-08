@@ -1,0 +1,59 @@
+{
+  "node": {
+    "id": "{{ .EnvoyConfigOpt.NodeID }}",
+    "cluster": "mycluster"
+  },
+  "admin": {
+    "access_log_path": "/dev/stdout",
+    "address": {
+      "socket_address": {
+        "address": "0.0.0.0",
+        "port_value": {{.Ports.AdminPort}}
+      }
+    }
+  },
+  "static_resources": {
+    "listeners": [],
+    "clusters": [
+      {
+        "name": "xds-grpc",
+        "type": "STRICT_DNS",
+        "connect_timeout": {
+          "seconds": 5,
+          "nanos": 0
+        },
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {
+              "address": "127.0.0.1",
+              "port_value": {{.Ports.PilotGrpcPort}}
+            }
+          }
+        ],
+        "http2_protocol_options": {}
+      }
+    ]
+  },
+  "dynamic_resources": {
+    "lds_config": {
+      "ads": {}
+     },
+    "cds_config": {
+      "ads": {}
+    },
+    "ads_config": {
+      "api_type": "GRPC",
+      "grpc_services": {
+        "envoy_grpc": {
+          "cluster_name": "xds-grpc"
+        }
+      },
+      "refresh_delay": {
+        "seconds": 0,
+        "nanos": 150000000
+      }
+    }
+  }
+}
+

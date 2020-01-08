@@ -106,7 +106,7 @@ func runMcpServer() (*mcptesting.Server, error) {
 
 func runEnvoy(t *testing.T, nodeID string, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 	t.Log("create a new envoy test environment")
-	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
+	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/mcp_bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
