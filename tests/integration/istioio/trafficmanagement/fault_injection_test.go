@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package faultinjection
+package trafficmanagement
 
 import (
 	"testing"
@@ -59,7 +59,7 @@ $ kubectl apply -f @samples/bookinfo/networking/virtual-service-ratings-test-del
 			}).
 			// check if VS delay was created`.
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/virtual_service_delay_creation.txt"),
+				Input:   istioio.Path("scripts/faultinjection/virtual_service_delay_creation.txt"),
 				WorkDir: env.IstioSrc,
 			}).
             //crete Vs for rating test abort
@@ -79,7 +79,7 @@ $ kubectl apply -f @samples/bookinfo/networking/virtual-service-ratings-test-abo
 
 			// check if VS abort was created`.
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/virtual_service_abort_creation.txt"),
+				Input:   istioio.Path("scripts/faultinjection/virtual_service_abort_creation.txt"),
 				WorkDir: env.IstioSrc,
 			}).
 			// Cleanup.
