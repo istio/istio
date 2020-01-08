@@ -17,6 +17,7 @@ package controller
 import (
 	"fmt"
 	"os"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -170,10 +171,13 @@ func init() {
 type fakeController struct {
 	*Controller
 
-	caChangedCh      chan bool
-	configChangedCh  chan bool
+	caChangedCh     chan bool
+	configChangedCh chan bool
+
+	injectedMu       sync.Mutex
 	injectedCABundle []byte
 	injectedConfig   []byte
+
 	fakeWatcher      *filewatcher.FakeWatcher
 	fakeClient       *fake.Clientset
 	stop             chan struct{}
@@ -229,6 +233,9 @@ func createTestController() *fakeController {
 	}
 
 	readFile := func(filename string) ([]byte, error) {
+		fc.injectedMu.Lock()
+		defer fc.injectedMu.Unlock()
+
 		switch filename {
 		case o.CAPath:
 			return fc.injectedCABundle, nil
@@ -367,7 +374,10 @@ func TestController_CertAndConfigFileChange(t *testing.T) {
 	}, eventuallyTimeout).Should(Equal(webhookConfigWithCABundle0), "webhook should exist after endpoint is ready")
 
 	// verify the config updates after injecting a cafile change
+	c.injectedMu.Lock()
 	c.injectedCABundle = caBundle1
+	c.injectedMu.Unlock()
+
 	c.fakeWatcher.InjectEvent(c.o.CAPath, fsnotify.Event{Name: c.o.CAPath, Op: fsnotify.Write})
 	webconfigAfterCAUpdate := webhookConfigWithCABundle0.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
 	webconfigAfterCAUpdate.Webhooks[0].ClientConfig.CABundle = caBundle1
@@ -382,7 +392,9 @@ func TestController_CertAndConfigFileChange(t *testing.T) {
 	webconfigAfterConfigUpdate := webconfigAfterCAUpdate.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
 	se := kubeApiAdmission.SideEffectClassUnknown
 	webconfigAfterConfigUpdate.Webhooks[0].SideEffects = &se
+	c.injectedMu.Lock()
 	c.injectedConfig = []byte(runtime.EncodeOrDie(codec, webconfigAfterConfigUpdate))
+	c.injectedMu.Unlock()
 	c.fakeWatcher.InjectEvent(c.o.WebhookConfigPath, fsnotify.Event{Name: c.o.WebhookConfigPath, Op: fsnotify.Write})
 
 	g.Eventually(func() interface{} {

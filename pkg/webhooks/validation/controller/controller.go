@@ -368,7 +368,6 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	}
 
 	return c.updateValidatingWebhookConfiguration(desired)
-
 }
 
 func (c *Controller) isEndpointReady() (ready bool, err error) {

@@ -161,6 +161,7 @@ require (
 	k8s.io/cli-runtime v0.17.0
 	k8s.io/client-go v0.17.0
 	k8s.io/helm v2.14.3+incompatible
+	k8s.io/kubectl v0.17.0
 	sigs.k8s.io/yaml v1.1.0
 )
 

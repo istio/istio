@@ -540,7 +540,7 @@ func TestServe(t *testing.T) {
 
 func checkCert(t *testing.T, whc *Webhook, cert, key []byte) bool {
 	t.Helper()
-	actual := whc.cert
+	actual, _ := whc.getCert(nil)
 	expected, err := tls.X509KeyPair(cert, key)
 	if err != nil {
 		t.Fatalf("fail to load test certs.")
