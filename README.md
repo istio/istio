@@ -183,7 +183,7 @@ ISTIO_CNI_ARGS=
 if [[ "${ISTIO_CLUSTER_ISGKE}" == "true" ]]; then
     ISTIO_CNI_ARGS="--set cni.cniBinDir=/home/kubernetes/bin"
 fi
-iop istio-cni istio-cni $IBASE/istio-cni/ ${ISTIO_CNI_ARGS}
+iop kube-system istio-cni $IBASE/istio-cni/ ${ISTIO_CNI_ARGS}
 ```
 
 TODO. It is possible to add Istio-CNI later, and gradually migrate.
