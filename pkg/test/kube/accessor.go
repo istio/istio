@@ -117,15 +117,6 @@ func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore
 	return list.Items, nil
 }
 
-// GetConfigMap returns the config map with the name in the given namespace.
-func (a *Accessor) GetConfigMap(name, namespace string) (*kubeApiCore.ConfigMap, error) {
-	cm, err := a.set.CoreV1().ConfigMaps(namespace).Get(name, kubeApiMeta.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return cm, err
-}
-
 // GetEvents returns events in the given namespace, based on the involvedObject.
 func (a *Accessor) GetEvents(namespace string, involvedObject string) ([]kubeApiCore.Event, error) {
 	s := "involvedObject.name=" + involvedObject
@@ -208,21 +199,6 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 	}, newRetryOptions(opts...)...)
 
 	return pods, err
-}
-
-// WaitUntilConfigMapPresents waits until the config map with the name/namespace presents.
-func (a *Accessor) WaitUntilConfigMapPresents(name, namespace string, opts ...retry.Option) error {
-	_, err := retry.Do(func() (interface{}, bool, error) {
-
-		scopes.CI.Infof("Checking config map %v present...", name)
-
-		if cm, err := a.GetConfigMap(name, namespace); cm == nil || err != nil {
-			return nil, false, err
-		}
-		return nil, true, nil
-	}, newRetryOptions(opts...)...)
-
-	return err
 }
 
 // CheckPodsAreReady checks whether the pods that are selected by the given function is in ready state or not.

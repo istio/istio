@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 
@@ -42,8 +41,6 @@ import (
 )
 
 const (
-	stackdriverFilterConfig      = "testdata/stackdriver_filter.yaml"
-	metadataExchangeFilterConfig = "testdata/metadata_exchange_filter.yaml"
 	stackdriverBootstrapOverride = "testdata/custom_bootstrap.yaml.tmpl"
 	serverRequestCount           = "testdata/server_request_count.json.tmpl"
 	clientRequestCount           = "testdata/client_request_count.json.tmpl"
@@ -51,12 +48,13 @@ const (
 )
 
 var (
-	ist        istio.Instance
-	echoNsInst namespace.Instance
-	galInst    galley.Instance
-	sdInst     stackdriver.Instance
-	srv        echo.Instance
-	clt        echo.Instance
+	ist           istio.Instance
+	echoNsInst    namespace.Instance
+	galInst       galley.Instance
+	sdInst        stackdriver.Instance
+	srv           echo.Instance
+	clt           echo.Instance
+	usingOperator bool
 )
 
 func getIstioInstance() *istio.Instance {
@@ -76,13 +74,8 @@ func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSe
 	if err != nil {
 		return
 	}
-	srvWorkloads, err := srv.Workloads()
-	if err != nil {
-		return
-	}
 	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
-		"ServerPodName": srvWorkloads[0].PodName(),
 	})
 	if err != nil {
 		return
@@ -94,13 +87,8 @@ func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSe
 	if err != nil {
 		return
 	}
-	cltWorkloads, err := clt.Workloads()
-	if err != nil {
-		return
-	}
 	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
-		"ClientPodName": cltWorkloads[0].PodName(),
 	})
 	if err != nil {
 		return
@@ -115,6 +103,11 @@ func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
+			if !usingOperator {
+				// TODO(bianpengyuan): remove this condition when operator is used in all tests.
+				// Helm based installation does not have option to install Stackdriver filter.
+				t.Skip("Stackdriver filter test only runs with operator.")
+			}
 			srvReceived := false
 			cltReceived := false
 			retry.UntilSuccessOrFail(t, func() error {
@@ -166,9 +159,13 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	// disable telemetry and mixer filter
-	cfg.Values["global.disablePolicyChecks"] = "true"
-	cfg.Values["mixer.telemetry.enabled"] = "false"
+	usingOperator = cfg.Operator
+	// disable mixer telemetry and enable stackdriver filter
+	cfg.Values["telemetry.enabled"] = "true"
+	cfg.Values["telemetry.v1.enabled"] = "false"
+	cfg.Values["telemetry.v2.enabled"] = "true"
+	cfg.Values["telemetry.v2.prometheus.enabled"] = "false"
+	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 }
 
 func testSetup(ctx resource.Context) (err error) {
@@ -188,15 +185,6 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	// Apply metadata exchange filter and stackdriver filter.
-	stackdriverFilterConfig, err := file.AsString(stackdriverFilterConfig)
-	if err != nil {
-		return
-	}
-	exchangeFilterFile, err := file.AsString(metadataExchangeFilterConfig)
-	if err != nil {
-		return
-	}
 	templateBytes, err := ioutil.ReadFile(stackdriverBootstrapOverride)
 	if err != nil {
 		return
@@ -211,15 +199,12 @@ func testSetup(ctx resource.Context) (err error) {
 
 	err = galInst.ApplyConfig(
 		echoNsInst,
-		stackdriverFilterConfig,
-		exchangeFilterFile,
 		sdBootstrap,
 	)
 	if err != nil {
 		return
 	}
 	env := ctx.Environment().(*kube.Environment)
-	env.Accessor.WaitUntilConfigMapPresents(sdBootstrapConfigMap, getEchoNamespaceInstance().Name())
 	builder, err := echoboot.NewBuilder(ctx)
 	if err != nil {
 		return
