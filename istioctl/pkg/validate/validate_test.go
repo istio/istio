@@ -277,6 +277,7 @@ func fromYAML(in string) *unstructured.Unstructured {
 	}
 	return &un
 }
+
 func TestValidateResource(t *testing.T) {
 	cases := []struct {
 		name  string

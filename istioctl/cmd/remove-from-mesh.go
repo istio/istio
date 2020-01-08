@@ -19,20 +19,18 @@ import (
 	"io"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-
-	"istio.io/istio/pkg/config/schemas"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
-
-	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/pkg/log"
-
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 )
 
 func removeFromMeshCmd() *cobra.Command {
@@ -219,7 +217,7 @@ func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernete
 	}
 	serviceEntryGVR := schema.GroupVersionResource{
 		Group:    "networking.istio.io",
-		Version:  schemas.ServiceEntry.Version,
+		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 		Resource: "serviceentries",
 	}
 	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(resourceName(svcName), metav1.GetOptions{})

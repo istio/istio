@@ -16,6 +16,7 @@ package schema
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
@@ -35,10 +36,21 @@ func (s Set) Types() []string {
 	return types
 }
 
+// NormalizeKind converts the kind value to all lower case with no '-' separators. This is useful for comparison
+// between kinds (e.g. looking up in maps).
+func NormalizeKind(kind string) string {
+	return strings.ToLower(strings.ReplaceAll(kind, "-", ""))
+}
+
+// IsKindEqual is a utility method that compares the normalized value for each kind.
+func IsKindEqual(k1, k2 string) bool {
+	return NormalizeKind(k1) == NormalizeKind(k2)
+}
+
 // GetByType finds a schema by type if it is available
-func (s Set) GetByType(name string) (Instance, bool) {
+func (s Set) GetByType(kind string) (Instance, bool) {
 	for _, i := range s {
-		if i.Type == name {
+		if IsKindEqual(i.Type, kind) {
 			return i, true
 		}
 	}

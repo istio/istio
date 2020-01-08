@@ -110,7 +110,7 @@ func (s Schemas) MustFind(collection string) Schema {
 // FindByKind searches and returns the first schema with the given kind
 func (s Schemas) FindByKind(kind string) (Schema, bool) {
 	for _, rs := range s.byAddOrder {
-		if rs.Resource().Kind() == kind {
+		if strings.EqualFold(rs.Resource().Kind(), kind) {
 			return rs, true
 		}
 	}
@@ -130,7 +130,7 @@ func (s Schemas) MustFindByKind(kind string) Schema {
 // FindByGroupAndKind searches and returns the first schema with the given group/kind
 func (s Schemas) FindByGroupAndKind(group, kind string) (Schema, bool) {
 	for _, rs := range s.byAddOrder {
-		if rs.Resource().Group() == group && rs.Resource().Kind() == kind {
+		if rs.Resource().Group() == group && strings.EqualFold(rs.Resource().Kind(), kind) {
 			return rs, true
 		}
 	}
