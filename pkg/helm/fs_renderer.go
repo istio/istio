@@ -20,7 +20,6 @@ import (
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 
-	"istio.io/operator/pkg/util/fswatch"
 	"istio.io/pkg/log"
 )
 
@@ -46,24 +45,10 @@ func NewFileTemplateRenderer(helmChartDirPath, componentName, namespace string) 
 
 // Run implements the TemplateRenderer interface.
 func (h *FileTemplateRenderer) Run() error {
-	var err error
 	log.Infof("Run FileTemplateRenderer with helmChart=%s, componentName=%s", h.helmChartDirPath, h.componentName)
 	if err := h.loadChart(); err != nil {
 		return err
 	}
-
-	chartChanged, err := fswatch.WatchDirRecursively(h.helmChartDirPath)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		for range chartChanged {
-			if err := h.loadChart(); err != nil {
-				log.Errorf("Failed to load chart: %v", err.Error())
-			}
-		}
-	}()
 
 	h.started = true
 	return nil
