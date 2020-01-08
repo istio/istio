@@ -127,22 +127,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		// end shady logic
 
 		var si *model.ServiceInstance
-		serviceInstances := make([]*model.ServiceInstance, 0, len(node.ServiceInstances))
+		services := make(map[host.Name]struct{}, len(node.ServiceInstances))
 		for _, w := range node.ServiceInstances {
-			if w.Endpoint.Port == int(portNumber) {
+			if w.Endpoint.EndpointPort == portNumber {
 				if si == nil {
 					si = w
 				}
-				serviceInstances = append(serviceInstances, w)
+				services[w.Service.Hostname] = struct{}{}
 			}
 		}
-		if len(serviceInstances) != 1 {
-			names := make([]host.Name, 0, len(serviceInstances))
-			for _, s := range serviceInstances {
-				names = append(names, s.Service.Hostname)
-			}
+		if len(services) != 1 {
 			log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
-				len(serviceInstances), portNumber, names)
+				len(services), portNumber, services)
 		}
 
 		pluginParams := &plugin.InputParams{
@@ -353,7 +349,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			httpOpts: &httpListenerOpts{
 				rds:              routeName,
 				useRemoteAddress: true,
-				direction:        http_conn.HttpConnectionManager_Tracing_EGRESS, // viewed as from gateway to internal
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Forward client cert if connection is mTLS
 					ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
@@ -388,7 +383,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
-			direction:        http_conn.HttpConnectionManager_Tracing_EGRESS, // viewed as from gateway to internal
 			connectionManager: &http_conn.HttpConnectionManager{
 				// Forward client cert if connection is mTLS
 				ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,

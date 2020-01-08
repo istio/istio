@@ -38,8 +38,10 @@ import (
 	coordinationv1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	discoveryv1alpha1 "k8s.io/client-go/kubernetes/typed/discovery/v1alpha1"
+	discoveryv1beta1 "k8s.io/client-go/kubernetes/typed/discovery/v1beta1"
 	eventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	flowcontrolv1alpha1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1"
 	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
 	networkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	nodev1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
@@ -182,12 +184,20 @@ func (c *kubeInterface) DiscoveryV1alpha1() discoveryv1alpha1.DiscoveryV1alpha1I
 	panic("not implemented")
 }
 
+func (c *kubeInterface) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface {
+	panic("not implemented")
+}
+
 func (c *kubeInterface) EventsV1beta1() eventsv1beta1.EventsV1beta1Interface {
 	panic("not implemented")
 }
 
 func (c *kubeInterface) ExtensionsV1beta1() extensionsv1beta1.ExtensionsV1beta1Interface {
 	return c.extensions
+}
+
+func (c *kubeInterface) FlowcontrolV1alpha1() flowcontrolv1alpha1.FlowcontrolV1alpha1Interface {
+	panic("not implemented")
 }
 
 func (c *kubeInterface) NetworkingV1() networkingv1.NetworkingV1Interface {

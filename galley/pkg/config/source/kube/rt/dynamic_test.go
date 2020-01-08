@@ -45,10 +45,10 @@ func TestParseDynamic(t *testing.T) {
 }
 
 func TestExtractObjectDynamic(t *testing.T) {
-	for _, r := range basicmeta.MustGet().KubeSource().Resources() {
-		a := rt.DefaultProvider().GetAdapter(r)
+	for _, r := range basicmeta.MustGet().KubeCollections().All() {
+		a := rt.DefaultProvider().GetAdapter(r.Resource())
 
-		t.Run(r.Kind, func(t *testing.T) {
+		t.Run(r.Resource().Kind(), func(t *testing.T) {
 			t.Run("WrongTypeShouldReturnNil", func(t *testing.T) {
 				out := a.ExtractObject(struct{}{})
 				g := NewGomegaWithT(t)
@@ -65,10 +65,10 @@ func TestExtractObjectDynamic(t *testing.T) {
 }
 
 func TestExtractResourceDynamic(t *testing.T) {
-	for _, r := range basicmeta.MustGet().KubeSource().Resources() {
-		a := rt.DefaultProvider().GetAdapter(r)
+	for _, r := range basicmeta.MustGet().KubeCollections().All() {
+		a := rt.DefaultProvider().GetAdapter(r.Resource())
 
-		t.Run(r.Kind, func(t *testing.T) {
+		t.Run(r.Resource().Kind(), func(t *testing.T) {
 			t.Run("WrongTypeShouldReturnNil", func(t *testing.T) {
 				_, err := a.ExtractResource(struct{}{})
 				g := NewGomegaWithT(t)
@@ -90,7 +90,7 @@ func parseDynamic(t *testing.T, input []byte, kind string) (metaV1.Object, proto
 	g := NewGomegaWithT(t)
 
 	pr := rt.DefaultProvider()
-	a := pr.GetAdapter(basicmeta.MustGet().KubeSource().Resources().MustFind("testdata.istio.io", kind))
+	a := pr.GetAdapter(basicmeta.MustGet().KubeCollections().MustFindByGroupAndKind("testdata.istio.io", kind).Resource())
 
 	obj, err := a.ParseJSON(input)
 	g.Expect(err).To(BeNil())

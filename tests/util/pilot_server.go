@@ -115,7 +115,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 
 	// Create and setup the controller.
-	s, err := bootstrap.NewServer(args)
+	s, err := bootstrap.NewServer(&args)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -127,14 +127,14 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 
 	// Extract the port from the network address.
-	_, port, err := net.SplitHostPort(s.HTTPListeningAddr.String())
+	_, port, err := net.SplitHostPort(s.HTTPListener.Addr().String())
 	if err != nil {
 		return nil, nil, err
 	}
 	httpURL := "http://localhost:" + port
 	MockPilotHTTPPort, _ = strconv.Atoi(port)
 
-	_, port, err = net.SplitHostPort(s.GRPCListeningAddr.String())
+	_, port, err = net.SplitHostPort(s.GRPCListener.Addr().String())
 	if err != nil {
 		return nil, nil, err
 	}

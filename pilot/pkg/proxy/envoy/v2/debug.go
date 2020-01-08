@@ -23,6 +23,8 @@ import (
 	"net/http/pprof"
 	"sort"
 
+	"istio.io/istio/pkg/kube/inject"
+
 	"istio.io/istio/pilot/pkg/features"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
@@ -90,7 +92,7 @@ const (
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, webhook *inject.Webhook) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[host.Name]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
@@ -129,10 +131,12 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
 
-	s.addDebugHandler(mux, "/debug/authenticationz", "Dumpts the authn tls-check info", s.Authenticationz)
+	s.addDebugHandler(mux, "/debug/authenticationz", "Dumps the authn tls-check info", s.Authenticationz)
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
 	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+
+	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
@@ -240,8 +244,8 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 				}
 				for _, svc := range all {
 					_, _ = fmt.Fprintf(w, "%s:%s %v %s:%d %v %s\n", ss.Hostname,
-						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.ServiceAccount)
+						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.EndpointPort, svc.Endpoint.Labels,
+						svc.Endpoint.ServiceAccount)
 				}
 			}
 		}
@@ -664,6 +668,22 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	return configDump, nil
 }
 
+// InjectTemplateHandler dumps the injection template
+// Replaces dumping the template at startup.
+func (s *DiscoveryServer) InjectTemplateHandler(webhook *inject.Webhook) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		// TODO: we should split the inject template into smaller modules (separate one for dump core, etc),
+		// and allow pods to select which patches will be selected. When this happen, this should return
+		// all inject templates or take a param to select one.
+		if webhook == nil {
+			w.WriteHeader(404)
+			return
+		}
+
+		_, _ = w.Write([]byte(webhook.Config.Template))
+	}
+}
+
 // PushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
 	if model.LastPushStatus == nil {
@@ -749,11 +769,48 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
 	}
+	var con *XdsConnection
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		adsClientsMutex.RLock()
+		defer adsClientsMutex.RUnlock()
+		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		if !ok || len(connections) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
+			return
+		}
+
+		mostRecent := ""
+		for key := range connections {
+			if mostRecent == "" || key > mostRecent {
+				mostRecent = key
+			}
+		}
+		con = connections[mostRecent]
+	}
 
 	edsClusterMutex.RLock()
 	defer edsClusterMutex.RUnlock()
 	comma := false
-	if len(edsClusters) > 0 {
+	if con != nil {
+		_, _ = fmt.Fprintln(w, "[")
+		for _, clusterName := range con.Clusters {
+			if comma {
+				_, _ = fmt.Fprint(w, ",\n")
+			} else {
+				comma = true
+			}
+			cla := s.generateEndpoints(clusterName, con.node, s.globalPushContext(), nil)
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(cla)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+		}
+		_, _ = fmt.Fprintln(w, "]")
+	} else if len(edsClusters) > 0 {
 		_, _ = fmt.Fprintln(w, "[")
 		for cluster := range edsClusters {
 			if comma {

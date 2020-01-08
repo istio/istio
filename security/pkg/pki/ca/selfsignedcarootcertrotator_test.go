@@ -17,6 +17,7 @@ package ca
 import (
 	"bytes"
 	"context"
+	"crypto/rsa"
 	"testing"
 	"time"
 
@@ -130,6 +131,103 @@ func TestRootCertRotatorForSigningCitadel(t *testing.T) {
 	rotator.checkAndRotateRootCert()
 	certItem2 := loadCert(rotator)
 	verifyRootCertAndPrivateKey(t, false, certItem1, certItem2)
+}
+
+// TestRootCertRotatorKeepCertFieldsUnchanged verifies that rotator
+// extracts information from existing certificate and passes then into new root
+// certificate.
+func TestRootCertRotatorKeepCertFieldsUnchanged(t *testing.T) {
+	rotator := getRootCertRotator(getDefaultSelfSignedIstioCAOptions(nil))
+	// Update CASecret with a new root cert generated from custom cert options. The
+	// cert options differ from default cert options used by rotator.
+	oldCertOrg := "old cert org"
+	oldCertRSAKeySize := 512
+	customCertOptions := util.CertOptions{
+		TTL:          rotator.config.caCertTTL,
+		Org:          oldCertOrg,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   oldCertRSAKeySize,
+	}
+	updateRootCertWithCustomCertOptions(t, rotator, customCertOptions)
+
+	// Make a copy of CA secret, a copy of root cert form key cert bundle, and
+	// a copy of root cert from config map for verification.
+	certItem0 := loadCert(rotator)
+
+	// Change grace period percentage to 100, so that root cert is guarantee to rotate.
+	rotator.config.certInspector = certutil.NewCertUtil(100)
+	// Rotate the root certificate now.
+	rotator.checkAndRotateRootCert()
+	certItem1 := loadCert(rotator)
+
+	if !bytes.Equal(certItem0.caSecret.Data[caPrivateKeyID], certItem1.caSecret.Data[caPrivateKeyID]) {
+		t.Errorf("private key should not change")
+	}
+	// verifyRootCertFields verifies that new root cert and private key matches the
+	// old root cert and private key.
+	verifyRootCertFields(t, certItem0, certItem1)
+}
+
+// updateRootCertWithCustomCertOptions generate root cert and private key with
+// custom cert options, and replaces root cert and key in CA secret.
+func updateRootCertWithCustomCertOptions(t *testing.T,
+	rotator *SelfSignedCARootCertRotator, options util.CertOptions) {
+	certItem := loadCert(rotator)
+
+	pemCert, pemKey, err := util.GenCertKeyFromOptions(options)
+	if err != nil {
+		t.Fatalf("failed to rotate secret: %v", err)
+	}
+	newSecret := certItem.caSecret
+	newSecret.Data[caCertID] = pemCert
+	newSecret.Data[caPrivateKeyID] = pemKey
+	rotator.config.client.Secrets(rotator.config.caStorageNamespace).Update(newSecret)
+}
+
+// verifyRootCertFields verifies that certain fields in both new and old root
+// cert and key should not change.
+func verifyRootCertFields(t *testing.T, oldCertItem, newCertItem rootCertItem) {
+	if !bytes.Equal(oldCertItem.caSecret.Data[caPrivateKeyID],
+		newCertItem.caSecret.Data[caPrivateKeyID]) {
+		t.Errorf("private key should not change")
+	}
+	oldKeyLen := getPublicKeySizeInBits(oldCertItem.caSecret.Data[caPrivateKeyID])
+	newKeyLen := getPublicKeySizeInBits(newCertItem.caSecret.Data[caPrivateKeyID])
+
+	if oldKeyLen != newKeyLen {
+		t.Errorf("Public key size should not change, (got %d) vs (expected %d)",
+			newKeyLen, oldKeyLen)
+	}
+
+	oldRootCert, _ := util.ParsePemEncodedCertificate(oldCertItem.caSecret.Data[caCertID])
+	newRootCert, _ := util.ParsePemEncodedCertificate(newCertItem.caSecret.Data[caCertID])
+	if oldRootCert.Subject.String() != newRootCert.Subject.String() {
+		t.Errorf("certificate Subject does not match (old: %s) vs (new: %s)",
+			oldRootCert.Subject.String(), newRootCert.Subject.String())
+	}
+	if oldRootCert.Issuer.String() != newRootCert.Issuer.String() {
+		t.Errorf("certificate Issuer does not match (old: %s) vs (new: %s)",
+			oldRootCert.Issuer.String(), newRootCert.Issuer.String())
+	}
+	if oldRootCert.IsCA != newRootCert.IsCA {
+		t.Errorf("certificate IsCA does not match (old: %t) vs (new: %t)",
+			oldRootCert.IsCA, newRootCert.IsCA)
+	}
+	if oldRootCert.Version != newRootCert.Version {
+		t.Errorf("certificate Version does not match (old: %d) vs (new: %d)",
+			oldRootCert.Version, newRootCert.Version)
+	}
+	if oldRootCert.PublicKeyAlgorithm != newRootCert.PublicKeyAlgorithm {
+		t.Errorf("public key algorithm does not match (old: %s) vs (new: %s)",
+			oldRootCert.PublicKeyAlgorithm.String(), newRootCert.PublicKeyAlgorithm.String())
+	}
+}
+
+func getPublicKeySizeInBits(keyPem []byte) int {
+	privateKey, _ := util.ParsePemEncodedKey(keyPem)
+	k := privateKey.(*rsa.PrivateKey)
+	return k.PublicKey.Size() * 8
 }
 
 // TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel verifies that

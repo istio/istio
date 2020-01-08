@@ -17,6 +17,10 @@ package bootstrap
 import (
 	"time"
 
+	"istio.io/pkg/env"
+
+	"istio.io/istio/pkg/config/constants"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -78,6 +82,7 @@ type PilotArgs struct {
 	KeepaliveOptions         *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
+	BasePort  int
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -96,6 +101,10 @@ type DiscoveryServiceOptions struct {
 	// "" means disabling secure GRPC, used in test.
 	SecureGrpcAddr string
 
+	// The listening address for secure GRPC with DNS-based certificates. Default is :15012, if certificates are available.
+	// Will not start otherwise.
+	SecureGrpcDNSAddr string
+
 	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	MonitoringAddr string
@@ -106,4 +115,28 @@ type DiscoveryServiceOptions struct {
 type InjectionOptions struct {
 	InjectionDirectory string
 	Port               int
+}
+
+var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+
+// Apply default value to PilotArgs
+func (p *PilotArgs) Default() {
+	// If the namespace isn't set, try looking it up from the environment.
+	if p.Namespace == "" {
+		p.Namespace = podNamespaceVar.Get()
+	}
+
+	if p.KeepaliveOptions == nil {
+		p.KeepaliveOptions = istiokeepalive.DefaultOption()
+	}
+	if p.Config.ClusterRegistriesNamespace == "" {
+		if p.Namespace != "" {
+			p.Config.ClusterRegistriesNamespace = p.Namespace
+		} else {
+			p.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
+		}
+	}
+	if p.BasePort == 0 {
+		p.BasePort = 15000
+	}
 }

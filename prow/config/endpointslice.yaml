@@ -1,0 +1,21 @@
+kind: Cluster
+apiVersion: kind.sigs.k8s.io/v1alpha3
+kubeadmConfigPatches:
+- |
+  apiVersion: kubeadm.k8s.io/v1beta2
+  kind: ClusterConfiguration
+  metadata:
+    name: config
+  apiServer:
+    extraArgs:
+      # Trustworthy JWT for SDS
+      "service-account-issuer": "kubernetes.default.svc"
+      "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+
+      "feature-gates": "EndpointSlice=true"
+      "runtime-config": "discovery.k8s.io/v1alpha1=true"
+  controllerManager:
+    extraArgs:
+      "controllers": "*,endpointslice"
+      # Reduce number to allow testing multiple slices without requiring 100+ pods
+      "max-endpoints-per-slice": "3"

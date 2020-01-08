@@ -51,8 +51,8 @@ func defaultControlPlane() (*operatorV1alpha2.IstioControlPlane, error) {
 	}
 
 	return &operatorV1alpha2.IstioControlPlane{
-		Kind:       "IstioControlPlane",
-		ApiVersion: "install.istio.io/v1alpah2",
+		Kind:       "IstioOperator",
+		ApiVersion: "install.istio.io/v1alpha1",
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "default",
 		},
@@ -102,8 +102,8 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 	}
 
 	return &operatorV1alpha2.IstioControlPlane{
-		Kind:       "IstioControlPlane",
-		ApiVersion: "install.istio.io/v1alpah2",
+		Kind:       "IstioOperator",
+		ApiVersion: "install.istio.io/v1alpha1",
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "default",
 		},

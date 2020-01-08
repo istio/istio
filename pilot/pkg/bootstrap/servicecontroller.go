@@ -19,6 +19,7 @@ import (
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -51,8 +52,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				return err
 			}
 		case serviceregistry.MCP:
-			if s.mcpDiscovery != nil {
-				serviceControllers.AddRegistry(s.mcpDiscovery)
+			if s.sseDiscovery != nil {
+				serviceControllers.AddRegistry(s.sseDiscovery)
 			}
 		case serviceregistry.Consul:
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
@@ -79,13 +80,18 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 // initKubeRegistry creates all the k8s service controllers under this pilot
 func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
-	clusterID := string(serviceregistry.Kubernetes)
-	log.Infof("Primary Cluster name: %s", clusterID)
-	args.Config.ControllerOptions.ClusterID = clusterID
+	args.Config.ControllerOptions.ClusterID = s.clusterID
 	args.Config.ControllerOptions.Metrics = s.environment
-	kubectl := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
-	s.kubeRegistry = kubectl
-	serviceControllers.AddRegistry(kubectl)
+	args.Config.ControllerOptions.XDSUpdater = s.EnvoyXdsServer
+	args.Config.ControllerOptions.NetworksWatcher = s.environment.NetworksWatcher
+	if features.EnableEndpointSliceController {
+		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointSliceOnly
+	} else {
+		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointsOnly
+	}
+	kubeRegistry := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
+	s.kubeRegistry = kubeRegistry
+	serviceControllers.AddRegistry(kubeRegistry)
 	return
 }
 

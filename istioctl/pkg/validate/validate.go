@@ -273,7 +273,7 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 
 	c := &cobra.Command{
 		Use:   "validate -f FILENAME [options]",
-		Short: "Validate Istio policy and rules",
+		Short: "Validate Istio policy and rules (NOTE: validate is deprecated and will be removed in 1.6. Use 'istioctl analyze' to validate configuration.)",
 		Example: `
 		# Validate bookinfo-gateway.yaml
 		istioctl validate -f bookinfo-gateway.yaml
@@ -284,8 +284,8 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 		# Validate current services under 'default' namespace within the cluster
 		kubectl get services -o yaml |istioctl validate -f -
 
-		# Also see the related experimental command 'istioctl x analyze'
-		istioctl x analyze samples/bookinfo/networking/bookinfo-gateway.yaml
+		# Also see the related command 'istioctl analyze'
+		istioctl analyze samples/bookinfo/networking/bookinfo-gateway.yaml
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {

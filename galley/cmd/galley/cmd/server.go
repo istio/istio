@@ -153,8 +153,9 @@ func serverCmd() *cobra.Command {
 		serverArgs.SinkMeta, "Comma-separated list of key=values to attach as metadata to outgoing sink connections. Ex: 'key=value,key2=value2'")
 	svr.PersistentFlags().BoolVar(&serverArgs.EnableServiceDiscovery, "enableServiceDiscovery", false,
 		"Enable service discovery processing in Galley")
-	svr.PersistentFlags().BoolVar(&serverArgs.UseOldProcessor, "useOldProcessor", serverArgs.UseOldProcessor,
-		"Use the old processing pipeline for config processing")
+	_ = svr.PersistentFlags().Bool("useOldProcessor", false, "Use the old processing pipeline for config processing")
+	_ = svr.PersistentFlags().MarkDeprecated("useOldProcessor",
+		"--useOldProcessor is deprecated and has no effect. The new pipeline is the only pipeline")
 	svr.PersistentFlags().BoolVar(&serverArgs.WatchConfigFiles, "watchConfigFiles", serverArgs.WatchConfigFiles,
 		"Enable the Fsnotify for watching config source files on the disk and implicit signaling on a config change. Explicit signaling will still be enabled")
 	svr.PersistentFlags().BoolVar(&serverArgs.EnableConfigAnalysis, "enableAnalysis", serverArgs.EnableConfigAnalysis,

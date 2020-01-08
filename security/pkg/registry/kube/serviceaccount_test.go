@@ -22,6 +22,7 @@ import (
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/security/pkg/registry"
 )
@@ -31,6 +32,17 @@ func createServiceAccount(name, namespace string) *v1.ServiceAccount {
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+		},
+	}
+}
+
+func createMissedServiceAccount(name, namespace string) *cache.DeletedFinalStateUnknown {
+	return &cache.DeletedFinalStateUnknown{
+		Obj: &v1.ServiceAccount{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
 		},
 	}
 }
@@ -192,5 +204,27 @@ func TestServiceAccountController(t *testing.T) {
 		if !reflect.DeepEqual(reg.Map, c.mapping) {
 			t.Errorf("%s: registry content don't match. Expected %v, Actual %v", id, c.mapping, reg.Map)
 		}
+	}
+}
+
+func TestServiceAccountControllerWithMissedDelete(t *testing.T) {
+	namespace := "test-ns"
+	missedSA := []*cache.DeletedFinalStateUnknown{
+		createMissedServiceAccount("svc1@test.serviceaccount.com", namespace),
+		createMissedServiceAccount("svc2@test.serviceaccount.com", namespace),
+	}
+	mapping := map[string]string{}
+	client := fake.NewSimpleClientset()
+	reg := &registry.IdentityRegistry{
+		Map: make(map[string]string),
+	}
+	controller := NewServiceAccountController(client.CoreV1(), []string{"test-ns"}, reg)
+
+	for _, svcAcc := range missedSA {
+		controller.serviceAccountDeleted(svcAcc) // should not panic
+	}
+
+	if !reflect.DeepEqual(reg.Map, mapping) {
+		t.Errorf("registry content don't match. Expected %v, Actual %v", mapping, reg.Map)
 	}
 }

@@ -207,11 +207,11 @@ func TestGetLocality(t *testing.T) {
 		{
 			name: "endpoint with locality is overridden by label",
 			instance: ServiceInstance{
-				Endpoint: NetworkEndpoint{
+				Endpoint: &IstioEndpoint{
 					Locality: "region/zone/subzone-1",
-				},
-				Labels: labels.Instance{
-					LocalityLabel: "region/zone/subzone-2",
+					Labels: labels.Instance{
+						LocalityLabel: "region/zone/subzone-2",
+					},
 				},
 			},
 			expected: "region/zone/subzone-2",
@@ -219,11 +219,11 @@ func TestGetLocality(t *testing.T) {
 		{
 			name: "endpoint without label, use registry locality",
 			instance: ServiceInstance{
-				Endpoint: NetworkEndpoint{
+				Endpoint: &IstioEndpoint{
 					Locality: "region/zone/subzone-1",
-				},
-				Labels: labels.Instance{
-					LocalityLabel: "",
+					Labels: labels.Instance{
+						LocalityLabel: "",
+					},
 				},
 			},
 			expected: "region/zone/subzone-1",
@@ -231,11 +231,11 @@ func TestGetLocality(t *testing.T) {
 		{
 			name: "istio-locality label with k8s label separator",
 			instance: ServiceInstance{
-				Endpoint: NetworkEndpoint{
+				Endpoint: &IstioEndpoint{
 					Locality: "",
-				},
-				Labels: labels.Instance{
-					LocalityLabel: "region" + k8sSeparator + "zone" + k8sSeparator + "subzone-2",
+					Labels: labels.Instance{
+						LocalityLabel: "region" + k8sSeparator + "zone" + k8sSeparator + "subzone-2",
+					},
 				},
 			},
 			expected: "region/zone/subzone-2",
@@ -243,11 +243,11 @@ func TestGetLocality(t *testing.T) {
 		{
 			name: "istio-locality label with both k8s label separators and slashes",
 			instance: ServiceInstance{
-				Endpoint: NetworkEndpoint{
+				Endpoint: &IstioEndpoint{
 					Locality: "",
-				},
-				Labels: labels.Instance{
-					LocalityLabel: "region/zone/subzone.2",
+					Labels: labels.Instance{
+						LocalityLabel: "region/zone/subzone.2",
+					},
 				},
 			},
 			expected: "region/zone/subzone.2",

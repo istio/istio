@@ -80,8 +80,23 @@ const (
 	RestoreFormat             = "restore-format"
 )
 
+const (
+	DefaultProxyUID = "1337"
+)
+
+// Constants used in environment variables
+const (
+	DisableRedirectionOnLocalLoopback = "DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK"
+	EnvoyUser                         = "ENVOY_USER"
+)
+
 // Constants for iptables commands
 const (
+	IPTABLES         = "iptables"
 	IPTABLESRESTORE  = "iptables-restore"
+	IPTABLESSAVE     = "iptables-save"
+	IP6TABLES        = "ip6tables"
 	IP6TABLESRESTORE = "ip6tables-restore"
+	IP6TABLESSAVE    = "ip6tables-save"
+	IP               = "ip"
 )

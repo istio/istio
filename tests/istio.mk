@@ -24,6 +24,9 @@ DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --sidecar_injector_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --app_hub=${HUB}
 
+# Enable Istio CNI in helm template commands
+export ENABLE_ISTIO_CNI ?= false
+
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
 e2e_simple: build generate_e2e_yaml e2e_simple_run
@@ -119,7 +122,7 @@ test/local/auth/e2e_bookinfo_trustdomain: generate_e2e_yaml
 generate_e2e_yaml: $(e2e_files)
 
 # Create yaml files for e2e tests. Applies values-e2e.yaml, then values-$filename.yaml
-$(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
+$(e2e_files): $(HOME)/.helm istio-init.yaml
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template \

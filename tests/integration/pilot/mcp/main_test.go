@@ -82,6 +82,6 @@ galley:
   enableServiceDiscovery: true
 pilot:
   configSource:
-    subscribedResources: ["SERVICE_REGISTRY"
+    subscribedResources: ["SERVICE_REGISTRY"]
 `
 }

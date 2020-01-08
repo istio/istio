@@ -521,8 +521,8 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 		case outputStreamKey:
 			info.outputSource = outputStream(value)
 			if _, ok := outputStreams[info.outputSource]; !ok {
-				ctx.Fatalf("snippet %s: unsupported %s: %s. Must be in %v",
-					info.name, sourceKey, value, info.outputSource, outputStreams)
+				ctx.Fatalf("snippet %s: unsupported %s: %s. %s must be in %v",
+					info.name, key, value, info.outputSource, outputStreams)
 			}
 		default:
 			ctx.Fatalf("unsupported snippet attribute: %s", key)
@@ -584,7 +584,7 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 					case sourceKey:
 						currentVerifier.outputSource = outputStream(value)
 						if _, ok := outputStreams[currentVerifier.outputSource]; !ok {
-							ctx.Fatalf("snippet %s: unsupported %s: %s. Must be in %v",
+							ctx.Fatalf("snippet %s: unsupported %s: %s. %s must be in %v",
 								info.name, sourceKey, value, currentVerifier.outputSource, outputStreams)
 						}
 					default:
@@ -668,7 +668,7 @@ func (i snippetInfo) readFrom(source outputStream) string {
 		// Concatenate the stdout and stderr.
 		return i.readFile(i.getStdoutFile()) + i.readFile(i.getStderrFile())
 	default:
-		i.ctx.Fatalf("snippet %s: attempting to read from invalid output source: %s", source)
+		i.ctx.Fatalf("snippet %s: attempting to read from invalid output source: %s", i.name, source)
 		return ""
 	}
 }

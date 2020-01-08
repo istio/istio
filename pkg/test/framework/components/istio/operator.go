@@ -22,6 +22,8 @@ import (
 	"path"
 	"path/filepath"
 
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -131,9 +133,9 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 		return nil, err
 	}
 
-	icpFile := filepath.Join(workDir, "icp.yaml")
-	if err := ioutil.WriteFile(icpFile, []byte(cfg.IstioControlPlane()), os.ModePerm); err != nil {
-		return nil, fmt.Errorf("failed to write icp: %v", err)
+	iopFile := filepath.Join(workDir, "iop.yaml")
+	if err := ioutil.WriteFile(iopFile, []byte(cfg.IstioOperator()), os.ModePerm); err != nil {
+		return nil, fmt.Errorf("failed to write iop: %v", err)
 	}
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -143,7 +145,7 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 		"manifest", "apply",
 		"--skip-confirmation",
 		"--logtostderr",
-		"-f", icpFile,
+		"-f", iopFile,
 		"--force", // Blocked by https://github.com/istio/istio/issues/19009
 		"--set", "values.global.controlPlaneSecurityEnabled=false",
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
@@ -172,11 +174,17 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 		}
 
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
-		err = waitForValidationWebhook(env.Accessor)
+		err = waitForValidationWebhook(env.Accessor, cfg)
 		if err != nil {
 			i.Dump()
 			return nil, err
 		}
+	}
+
+	// TODO(https://github.com/istio/istio/issues/19602) use --wait
+	if _, err := env.WaitUntilPodsAreReady(env.NewPodFetch(cfg.SystemNamespace), retry.Timeout(cfg.DeployTimeout)); err != nil {
+		scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
+		return nil, err
 	}
 
 	return i, nil

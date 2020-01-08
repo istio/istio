@@ -311,7 +311,7 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 		MeshExternal: external,
 		Resolution:   resolution,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.MCP),
+			ServiceRegistry: string(serviceregistry.External),
 			Name:            string(hostname),
 			Namespace:       configNamespace,
 		},
@@ -358,18 +358,23 @@ func makeInstance(cfg *model.Config, address string, port int,
 	}
 	return &model.ServiceInstance{
 		Service: svc,
-		Endpoint: model.NetworkEndpoint{
-			Family:  family,
-			Address: address,
-			Port:    port,
-			ServicePort: &model.Port{
-				Name:     svcPort.Name,
-				Port:     int(svcPort.Number),
-				Protocol: protocol.Parse(svcPort.Protocol),
+		Endpoint: &model.IstioEndpoint{
+			Family:          family,
+			Address:         address,
+			EndpointPort:    uint32(port),
+			ServicePortName: svcPort.Name,
+			Labels:          svcLabels,
+			TLSMode:         tlsMode,
+			Attributes: model.ServiceAttributes{
+				Name:      svc.Attributes.Name,
+				Namespace: svc.Attributes.Namespace,
 			},
 		},
-		Labels:  svcLabels,
-		TLSMode: tlsMode,
+		ServicePort: &model.Port{
+			Name:     svcPort.Name,
+			Port:     int(svcPort.Number),
+			Protocol: protocol.Parse(svcPort.Protocol),
+		},
 	}
 }
 

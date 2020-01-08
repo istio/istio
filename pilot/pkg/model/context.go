@@ -65,7 +65,6 @@ type Environment struct {
 	PushContext *PushContext
 }
 
-// Mesh is a utility method for retrieving the current mesh config.
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
 	if e != nil && e.Watcher != nil {
 		return e.Watcher.Mesh()
@@ -73,12 +72,23 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 	return nil
 }
 
-// Networks is a utility method for retrieving the current mesh networks config.
+func (e *Environment) AddMeshHandler(h func()) {
+	if e != nil && e.Watcher != nil {
+		e.Watcher.AddMeshHandler(h)
+	}
+}
+
 func (e *Environment) Networks() *meshconfig.MeshNetworks {
 	if e != nil && e.NetworksWatcher != nil {
 		return e.NetworksWatcher.Networks()
 	}
 	return nil
+}
+
+func (e *Environment) AddNetworksHandler(h func()) {
+	if e != nil && e.NetworksWatcher != nil {
+		e.NetworksWatcher.AddNetworksHandler(h)
+	}
 }
 
 func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
@@ -599,23 +609,16 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 		return out, fmt.Errorf("missing parts in the service node %q", s)
 	}
 
-	out.Type = NodeType(parts[0])
-
-	if !IsApplicationNodeType(out.Type) {
+	if !IsApplicationNodeType(NodeType(parts[0])) {
 		return out, fmt.Errorf("invalid node type (valid types: sidecar, router in the service node %q", s)
 	}
+	out.Type = NodeType(parts[0])
 
 	// Get all IP Addresses from Metadata
-	if len(metadata.InstanceIPs) > 0 {
-		ipAddresses, err := parseIPAddresses(metadata.InstanceIPs)
-		if err == nil {
-			out.IPAddresses = ipAddresses
-		} else if isValidIPAddress(parts[1]) {
-			//Fail back, use IP from node id
-			out.IPAddresses = append(out.IPAddresses, parts[1])
-		}
+	if hasValidIPAddresses(metadata.InstanceIPs) {
+		out.IPAddresses = metadata.InstanceIPs
 	} else if isValidIPAddress(parts[1]) {
-		// Get IP from node id, it's only for backward-compatible, IP should come from metadata
+		//Fall back, use IP from node id, it's only for backward-compatibility, IP should come from metadata
 		out.IPAddresses = append(out.IPAddresses, parts[1])
 	}
 
@@ -627,7 +630,7 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 	out.ID = parts[2]
 	out.DNSDomain = parts[3]
 	if len(metadata.IstioVersion) == 0 {
-		log.Warnf("Istio Version is not found in metadata, which may have undesirable side effects")
+		log.Warnf("Istio Version is not found in metadata for %v, which may have undesirable side effects", out.ID)
 	}
 	out.IstioVersion = ParseIstioVersion(metadata.IstioVersion)
 	if len(metadata.Labels) > 0 {
@@ -707,17 +710,17 @@ func ParsePort(addr string) int {
 	return port
 }
 
-// parseIPAddresses extracts IPs from a string
-func parseIPAddresses(ipAddresses []string) ([]string, error) {
+// hasValidIPAddresses returns true if the input ips are all valid, otherwise returns false.
+func hasValidIPAddresses(ipAddresses []string) bool {
 	if len(ipAddresses) == 0 {
-		return ipAddresses, fmt.Errorf("no valid IP address")
+		return false
 	}
 	for _, ipAddress := range ipAddresses {
 		if !isValidIPAddress(ipAddress) {
-			return ipAddresses, fmt.Errorf("invalid IP address %q", ipAddress)
+			return false
 		}
 	}
-	return ipAddresses, nil
+	return true
 }
 
 // Tell whether the given IP address is valid or not

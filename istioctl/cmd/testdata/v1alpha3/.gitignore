@@ -1,0 +1,2 @@
+# Only keep .golden files
+*.yaml

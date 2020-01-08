@@ -750,7 +750,7 @@ metadata:
   namespace: istio-system
 spec:
   template: listentry
-  params:
+  params: {}
 `
 
 // RuleDynamic is a testing rule of dynamic instance idynlistentry1 and dynamic handler hdynlist3

@@ -25,26 +25,26 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/monitoring"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
 type serviceEntryTransformer struct {
-	inputs  collection.Names
-	outputs collection.Names
+	inputs  collection.Schemas
+	outputs collection.Schemas
 	options processing.ProcessorOptions
 
 	converter *converter.Instance
 
-	services  map[resource.Name]*resource.Entry
-	endpoints map[resource.Name]*resource.Entry
-	ipToName  map[string]map[resource.Name]struct{}
+	services  map[resource.FullName]*resource.Instance
+	endpoints map[resource.FullName]*resource.Instance
+	ipToName  map[string]map[resource.FullName]struct{}
 
 	podHandler  event.Handler
 	nodeHandler event.Handler
@@ -63,9 +63,9 @@ var _ event.Transformer = &serviceEntryTransformer{}
 
 // Start implements event.Transformer
 func (t *serviceEntryTransformer) Start() {
-	t.ipToName = make(map[string]map[resource.Name]struct{})
-	t.services = make(map[resource.Name]*resource.Entry)
-	t.endpoints = make(map[resource.Name]*resource.Entry)
+	t.ipToName = make(map[string]map[resource.FullName]struct{})
+	t.services = make(map[resource.FullName]*resource.Instance)
+	t.endpoints = make(map[resource.FullName]*resource.Instance)
 
 	podCache, cacheHandler := pod.NewCache(pod.Listener{
 		PodAdded:   t.podUpdated,
@@ -79,14 +79,14 @@ func (t *serviceEntryTransformer) Start() {
 	t.converter = converter.New(t.options.DomainSuffix, podCache)
 
 	statsCtx, err := tag.New(context.Background(), tag.Insert(monitoring.CollectionTag,
-		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String()))
+		collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String()))
 	if err != nil {
 		scope.Processing.Errorf("Error creating monitoring context for counting state: %v", err)
 		statsCtx = nil
 	}
 	t.statsCtx = statsCtx
 
-	t.fullSyncCtr = len(t.Inputs())
+	t.fullSyncCtr = len(t.Inputs().All())
 }
 
 // Stop implements event.Transformer
@@ -97,20 +97,20 @@ func (t *serviceEntryTransformer) Stop() {
 }
 
 // DispatchFor implements event.Transformer
-func (t *serviceEntryTransformer) DispatchFor(c collection.Name, h event.Handler) {
-	switch c {
-	case metadata.IstioNetworkingV1Alpha3SyntheticServiceentries:
+func (t *serviceEntryTransformer) DispatchFor(c collection.Schema, h event.Handler) {
+	switch c.Name() {
+	case collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name():
 		t.handler = event.CombineHandlers(t.handler, h)
 	}
 }
 
 // Inputs implements event.Transformer
-func (t *serviceEntryTransformer) Inputs() collection.Names {
+func (t *serviceEntryTransformer) Inputs() collection.Schemas {
 	return t.inputs
 }
 
 // Outputs implements event.Transformer
-func (t *serviceEntryTransformer) Outputs() collection.Names {
+func (t *serviceEntryTransformer) Outputs() collection.Schemas {
 	return t.outputs
 }
 
@@ -120,7 +120,7 @@ func (t *serviceEntryTransformer) Handle(e event.Event) {
 	case event.FullSync:
 		t.fullSyncCtr--
 		if t.fullSyncCtr == 0 {
-			t.dispatch(event.FullSyncFor(t.Outputs()[0]))
+			t.dispatch(event.FullSyncFor(collections.IstioNetworkingV1Alpha3SyntheticServiceentries))
 		}
 		return
 
@@ -135,27 +135,27 @@ func (t *serviceEntryTransformer) Handle(e event.Event) {
 		panic(fmt.Errorf("transformer.Handle: Unexpected event received: %v", e))
 	}
 
-	switch e.Source {
-	case metadata.K8SCoreV1Endpoints:
+	switch e.Source.Name() {
+	case collections.K8SCoreV1Endpoints.Name():
 		// Update the projections
 		t.handleEndpointsEvent(e)
-	case metadata.K8SCoreV1Services:
+	case collections.K8SCoreV1Services.Name():
 		// Update the projections
 		t.handleServiceEvent(e)
-	case metadata.K8SCoreV1Nodes:
+	case collections.K8SCoreV1Nodes.Name():
 		// Update the pod cache.
 		t.nodeHandler.Handle(e)
-	case metadata.K8SCoreV1Pods:
+	case collections.K8SCoreV1Pods.Name():
 		// Update the pod cache.
 		t.podHandler.Handle(e)
 	default:
-		panic(fmt.Errorf("received event with unexpected collection: %v", e.Source))
+		panic(fmt.Errorf("received event with unexpected collection: %v", e.Source.Name()))
 	}
 }
 
 func (t *serviceEntryTransformer) handleEndpointsEvent(e event.Event) {
-	endpoints := e.Entry
-	name := e.Entry.Metadata.Name
+	endpoints := e.Resource
+	name := e.Resource.Metadata.FullName
 
 	switch e.Kind {
 	case event.Added, event.Updated:
@@ -180,8 +180,8 @@ func (t *serviceEntryTransformer) handleEndpointsEvent(e event.Event) {
 }
 
 func (t *serviceEntryTransformer) handleServiceEvent(e event.Event) {
-	service := e.Entry
-	name := e.Entry.Metadata.Name
+	service := e.Resource
+	name := e.Resource.Metadata.FullName
 
 	switch e.Kind {
 	case event.Added, event.Updated:
@@ -199,7 +199,7 @@ func (t *serviceEntryTransformer) handleServiceEvent(e event.Event) {
 	}
 }
 
-func (t *serviceEntryTransformer) doUpdate(name resource.Name) {
+func (t *serviceEntryTransformer) doUpdate(name resource.FullName) {
 	// Look up the service associated with the endpoints.
 	service, ok := t.services[name]
 	if !ok {
@@ -225,13 +225,13 @@ func (t *serviceEntryTransformer) dispatch(e event.Event) {
 	}
 }
 
-func (t *serviceEntryTransformer) sendDelete(name resource.Name) {
+func (t *serviceEntryTransformer) sendDelete(name resource.FullName) {
 	e := event.Event{
 		Kind:   event.Deleted,
-		Source: metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
-		Entry: &resource.Entry{
+		Source: collections.IstioNetworkingV1Alpha3SyntheticServiceentries,
+		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
-				Name: name,
+				FullName: name,
 			},
 		},
 	}
@@ -239,11 +239,11 @@ func (t *serviceEntryTransformer) sendDelete(name resource.Name) {
 	t.dispatch(e)
 }
 
-func (t *serviceEntryTransformer) sendUpdate(r *resource.Entry) {
+func (t *serviceEntryTransformer) sendUpdate(r *resource.Instance) {
 	e := event.Event{
-		Kind:   event.Updated,
-		Source: metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
-		Entry:  r,
+		Kind:     event.Updated,
+		Source:   collections.IstioNetworkingV1Alpha3SyntheticServiceentries,
+		Resource: r,
 	}
 
 	t.dispatch(e)
@@ -256,7 +256,7 @@ func (t *serviceEntryTransformer) podUpdated(p pod.Info) {
 	}
 }
 
-func (t *serviceEntryTransformer) updateEndpointIPs(name resource.Name, newRE *resource.Entry) {
+func (t *serviceEntryTransformer) updateEndpointIPs(name resource.FullName, newRE *resource.Instance) {
 	newIPs := getEndpointIPs(newRE)
 	var prevIPs map[string]struct{}
 
@@ -275,21 +275,21 @@ func (t *serviceEntryTransformer) updateEndpointIPs(name resource.Name, newRE *r
 	for newIP := range newIPs {
 		names := t.ipToName[newIP]
 		if names == nil {
-			names = make(map[resource.Name]struct{})
+			names = make(map[resource.FullName]struct{})
 			t.ipToName[newIP] = names
 		}
 		names[name] = struct{}{}
 	}
 }
 
-func (t *serviceEntryTransformer) deleteEndpointIPs(name resource.Name, endpoints *resource.Entry) {
+func (t *serviceEntryTransformer) deleteEndpointIPs(name resource.FullName, endpoints *resource.Instance) {
 	ips := getEndpointIPs(endpoints)
 	for ip := range ips {
 		t.deleteEndpointIP(name, ip)
 	}
 }
 
-func (t *serviceEntryTransformer) deleteEndpointIP(name resource.Name, ip string) {
+func (t *serviceEntryTransformer) deleteEndpointIP(name resource.FullName, ip string) {
 	if names := t.ipToName[ip]; names != nil {
 		// Remove the name from the names map for this IP.
 		delete(names, name)
@@ -300,9 +300,9 @@ func (t *serviceEntryTransformer) deleteEndpointIP(name resource.Name, ip string
 	}
 }
 
-func getEndpointIPs(entry *resource.Entry) map[string]struct{} {
+func getEndpointIPs(r *resource.Instance) map[string]struct{} {
 	ips := make(map[string]struct{})
-	endpoints := entry.Item.(*coreV1.Endpoints)
+	endpoints := r.Message.(*coreV1.Endpoints)
 	for _, subset := range endpoints.Subsets {
 		for _, address := range subset.Addresses {
 			ips[address.IP] = struct{}{}
@@ -311,7 +311,7 @@ func getEndpointIPs(entry *resource.Entry) map[string]struct{} {
 	return ips
 }
 
-func (t *serviceEntryTransformer) toMcpResource(service *resource.Entry, endpoints *resource.Entry) (*resource.Entry, bool) {
+func (t *serviceEntryTransformer) toMcpResource(service *resource.Instance, endpoints *resource.Instance) (*resource.Instance, bool) {
 	meta := resource.Metadata{
 		Annotations: make(map[string]string),
 		Labels:      make(map[string]string),
@@ -325,9 +325,9 @@ func (t *serviceEntryTransformer) toMcpResource(service *resource.Entry, endpoin
 	// Set the version on the metadata.
 	meta.Version = resource.Version(t.versionString())
 
-	entry := &resource.Entry{
+	entry := &resource.Instance{
 		Metadata: meta,
-		Item:     &se,
+		Message:  &se,
 		Origin:   service.Origin,
 	}
 	return entry, true

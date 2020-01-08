@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package resource
+package resource_test
 
 import (
 	"bytes"
@@ -26,24 +26,33 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
+	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/testing/fixtures"
+)
+
+var (
+	testSchema = collections.IstioMeshV1Alpha1MeshConfig.Resource()
 )
 
 func TestSerialization_Basic(t *testing.T) {
-	e := Entry{
-		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			Schema:     testSchema,
+			FullName:   resource.NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: parseStruct(`{ "foo": "bar" }`),
+		Message: parseStruct(`{ "foo": "bar" }`),
 	}
 
-	env, err := Serialize(&e)
+	env, err := resource.Serialize(&e)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if env.Metadata.Name != e.Metadata.Name.String() {
+	if env.Metadata.Name != e.Metadata.FullName.String() {
 		t.Fatalf("unexpected name: %v", env.Metadata.Name)
 	}
 
@@ -60,27 +69,25 @@ func TestSerialization_Basic(t *testing.T) {
 		t.Fatalf("Resources are not equal %v != %v", env.Body, expected)
 	}
 
-	ext, err := Deserialize(env)
+	ext, err := resource.Deserialize(env, testSchema)
 	if err != nil {
 		t.Fatalf("Unexpected error when extracting: %v", err)
 	}
 
-	if !reflect.DeepEqual(ext.Metadata, e.Metadata) {
-		t.Fatalf("mismatch: got:%v, wanted: %v", ext, e)
-	}
+	fixtures.ExpectEqual(t, ext.Metadata, e.Metadata)
 }
 
 func TestSerialize_Error(t *testing.T) {
-	e := Entry{
-		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			FullName:   resource.NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &invalidProto{},
+		Message: &invalidProto{},
 	}
 
-	_, err := Serialize(&e)
+	_, err := resource.Serialize(&e)
 	if err == nil {
 		t.Fatal("expected error not found")
 	}
@@ -93,16 +100,16 @@ func TestMustSerialize(t *testing.T) {
 		}
 	}()
 
-	e := Entry{
-		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			FullName:   resource.NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
-	_ = MustSerialize(&e)
+	_ = resource.MustSerialize(&e)
 }
 
 func TestMustSerialize_Panic(t *testing.T) {
@@ -112,88 +119,108 @@ func TestMustSerialize_Panic(t *testing.T) {
 		}
 	}()
 
-	e := Entry{
-		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			FullName:   resource.NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &invalidProto{},
+		Message: &invalidProto{},
 	}
 
-	_ = MustSerialize(&e)
+	_ = resource.MustSerialize(&e)
 }
 
 func TestSerialize_InvalidTimestamp_Error(t *testing.T) {
-	e := Entry{
-		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			FullName:   resource.NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(math.MinInt64, math.MinInt64).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
-	_, err := Serialize(&e)
+	_, err := resource.Serialize(&e)
 	if err == nil {
 		t.Fatal("expected error not found")
 	}
 }
 
 func TestDeserialize_Error(t *testing.T) {
-	e := Entry{
-		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			FullName:   resource.NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
-	env, err := Serialize(&e)
+	env, err := resource.Serialize(&e)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	env.Body.TypeUrl += ".foo"
 
-	if _, err = Deserialize(env); err == nil {
+	if _, err = resource.Deserialize(env, testSchema); err == nil {
+		t.Fatalf("expected error not found")
+	}
+}
+
+func TestDeserialize_InvalidSchema(t *testing.T) {
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			FullName:   resource.NewFullName("ns1", "res1"),
+			CreateTime: time.Unix(1, 1).UTC(),
+			Version:    "v1",
+		},
+		Message: &types.Empty{},
+	}
+
+	env, err := resource.Serialize(&e)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if _, err = resource.Deserialize(env, nil); err == nil {
 		t.Fatalf("expected error not found")
 	}
 }
 
 func TestDeserialize_InvalidTimestamp_Error(t *testing.T) {
-	e := Entry{
-		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			FullName:   resource.NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
-	env, err := Serialize(&e)
+	env, err := resource.Serialize(&e)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	env.Metadata.CreateTime.Seconds = 253402300800 + 1
 
-	if _, err = Deserialize(env); err == nil {
+	if _, err = resource.Deserialize(env, testSchema); err == nil {
 		t.Fatalf("expected error not found")
 	}
 }
 
 func TestDeserialize_Any_Error(t *testing.T) {
-	e := Entry{
-		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			FullName:   resource.NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
-	env, err := Serialize(&e)
+	env, err := resource.Serialize(&e)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -203,22 +230,22 @@ func TestDeserialize_Any_Error(t *testing.T) {
 	copy(b[1:], env.Body.Value)
 	env.Body.Value = b
 
-	if _, err = Deserialize(env); err == nil {
+	if _, err = resource.Deserialize(env, testSchema); err == nil {
 		t.Fatalf("expected error not found")
 	}
 }
 
 func TestMustDeserialize(t *testing.T) {
-	e := Entry{
-		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			FullName:   resource.NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
-	s := MustSerialize(&e)
+	s := resource.MustSerialize(&e)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -226,20 +253,20 @@ func TestMustDeserialize(t *testing.T) {
 		}
 	}()
 
-	_ = MustDeserialize(s)
+	_ = resource.MustDeserialize(s, testSchema)
 }
 
 func TestMustDeserialize_Panic(t *testing.T) {
-	e := Entry{
-		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+	e := resource.Instance{
+		Metadata: resource.Metadata{
+			FullName:   resource.NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
-	s := MustSerialize(&e)
+	s := resource.MustSerialize(&e)
 
 	defer func() {
 		if r := recover(); r == nil {
@@ -249,97 +276,97 @@ func TestMustDeserialize_Panic(t *testing.T) {
 
 	s.Metadata.CreateTime.Seconds = 253402300800 + 1
 
-	_ = MustDeserialize(s)
+	_ = resource.MustDeserialize(s, testSchema)
 }
 
 func TestDeserializeAll(t *testing.T) {
-	entries := []*Entry{
+	entries := []*resource.Instance{
 		{
-			Metadata: Metadata{
-				Name:       NewName("ns1", "res1"),
+			Metadata: resource.Metadata{
+				FullName:   resource.NewFullName("ns1", "res1"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v1",
+				Schema:     testSchema,
 			},
-			Item: parseStruct(`{"foo": "bar"}`),
+			Message: parseStruct(`{"foo": "bar"}`),
 		},
 		{
-			Metadata: Metadata{
-				Name:       NewName("ns2", "res2"),
+			Metadata: resource.Metadata{
+				FullName:   resource.NewFullName("ns2", "res2"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v2",
+				Schema:     testSchema,
 			},
-			Item: parseStruct(`{"bar": "foo"}`),
+			Message: parseStruct(`{"bar": "foo"}`),
 		},
 	}
 
-	envs, err := SerializeAll(entries)
+	envs, err := resource.SerializeAll(entries)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	actual, err := DeserializeAll(envs)
+	actual, err := resource.DeserializeAll(envs, testSchema)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !reflect.DeepEqual(entries, actual) {
-		t.Fatalf("mismatch: got:%+v, wanted:%+v", actual, entries)
-	}
+	fixtures.ExpectEqual(t, entries, actual)
 }
 
 func TestSerializeAll_Error(t *testing.T) {
-	entries := []*Entry{
+	entries := []*resource.Instance{
 		{
-			Metadata: Metadata{
-				Name:       NewName("ns1", "res1"),
+			Metadata: resource.Metadata{
+				FullName:   resource.NewFullName("ns1", "res1"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v1",
 			},
-			Item: &invalidProto{},
+			Message: &invalidProto{},
 		},
 		{
-			Metadata: Metadata{
-				Name:       NewName("ns2", "res2"),
+			Metadata: resource.Metadata{
+				FullName:   resource.NewFullName("ns2", "res2"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v2",
 			},
-			Item: &types.Empty{},
+			Message: &types.Empty{},
 		},
 	}
 
-	if _, err := SerializeAll(entries); err == nil {
+	if _, err := resource.SerializeAll(entries); err == nil {
 		t.Fatal("expected error not found")
 	}
 }
 
 func TestDeserializeAll_Error(t *testing.T) {
-	entries := []*Entry{
+	entries := []*resource.Instance{
 		{
-			Metadata: Metadata{
-				Name:       NewName("ns1", "res1"),
+			Metadata: resource.Metadata{
+				FullName:   resource.NewFullName("ns1", "res1"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v1",
 			},
-			Item: &types.Empty{},
+			Message: &types.Empty{},
 		},
 		{
-			Metadata: Metadata{
-				Name:       NewName("ns2", "res2"),
+			Metadata: resource.Metadata{
+				FullName:   resource.NewFullName("ns2", "res2"),
 				CreateTime: time.Unix(2, 2).UTC(),
 				Version:    "v2",
 			},
-			Item: &types.Empty{},
+			Message: &types.Empty{},
 		},
 	}
 
-	env, err := SerializeAll(entries)
+	env, err := resource.SerializeAll(entries)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	env[1].Metadata.CreateTime.Seconds = 253402300800 + 1
 
-	if _, err = DeserializeAll(env); err == nil {
+	if _, err = resource.DeserializeAll(env, testSchema); err == nil {
 		t.Fatal("expected error not found")
 	}
 }

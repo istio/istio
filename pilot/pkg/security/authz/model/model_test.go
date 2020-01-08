@@ -19,6 +19,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/config/labels"
+
 	"github.com/davecgh/go-spew/spew"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
@@ -27,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 )
 
 func TestNewServiceMetadata(t *testing.T) {
@@ -50,8 +51,10 @@ func TestNewServiceMetadata(t *testing.T) {
 				Service: &model.Service{
 					Hostname: host.Name("svc-name.test-ns"),
 				},
-				Labels:         labels.Instance{"version": "v1"},
-				ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
+				Endpoint: &model.IstioEndpoint{
+					Labels:         labels.Instance{"version": "v1"},
+					ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
+				},
 			},
 			want: ServiceMetadata{
 				Name:   "svc-name.test-ns",
@@ -366,6 +369,7 @@ func TestModel_Generate(t *testing.T) {
 		Service: &model.Service{
 			Hostname: host.Name(serviceFoo),
 		},
+		Endpoint: &model.IstioEndpoint{},
 	}
 	serviceMetadata, _ := NewServiceMetadata("foo", "default", serviceInstance)
 	testCases := []struct {

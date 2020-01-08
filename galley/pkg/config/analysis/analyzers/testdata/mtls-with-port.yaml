@@ -1,4 +1,6 @@
-# Our service has two secure mtls ports, but the DR only specifies one.
+# Our service has three secure mtls ports, but the DR only specifies one. Note
+# that one of the secure ports is a UDP port - we ignore those, so the analyzer
+# should only produce one message.
 apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
@@ -10,6 +12,7 @@ spec:
     ports:
     - number: 8080
     - number: 8081
+    - number: 8082
   peers:
   - mtls:
 ---
@@ -28,6 +31,9 @@ spec:
     - protocol: TCP
       port: 8081
       targetPort: 8081
+    - protocol: UDP
+      port: 8082
+      targetPort: 8082
 ---
 apiVersion: v1
 kind: Pod

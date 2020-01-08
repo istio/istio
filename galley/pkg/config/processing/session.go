@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -221,7 +222,7 @@ func (s *session) handle(e event.Event) {
 	if e.Kind != event.Reset {
 		s.buffer.Handle(e)
 
-		if e.Source == meshcfg.IstioMeshconfig {
+		if e.SourceName() == collections.IstioMeshV1Alpha1MeshConfig.Name() {
 			s.handleMeshEvent(e)
 		}
 		return
@@ -281,7 +282,7 @@ func (s *session) applyMeshEvent(e event.Event) {
 	switch e.Kind {
 	case event.Added, event.Updated:
 		scope.Processing.Infof("session.handleMeshEvent: received an add/update mesh config event: %v", e)
-		s.meshCfg = proto.Clone(e.Entry.Item).(*v1alpha1.MeshConfig)
+		s.meshCfg = proto.Clone(e.Resource.Message).(*v1alpha1.MeshConfig)
 	case event.Deleted:
 		scope.Processing.Infof("session.handleMeshEvent: received a delete mesh config event: %v", e)
 		s.meshCfg = meshcfg.Default()

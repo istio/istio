@@ -23,64 +23,32 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
+
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/analysis/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	resource2 "istio.io/istio/galley/pkg/config/schema/resource"
 )
-
-type testContext struct {
-	entries []*resource.Entry
-	reports []diag.Message
-}
-
-var _ analysis.Context = &testContext{}
-
-// Report implements analysis.Context
-func (ctx *testContext) Report(c collection.Name, t diag.Message) {
-	ctx.reports = append(ctx.reports, t)
-}
-
-// Find implements analysis.Context
-func (ctx *testContext) Find(c collection.Name, name resource.Name) *resource.Entry { return nil }
-
-// Exists implements analysis.Context
-func (ctx *testContext) Exists(c collection.Name, name resource.Name) bool { return false }
-
-// ForEach implements analysis.Context
-func (ctx *testContext) ForEach(c collection.Name, fn analysis.IteratorFn) {
-	for _, r := range ctx.entries {
-		fn(r)
-	}
-}
-
-// Canceled implements analysis.Context
-func (ctx *testContext) Canceled() bool { return false }
 
 func TestCorrectArgs(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	m1 := &v1alpha3.VirtualService{}
 
-	testSchema := schema.Instance{
-		Collection: metadata.IstioNetworkingV1Alpha3Virtualservices.String(),
-		Validate: func(name, ns string, msg proto.Message) (errs error) {
-			g.Expect(name).To(Equal("name"))
-			g.Expect(ns).To(Equal("ns"))
-			g.Expect(msg).To(Equal(m1))
-
-			return nil
-		},
-	}
-	ctx := &testContext{
-		entries: []*resource.Entry{
+	testSchema := schemaWithValidateFn(func(name, ns string, msg proto.Message) (errs error) {
+		g.Expect(name).To(Equal("name"))
+		g.Expect(ns).To(Equal("ns"))
+		g.Expect(msg).To(Equal(m1))
+		return nil
+	})
+	ctx := &fixtures.Context{
+		Resources: []*resource.Instance{
 			{
-				Item: &v1alpha3.VirtualService{},
+				Message: &v1alpha3.VirtualService{},
 				Metadata: resource.Metadata{
-					Name: resource.NewName("ns", "name"),
+					FullName: resource.NewFullName("ns", "name"),
 				},
 			},
 		},
@@ -90,27 +58,24 @@ func TestCorrectArgs(t *testing.T) {
 }
 
 func TestSchemaValidationWrapper(t *testing.T) {
-	testCol := metadata.IstioNetworkingV1Alpha3Virtualservices
+	testCol := collections.IstioNetworkingV1Alpha3Virtualservices.Name()
 
 	m1 := &v1alpha3.VirtualService{}
 	m2 := &v1alpha3.VirtualService{}
 	m3 := &v1alpha3.VirtualService{}
 
-	testSchema := schema.Instance{
-		Collection: testCol.String(),
-		Validate: func(_, _ string, msg proto.Message) (errs error) {
-			if msg == m1 {
-				return nil
-			}
-			if msg == m2 {
-				return fmt.Errorf("")
-			}
-			if msg == m3 {
-				return multierror.Append(fmt.Errorf(""), fmt.Errorf(""))
-			}
+	testSchema := schemaWithValidateFn(func(_, _ string, msg proto.Message) (errs error) {
+		if msg == m1 {
 			return nil
-		},
-	}
+		}
+		if msg == m2 {
+			return fmt.Errorf("")
+		}
+		if msg == m3 {
+			return multierror.Append(fmt.Errorf(""), fmt.Errorf(""))
+		}
+		return nil
+	})
 
 	a := ValidationAnalyzer{s: testSchema}
 
@@ -121,44 +86,61 @@ func TestSchemaValidationWrapper(t *testing.T) {
 
 	t.Run("NoErrors", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		ctx := &testContext{
-			entries: []*resource.Entry{
+		ctx := &fixtures.Context{
+			Resources: []*resource.Instance{
 				{
-					Item: m1,
+					Message: m1,
 				},
 			},
 		}
 		a.Analyze(ctx)
-		g.Expect(ctx.reports).To(BeEmpty())
+		g.Expect(ctx.Reports).To(BeEmpty())
 	})
 
 	t.Run("SingleError", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
-		ctx := &testContext{
-			entries: []*resource.Entry{
+		ctx := &fixtures.Context{
+			Resources: []*resource.Instance{
 				{
-					Item: m2,
+					Message: m2,
 				},
 			},
 		}
 		a.Analyze(ctx)
-		g.Expect(ctx.reports).To(HaveLen(1))
-		g.Expect(ctx.reports[0].Type).To(Equal(msg.SchemaValidationError))
+		g.Expect(ctx.Reports).To(HaveLen(1))
+		g.Expect(ctx.Reports[0].Type).To(Equal(msg.SchemaValidationError))
 	})
 
 	t.Run("MultiError", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		ctx := &testContext{
-			entries: []*resource.Entry{
+		ctx := &fixtures.Context{
+			Resources: []*resource.Instance{
 				{
-					Item: m3,
+					Message: m3,
 				},
 			},
 		}
 		a.Analyze(ctx)
-		g.Expect(ctx.reports).To(HaveLen(2))
-		g.Expect(ctx.reports[0].Type).To(Equal(msg.SchemaValidationError))
-		g.Expect(ctx.reports[1].Type).To(Equal(msg.SchemaValidationError))
+		g.Expect(ctx.Reports).To(HaveLen(2))
+		g.Expect(ctx.Reports[0].Type).To(Equal(msg.SchemaValidationError))
+		g.Expect(ctx.Reports[1].Type).To(Equal(msg.SchemaValidationError))
 	})
+}
+
+func schemaWithValidateFn(validateFn func(string, string, proto.Message) error) collection.Schema {
+	original := collections.IstioNetworkingV1Alpha3Virtualservices
+	return collection.Builder{
+		Name: original.Name().String(),
+		Resource: resource2.Builder{
+			ClusterScoped: original.Resource().IsClusterScoped(),
+			Kind:          original.Resource().Kind(),
+			Plural:        original.Resource().Plural(),
+			Group:         original.Resource().Group(),
+			Version:       original.Resource().Version(),
+			Proto:         original.Resource().Proto(),
+			ProtoPackage:  original.Resource().ProtoPackage(),
+			ValidateProto: validateFn,
+		}.MustBuild(),
+	}.MustBuild()
 }

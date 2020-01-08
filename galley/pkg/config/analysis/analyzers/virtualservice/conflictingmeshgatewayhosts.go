@@ -22,9 +22,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 // ConflictingMeshGatewayHostsAnalyzer checks if multiple virtual services
@@ -40,7 +40,7 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 		Name:        "virtualservice.ConflictingMeshGatewayHostsAnalyzer",
 		Description: "Checks if multiple virtual services associated with the mesh gateway have conflicting hosts",
 		Inputs: collection.Names{
-			metadata.IstioNetworkingV1Alpha3Virtualservices,
+			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 		},
 	}
 }
@@ -52,26 +52,26 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 		if len(vsList) > 1 {
 			vsNames := combineResourceEntryNames(vsList)
 			for i := range vsList {
-				ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
+				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 					msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, string(scopedFqdn)))
 			}
 		}
 	}
 }
 
-func combineResourceEntryNames(rList []*resource.Entry) string {
-	names := []string{}
+func combineResourceEntryNames(rList []*resource.Instance) string {
+	names := make([]string, 0, len(rList))
 	for _, r := range rList {
-		names = append(names, r.Metadata.Name.String())
+		names = append(names, r.Metadata.FullName.String())
 	}
 	return strings.Join(names, ",")
 }
 
-func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.Entry {
-	hostsVirtualServices := map[util.ScopedFqdn][]*resource.Entry{}
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
-		vs := r.Item.(*v1alpha3.VirtualService)
-		vsNamespace, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.Instance {
+	hostsVirtualServices := map[util.ScopedFqdn][]*resource.Instance{}
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+		vs := r.Message.(*v1alpha3.VirtualService)
+		vsNamespace := r.Metadata.FullName.Namespace
 		vsAttachedToMeshGateway := false
 		// No entry in gateways imply "mesh" by default
 		if len(vs.Gateways) == 0 {
@@ -93,10 +93,10 @@ func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.
 			}
 
 			for _, h := range vs.Hosts {
-				scopedFqdn := util.NewScopedFqdn(hostsNamespaceScope, vsNamespace, h)
+				scopedFqdn := util.NewScopedFqdn(string(hostsNamespaceScope), vsNamespace, h)
 				vsNames := hostsVirtualServices[scopedFqdn]
 				if len(vsNames) == 0 {
-					hostsVirtualServices[scopedFqdn] = []*resource.Entry{r}
+					hostsVirtualServices[scopedFqdn] = []*resource.Instance{r}
 				} else {
 					hostsVirtualServices[scopedFqdn] = append(hostsVirtualServices[scopedFqdn], r)
 				}

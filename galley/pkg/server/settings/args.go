@@ -19,16 +19,19 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/probe"
+
+	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/probe"
 )
 
 const (
@@ -50,6 +53,12 @@ type Args struct { // nolint:maligned
 
 	// KubeInterface has an already created K8S interface, will be reused instead of creating a new one
 	KubeInterface *kubernetes.Clientset
+
+	// InsecureGRPC is an existing GRPC server, will be used by Galley instead of creating its own
+	InsecureGRPC *grpc.Server
+
+	// SecureGRPC is an existing GRPC server, will be used by Galley instead of creating its own
+	SecureGRPC *grpc.Server
 
 	// KubeRestConfig has a rest config, common with other components
 	KubeRestConfig *rest.Config
@@ -143,8 +152,6 @@ type Args struct { // nolint:maligned
 	EnableProfiling bool
 	PprofPort       uint
 
-	UseOldProcessor bool
-
 	Snapshots       []string
 	TriggerSnapshot string
 }
@@ -175,7 +182,6 @@ func DefaultArgs() *Args {
 		MonitoringPort:              15014,
 		EnableProfiling:             false,
 		PprofPort:                   9094,
-		UseOldProcessor:             false,
 		WatchConfigFiles:            false,
 		EnableConfigAnalysis:        false,
 		Liveness: probe.Options{
@@ -186,8 +192,8 @@ func DefaultArgs() *Args {
 			Path:           defaultReadinessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,
 		},
-		Snapshots:       []string{metadata.Default, metadata.SyntheticServiceEntry},
-		TriggerSnapshot: metadata.Default,
+		Snapshots:       []string{snapshots.Default, snapshots.SyntheticServiceEntry},
+		TriggerSnapshot: snapshots.Default,
 	}
 }
 

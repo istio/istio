@@ -70,7 +70,9 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 
 		// Iterate over all networks that have the cluster endpoint (weight>0) and
 		// for each one of those add a new endpoint that points to the network's
-		// gateway with the relevant weight
+		// gateway with the relevant weight. For each gateway endpoint, set the tlsMode metadata so that
+		// we initiate mTLS automatically to this remote gateway. Split horizon to remote gateway cannot
+		// work with plaintext
 		for network, w := range remoteEps {
 			gateways := push.NetworkGatewaysByNetwork(network)
 
@@ -90,6 +92,8 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 						Value: weight,
 					},
 				}
+				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
+				gwEp.Metadata = util.BuildLbEndpointMetadata("", network, model.IstioMutualTLSModeLabel, push)
 				lbEndpoints = append(lbEndpoints, gwEp)
 			}
 		}

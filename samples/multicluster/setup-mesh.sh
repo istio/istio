@@ -41,7 +41,7 @@ fi
 # Resolve to an absolute path
 WORKDIR=$(cd "$(dirname "${WORKDIR}")" && pwd)/$(basename "${WORKDIR}")
 
-# Per-cluster IstioControlPlane are derived from this common base IstioControlPlane.
+# Per-cluster IstioOperator are derived from this common base IstioOperator.
 BASE_FILENAME="${WORKDIR}/base.yaml"
 
 # Description of the mesh topology. Includes the list of clusters in the mesh.
@@ -117,8 +117,8 @@ create_offline_root_ca(){
 
 create_base() {
   cat << EOF > "${BASE_FILENAME}"
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   values:
     security:
@@ -289,7 +289,7 @@ usage() {
 
 prep-mesh
   Prepare the workspace and files to build mesh. This includes the root key and
-  cert, base IstioControlPlane configuration, and initial empty mesh topology
+  cert, base IstioOperator configuration, and initial empty mesh topology
   file.
 
 apply
