@@ -30,16 +30,8 @@ var (
 func TestMain(m *testing.M) {
 	framework.NewSuite("faultinjection", m).
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		RequireEnvironment(environment.Kube).
 		Run()
 }
 
-//grafana is disabled in the default test framework config. Enable it.
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-
-	cfg.Values["grafana.enabled"] = "true"
-}
