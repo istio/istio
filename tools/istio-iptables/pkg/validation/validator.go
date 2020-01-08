@@ -182,6 +182,9 @@ func (s *Service) Run() error {
 
 func (c *Client) Run() error {
 	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	if err != nil {
+		return err
+	}
 	serverOriginalAddress := fmt.Sprintf("%s:%d", c.Config.ServerOriginalIP, c.Config.ServerOriginalPort)
 	if c.Config.ServerOriginalIP.To4() == nil {
 		laddr, err = net.ResolveTCPAddr("tcp", "[::1]:0")
