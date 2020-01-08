@@ -310,7 +310,7 @@ func (sa *SourceAnalyzer) disableKubeResourcesWithoutPermissions(client kubernet
 	resultBuilder := collection.NewSchemasBuilder()
 
 	for _, s := range sa.kubeResources.All() {
-		if !hasPermissionsOnCollection(client, s, []string{"list", "watch"}) {
+		if !s.IsDisabled() && !hasPermissionsOnCollection(client, s, []string{"list", "watch"}) {
 			scope.Analysis.Infof("Skipping resource %q since the user doesn't have required permissions", s.Resource().CanonicalName())
 			s = s.Disable()
 		}
