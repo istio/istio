@@ -28,17 +28,17 @@ import (
 var nativeByteOrder binary.ByteOrder
 
 func init() {
-	       var x uint16 = 0x0102
-	       var lowerByte = *(*byte)(unsafe.Pointer(&x))
-	       switch lowerByte {
-		       case 0x01:
-		               nativeByteOrder = binary.BigEndian
-		       case 0x02:
-		               nativeByteOrder = binary.LittleEndian
-		       default:
-		               panic("Could not determine native byte order.")
-		       }
+	var x uint16 = 0x0102
+	var lowerByte = *(*byte)(unsafe.Pointer(&x))
+	switch lowerByte {
+	case 0x01:
+		nativeByteOrder = binary.BigEndian
+	case 0x02:
+		nativeByteOrder = binary.LittleEndian
+	default:
+		panic("Could not determine native byte order.")
 	}
+}
 
 // <arpa/inet.h>
 func ntohs(n16 uint16) uint16 {
@@ -109,6 +109,6 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 	dport = ntohs(addr.Addr.Port)
 
 	fmt.Printf("local addr %s\n", conn.LocalAddr())
-	fmt.Printf("original addr %s:%d\n", ip,dport)
+	fmt.Printf("original addr %s:%d\n", ip, dport)
 	return
 }
