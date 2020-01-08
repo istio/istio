@@ -1,67 +1,71 @@
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  gateways:
-    components:
-      egressGateway:
-        enabled: true
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
+  components:
+    egressGateways:
+    - name: istio-egressgateway
+      enabled: true
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
 
-      ingressGateway:
-        enabled: true
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
 
-  policy:
-    components:
-      policy:
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 100Mi
+    policy:
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
 
-  telemetry:
-    components:
-      telemetry:
-        k8s:
-          resources:
-            requests:
-              cpu: 50m
-              memory: 100Mi
+    telemetry:
+      k8s:
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
 
-  trafficManagement:
-    components:
-      pilot:
-        k8s:
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: GODEBUG
-              value: gctrace=1
-            - name: PILOT_TRACE_SAMPLING
-              value: "100"
-            - name: CONFIG_NAMESPACE
-              value: istio-config
-          resources:
-            requests:
-              cpu: 10m
-              memory: 100Mi
+    pilot:
+      k8s:
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: GODEBUG
+            value: gctrace=1
+          - name: PILOT_TRACE_SAMPLING
+            value: "100"
+          - name: CONFIG_NAMESPACE
+            value: istio-config
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
+
+  addonComponents:
+    kiali:
+      enabled: true
+    grafana:
+      enabled: true
+    tracing:
+      enabled: true
+
 
   values:
     global:

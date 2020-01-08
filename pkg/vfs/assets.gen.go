@@ -38436,8 +38436,8 @@ func chartsSecurityNodeagentValuesYaml() (*asset, error) {
 	return a, nil
 }
 
-var _examplesGooglecaValuesIstioGoogleCaYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _examplesGooglecaValuesIstioGoogleCaYaml = []byte(`apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   security:
     components:
@@ -38478,15 +38478,16 @@ func examplesGooglecaValuesIstioGoogleCaYaml() (*asset, error) {
 	return a, nil
 }
 
-var _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml = []byte(`apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  coreDNS:
-    enabled: true
+  addonComponents:
+    coreDNS:
+      enabled: true
 
-  gateways:
-    components:
-      egressGateway:
+  components:
+    egressGateways:
+      - name: istio-egressgateway
         enabled: true
 
   values:
@@ -38528,8 +38529,8 @@ func examplesMulticlusterValuesIstioMulticlusterGatewaysYaml() (*asset, error) {
 	return a, nil
 }
 
-var _examplesMulticlusterValuesIstioMulticlusterPrimaryYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _examplesMulticlusterValuesIstioMulticlusterPrimaryYaml = []byte(`apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   values:
     security:
@@ -38579,8 +38580,8 @@ func examplesMulticlusterValuesIstioMulticlusterPrimaryYaml() (*asset, error) {
 	return a, nil
 }
 
-var _examplesUserGatewayIngressGatewayOnlyYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _examplesUserGatewayIngressGatewayOnlyYaml = []byte(`apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   profile: empty
   gateways:
@@ -38606,17 +38607,17 @@ func examplesUserGatewayIngressGatewayOnlyYaml() (*asset, error) {
 	return a, nil
 }
 
-var _examplesVmValuesIstioMeshexpansionGatewaysYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _examplesVmValuesIstioMeshexpansionGatewaysYaml = []byte(`apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   values:
     global:
       multiCluster:
         enabled: true
-      
+
       meshExpansion:
         enabled: true
-     
+
       controlPlaneSecurityEnabled: true
 
     # Multicluster with gateways requires a root CA
@@ -38645,14 +38646,14 @@ func examplesVmValuesIstioMeshexpansionGatewaysYaml() (*asset, error) {
 	return a, nil
 }
 
-var _examplesVmValuesIstioMeshexpansionYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _examplesVmValuesIstioMeshexpansionYaml = []byte(`apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   values:
     global:
       meshExpansion:
         enabled: true
-     
+
       controlPlaneSecurityEnabled: true
 
     # Multicluster with gateways requires a root CA
@@ -38868,16 +38869,16 @@ func operatorTemplatesClusterrole_bindingYaml() (*asset, error) {
 var _operatorTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: istiocontrolplanes.install.istio.io
+  name: istiooperators.install.istio.io
 spec:
   group: install.istio.io
   names:
-    kind: IstioControlPlane
-    listKind: IstioControlPlaneList
-    plural: istiocontrolplanes
-    singular: istiocontrolplane
+    kind: IstioOperator
+    listKind: IstioOperatorList
+    plural: istiooperators
+    singular: istiooperator
     shortNames:
-    - icp
+    - iop
   scope: Namespaced
   subresources:
     status: {}
@@ -39067,244 +39068,197 @@ func operatorTemplatesService_accountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDefaultYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _profilesDefaultYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   hub: gcr.io/istio-testing
   tag: latest
-  defaultNamespace: istio-system
-
-  # Base contains all CRDs, namespaces etc.
-  base:
-    enabled: true
-    components:
-      base:
-        enabled: true
+  meshConfig:
+    rootNamespace: istio-system
 
   # Traffic management feature
-  trafficManagement:
-    enabled: true
-    components:
-      pilot:
-        enabled: true
-        k8s:
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-pilot
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 5
-          resources:
-            requests:
-              cpu: 500m
-              memory: 2048Mi
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
+  components:
+    base:
+      enabled: true
+    pilot:
+      enabled: true
+      k8s:
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-pilot
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                targetAverageUtilization: 80
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 30
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2048Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
 
   # Policy feature
-  policy:
-    enabled: true
-    components:
-      policy:
-        enabled: true
-        k8s:
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-policy
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
-          env:
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
+    policy:
+      enabled: true
+      k8s:
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-policy
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                targetAverageUtilization: 80
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
 
-  # Telemetry feature
-  telemetry:
-    enabled: true
-    components:
-      telemetry:
-        enabled: true
-        k8s:
-          env:
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: GOMAXPROCS
-              value: "6"
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-telemetry
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
-          replicaCount: 1
-          resources:
-            requests:
-              cpu: 1000m
-              memory: 1G
-            limits:
-              cpu: 4800m
-              memory: 4G
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
+   # Telemetry feature
+    telemetry:
+      enabled: true
+      k8s:
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: GOMAXPROCS
+            value: "6"
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-telemetry
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                targetAverageUtilization: 80
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1G
+          limits:
+            cpu: 4800m
+            memory: 4G
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
 
   # Security feature
-  security:
-    enabled: true
-    components:
-      citadel:
-        enabled: true
-        k8s:
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-      certManager:
-        enabled: false
-      nodeAgent:
-        enabled: false
+    citadel:
+      enabled: true
+      k8s:
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
+
+    nodeAgent:
+      enabled: false
 
   # Config management feature
-  configManagement:
-    enabled: true
-    components:
-      galley:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          resources:
-            requests:
-              cpu: 100m
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
+    galley:
+      enabled: true
+      k8s:
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 100m
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
 
   # Auto injection feature
-  autoInjection:
-    enabled: true
-    components:
-      injector:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
+    sidecarInjector:
+      enabled: true
+      k8s:
+        replicaCount: 1
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
 
   # Istio Gateway feature
-  gateways:
-    enabled: true
-    components:
-      ingressGateway:
-        enabled: true
-        k8s:
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-ingressgateway
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-ingressgateway
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                targetAverageUtilization: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
 
-      egressGateway:
-        enabled: false
-        k8s:
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-egressgateway
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-  # Istio CNI feature
-  cni:
-    enabled: false
-    components:
-      cni:
-        namespace: kube-system
+    egressGateways:
+
+    # Istio CNI feature
+    cni:
+      enabled: false
+
+  addonComponents:
+    prometheus:
+      enabled: true
 
   # Global values passed through to helm global.yaml.
   values:
@@ -39532,11 +39486,6 @@ spec:
       dnsCerts:
         istio-pilot-service-account.istio-control: istio-pilot.istio-control
 
-    certmanager:
-      hub: quay.io/jetstack
-      tag: v0.6.2
-      image: cert-manager-controller
-
     nodeagent:
       image: node-agent-k8s
 
@@ -39652,6 +39601,8 @@ spec:
           - prometheus.local
         annotations:
         tls:
+      security:
+        enabled: true
       nodeSelector: {}
       tolerations: []
       podAntiAffinityLabelSelector: []
@@ -39816,70 +39767,74 @@ func profilesDefaultYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDemoYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _profilesDemoYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  gateways:
-    components:
-      egressGateway:
-        enabled: true
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
+  components:
+    egressGateways:
+    - name: istio-egressgateway
+      enabled: true
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
 
-      ingressGateway:
-        enabled: true
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
 
-  policy:
-    components:
-      policy:
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 100Mi
+    policy:
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
 
-  telemetry:
-    components:
-      telemetry:
-        k8s:
-          resources:
-            requests:
-              cpu: 50m
-              memory: 100Mi
+    telemetry:
+      k8s:
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
 
-  trafficManagement:
-    components:
-      pilot:
-        k8s:
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: GODEBUG
-              value: gctrace=1
-            - name: PILOT_TRACE_SAMPLING
-              value: "100"
-            - name: CONFIG_NAMESPACE
-              value: istio-config
-          resources:
-            requests:
-              cpu: 10m
-              memory: 100Mi
+    pilot:
+      k8s:
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: GODEBUG
+            value: gctrace=1
+          - name: PILOT_TRACE_SAMPLING
+            value: "100"
+          - name: CONFIG_NAMESPACE
+            value: istio-config
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
+
+  addonComponents:
+    kiali:
+      enabled: true
+    grafana:
+      enabled: true
+    tracing:
+      enabled: true
+
 
   values:
     global:
@@ -39944,37 +39899,40 @@ func profilesDemoYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesEmptyYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _profilesEmptyYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  base:
-    enabled: false
+  hub: gcr.io/istio-testing
+  tag: latest
+  meshConfig:
+    rootNamespace: istio-system
+  components:
+    base:
+      enabled: false
+    pilot:
+      enabled: false
+    policy:
+      enabled: false
+    telemetry:
+      enabled: false
+    proxy:
+      enabled: false
+    sidecarInjector:
+      enabled: false
+    citadel:
+      enabled: false
+    nodeAgent:
+      enabled: false
+    galley:
+      enabled: false
+    cni:
+      enabled: false
+    ingressGateways:
+    egressGateways:
 
-  trafficManagement:
-    enabled: false
-
-  policy:
-    enabled: false
-
-  telemetry:
-    enabled: false
-
-  security:
-    enabled: false
-
-  configManagement:
-    enabled: false
-
-  autoInjection:
-    enabled: false
-
-  gateways:
-    enabled: false
-    components:
-      ingressGateway:
-        enabled: false
-      egressGateway:
-        enabled: false
+  addonComponents:
+    prometheus:
+      enabled: false
 
   values:
     global:
@@ -40011,26 +39969,36 @@ func profilesEmptyYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesMinimalYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _profilesMinimalYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  policy:
-    enabled: false
+  components:
+    pilot:
+      enabled: true
+    policy:
+      enabled: false
+    telemetry:
+      enabled: false
+    proxy:
+      enabled: false
+    sidecarInjector:
+      enabled: false
+    citadel:
+      enabled: false
+    nodeAgent:
+      enabled: false
+    galley:
+      enabled: false
+    cni:
+      enabled: false
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
+    egressGateways:
 
-  telemetry:
-    enabled: false
-
-  security:
-    enabled: false
-
-  configManagement:
-    enabled: false
-
-  autoInjection:
-    enabled: false
-
-  gateways:
-    enabled: false
+  addonComponents:
+    prometheus:
+      enabled: false
 
   values:
     global:
@@ -40067,29 +40035,28 @@ func profilesMinimalYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesRemoteYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _profilesRemoteYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  trafficManagement:
-    enabled: false
-
-  policy:
-    enabled: false
-
-  telemetry:
-    enabled: false
-
-  configManagement:
-    enabled: false
-
-  autoInjection:
-    enabled: false
-
-  gateways:
-    enabled: true
-    components:
-      egressGateway:
-        enabled: false
+  components:
+    pilot:
+      enabled: false
+    policy:
+      enabled: false
+    telemetry:
+      enabled: false
+    proxy:
+      enabled: false
+    sidecarInjector:
+      enabled: false
+    citadel:
+      enabled: false
+    nodeAgent:
+      enabled: false
+    galley:
+      enabled: false
+    cni:
+      enabled: false
 
   values:
     pilot:
@@ -40123,13 +40090,12 @@ func profilesRemoteYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesSdsYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+var _profilesSdsYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  security:
-    components:
-      nodeAgent:
-        enabled: true
+  components:
+    nodeAgent:
+      enabled: true
   values:
     global:
       controlPlaneSecurityEnabled: true
@@ -40699,62 +40665,33 @@ var _translateconfigTranslateconfig15Yaml = []byte(`apiMapping:
     outPath: "global.resources"
   DefaultNamespace:
     outPath: "global.istioNamespace"
-  ConfigManagement.Components.Namespace:
-    outPath: "global.configNamespace"
-  Policy.Components.Namespace:
-    outPath: "global.policyNamespace"
-  Telemetry.Components.Namespace:
-    outPath: "global.telemetryNamespace"
-  Security.Components.Namespace:
-    outPath: "global.securityNamespace"
 kubernetesMapping:
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Affinity":
+  "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Env":
+  "Components.{{.ComponentName}}.K8S.Env":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.HpaSpec":
+  "Components.{{.ComponentName}}.K8S.HpaSpec":
     outPath: "[HorizontalPodAutoscaler:{{.ResourceName}}].spec"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ImagePullPolicy":
+  "Components.{{.ComponentName}}.K8S.ImagePullPolicy":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.NodeSelector":
+  "Components.{{.ComponentName}}.K8S.NodeSelector":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodDisruptionBudget":
+  "Components.{{.ComponentName}}.K8S.PodDisruptionBudget":
     outPath: "[PodDisruptionBudget:{{.ResourceName}}].spec"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodAnnotations":
+  "Components.{{.ComponentName}}.K8S.PodAnnotations":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PriorityClassName":
+  "Components.{{.ComponentName}}.K8S.PriorityClassName":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName."
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReadinessProbe":
+  "Components.{{.ComponentName}}.K8S.ReadinessProbe":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReplicaCount":
+  "Components.{{.ComponentName}}.K8S.ReplicaCount":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.replicas"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Resources":
+  "Components.{{.ComponentName}}.K8S.Resources":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Strategy":
+  "Components.{{.ComponentName}}.K8S.Strategy":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.strategy"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Tolerations":
+  "Components.{{.ComponentName}}.K8S.Tolerations":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"
-  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ServiceAnnotations":
-    outPath: "[Service:{{.ResourceName}}].metadata.annotations"
-toFeature:
-  Base:               Base
-  Pilot:              TrafficManagement
-  Galley:             ConfigManagement
-  Injector:           AutoInjection
-  Policy:             Policy
-  Telemetry:          Telemetry
-  Citadel:            Security
-  CertManager:        Security
-  NodeAgent:          Security
-  IngressGateway:     Gateways
-  EgressGateway:      Gateways
-  Cni:                Cni
-  CoreDNS:            CoreDNS
-  Grafana:            ThirdParty
-  Prometheus:         ThirdParty
-  Tracing:            ThirdParty
-  PrometheusOperator: ThirdParty
-  Kiali:              ThirdParty
 globalNamespaces:
   Pilot:      "istioNamespace"
   Galley:     "configNamespace"
@@ -40762,47 +40699,6 @@ globalNamespaces:
   Policy:     "policyNamespace"
   Prometheus: "prometheusNamespace"
   Citadel:    "securityNamespace"
-featureMaps:
-  Base:
-    Components:
-      - Base
-  TrafficManagement:
-    Components:
-      - Pilot
-  Policy:
-    Components:
-      - Policy
-  Telemetry:
-    Components:
-      - Telemetry
-  Security:
-    Components:
-      - Citadel
-      - CertManager
-      - NodeAgent
-  ConfigManagement:
-    Components:
-      - Galley
-  AutoInjection:
-    Components:
-      - Injector
-  Gateways:
-    Components:
-      - IngressGateway
-      - EgressGateway
-  Cni:
-    Components:
-      - Cni
-  CoreDNS:
-    Components:
-      - CoreDNS
-  ThirdParty:
-    Components:
-      - Grafana
-      - Prometheus
-      - Tracing
-      - PrometheusOperator
-      - Kiali
 
 componentMaps:
   Base:
@@ -40820,7 +40716,7 @@ componentMaps:
     ContainerName:        "galley"
     HelmSubdir:           "istio-control/istio-config"
     ToHelmValuesTreeRoot: "galley"
-  Injector:
+  SidecarInjector:
     ResourceType:         "Deployment"
     ResourceName:         "istio-sidecar-injector"
     ContainerName:        "sidecar-injector-webhook"
@@ -40856,13 +40752,13 @@ componentMaps:
     ContainerName:        "certmanager"
     HelmSubdir:           "security/certmanager"
     ToHelmValuesTreeRoot: "certmanager"
-  IngressGateway:
+  IngressGateways:
     ResourceType:         "Deployment"
     ResourceName:         "istio-ingressgateway"
     ContainerName:        "istio-proxy"
     HelmSubdir:           "gateways/istio-ingress"
     ToHelmValuesTreeRoot: "gateways.istio-ingressgateway"
-  EgressGateway:
+  EgressGateways:
     ResourceType:         "Deployment"
     ResourceName:         "istio-egressgateway"
     ContainerName:        "istio-proxy"
@@ -40967,7 +40863,7 @@ var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   recommendedIstioVersions: 1.4.3
 - operatorVersion: 1.5.0
   operatorVersionRange: ">=1.5.0,<1.6.0"
-  supportedIstioVersions: ">=1.4.3, <1.6"
+  supportedIstioVersions: ">=1.5.0, <1.6"
   recommendedIstioVersions: 1.5.0
 `)
 

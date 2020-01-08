@@ -17,40 +17,80 @@ package controlplane
 import (
 	"fmt"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
-	"istio.io/operator/pkg/component/feature"
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/operator/pkg/component/component"
 	"istio.io/operator/pkg/name"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
 )
 
-// IstioControlPlane is an installation of an Istio control plane.
-type IstioControlPlane struct {
-	features []feature.IstioFeature
-	started  bool
+// IstioOperator is an installation of an Istio control plane.
+type IstioOperator struct {
+	// components is a slice of components that are part of the feature.
+	components []component.IstioComponent
+	started    bool
 }
 
-// NewIstioControlPlane creates a new IstioControlPlane and returns a pointer to it.
-func NewIstioControlPlane(installSpec *v1alpha2.IstioControlPlaneSpec, translator *translate.Translator) *IstioControlPlane {
-	opts := &feature.Options{
+// NewIstioOperator creates a new IstioOperator and returns a pointer to it.
+func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *translate.Translator) (*IstioOperator, error) {
+	out := &IstioOperator{}
+	opts := &component.Options{
 		InstallSpec: installSpec,
 		Translator:  translator,
 	}
-	features := make([]feature.IstioFeature, 0, len(translator.FeatureMaps))
-	for ft := range translator.FeatureMaps {
-		features = append(features, feature.NewFeature(ft, opts))
+	for _, c := range name.AllCoreComponentNames {
+		o := *opts
+		ns, err := name.Namespace(c, installSpec)
+		if err != nil {
+			return nil, err
+		}
+		o.Namespace = ns
+		out.components = append(out.components, component.NewComponent(c, &o))
 	}
-	//add third Party feature as well
-	features = append(features, feature.NewFeature(name.ThirdPartyFeatureName, opts))
-	return &IstioControlPlane{
-		features: features,
+	for idx, c := range installSpec.Components.IngressGateways {
+		if c.Enabled == nil || !c.Enabled.Value {
+			continue
+		}
+		o := *opts
+		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
+		out.components = append(out.components, component.NewIngressComponent(c.Name, idx, &o))
 	}
+	for idx, c := range installSpec.Components.EgressGateways {
+		if c.Enabled == nil || !c.Enabled.Value {
+			continue
+		}
+		o := *opts
+		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
+		out.components = append(out.components, component.NewEgressComponent(c.Name, idx, &o))
+	}
+	for cn, c := range installSpec.AddonComponents {
+		if c.Enabled == nil || !c.Enabled.Value {
+			continue
+		}
+		rn := ""
+		// For well-known addon components like Prometheus, the resource names are included
+		// in the translations.
+		if cm := translator.ComponentMap(cn); cm != nil {
+			rn = cm.ResourceName
+		}
+		o := *opts
+		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
+		out.components = append(out.components, component.NewAddonComponent(cn, rn, &o))
+	}
+	return out, nil
+}
+
+func defaultIfEmpty(val, dflt string) string {
+	if val == "" {
+		return dflt
+	}
+	return val
 }
 
 // Run starts the Istio control plane.
-func (i *IstioControlPlane) Run() error {
-	for _, f := range i.features {
-		if err := f.Run(); err != nil {
+func (i *IstioOperator) Run() error {
+	for _, c := range i.components {
+		if err := c.Run(); err != nil {
 			return err
 		}
 	}
@@ -59,30 +99,19 @@ func (i *IstioControlPlane) Run() error {
 }
 
 // RenderManifest returns a manifest rendered against
-func (i *IstioControlPlane) RenderManifest() (manifests name.ManifestMap, errsOut util.Errors) {
+func (i *IstioOperator) RenderManifest() (manifests name.ManifestMap, errsOut util.Errors) {
 	if !i.started {
 		return nil, util.NewErrs(fmt.Errorf("istioControlPlane must be Run before calling RenderManifest"))
 	}
 
 	manifests = make(name.ManifestMap)
-	for _, f := range i.features {
-		ms, errs := f.RenderManifest()
-		manifests = mergeManifestMaps(manifests, ms)
-		errsOut = util.AppendErrs(errsOut, errs)
+	for _, c := range i.components {
+		ms, err := c.RenderManifest()
+		errsOut = util.AppendErr(errsOut, err)
+		manifests[c.ComponentName()] = append(manifests[c.ComponentName()], ms)
 	}
 	if len(errsOut) > 0 {
 		return nil, errsOut
 	}
 	return
-}
-
-func mergeManifestMaps(a, b name.ManifestMap) name.ManifestMap {
-	out := make(name.ManifestMap)
-	for k, v := range a {
-		out[k] = v
-	}
-	for k, v := range b {
-		out[k] = v
-	}
-	return out
 }

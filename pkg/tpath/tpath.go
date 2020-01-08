@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 
 	"github.com/kylelemons/godebug/pretty"
 
@@ -184,7 +185,7 @@ func WritePathContext(nc *PathContext, value interface{}) error {
 	scope.Debugf("WritePathContext PathContext=%s, value=%v", nc, value)
 
 	switch {
-	case value == nil:
+	case util.IsValueNil(value):
 		scope.Debug("delete")
 		switch {
 		case nc.Parent != nil && isSliceOrPtrInterface(nc.Parent.Node):
@@ -357,13 +358,19 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 		scope.Debugf("getFromStructPath returning node(%T)%v", node, node)
 		return node, !util.IsValueNil(node), nil
 	}
+	val := reflect.ValueOf(node)
 	kind := reflect.TypeOf(node).Kind()
 	var structElems reflect.Value
+	if len(path) == 0 && (kind == reflect.Map || kind == reflect.Slice) {
+		return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported leaf type %T", path, node)
+	}
 	switch kind {
-	case reflect.Map, reflect.Slice:
-		if len(path) == 0 {
-			return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported leaf type %T", path, node)
+	case reflect.Slice:
+		idx, err := strconv.Atoi(path[0])
+		if err != nil {
+			return nil, false, fmt.Errorf("getFromStructPath path %s, expected index number, got %s", path, path[0])
 		}
+		return getFromStructPath(val.Index(idx).Interface(), path[1:])
 	case reflect.Ptr:
 		structElems = reflect.ValueOf(node).Elem()
 		if !util.IsStruct(structElems) {
@@ -401,9 +408,6 @@ func SetFromPath(node interface{}, path string, out interface{}) (bool, error) {
 	}
 	if !found {
 		return false, nil
-	}
-	if util.IsValueNil(val) {
-		return true, nil
 	}
 
 	return true, Set(val, out)

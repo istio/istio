@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -22,10 +23,8 @@ import (
 	"testing"
 
 	"istio.io/operator/pkg/compare"
-
-	"istio.io/pkg/version"
-
 	"istio.io/operator/pkg/util"
+	"istio.io/pkg/version"
 )
 
 type testGroup []struct {
@@ -49,6 +48,18 @@ func TestManifestGenerateFlags(t *testing.T) {
 			diffIgnore: "ConfigMap:*:istio",
 		},
 		{
+			desc:       "prometheus",
+			diffIgnore: "ConfigMap:*:istio",
+		},
+		{
+			desc:       "gateways",
+			diffIgnore: "ConfigMap:*:istio",
+		},
+		{
+			desc:       "gateways_override_default",
+			diffIgnore: "ConfigMap:*:istio",
+		},
+		{
 			desc:       "flag_set_values",
 			diffIgnore: "ConfigMap:*:istio",
 			flags:      "-s values.global.proxy.image=myproxy",
@@ -56,7 +67,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 		},
 		{
 			desc:  "flag_override_values",
-			flags: "-s defaultNamespace=control-plane",
+			flags: "-s meshConfig.rootNamespace=control-plane",
 		},
 		{
 			desc:      "flag_output",
@@ -134,6 +145,7 @@ func TestManifestGenerateTelemetry(t *testing.T) {
 }
 
 func TestManifestGenerateOrdered(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
 	t.Run("stable_manifest", func(t *testing.T) {
@@ -148,6 +160,7 @@ func TestManifestGenerateOrdered(t *testing.T) {
 		}
 
 		if got1 != got2 {
+			fmt.Printf("%s", util.YAMLDiff(got1, got2))
 			t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
 		}
 	})
@@ -164,12 +177,12 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := NewLogger(true, os.Stdout, os.Stderr)
-	_, icps, err := genICPS("", "default", "", "", true, l)
+	_, iops, err := genIOPS("", "default", "", "", true, l)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if icps.Hub != version.DockerInfo.Hub || icps.Tag != version.DockerInfo.Tag {
-		t.Fatalf("DockerInfoHub, DockerInfoTag got: %s,%s, want: %s, %s", icps.Hub, icps.Tag, version.DockerInfo.Hub, version.DockerInfo.Tag)
+	if iops.Hub != version.DockerInfo.Hub || iops.Tag != version.DockerInfo.Tag {
+		t.Fatalf("DockerInfoHub, DockerInfoTag got: %s,%s, want: %s, %s", iops.Hub, iops.Tag, version.DockerInfo.Hub, version.DockerInfo.Tag)
 	}
 }
 

@@ -21,9 +21,9 @@ import (
 )
 
 type profileDumpArgs struct {
-	// inFilename is the path to the input IstioControlPlane CR.
+	// inFilename is the path to the input IstioOperator CR.
 	inFilename string
-	// If set, display the translated Helm values rather than IstioControlPlaneSpec.
+	// If set, display the translated Helm values rather than IstioOperatorSpec.
 	helmValues bool
 	// configPath sets the root node for the subtree to display the config for.
 	configPath string

@@ -17,7 +17,7 @@ package validate
 import (
 	"testing"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/util"
 )
 
@@ -31,22 +31,13 @@ func TestValidate(t *testing.T) {
 			desc: "nil success",
 		},
 		{
-			desc: "TrafficManagement",
-			yamlStr: `
-trafficManagement:
-  enabled: true
-  components:
-    namespace: istio-system-traffic
-`,
-		},
-		{
 			desc: "SidecarInjectorConfig",
 			yamlStr: `
-autoInjection:
-  components:
-    namespace: istio-control
-    injector:
-      enabled: true
+meshConfig:
+  rootNamespace: istio-system
+components:
+  sidecarInjector:
+    enabled: true
 `,
 		},
 		{
@@ -55,41 +46,42 @@ autoInjection:
 			yamlStr: `
 hub: docker.io/istio
 tag: v1.2.3
-trafficManagement:
-  components:
-    proxy:
-      enabled: true
-      namespace: istio-control-system
-      k8s:
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "250m"
-          limits:
-            memory: "128Mi"
-            cpu: "500m"
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 11
-          periodSeconds: 22
-          successThreshold: 33
-          failureThreshold: 44
-        hpaSpec:
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: php-apache
-          minReplicas: 1
-          maxReplicas: 10
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
-        nodeSelector:
-          disktype: ssd
+meshConfig:
+  rootNamespace: istio-system
+components:
+  proxy:
+    enabled: true
+    namespace: istio-control-system
+    k8s:
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+      readinessProbe:
+        httpGet:
+          path: /ready
+          port: 8080
+        initialDelaySeconds: 11
+        periodSeconds: 22
+        successThreshold: 33
+        failureThreshold: 44
+      hpaSpec:
+        scaleTargetRef:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: php-apache
+        minReplicas: 1
+        maxReplicas: 10
+        metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 80
+      nodeSelector:
+        disktype: ssd
 values:
   global:
     proxy:
@@ -142,12 +134,12 @@ values:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			ispec := &v1alpha2.IstioControlPlaneSpec{}
+			ispec := &v1alpha1.IstioOperatorSpec{}
 			err := util.UnmarshalWithJSONPB(tt.yamlStr, ispec)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
-			errs := CheckIstioControlPlaneSpec(ispec, false)
+			errs := CheckIstioOperatorSpec(ispec, false)
 			if gotErrs, wantErrs := errs, tt.wantErrs; !util.EqualErrors(gotErrs, wantErrs) {
 				t.Errorf("ProtoToValues(%s)(%v): gotErrs:%s, wantErrs:%s", tt.desc, tt.yamlStr, gotErrs, wantErrs)
 			}

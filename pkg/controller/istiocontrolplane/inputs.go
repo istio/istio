@@ -15,7 +15,7 @@
 package istiocontrolplane
 
 import (
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/operator/pkg/helmreconciler"
 	"istio.io/operator/pkg/name"
 )
@@ -33,12 +33,7 @@ var (
 			name.SidecarInjectorComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
-			name.PrometheusComponentName,
-			name.PrometheusOperatorComponentName,
-			name.GrafanaComponentName,
-			name.KialiComponentName,
 			name.CNIComponentName,
-			name.TracingComponentName,
 		},
 	}
 
@@ -56,18 +51,18 @@ func init() {
 
 }
 
-// IstioRenderingInput is a RenderingInput specific to an v1alpha2 IstioControlPlane instance.
+// IstioRenderingInput is a RenderingInput specific to an v1alpha2 IstioOperator instance.
 type IstioRenderingInput struct {
-	instance *v1alpha2.IstioControlPlane
+	instance *v1alpha1.IstioOperator
 	crPath   string
 }
 
 // NewIstioRenderingInput creates a new IstioRenderingInput for the specified instance.
-func NewIstioRenderingInput(instance *v1alpha2.IstioControlPlane) *IstioRenderingInput {
+func NewIstioRenderingInput(instance *v1alpha1.IstioOperator) *IstioRenderingInput {
 	return &IstioRenderingInput{instance: instance}
 }
 
-// GetCRPath returns the path of IstioControlPlane CR.
+// GetCRPath returns the path of IstioOperator CR.
 func (i *IstioRenderingInput) GetCRPath() string {
 	return i.crPath
 }
@@ -77,7 +72,10 @@ func (i *IstioRenderingInput) GetInputConfig() interface{} {
 }
 
 func (i *IstioRenderingInput) GetTargetNamespace() string {
-	return i.instance.Spec.DefaultNamespace
+	if i.instance.Spec.MeshConfig == nil {
+		return ""
+	}
+	return i.instance.Spec.MeshConfig.RootNamespace
 }
 
 // GetProcessingOrder returns the order in which the rendered charts should be processed.

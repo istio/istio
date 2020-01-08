@@ -13,4 +13,4 @@
 // limitations under the License.
 
 // Package v1alpha2 contains API Schema definitions for the istio v1alpha2 API group
-package v1alpha2
+package v1alpha1

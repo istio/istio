@@ -120,5 +120,5 @@ func (l *Logger) printErr(s string) {
 }
 
 func refreshGoldenFiles() bool {
-	return os.Getenv("REFRESH_GOLDEN") == "true"
+	return os.Getenv("UPDATE_GOLDENS") == "true"
 }

@@ -1,20 +1,7 @@
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  hub: docker.io/istio
-  tag: 1.1.4
-  defaultNamespace: istio-control
-  trafficManagement:
-    enabled: false
-  policy:
-    enabled: false
-  telemetry:
-    enabled: true
-  security:
-    enabled: false
-  configManagement:
-    enabled: false
-  autoInjection:
-    enabled: false
-  gateways:
-    enabled: false
+  profile: empty
+  components:
+    telemetry:
+      enabled: true

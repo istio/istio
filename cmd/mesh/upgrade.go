@@ -50,7 +50,7 @@ const (
 )
 
 type upgradeArgs struct {
-	// inFilename is the path to the input IstioControlPlane CR.
+	// inFilename is the path to the input IstioOperator CR.
 	inFilename string
 	// versionsURI is a URI pointing to a YAML formatted versions mapping.
 	versionsURI string
@@ -69,7 +69,7 @@ type upgradeArgs struct {
 // addUpgradeFlags adds upgrade related flags into cobra command
 func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename",
-		"f", "", "Path to file containing IstioControlPlane CustomResource")
+		"f", "", "Path to file containing IstioOperator CustomResource")
 	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
 		versionsMapURL, "URI for operator versions to Istio versions map")
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig",
@@ -117,14 +117,14 @@ func UpgradeCmd() *cobra.Command {
 func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	args.inFilename = strings.TrimSpace(args.inFilename)
 
-	// Generate ICPS objects
-	targetICPSYaml, targetICPS, err := genICPS(args.inFilename, "", "", "", args.force, l)
+	// Generate IOPS objects
+	targetIOPSYaml, targetIOPS, err := genIOPS(args.inFilename, "", "", "", args.force, l)
 	if err != nil {
-		return fmt.Errorf("failed to generate ICPS from file %s, error: %s", args.inFilename, err)
+		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilename, err)
 	}
 
-	// Get the target version from the tag in the ICPS
-	targetVersion := targetICPS.GetTag()
+	// Get the target version from the tag in the IOPS
+	targetVersion := targetIOPS.GetTag()
 	if targetVersion != opversion.OperatorVersionString {
 		if !args.force {
 			return fmt.Errorf("the target version %v is not supported by istioctl %v, "+
@@ -141,7 +141,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 
 	// Get Istio control plane namespace
 	//TODO(elfinhe): support components distributed in multiple namespaces
-	istioNamespace := targetICPS.GetDefaultNamespace()
+	istioNamespace := targetIOPS.MeshConfig.RootNamespace
 
 	// Read the current Istio version from the the cluster
 	currentVersion, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
@@ -157,25 +157,25 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 	l.logAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
 
-	// Read the overridden ICPS from args.inFilename
-	overrideICPSYaml := ""
+	// Read the overridden IOPS from args.inFilename
+	overrideIOPSYaml := ""
 	if args.inFilename != "" {
 		b, err := ioutil.ReadFile(args.inFilename)
 		if err != nil {
-			return fmt.Errorf("failed to read override ICPS from file: %v, error: %v", args.inFilename, err)
+			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilename, err)
 		}
-		overrideICPSYaml = string(b)
+		overrideIOPSYaml = string(b)
 	}
 
-	// Generates ICPS for args.inFilename ICP specs yaml. Param force is set to true to
+	// Generates IOPS for args.inFilename IOP specs yaml. Param force is set to true to
 	// skip the validation because the code only has the validation proto for the
 	// target version.
-	currentICPSYaml, _, err := genICPS(args.inFilename, "", "", currentVersion, true, l)
+	currentIOPSYaml, _, err := genIOPS(args.inFilename, "", "", currentVersion, true, l)
 	if err != nil {
-		return fmt.Errorf("failed to generate ICPS from file: %s for the current version: %s, error: %v",
+		return fmt.Errorf("failed to generate IOPS from file: %s for the current version: %s, error: %v",
 			args.inFilename, currentVersion, err)
 	}
-	checkUpgradeICPS(currentICPSYaml, targetICPSYaml, overrideICPSYaml, l)
+	checkUpgradeIOPS(currentIOPSYaml, targetIOPSYaml, overrideIOPSYaml, l)
 
 	waitForConfirmation(args.skipConfirmation, l)
 
@@ -183,8 +183,8 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	hparams := &hooks.HookCommonParams{
 		SourceVer:  currentVersion,
 		TargetVer:  targetVersion,
-		SourceICPS: targetICPS,
-		TargetICPS: targetICPS,
+		SourceIOPS: targetIOPS,
+		TargetIOPS: targetIOPS,
 	}
 	errs := hooks.RunPreUpgradeHooks(kubeClient, hparams, rootArgs.dryRun)
 	if len(errs) != 0 && !args.force {
@@ -228,13 +228,13 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	return nil
 }
 
-// checkUpgradeICPS checks the upgrade eligibility by comparing the current ICPS with the target ICPS
-func checkUpgradeICPS(curICPS, tarICPS, ignoreICPS string, l *Logger) {
-	diff := compare.YAMLCmpWithIgnore(curICPS, tarICPS, nil, ignoreICPS)
+// checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
+func checkUpgradeIOPS(curIOPS, tarIOPS, ignoreIOPS string, l *Logger) {
+	diff := compare.YAMLCmpWithIgnore(curIOPS, tarIOPS, nil, ignoreIOPS)
 	if diff == "" {
-		l.logAndPrintf("Upgrade check: ICPS unchanged. The target ICPS are identical to the current ICPS.\n")
+		l.logAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
 	} else {
-		l.logAndPrintf("Upgrade check: Warning!!! The following ICPS will be changed as part of upgrade. "+
+		l.logAndPrintf("Upgrade check: Warning!!! The following IOPS will be changed as part of upgrade. "+
 			"Please double check they are correct:\n%s", diff)
 	}
 }

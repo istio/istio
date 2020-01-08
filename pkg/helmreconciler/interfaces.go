@@ -22,8 +22,7 @@ import (
 	"k8s.io/helm/pkg/manifest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
-
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/name"
 )
 
@@ -146,7 +145,7 @@ type RenderingListener interface {
 	// EndReconcile occurs after reconciliation has completed.  It is similar to EndDelete, but applies to reconciliation.
 	// instance is the custom resource being reconciled
 	// status is the status and errors of components at the end of reconciliation.
-	EndReconcile(instance runtime.Object, status *v1alpha2.InstallStatus) error
+	EndReconcile(instance runtime.Object, status map[string]*v1alpha1.IstioOperatorSpec_VersionStatus) error
 }
 
 // ChartCustomizer defines callbacks used by a listener that manages customizations for a specific chart.

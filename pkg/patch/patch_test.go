@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/util"
 )
 
@@ -199,11 +199,13 @@ a:
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			rc := &v1alpha2.KubernetesResourcesSpec{}
-			err := util.UnmarshalWithJSONPB(makeOverlayHeader(tt.path, tt.value), rc)
+			rc := &v1alpha1.KubernetesResourcesSpec{}
+			oh := makeOverlayHeader(tt.path, tt.value)
+			err := util.UnmarshalWithJSONPB(oh, rc)
 			if err != nil {
-				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
+				t.Fatalf("unmarshalWithJSONPB(%s): got error %s for string:\n%s\n", tt.desc, err, oh)
 			}
+			fmt.Printf("Good header: \n%s\n", oh)
 			got, err := YAMLManifestPatch(base, "istio-system", rc.Overlays)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Fatalf("YAMLManifestPatch(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
@@ -448,7 +450,7 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			rc := &v1alpha2.KubernetesResourcesSpec{}
+			rc := &v1alpha1.KubernetesResourcesSpec{}
 			err := util.UnmarshalWithJSONPB(makeOverlayHeader(tt.path, tt.value), rc)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
@@ -466,19 +468,16 @@ spec:
 
 func makeOverlayHeader(path, value string) string {
 	const (
-		patchCommon = `
-overlays:
+		patchCommon = `overlays:
 - kind: Deployment
   name: istio-citadel
   patches:
-  - path: 
-`
-		pathStr  = `  - path: `
+  - path: `
 		valueStr = `    value: `
 	)
 
 	ret := patchCommon
-	ret += fmt.Sprintf("%s%s\n", pathStr, path)
+	ret += fmt.Sprintf("%s\n", path)
 	if value != "" {
 		ret += fmt.Sprintf("%s%s\n", valueStr, value)
 	}

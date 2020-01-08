@@ -21,13 +21,12 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/operator/pkg/kubectlcmd"
-
 	"github.com/ghodss/yaml"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/component/controlplane"
 	"istio.io/operator/pkg/helm"
+	"istio.io/operator/pkg/kubectlcmd"
 	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/name"
 	"istio.io/operator/pkg/tpath"
@@ -51,7 +50,7 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 		return fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
 	}
 
-	manifests, icps, err := GenManifests(inFilename, overlayFromSet, force, l)
+	manifests, iops, err := GenManifests(inFilename, overlayFromSet, force, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate manifest: %v", err)
 	}
@@ -70,9 +69,9 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 	gotError := false
 	skippedComponentMap := map[name.ComponentName]bool{}
 	for cn := range manifests {
-		enabledInSpec, err := name.IsComponentEnabledInSpec(name.ComponentNameToFeatureName[cn], cn, icps)
+		enabledInSpec, err := name.IsComponentEnabledInSpec(cn, iops)
 		if err != nil {
-			l.logAndPrintf("failed to check if %s is enabled in IstioControlPlaneSpec: %v", cn, err)
+			l.logAndPrintf("failed to check if %s is enabled in IstioOperatorSpec: %v", cn, err)
 		}
 		// Skip the output of a component when it is disabled
 		// and not pruned (indicated by applied manifest out[cn].Manifest).
@@ -107,12 +106,12 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 }
 
 // GenManifests generate manifest from input file and setOverLay
-func GenManifests(inFilename string, setOverlayYAML string, force bool, l *Logger) (name.ManifestMap, *v1alpha2.IstioControlPlaneSpec, error) {
+func GenManifests(inFilename string, setOverlayYAML string, force bool, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
 	mergedYAML, err := genProfile(false, inFilename, "", setOverlayYAML, "", force, l)
 	if err != nil {
 		return nil, nil, err
 	}
-	mergedICPS, err := unmarshalAndValidateICPS(mergedYAML, force, l)
+	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, force, l)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -122,20 +121,23 @@ func GenManifests(inFilename string, setOverlayYAML string, force bool, l *Logge
 		return nil, nil, err
 	}
 
-	if err := fetchInstallPackageFromURL(mergedICPS); err != nil {
+	if err := fetchInstallPackageFromURL(mergedIOPS); err != nil {
 		return nil, nil, err
 	}
 
-	cp := controlplane.NewIstioControlPlane(mergedICPS, t)
+	cp, err := controlplane.NewIstioOperator(mergedIOPS, t)
+	if err != nil {
+		return nil, nil, err
+	}
 	if err := cp.Run(); err != nil {
-		return nil, nil, fmt.Errorf("failed to create Istio control plane with spec: \n%v\nerror: %s", mergedICPS, err)
+		return nil, nil, fmt.Errorf("failed to create Istio control plane with spec: \n%v\nerror: %s", mergedIOPS, err)
 	}
 
 	manifests, errs := cp.RenderManifest()
 	if errs != nil {
-		return manifests, mergedICPS, errs.ToError()
+		return manifests, mergedIOPS, errs.ToError()
 	}
-	return manifests, mergedICPS, nil
+	return manifests, mergedIOPS, nil
 }
 
 func ignoreError(stderr string) bool {
@@ -149,14 +151,14 @@ func ignoreError(stderr string) bool {
 }
 
 // fetchInstallPackageFromURL downloads installation packages from specified URL.
-func fetchInstallPackageFromURL(mergedICPS *v1alpha2.IstioControlPlaneSpec) error {
-	if util.IsHTTPURL(mergedICPS.InstallPackagePath) {
-		pkgPath, err := fetchInstallPackage(mergedICPS.InstallPackagePath)
+func fetchInstallPackageFromURL(mergedIOPS *v1alpha1.IstioOperatorSpec) error {
+	if util.IsHTTPURL(mergedIOPS.InstallPackagePath) {
+		pkgPath, err := fetchInstallPackage(mergedIOPS.InstallPackagePath)
 		if err != nil {
 			return err
 		}
 		// TODO: replace with more robust logic to set local file path
-		mergedICPS.InstallPackagePath = filepath.Join(pkgPath, helm.ChartsFilePath)
+		mergedIOPS.InstallPackagePath = filepath.Join(pkgPath, helm.ChartsFilePath)
 	}
 	return nil
 }
@@ -182,10 +184,6 @@ func MakeTreeFromSetList(setOverlay []string, force bool, l *Logger) (string, er
 		return "", nil
 	}
 	tree := make(map[string]interface{})
-	// Populate a default namespace for convenience, otherwise most --set commands will error out.
-	if err := tpath.WriteNode(tree, util.PathFromString("defaultNamespace"), "istio-system"); err != nil {
-		return "", err
-	}
 	for _, kv := range setOverlay {
 		kvv := strings.Split(kv, "=")
 		if len(kvv) != 2 {
@@ -201,11 +199,11 @@ func MakeTreeFromSetList(setOverlay []string, force bool, l *Logger) (string, er
 		if err != nil {
 			return "", err
 		}
-		icps := &v1alpha2.IstioControlPlaneSpec{}
-		if err := util.UnmarshalWithJSONPB(string(testTree), icps); err != nil {
+		iops := &v1alpha1.IstioOperatorSpec{}
+		if err := util.UnmarshalWithJSONPB(string(testTree), iops); err != nil {
 			return "", fmt.Errorf("bad path=value: %s", kv)
 		}
-		if errs := validate.CheckIstioControlPlaneSpec(icps, true); len(errs) != 0 {
+		if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
 			if !force {
 				l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
 				return "", fmt.Errorf("bad path=value (%s): %s", kv, errs)

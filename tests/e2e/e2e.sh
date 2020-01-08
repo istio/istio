@@ -39,7 +39,7 @@ cat "${ARTIFACTS}"/out/operator.yaml >> "${ARTIFACTS}"/out/deployment.yaml
 echo "..." >> "${ARTIFACTS}"/out/deployment.yaml
 
 # Create an operator manifest from the default control plane configuration
-operator_manifest_files=( "deploy/namespace.yaml" "deploy/crds/istio_v1alpha2_istiocontrolplane_crd.yaml" "deploy/service_account.yaml" "deploy/clusterrole.yaml" "deploy/clusterrole_binding.yaml" "deploy/service.yaml" "${ARTIFACTS}/out/deployment.yaml" "deploy/crds/istio_v1alpha2_istiocontrolplane_cr.yaml" )
+operator_manifest_files=( "deploy/namespace.yaml" "deploy/crds/istio_v1alpha2_istiooperator_crd.yaml" "deploy/service_account.yaml" "deploy/clusterrole.yaml" "deploy/clusterrole_binding.yaml" "deploy/service.yaml" "${ARTIFACTS}/out/deployment.yaml" "deploy/crds/istio_v1alpha2_istiooperator_cr.yaml" )
 
 # Generate the main manifest
 rm -f "${ISTIO_DIR}"/install/kubernetes/istio-operator.yaml

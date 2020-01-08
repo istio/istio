@@ -20,7 +20,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/util"
 )
@@ -31,13 +31,13 @@ var (
 	err3 = fmt.Errorf("err3")
 )
 
-func h1(_ manifest.ExecClient, _, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func h1(_ manifest.ExecClient, _, _ *v1alpha1.IstioOperatorSpec) util.Errors {
 	return util.NewErrs(err1)
 }
-func h2(_ manifest.ExecClient, _, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func h2(_ manifest.ExecClient, _, _ *v1alpha1.IstioOperatorSpec) util.Errors {
 	return util.NewErrs(err2)
 }
-func h3(_ manifest.ExecClient, _, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func h3(_ manifest.ExecClient, _, _ *v1alpha1.IstioOperatorSpec) util.Errors {
 	return util.NewErrs(err3)
 }
 

@@ -23,6 +23,7 @@ import (
 )
 
 func TestManifestMigrate(t *testing.T) {
+	t.Skip("TODO: implement for 1.5")
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-migrate")
 	tests := []struct {
 		desc string

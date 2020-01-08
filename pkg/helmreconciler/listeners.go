@@ -22,11 +22,9 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
 
-	"istio.io/pkg/log"
-
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
-
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/operator/pkg/util"
+	"istio.io/pkg/log"
 )
 
 // CompositeRenderingListener is an implementation of RenderingListener which is composed of an array of listeners.
@@ -200,7 +198,7 @@ func (l *CompositeRenderingListener) EndDelete(instance runtime.Object, err erro
 }
 
 // EndReconcile delegates EndReconcile to the Listeners in last to first order.
-func (l *CompositeRenderingListener) EndReconcile(instance runtime.Object, status *v1alpha2.InstallStatus) error {
+func (l *CompositeRenderingListener) EndReconcile(instance runtime.Object, status map[string]*v1alpha1.IstioOperatorSpec_VersionStatus) error {
 	// reverse order for completions
 	var allErrors []error
 	for index := len(l.Listeners) - 1; index > -1; index-- {
@@ -320,7 +318,7 @@ func (l *LoggingRenderingListener) EndDelete(instance runtime.Object, err error)
 }
 
 // EndReconcile logs the event and any error that occurred
-func (l *LoggingRenderingListener) EndReconcile(instance runtime.Object, status *v1alpha2.InstallStatus) error {
+func (l *LoggingRenderingListener) EndReconcile(instance runtime.Object, status map[string]*v1alpha1.IstioOperatorSpec_VersionStatus) error {
 	log.Info("end reconciling resources")
 	return nil
 }
@@ -397,7 +395,7 @@ func (l *DefaultRenderingListener) EndDelete(instance runtime.Object, err error)
 }
 
 // EndReconcile default implementation
-func (l *DefaultRenderingListener) EndReconcile(instance runtime.Object, status *v1alpha2.InstallStatus) error {
+func (l *DefaultRenderingListener) EndReconcile(instance runtime.Object, status map[string]*v1alpha1.IstioOperatorSpec_VersionStatus) error {
 	return nil
 }
 
