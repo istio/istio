@@ -1897,7 +1897,7 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 
 		wildcardMatch := &listener.FilterChainMatch{}
 		for _, fc := range l.FilterChains {
-			if fc.FilterChainMatch == nil || reflect.DeepEqual(fc.FilterChainMatch, wildcardMatch) {
+			if isMatchAllFilterChain(fc) {
 				// We can only have one wildcard match. If the filter chain already has one, skip it
 				// This happens in the case of HTTP, which will get a fallthrough route added later,
 				// or TCP, which is not supported
@@ -1907,7 +1907,7 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 
 		if currentListenerEntry != nil {
 			for _, fc := range currentListenerEntry.listener.FilterChains {
-				if fc.FilterChainMatch == nil || reflect.DeepEqual(fc.FilterChainMatch, wildcardMatch) {
+				if isMatchAllFilterChain(fc) {
 					// We can only have one wildcard match. If the existing filter chain already has one, skip it
 					// This can happen when there are multiple https services
 					return
@@ -1950,6 +1950,9 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 		if opt.httpOpts == nil {
 
 			if len(opt.networkFilters) > 0 {
+				if opt.isFallThrough {
+					insertFallthroughMetadata(mutable.Listener.FilterChains[i])
+				}
 				// this is the terminating filter
 				lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
 
@@ -2067,14 +2070,21 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 
 	for _, incomingFilterChain := range incoming {
 		conflictFound := false
+		replacedFallthrough := false
 
 	compareWithExisting:
-		for _, existingFilterChain := range currentListenerEntry.listener.FilterChains {
-			if existingFilterChain.FilterChainMatch == nil {
+		for i, existingFilterChain := range newFilterChains {
+			if isMatchAllFilterChain(existingFilterChain) {
 				// This is a catch all filter chain.
 				// We can only merge with a non-catch all filter chain
 				// Else mark it as conflict
-				if incomingFilterChain.FilterChainMatch == nil {
+				if isMatchAllFilterChain(incomingFilterChain) {
+					// replace fallthrough filter chain with the real service one
+					if isFallthroughFilterChain(existingFilterChain) {
+						replacedFallthrough = true
+						newFilterChains[i] = incomingFilterChain
+						continue
+					}
 					// NOTE: While pluginParams.Service can be nil,
 					// this code cannot be reached if Service is nil because a pluginParams.Service can be nil only
 					// for user defined Egress listeners with ports. And these should occur in the API before
@@ -2099,16 +2109,12 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 						newProtocol:     pluginParams.Port.Protocol,
 					}.addMetric(node, pluginParams.Push)
 					break compareWithExisting
-				} else {
-					continue
 				}
-			}
-			if incomingFilterChain.FilterChainMatch == nil {
 				continue
 			}
 
 			// We have two non-catch all filter chains. Check for duplicates
-			if reflect.DeepEqual(*existingFilterChain.FilterChainMatch, *incomingFilterChain.FilterChainMatch) {
+			if reflect.DeepEqual(existingFilterChain.FilterChainMatch, incomingFilterChain.FilterChainMatch) {
 				var newHostname host.Name
 				if pluginParams.Service != nil {
 					newHostname = pluginParams.Service.Hostname
@@ -2131,7 +2137,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 			}
 		}
 
-		if !conflictFound {
+		if !conflictFound && !replacedFallthrough {
 			// There is no conflict with any filter chain in the existing listener.
 			// So append the new filter chains to the existing listener's filter chains
 			newFilterChains = append(newFilterChains, incomingFilterChain)
@@ -2212,4 +2218,34 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 	}
 
 	return filters
+}
+
+func insertFallthroughMetadata(chain *listener.FilterChain) {
+	if chain.Metadata == nil {
+		chain.Metadata = &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{},
+		}
+	}
+	if chain.Metadata.FilterMetadata[PilotMetaKey] == nil {
+		chain.Metadata.FilterMetadata[PilotMetaKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+	chain.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"] =
+		&structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: true}}
+}
+
+func isMatchAllFilterChain(fc *listener.FilterChain) bool {
+	if fc.FilterChainMatch == nil || reflect.DeepEqual(fc.FilterChainMatch, &listener.FilterChainMatch{}) {
+		return true
+	}
+	return false
+}
+
+func isFallthroughFilterChain(fc *listener.FilterChain) bool {
+	if fc.Metadata != nil && fc.Metadata.FilterMetadata != nil &&
+		fc.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"].GetBoolValue() {
+		return true
+	}
+	return false
 }
