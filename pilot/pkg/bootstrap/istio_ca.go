@@ -157,6 +157,12 @@ func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopC
 		}
 	}
 
+	if ca == nil {
+		// When the CA to run is nil, return
+		log.Warn("the CA to run is nil")
+		return
+	}
+
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
