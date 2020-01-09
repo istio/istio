@@ -1742,7 +1742,6 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 
 func TestMergeTCPFilterChains(t *testing.T) {
 	push := &model.PushContext{
-		Mesh:        &meshconfig.MeshConfig{},
 		ProxyStatus: map[string]map[string]model.ProxyPushStatus{},
 	}
 
@@ -1818,7 +1817,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 					{
 						FilterChainMatch: &listener.FilterChainMatch{},
 						// This is not a valid config, just for test
-						Filters: []*listener.Filter{newTCPProxyOutboundListenerFilter(push, node)},
+						Filters: []*listener.Filter{newFakePassthroughListenerFilter()},
 					},
 				},
 			},
@@ -1859,4 +1858,19 @@ func TestMergeTCPFilterChains(t *testing.T) {
 	if !reflect.DeepEqual(out[2].Filters, incomingFilterChains[0].Filters) {
 		t.Errorf("got %v\nwant %v\ndiff %v", out[2].Filters, incomingFilterChains[0].Filters, cmp.Diff(out[2].Filters, incomingFilterChains[0].Filters))
 	}
+}
+
+func newFakePassthroughListenerFilter() *listener.Filter {
+	tcpProxy := &tcp_proxy.TcpProxy{
+		StatPrefix:       util.PassthroughCluster,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+	}
+
+	filter := listener.Filter{
+		Name: xdsutil.TCPProxy,
+	}
+
+	filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+
+	return &filter
 }
