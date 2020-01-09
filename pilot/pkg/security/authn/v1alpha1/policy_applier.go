@@ -17,7 +17,6 @@ package v1alpha1
 import (
 	"crypto/sha1"
 	"fmt"
-	"sort"
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -107,6 +106,7 @@ func outputLocationForJwtIssuer(issuer string) string {
 
 func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAuthentication {
 	providers := map[string]*envoy_jwt.JwtProvider{}
+	requirementOrList := []*envoy_jwt.JwtRequirement{}
 	for i, policyJwt := range policyJwts {
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:            policyJwt.Issuer,
@@ -144,16 +144,6 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 
 		name := fmt.Sprintf("origins-%d", i)
 		providers[name] = provider
-	}
-
-	providerNames := make([]string, 0, len(providers))
-	for k := range providers {
-		providerNames = append(providerNames, k)
-	}
-	sort.Strings(providerNames)
-	requirementOrList := []*envoy_jwt.JwtRequirement{}
-
-	for _, name := range providerNames {
 		requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
 			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
 				ProviderName: name,

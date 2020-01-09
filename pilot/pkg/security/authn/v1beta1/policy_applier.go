@@ -166,6 +166,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		return nil
 	}
 	providers := map[string]*envoy_jwt.JwtProvider{}
+	requirementOrList := []*envoy_jwt.JwtRequirement{}
 	for i, jwtRule := range jwtRules {
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:               jwtRule.Issuer,
@@ -201,17 +202,6 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 
 		name := fmt.Sprintf("origins-%d", i)
 		providers[name] = provider
-	}
-
-	// TODO(diemvu): change to AllowMissing requirement.
-	providerNames := make([]string, 0, len(providers))
-	for k := range providers {
-		providerNames = append(providerNames, k)
-	}
-	sort.Strings(providerNames)
-	requirementOrList := []*envoy_jwt.JwtRequirement{}
-
-	for _, name := range providerNames {
 		requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
 			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
 				ProviderName: name,
@@ -219,6 +209,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		})
 	}
 
+	// TODO(diemvu): change to AllowMissing requirement.
 	requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
 		RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
 			AllowMissingOrFailed: &empty.Empty{},
