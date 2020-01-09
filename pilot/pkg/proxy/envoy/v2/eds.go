@@ -275,7 +275,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				continue
 			}
 
-			ep := make([]*model.IstioEndpoint, 0)
+			endpoints := make([]*model.IstioEndpoint, 0)
 			for _, port := range svc.Ports {
 				if port.Protocol == protocol.UDP {
 					continue
@@ -288,11 +288,11 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 
 				for _, inst := range instances {
-					ep = append(ep, inst.Endpoint)
+					endpoints = append(endpoints, inst.Endpoint)
 				}
 			}
 
-			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, ep, true)
+			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, endpoints, true)
 		}
 	}
 
