@@ -127,7 +127,7 @@ type CAOptions struct {
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, opts *CAOptions, stopCh <-chan struct{}) {
+func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopCh <-chan struct{}) {
 	if s.kubeClient == nil {
 		// No k8s - no self-signed certs.
 		// TODO: implement it using a local directory, for non-k8s env.
@@ -156,8 +156,6 @@ func (s *Server) RunCA(grpc *grpc.Server, opts *CAOptions, stopCh <-chan struct{
 			}
 		}
 	}
-
-	ca := s.createCA(s.kubeClient.CoreV1(), opts)
 
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
@@ -191,8 +189,6 @@ func (s *Server) RunCA(grpc *grpc.Server, opts *CAOptions, stopCh <-chan struct{
 		log.Warnf("Failed to start GRPC server with error: %v", serverErr)
 	}
 	log.Info("Istiod CA has started")
-
-	s.ca = ca
 
 	nc, err := NewNamespaceController(ca, s.kubeClient.CoreV1())
 	if err != nil {
