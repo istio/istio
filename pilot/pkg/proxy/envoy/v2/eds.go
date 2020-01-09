@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -273,7 +272,6 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 		for _, registry := range nonK8sRegistries {
 			// in case this svc does not belong to the registry
 			if svc.Attributes.ServiceRegistry != string(registry.Provider()) {
-				fmt.Printf("skipping service %s for provider %s, service registry %s \n", svc.Hostname, registry.Provider(), svc.Attributes.ServiceRegistry)
 				continue
 			}
 
