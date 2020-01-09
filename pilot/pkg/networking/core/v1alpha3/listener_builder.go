@@ -167,6 +167,13 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
 	if util.IsProtocolSniffingEnabledForInbound(builder.node) {
+		if !needTLS {
+			builder.virtualInboundListener.ListenerFilters =
+				append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
+					Name: xdsutil.TlsInspector,
+				})
+		}
+
 		builder.virtualInboundListener.ListenerFilters =
 			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
 				Name: xdsutil.HttpInspector,

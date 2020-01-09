@@ -192,6 +192,73 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 		getListeners()
 }
 
+func prepareDefaultListener(t *testing.T) []*v2.Listener {
+	ldsEnv := getDefaultLdsEnv()
+	env := buildListenerEnv([]*model.Service{})
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+		t.Fatalf("init push context error: %s", err.Error())
+	}
+	proxy := getDefaultProxy()
+	setInboundCaptureAllOnThisNode(&proxy)
+	setNilSidecarOnProxy(&proxy, env.PushContext)
+
+	builder := NewListenerBuilder(&proxy)
+	return builder.buildSidecarInboundListeners(ldsEnv.configgen, &proxy, env.PushContext).
+		buildVirtualOutboundListener(ldsEnv.configgen, &proxy, env.PushContext).
+		buildVirtualInboundListener(ldsEnv.configgen, &proxy, env.PushContext).
+		getListeners()
+}
+
+func TestDefaultVirtualInboundListenerBuilder(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
+
+	// prepare
+	t.Helper()
+	listeners := prepareDefaultListener(t)
+	// app port listener and virtual inbound listener
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	}
+
+	if !strings.HasPrefix(listeners[0].Name, VirtualOutboundListenerName) {
+		t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
+	} else {
+		t.Logf("found virtual listener: %s", listeners[0].Name)
+	}
+
+	if !strings.HasPrefix(listeners[1].Name, VirtualInboundListenerName) {
+		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
+	} else {
+		t.Logf("found virtual inbound listener: %s", listeners[1].Name)
+	}
+
+	l := listeners[1]
+
+	byListenerName := map[string]int{}
+
+	for _, fc := range l.FilterChains {
+		byListenerName[fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue()]++
+	}
+
+	for k, v := range byListenerName {
+		if k == VirtualInboundListenerName && v != 2 {
+			t.Fatalf("expect virtual listener has 2 passthrough listeners, found %d", v)
+		}
+		if k == listeners[0].Name && v != len(listeners[0].FilterChains) {
+			t.Fatalf("expect virtual listener has %d filter chains from listener %s, found %d", len(listeners[0].FilterChains), l.Name, v)
+		}
+	}
+
+	if l.ListenerFilters[0].Name != xdsutil.OriginalDestination ||
+		l.ListenerFilters[1].Name != xdsutil.TlsInspector ||
+		l.ListenerFilters[2].Name != xdsutil.HttpInspector {
+		t.Fatalf("expect listener filters [%q, %q, %q], found [%q, %q, %q]",
+			xdsutil.OriginalDestination, xdsutil.TlsInspector, xdsutil.HttpInspector,
+			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
+	}
+}
+
 func TestVirtualInboundListenerBuilder(t *testing.T) {
 	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
 	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
