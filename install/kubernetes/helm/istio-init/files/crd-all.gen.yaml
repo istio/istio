@@ -31,10 +31,10 @@ spec:
             at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
           properties:
             originIsOptional:
+              description: Deprecated.
               type: boolean
             origins:
-              description: List of authentication methods that can be used for origin
-                authentication.
+              description: Deprecated.
               items:
                 properties:
                   jwt:
@@ -348,6 +348,7 @@ spec:
                 type: object
               type: array
             peerIsOptional:
+              description: Deprecated.
               type: boolean
             peers:
               description: List of authentication methods that can be used for peer
@@ -356,7 +357,9 @@ spec:
                 oneOf:
                 - required:
                   - mtls
-                - required:
+                - properties:
+                    jwt: {}
+                  required:
                   - jwt
                 properties:
                   jwt:
@@ -670,8 +673,7 @@ spec:
                     description: Set if mTLS is used.
                     properties:
                       allowTls:
-                        description: WILL BE DEPRECATED, if set, will translates to
-                          `TLS_PERMISSIVE` mode.
+                        description: Deprecated.
                         type: boolean
                       mode:
                         description: Defines the mode of mTLS authentication.
@@ -683,15 +685,13 @@ spec:
                 type: object
               type: array
             principalBinding:
-              description: Define whether peer or origin identity should be use for
-                principal.
+              description: Deprecated.
               enum:
               - USE_PEER
               - USE_ORIGIN
               type: string
             targets:
-              description: List rules to select workloads that the policy should be
-                applied on.
+              description: Deprecated.
               items:
                 properties:
                   name:
@@ -756,10 +756,10 @@ spec:
             at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
           properties:
             originIsOptional:
+              description: Deprecated.
               type: boolean
             origins:
-              description: List of authentication methods that can be used for origin
-                authentication.
+              description: Deprecated.
               items:
                 properties:
                   jwt:
@@ -1073,6 +1073,7 @@ spec:
                 type: object
               type: array
             peerIsOptional:
+              description: Deprecated.
               type: boolean
             peers:
               description: List of authentication methods that can be used for peer
@@ -1081,7 +1082,9 @@ spec:
                 oneOf:
                 - required:
                   - mtls
-                - required:
+                - properties:
+                    jwt: {}
+                  required:
                   - jwt
                 properties:
                   jwt:
@@ -1395,8 +1398,7 @@ spec:
                     description: Set if mTLS is used.
                     properties:
                       allowTls:
-                        description: WILL BE DEPRECATED, if set, will translates to
-                          `TLS_PERMISSIVE` mode.
+                        description: Deprecated.
                         type: boolean
                       mode:
                         description: Defines the mode of mTLS authentication.
@@ -1408,15 +1410,13 @@ spec:
                 type: object
               type: array
             principalBinding:
-              description: Define whether peer or origin identity should be use for
-                principal.
+              description: Deprecated.
               enum:
               - USE_PEER
               - USE_ORIGIN
               type: string
             targets:
-              description: List rules to select workloads that the policy should be
-                applied on.
+              description: Deprecated.
               items:
                 properties:
                   name:
@@ -2115,6 +2115,12 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              enabled:
+                                description: enable locality load balancing, this
+                                  is DestinationRule-level and will override mesh
+                                  wide settings in entirety.
+                                nullable: true
+                                type: boolean
                               failover:
                                 description: 'Optional: only failover or distribute
                                   can be set.'
@@ -2298,6 +2304,12 @@ spec:
                                             type: object
                                         type: object
                                       type: array
+                                    enabled:
+                                      description: enable locality load balancing,
+                                        this is DestinationRule-level and will override
+                                        mesh wide settings in entirety.
+                                      nullable: true
+                                      type: boolean
                                     failover:
                                       description: 'Optional: only failover or distribute
                                         can be set.'
@@ -2552,6 +2564,11 @@ spec:
                                 type: object
                             type: object
                           type: array
+                        enabled:
+                          description: enable locality load balancing, this is DestinationRule-level
+                            and will override mesh wide settings in entirety.
+                          nullable: true
+                          type: boolean
                         failover:
                           description: 'Optional: only failover or distribute can
                             be set.'
@@ -2733,6 +2750,12 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              enabled:
+                                description: enable locality load balancing, this
+                                  is DestinationRule-level and will override mesh
+                                  wide settings in entirety.
+                                nullable: true
+                                type: boolean
                               failover:
                                 description: 'Optional: only failover or distribute
                                   can be set.'
