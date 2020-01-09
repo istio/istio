@@ -15,7 +15,9 @@
 package v2
 
 import (
+	"strconv"
 	"encoding/json"
+	"strings"
 	"fmt"
 	"html/template"
 	"io"
@@ -43,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -118,6 +121,11 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	}
 
 	mux.HandleFunc("/debug", s.Debug)
+
+	// Debug interfaces for manipulating services and instances
+	s.addDebugHandler(mux, "/debug/svc/add", "Add service to discovery server through memory registry", s.addService)
+	s.addDebugHandler(mux, "/debug/svc/set_instances", "Set instances to service through memory registry. Instance absent from the request will be removed",
+		s.setInstances)
 
 	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
 	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
@@ -327,7 +335,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 	}
 }
 
-// The Config Version is only used as the nonce prefix, but we can reconstruct it because is is a
+// VersionLen The Config Version is only used as the nonce prefix, but we can reconstruct it because is is a
 // b64 encoding of a 64 bit array, which will always be 12 chars in length.
 // len = ceil(bitlength/(2^6))+1
 const VersionLen = 12
@@ -774,6 +782,97 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 		adsLog.Errorf("Error in rendering index template %v", err)
 		w.WriteHeader(500)
 	}
+	w.WriteHeader(200)
+}
+
+func (s *DiscoveryServer) addService(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+
+	hostnameStr := req.Form.Get("hostname")
+	if hostnameStr == "" {
+		fmt.Fprint(w, "Please provide the hostname. like 'hello.test.default.svc.com'.")
+		w.WriteHeader(400)
+		return
+	}
+	hostname := host.Name(hostnameStr)
+
+	ipAddr := req.Form.Get("ipAddr")
+	if ipAddr == "" {
+		fmt.Fprint(w, "Please provide the ipAddr for the service. like '10.0.0.3'.")
+		w.WriteHeader(400)
+		return
+	}
+
+	// Don't support port customization yet
+	ports := []*model.Port{
+		{
+			Name:     "test-port",
+			Port:     8080,
+			Protocol: protocol.HTTP,
+		},
+	}
+
+	svc := &model.Service{
+		Hostname: hostname,
+		Address:  ipAddr,
+		Ports:    model.PortList(ports),
+		Attributes: model.ServiceAttributes{
+			Name:      "service",
+			Namespace: "default",
+		},
+	}
+
+	s.MemRegistry.AddService(hostname, svc)
+
+	s.ConfigUpdate(&model.PushRequest{Full: true})
+
+	fmt.Fprint(w, "ok.")
+	w.WriteHeader(200)
+}
+
+func (s *DiscoveryServer) setInstances(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+
+	hostname := req.Form.Get("hostname")
+	if hostname == "" {
+		fmt.Fprint(w, "Please provide the hostname. like 'hello.test.default.svc.com'.")
+		w.WriteHeader(400)
+		return
+	}
+
+	// Don't support namespace customization yet
+	namespace := "default"
+
+	ipPorts := req.Form.Get("ipPorts")
+	if ipPorts == "" {
+		fmt.Fprint(w, "Please provide the ip strings. like '127.0.0.1:8080,127.0.0.2:8080,127.0.0.3:80801'.")
+		w.WriteHeader(400)
+		return
+	}
+
+	ipPortSplits := strings.Split(ipPorts, ",")
+
+	istioEndpoints := make([]*model.IstioEndpoint, 0, len(ipPortSplits))
+	for _, ipPort := range ipPortSplits {
+		ones := strings.Split(ipPort, ":")
+
+		ip := ones[0]
+		port, _ := strconv.Atoi(ones[1])
+
+		ep := &model.IstioEndpoint{
+			Address:         ip,
+			EndpointPort:    uint32(port),
+			ServicePortName: "http",
+			Locality:        "za",
+			ServiceAccount:  "hello-za",
+		}
+
+		istioEndpoints = append(istioEndpoints, ep)
+	}
+
+	s.MemRegistry.SetEndpoints(hostname, namespace, istioEndpoints)
+
+	fmt.Fprint(w, "ok.")
 	w.WriteHeader(200)
 }
 
