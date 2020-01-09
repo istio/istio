@@ -272,6 +272,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 		for _, registry := range nonK8sRegistries {
 			// in case this svc does not belong to the registry
 			if svc.Attributes.ServiceRegistry != string(registry.Provider()) {
+				adsLog.Warnf("skipping service %s for provider %s, service registry", svc.Hostname, registry.Provider(), svc.Attributes.ServiceRegistry)
 				continue
 			}
 
