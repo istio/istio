@@ -82,14 +82,24 @@ func (e *endpointsController) registerEndpointsHandler() {
 		})
 }
 
-func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
-	return e.serviceInstances(c, proxy, proxyNamespace, e.proxyServiceInstances)
+func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
+	objs, err := e.informer.GetIndexer().ByIndex(cache.NamespaceIndex, proxy.Metadata.Namespace)
+	if err != nil {
+		log.Errorf("Get endpoints by index failed: %v", err)
+		return nil
+	}
+	out := make([]*model.ServiceInstance, 0)
+	for _, item := range objs {
+		ep := item.(*v1.Endpoints)
+		instances := e.proxyServiceInstances(c, ep, proxy)
+		out = append(out, instances...)
+	}
+
+	return out
 }
 
-func (e *endpointsController) proxyServiceInstances(c *Controller, obj interface{}, proxy *model.Proxy) (string, []*model.ServiceInstance) {
+func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-
-	endpoints := obj.(*v1.Endpoints)
 
 	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
 	c.RLock()
@@ -123,7 +133,7 @@ func (e *endpointsController) proxyServiceInstances(c *Controller, obj interface
 		}
 	}
 
-	return endpoints.Namespace, out
+	return out
 }
 
 func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,

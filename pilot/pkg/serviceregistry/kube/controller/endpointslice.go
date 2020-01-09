@@ -152,25 +152,35 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 	})
 }
 
-func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
-	return esc.serviceInstances(c, proxy, proxyNamespace, esc.proxyServiceInstances)
+func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
+	objs, err := esc.informer.GetIndexer().ByIndex(cache.NamespaceIndex, proxy.Metadata.Namespace)
+	if err != nil {
+		log.Errorf("Get endpointslice by index failed: %v", err)
+		return nil
+	}
+	out := make([]*model.ServiceInstance, 0)
+	for _, item := range objs {
+		ep := item.(*discoveryv1alpha1.EndpointSlice)
+		instances := esc.proxyServiceInstances(c, ep, proxy)
+		out = append(out, instances...)
+	}
+
+	return out
 }
 
-func (esc *endpointSliceController) proxyServiceInstances(c *Controller, obj interface{}, proxy *model.Proxy) (string, []*model.ServiceInstance) {
+func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
-	slice := obj.(*discoveryv1alpha1.EndpointSlice)
-
-	hostname := kube.ServiceHostname(slice.Labels[discoveryv1alpha1.LabelServiceName], slice.Namespace, c.domainSuffix)
+	hostname := kube.ServiceHostname(ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, c.domainSuffix)
 	c.RLock()
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
 
 	if svc == nil {
-		return slice.Namespace, out
+		return out
 	}
 
-	for _, port := range slice.Ports {
+	for _, port := range ep.Ports {
 		if port.Name == nil || port.Port == nil {
 			continue
 		}
@@ -183,7 +193,7 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, obj int
 
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
-			for _, ep := range slice.Endpoints {
+			for _, ep := range ep.Endpoints {
 				for _, a := range ep.Addresses {
 					if a == ip {
 						out = append(out, c.getEndpoints(podIP, ip, *port.Port, svcPort, svc))
@@ -197,7 +207,7 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, obj int
 		}
 	}
 
-	return slice.Namespace, out
+	return out
 }
 
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
