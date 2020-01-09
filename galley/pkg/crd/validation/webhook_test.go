@@ -43,13 +43,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 	fcache "k8s.io/client-go/tools/cache/testing"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
 	testConfig "istio.io/istio/pkg/test/config"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 const (
@@ -148,7 +149,7 @@ func createTestWebhook(
 		t.Fatalf("TempDir() failed: %v", err)
 	}
 	cleanup := func() {
-		os.RemoveAll(dir) // nolint: errcheck
+		_ = os.RemoveAll(dir)
 	}
 
 	var (
@@ -190,7 +191,7 @@ func createTestWebhook(
 		KeyFile:                       keyFile,
 		Port:                          port,
 		DomainSuffix:                  testDomainSuffix,
-		PilotDescriptor:               mock.Types,
+		PilotSchema:                   collections.Mocks,
 		MixerValidator:                &fakeValidator{},
 		WebhookConfigFile:             configFile,
 		CACertFile:                    caFile,
@@ -227,7 +228,7 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: schemas.MockConfig.Type,
+			Type: collections.Mock.Resource().Kind(),
 			Name: name,
 			Labels: map[string]string{
 				"key": name,
@@ -244,7 +245,7 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 			}},
 		},
 	}
-	obj, err := crd.ConvertConfig(schemas.MockConfig, config)
+	obj, err := convertMockConfig(config)
 	if err != nil {
 		t.Fatalf("ConvertConfig(%v) failed: %v", config.Name, err)
 	}
@@ -685,4 +686,28 @@ func TestReloadCert(t *testing.T) {
 	g.Eventually(func() bool {
 		return checkCert(t, wh, testcerts.RotatedCert, testcerts.RotatedKey)
 	}, "10s", "100ms").Should(gomega.BeTrue())
+}
+
+// TODO(nmittler): Remove this after pilot migrates to galley Schema
+func convertMockConfig(cfg model.Config) (crd.IstioObject, error) {
+	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
+	if err != nil {
+		return nil, err
+	}
+	namespace := cfg.Namespace
+	if namespace == "" {
+		namespace = metav1.NamespaceDefault
+	}
+
+	out := crd.KnownTypes[schemas.MockConfig.Type].Object.DeepCopyObject().(crd.IstioObject)
+	out.SetObjectMeta(metav1.ObjectMeta{
+		Name:            cfg.Name,
+		Namespace:       namespace,
+		ResourceVersion: cfg.ResourceVersion,
+		Labels:          cfg.Labels,
+		Annotations:     cfg.Annotations,
+	})
+	out.SetSpec(spec)
+
+	return out, nil
 }

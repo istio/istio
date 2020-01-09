@@ -266,6 +266,9 @@ func (c *kubeComponent) createRequest(options CallOptions) (*http.Request, error
 	if options.Host != "" {
 		req.Host = options.Host
 	}
+	if options.Headers != nil {
+		req.Header = options.Headers.Clone()
+	}
 
 	scopes.Framework.Debugf("Created a request to send %v", req)
 	return req, nil

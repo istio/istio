@@ -609,8 +609,9 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 		}
 	}
 
+	// add a new resource and remove an old resource
 	change = convertToChange([]proto.Message{message1},
-		[]string{"random-namespace/test-synthetic-se1"},
+		[]string{"random-namespace/test-synthetic-se2"},
 		setIncremental(),
 		setAnnotations(map[string]string{
 			annotation.AlphaNetworkingServiceVersion.Name: "1",
@@ -622,6 +623,36 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
+	update = <-fx.Events
+	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
+
+	update = <-fx.Events
+	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
+
+	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(entries).To(gomega.HaveLen(2))
+	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se1"))
+	g.Expect(entries[0].Spec).To(gomega.Equal(message1))
+	g.Expect(entries[1].Name).To(gomega.Equal("test-synthetic-se2"))
+	g.Expect(entries[1].Spec).To(gomega.Equal(message1))
+
+	// only remove an old resource, should trigger a push
+	change = convertToChange(nil,
+		nil,
+		setIncremental(),
+		setAnnotations(map[string]string{
+			annotation.AlphaNetworkingServiceVersion.Name: "1",
+		}),
+		setRemoved([]string{"random-namespace/test-synthetic-se2"}),
+		setCollection(schemas.SyntheticServiceEntry.Collection),
+		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	update = <-fx.Events
+	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
 	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(1))

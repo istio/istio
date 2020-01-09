@@ -74,7 +74,7 @@ var (
 		cmd.DefaultMaxWorkloadCertTTL,
 		"The max TTL of issued workload certificates.")
 
-	selfSignedCACertTTL = env.RegisterDurationVar("CITADEL_SELF_SIGNED_CA_CERT_TTL",
+	SelfSignedCACertTTL = env.RegisterDurationVar("CITADEL_SELF_SIGNED_CA_CERT_TTL",
 		cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate.")
 
@@ -127,7 +127,7 @@ type CAOptions struct {
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, opts *CAOptions) {
+func (s *Server) RunCA(grpc *grpc.Server, opts *CAOptions, stopCh <-chan struct{}) {
 	if s.kubeClient == nil {
 		// No k8s - no self-signed certs.
 		// TODO: implement it using a local directory, for non-k8s env.
@@ -191,6 +191,16 @@ func (s *Server) RunCA(grpc *grpc.Server, opts *CAOptions) {
 		log.Warnf("Failed to start GRPC server with error: %v", serverErr)
 	}
 	log.Info("Istiod CA has started")
+
+	s.ca = ca
+
+	nc, err := NewNamespaceController(ca, s.kubeClient.CoreV1())
+	if err != nil {
+		log.Warnf("failed to start istiod namespace controller, error: %v", err)
+	} else {
+		nc.Run(stopCh)
+		log.Info("istiod namespace controller has started")
+	}
 }
 
 type jwtAuthenticator struct {
@@ -340,10 +350,13 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.Is
 
 		// readSigningCertOnly set to false - it doesn't seem to be used in Citadel, nor do we have a way
 		// to set it only for one job.
+		// maxCertTTL in NewSelfSignedIstioCAOptions() is set to be the same as
+		// SelfSignedCACertTTL because the istiod certificate issued by Citadel
+		// will have a TTL equal to SelfSignedCACertTTL.
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
-			selfSignedRootCertGracePeriodPercentile.Get(), selfSignedCACertTTL.Get(),
+			selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
+			SelfSignedCACertTTL.Get(), opts.TrustDomain, true,
 			opts.Namespace, -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
