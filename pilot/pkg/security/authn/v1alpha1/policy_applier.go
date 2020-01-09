@@ -17,6 +17,7 @@ package v1alpha1
 import (
 	"crypto/sha1"
 	"fmt"
+	"sort"
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -145,6 +146,27 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 		providers[name] = provider
 	}
 
+	providerNames := make([]string, 0, len(providers))
+	for k := range providers {
+		providerNames = append(providerNames, k)
+	}
+	sort.Strings(providerNames)
+	requirementOrList := []*envoy_jwt.JwtRequirement{}
+
+	for _, name := range providerNames {
+		requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+				ProviderName: name,
+			},
+		})
+	}
+
+	requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
+		RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+			AllowMissingOrFailed: &empty.Empty{},
+		},
+	})
+
 	return &envoy_jwt.JwtAuthentication{
 		Rules: []*envoy_jwt.RequirementRule{
 			{
@@ -154,8 +176,10 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 					},
 				},
 				Requires: &envoy_jwt.JwtRequirement{
-					RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-						AllowMissingOrFailed: &empty.Empty{},
+					RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+						RequiresAny: &envoy_jwt.JwtRequirementOrList{
+							Requirements: requirementOrList,
+						},
 					},
 				},
 			},
