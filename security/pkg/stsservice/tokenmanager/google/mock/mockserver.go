@@ -67,7 +67,7 @@ type accessTokenResponse struct {
 	ExpireTime  duration.Duration `json:"expireTime"`
 }
 
-// AuthorizationServer is the in-memory secure token service.
+// AuthorizationServer mocks google secure token server.
 type AuthorizationServer struct {
 	Port   int
 	URL    string
@@ -83,8 +83,9 @@ type AuthorizationServer struct {
 	generateAccessTokenError    error
 }
 
-// StartNewServer creates a mock server and starts it
-func StartNewServer(t *testing.T) (*AuthorizationServer, error) {
+// StartNewServer creates a mock server and starts it. The server listens on
+// port for requests. If port is 0, a randomly chosen port is in use.
+func StartNewServer(t *testing.T, port int) (*AuthorizationServer, error) {
 	server := &AuthorizationServer{
 		t: t,
 		expectedFederatedTokenRequest: federatedTokenRequest{
@@ -100,7 +101,7 @@ func StartNewServer(t *testing.T) (*AuthorizationServer, error) {
 			Scope: []string{"https://www.googleapis.com/auth/cloud-platform"},
 		},
 	}
-	return server, server.Start()
+	return server, server.Start(0)
 }
 
 func (ms *AuthorizationServer) SetGenFedTokenError(err error) {
@@ -116,7 +117,7 @@ func (ms *AuthorizationServer) SetGenAcsTokenError(err error) {
 }
 
 // Start starts the mock server.
-func (ms *AuthorizationServer) Start() error {
+func (ms *AuthorizationServer) Start(port int) error {
 	atEndpoint := fmt.Sprintf("/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/identitybindingtoken", ms.getFederatedToken)
@@ -126,13 +127,14 @@ func (ms *AuthorizationServer) Start() error {
 		Addr:    ":",
 		Handler: mux,
 	}
-	ln, err := net.Listen("tcp", ":0")
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Errorf("Server failed to listen %v", err)
 		return err
 	}
+	// If passed in port is 0, get the actual chosen port.
+	port = ln.Addr().(*net.TCPAddr).Port
 
-	port := ln.Addr().(*net.TCPAddr).Port
 	ms.Port = port
 	ms.URL = fmt.Sprintf("http://localhost:%d", port)
 	server.Addr = ":" + strconv.Itoa(port)

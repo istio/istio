@@ -74,6 +74,9 @@ type TestSetup struct {
 
 	// Dir is the working dir for envoy
 	Dir string
+
+	// TokenPath is the file path that holds token credentials.
+	TokenPath string
 }
 
 // NewTestSetup creates a new test setup
@@ -85,6 +88,7 @@ func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 		ports:         NewPorts(name),
 		testName:      name,
 		AccessLogPath: "/tmp/envoy-access.log",
+		TokenPath:     "/tmp/envoy-token",
 	}
 }
 
