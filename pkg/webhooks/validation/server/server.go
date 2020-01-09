@@ -23,13 +23,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
-	"github.com/howeyc/fsnotify"
 	kubeApiAdmission "k8s.io/api/admission/v1beta1"
 	kubeApiApps "k8s.io/api/apps/v1beta1"
 	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,12 +36,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
+
 	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema"
-	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("validationServer", "validation webhook server", 0)
@@ -95,10 +96,7 @@ type Options struct {
 	// KeyFile is the path to the x509 private key matching `CertFile`.
 	KeyFile string
 
-	// Enable galley validation mode
-	Enabled bool
-
-	// Mux of an existing HTTP server, Galley will not manage its own
+	// Use an existing mux instead of creating our own.
 	Mux *http.ServeMux
 }
 
@@ -120,13 +118,12 @@ func DefaultArgs() Options {
 		Port:     9443,
 		CertFile: constants.DefaultCertChain,
 		KeyFile:  constants.DefaultKey,
-		Enabled:  true,
 	}
 }
 
 // Webhook implements the validating admission webhook for validating Istio configuration.
 type Webhook struct {
-	keyCertWatcher *fsnotify.Watcher
+	keyCertWatcher filewatcher.FileWatcher
 
 	mu   sync.RWMutex
 	cert *tls.Certificate
@@ -203,13 +200,10 @@ func New(p Options) (*Webhook, error) {
 
 	// Configuration must be updated whenever the caBundle changes. Watch the parent directory of
 	// the target files so we can catch symlink updates of k8s secrets.
-	keyCertWatcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
+	keyCertWatcher := filewatcher.NewWatcher()
+
 	for _, file := range []string{p.CertFile, p.KeyFile} {
-		watchDir, _ := filepath.Split(file)
-		if err := keyCertWatcher.Watch(watchDir); err != nil {
+		if err := keyCertWatcher.Add(file); err != nil {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
 		}
 	}
@@ -244,8 +238,18 @@ func (wh *Webhook) Stop() {
 
 var readyHook = func() {}
 
+func isModify(event fsnotify.Event) bool {
+	if event.Op&fsnotify.Write == fsnotify.Write {
+		return true
+	} else if event.Op&fsnotify.Create == fsnotify.Create {
+		return true
+	}
+	return false
+}
+
 // Run implements the webhook server
 func (wh *Webhook) Run(stopCh <-chan struct{}) {
+
 	if wh.server == nil {
 		// Externally managed
 		return
@@ -271,11 +275,17 @@ func (wh *Webhook) Run(stopCh <-chan struct{}) {
 		case <-keyCertTimerC:
 			keyCertTimerC = nil
 			wh.reloadKeyCert()
-		case event, more := <-wh.keyCertWatcher.Event:
-			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
+		case event, more := <-wh.keyCertWatcher.Events(wh.keyFile):
+			if more && isModify(event) && keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)
 			}
-		case err := <-wh.keyCertWatcher.Error:
+		case event, more := <-wh.keyCertWatcher.Events(wh.certFile):
+			if more && isModify(event) && keyCertTimerC == nil {
+				keyCertTimerC = time.After(watchDebounceDelay)
+			}
+		case err := <-wh.keyCertWatcher.Errors(wh.keyFile):
+			scope.Errorf("configWatcher error: %v", err)
+		case err := <-wh.keyCertWatcher.Errors(wh.certFile):
 			scope.Errorf("configWatcher error: %v", err)
 		case <-stopCh:
 			return
@@ -484,16 +494,14 @@ func (p *Options) Validate() error {
 	}
 
 	var errs *multierror.Error
-	if p.Enabled {
-		if len(p.CertFile) == 0 {
-			errs = multierror.Append(errs, errors.New("cert file not specified"))
-		}
-		if len(p.KeyFile) == 0 {
-			errs = multierror.Append(errs, errors.New("key file not specified"))
-		}
-		if err := validatePort(int(p.Port)); err != nil {
-			errs = multierror.Append(errs, err)
-		}
+	if len(p.CertFile) == 0 {
+		errs = multierror.Append(errs, errors.New("cert file not specified"))
+	}
+	if len(p.KeyFile) == 0 {
+		errs = multierror.Append(errs, errors.New("key file not specified"))
+	}
+	if err := validatePort(int(p.Port)); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 
 	return errs.ErrorOrNil()

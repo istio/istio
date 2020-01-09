@@ -280,13 +280,14 @@ func (c *Controller) startFileWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case ev := <-c.fw.Events(c.o.WebhookConfigPath):
-			req := &reconcileRequest{fmt.Sprintf("Webhook configuration changed: %v", ev)}
+			req := &reconcileRequest{fmt.Sprintf(
+				"validatingwebhookconfiguration file changed: %v", ev)}
 			c.queue.Add(req)
 		case ev := <-c.fw.Events(c.o.CAPath):
 			req := &reconcileRequest{fmt.Sprintf("CA file changed: %v", ev)}
 			c.queue.Add(req)
 		case err := <-c.fw.Errors(c.o.WebhookConfigPath):
-			scope.Warnf("error watching local webhook configuration: %v", err)
+			scope.Warnf("error watching local validatingwebhookconfiguration file: %v", err)
 		case err := <-c.fw.Errors(c.o.CAPath):
 			scope.Warnf("error watching local CA bundle: %v", err)
 		case <-stop:
@@ -331,22 +332,33 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 		}
 	}()
 
-	scope.Infof("Reconcile: %v", req)
+	scope.Infof("Reconcile(enter): %v", req)
+	defer func() { scope.Info("Reconcile(exit)") }()
 
 	// don't create the webhook config before the endpoint is ready
 	if !c.endpointReadyOnce {
-		if ready, err := c.isEndpointReady(); !ready || err != nil {
-			scope.Infof("Endpoint not ready: ready=%v err=%v", ready, err)
+		ready, err := c.isEndpointReady()
+		if err != nil {
+			scope.Errorf("Error checking endpoint readiness: %v", err)
 			return err
+		}
+		if !ready {
+			scope.Infof("Endpoint not ready: ready=%v err=%v", ready, err)
+			return nil
 		}
 		c.endpointReadyOnce = true
 	}
 
 	// don't update the webhook config if its already managed by an existing galley deployment.
 	if c.o.GalleyDeploymentName != "" {
-		if running, err := c.isGalleyDeploymentRunning(); running || err != nil {
-			scope.Infof("Galley deployment detected: running=%v err=%v", running, err)
+		running, err := c.isGalleyDeploymentRunning()
+		if err != nil {
+			scope.Errorf("Error checking galley deployment: %v", err)
 			return err
+		}
+		if running {
+			scope.Info("Galley deployment detected")
+			return nil
 		}
 	}
 
@@ -432,11 +444,11 @@ func (c *Controller) updateValidatingWebhookConfiguration(desired *kubeApiAdmiss
 		_, err := c.o.Client.AdmissionregistrationV1beta1().
 			ValidatingWebhookConfigurations().Create(desired)
 		if err != nil {
-			scope.Errorf("Failed to create webhook config: %v", err)
+			scope.Errorf("Failed to create validatingwebhookconfiguration: %v", err)
 			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
 			return err
 		}
-		scope.Info("Successfully created webhook config")
+		scope.Info("Successfully created validatingwebhookconfiguration")
 		reportValidationConfigUpdate()
 		return nil
 	}
@@ -449,12 +461,12 @@ func (c *Controller) updateValidatingWebhookConfiguration(desired *kubeApiAdmiss
 		_, err := c.o.Client.AdmissionregistrationV1beta1().
 			ValidatingWebhookConfigurations().Update(updated)
 		if err != nil {
-			scope.Errorf("Failed to update webhook config: %v", err)
+			scope.Errorf("Failed to update validatingwebhookconfiguration: %v", err)
 			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
 			return err
 		}
 	}
-	scope.Info("Successfully created webhook config")
+	scope.Info("Successfully updated validatingwebhookconfiguration")
 	reportValidationConfigUpdate()
 	return nil
 }
@@ -475,7 +487,7 @@ func (e configError) Reason() string {
 func (c *Controller) buildValidatingWebhookConfiguration() (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
 	webhook, err := c.readFile(c.o.WebhookConfigPath)
 	if err != nil {
-		return nil, &configError{err, "could not read configuration file"}
+		return nil, &configError{err, "could not read validatingwebhookconfiguration file"}
 	}
 	caBundle, err := c.readFile(c.o.CAPath)
 	if err != nil {
@@ -490,7 +502,7 @@ func buildValidatingWebhookConfiguration(
 ) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
 	config, err := decodeValidatingConfig(webhook)
 	if err != nil {
-		return nil, &configError{err, "could not decode webhook configurationd"}
+		return nil, &configError{err, "could not decode validatingwebhookconfiguration file"}
 	}
 	if err := verifyCABundle(caBundle); err != nil {
 		return nil, &configError{err, "could not verify caBundle"}

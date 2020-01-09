@@ -622,10 +622,4 @@ func runTestCode(name string, t *testing.T, test scenario) {
 			t.Errorf("Test %q failed: expected error: %q, got %q", name, test.expectedError, err.Error())
 		}
 	}
-
-	// Should not return error if validation disabled
-	args.Enabled = false
-	if err := args.Validate(); err != nil {
-		t.Errorf("Test %q failed with validation disabled, expected nil error, but got: %v", name, err)
-	}
 }
