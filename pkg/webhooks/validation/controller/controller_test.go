@@ -34,7 +34,6 @@ import (
 	kubeTypedApp "k8s.io/client-go/kubernetes/typed/apps/v1"
 	kubeTypedCore "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubectl/pkg/scheme"
 
 	"istio.io/pkg/filewatcher"
 
@@ -110,8 +109,8 @@ var (
 			SideEffects:       &sideEffectsUnknown,
 		}},
 	}
-	admissionCodec                   = scheme.Codecs.LegacyCodec(kubeApiAdmission.SchemeGroupVersion)
-	istiodWebhookConfigEncoded       = runtime.EncodeOrDie(admissionCodec, unpatchedIstiodWebhookConfig)
+
+	istiodWebhookConfigEncoded       string
 	webhookConfigWithCABundle0       *kubeApiAdmission.ValidatingWebhookConfiguration
 	galleyWebhookConfigWithCABundle1 *kubeApiAdmission.ValidatingWebhookConfiguration
 
@@ -157,6 +156,8 @@ V6g5gZlqSoRhICK09tpc
 
 // patch the caBundle into the final istiod and galley configs.
 func init() {
+	istiodWebhookConfigEncoded = runtime.EncodeOrDie(codec, unpatchedIstiodWebhookConfig)
+
 	webhookConfigWithCABundle0 = unpatchedIstiodWebhookConfig.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
 	webhookConfigWithCABundle0.Webhooks[0].ClientConfig.CABundle = caBundle0
 	webhookConfigWithCABundle0.Webhooks[1].ClientConfig.CABundle = caBundle0
@@ -400,7 +401,7 @@ func TestCertAndConfigFileChange(t *testing.T) {
 	webhookConfigAfterConfigUpdate := webhookConfigAfterCAUpdate.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
 	webhookConfigAfterConfigUpdate.Webhooks[0].TimeoutSeconds = &[]int32{1}[0]
 	c.injectedMu.Lock()
-	c.injectedConfig = []byte(runtime.EncodeOrDie(admissionCodec, webhookConfigAfterConfigUpdate))
+	c.injectedConfig = []byte(runtime.EncodeOrDie(codec, webhookConfigAfterConfigUpdate))
 	c.injectedMu.Unlock()
 
 	reconcileHelper(t, c)

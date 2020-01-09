@@ -34,16 +34,18 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/labels"
 )
 
 var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
@@ -517,17 +519,30 @@ func buildValidatingWebhookConfiguration(
 }
 
 var (
-	// Let a runtime.Decoder handle API defaulting for us when it decodes the object.
-	codec            = serializer.NewCodecFactory(runtime.NewScheme())
-	universalDecoder = codec.UniversalDeserializer()
+	codec  runtime.Codec
+	scheme *runtime.Scheme
 
 	failurePolicyFail  = kubeApiAdmission.Fail
 	sideEffectsUnknown = kubeApiAdmission.SideEffectClassUnknown
 )
 
+func init() {
+	scheme = runtime.NewScheme()
+	utilruntime.Must(kubeApiAdmission.AddToScheme(scheme))
+	opt := json.SerializerOptions{true, false, false}
+	yamlSerializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme, scheme, opt)
+	codec = versioning.NewDefaultingCodecForScheme(
+		scheme,
+		yamlSerializer,
+		yamlSerializer,
+		kubeApiAdmission.SchemeGroupVersion,
+		runtime.InternalGroupVersioner,
+	)
+}
+
 func decodeValidatingConfig(encoded []byte) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
 	var config kubeApiAdmission.ValidatingWebhookConfiguration
-	if err := runtime.DecodeInto(universalDecoder, encoded, &config); err != nil {
+	if _, _, err := codec.Decode(encoded, nil, &config); err != nil {
 		return nil, err
 	}
 
