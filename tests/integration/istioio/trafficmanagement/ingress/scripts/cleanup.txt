@@ -32,8 +32,7 @@ httpbin.new.example.com
 # $endsnippet
 
 # $snippet delete_ingressgatway_yaml syntax="bash"
-$ kubectl delete -f {{ .yamlDir }}/enable-sds.yaml
-$ rm -f {{ .yamlDir }}/enable-sds.yaml
+$ rm -f {{ .yamlDir }}/istio-ingressgateway.yaml
 # $endsnippet
 {{- end -}}
 
