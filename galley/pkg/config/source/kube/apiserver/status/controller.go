@@ -118,13 +118,19 @@ func (c *ControllerImpl) Report(messages diag.Messages) {
 
 	for _, m := range messages {
 
-		if m.Origin == nil {
+		if m.Resource == nil {
+			// This should not happen. All messages should be reported against at least one resource.
+			scope.Source.Errorf("Encountered a diagnostic message without a resource: %v", m)
+			continue
+		}
+
+		if m.Resource.Origin == nil {
 			// This should not happen. All messages should be reported against at least one origin.
 			scope.Source.Errorf("Encountered a diagnostic message without an origin: %v", m)
 			continue
 		}
 
-		origin, ok := m.Origin.(*rt.Origin)
+		origin, ok := m.Resource.Origin.(*rt.Origin)
 		if !ok {
 			// This should not happen. All messages should be routed back to the appropriate source.
 			scope.Source.Errorf("Encountered a diagnostic message with unrecognized origin: %v", m)

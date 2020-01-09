@@ -50,6 +50,7 @@ func TestCorrectArgs(t *testing.T) {
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("ns", "name"),
 				},
+				Origin: fakeOrigin{},
 			},
 		},
 	}
@@ -104,6 +105,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 			Resources: []*resource.Instance{
 				{
 					Message: m2,
+					Origin:  fakeOrigin{},
 				},
 			},
 		}
@@ -118,6 +120,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 			Resources: []*resource.Instance{
 				{
 					Message: m3,
+					Origin:  fakeOrigin{},
 				},
 			},
 		}
@@ -144,3 +147,8 @@ func schemaWithValidateFn(validateFn func(string, string, proto.Message) error) 
 		}.MustBuild(),
 	}.MustBuild()
 }
+
+type fakeOrigin struct{}
+
+func (fakeOrigin) FriendlyName() string          { return "myFriendlyName" }
+func (fakeOrigin) Namespace() resource.Namespace { return "myNamespace" }
