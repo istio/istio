@@ -419,9 +419,9 @@ func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
 		Endpoints().Lister().Endpoints(c.o.WatchedNamespace).Get(c.o.ServiceName)
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
-			return false, "", nil
+			return false, "resource not found", nil
 		}
-		return false, "", err
+		return false, fmt.Sprintf("error getting resource: %v", err), err
 	}
 	ready, reason = isEndpointReady(endpoint)
 	return ready, reason, nil
@@ -485,7 +485,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(desired *kubeApiAdmiss
 			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
 			return err
 		}
-		scope.Infof("Successfully created %v validatingwebhookconfiguration %v (resourceVersion=%v)",
+		scope.Infof("Successfully created validatingwebhookconfiguration %v (resourceVersion=%v)",
 			c.o.WebhookConfigName, created.ResourceVersion)
 		reportValidationConfigUpdate()
 		return nil
