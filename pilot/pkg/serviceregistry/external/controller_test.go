@@ -27,27 +27,37 @@ import (
 	"istio.io/istio/pkg/config/schemas"
 )
 
+type Event struct {
+	kind      string
+	push      *model.PushRequest
+	host      string
+	namespace string
+	eps       []*model.IstioEndpoint
+}
+
 type FakeXdsUpdater struct {
 	// Events tracks notifications received by the updater
-	Events chan string
+	Events chan Event
 }
 
 func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, namespace string, entry []*model.IstioEndpoint) error {
 	if len(entry) > 0 {
-		fx.Events <- "eds"
+		fx.Events <- Event{kind: "eds", host: hostname, namespace: namespace, eps: entry}
 	}
 	return nil
 }
 
-func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
-	fx.Events <- "xds"
+func (fx *FakeXdsUpdater) ConfigUpdate(push *model.PushRequest) {
+	fx.Events <- Event{kind: "xds", push: push}
 }
 
 func (fx *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
 }
 
 func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, namespace string, event model.Event) {
+	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
+
 func TestController(t *testing.T) {
 	configDescriptor := schema.Set{
 		schemas.ServiceEntry,
@@ -55,7 +65,7 @@ func TestController(t *testing.T) {
 	store := memory.Make(configDescriptor)
 	configController := memory.NewController(store)
 
-	eventch := make(chan string)
+	eventch := make(chan Event)
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
 	}
@@ -106,8 +116,8 @@ func TestController(t *testing.T) {
 	}
 
 	handler := <-eventch
-	if handler != "xds" {
-		t.Fatalf("Expected config update to be called, but got %s", handler)
+	if handler.kind != "xds" && !handler.push.Full {
+		t.Fatalf("Expected full push config update to be called, but got %v", handler)
 	}
 }
 
@@ -119,7 +129,7 @@ func TestServiceEntryChanges(t *testing.T) {
 	store := memory.Make(configDescriptor)
 	configController := memory.NewController(store)
 
-	eventch := make(chan string)
+	eventch := make(chan Event)
 
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
@@ -131,11 +141,14 @@ func TestServiceEntryChanges(t *testing.T) {
 	go configController.Run(stop)
 	defer close(stop)
 
+	ct := time.Now()
+
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.ServiceEntry.Type,
-			Name:      "fake",
-			Namespace: "fake-ns",
+			Type:              schemas.ServiceEntry.Type,
+			Name:              "fake",
+			Namespace:         "fake-ns",
+			CreationTimestamp: ct,
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
@@ -170,17 +183,18 @@ func TestServiceEntryChanges(t *testing.T) {
 	}
 
 	handler := <-eventch
-	if handler != "xds" {
-		t.Fatalf("Expected config update to be called, but got %s", handler)
+	if handler.kind != "xds" && !handler.push.Full {
+		t.Fatalf("Expected config update to be called, but got %v", handler)
 	}
 
 	// Update service entry with Host changes
 	updatecfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            schemas.ServiceEntry.Type,
-			Name:            "fake",
-			Namespace:       "fake-ns",
-			ResourceVersion: revision,
+			Type:              schemas.ServiceEntry.Type,
+			Name:              "fake",
+			Namespace:         "fake-ns",
+			ResourceVersion:   revision,
+			CreationTimestamp: ct,
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com", "test.com"},
@@ -215,17 +229,18 @@ func TestServiceEntryChanges(t *testing.T) {
 	}
 
 	handler = <-eventch
-	if handler != "xds" {
-		t.Fatalf("Expected config update to be called, but got %s", handler)
+	if handler.kind != "xds" && !handler.push.Full {
+		t.Fatalf("Expected config update to be called, but got %v", handler)
 	}
 
 	// Update Service Entry with Endpoint changes
 	updatecfg = model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            schemas.ServiceEntry.Type,
-			Name:            "fake",
-			Namespace:       "fake-ns",
-			ResourceVersion: revision,
+			Type:              schemas.ServiceEntry.Type,
+			Name:              "fake",
+			Namespace:         "fake-ns",
+			ResourceVersion:   revision,
+			CreationTimestamp: ct,
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com", "test.com"},
@@ -267,9 +282,85 @@ func TestServiceEntryChanges(t *testing.T) {
 		t.Fatalf("Error in creating service entry %v", err)
 	}
 
-	// Here we expect only eds update to be called.
+	// Here we expect only eds updates to be called twice, once for each service.
 	handler = <-eventch
-	if handler != "eds" {
-		t.Fatalf("Expected eds update to be called, but got %s", handler)
+	if handler.kind != "eds" && handler.host != "*.google.com" && handler.namespace != "fake-ns" {
+		t.Fatalf("Expected eds update to be called for %s, but got %v", "*.google.com", handler)
+	}
+
+	handler = <-eventch
+	if handler.kind != "eds" && handler.host != "test.com" && handler.namespace != "fake-ns" {
+		t.Fatalf("Expected eds update to be called for %s, but got %v", "test.com", handler)
+	}
+}
+
+func TestServiceEntryDelete(t *testing.T) {
+	configDescriptor := schema.Set{
+		schemas.ServiceEntry,
+	}
+	store := memory.Make(configDescriptor)
+	configController := memory.NewController(store)
+
+	eventch := make(chan Event)
+
+	xdsUpdater := &FakeXdsUpdater{
+		Events: eventch,
+	}
+
+	external.NewServiceDiscovery(configController, model.MakeIstioStore(configController), xdsUpdater)
+
+	stop := make(chan struct{})
+	go configController.Run(stop)
+	defer close(stop)
+
+	cfg := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      schemas.ServiceEntry.Type,
+			Name:      "httpbin-egress",
+			Namespace: "test-ns",
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"httpbin.default.svc.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "10.31.241.103",
+					Ports:   map[string]uint32{"http-port": 80},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+	}
+
+	_, err := configController.Create(cfg)
+
+	if err != nil {
+		t.Fatalf("Error in creating service entry %v", err)
+	}
+
+	handler := <-eventch
+	if handler.kind != "xds" {
+		t.Fatalf("Expected config update to be called, but got %v", handler)
+	}
+
+	// delete service entry.
+	err = configController.Delete(schemas.ServiceEntry.Type, "httpbin-egress", "test-ns")
+
+	if err != nil {
+		t.Fatalf("Error in deleting service entry %v", err)
+	}
+
+	// Validate that it triggers SvcUpdate event then followed by full push.
+	handler = <-eventch
+	if handler.kind != "svcupdate" && handler.host != "httpbin.default.svc.cluster.local" && handler.namespace == "test-ns" {
+		t.Fatalf("Expected svc update to be called, but got %v", handler)
+	}
+
+	handler = <-eventch
+	if handler.kind != "xds" {
+		t.Fatalf("Expected config update to be called, but got %v", handler)
 	}
 }

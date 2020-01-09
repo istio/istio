@@ -86,6 +86,7 @@ func collectJwtSpecs(policy *authn_v1alpha1.Policy) []*authn_v1alpha1.Jwt {
 	for _, method := range policy.Peers {
 		switch method.GetParams().(type) {
 		case *authn_v1alpha1.PeerAuthenticationMethod_Jwt:
+			// nolint: staticcheck
 			ret = append(ret, method.GetJwt())
 		}
 	}

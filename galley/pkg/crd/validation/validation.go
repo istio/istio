@@ -30,8 +30,8 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -92,7 +92,7 @@ func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParam
 		clientset = kubeInterface
 	}
 	vc.MixerValidator = mixerValidator
-	vc.PilotDescriptor = schemas.Istio
+	vc.PilotSchema = collections.Istio
 	vc.Clientset = clientset
 	wh, err := NewWebhook(*vc)
 	if err != nil || vc.Clientset == nil {

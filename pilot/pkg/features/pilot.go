@@ -277,6 +277,13 @@ var (
 	// The 15010 port is used with plain text, 15011 with Spiffee certs - we need a different port for DNS cert.
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
+
+	// SignCertAtK8sCa configures whether signing the control plane certificate at k8s CA.
+	// TODO (lei-tang): the default value of this option is currently set as true to be consistent
+	// with the existing istiod implementation. As some platforms may not have k8s signing APIs,
+	// we may change the default value of this option as false.
+	SignCertAtK8sCa = env.RegisterBoolVar("SIGN_CERT_AT_KUBERNETES_CA", true,
+		"Whether signing the control plane certificate at Kubernetes CA.")
 )
 
 var (
