@@ -315,10 +315,16 @@ func (sa *SourceAnalyzer) disableKubeResourcesWithoutPermissions(client kubernet
 	resultBuilder := collection.NewSchemasBuilder()
 
 	for _, s := range sa.kubeResources.All() {
-		if !s.IsDisabled() && !hasPermissionsOnCollection(client, s, requiredPerms) {
-			scope.Analysis.Errorf("Skipping resource %q since the current user doesn't have required permissions %v",
-				s.Resource().CanonicalName(), requiredPerms)
-			s = s.Disable()
+		if !s.IsDisabled() {
+			allowed, err := hasPermissionsOnCollection(client, s, requiredPerms)
+			if err != nil {
+				scope.Analysis.Errorf("Error checking permissions for resource %q (skipping it): %v", s.Resource().CanonicalName(), err)
+				s = s.Disable()
+			} else if !allowed {
+				scope.Analysis.Errorf("Skipping resource %q since the current user doesn't have required permissions %v",
+					s.Resource().CanonicalName(), requiredPerms)
+				s = s.Disable()
+			}
 		}
 
 		// The possible error here is if the collection is already in the list.
@@ -330,7 +336,7 @@ func (sa *SourceAnalyzer) disableKubeResourcesWithoutPermissions(client kubernet
 	sa.kubeResources = resultBuilder.Build()
 }
 
-func hasPermissionsOnCollection(client kubernetes.Interface, s collection.Schema, verbs []string) bool {
+func hasPermissionsOnCollection(client kubernetes.Interface, s collection.Schema, verbs []string) (bool, error) {
 	for _, verb := range verbs {
 		sar := &authorizationapi.SelfSubjectAccessReview{
 			Spec: authorizationapi.SelfSubjectAccessReviewSpec{
@@ -344,13 +350,12 @@ func hasPermissionsOnCollection(client kubernetes.Interface, s collection.Schema
 
 		response, err := client.AuthorizationV1().SelfSubjectAccessReviews().Create(sar)
 		if err != nil {
-			scope.Analysis.Errorf("error creating SelfSubjectAccessReview for %q: %v", s.Resource().CanonicalName(), err)
-			return false
+			return false, fmt.Errorf("error creating SelfSubjectAccessReview: %v", err)
 		}
 
 		if !response.Status.Allowed {
-			return false
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
