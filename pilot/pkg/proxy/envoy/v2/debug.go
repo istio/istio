@@ -790,15 +790,15 @@ func (s *DiscoveryServer) addService(w http.ResponseWriter, req *http.Request) {
 
 	hostnameStr := req.Form.Get("hostname")
 	if hostnameStr == "" {
-		fmt.Fprint(w, "Please provide the hostname. like 'hello.test.default.svc.com'.")
+		fmt.Fprintln(w, "Please provide the hostname. like 'hostname=hello.test.default.svc.com'.")
 		w.WriteHeader(400)
 		return
 	}
 	hostname := host.Name(hostnameStr)
 
-	ipAddr := req.Form.Get("ipAddr")
-	if ipAddr == "" {
-		fmt.Fprint(w, "Please provide the ipAddr for the service. like '10.0.0.3'.")
+	ip := req.Form.Get("ip")
+	if ip == "" {
+		fmt.Fprintln(w, "Please provide the ip for the service. like 'ip=10.0.0.3'.")
 		w.WriteHeader(400)
 		return
 	}
@@ -814,7 +814,7 @@ func (s *DiscoveryServer) addService(w http.ResponseWriter, req *http.Request) {
 
 	svc := &model.Service{
 		Hostname: hostname,
-		Address:  ipAddr,
+		Address:  ip,
 		Ports:    model.PortList(ports),
 		Attributes: model.ServiceAttributes{
 			Name:      "service",
@@ -826,7 +826,7 @@ func (s *DiscoveryServer) addService(w http.ResponseWriter, req *http.Request) {
 
 	s.ConfigUpdate(&model.PushRequest{Full: true})
 
-	fmt.Fprint(w, "ok.")
+	fmt.Fprintln(w, "ok.")
 	w.WriteHeader(200)
 }
 
@@ -835,7 +835,7 @@ func (s *DiscoveryServer) setInstances(w http.ResponseWriter, req *http.Request)
 
 	hostname := req.Form.Get("hostname")
 	if hostname == "" {
-		fmt.Fprint(w, "Please provide the hostname. like 'hello.test.default.svc.com'.")
+		fmt.Fprintln(w, "Please provide the hostname. like 'hostname=hello.test.default.svc.com'.")
 		w.WriteHeader(400)
 		return
 	}
@@ -843,14 +843,14 @@ func (s *DiscoveryServer) setInstances(w http.ResponseWriter, req *http.Request)
 	// Don't support namespace customization yet
 	namespace := "default"
 
-	ipPorts := req.Form.Get("ipPorts")
-	if ipPorts == "" {
-		fmt.Fprint(w, "Please provide the ip strings. like '127.0.0.1:8080,127.0.0.2:8080,127.0.0.3:80801'.")
+	ips := req.Form.Get("ips")
+	if ips == "" {
+		fmt.Fprintln(w, "Please provide the ips strings. like 'ips=127.0.0.1:8080,127.0.0.2:8080,127.0.0.3:80801'.")
 		w.WriteHeader(400)
 		return
 	}
 
-	ipPortSplits := strings.Split(ipPorts, ",")
+	ipPortSplits := strings.Split(ips, ",")
 
 	istioEndpoints := make([]*model.IstioEndpoint, 0, len(ipPortSplits))
 	for _, ipPort := range ipPortSplits {
@@ -862,7 +862,7 @@ func (s *DiscoveryServer) setInstances(w http.ResponseWriter, req *http.Request)
 		ep := &model.IstioEndpoint{
 			Address:         ip,
 			EndpointPort:    uint32(port),
-			ServicePortName: "http",
+			ServicePortName: "test-port",
 			Locality:        "za",
 			ServiceAccount:  "hello-za",
 		}
@@ -872,7 +872,7 @@ func (s *DiscoveryServer) setInstances(w http.ResponseWriter, req *http.Request)
 
 	s.MemRegistry.SetEndpoints(hostname, namespace, istioEndpoints)
 
-	fmt.Fprint(w, "ok.")
+	fmt.Fprintln(w, "ok.")
 	w.WriteHeader(200)
 }
 
