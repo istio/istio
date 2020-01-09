@@ -2107,24 +2107,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz"},
 			}},
-			AppendRequestHeaders: map[string]string{
-				"name": "",
-			},
-			AppendResponseHeaders: map[string]string{
-				"name": "",
-			},
 		}, valid: true},
-		{name: "empty request response headers", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
-			}},
-			AppendRequestHeaders: map[string]string{
-				"": "value",
-			},
-			AppendResponseHeaders: map[string]string{
-				"": "value",
-			},
-		}, valid: false},
 		{name: "valid headers", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz"},
@@ -2472,7 +2455,6 @@ func TestValidateVirtualService(t *testing.T) {
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
-				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},
 			}},
 		}, valid: true},
 		{name: "missing tcp route", in: &networking.VirtualService{
