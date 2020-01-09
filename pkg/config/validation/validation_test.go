@@ -1656,7 +1656,9 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 	}{
 		{name: "nil", in: nil, valid: true},
 		{name: "valid", in: &networking.HTTPFaultInjection_Abort{
-			Percent: 20,
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
 			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 200,
 			},
@@ -1666,20 +1668,18 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 				HttpStatus: 200,
 			},
 		}, valid: true},
-		{name: "invalid percent", in: &networking.HTTPFaultInjection_Abort{
-			Percent: -1,
-			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
-				HttpStatus: 200,
-			},
-		}, valid: false},
 		{name: "invalid http status", in: &networking.HTTPFaultInjection_Abort{
-			Percent: 20,
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
 			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 9000,
 			},
 		}, valid: false},
 		{name: "invalid low http status", in: &networking.HTTPFaultInjection_Abort{
-			Percent: 20,
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
 			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 100,
 			},
@@ -1720,7 +1720,9 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 	}{
 		{name: "nil", in: nil, valid: true},
 		{name: "valid fixed", in: &networking.HTTPFaultInjection_Delay{
-			Percent: 20,
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3},
 			},
@@ -1731,13 +1733,17 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 			},
 		}, valid: true},
 		{name: "invalid percent", in: &networking.HTTPFaultInjection_Delay{
-			Percent: 101,
+			Percentage: &networking.Percent{
+				Value: 101,
+			},
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: false},
 		{name: "invalid delay", in: &networking.HTTPFaultInjection_Delay{
-			Percent: 20,
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3, Nanos: 42},
 			},
@@ -2107,24 +2113,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz"},
 			}},
-			AppendRequestHeaders: map[string]string{
-				"name": "",
-			},
-			AppendResponseHeaders: map[string]string{
-				"name": "",
-			},
 		}, valid: true},
-		{name: "empty request response headers", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
-			}},
-			AppendRequestHeaders: map[string]string{
-				"": "value",
-			},
-			AppendResponseHeaders: map[string]string{
-				"": "value",
-			},
-		}, valid: false},
 		{name: "valid headers", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz"},
@@ -2472,7 +2461,6 @@ func TestValidateVirtualService(t *testing.T) {
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
-				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},
 			}},
 		}, valid: true},
 		{name: "missing tcp route", in: &networking.VirtualService{
