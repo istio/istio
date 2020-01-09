@@ -1478,13 +1478,16 @@ var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationP
 		var errs error
 
 		if !clusterScoped {
+			// nolint: staticcheck
 			if len(in.Targets) == 0 && name != constants.DefaultAuthenticationPolicyName {
 				errs = appendErrors(errs, fmt.Errorf("authentication policy with no target rules  must be named %q, found %q",
 					constants.DefaultAuthenticationPolicyName, name))
 			}
+			// nolint: staticcheck
 			if len(in.Targets) > 0 && name == constants.DefaultAuthenticationPolicyName {
 				errs = appendErrors(errs, fmt.Errorf("authentication policy with name %q must not have any target rules", name))
 			}
+			// nolint: staticcheck
 			for _, target := range in.Targets {
 				errs = appendErrors(errs, validateAuthNPolicyTarget(target))
 			}
@@ -1493,6 +1496,7 @@ var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationP
 				errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy name must be %q, found %q",
 					constants.DefaultAuthenticationPolicyName, name))
 			}
+			// nolint: staticcheck
 			if len(in.Targets) > 0 {
 				errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
 			}
@@ -1500,6 +1504,7 @@ var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationP
 
 		jwtIssuers := make(map[string]bool)
 		for _, method := range in.Peers {
+			// nolint: staticcheck
 			if jwt := method.GetJwt(); jwt != nil {
 				if _, jwtExist := jwtIssuers[jwt.Issuer]; jwtExist {
 					errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", jwt.Issuer))
@@ -1509,6 +1514,7 @@ var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationP
 				errs = appendErrors(errs, validateJwt(jwt))
 			}
 		}
+		// nolint: staticcheck
 		for _, method := range in.Origins {
 			if method == nil {
 				errs = multierror.Append(errs, errors.New("origin cannot be empty"))

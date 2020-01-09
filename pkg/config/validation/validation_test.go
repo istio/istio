@@ -3676,6 +3676,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			name:       "service-specific policy with namespace-wide name",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
+				// nolint: staticcheck
 				Targets: []*authn.TargetSelector{{
 					Name: "foo",
 				}},
@@ -3686,6 +3687,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			name:       "Targets only policy",
 			configName: someName,
 			in: &authn.Policy{
+				// nolint: staticcheck
 				Targets: []*authn.TargetSelector{{
 					Name: "foo",
 				}},
@@ -3708,6 +3710,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Jwt{
+						// nolint: staticcheck
 						Jwt: &authn.Jwt{
 							Issuer:     "istio.io",
 							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
@@ -3722,8 +3725,10 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			name:       "Origin",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
+				// nolint: staticcheck
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
+						// nolint: staticcheck
 						Jwt: &authn.Jwt{
 							Issuer:     "istio.io",
 							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
@@ -3738,8 +3743,10 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			name:       "Bad JkwsURI",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
+				// nolint: staticcheck
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
+						// nolint: staticcheck
 						Jwt: &authn.Jwt{
 							Issuer:     "istio.io",
 							JwksUri:    "secure.istio.io/oauth/v1/certs",
@@ -3754,8 +3761,10 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			name:       "Bad JkwsURI Port",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
+				// nolint: staticcheck
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
+						// nolint: staticcheck
 						Jwt: &authn.Jwt{
 							Issuer:     "istio.io",
 							JwksUri:    "https://secure.istio.io:not-a-number/oauth/v1/certs",
@@ -3772,6 +3781,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Jwt{
+						// nolint: staticcheck
 						Jwt: &authn.Jwt{
 							Issuer:     "istio.io",
 							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
@@ -3779,6 +3789,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 						},
 					},
 				}},
+				// nolint: staticcheck
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
 						Jwt: &authn.Jwt{
@@ -3795,6 +3806,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			name:       "Just binding",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
+				// nolint: staticcheck
 				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 			},
 			valid: true,
@@ -3803,6 +3815,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			name:       "Bad target name",
 			configName: someName,
 			in: &authn.Policy{
+				// nolint: staticcheck
 				Targets: []*authn.TargetSelector{
 					{
 						Name: "foo.bar",
@@ -3815,6 +3828,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			name:       "Good target name",
 			configName: someName,
 			in: &authn.Policy{
+				// nolint: staticcheck
 				Targets: []*authn.TargetSelector{
 					{
 						Name: "good-service-name",
