@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/kube"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -73,6 +74,9 @@ var (
 
 	// Location of K8S CA root.
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+	// CitadelCACertPath is the directory for Citadel CA certificate.
+	CitadelCACertPath = "/etc/istio/citadel-ca-cert"
 )
 
 const (
@@ -353,13 +357,20 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				log.Info("Using citadel CA for SDS")
 				serverOptions.CAEndpoint = "istio-citadel.istio-system:8060"
 			} else {
-				rootCert, err = ioutil.ReadFile(k8sCAPath)
-				if err != nil {
-					log.Warnf("Failed to load K8S cert, assume IP secure network: %v", err)
-					serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
-				} else {
-					log.Info("Using default istiod CA, with K8S certificates for SDS")
+				rootCert, err = ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName)
+				if err == nil {
+					log.Info("istiod uses Citadel issued certificate")
+					log.Info("Istio Agent uses default istiod CA")
 					serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
+				} else { // istiod certificate is not issued by Citadel
+					rootCert, err = ioutil.ReadFile(k8sCAPath)
+					if err != nil {
+						log.Warnf("Failed to load K8S cert, assume IP secure network: %v", err)
+						serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
+					} else {
+						log.Info("Using default istiod CA, with K8S certificates for SDS")
+						serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
+					}
 				}
 			}
 		} else {
@@ -370,9 +381,14 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				tls = false
 			}
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
-				rootCert, err = ioutil.ReadFile(k8sCAPath)
-				if err != nil {
-					log.Fatalf("Invalid config - port 15012 expects a K8S-signed certificate but certs missing: %v", err)
+				rootCert, err = ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName)
+				if err == nil {
+					log.Infof("istiod uses Citadel issued certificate with CA endpoint %v", serverOptions.CAEndpoint)
+				} else { // istiod certificate is not issued by Citadel
+					rootCert, err = ioutil.ReadFile(k8sCAPath)
+					if err != nil {
+						log.Fatalf("Invalid config - port 15012 expects a K8S-signed certificate but certs missing: %v", err)
+					}
 				}
 			}
 		}
