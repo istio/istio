@@ -140,7 +140,7 @@ type Server struct {
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
-func NewServer(args *PilotArgs, stopCh <-chan struct{}) (*Server, error) {
+func NewServer(args *PilotArgs) (*Server, error) {
 	// TODO(hzxuzhonghu): move out of NewServer
 	args.Default()
 	e := &model.Environment{
@@ -199,9 +199,11 @@ func NewServer(args *PilotArgs, stopCh <-chan struct{}) (*Server, error) {
 	}
 
 	// CA signing certificate must be created first.
-	s.ca = s.createCA(s.kubeClient.CoreV1(), caOpts)
+	if s.kubeClient != nil {
+		s.ca = s.createCA(s.kubeClient.CoreV1(), caOpts)
+	}
 
-	// initDNSListener() must be called after the RunCA()
+	// initDNSListener() must be called after the createCA()
 	// because initDNSListener() may use a Citadel generated cert.
 	if err := s.initDNSListener(args); err != nil {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
@@ -218,7 +220,10 @@ func NewServer(args *PilotArgs, stopCh <-chan struct{}) (*Server, error) {
 	// because it depends on the following conditions:
 	// 1) CA certificate has been created.
 	// 2) grpc server has been generated.
-	s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stopCh)
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+		return nil
+	})
 
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {

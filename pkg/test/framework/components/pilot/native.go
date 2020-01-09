@@ -128,7 +128,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 
 	var err error
 	// Create the server for the discovery service.
-	if instance.server, err = bootstrap.NewServer(&bootstrapArgs, instance.stopChan); err != nil {
+	if instance.server, err = bootstrap.NewServer(&bootstrapArgs); err != nil {
 		return nil, err
 	}
 
