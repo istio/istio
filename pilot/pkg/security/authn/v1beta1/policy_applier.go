@@ -168,14 +168,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 	providers := map[string]*envoy_jwt.JwtProvider{}
 	for i, jwtRule := range jwtRules {
 		provider := &envoy_jwt.JwtProvider{
-			Issuer:            jwtRule.Issuer,
-			Audiences:         jwtRule.Audiences,
-			Forward:           jwtRule.ForwardOriginalToken,
-			PayloadInMetadata: jwtRule.Issuer,
-		}
-
-		if len(jwtRule.OutputPayloadToHeader) > 0 {
-			provider.ForwardPayloadHeader = jwtRule.OutputPayloadToHeader
+			Issuer:               jwtRule.Issuer,
+			Audiences:            jwtRule.Audiences,
+			Forward:              jwtRule.ForwardOriginalToken,
+			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
+			PayloadInMetadata:    jwtRule.Issuer,
 		}
 
 		for _, location := range jwtRule.FromHeaders {
