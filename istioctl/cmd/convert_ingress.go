@@ -159,8 +159,10 @@ func writeYAMLOutput(schemas collection.Schemas, configs []model.Config, writer 
 
 func validateConfigs(configs []model.Config) error {
 	var errs error
+	normalizedVirtualServicesKind :=
+		schema.NormalizeKind(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind())
 	for _, cfg := range configs {
-		if schema.IsKindEqual(cfg.Type, collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind()) {
+		if normalizedVirtualServicesKind == schema.NormalizeKind(cfg.Type) {
 			if err := validation.ValidateVirtualService(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
 				errs = multierror.Append(err, errs)
 			}

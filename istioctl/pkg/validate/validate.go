@@ -68,6 +68,16 @@ Example resource specifications include:
 		constant.InstanceKind:          {},
 		constant.AttributeManifestKind: {},
 	}
+
+	// Remove all mixer types from Istio. Mixer types use different validation logic.
+	validIstioSchemas = collections.Istio.Remove(
+		collections.IstioPolicyV1Beta1Rules.Name(),
+		collections.IstioConfigV1Alpha2Adapters.Name(),
+		collections.IstioConfigV1Alpha2Templates.Name(),
+		collections.IstioPolicyV1Beta1Handlers.Name(),
+		collections.IstioPolicyV1Beta1Instances.Name(),
+		collections.IstioPolicyV1Beta1Attributemanifests.Name())
+
 	istioDeploymentLabel = []string{
 		"app",
 		"version",
@@ -90,32 +100,7 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
-	if _, exists := validMixerKinds[un.GetKind()]; exists {
-		if v.mixerValidator != nil && un.GetAPIVersion() == mixerAPIVersion {
-			if !v.mixerValidator.SupportsKind(un.GetKind()) {
-				return errKindNotSupported
-			}
-			if err := checkFields(un); err != nil {
-				return err
-			}
-			if _, ok := validMixerKinds[un.GetKind()]; !ok {
-				log.Warnf("deprecated Mixer kind %q, please use %q or %q instead", un.GetKind(),
-					constant.HandlerKind, constant.InstanceKind)
-			}
-
-			return v.mixerValidator.Validate(&mixerstore.BackendEvent{
-				Type: mixerstore.Update,
-				Key: mixerstore.Key{
-					Name:      un.GetName(),
-					Namespace: un.GetNamespace(),
-					Kind:      un.GetKind(),
-				},
-				Value: mixercrd.ToBackEndResource(un),
-			})
-		}
-	}
-
-	schema, exists := collections.Istio.FindByKind(un.GetKind())
+	schema, exists := validIstioSchemas.FindByKind(un.GetKind())
 	if exists {
 		obj, err := convertObjectFromUnstructured(schema, un, "")
 		if err != nil {
@@ -127,6 +112,28 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 		return schema.Resource().ValidateProto(obj.Name, obj.Namespace, obj.Spec)
 	}
 
+	if v.mixerValidator != nil && un.GetAPIVersion() == mixerAPIVersion {
+		if !v.mixerValidator.SupportsKind(un.GetKind()) {
+			return errKindNotSupported
+		}
+		if err := checkFields(un); err != nil {
+			return err
+		}
+		if _, ok := validMixerKinds[un.GetKind()]; !ok {
+			log.Warnf("deprecated Mixer kind %q, please use %q or %q instead", un.GetKind(),
+				constant.HandlerKind, constant.InstanceKind)
+		}
+
+		return v.mixerValidator.Validate(&mixerstore.BackendEvent{
+			Type: mixerstore.Update,
+			Key: mixerstore.Key{
+				Name:      un.GetName(),
+				Namespace: un.GetNamespace(),
+				Kind:      un.GetKind(),
+			},
+			Value: mixercrd.ToBackEndResource(un),
+		})
+	}
 	var errs error
 	if un.IsList() {
 		_ = un.EachListItem(func(item runtime.Object) error {

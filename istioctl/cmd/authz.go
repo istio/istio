@@ -30,8 +30,8 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/util/pilotadapter"
 	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/security/authz/converter"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -249,7 +248,7 @@ func createAuthorizationPoliciesFromFiles(files []string, rootNamespace string) 
 		}
 		configs = append(configs, configFromFile...)
 	}
-	store := model.MakeIstioStore(memory.Make(toPilotSchemaSet(collections.Istio)))
+	store := model.MakeIstioStore(memory.Make(pilotadapter.ConvertGalleySchemasToPilot(collections.Istio)))
 	for _, config := range configs {
 		if _, err := store.Create(config); err != nil {
 			return nil, err
@@ -265,29 +264,6 @@ func createAuthorizationPoliciesFromFiles(files []string, rootNamespace string) 
 	}
 	authorizationPolicies.RootNamespace = rootNamespace
 	return authorizationPolicies, nil
-}
-
-func toPilotSchemaSet(s collection.Schemas) schema.Set {
-	all := s.All()
-	out := make(schema.Set, len(all))
-	for _, i := range all {
-		out = append(out, toPilotSchema(i))
-	}
-	return out
-}
-
-func toPilotSchema(s collection.Schema) schema.Instance {
-	return schema.Instance{
-		Collection:    s.Name().String(),
-		ClusterScoped: s.Resource().IsClusterScoped(),
-		VariableName:  s.VariableName(),
-		Type:          s.Resource().Kind(),
-		Plural:        s.Resource().Plural(),
-		Group:         s.Resource().Group(),
-		Version:       s.Resource().Version(),
-		MessageName:   s.Resource().Proto(),
-		Validate:      s.Resource().ValidateProto,
-	}
 }
 
 func getAuthorizationPoliciesFromCluster() (*model.AuthorizationPolicies, error) {

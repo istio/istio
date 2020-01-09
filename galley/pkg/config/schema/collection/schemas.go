@@ -152,6 +152,26 @@ func (s Schemas) All() []Schema {
 	return append(make([]Schema, 0, len(s.byAddOrder)), s.byAddOrder...)
 }
 
+// Remove creates a copy of this schema with the given collections removed.
+func (s Schemas) Remove(names ...Name) Schemas {
+	b := NewSchemasBuilder()
+
+	for _, s := range s.byAddOrder {
+		shouldAdd := true
+		for _, n := range names {
+			if n == s.Name() {
+				shouldAdd = false
+				break
+			}
+		}
+		if shouldAdd {
+			b.MustAdd(s)
+		}
+	}
+
+	return b.Build()
+}
+
 // CollectionNames returns all known collections.
 func (s Schemas) CollectionNames() Names {
 	result := make(Names, 0, len(s.byAddOrder))

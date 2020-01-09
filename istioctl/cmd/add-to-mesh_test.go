@@ -110,7 +110,7 @@ var (
 	cannedDynamicConfigs = []runtime.Object{
 		&unstructured.Unstructured{
 			Object: map[string]interface{}{
-				"apiVersion": "networking.istio.io/" + collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
+				"apiVersion": collections.IstioNetworkingV1Alpha3Serviceentries.Resource().APIVersion(),
 				"kind":       collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
 				"metadata": map[string]interface{}{
 					"namespace": "default",

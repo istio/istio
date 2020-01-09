@@ -45,7 +45,7 @@ func ConvertPilotSchemaToGalley(in schema.Instance) collection.Schema {
 			ClusterScoped: in.ClusterScoped,
 			Kind:          in.Type,
 			Plural:        in.Plural,
-			Group:         in.Group,
+			Group:         crd.ResourceGroup(&in), // ensure ends with ".istio.io"
 			Version:       in.Version,
 			Proto:         in.MessageName,
 			ValidateProto: in.Validate,
@@ -88,7 +88,7 @@ func ConvertConfigToObject(schema collection.Schema, cfg model.Config) (crd.Isti
 		return nil, err
 	}
 	namespace := cfg.Namespace
-	if namespace == "" {
+	if namespace == "" && !schema.Resource().IsClusterScoped() {
 		namespace = metav1.NamespaceDefault
 	}
 
@@ -98,11 +98,12 @@ func ConvertConfigToObject(schema collection.Schema, cfg model.Config) (crd.Isti
 			APIVersion: schema.Resource().APIVersion(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            cfg.Name,
-			Namespace:       namespace,
-			ResourceVersion: cfg.ResourceVersion,
-			Labels:          cfg.Labels,
-			Annotations:     cfg.Annotations,
+			Name:              cfg.Name,
+			Namespace:         namespace,
+			ResourceVersion:   cfg.ResourceVersion,
+			Labels:            cfg.Labels,
+			Annotations:       cfg.Annotations,
+			CreationTimestamp: metav1.NewTime(cfg.CreationTimestamp),
 		},
 		Spec: spec,
 	}, nil

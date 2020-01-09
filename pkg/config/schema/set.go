@@ -42,15 +42,11 @@ func NormalizeKind(kind string) string {
 	return strings.ToLower(strings.ReplaceAll(kind, "-", ""))
 }
 
-// IsKindEqual is a utility method that compares the normalized value for each kind.
-func IsKindEqual(k1, k2 string) bool {
-	return NormalizeKind(k1) == NormalizeKind(k2)
-}
-
 // GetByType finds a schema by type if it is available
 func (s Set) GetByType(kind string) (Instance, bool) {
+	kind = NormalizeKind(kind)
 	for _, i := range s {
-		if IsKindEqual(i.Type, kind) {
+		if kind == NormalizeKind(i.Type) {
 			return i, true
 		}
 	}
