@@ -393,7 +393,7 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
-      grpc_response_status: response.grpc_status | 0
+      grpc_response_status: response.grpc_status | "0"
       response_flags: context.proxy_error_code | "-"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -429,7 +429,7 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
-      grpc_response_status: response.grpc_status | 0
+      grpc_response_status: response.grpc_status | "0"
       response_flags: context.proxy_error_code | "-"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -465,7 +465,7 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
-      grpc_response_status: response.grpc_status | 0
+      grpc_response_status: response.grpc_status | "0"
       response_flags: context.proxy_error_code | "-"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -501,7 +501,7 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
-      grpc_response_status: response.grpc_status | 0
+      grpc_response_status: response.grpc_status | "0"
       response_flags: context.proxy_error_code | "-"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
