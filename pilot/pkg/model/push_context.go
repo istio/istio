@@ -286,7 +286,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	// Only merge EdsUpdates when incremental eds push needed.
 	if !merged.Full {
 		merged.EdsUpdates = make(map[string]struct{})
-		merged.EgdsUpdates = make(map[string]struct{})
 
 		// Merge the updates
 		for update := range first.EdsUpdates {
@@ -296,11 +295,14 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 			merged.EdsUpdates[update] = struct{}{}
 		}
 
-		for update := range first.EgdsUpdates {
-			merged.EgdsUpdates[update] = struct{}{}
-		}
-		for update := range other.EgdsUpdates {
-			merged.EgdsUpdates[update] = struct{}{}
+		if first.EgdsUpdates != nil || other.EgdsUpdates != nil {
+			merged.EgdsUpdates = make(map[string]struct{})
+			for update := range first.EgdsUpdates {
+				merged.EgdsUpdates[update] = struct{}{}
+			}
+			for update := range other.EgdsUpdates {
+				merged.EgdsUpdates[update] = struct{}{}
+			}
 		}
 	} else {
 		merged.EdsUpdates = nil
