@@ -237,7 +237,7 @@ func (s *Server) initWorkloadSdsService(options *Options) error { //nolint: unpa
 	var err error
 	s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
 	if err != nil {
-		sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+		sdsServiceLog.Errorf("Failed to set up UDS path: %v", err)
 	}
 
 	go func() {
