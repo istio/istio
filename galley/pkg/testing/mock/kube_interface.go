@@ -62,9 +62,10 @@ import (
 var _ kubernetes.Interface = &kubeInterface{}
 
 type kubeInterface struct {
-	core       corev1.CoreV1Interface
-	extensions extensionsv1beta1.ExtensionsV1beta1Interface
-	appsv1     appsv1.AppsV1Interface
+	core            corev1.CoreV1Interface
+	extensions      extensionsv1beta1.ExtensionsV1beta1Interface
+	appsv1          appsv1.AppsV1Interface
+	authorizationv1 authorizationv1.AuthorizationV1Interface
 }
 
 // newKubeInterface returns a lightweight fake that implements kubernetes.Interface. Only implements a portion of the
@@ -88,6 +89,10 @@ func newKubeInterface() kubernetes.Interface {
 
 		appsv1: &appsv1Impl{
 			apps: newAppsInterface(),
+		},
+
+		authorizationv1: &authorizationv1Impl{
+			selfSubjectAccessReviews: newSelfSubjectAccessReviewInterface(),
 		},
 	}
 }
@@ -149,7 +154,7 @@ func (c *kubeInterface) AuthenticationV1beta1() authenticationv1beta1.Authentica
 }
 
 func (c *kubeInterface) AuthorizationV1() authorizationv1.AuthorizationV1Interface {
-	panic("not implemented")
+	return c.authorizationv1
 }
 
 func (c *kubeInterface) AuthorizationV1beta1() authorizationv1beta1.AuthorizationV1beta1Interface {
