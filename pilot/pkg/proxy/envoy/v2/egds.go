@@ -176,7 +176,8 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 			continue
 		}
 
-		for groupName := range s.getServiceGroupNames(clusterName, svc.Attributes.Namespace) {
+		clusterGroups := s.getServiceGroupNames(clusterName, svc.Attributes.Namespace)
+		for groupName := range clusterGroups {
 			if updatedGroups != nil {
 				if _, f := updatedGroups[groupName]; !f {
 					// This happens in a incremental EGDS push
@@ -204,6 +205,7 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 	}
 	egdsPushes.Increment()
 
+	adsLog.Infof("EGDS: PUSH for node:%s groups:%d", con.node.ID, len(groups))
 	return nil
 }
 
@@ -394,7 +396,7 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 	// Reset the group map first
 	g.IstioEndpointGroups = make(map[string][]*model.IstioEndpoint)
 
-	// Total number of slices
+	// Total number of group slices
 	g.GroupCount = uint32(math.Ceil(float64(len(eps)) / float64(g.GroupSize)))
 
 	// Generate all groups first. Since groups won't change until next reshard event

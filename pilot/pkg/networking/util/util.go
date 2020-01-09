@@ -278,7 +278,7 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
 }
 
-// IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
+// IsProtocolSniffingEnabledForOutbound checks whether protocol sniffing is enabled.
 func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
 	return features.EnableProtocolSniffingForOutbound.Get() && IsIstioVersionGE13(node)
 }

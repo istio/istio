@@ -830,7 +830,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	groupCount := 0
 
 	// EGDS not supported or enabled, use legacy method
-	if !util.IsIstioVersionGE14(con.node) || s.Env.Mesh().GetEgdsGroupSize() <= 0 {
+	if !util.IsIstioVersionGE15(con.node) || s.Env.Mesh().GetEgdsGroupSize() <= 0 {
 		return s.pushEdsLegacy(push, con, version, edsUpdatedServices)
 	}
 
@@ -1105,7 +1105,8 @@ func buildLocalityLbEndpointsFromShards(
 
 	locEps := buildLocalityLbEndpoints(allEndpoints, push)
 
-	if len(locEps) == 0 {
+	// If EGDS was enabled, only the full push can have all endpoints for the cluster
+	if len(locEps) == 0 && groupName == "" {
 		push.AddMetric(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 	}
 
