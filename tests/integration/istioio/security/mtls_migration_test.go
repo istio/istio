@@ -55,8 +55,7 @@ $ kubectl apply -f samples/sleep/sleep.yaml -n legacy
 				istioio.MultiPodWait("bar"),
 				istioio.MultiPodWait("legacy")).
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/mtls_migration.txt"),
-				WorkDir: env.IstioSrc,
+				Input: istioio.Path("scripts/mtls_migration.txt"),
 			}).
 			// Cleanup.
 			Defer(istioio.Script{

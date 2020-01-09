@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -447,7 +448,7 @@ func (s Script) getWorkDir(ctx Context) string {
 		// User-specified work dir for the script.
 		return s.WorkDir
 	}
-	return ctx.WorkDir()
+	return env.IstioSrc
 }
 
 func (s Script) getEnv(ctx Context) []string {
