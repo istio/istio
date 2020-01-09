@@ -214,12 +214,14 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
+		name        string
 		in          *authn.Policy
 		useIstioJWT bool
 		wantName    string
 		wantConfig  proto.Message
 	}{
 		{
+			name: "legacy jwt filter",
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -251,6 +253,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "legacy jwt filter with explicit Jwks",
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -282,6 +285,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "upstream jwt filter",
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
@@ -309,8 +313,26 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 							},
 						},
 						Requires: &envoy_jwt.JwtRequirement{
-							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-								AllowMissingOrFailed: &empty.Empty{},
+							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+								RequiresAny: &envoy_jwt.JwtRequirementOrList{
+									Requirements: []*envoy_jwt.JwtRequirement{
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+												ProviderName: "origins-0",
+											},
+										},
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+												ProviderName: "origins-1",
+											},
+										},
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+												AllowMissingOrFailed: &empty.Empty{},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -353,6 +375,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "upstream jwt filter with explicit Jwks",
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
@@ -373,8 +396,21 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 							},
 						},
 						Requires: &envoy_jwt.JwtRequirement{
-							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-								AllowMissingOrFailed: &empty.Empty{},
+							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+								RequiresAny: &envoy_jwt.JwtRequirementOrList{
+									Requirements: []*envoy_jwt.JwtRequirement{
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+												ProviderName: "origins-0",
+											},
+										},
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+												AllowMissingOrFailed: &empty.Empty{},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -398,16 +434,18 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if c.useIstioJWT {
-			setUseIstioJWTFilter("true", t)
-		}
-		if gotName, gotCfg := convertPolicyToJwtConfig(c.in); gotName != c.wantName || !reflect.DeepEqual(c.wantConfig, gotCfg) {
-			t.Errorf("ConvertPolicyToJwtConfig(%#v), got:\n%s\n%#v\nwanted:\n%s\n%#v\n",
-				c.in, gotName, spew.Sdump(gotCfg), c.wantName, spew.Sdump(c.wantConfig))
-		}
-		if c.useIstioJWT {
-			setUseIstioJWTFilter("false", t)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			if c.useIstioJWT {
+				setUseIstioJWTFilter("true", t)
+			}
+			if gotName, gotCfg := convertPolicyToJwtConfig(c.in); gotName != c.wantName || !reflect.DeepEqual(c.wantConfig, gotCfg) {
+				t.Errorf("got:\n%s\n%#v\nwanted:\n%s\n%#v\n",
+					gotName, spew.Sdump(gotCfg), c.wantName, spew.Sdump(c.wantConfig))
+			}
+			if c.useIstioJWT {
+				setUseIstioJWTFilter("false", t)
+			}
+		})
 	}
 }
 
