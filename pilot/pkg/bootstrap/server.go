@@ -140,7 +140,7 @@ type Server struct {
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
-func NewServer(args *PilotArgs, stopCh <-chan struct{}) (*Server, error) {
+func NewServer(args *PilotArgs) (*Server, error) {
 	// TODO(hzxuzhonghu): move out of NewServer
 	args.Default()
 	e := &model.Environment{
@@ -191,15 +191,19 @@ func NewServer(args *PilotArgs, stopCh <-chan struct{}) (*Server, error) {
 		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
-	// Run the SDS signing server.
 	// Options based on the current 'defaults' in istio.
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
-	s.RunCA(s.secureGRPCServerDNS, &CAOptions{
+	caOpts := &CAOptions{
 		TrustDomain: s.environment.Mesh().TrustDomain,
 		Namespace:   args.Namespace,
-	}, stopCh)
+	}
 
-	// initDNSListener() must be called after the RunCA()
+	// CA signing certificate must be created first.
+	if s.EnableCA() {
+		s.ca = s.createCA(s.kubeClient.CoreV1(), caOpts)
+	}
+
+	// initDNSListener() must be called after the createCA()
 	// because initDNSListener() may use a Citadel generated cert.
 	if err := s.initDNSListener(args); err != nil {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
@@ -210,6 +214,16 @@ func NewServer(args *PilotArgs, stopCh <-chan struct{}) (*Server, error) {
 	if err := s.initSidecarInjector(args); err != nil {
 		return nil, fmt.Errorf("sidecar injector: %v", err)
 	}
+
+	// Run the SDS signing server.
+	// RunCA() must be called after createCA() and initDNSListener()
+	// because it depends on the following conditions:
+	// 1) CA certificate has been created.
+	// 2) grpc server has been generated.
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+		return nil
+	})
 
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {

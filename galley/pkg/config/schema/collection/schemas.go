@@ -110,7 +110,7 @@ func (s Schemas) MustFind(collection string) Schema {
 // FindByKind searches and returns the first schema with the given kind
 func (s Schemas) FindByKind(kind string) (Schema, bool) {
 	for _, rs := range s.byAddOrder {
-		if rs.Resource().Kind() == kind {
+		if strings.EqualFold(rs.Resource().Kind(), kind) {
 			return rs, true
 		}
 	}
@@ -130,7 +130,7 @@ func (s Schemas) MustFindByKind(kind string) Schema {
 // FindByGroupAndKind searches and returns the first schema with the given group/kind
 func (s Schemas) FindByGroupAndKind(group, kind string) (Schema, bool) {
 	for _, rs := range s.byAddOrder {
-		if rs.Resource().Group() == group && rs.Resource().Kind() == kind {
+		if rs.Resource().Group() == group && strings.EqualFold(rs.Resource().Kind(), kind) {
 			return rs, true
 		}
 	}
@@ -150,6 +150,26 @@ func (s Schemas) MustFindByGroupAndKind(group, kind string) Schema {
 // All returns all known Schemas
 func (s Schemas) All() []Schema {
 	return append(make([]Schema, 0, len(s.byAddOrder)), s.byAddOrder...)
+}
+
+// Remove creates a copy of this schema with the given collections removed.
+func (s Schemas) Remove(names ...Name) Schemas {
+	b := NewSchemasBuilder()
+
+	for _, s := range s.byAddOrder {
+		shouldAdd := true
+		for _, n := range names {
+			if n == s.Name() {
+				shouldAdd = false
+				break
+			}
+		}
+		if shouldAdd {
+			b.MustAdd(s)
+		}
+	}
+
+	return b.Build()
 }
 
 // CollectionNames returns all known collections.

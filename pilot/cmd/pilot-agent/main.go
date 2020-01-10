@@ -219,6 +219,7 @@ var (
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
+			proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
 			proxyConfig.ServiceCluster = serviceCluster

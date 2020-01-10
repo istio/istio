@@ -194,9 +194,10 @@ func TestDynamicListener(t *testing.T) {
 	count := 0
 	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
-	snapshots.SetSnapshot("", cache.Snapshot{
-		Listeners: cache.Resources{Version: strconv.Itoa(count), Items: map[string]cache.Resource{
-			"backend": makeListener(s, fmt.Sprintf("count%d", count))}}})
+	snapshot := cache.Snapshot{}
+	snapshot.Resources[cache.Listener] = cache.Resources{Version: strconv.Itoa(count), Items: map[string]cache.Resource{
+		"backend": makeListener(s, fmt.Sprintf("count%d", count))}}
+	snapshots.SetSnapshot("", snapshot)
 
 	go func() {
 		_ = grpcServer.Serve(lis)
@@ -210,9 +211,10 @@ func TestDynamicListener(t *testing.T) {
 
 	for ; count < 2; count++ {
 		log.Printf("iteration %d", count)
-		snapshots.SetSnapshot("", cache.Snapshot{
-			Listeners: cache.Resources{Version: strconv.Itoa(count), Items: map[string]cache.Resource{
-				"backend": makeListener(s, fmt.Sprintf("count%d", count))}}})
+		snapshot := cache.Snapshot{}
+		snapshot.Resources[cache.Listener] = cache.Resources{Version: strconv.Itoa(count), Items: map[string]cache.Resource{
+			"backend": makeListener(s, fmt.Sprintf("count%d", count))}}
+		snapshots.SetSnapshot("", snapshot)
 
 		// wait a bit for config to propagate and old listener to drain
 		time.Sleep(2 * time.Second)
