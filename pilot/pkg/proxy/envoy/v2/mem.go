@@ -147,6 +147,7 @@ func (sd *MemServiceDiscovery) RemoveService(name host.Name) {
 func (sd *MemServiceDiscovery) AddInstance(service host.Name, instance *model.ServiceInstance) {
 	// WIP: add enough code to allow tests and load tests to work
 	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	svc := sd.services[service]
 	if svc == nil {
 		return
@@ -161,7 +162,6 @@ func (sd *MemServiceDiscovery) AddInstance(service host.Name, instance *model.Se
 	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
 	instanceList = sd.instancesByPortName[key]
 	sd.instancesByPortName[key] = append(instanceList, instance)
-	sd.mutex.Unlock()
 }
 
 // AddEndpoint adds an endpoint to a service.

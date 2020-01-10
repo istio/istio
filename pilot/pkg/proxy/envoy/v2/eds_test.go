@@ -829,6 +829,7 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 		},
 	})
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true, ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}}})
+	time.Sleep(1 * time.Second)
 }
 
 // Verify the endpoint debug interface is installed and returns some string.
