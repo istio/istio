@@ -253,26 +253,28 @@ func TestAnalyzeSuppressesMessages(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	u := &updaterMock{}
-	o1 := &rt.Origin{
-		Collection: basicmeta.K8SCollection1.Name(),
-		Kind:       "foobar",
-		FullName:   resource.NewFullName("includedNamespace", "r2"),
+	r1 := &resource.Instance{
+		Origin: &rt.Origin{
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("includedNamespace", "r2"),
+			Kind:       "Kind1",
+		},
 	}
-	o2 := &rt.Origin{
-		Collection: basicmeta.K8SCollection1.Name(),
-		Kind:       "foobar",
-		FullName:   resource.NewFullName("includedNamespace", "r1"),
+	r2 := &resource.Instance{
+		Origin: &rt.Origin{
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("includedNamespace", "r1"),
+			Kind:       "Kind1",
+		},
 	}
+
 	a := &analyzerMock{
 		collectionToAccess: basicmeta.K8SCollection1.Name(),
-		resourcesToReport: []*resource.Instance{
-			{Origin: o1},
-			{Origin: o2},
-		},
+		resourcesToReport:  []*resource.Instance{r1, r2},
 	}
 	s := AnalysisSuppression{
 		Code:         "IST0001", // InternalError, reported by analyzerMock
-		ResourceName: "foobar r2.includedNamespace",
+		ResourceName: "Kind1 r2.includedNamespace",
 	}
 	d := NewInMemoryDistributor()
 
@@ -294,40 +296,42 @@ func TestAnalyzeSuppressesMessages(t *testing.T) {
 
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sDefault))
 	g.Expect(u.messages).To(HaveLen(1))
-	g.Expect(u.messages[0].Origin).To(Equal(o2))
+	g.Expect(u.messages[0].Resource).To(Equal(r2))
 }
 
 func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	u := &updaterMock{}
-	// o1 and o2 have the same prefix, but o3 does not
-	o1 := &rt.Origin{
-		Collection: basicmeta.K8SCollection1.Name(),
-		Kind:       "foobar",
-		FullName:   resource.NewFullName("includedNamespace", "r2"),
+	// r1 and r2 have the same prefix, but r3 does not
+	r1 := &resource.Instance{
+		Origin: &rt.Origin{
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("includedNamespace", "r2"),
+			Kind:       "Kind1",
+		},
 	}
-	o2 := &rt.Origin{
-		Collection: basicmeta.K8SCollection1.Name(),
-		Kind:       "foobar",
-		FullName:   resource.NewFullName("includedNamespace", "r1"),
+	r2 := &resource.Instance{
+		Origin: &rt.Origin{
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("includedNamespace", "r1"),
+			Kind:       "Kind1",
+		},
 	}
-	o3 := &rt.Origin{
-		Collection: basicmeta.K8SCollection1.Name(),
-		Kind:       "foobar",
-		FullName:   resource.NewFullName("includedNamespace", "x1"),
+	r3 := &resource.Instance{
+		Origin: &rt.Origin{
+			Collection: basicmeta.K8SCollection1.Name(),
+			FullName:   resource.NewFullName("includedNamespace", "x1"),
+			Kind:       "Kind1",
+		},
 	}
 	a := &analyzerMock{
 		collectionToAccess: basicmeta.K8SCollection1.Name(),
-		resourcesToReport: []*resource.Instance{
-			{Origin: o1},
-			{Origin: o2},
-			{Origin: o3},
-		},
+		resourcesToReport:  []*resource.Instance{r1, r2, r3},
 	}
 	s := AnalysisSuppression{
-		Code:         "IST0001",                     // InternalError, reported by analyzerMock
-		ResourceName: "foobar r*.includedNamespace", // should catch r1/r2 but not x1
+		Code:         "IST0001",                    // InternalError, reported by analyzerMock
+		ResourceName: "Kind1 r*.includedNamespace", // should catch r1/r2 but not x1
 	}
 	d := NewInMemoryDistributor()
 
@@ -349,7 +353,7 @@ func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
 
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sDefault))
 	g.Expect(u.messages).To(HaveLen(1))
-	g.Expect(u.messages[0].Origin).To(Equal(o3))
+	g.Expect(u.messages[0].Resource).To(Equal(r3))
 }
 
 func getTestSnapshot(schemas ...collection.Schema) *Snapshot {
