@@ -486,7 +486,7 @@ func TestRequestAuthentication(t *testing.T) {
 					ExpectResponseCode: response.StatusCodeOK,
 					ExpectHeaders: map[string]string{
 						authHeaderKey:    "Bearer " + testIssuer1Token,
-						"X-Test-Payload": "eyJleHAiOjQ3MTU3ODI3MjIsImdyb3VwcyI6WyJncm91cC0xIl0sImlhdCI6MTU2MjE4MjcyMiwiaXNzIjoidGVzdC1pc3N1ZXItMUBpc3Rpby5pbyIsInN1YiI6InN1Yi0xIn0",
+						"X-Test-Payload": "eyJleHAiOjQ3MTU3ODI3MjIsImdyb3VwcyI6WyJncm91cC0xIl0sImlhdCI6MTU2MjE4MjcyMiwiaXNzIjoidGVzdC1pc3N1ZXItMUBpc3Rpby5pbyIsInN1YiI6InN1Yi0xIn0", // nolint: lll
 					},
 				},
 			}
