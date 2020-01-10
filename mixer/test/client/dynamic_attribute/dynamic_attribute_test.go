@@ -185,8 +185,8 @@ func TestDynamicAttribute(t *testing.T) {
 	}
 
 	snapshots := cache.NewSnapshotCache(false, hasher{}, nil)
-	snapshots.SetSnapshot("", cache.Snapshot{
-		Endpoints: cache.Resources{Version: "1", Items: map[string]cache.Resource{
+	snapshot := cache.Snapshot{}
+	snapshot.Resources[cache.Endpoint] = cache.Resources{Version: "1", Items: map[string]cache.Resource{
 			"backend": &v2.ClusterLoadAssignment{
 				ClusterName: "backend",
 				Endpoints: []*endpoint.LocalityLbEndpoints{{
@@ -213,8 +213,8 @@ func TestDynamicAttribute(t *testing.T) {
 					}},
 				}},
 			},
-		}},
-	})
+		}}
+	snapshots.SetSnapshot("", snapshot)
 	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 
