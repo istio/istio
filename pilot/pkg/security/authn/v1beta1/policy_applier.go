@@ -166,13 +166,14 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		return nil
 	}
 	providers := map[string]*envoy_jwt.JwtProvider{}
+	requirementOrList := []*envoy_jwt.JwtRequirement{}
 	for i, jwtRule := range jwtRules {
-		// TODO(diemtvu): set forward based on input spec after https://github.com/istio/api/pull/1172
 		provider := &envoy_jwt.JwtProvider{
-			Issuer:            jwtRule.Issuer,
-			Audiences:         jwtRule.Audiences,
-			Forward:           false,
-			PayloadInMetadata: jwtRule.Issuer,
+			Issuer:               jwtRule.Issuer,
+			Audiences:            jwtRule.Audiences,
+			Forward:              jwtRule.ForwardOriginalToken,
+			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
+			PayloadInMetadata:    jwtRule.Issuer,
 		}
 
 		for _, location := range jwtRule.FromHeaders {
@@ -201,7 +202,19 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 
 		name := fmt.Sprintf("origins-%d", i)
 		providers[name] = provider
+		requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+				ProviderName: name,
+			},
+		})
 	}
+
+	// TODO(diemvu): change to AllowMissing requirement.
+	requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
+		RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+			AllowMissingOrFailed: &empty.Empty{},
+		},
+	})
 
 	return &envoy_jwt.JwtAuthentication{
 		Rules: []*envoy_jwt.RequirementRule{
@@ -212,9 +225,10 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 					},
 				},
 				Requires: &envoy_jwt.JwtRequirement{
-					// TODO(diemvu): change to AllowMissing requirement.
-					RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-						AllowMissingOrFailed: &empty.Empty{},
+					RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+						RequiresAny: &envoy_jwt.JwtRequirementOrList{
+							Requirements: requirementOrList,
+						},
 					},
 				},
 			},

@@ -162,7 +162,8 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(profileCmd)
 
-	experimentalCmd.AddCommand(mesh.UpgradeCmd())
+	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UpgradeCmd()))
+	rootCmd.AddCommand(mesh.UpgradeCmd())
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
 	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())

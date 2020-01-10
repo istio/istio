@@ -115,6 +115,9 @@ func ResourceName(s string) string {
 
 // ResourceGroup generates the k8s API group for each schema.
 func ResourceGroup(schema *schema.Instance) string {
+	if strings.HasSuffix(schema.Group, constants.IstioAPIGroupDomain) {
+		return schema.Group
+	}
 	return schema.Group + constants.IstioAPIGroupDomain
 }
 
@@ -184,7 +187,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 			continue
 		}
 
-		s, exists := schemas.Istio.GetByType(CamelCaseToKebabCase(obj.Kind))
+		s, exists := schemas.Istio.GetByType(obj.Kind)
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)

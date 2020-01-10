@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -398,7 +399,7 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
+			sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true, 10*time.Second)
 
 			// If a mesh config file is specified, use it instead of the defaults
 			if testCase.meshConfigFile != "" {
@@ -515,9 +516,10 @@ func extractFields(msgs diag.Messages) []message {
 		expMsg := message{
 			messageType: m.Type,
 		}
-		if m.Origin != nil {
-			expMsg.origin = m.Origin.FriendlyName()
+		if m.Resource != nil {
+			expMsg.origin = m.Resource.Origin.FriendlyName()
 		}
+
 		result = append(result, expMsg)
 	}
 	return result

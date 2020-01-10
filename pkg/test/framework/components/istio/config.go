@@ -170,7 +170,7 @@ func (c *Config) IsMtlsEnabled() bool {
 	return true
 }
 
-func (c *Config) IstioControlPlane() string {
+func (c *Config) IstioOperator() string {
 	data := c.ControlPlaneValues
 	if data == "" && c.ValuesFile != "" {
 		var err error
@@ -185,8 +185,8 @@ func (c *Config) IstioControlPlane() string {
 	}
 
 	return fmt.Sprintf(`
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   hub: %s
   tag: %s

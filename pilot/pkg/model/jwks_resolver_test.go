@@ -166,6 +166,7 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 	}
 	for _, c := range cases {
 		_ = r.SetAuthenticationPolicyJwksURIs(c.in)
+		// nolint: staticcheck
 		got := c.in.GetOrigins()[0].GetJwt().JwksUri
 		if want := c.expected; got != want {
 			t.Errorf("setAuthenticationPolicyJwksURIs(%+v): expected (%s), got (%s)", c.in, c.expected, c.in)

@@ -133,9 +133,9 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 		return nil, err
 	}
 
-	icpFile := filepath.Join(workDir, "icp.yaml")
-	if err := ioutil.WriteFile(icpFile, []byte(cfg.IstioControlPlane()), os.ModePerm); err != nil {
-		return nil, fmt.Errorf("failed to write icp: %v", err)
+	iopFile := filepath.Join(workDir, "iop.yaml")
+	if err := ioutil.WriteFile(iopFile, []byte(cfg.IstioOperator()), os.ModePerm); err != nil {
+		return nil, fmt.Errorf("failed to write iop: %v", err)
 	}
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -145,7 +145,7 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 		"manifest", "apply",
 		"--skip-confirmation",
 		"--logtostderr",
-		"-f", icpFile,
+		"-f", iopFile,
 		"--force", // Blocked by https://github.com/istio/istio/issues/19009
 		"--set", "values.global.controlPlaneSecurityEnabled=false",
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,

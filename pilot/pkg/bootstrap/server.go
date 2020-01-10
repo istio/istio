@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/security/pkg/pki/ca"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -120,6 +121,7 @@ type Server struct {
 	kubeRegistry        *kubecontroller.Controller
 	sseDiscovery        *serviceentry.Discovery
 	certController      *chiron.WebhookController
+	ca                  *ca.IstioCA
 
 	ConfigStores []model.ConfigStoreCache
 
@@ -189,6 +191,20 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
+	// Options based on the current 'defaults' in istio.
+	// If adjustments are needed - env or mesh.config ( if of general interest ).
+	caOpts := &CAOptions{
+		TrustDomain: s.environment.Mesh().TrustDomain,
+		Namespace:   args.Namespace,
+	}
+
+	// CA signing certificate must be created first.
+	if s.EnableCA() {
+		s.ca = s.createCA(s.kubeClient.CoreV1(), caOpts)
+	}
+
+	// initDNSListener() must be called after the createCA()
+	// because initDNSListener() may use a Citadel generated cert.
 	if err := s.initDNSListener(args); err != nil {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
 	}
@@ -199,7 +215,15 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("sidecar injector: %v", err)
 	}
 
-	s.initSDSCA(args)
+	// Run the SDS signing server.
+	// RunCA() must be called after createCA() and initDNSListener()
+	// because it depends on the following conditions:
+	// 1) CA certificate has been created.
+	// 2) grpc server has been generated.
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+		return nil
+	})
 
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
@@ -660,12 +684,13 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 		return fmt.Errorf("invalid ISTIOD_ADDR(%s): %v", istiodAddr, err)
 	}
 
-	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
+	// Create DNS certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
 	err = s.initDNSCerts(host)
 	if err != nil {
 		return err
 	}
+
 	// run secure grpc server for Istiod - using DNS-based certs from K8S
 	err = s.initSecureGrpcServerDNS(port, args.KeepaliveOptions)
 	if err != nil {
@@ -673,17 +698,4 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 	}
 
 	return nil
-}
-
-// init the SDS signing server
-func (s *Server) initSDSCA(args *PilotArgs) {
-	// Options based on the current 'defaults' in istio.
-	// If adjustments are needed - env or mesh.config ( if of general interest ).
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.RunCA(s.secureGRPCServerDNS, &CAOptions{
-			TrustDomain: s.environment.Mesh().TrustDomain,
-			Namespace:   args.Namespace,
-		})
-		return nil
-	})
 }

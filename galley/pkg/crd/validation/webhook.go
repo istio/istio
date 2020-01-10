@@ -38,11 +38,12 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/util/pilotadapter"
 	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema"
 )
 
 var (
@@ -77,8 +78,8 @@ type WebhookParameters struct {
 	// MixerValidator implements the backend validator functions for mixer configuration.
 	MixerValidator store.BackendValidator
 
-	// PilotDescriptor provides a description of all pilot configuration resources.
-	PilotDescriptor schema.Set
+	// PilotSchema provides a description of all pilot configuration resources.
+	PilotSchema collection.Schemas
 
 	// DomainSuffix is the DNS domain suffix for Pilot CRD resources,
 	// e.g. cluster.local.
@@ -145,18 +146,18 @@ var (
 func (p *WebhookParameters) String() string {
 	buf := &bytes.Buffer{}
 
-	fmt.Fprintf(buf, "DomainSuffix: %s\n", p.DomainSuffix)
-	fmt.Fprintf(buf, "Port: %d\n", p.Port)
-	fmt.Fprintf(buf, "CertFile: %s\n", p.CertFile)
-	fmt.Fprintf(buf, "KeyFile: %s\n", p.KeyFile)
-	fmt.Fprintf(buf, "WebhookConfigFile: %s\n", p.WebhookConfigFile)
-	fmt.Fprintf(buf, "CACertFile: %s\n", p.CACertFile)
-	fmt.Fprintf(buf, "DeploymentAndServiceNamespace: %s\n", p.DeploymentAndServiceNamespace)
-	fmt.Fprintf(buf, "WebhookName: %s\n", p.WebhookName)
-	fmt.Fprintf(buf, "DeploymentName: %s\n", p.DeploymentName)
-	fmt.Fprintf(buf, "ServiceName: %s\n", p.ServiceName)
-	fmt.Fprintf(buf, "EnableValidation: %v\n", p.EnableValidation)
-	fmt.Fprintf(buf, "EnableReconcileWebhookConfiguration: %v\n", p.EnableReconcileWebhookConfiguration)
+	_, _ = fmt.Fprintf(buf, "DomainSuffix: %s\n", p.DomainSuffix)
+	_, _ = fmt.Fprintf(buf, "Port: %d\n", p.Port)
+	_, _ = fmt.Fprintf(buf, "CertFile: %s\n", p.CertFile)
+	_, _ = fmt.Fprintf(buf, "KeyFile: %s\n", p.KeyFile)
+	_, _ = fmt.Fprintf(buf, "WebhookConfigFile: %s\n", p.WebhookConfigFile)
+	_, _ = fmt.Fprintf(buf, "CACertFile: %s\n", p.CACertFile)
+	_, _ = fmt.Fprintf(buf, "DeploymentAndServiceNamespace: %s\n", p.DeploymentAndServiceNamespace)
+	_, _ = fmt.Fprintf(buf, "WebhookName: %s\n", p.WebhookName)
+	_, _ = fmt.Fprintf(buf, "DeploymentName: %s\n", p.DeploymentName)
+	_, _ = fmt.Fprintf(buf, "ServiceName: %s\n", p.ServiceName)
+	_, _ = fmt.Fprintf(buf, "EnableValidation: %v\n", p.EnableValidation)
+	_, _ = fmt.Fprintf(buf, "EnableReconcileWebhookConfiguration: %v\n", p.EnableReconcileWebhookConfiguration)
 
 	return buf.String()
 }
@@ -185,7 +186,7 @@ type Webhook struct {
 	cert *tls.Certificate
 
 	// pilot
-	descriptor   schema.Set
+	schemas      collection.Schemas
 	domainSuffix string
 
 	// mixer
@@ -249,7 +250,7 @@ func reloadKeyCert(certFile, keyFile string) (*tls.Certificate, error) {
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if p.Mux != nil {
 		wh := &Webhook{
-			descriptor:                    p.PilotDescriptor,
+			schemas:                       p.PilotSchema,
 			validator:                     p.MixerValidator,
 			clientset:                     p.Clientset,
 			deploymentName:                p.DeploymentName,
@@ -289,7 +290,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		certFile:                      p.CertFile,
 		keyCertWatcher:                keyCertWatcher,
 		cert:                          pair,
-		descriptor:                    p.PilotDescriptor,
+		schemas:                       p.PilotSchema,
 		validator:                     p.MixerValidator,
 		clientset:                     p.Clientset,
 		deploymentName:                p.DeploymentName,
@@ -312,7 +313,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 
 //Stop the server
 func (wh *Webhook) Stop() {
-	wh.server.Close() // nolint: errcheck
+	_ = wh.server.Close()
 }
 
 // Run implements the webhook server
@@ -425,7 +426,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	}
 }
 
-func (wh *Webhook) serveReady(w http.ResponseWriter, r *http.Request) {
+func (wh *Webhook) serveReady(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -453,21 +454,21 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
-	s, exists := wh.descriptor.GetByType(crd.CamelCaseToKebabCase(obj.Kind))
+	s, exists := wh.schemas.FindByKind(obj.Kind)
 	if !exists {
 		scope.Infof("unrecognized type %v", obj.Kind)
 		reportValidationFailed(request, reasonUnknownType)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
 	}
 
-	out, err := crd.ConvertObject(s, &obj, wh.domainSuffix)
+	out, err := pilotadapter.ConvertObjectToConfig(s, &obj, wh.domainSuffix)
 	if err != nil {
 		scope.Infof("error decoding configuration: %v", err)
 		reportValidationFailed(request, reasonCRDConversionError)
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
-	if err := s.Validate(out.Name, out.Namespace, out.Spec); err != nil {
+	if err := s.Resource().ValidateProto(out.Name, out.Namespace, out.Spec); err != nil {
 		scope.Infof("configuration is invalid: %v", err)
 		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))

@@ -36,7 +36,7 @@ var (
 	// crdKubeResource is metadata for listening to CRD resource on the API Server.
 	crdKubeResource = collection.Builder{
 		Name: "k8s/crd",
-		Schema: resource.Builder{
+		Resource: resource.Builder{
 			Group:   "apiextensions.k8s.io",
 			Version: "v1beta1",
 			Plural:  "customresourcedefinitions",

@@ -21,33 +21,31 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-
-	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schemas"
-	"istio.io/istio/pkg/kube"
-
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
-
-	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pkg/kube/inject"
-	"istio.io/pkg/log"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/pilot/pkg/model"
 	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/mesh"
 	istioProtocol "istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 var (
@@ -129,7 +127,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return fmt.Errorf("deployment %q does not exist", args[0])
 			}
-			deps := []appsv1.Deployment{}
+			deps := make([]appsv1.Deployment, 0)
 			deps = append(deps, *dep)
 			return injectSideCarIntoDeployment(client, deps, sidecarTemplate, valuesConfig,
 				args[0], ns, meshConfig, writer)
@@ -170,7 +168,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return err
 			}
 			if len(matchingDeployments) == 0 {
-				fmt.Fprintf(writer, "No deployments found for service %s.%s\n", args[0], ns)
+				_, _ = fmt.Fprintf(writer, "No deployments found for service %s.%s\n", args[0], ns)
 				return nil
 			}
 			return injectSideCarIntoDeployment(client, matchingDeployments, sidecarTemplate, valuesConfig,
@@ -295,7 +293,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
 		}
-		fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
+		_, _ = fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
 			"Next Step: Add related labels to the deployment to align with Istio's requirement: "+
 			"https://istio.io/docs/setup/kubernetes/additional-setup/requirements/\n",
 			dep.Name, dep.Namespace)
@@ -304,7 +302,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 }
 
 func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]appsv1.Deployment, error) {
-	deps := []appsv1.Deployment{}
+	deps := make([]appsv1.Deployment, 0)
 	svc, err := client.CoreV1().Services(ns).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -383,8 +381,8 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 
 	u := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "networking.istio.io/" + schemas.ServiceEntry.Version,
-			"kind":       schemas.ServiceEntry.VariableName,
+			"apiVersion": collections.IstioNetworkingV1Alpha3Serviceentries.Resource().APIVersion(),
+			"kind":       collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
 			"metadata": map[string]interface{}{
 				"namespace": opts.Namespace,
 				"name":      resourceName(opts.Name),
@@ -407,9 +405,9 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 		return fmt.Errorf("service %q already exists, skip", opts.Name)
 	}
 	serviceEntryGVR := schema.GroupVersionResource{
-		Group:    "networking.istio.io",
-		Version:  schemas.ServiceEntry.Version,
-		Resource: "serviceentries",
+		Group:    collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Group(),
+		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
+		Resource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Plural(),
 	}
 	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(resourceName(opts.Name), metav1.GetOptions{})
 	if err == nil {
@@ -430,7 +428,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 	if o == nil {
 		return fmt.Errorf("empty vm service options")
 	}
-	ports := []*v1alpha3.Port{}
+	ports := make([]*v1alpha3.Port, 0)
 	for _, p := range o.PortList {
 		ports = append(ports, &v1alpha3.Port{
 			Number:   uint32(p.Port),
@@ -438,7 +436,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Name:     p.Name,
 		})
 	}
-	eps := []*v1alpha3.ServiceEntry_Endpoint{}
+	eps := make([]*v1alpha3.ServiceEntry_Endpoint, 0)
 	for _, ip := range o.IP {
 		eps = append(eps, &v1alpha3.ServiceEntry_Endpoint{
 			Address: ip,
@@ -477,7 +475,7 @@ func resourceName(hostShortName string) string {
 }
 
 func generateK8sService(s *corev1.Service, o *vmServiceOpts) {
-	ports := []corev1.ServicePort{}
+	ports := make([]corev1.ServicePort, 0)
 	for _, p := range o.PortList {
 		ports = append(ports, corev1.ServicePort{
 			Name: strings.ToLower(p.Name),
@@ -527,7 +525,7 @@ func createK8sService(client kubernetes.Interface, ns string, svc *corev1.Servic
 		return fmt.Errorf("failed to create kuberenetes service %v", err)
 	}
 	sName := strings.Join([]string{svc.Name, svc.Namespace}, ".")
-	fmt.Fprintf(writer, "Kubernetes Service %q has been created in the Istio service mesh"+
+	_, _ = fmt.Fprintf(writer, "Kubernetes Service %q has been created in the Istio service mesh"+
 		" for the external service %q\n", sName, svc.Name)
 	return nil
 }
@@ -539,16 +537,16 @@ func createServiceEntry(dynamicClient dynamic.Interface, ns string,
 		return fmt.Errorf("failed to create vm service")
 	}
 	serviceEntryGVR := schema.GroupVersionResource{
-		Group:    "networking.istio.io",
-		Version:  schemas.ServiceEntry.Version,
-		Resource: "serviceentries",
+		Group:    collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Group(),
+		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
+		Resource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Plural(),
 	}
 	_, err := dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Create(u, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create service entry %v", err)
 	}
 	seName := strings.Join([]string{u.GetName(), u.GetNamespace()}, ".")
-	fmt.Fprintf(writer, "ServiceEntry %q has been created in the Istio service mesh"+
+	_, _ = fmt.Fprintf(writer, "ServiceEntry %q has been created in the Istio service mesh"+
 		" for the external service %q\n", seName, name)
 	return nil
 }

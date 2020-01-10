@@ -102,12 +102,6 @@ test/local/auth/e2e_pilotv2: generate_e2e_yaml
 	# Run the pilot controller tests
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/controller
 
-e2e_cloudfoundry: init
-	iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
-	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot/cloudfoundry ${T} \
-		${CAPTURE_LOG}
-	iptables -t nat -F
-
 test/local/auth/e2e_bookinfo_envoyv2: generate_e2e_yaml
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/bookinfo \
 		--auth_enable=true --egress=true --ingress=false --rbac_enable=false \
