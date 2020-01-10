@@ -132,14 +132,13 @@ func (s *Server) EnableCA() bool {
 	if s.kubeClient == nil {
 		// No k8s - no self-signed certs.
 		// TODO: implement it using a local directory, for non-k8s env.
-		log.Warna("kubeclient is nil; disable the CA functionality", JWTPath)
+		log.Warn("kubeclient is nil; disable the CA functionality")
 		return false
 	}
-	iss := trustedIssuer.Get()
 	if _, err := ioutil.ReadFile(JWTPath); err != nil {
 		// for debug we may want to override this by setting trustedIssuer explicitly
-		if iss == "" {
-			log.Warna("istiod running without access to K8S tokens; disable the CA functionality", JWTPath)
+		if trustedIssuer.Get() == "" {
+			log.Warnf("istiod running without access to K8S tokens (jwt path %v); disable the CA functionality", JWTPath)
 			return false
 		}
 	}
