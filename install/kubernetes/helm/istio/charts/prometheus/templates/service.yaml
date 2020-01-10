@@ -29,6 +29,10 @@ kind: Service
 metadata:
   name: prometheus-nodeport
   namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := .Values.service.annotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
   labels:
     app: prometheus
     chart: {{ template "prometheus.chart" . }}

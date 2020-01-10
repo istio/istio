@@ -29,8 +29,10 @@ data:
     external_services:
       tracing:
         url: {{ .Values.dashboard.jaegerURL }}
+        in_cluster_url: {{ .Values.dashboard.inclusterjaegerURL }}
       grafana:
         url: {{ .Values.dashboard.grafanaURL }}
+        in_cluster_url: {{ .Values.dashboard.inclustergrafanaURL }}
       prometheus:
         url: {{ .Values.prometheusAddr }}
 {{- if .Values.security.enabled }}
