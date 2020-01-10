@@ -307,7 +307,9 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	return server, tearDown
 }
 
-func customInitLocalPilotTestEnv(t *testing.T, init func(server *bootstrap.Server)) (*bootstrap.Server, util.TearDownFunc) {
+// localPilotTestEnv sets up pilot for local testing and initializes by invoking passed in init func, thay may set up
+// sevices/endpoints needed for the test.
+func localPilotTestEnv(t *testing.T, init func(server *bootstrap.Server)) (*bootstrap.Server, util.TearDownFunc) {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
@@ -323,6 +325,7 @@ func customInitLocalPilotTestEnv(t *testing.T, init func(server *bootstrap.Serve
 	localIP = getLocalIP()
 
 	init(server)
+
 	// Update cache
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	// TODO: channel to notify when the push is finished and to notify individual updates, for

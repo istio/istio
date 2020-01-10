@@ -146,7 +146,10 @@ func TestEdsWeightedServiceEntry(t *testing.T) {
 
 func TestEDSOverlapping(t *testing.T) {
 
-	server, tearDown := customInitLocalPilotTestEnv(t, addOverlappingEndpoints)
+	server, tearDown := localPilotTestEnv(t, func(server *bootstrap.Server) {
+		// add endpoints with multiple ports with the same port number.
+		addOverlappingEndpoints(server)
+	})
 	defer tearDown()
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
@@ -159,14 +162,14 @@ func TestEDSOverlapping(t *testing.T) {
 // See https://github.com/istio/istio/issues/18355 for more details.
 func TestEDSServiceResolutionUpdate(t *testing.T) {
 
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := localPilotTestEnv(t, func(server *bootstrap.Server) {
+		// add a eds type of cluster with static end points.
+		addEdsCluster(server, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
+	})
 	defer tearDown()
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
-
-	// add a eds type of cluster with static end points.
-	addEdsCluster(server, adscConn, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
 
 	// Validate that endpoints are pushed correctly.
 	testEndpoints("10.0.0.53", "outbound|8080||edsdns.svc.cluster.local", adscConn, t)
@@ -186,14 +189,14 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 // Validate that when endpoints of a service flipflop between 1 and 0 does not trigger a full push.
 func TestEndpointFlipFlops(t *testing.T) {
 
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := localPilotTestEnv(t, func(server *bootstrap.Server) {
+		// add a eds type of cluster with static end points.
+		addEdsCluster(server, "flipflop.com", "http", "10.0.0.53", 8080)
+	})
 	defer tearDown()
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
-
-	// add a eds type of cluster with static end points.
-	addEdsCluster(server, adscConn, "flipflop.com", "http", "10.0.0.53", 8080)
 
 	// Validate that endpoints are pushed correctly.
 	testEndpoints("10.0.0.53", "outbound|8080||flipflop.com", adscConn, t)
@@ -246,14 +249,14 @@ func TestEndpointFlipFlops(t *testing.T) {
 // Validate that deleting a service clears entries from EndpointShardsByService.
 func TestDeleteService(t *testing.T) {
 
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := localPilotTestEnv(t, func(server *bootstrap.Server) {
+		// add a eds type of cluster with static end points.
+		addEdsCluster(server, "removeservice.com", "http", "10.0.0.53", 8080)
+	})
 	defer tearDown()
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
-
-	// add a eds type of cluster with static end points.
-	addEdsCluster(server, adscConn, "removeservice.com", "http", "10.0.0.53", 8080)
 
 	// Validate that endpoints are pushed correctly.
 	testEndpoints("10.0.0.53", "outbound|8080||removeservice.com", adscConn, t)
@@ -742,7 +745,7 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
-func addEdsCluster(server *bootstrap.Server, adsc *adsc.ADSC, hostName string, portName string, address string, port int) {
+func addEdsCluster(server *bootstrap.Server, hostName string, portName string, address string, port int) {
 	server.EnvoyXdsServer.MemRegistry.AddService(host.Name(hostName), &model.Service{
 		Hostname: host.Name(hostName),
 		Ports: model.PortList{
@@ -766,8 +769,6 @@ func addEdsCluster(server *bootstrap.Server, adsc *adsc.ADSC, hostName string, p
 			Protocol: protocol.HTTP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
-	adsc.Wait(5*time.Second, "cds", "eds", "lds", "rds")
 }
 
 func updateServiceResolution(server *bootstrap.Server) {
@@ -826,7 +827,6 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			Protocol: protocol.TCP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 // Verify the endpoint debug interface is installed and returns some string.
