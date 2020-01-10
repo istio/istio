@@ -199,7 +199,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// CA signing certificate must be created first.
-	if s.kubeClient != nil {
+	if s.EnableCA() {
 		s.ca = s.createCA(s.kubeClient.CoreV1(), caOpts)
 	}
 

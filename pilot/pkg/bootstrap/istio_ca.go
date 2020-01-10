@@ -123,27 +123,48 @@ type CAOptions struct {
 	Namespace   string
 }
 
+// EnableCA returns whether CA functionality is enabled in istiod.
+// The logic of this function is from the logic of whether running CA
+// in RunCA(). The reason for moving this logic from RunCA into EnableCA() is
+// to have a central consistent endpoint to get whether CA functionality is
+// enabled in istiod. EnableCA() is called in multiple places.
+func (s *Server) EnableCA() bool {
+	if s.kubeClient == nil {
+		// No k8s - no self-signed certs.
+		// TODO: implement it using a local directory, for non-k8s env.
+		log.Warna("kubeclient is nil; disable the CA functionality", JWTPath)
+		return false
+	}
+	iss := trustedIssuer.Get()
+	if _, err := ioutil.ReadFile(JWTPath); err != nil {
+		// for debug we may want to override this by setting trustedIssuer explicitly
+		if iss == "" {
+			log.Warna("istiod running without access to K8S tokens; disable the CA functionality", JWTPath)
+			return false
+		}
+	}
+	return true
+}
+
 // RunCA will start the cert signing GRPC service on an existing server.
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
 func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopCh <-chan struct{}) {
-	if s.kubeClient == nil {
-		// No k8s - no self-signed certs.
-		// TODO: implement it using a local directory, for non-k8s env.
+	if !s.EnableCA() {
+		return
+	}
+	if ca == nil {
+		// When the CA to run is nil, return
+		log.Warn("the CA to run is nil")
 		return
 	}
 	iss := trustedIssuer.Get()
 	aud := audience.Get()
 
 	ch := make(chan struct{})
-	if token, err := ioutil.ReadFile(JWTPath); err != nil {
-		// for debug we may want to override this by setting trustedIssuer explicitly
-		if iss == "" {
-			log.Warna("istiod running without access to K8S tokens. Disable the CA functionality", JWTPath)
-			return
-		}
-	} else {
+	token, err := ioutil.ReadFile(JWTPath)
+	if err == nil {
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {
 			log.Warna("Starting with invalid K8S JWT token", err, string(token))
@@ -156,13 +177,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopC
 			}
 		}
 	}
-
-	if ca == nil {
-		// When the CA to run is nil, return
-		log.Warn("the CA to run is nil")
-		return
-	}
-
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
