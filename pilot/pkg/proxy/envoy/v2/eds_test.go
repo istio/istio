@@ -146,15 +146,11 @@ func TestEdsWeightedServiceEntry(t *testing.T) {
 
 func TestEDSOverlapping(t *testing.T) {
 
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := customInitLocalPilotTestEnv(t, addOverlappingEndpoints)
 	defer tearDown()
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
-
-	// add endpoints with multiple ports with the same port number
-	addOverlappingEndpoints(server)
-	adscConn.Wait(5*time.Second, "cds", "eds", "lds", "rds")
 
 	testOverlappingPorts(server, adscConn, t)
 }
