@@ -37,8 +37,11 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/pkg/log"
 )
 
 type message struct {
@@ -382,13 +385,13 @@ func TestAnalyzers(t *testing.T) {
 	requestedInputsByAnalyzer := make(map[string]map[collection.Name]struct{})
 
 	// For each test case, verify we get the expected messages as output
-	for _, testCase := range testGrid {
-		testCase := testCase // Capture range variable so subtests work correctly
-		t.Run(testCase.name, func(t *testing.T) {
+	for _, tc := range testGrid {
+		tc := tc // Capture range variable so subtests work correctly
+		t.Run(tc.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
 			// Set up a hook to record which collections are accessed by each analyzer
-			analyzerName := testCase.analyzer.Metadata().Name
+			analyzerName := tc.analyzer.Metadata().Name
 			cr := func(col collection.Name) {
 				if _, ok := requestedInputsByAnalyzer[analyzerName]; !ok {
 					requestedInputsByAnalyzer[analyzerName] = make(map[collection.Name]struct{})
@@ -396,46 +399,12 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
-
-			// If a mesh config file is specified, use it instead of the defaults
-			if testCase.meshConfigFile != "" {
-				err := sa.AddFileKubeMeshConfig(testCase.meshConfigFile)
-				if err != nil {
-					t.Fatalf("Error applying mesh config file %s: %v", testCase.meshConfigFile, err)
-				}
-			}
-
-			// Include default resources
-			err := sa.AddDefaultResources()
+			result, err := setupAndRunCase(tc, cr)
 			if err != nil {
-				t.Fatalf("Error adding default resources: %v", err)
+				t.Fatalf("Error running analysis on testcase %s: %v", tc.name, err)
 			}
 
-			// Gather test files
-			var files []io.Reader
-			for _, f := range testCase.inputFiles {
-				of, err := os.Open(f)
-				if err != nil {
-					t.Fatalf("Error opening test file: %q", f)
-				}
-				files = append(files, of)
-			}
-
-			// Include resources from test files
-			err = sa.AddReaderKubeSource(files)
-			if err != nil {
-				t.Fatalf("Error setting up file kube source on testcase %s: %v", testCase.name, err)
-			}
-			cancel := make(chan struct{})
-
-			// Run the analysis
-			result, err := sa.Analyze(cancel)
-			if err != nil {
-				t.Fatalf("Error running analysis on testcase %s: %v", testCase.name, err)
-			}
-
-			g.Expect(extractFields(result.Messages)).To(ConsistOf(testCase.expected), "%v", prettyPrintMessages(result.Messages))
+			g.Expect(extractFields(result.Messages)).To(ConsistOf(tc.expected), "%v", prettyPrintMessages(result.Messages))
 		})
 	}
 
@@ -504,6 +473,68 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 	for _, a := range All() {
 		g.Expect(a.Metadata().Description).ToNot(Equal(""))
 	}
+}
+
+// Note that what gets measured here is both the input pipeline (reading in YAML files, turning it into a snapshot) and the analysis.
+// TODO: Can I separate those, so I can measure only the latter?
+// TODO: Can I adapt this for scale? Or separate scaling-sensitive tests?
+func BenchmarkAnalyzers(b *testing.B) {
+	for _, tc := range testGrid {
+		tc := tc // Capture range variable so subtests work correctly
+		b.Run(tc.name+"-bench", func(b *testing.B) {
+			_, err := setupAndRunCase(tc, nil)
+			if err != nil {
+				b.Fatalf("Error running benchmark on testcase %s: %v", tc.name, err)
+			}
+		})
+	}
+}
+
+func setupAndRunCase(tc testCase, cr snapshotter.CollectionReporterFn) (local.AnalysisResult, error) {
+	// Default processing log level is too chatty for these tests
+	prevLogLevel := scope.Processing.GetOutputLevel()
+	scope.Processing.SetOutputLevel(log.ErrorLevel)
+	defer scope.Processing.SetOutputLevel(prevLogLevel)
+
+	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true)
+
+	// If a mesh config file is specified, use it instead of the defaults
+	if tc.meshConfigFile != "" {
+		err := sa.AddFileKubeMeshConfig(tc.meshConfigFile)
+		if err != nil {
+			return local.AnalysisResult{}, fmt.Errorf("error applying mesh config file %s: %v", tc.meshConfigFile, err)
+		}
+	}
+
+	// Include default resources
+	err := sa.AddDefaultResources()
+	if err != nil {
+		return local.AnalysisResult{}, fmt.Errorf("error adding default resources: %v", err)
+	}
+
+	// Gather test files
+	var files []io.Reader
+	for _, f := range tc.inputFiles {
+		of, err := os.Open(f)
+		if err != nil {
+			return local.AnalysisResult{}, fmt.Errorf("error opening test file: %q", f)
+		}
+		files = append(files, of)
+	}
+
+	// Include resources from test files
+	err = sa.AddReaderKubeSource(files)
+	if err != nil {
+		return local.AnalysisResult{}, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
+	}
+	cancel := make(chan struct{})
+
+	// Run the analysis
+	result, err := sa.Analyze(cancel)
+	if err != nil {
+		return local.AnalysisResult{}, fmt.Errorf("error running analysis on testcase %s: %v", tc.name, err)
+	}
+	return result, nil
 }
 
 // Pull just the fields we want to check out of diag.Message
