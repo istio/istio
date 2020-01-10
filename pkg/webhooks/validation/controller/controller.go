@@ -511,6 +511,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(desired *kubeApiAdmiss
 		scope.Infof("Successfully updated validatingwebhookconfiguration %v (resourceVersion=%v)",
 			c.o.WebhookConfigName, latest.ResourceVersion)
 		reportValidationConfigUpdate()
+		return nil
 	}
 
 	scope.Infof("validatingwebhookconfiguration %v (resourceVersion=%v) is up-to-date. No change required.",
@@ -594,14 +595,21 @@ func decodeValidatingConfig(encoded []byte) (*kubeApiAdmission.ValidatingWebhook
 
 	// fill in missing defaults to minimize desired vs. actual diffs later.
 	for i := 0; i < len(config.Webhooks); i++ {
-		if config.Webhooks[i].FailurePolicy == nil {
-			config.Webhooks[i].FailurePolicy = &failurePolicyFail
+		wh := &config.Webhooks[i]
+		if wh.FailurePolicy == nil {
+			wh.FailurePolicy = &failurePolicyFail
 		}
-		if config.Webhooks[i].NamespaceSelector == nil {
-			config.Webhooks[i].NamespaceSelector = &kubeApiMeta.LabelSelector{}
+		if wh.NamespaceSelector == nil {
+			wh.NamespaceSelector = &kubeApiMeta.LabelSelector{}
 		}
-		if config.Webhooks[i].SideEffects == nil {
-			config.Webhooks[i].SideEffects = &sideEffectsUnknown
+		if wh.ObjectSelector == nil {
+			wh.ObjectSelector = &kubeApiMeta.LabelSelector{}
+		}
+		if wh.SideEffects == nil {
+			wh.SideEffects = &sideEffectsUnknown
+		}
+		if wh.TimeoutSeconds == nil {
+			wh.TimeoutSeconds = &[]int32{30}[0]
 		}
 	}
 
