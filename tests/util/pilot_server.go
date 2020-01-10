@@ -114,10 +114,8 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		apply(&args)
 	}
 
-	stopCh := make(chan struct{})
-
 	// Create and setup the controller.
-	s, err := bootstrap.NewServer(&args, stopCh)
+	s, err := bootstrap.NewServer(&args)
 	if err != nil {
 		return nil, nil, err
 	}
