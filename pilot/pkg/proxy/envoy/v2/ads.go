@@ -105,6 +105,9 @@ type XdsConnection struct {
 	// Routes is the list of watched Routes.
 	Routes []string
 
+	// ClusterGroups is the list of watched EndpointGroups of Clusters
+	ClusterGroups []string
+
 	// LDSWatch is set if the remote server is watching Listeners
 	LDSWatch bool
 	// CDSWatch is set if the remote server is watching Clusters
@@ -382,7 +385,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if discReq.ErrorDetail != nil {
 					errCode := codes.Code(discReq.ErrorDetail.Code)
 					adsLog.Warnf("ADS:EGDS: ACK ERROR %v %s %s:%s", peerAddr, con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
-					incrementXDSRejects(edsReject, con.node.ID, errCode.String())
+					incrementXDSRejects(egdsReject, con.node.ID, errCode.String())
 					continue
 				}
 
@@ -403,24 +406,39 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 
 					if discReq.VersionInfo == egdsVersionInfoSent {
-						adsLog.Debugf("ADS:EGDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
-						con.mu.Lock()
-						con.EndpointGroupNonceAcked = discReq.ResponseNonce
-						con.mu.Unlock()
-						continue
+						if len(clusterGroups) == 0 {
+							// xDS doesn't require resource names on ACK, 
+							// the test env doesn't return resource names.
+							continue
+						}
+
+						if listEqualUnordered(con.ClusterGroups, clusterGroups) {
+							adsLog.Debugf("ADS:EGDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+							con.mu.Lock()
+							con.EndpointGroupNonceAcked = discReq.ResponseNonce
+							con.mu.Unlock()
+							continue
+						}
 					}
 				}
 
+				previous := sets.NewSet(con.ClusterGroups...)
+				current := sets.NewSet(clusterGroups...)
+
+				addOrUpdated := current.Difference(previous)
+
 				updatedClusters := make(map[string]struct{})
 				updatedGroups := make(map[string]struct{})
-				for _, clusterGroup := range clusterGroups {
+				for clusterGroup := range addOrUpdated {
 					clusterName, groupName := ExtractClusterGroupKeys(clusterGroup)
 
 					updatedClusters[clusterName] = struct{}{}
 					updatedGroups[groupName] = struct{}{}
 				}
 
-				adsLog.Debugf("ADS:EGDS: REQ %s %s groups:%d", peerAddr, con.ConID, len(updatedGroups))
+				con.ClusterGroups = clusterGroups
+				adsLog.Debugf("ADS:EGDS: REQ %s %s groups:%d", peerAddr, con.ConID, len(con.ClusterGroups))
+
 				err := s.pushEgds(s.globalPushContext(), con, versionInfo(), updatedClusters, updatedGroups)
 				if err != nil {
 					return err

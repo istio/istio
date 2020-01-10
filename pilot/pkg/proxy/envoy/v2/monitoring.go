@@ -40,6 +40,12 @@ var (
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
+	egdsReject = monitoring.NewGauge(
+		"pilot_xds_egds_reject",
+		"Pilot rejected EGDS.",
+		monitoring.WithLabels(nodeTag, errTag),
+	)
+
 	edsInstances = monitoring.NewGauge(
 		"pilot_xds_eds_instances",
 		"Instances for each cluster(grouped by locality), as of last push. Zero instances is an error.",

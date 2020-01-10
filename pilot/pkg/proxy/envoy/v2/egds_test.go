@@ -303,7 +303,8 @@ func TestBuildEndpointGroup(t *testing.T) {
 
 	// Now test the endpoint group name
 	for ix := 0; ix < 8; ix++ {
-		groupName := fmt.Sprintf("%s|%s|%s|%d", hostname, svc.Attributes.Namespace, memClusterID, ix)
+		// The first group contains the version and its first value is 1
+		groupName := fmt.Sprintf("%s|%s|%s|%d-1", hostname, svc.Attributes.Namespace, memClusterID, ix)
 		if endpoints, f := shards[memClusterID].IstioEndpointGroups[groupName]; !f {
 			t.Errorf("Expect group name %s not found", groupName)
 		} else {

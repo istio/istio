@@ -51,9 +51,15 @@ type EndpointGroups struct {
 
 	// The mutex to avoid concurrent modification in endpoint groups, especially the IstioEndpointGroups map
 	mutex sync.Mutex
+
+	// Version changes when the group enter reshard state
+	VersionInfo int
 }
 
 func (g *EndpointGroups) getEndpoints(groupName string) []*model.IstioEndpoint {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
 	if g == nil {
 		return nil
 	}
@@ -160,7 +166,9 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
-	for _, clusterName := range con.Clusters {
+	for _, clusterGroup := range con.ClusterGroups {
+		clusterName, groupName := ExtractClusterGroupKeys(clusterGroup)
+
 		if updatedClusters != nil {
 			if _, ok := updatedClusters[clusterName]; !ok {
 				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
@@ -169,34 +177,20 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 			}
 		}
 
-		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-
-		push.Mutex.Lock()
-		svc := con.node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-		push.Mutex.Unlock()
-		if svc == nil {
-			// Should not happen, EGDS data not exists.
-			adsLog.Warnf("EGDS: missing data for cluster %s, node id %s", clusterName, con.ConID)
-			continue
+		if updatedGroups != nil {
+			if _, f := updatedGroups[groupName]; !f {
+				// This happens in an incremental EGDS push.
+				continue
+			}
 		}
 
-		groupNames := s.getServiceGroupNames(string(hostname), svc.Attributes.Namespace)
-		for groupName := range groupNames {
-			if updatedGroups != nil {
-				if _, f := updatedGroups[groupName]; !f {
-					// This happens in a incremental EGDS push.
-					continue
-				}
-			}
-
-			l := s.generateEndpoints(clusterName, groupName, con.node, push)
-			g := &xdsapi.EndpointGroup{
-				Name:      MakeClusterGroupKey(clusterName, groupName),
-				Endpoints: l.Endpoints,
-			}
-
-			groups = append(groups, g)
+		l := s.generateEndpoints(clusterName, groupName, con.node, push)
+		g := &xdsapi.EndpointGroup{
+			Name:      MakeClusterGroupKey(clusterName, groupName),
+			Endpoints: l.Endpoints,
 		}
+
+		groups = append(groups, g)
 	}
 
 	response := endpointGroupDiscoveryResponse(groups, version, push.Version)
@@ -387,7 +381,7 @@ func cmpIstioEndpoint(from *model.IstioEndpoint, other *model.IstioEndpoint) boo
 
 func (g *EndpointGroups) makeGroupKey(ep *model.IstioEndpoint) string {
 	index := ep.HashUint32() % g.GroupCount
-	key := fmt.Sprintf("%s|%d", g.NamePrefix, index)
+	key := fmt.Sprintf("%s|%d-%d", g.NamePrefix, index, g.VersionInfo)
 
 	return key
 }
@@ -403,12 +397,15 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 	// Reset the group map first.
 	g.IstioEndpointGroups = make(map[string][]*model.IstioEndpoint)
 
+	// Increase the version
+	g.VersionInfo++
+
 	// Total number of group slices.
 	g.GroupCount = uint32(math.Ceil(float64(len(eps)) / float64(g.GroupSize)))
 
 	// Generate all groups first. Since groups won't change until next reshard event.
 	for ix := uint32(0); ix < g.GroupCount; ix++ {
-		key := fmt.Sprintf("%s|%d", g.NamePrefix, ix)
+		key := fmt.Sprintf("%s|%d-%d", g.NamePrefix, ix, g.VersionInfo)
 		if _, f := g.IstioEndpointGroups[key]; !f {
 			g.IstioEndpointGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
 		}

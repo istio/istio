@@ -493,6 +493,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			NamePrefix: fmt.Sprintf("%s|%s|%s", serviceName, namespace, clusterID),
 			GroupSize:  s.Env.Mesh().GetEgdsGroupSize(),
 			mutex:      sync.Mutex{},
+			VersionInfo: 0,
 		}
 
 		ep.Shards[clusterID] = egdsGroup
@@ -603,26 +604,6 @@ func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContex
 	}
 
 	return l
-}
-
-func (s *DiscoveryServer) getServiceGroupNames(hostname string, namespace string) map[string]struct{} {
-	s.mutex.RLock()
-	se, f := s.EndpointShardsByService[hostname][namespace]
-	s.mutex.RUnlock()
-	if !f {
-		return nil
-	}
-
-	names := make(map[string]struct{})
-	for _, groups := range se.Shards {
-		groups.mutex.Lock()
-		for name := range groups.IstioEndpointGroups {
-			names[name] = struct{}{}
-		}
-		groups.mutex.Unlock()
-	}
-
-	return names
 }
 
 // loadAssignmentsForClusterIsolated return the endpoints for a proxy in an isolated namespace
