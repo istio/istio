@@ -112,3 +112,13 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 	fmt.Printf("original addr %s:%d\n", ip, dport)
 	return
 }
+
+// Setup reuse address to run the validation server more robustly
+func reuseAddr(network, address string, conn syscall.RawConn) error {
+		return conn.Control(func(descriptor uintptr) {
+			err := syscall.SetsockoptInt(int(descriptor), syscall.SOL_SOCKET, 2 /*syscall.SO_REUSEADDR*/, 1)
+			fmt.Printf("fail to set fd %d SO_REUSEADDR with error %v\n", descriptor, err)
+			err =		syscall.SetsockoptInt(int(descriptor), syscall.SOL_SOCKET, 15 /*syscall.SO_REUSEPORT*/, 1)
+			fmt.Printf("fail to set fd %d SO_REUSEPORT with error %v\n", descriptor, err)
+						})
+					}

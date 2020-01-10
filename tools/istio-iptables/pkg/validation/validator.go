@@ -20,6 +20,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"context"
 	"time"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
@@ -160,7 +161,10 @@ func (s *Service) Run() error {
 	c := make(chan ReturnCode, 2)
 	hasAtLeastOneListener := false
 	for _, addr := range s.Config.ServerListenAddress {
-		l, err := net.Listen("tcp", addr)
+			config := &net.ListenConfig{Control: reuseAddr}
+
+				l, err := config.Listen(context.Background(), "tcp", addr) // bind to the address:port
+//		l, err := net.Listen("tcp", addr)
 		fmt.Println("Listening on " + addr)
 		if err != nil {
 			fmt.Println("Error on listening:", err.Error())
