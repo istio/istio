@@ -350,6 +350,10 @@ template: |
   {{- end }}
     {{  end -}}
     volumeMounts:
+    {{- if not .Values.global.signCertAtKubernetesCa }}
+    - mountPath: /etc/istio/citadel-ca-cert
+      name: citadel-ca-cert
+    {{- end }}
     {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
@@ -388,6 +392,11 @@ template: |
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
+  {{- if not .Values.global.signCertAtKubernetesCa }}
+  - name: citadel-ca-cert
+    configMap:
+      name: istio-ca-root-cert
+  {{- end }}
   - name: istio-certs
     secret:
       optional: true
