@@ -118,7 +118,7 @@ type XdsEvent struct {
 	edsUpdatedServices map[string]struct{}
 
 	// If not empty, it is used to indicate the event caused by changes in endpoint groups.
-	// Only endpoints within the group specified by the map will be sent to proxy clients
+	// Only endpoints within the group specified by the map will be sent to proxy clients.
 	egdsUpdatedGroups map[string]struct{}
 
 	namespacesUpdated map[string]struct{}
