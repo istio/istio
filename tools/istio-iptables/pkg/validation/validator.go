@@ -15,12 +15,12 @@
 package validation
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"strings"
-	"context"
 	"time"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
@@ -65,7 +65,7 @@ func (validator *Validator) Run() error {
 	// infinite loop
 	go func() {
 		c := Client{Config: validator.Config}
-		<- c.Config.ServerReadyBarrier
+		<-c.Config.ServerReadyBarrier
 		for {
 			_ = c.Run()
 			// Avoid spamming the request to the validation server.
@@ -165,9 +165,9 @@ func (s *Service) Run() error {
 	hasAtLeastOneListener := false
 	for _, addr := range s.Config.ServerListenAddress {
 		fmt.Println("Listening on " + addr)
-			config := &net.ListenConfig{Control: reuseAddr}
+		config := &net.ListenConfig{Control: reuseAddr}
 
-				l, err := config.Listen(context.Background(), "tcp", addr) // bind to the address:port
+		l, err := config.Listen(context.Background(), "tcp", addr) // bind to the address:port
 		if err != nil {
 			fmt.Println("Error on listening:", err.Error())
 			continue

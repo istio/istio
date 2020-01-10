@@ -115,14 +115,14 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 
 // Setup reuse address to run the validation server more robustly
 func reuseAddr(network, address string, conn syscall.RawConn) error {
-		return conn.Control(func(descriptor uintptr) {
-			err := syscall.SetsockoptInt(int(descriptor), syscall.SOL_SOCKET, 2 /*syscall.SO_REUSEADDR*/, 1)
-			if err != nil {
-				fmt.Printf("fail to set fd %d SO_REUSEADDR with error %v\n", descriptor, err)
-			}
-			err =		syscall.SetsockoptInt(int(descriptor), syscall.SOL_SOCKET, 15 /*syscall.SO_REUSEPORT*/, 1)
-			if err != nil {
-				fmt.Printf("fail to set fd %d SO_REUSEPORT with error %v\n", descriptor, err)
-			}
-						})
-					}
+	return conn.Control(func(descriptor uintptr) {
+		err := syscall.SetsockoptInt(int(descriptor), syscall.SOL_SOCKET, 2 /*syscall.SO_REUSEADDR*/, 1)
+		if err != nil {
+			fmt.Printf("fail to set fd %d SO_REUSEADDR with error %v\n", descriptor, err)
+		}
+		err = syscall.SetsockoptInt(int(descriptor), syscall.SOL_SOCKET, 15 /*syscall.SO_REUSEPORT*/, 1)
+		if err != nil {
+			fmt.Printf("fail to set fd %d SO_REUSEPORT with error %v\n", descriptor, err)
+		}
+	})
+}
