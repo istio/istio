@@ -149,11 +149,13 @@ func TestEDSOverlapping(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	// add endpoints with multiple ports with the same port number
-	addOverlappingEndpoints(server)
-
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
+
+	// add endpoints with multiple ports with the same port number
+	addOverlappingEndpoints(server)
+	adscConn.Wait(5*time.Second, "cds", "eds", "lds", "rds")
+
 	testOverlappingPorts(server, adscConn, t)
 }
 
@@ -164,11 +166,11 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	// add a eds type of cluster with static end points.
-	addEdsCluster(server, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
-
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
+
+	// add a eds type of cluster with static end points.
+	addEdsCluster(server, adscConn, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
 
 	// Validate that endpoints are pushed correctly.
 	testEndpoints("10.0.0.53", "outbound|8080||edsdns.svc.cluster.local", adscConn, t)
@@ -191,11 +193,11 @@ func TestEndpointFlipFlops(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	// add a eds type of cluster with static end points.
-	addEdsCluster(server, "flipflop.com", "http", "10.0.0.53", 8080)
-
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
+
+	// add a eds type of cluster with static end points.
+	addEdsCluster(server, adscConn, "flipflop.com", "http", "10.0.0.53", 8080)
 
 	// Validate that endpoints are pushed correctly.
 	testEndpoints("10.0.0.53", "outbound|8080||flipflop.com", adscConn, t)
@@ -251,11 +253,11 @@ func TestDeleteService(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	// add a eds type of cluster with static end points.
-	addEdsCluster(server, "removeservice.com", "http", "10.0.0.53", 8080)
-
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
+
+	// add a eds type of cluster with static end points.
+	addEdsCluster(server, adscConn, "removeservice.com", "http", "10.0.0.53", 8080)
 
 	// Validate that endpoints are pushed correctly.
 	testEndpoints("10.0.0.53", "outbound|8080||removeservice.com", adscConn, t)
@@ -744,7 +746,7 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
-func addEdsCluster(server *bootstrap.Server, hostName string, portName string, address string, port int) {
+func addEdsCluster(server *bootstrap.Server, adsc *adsc.ADSC, hostName string, portName string, address string, port int) {
 	server.EnvoyXdsServer.MemRegistry.AddService(host.Name(hostName), &model.Service{
 		Hostname: host.Name(hostName),
 		Ports: model.PortList{
@@ -769,6 +771,7 @@ func addEdsCluster(server *bootstrap.Server, hostName string, portName string, a
 		},
 	})
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+	adsc.Wait(5*time.Second, "cds", "eds", "lds", "rds")
 }
 
 func updateServiceResolution(server *bootstrap.Server) {
