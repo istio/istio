@@ -522,10 +522,10 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 	}
 
 	adscLog.Infof("eds: %d size=%d ep=%d", len(eds), edsSize, ep)
-	//	if adscLog.DebugEnabled() {
-	b, _ := json.MarshalIndent(eds, " ", " ")
-	adscLog.Info(string(b))
-	//	}
+	if adscLog.DebugEnabled() {
+		b, _ := json.MarshalIndent(eds, " ", " ")
+		adscLog.Info(string(b))
+	}
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
 		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
