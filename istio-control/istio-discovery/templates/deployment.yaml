@@ -206,6 +206,8 @@ spec:
           - --log_as_json
         {{- end }}
           env:
+          - name: SIGN_CERT_AT_KUBERNETES_CA
+            value: "{{ .Values.global.signCertAtKubernetesCa }}"
           - name: POD_NAME
             valueFrom:
               fieldRef:
