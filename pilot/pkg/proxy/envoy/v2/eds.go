@@ -690,7 +690,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	return cla
 }
 
-func (s *DiscoveryServer) loadAssignmentFailback(clusterName string, groupName string, 
+func (s *DiscoveryServer) loadAssignmentFailback(clusterName string, groupName string,
 	push *model.PushContext) *xdsapi.ClusterLoadAssignment {
 	if groupName == "" {
 		// Shouldn't happen here - but just in case fallback
@@ -851,7 +851,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 			continue
 		}
 
-		groupCount +=  len(l.EndpointGroups)
+		groupCount += len(l.EndpointGroups)
 
 		loadAssignments = append(loadAssignments, l)
 	}
