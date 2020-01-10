@@ -516,9 +516,10 @@ func extractFields(msgs diag.Messages) []message {
 		expMsg := message{
 			messageType: m.Type,
 		}
-		if m.Origin != nil {
-			expMsg.origin = m.Origin.FriendlyName()
+		if m.Resource != nil {
+			expMsg.origin = m.Resource.Origin.FriendlyName()
 		}
+
 		result = append(result, expMsg)
 	}
 	return result

@@ -76,6 +76,13 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 				}
 			}
 
+			// If service entry is deleted, cleanup endpoint shards for services.
+			if event == model.EventDelete {
+				for _, svc := range cs {
+					c.XdsUpdater.SvcUpdate(c.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, event)
+				}
+			}
+
 			// Recomputing the index here is too expensive - lazy build when it is needed.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()

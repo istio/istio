@@ -200,8 +200,8 @@ FilterMessages:
 		// message doesn't have an origin (meaning we can't determine the
 		// namespace). Also kept are cluster-level resources where the namespace is
 		// the empty string. If no such limit is specified, keep them all.
-		if len(namespaces) > 0 && m.Origin != nil && m.Origin.Namespace() != "" {
-			if _, ok := nsNames[m.Origin.Namespace().String()]; !ok {
+		if len(namespaces) > 0 && m.Origin != nil && m.Resource.Origin.Namespace() != "" {
+			if _, ok := nsNames[m.Resource.Origin.Namespace().String()]; !ok {
 				continue FilterMessages
 			}
 		}

@@ -23,7 +23,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	authorizationapi "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/mesh/v1alpha1"
 
@@ -51,6 +53,11 @@ const (
 	domainSuffix      = "cluster.local"
 	meshConfigMapKey  = "mesh"
 	meshConfigMapName = "istio"
+)
+
+// Pseudo-constants, since golang doesn't support a true const slice/array
+var (
+	requiredPerms = []string{"list", "watch"}
 )
 
 // Patch table
@@ -236,16 +243,24 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
-	o := apiserver.Options{
-		Client:  k,
-		Schemas: sa.kubeResources,
+	client, err := k.KubeClient()
+	if err != nil {
+		scope.Analysis.Errorf("error getting KubeClient: %v", err)
+		return
 	}
 
-	if err := sa.addRunningKubeMeshConfigSource(k); err != nil {
+	// Since we're using a running k8s source, do a permissions pre-check and disable any resources the current user doesn't have permissions for
+	sa.disableKubeResourcesWithoutPermissions(client)
+
+	// Since we're using a running k8s source, try to get mesh config from the configmap
+	if err := sa.addRunningKubeMeshConfigSource(client); err != nil {
 		scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)
 	}
 
-	src := apiserverNew(o)
+	src := apiserverNew(apiserver.Options{
+		Client:  k,
+		Schemas: sa.kubeResources,
+	})
 	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
 }
 
@@ -287,12 +302,7 @@ func (sa *SourceAnalyzer) AddDefaultResources() error {
 	return sa.AddReaderKubeSource(readers)
 }
 
-func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) error {
-	client, err := k.KubeClient()
-	if err != nil {
-		return fmt.Errorf("error getting KubeClient: %v", err)
-	}
-
+func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(client kubernetes.Interface) error {
 	meshConfigMap, err := client.CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
@@ -310,4 +320,53 @@ func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) erro
 
 	sa.meshCfg = cfg
 	return nil
+}
+
+func (sa *SourceAnalyzer) disableKubeResourcesWithoutPermissions(client kubernetes.Interface) {
+	resultBuilder := collection.NewSchemasBuilder()
+
+	for _, s := range sa.kubeResources.All() {
+		if !s.IsDisabled() {
+			allowed, err := hasPermissionsOnCollection(client, s, requiredPerms)
+			if err != nil {
+				scope.Analysis.Errorf("Error checking permissions for resource %q (skipping it): %v", s.Resource().CanonicalName(), err)
+				s = s.Disable()
+			} else if !allowed {
+				scope.Analysis.Errorf("Skipping resource %q since the current user doesn't have required permissions %v",
+					s.Resource().CanonicalName(), requiredPerms)
+				s = s.Disable()
+			}
+		}
+
+		// The possible error here is if the collection is already in the list.
+		// Since we are making a clone of the list with modified elements,
+		// we can be sure this won't happen and safely ignore the returned error.
+		_ = resultBuilder.Add(s)
+	}
+
+	sa.kubeResources = resultBuilder.Build()
+}
+
+func hasPermissionsOnCollection(client kubernetes.Interface, s collection.Schema, verbs []string) (bool, error) {
+	for _, verb := range verbs {
+		sar := &authorizationapi.SelfSubjectAccessReview{
+			Spec: authorizationapi.SelfSubjectAccessReviewSpec{
+				ResourceAttributes: &authorizationapi.ResourceAttributes{
+					Verb:     verb,
+					Group:    s.Resource().Group(),
+					Resource: s.Resource().CanonicalName(),
+				},
+			},
+		}
+
+		response, err := client.AuthorizationV1().SelfSubjectAccessReviews().Create(sar)
+		if err != nil {
+			return false, fmt.Errorf("error creating SelfSubjectAccessReview: %v", err)
+		}
+
+		if !response.Status.Allowed {
+			return false, nil
+		}
+	}
+	return true, nil
 }
