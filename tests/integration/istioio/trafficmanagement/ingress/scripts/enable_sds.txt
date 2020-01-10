@@ -19,11 +19,10 @@ set -u
 set -o pipefail
 
 # $snippet enable_sds syntax="bash"
-$ istioctl manifest generate \
---set values.gateways.istio-egressgateway.enabled=false \
---set values.gateways.istio-ingressgateway.sds.enabled=true > \
-{{ .yamlDir }}/enable-sds.yaml
-$ kubectl apply -f {{ .yamlDir }}/enable-sds.yaml
-$ kubectl rollout status deployment istio-pilot -n istio-system
-$ kubectl rollout status deployment istio-ingressgateway -n istio-system
+$ helm template install/kubernetes/helm/istio/ --name istio \
+--namespace istio-system -x charts/gateways/templates/deployment.yaml \
+--set gateways.istio-egressgateway.enabled=false \
+--set gateways.istio-ingressgateway.sds.enabled=true > \
+{{ .yamlDir }}/istio-ingressgateway.yaml
+$ kubectl apply -f {{ .yamlDir }}/istio-ingressgateway.yaml
 # $endsnippet
