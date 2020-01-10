@@ -152,6 +152,11 @@ type Proxy struct {
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
+
+	// cache all the cluster names for each gw proxy
+	// This is used to find out clusters for which configuration must be generated in CDS response
+	GatewayClusterNames map[string]bool
+	GatewayRouteNames   []string
 }
 
 var (

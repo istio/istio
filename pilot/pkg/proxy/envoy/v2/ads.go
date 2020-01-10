@@ -461,6 +461,8 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	proxy.SetSidecarScope(s.globalPushContext())
 	proxy.SetGatewaysForProxy(s.globalPushContext())
 
+	proxy.GatewayClusterNames = map[string]bool{}
+
 	// First request so initialize connection id and start tracking it.
 	con.mu.Lock()
 	con.node = proxy

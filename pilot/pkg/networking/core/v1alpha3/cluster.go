@@ -179,6 +179,48 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 	}
 	networkView := model.GetNetworkView(proxy)
 
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		log.Infof("Collecting clusters names and route names for the node: %v", proxy.ID)
+		proxy.GatewayClusterNames = map[string]bool{}
+		rawListeners := configgen.BuildListeners(proxy, push)
+		for _, l := range rawListeners {
+			if err := l.Validate(); err != nil {
+				log.Warnf("CDS: Generated invalid listener for node:%s: %v, %v. Falling back to sending unfiltered cluster config", proxy.ID, err, l)
+				// Generating invalid listeners is a bug.
+				// Instead of panic, which will break down the whole cluster. Just ignore it here and let CDS push all the clusters without filtering for this gateway proxy
+				proxy.GatewayClusterNames = map[string]bool{}
+				break
+			}
+		}
+		if len(proxy.GatewayRouteNames) != 0 {
+			log.Debugf("Cached %v routenames : %v", len(proxy.GatewayRouteNames), proxy.GatewayRouteNames)
+			rawRoutes := configgen.BuildHTTPRoutes(proxy, push, proxy.GatewayRouteNames)
+			for _, r := range rawRoutes {
+				if err := r.Validate(); err != nil {
+					log.Warnf("CDS: Generated invalid route for node:%s: %v, %v. Falling back to sending unfiltered cluster config", proxy.ID, err, r)
+					// Generating invalid routes is a bug.
+					// Instead of panic, which will break down the whole cluster. Just ignore it here and let CDS push all the clusters without filtering for this gateway proxy
+					proxy.GatewayClusterNames = map[string]bool{}
+					break
+				}
+				for _, vh := range r.VirtualHosts {
+					for _, vhr := range vh.Routes {
+						ra := vhr.GetRoute()
+						if ra != nil && ra.GetCluster() != "" {
+							proxy.GatewayClusterNames[ra.GetCluster()] = true
+							log.Debugf("Caching from routes: clustername : %q", ra.GetCluster())
+						}
+					}
+
+				}
+			}
+
+		}
+		if len(proxy.GatewayClusterNames) != 0 {
+			log.Debugf("Cached %v clusternames : %v", len(proxy.GatewayClusterNames), proxy.GatewayClusterNames)
+		}
+	}
+
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
@@ -193,6 +235,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			// create default cluster
 			discoveryType := convertResolution(proxy, service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+			if features.FilterGatewayClusterConfig && proxy.Type == model.Router && !proxy.GatewayClusterNames[clusterName] {
+				continue
+			}
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
 			defaultCluster := buildDefaultCluster(push, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port, service.MeshExternal)
 			// If stat name is configured, build the alternate stats name.
