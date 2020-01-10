@@ -199,6 +199,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		servicesMap:                make(map[host.Name]*model.Service),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		networksWatcher:            options.NetworksWatcher,
+		metrics:                    options.Metrics,
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
