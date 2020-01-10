@@ -17,22 +17,15 @@
 package controller
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	"istio.io/pkg/ledger"
 
-	"github.com/golang/sync/errgroup"
 	"github.com/hashicorp/go-multierror"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeSchema "k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/wait"             // import GKE cluster authentication plugin
+	"k8s.io/apimachinery/pkg/runtime/serializer"    // import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
@@ -169,144 +162,6 @@ func NewClient(config string, context string, descriptor schema.Set, domainSuffi
 	}
 
 	return NewForConfig(cfg, descriptor, domainSuffix, configLedger)
-}
-
-// RegisterResources sends a request to create CRDs and waits for them to initialize
-func (cl *Client) RegisterResources() error {
-	g, _ := errgroup.WithContext(context.Background())
-	for k, rc := range cl.clientset {
-		k, rc := k, rc
-		g.Go(func() error {
-			log.Infof("registering for apiVersion %v", k)
-			return rc.registerResources()
-		})
-	}
-	return g.Wait()
-}
-
-func (rc *restClient) registerResources() error {
-	cs, err := apiextensionsclient.NewForConfig(rc.restconfig)
-	if err != nil {
-		return err
-	}
-
-	skipCreate := true
-	for _, s := range rc.descriptor {
-		name := crd.ResourceName(s.Plural) + "." + crd.ResourceGroup(&s)
-		crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
-		if errGet != nil {
-			skipCreate = false
-			break // create the resources
-		}
-		for _, cond := range crd.Status.Conditions {
-			if cond.Type == apiextensionsv1beta1.Established &&
-				cond.Status == apiextensionsv1beta1.ConditionTrue {
-				continue
-			}
-
-			if cond.Type == apiextensionsv1beta1.NamesAccepted &&
-				cond.Status == apiextensionsv1beta1.ConditionTrue {
-				continue
-			}
-
-			log.Warnf("Not established: %v", name)
-			skipCreate = false
-			break
-		}
-	}
-
-	if skipCreate {
-		return nil
-	}
-
-	for _, s := range rc.descriptor {
-		g := crd.ResourceGroup(&s)
-		name := crd.ResourceName(s.Plural) + "." + g
-		crdScope := apiextensionsv1beta1.NamespaceScoped
-		if s.ClusterScoped {
-			crdScope = apiextensionsv1beta1.ClusterScoped
-		}
-		crd := &apiextensionsv1beta1.CustomResourceDefinition{
-			ObjectMeta: meta_v1.ObjectMeta{
-				Name: name,
-			},
-			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-				Group:   g,
-				Version: s.Version,
-				Scope:   crdScope,
-				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-					Plural: crd.ResourceName(s.Plural),
-					Kind:   crd.KebabCaseToCamelCase(s.Type),
-				},
-			},
-		}
-		log.Infof("registering CRD %q", name)
-		_, err = cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
-		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return err
-		}
-	}
-
-	// wait for CRD being established
-	errPoll := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-	descriptor:
-		for _, s := range rc.descriptor {
-			name := crd.ResourceName(s.Plural) + "." + crd.ResourceGroup(&s)
-			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
-			if errGet != nil {
-				return false, errGet
-			}
-			for _, cond := range crd.Status.Conditions {
-				switch cond.Type {
-				case apiextensionsv1beta1.Established:
-					if cond.Status == apiextensionsv1beta1.ConditionTrue {
-						log.Infof("established CRD %q", name)
-						continue descriptor
-					}
-				case apiextensionsv1beta1.NamesAccepted:
-					if cond.Status == apiextensionsv1beta1.ConditionFalse {
-						log.Warnf("name conflict: %v", cond.Reason)
-					}
-				}
-			}
-			log.Infof("missing status condition for %q", name)
-			return false, nil
-		}
-		return true, nil
-	})
-
-	if errPoll != nil {
-		log.Error("failed to verify CRD creation")
-		return errPoll
-	}
-
-	return nil
-}
-
-// DeregisterResources removes third party resources
-func (cl *Client) DeregisterResources() error {
-	for k, rc := range cl.clientset {
-		log.Infof("deregistering for apiVersion %s", k)
-		if err := rc.deregisterResources(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (rc *restClient) deregisterResources() error {
-	cs, err := apiextensionsclient.NewForConfig(rc.restconfig)
-	if err != nil {
-		return err
-	}
-
-	var errs error
-	for _, s := range rc.descriptor {
-		name := crd.ResourceName(s.Plural) + "." + crd.ResourceGroup(&s)
-		err := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, nil)
-		errs = multierror.Append(errs, err)
-	}
-	return errs
 }
 
 // ConfigDescriptor for the store

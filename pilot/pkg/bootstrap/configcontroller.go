@@ -346,12 +346,6 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
 
-	if !args.Config.DisableInstallCRDs {
-		if err = configClient.RegisterResources(); err != nil {
-			return nil, multierror.Prefix(err, "failed to register custom resources.")
-		}
-	}
-
 	return controller.NewController(configClient, args.Config.ControllerOptions), nil
 }
 
