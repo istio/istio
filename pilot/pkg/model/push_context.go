@@ -512,6 +512,66 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
+func (ps *PushContext) proxyGateways(proxyInstances []*ServiceInstance) []Config {
+	// collect workload labels
+	var workloadLabels labels.Collection
+	for _, w := range proxyInstances {
+		workloadLabels = append(workloadLabels, w.Endpoint.Labels)
+	}
+
+	return ps.IstioConfigStore.Gateways(workloadLabels)
+}
+
+// GatewayServices returns the set of services which are refered from the proxy gateways.
+func (ps *PushContext) GatewayServices(proxy *Proxy, svcs []*Service) []*Service {
+
+	// gateway set.
+	gateways := map[string]bool{}
+	// host set.
+	hostsFromGateways := map[string]bool{}
+
+	for _, gw := range ps.proxyGateways(proxy.ServiceInstances) {
+		gateways[gw.Namespace+"/"+gw.Name] = true
+	}
+	log.Infof("GatewayServices: gateway %v has following gw resources:%v", proxy.ID, gateways)
+
+	for _, vsConfig := range ps.VirtualServices(proxy, gateways) {
+		vs, ok := vsConfig.Spec.(*networking.VirtualService)
+		if !ok { // should never happen
+			log.Errorf("Failed in getting a virtual service: %v", vsConfig.Labels)
+			return svcs
+		}
+
+		for _, h := range vs.Http {
+			for _, r := range h.Route {
+				hostsFromGateways[r.Destination.Host] = true
+			}
+		}
+
+		for _, h := range vs.Tcp {
+			for _, r := range h.Route {
+				hostsFromGateways[r.Destination.Host] = true
+			}
+		}
+	}
+
+	log.Infof("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
+
+	gwSvcs := make([]*Service, 0, len(svcs))
+
+	for _, s := range svcs {
+		svcHost := string(s.Hostname)
+
+		if hostsFromGateways[svcHost] {
+			gwSvcs = append(gwSvcs, s)
+		}
+	}
+
+	log.Infof("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
+
+	return gwSvcs
+}
+
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
@@ -533,6 +593,9 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 
 	// Second add public services
 	out = append(out, ps.publicServices...)
+	if proxy != nil && proxy.Type != SidecarProxy {
+		return ps.GatewayServices(proxy, out)
+	}
 
 	return out
 }
