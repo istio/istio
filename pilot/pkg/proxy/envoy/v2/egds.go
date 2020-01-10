@@ -16,6 +16,7 @@ package v2
 
 import (
 	"fmt"
+	"sync"
 	"math"
 	"strings"
 	"time"
@@ -47,6 +48,9 @@ type EndpointGroups struct {
 
 	// A map stores the endpoint groups. The key is the name of each group.
 	IstioEndpointGroups map[string][]*model.IstioEndpoint
+
+	// The mutex to avoid concurrent modification in endpoint groups, especially the IstioEndpointGroups map
+	mutex sync.Mutex
 }
 
 func (g *EndpointGroups) getEndpoints(groupName string) []*model.IstioEndpoint {
@@ -171,16 +175,16 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 		svc := con.node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 		push.Mutex.Unlock()
 		if svc == nil {
-			// Should not happen, EGDS data not exists
+			// Should not happen, EGDS data not exists.
 			adsLog.Warnf("EGDS: missing data for cluster %s, node id %s", clusterName, con.ConID)
 			continue
 		}
 
-		clusterGroups := s.getServiceGroupNames(clusterName, svc.Attributes.Namespace)
-		for groupName := range clusterGroups {
+		groupNames := s.getServiceGroupNames(string(hostname), svc.Attributes.Namespace)
+		for groupName := range groupNames {
 			if updatedGroups != nil {
 				if _, f := updatedGroups[groupName]; !f {
-					// This happens in a incremental EGDS push
+					// This happens in a incremental EGDS push.
 					continue
 				}
 			}
@@ -217,7 +221,7 @@ func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *mode
 	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 	push.Mutex.Unlock()
 	if svc == nil {
-		// Shouldn't happen here - unable to genereate EGDS data
+		// Shouldn't happen here - unable to genereate EGDS data.
 		adsLog.Warnf("EGDS: missing data for cluster %s", clusterName)
 		return nil
 	}
@@ -234,12 +238,12 @@ func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *mode
 		return nil
 	}
 
-	// The service was never updated - do the full update
+	// The service was never updated - do the full update.
 	s.mutex.RLock()
 	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
 	s.mutex.RUnlock()
 	if !f {
-		// Shouldn't happen here - unable to genereate EGDS data
+		// Shouldn't happen here - unable to genereate EGDS data.
 		adsLog.Warnf("EGDS: missing data for cluster %s", clusterName)
 		return nil
 	}
@@ -267,10 +271,13 @@ func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *mode
 }
 
 func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct{} {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
 	prevEps := g.IstioEndpoints
 	g.IstioEndpoints = newEps
 
-	// Means the EGDS feature has been disabled globally
+	// Means the EGDS feature has been disabled globally.
 	if g.GroupSize <= 0 {
 		return nil
 	}
@@ -280,7 +287,7 @@ func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct
 		return g.reshard()
 	}
 
-	// Calculate the diff in memory
+	// Calculate the diff in memory.
 
 	added := make([]*model.IstioEndpoint, 0, len(newEps))
 
@@ -344,14 +351,14 @@ func (g *EndpointGroups) updateEndpointGroups(updated []*model.IstioEndpoint, re
 	}
 
 	// If there is still no key mapped, it means the group has no endpoints now
-	// However we still need to map it
+	// However we still need to map it.
 	for key := range updatedGroupKeys {
 		if _, f := updatedGroups[key]; !f {
 			updatedGroups[key] = make([]*model.IstioEndpoint, 0, 0)
 		}
 	}
 
-	// Changed EGDS resource names
+	// Changed EGDS resource names.
 	names := make(map[string]struct{})
 
 	for key, eps := range updatedGroups {
@@ -368,7 +375,7 @@ func cmpIstioEndpoint(from *model.IstioEndpoint, other *model.IstioEndpoint) boo
 	}
 
 	// When comparing, the cached EnvoyEndpoint should be removed.
-	// A shallow copy is enough
+	// A shallow copy is enough.
 	copyA := from
 	copyB := other
 
@@ -385,7 +392,7 @@ func (g *EndpointGroups) makeGroupKey(ep *model.IstioEndpoint) string {
 	return key
 }
 
-// MakeClusterGroupKey generates the clusterGroup key returned to proxy
+// MakeClusterGroupKey generates the clusterGroup key returned to proxy.
 func MakeClusterGroupKey(clusterName string, groupName string) string {
 	return fmt.Sprintf("%s@%s", clusterName, groupName)
 }
@@ -393,13 +400,13 @@ func MakeClusterGroupKey(clusterName string, groupName string) string {
 func (g *EndpointGroups) reshard() map[string]struct{} {
 	eps := g.IstioEndpoints
 
-	// Reset the group map first
+	// Reset the group map first.
 	g.IstioEndpointGroups = make(map[string][]*model.IstioEndpoint)
 
-	// Total number of group slices
+	// Total number of group slices.
 	g.GroupCount = uint32(math.Ceil(float64(len(eps)) / float64(g.GroupSize)))
 
-	// Generate all groups first. Since groups won't change until next reshard event
+	// Generate all groups first. Since groups won't change until next reshard event.
 	for ix := uint32(0); ix < g.GroupCount; ix++ {
 		key := fmt.Sprintf("%s|%d", g.NamePrefix, ix)
 		if _, f := g.IstioEndpointGroups[key]; !f {
@@ -411,7 +418,7 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 		key := g.makeGroupKey(ep)
 
 		if eps, f := g.IstioEndpointGroups[key]; !f {
-			// Should never happen
+			// Should never happen.
 			panic(fmt.Sprintf("unexpect group key: %s", key))
 		} else {
 			g.IstioEndpointGroups[key] = append(eps, ep)

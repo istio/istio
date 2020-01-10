@@ -492,6 +492,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		egdsGroup = &EndpointGroups{
 			NamePrefix: fmt.Sprintf("%s|%s|%s", serviceName, namespace, clusterID),
 			GroupSize:  s.Env.Mesh().GetEgdsGroupSize(),
+			mutex:      sync.Mutex{},
 		}
 
 		ep.Shards[clusterID] = egdsGroup
@@ -604,21 +605,21 @@ func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContex
 	return l
 }
 
-func (s *DiscoveryServer) getServiceGroupNames(clusterName string, namespace string) map[string]struct{} {
-	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-
+func (s *DiscoveryServer) getServiceGroupNames(hostname string, namespace string) map[string]struct{} {
 	s.mutex.RLock()
-	se, f := s.EndpointShardsByService[string(hostname)][namespace]
+	se, f := s.EndpointShardsByService[hostname][namespace]
 	s.mutex.RUnlock()
 	if !f {
 		return nil
 	}
 
 	names := make(map[string]struct{})
-	for _, shard := range se.Shards {
-		for name := range shard.IstioEndpointGroups {
+	for _, groups := range se.Shards {
+		groups.mutex.Lock()
+		for name := range groups.IstioEndpointGroups {
 			names[name] = struct{}{}
 		}
+		groups.mutex.Unlock()
 	}
 
 	return names
@@ -698,7 +699,7 @@ func (s *DiscoveryServer) loadAssignmentFailback(clusterName string, groupName s
 	}
 
 	// Shouldn't happen here - unable to genereate EGDS data
-	adsLog.Warnf("EGDS: missing data for cluster %s, group %s", clusterName, groupName)
+	adsLog.Errorf("EGDS: missing data for cluster %s, group %s", clusterName, groupName)
 	return nil
 }
 
