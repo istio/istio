@@ -187,7 +187,6 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, en
 
 	sh := host.Name(service)
 	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
 
 	svc := sd.services[sh]
 	if svc == nil {
@@ -237,6 +236,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, en
 
 	}
 
+	sd.mutex.Unlock()
 	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
 }
 
