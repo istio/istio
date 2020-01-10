@@ -165,8 +165,9 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 	if len(jwtRules) == 0 {
 		return nil
 	}
+
 	providers := map[string]*envoy_jwt.JwtProvider{}
-	requirementOrList := []*envoy_jwt.JwtRequirement{}
+	requirementAndList := []*envoy_jwt.JwtRequirement{}
 	for i, jwtRule := range jwtRules {
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:               jwtRule.Issuer,
@@ -202,19 +203,41 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 
 		name := fmt.Sprintf("origins-%d", i)
 		providers[name] = provider
-		requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
-			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
-				ProviderName: name,
+		requirementAndList = append(requirementAndList, &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+				RequiresAny: &envoy_jwt.JwtRequirementOrList{
+					Requirements: []*envoy_jwt.JwtRequirement{
+						{
+							RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+								ProviderName: name,
+							},
+						},
+						{
+							RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+								AllowMissing: &empty.Empty{},
+							},
+						},
+					},
+				},
 			},
 		})
 	}
 
-	// TODO(diemvu): change to AllowMissing requirement.
-	requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
-		RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-			AllowMissingOrFailed: &empty.Empty{},
-		},
-	})
+	if len(requirementAndList) == 1 {
+		return &envoy_jwt.JwtAuthentication{
+			Rules: []*envoy_jwt.RequirementRule{
+				{
+					Match: &route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{
+							Prefix: "/",
+						},
+					},
+					Requires: requirementAndList[0],
+				},
+			},
+			Providers: providers,
+		}
+	}
 
 	return &envoy_jwt.JwtAuthentication{
 		Rules: []*envoy_jwt.RequirementRule{
@@ -225,9 +248,9 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 					},
 				},
 				Requires: &envoy_jwt.JwtRequirement{
-					RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-						RequiresAny: &envoy_jwt.JwtRequirementOrList{
-							Requirements: requirementOrList,
+					RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
+						RequiresAll: &envoy_jwt.JwtRequirementAndList{
+							Requirements: requirementAndList,
 						},
 					},
 				},

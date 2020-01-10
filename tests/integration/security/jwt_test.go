@@ -395,7 +395,7 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 						},
 					},
-					ExpectResponseCode: response.StatusCodeOK,
+					ExpectResponseCode: response.StatusUnauthorized,
 					ExpectHeaders: map[string]string{
 						authHeaderKey: "Bearer " + jwt.TokenExpired,
 					},
@@ -444,7 +444,7 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 						},
 					},
-					ExpectResponseCode: response.StatusCodeForbidden,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 				{
 					Name: "no-token",
@@ -557,7 +557,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							},
 						},
 					},
-					ExpectResponseCode: response.StatusCodeOK,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 				{
 					Name: "in-mesh-without-token",
@@ -605,14 +605,14 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					Host:               "example.com",
 					Path:               "/",
 					Token:              jwt.TokenIssuer2,
-					ExpectResponseCode: 403,
+					ExpectResponseCode: 401,
 				},
 				{
 					Name:               "deny with expired token",
 					Host:               "example.com",
 					Path:               "/",
 					Token:              jwt.TokenExpired,
-					ExpectResponseCode: 403,
+					ExpectResponseCode: 401,
 				},
 				{
 					Name:               "allow with sub-1 token on any.com",
@@ -622,11 +622,11 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					ExpectResponseCode: 200,
 				},
 				{
-					Name:               "allow with sub-2 token on any.com",
+					Name:               "deny with sub-2 token (bad issuer) on any.com",
 					Host:               "any-request-principlal-ok.com",
 					Path:               "/",
 					Token:              jwt.TokenIssuer2,
-					ExpectResponseCode: 200,
+					ExpectResponseCode: 401,
 				},
 				{
 					Name:               "deny without token on any.com",
