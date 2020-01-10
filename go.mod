@@ -33,7 +33,7 @@ require (
 	github.com/cenkalti/backoff v2.0.0+incompatible
 	github.com/census-instrumentation/opencensus-proto v0.2.1
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
-	github.com/cncf/udpa/go v0.0.0-20191127193423-5f054cc4b1a0
+	github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containerd/containerd v1.3.0 // indirect
 	github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc // indirect
@@ -50,7 +50,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
-	github.com/envoyproxy/go-control-plane v0.9.1
+	github.com/envoyproxy/go-control-plane v0.9.2
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fluent/fluent-logger-golang v1.3.0
