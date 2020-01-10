@@ -47,6 +47,9 @@ type Schema interface {
 	// Version of this resource.
 	Version() string
 
+	// APIVersion is a utility that returns a k8s API version string of the form "Group/Version".
+	APIVersion() string
+
 	// Proto returns the protocol buffer type name for this resource.
 	Proto() string
 
@@ -131,6 +134,7 @@ func (b Builder) BuildNoValidate() Schema {
 		plural:        b.Plural,
 		group:         b.Group,
 		version:       b.Version,
+		apiVersion:    b.Group + "/" + b.Version,
 		proto:         b.Proto,
 		protoPackage:  b.ProtoPackage,
 		validateProto: b.ValidateProto,
@@ -143,6 +147,7 @@ type schemaImpl struct {
 	plural        string
 	group         string
 	version       string
+	apiVersion    string
 	proto         string
 	protoPackage  string
 	validateProto validation.ValidateFunc
@@ -166,6 +171,10 @@ func (s *schemaImpl) Group() string {
 
 func (s *schemaImpl) Version() string {
 	return s.version
+}
+
+func (s *schemaImpl) APIVersion() string {
+	return s.apiVersion
 }
 
 func (s *schemaImpl) Proto() string {
