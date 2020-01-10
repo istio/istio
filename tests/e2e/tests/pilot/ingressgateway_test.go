@@ -173,6 +173,10 @@ func TestGateway_TCPIngress(t *testing.T) {
 }
 
 func TestIngressGateway503DuringRuleChange(t *testing.T) {
+	if tc.Kube.RemoteKubeConfig != "" {
+		// TODO re-enable this once it is stable
+		t.Skipf("https://github.com/istio/istio/issues/19215")
+	}
 	// Skip test if SDS is enabled.
 	// Istio does not support legacy JWTs anymore.
 	// Only Kubernetes 1.12 (beta) and later support trustworthy JWTs.
