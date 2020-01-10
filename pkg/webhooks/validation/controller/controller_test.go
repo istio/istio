@@ -200,17 +200,20 @@ const (
 	istiodClusterRole    = "istiod-istio-system"
 )
 
-func createTestController(t *testing.T) *fakeController {
+func createTestController(t *testing.T, deferTo bool) *fakeController {
 	fakeClient := fake.NewSimpleClientset()
 	o := Options{
-		WatchedNamespace:      namespace,
-		ResyncPeriod:          time.Minute,
-		CAPath:                caPath,
-		WebhookConfigName:     galleyWebhookName,
-		WebhookConfigPath:     configPath,
-		ServiceName:           istiod,
-		DeferToDeploymentName: galleyDeploymentName,
-		ClusterRoleName:       istiodClusterRole,
+		WatchedNamespace:  namespace,
+		ResyncPeriod:      time.Minute,
+		CAPath:            caPath,
+		WebhookConfigName: galleyWebhookName,
+		WebhookConfigPath: configPath,
+		ServiceName:       istiod,
+		ClusterRoleName:   istiodClusterRole,
+	}
+
+	if deferTo {
+		o.DeferToDeploymentName = galleyDeploymentName
 	}
 
 	caChanged := make(chan bool, 10)
@@ -293,7 +296,7 @@ func reconcileHelper(t *testing.T, c *fakeController) {
 
 func TestGreenfield(t *testing.T) {
 	g := NewGomegaWithT(t)
-	c := createTestController(t)
+	c := createTestController(t, false)
 
 	g.Expect(c.Actions()[0].Matches("get", "clusterroles")).Should(BeTrue())
 
@@ -309,9 +312,26 @@ func TestGreenfield(t *testing.T) {
 		Should(Equal(webhookConfigWithCABundle0), "istiod config created when endpoint is ready")
 }
 
+func TestDeferDisabled(t *testing.T) {
+	g := NewGomegaWithT(t)
+	c := createTestController(t, false)
+
+	// setup an existing deployment and config
+	c.deploymentStore.Add(galleyDeployment)
+	c.configStore.Add(galleyWebhookConfigWithCABundle1)
+	c.endpointStore.Add(istiodEndpoint)
+	_, err := c.ValidatingWebhookConfigurations().Create(galleyWebhookConfigWithCABundle1)
+	g.Expect(err).Should(Succeed())
+
+	// verify we ignore any existing config when deferral is disabled.
+	reconcileHelper(t, c)
+	g.Expect(c.ValidatingWebhookConfigurations().Get(galleyWebhookName, kubeApisMeta.GetOptions{})).
+		Should(Equal(webhookConfigWithCABundle0), "istiod should override galley config when galley is present")
+}
+
 func TestUpgradeDowngrade(t *testing.T) {
 	g := NewGomegaWithT(t)
-	c := createTestController(t)
+	c := createTestController(t, true)
 
 	c.deploymentStore.Add(galleyDeployment)
 	c.configStore.Add(galleyWebhookConfigWithCABundle1)
@@ -355,7 +375,7 @@ func TestUpgradeDowngrade(t *testing.T) {
 
 func TestUnregisterValidationWebhook(t *testing.T) {
 	g := NewGomegaWithT(t)
-	c := createTestController(t)
+	c := createTestController(t, true)
 
 	c.endpointStore.Add(istiodEndpoint)
 	reconcileHelper(t, c)
@@ -372,7 +392,7 @@ func TestUnregisterValidationWebhook(t *testing.T) {
 
 func TestCertAndConfigFileChange(t *testing.T) {
 	g := NewGomegaWithT(t)
-	c := createTestController(t)
+	c := createTestController(t, true)
 
 	c.endpointStore.Add(istiodEndpoint)
 	reconcileHelper(t, c)

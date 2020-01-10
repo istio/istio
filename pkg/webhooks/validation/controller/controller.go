@@ -290,8 +290,11 @@ func newController(
 	endpointInformer := c.sharedInformers.Core().V1().Endpoints().Informer()
 	endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
 
-	deploymentInformer := c.sharedInformers.Apps().V1().Deployments().Informer()
-	deploymentInformer.AddEventHandler(makeHandler(c.queue, deploymentGVK, o.DeferToDeploymentName))
+	if o.DeferToDeploymentName != "" {
+		log.Infof("Deferring reconciliation to controller %v when present", o.DeferToDeploymentName)
+		deploymentInformer := c.sharedInformers.Apps().V1().Deployments().Informer()
+		deploymentInformer.AddEventHandler(makeHandler(c.queue, deploymentGVK, o.DeferToDeploymentName))
+	}
 
 	return c, nil
 }
