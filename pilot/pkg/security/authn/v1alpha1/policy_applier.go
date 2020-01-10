@@ -106,6 +106,7 @@ func outputLocationForJwtIssuer(issuer string) string {
 
 func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAuthentication {
 	providers := map[string]*envoy_jwt.JwtProvider{}
+	requirementOrList := []*envoy_jwt.JwtRequirement{}
 	for i, policyJwt := range policyJwts {
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:            policyJwt.Issuer,
@@ -143,7 +144,18 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 
 		name := fmt.Sprintf("origins-%d", i)
 		providers[name] = provider
+		requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+				ProviderName: name,
+			},
+		})
 	}
+
+	requirementOrList = append(requirementOrList, &envoy_jwt.JwtRequirement{
+		RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+			AllowMissingOrFailed: &empty.Empty{},
+		},
+	})
 
 	return &envoy_jwt.JwtAuthentication{
 		Rules: []*envoy_jwt.RequirementRule{
@@ -154,8 +166,10 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 					},
 				},
 				Requires: &envoy_jwt.JwtRequirement{
-					RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-						AllowMissingOrFailed: &empty.Empty{},
+					RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+						RequiresAny: &envoy_jwt.JwtRequirementOrList{
+							Requirements: requirementOrList,
+						},
 					},
 				},
 			},

@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
+	"istio.io/istio/pkg/test/env"
 )
 
 const (
@@ -277,6 +278,7 @@ func fromYAML(in string) *unstructured.Unstructured {
 	}
 	return &un
 }
+
 func TestValidateResource(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -365,6 +367,21 @@ func TestValidateResource(t *testing.T) {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%q", err == nil, c.valid, err)
 			}
 		})
+	}
+}
+
+func TestValidateFiles(t *testing.T) {
+	files := []string{
+		env.IstioSrc + "/mixer/testdata/config/attributes.yaml",
+		env.IstioSrc + "/mixer/template/metric/template.yaml",
+		env.IstioSrc + "/mixer/test/prometheus/prometheus-nosession.yaml",
+		env.IstioSrc + "/samples/httpbin/policy/keyval-template.yaml",
+		env.IstioSrc + "/samples/bookinfo/policy/mixer-rule-deny-ip-crd.yaml",
+	}
+	istioNamespace := "istio-system"
+	b := bytes.Buffer{}
+	if err := validateFiles(&istioNamespace, files, true, &b); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -120,7 +120,7 @@ func All() []*diag.MessageType {
 func NewInternalError(r *resource.Instance, detail string) diag.Message {
 	return diag.NewMessage(
 		InternalError,
-		originOrNil(r),
+		r,
 		detail,
 	)
 }
@@ -129,7 +129,7 @@ func NewInternalError(r *resource.Instance, detail string) diag.Message {
 func NewDeprecated(r *resource.Instance, detail string) diag.Message {
 	return diag.NewMessage(
 		Deprecated,
-		originOrNil(r),
+		r,
 		detail,
 	)
 }
@@ -138,7 +138,7 @@ func NewDeprecated(r *resource.Instance, detail string) diag.Message {
 func NewReferencedResourceNotFound(r *resource.Instance, reftype string, refval string) diag.Message {
 	return diag.NewMessage(
 		ReferencedResourceNotFound,
-		originOrNil(r),
+		r,
 		reftype,
 		refval,
 	)
@@ -148,7 +148,7 @@ func NewReferencedResourceNotFound(r *resource.Instance, reftype string, refval 
 func NewNamespaceNotInjected(r *resource.Instance, namespace string, namespace2 string) diag.Message {
 	return diag.NewMessage(
 		NamespaceNotInjected,
-		originOrNil(r),
+		r,
 		namespace,
 		namespace2,
 	)
@@ -158,7 +158,7 @@ func NewNamespaceNotInjected(r *resource.Instance, namespace string, namespace2 
 func NewPodMissingProxy(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		PodMissingProxy,
-		originOrNil(r),
+		r,
 	)
 }
 
@@ -166,7 +166,7 @@ func NewPodMissingProxy(r *resource.Instance) diag.Message {
 func NewGatewayPortNotOnWorkload(r *resource.Instance, selector string, port int) diag.Message {
 	return diag.NewMessage(
 		GatewayPortNotOnWorkload,
-		originOrNil(r),
+		r,
 		selector,
 		port,
 	)
@@ -176,7 +176,7 @@ func NewGatewayPortNotOnWorkload(r *resource.Instance, selector string, port int
 func NewIstioProxyVersionMismatch(r *resource.Instance, proxyVersion string, injectionVersion string) diag.Message {
 	return diag.NewMessage(
 		IstioProxyVersionMismatch,
-		originOrNil(r),
+		r,
 		proxyVersion,
 		injectionVersion,
 	)
@@ -186,7 +186,7 @@ func NewIstioProxyVersionMismatch(r *resource.Instance, proxyVersion string, inj
 func NewSchemaValidationError(r *resource.Instance, err error) diag.Message {
 	return diag.NewMessage(
 		SchemaValidationError,
-		originOrNil(r),
+		r,
 		err,
 	)
 }
@@ -195,7 +195,7 @@ func NewSchemaValidationError(r *resource.Instance, err error) diag.Message {
 func NewMisplacedAnnotation(r *resource.Instance, annotation string, kind string) diag.Message {
 	return diag.NewMessage(
 		MisplacedAnnotation,
-		originOrNil(r),
+		r,
 		annotation,
 		kind,
 	)
@@ -205,7 +205,7 @@ func NewMisplacedAnnotation(r *resource.Instance, annotation string, kind string
 func NewUnknownAnnotation(r *resource.Instance, annotation string) diag.Message {
 	return diag.NewMessage(
 		UnknownAnnotation,
-		originOrNil(r),
+		r,
 		annotation,
 	)
 }
@@ -214,7 +214,7 @@ func NewUnknownAnnotation(r *resource.Instance, annotation string) diag.Message 
 func NewConflictingMeshGatewayVirtualServiceHosts(r *resource.Instance, virtualServices string, host string) diag.Message {
 	return diag.NewMessage(
 		ConflictingMeshGatewayVirtualServiceHosts,
-		originOrNil(r),
+		r,
 		virtualServices,
 		host,
 	)
@@ -224,7 +224,7 @@ func NewConflictingMeshGatewayVirtualServiceHosts(r *resource.Instance, virtualS
 func NewConflictingSidecarWorkloadSelectors(r *resource.Instance, conflictingSidecars []string, namespace string, workloadPod string) diag.Message {
 	return diag.NewMessage(
 		ConflictingSidecarWorkloadSelectors,
-		originOrNil(r),
+		r,
 		conflictingSidecars,
 		namespace,
 		workloadPod,
@@ -235,7 +235,7 @@ func NewConflictingSidecarWorkloadSelectors(r *resource.Instance, conflictingSid
 func NewMultipleSidecarsWithoutWorkloadSelectors(r *resource.Instance, conflictingSidecars []string, namespace string) diag.Message {
 	return diag.NewMessage(
 		MultipleSidecarsWithoutWorkloadSelectors,
-		originOrNil(r),
+		r,
 		conflictingSidecars,
 		namespace,
 	)
@@ -245,7 +245,7 @@ func NewMultipleSidecarsWithoutWorkloadSelectors(r *resource.Instance, conflicti
 func NewVirtualServiceDestinationPortSelectorRequired(r *resource.Instance, destHost string, destPorts []int) diag.Message {
 	return diag.NewMessage(
 		VirtualServiceDestinationPortSelectorRequired,
-		originOrNil(r),
+		r,
 		destHost,
 		destPorts,
 	)
@@ -255,7 +255,7 @@ func NewVirtualServiceDestinationPortSelectorRequired(r *resource.Instance, dest
 func NewMTLSPolicyConflict(r *resource.Instance, host string, destinationRuleName string, destinationRuleMTLSMode bool, policyName string, policyMTLSMode string) diag.Message {
 	return diag.NewMessage(
 		MTLSPolicyConflict,
-		originOrNil(r),
+		r,
 		host,
 		destinationRuleName,
 		destinationRuleMTLSMode,
@@ -268,7 +268,7 @@ func NewMTLSPolicyConflict(r *resource.Instance, host string, destinationRuleNam
 func NewPolicySpecifiesPortNameThatDoesntExist(r *resource.Instance, portName string, host string) diag.Message {
 	return diag.NewMessage(
 		PolicySpecifiesPortNameThatDoesntExist,
-		originOrNil(r),
+		r,
 		portName,
 		host,
 	)
@@ -278,7 +278,7 @@ func NewPolicySpecifiesPortNameThatDoesntExist(r *resource.Instance, portName st
 func NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar(r *resource.Instance, destinationRuleName string, host string) diag.Message {
 	return diag.NewMessage(
 		DestinationRuleUsesMTLSForWorkloadWithoutSidecar,
-		originOrNil(r),
+		r,
 		destinationRuleName,
 		host,
 	)
@@ -288,7 +288,7 @@ func NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar(r *resource.Instance, d
 func NewDeploymentAssociatedToMultipleServices(r *resource.Instance, deployment string, port int32, services []string) diag.Message {
 	return diag.NewMessage(
 		DeploymentAssociatedToMultipleServices,
-		originOrNil(r),
+		r,
 		deployment,
 		port,
 		services,
@@ -299,7 +299,7 @@ func NewDeploymentAssociatedToMultipleServices(r *resource.Instance, deployment 
 func NewDeploymentRequiresServiceAssociated(r *resource.Instance, deployment string) diag.Message {
 	return diag.NewMessage(
 		DeploymentRequiresServiceAssociated,
-		originOrNil(r),
+		r,
 		deployment,
 	)
 }
@@ -308,17 +308,9 @@ func NewDeploymentRequiresServiceAssociated(r *resource.Instance, deployment str
 func NewPortNameIsNotUnderNamingConvention(r *resource.Instance, portName string, port int, targetPort string) diag.Message {
 	return diag.NewMessage(
 		PortNameIsNotUnderNamingConvention,
-		originOrNil(r),
+		r,
 		portName,
 		port,
 		targetPort,
 	)
-}
-
-func originOrNil(r *resource.Instance) resource.Origin {
-	var o resource.Origin
-	if r != nil {
-		o = r.Origin
-	}
-	return o
 }
