@@ -20,7 +20,8 @@ import (
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/listers/discovery/v1alpha1"
+	listerv1 "k8s.io/client-go/listers/core/v1"
+	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -153,14 +154,13 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 }
 
 func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
-	objs, err := esc.informer.GetIndexer().ByIndex(cache.NamespaceIndex, proxy.Metadata.Namespace)
+	eps, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(proxy.Metadata.Namespace).List(klabels.Everything())
 	if err != nil {
 		log.Errorf("Get endpointslice by index failed: %v", err)
 		return nil
 	}
 	out := make([]*model.ServiceInstance, 0)
-	for _, item := range objs {
-		ep := item.(*discoveryv1alpha1.EndpointSlice)
+	for _, ep := range eps {
 		instances := esc.proxyServiceInstances(c, ep, proxy)
 		out = append(out, instances...)
 	}
@@ -213,7 +213,7 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
-	slices, err := v1alpha1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
+	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, nil

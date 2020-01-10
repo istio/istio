@@ -16,7 +16,9 @@ package controller
 
 import (
 	v1 "k8s.io/api/core/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -83,14 +85,13 @@ func (e *endpointsController) registerEndpointsHandler() {
 }
 
 func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
-	objs, err := e.informer.GetIndexer().ByIndex(cache.NamespaceIndex, proxy.Metadata.Namespace)
+	eps, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).Endpoints(proxy.Metadata.Namespace).List(klabels.Everything())
 	if err != nil {
 		log.Errorf("Get endpoints by index failed: %v", err)
 		return nil
 	}
 	out := make([]*model.ServiceInstance, 0)
-	for _, item := range objs {
-		ep := item.(*v1.Endpoints)
+	for _, ep := range eps {
 		instances := e.proxyServiceInstances(c, ep, proxy)
 		out = append(out, instances...)
 	}
