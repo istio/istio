@@ -39,11 +39,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/util/pb"
+	"istio.io/istio/galley/pkg/config/util/pilotadapter"
 	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 )
 
@@ -462,7 +461,7 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
 	}
 
-	out, err := convertObject(s, &obj, wh.domainSuffix)
+	out, err := pilotadapter.ConvertObjectToConfig(s, &obj, wh.domainSuffix)
 	if err != nil {
 		scope.Infof("error decoding configuration: %v", err)
 		reportValidationFailed(request, reasonCRDConversionError)
@@ -550,29 +549,4 @@ func checkFields(raw []byte, kind string, namespace string, name string) (string
 	}
 
 	return "", nil
-}
-
-// TODO(nmittler): Remove this once pilot migrates to the galley schema model.
-func convertObject(schema collection.Schema, object crd.IstioObject, domain string) (*model.Config, error) {
-	data, err := pb.UnmarshalFromJSONMap(schema, object.GetSpec())
-	if err != nil {
-		return nil, err
-	}
-	meta := object.GetObjectMeta()
-
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:              schema.Resource().Kind(),
-			Group:             schema.Resource().Group(),
-			Version:           schema.Resource().Version(),
-			Name:              meta.Name,
-			Namespace:         meta.Namespace,
-			Domain:            domain,
-			Labels:            meta.Labels,
-			Annotations:       meta.Annotations,
-			ResourceVersion:   meta.ResourceVersion,
-			CreationTimestamp: meta.CreationTimestamp.Time,
-		},
-		Spec: data,
-	}, nil
 }

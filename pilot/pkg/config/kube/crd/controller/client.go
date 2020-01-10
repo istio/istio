@@ -76,7 +76,7 @@ type restClient struct {
 func newClientSet(descriptor schema.Set) (map[string]*restClient, error) {
 	cs := make(map[string]*restClient)
 	for _, typ := range descriptor {
-		s, exists := crd.KnownTypes[typ.Type]
+		s, exists := crd.KnownTypes[crd.CamelCaseToKebabCase(typ.Type)]
 		if !exists {
 			return nil, fmt.Errorf("missing known type for %q", typ.Type)
 		}
