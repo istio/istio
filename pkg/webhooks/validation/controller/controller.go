@@ -575,7 +575,7 @@ var (
 func init() {
 	scheme = runtime.NewScheme()
 	utilruntime.Must(kubeApiAdmission.AddToScheme(scheme))
-	opt := json.SerializerOptions{true, false, false}
+	opt := json.SerializerOptions{Yaml: true}
 	yamlSerializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme, scheme, opt)
 	codec = versioning.NewDefaultingCodecForScheme(
 		scheme,

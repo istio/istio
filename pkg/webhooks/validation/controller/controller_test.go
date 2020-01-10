@@ -291,7 +291,9 @@ func reconcileHelper(t *testing.T, c *fakeController) {
 	t.Helper()
 
 	c.ClearActions()
-	c.reconcileRequest(&reconcileRequest{"test"})
+	if err := c.reconcileRequest(&reconcileRequest{"test"}); err != nil {
+		t.Fatalf("unexpected reconciliation error: %v", err)
+	}
 }
 
 func TestGreenfield(t *testing.T) {
@@ -305,7 +307,7 @@ func TestGreenfield(t *testing.T) {
 	g.Expect(kubeErrors.ReasonForError(err)).Should(Equal(kubeApiMeta.StatusReasonNotFound),
 		"no config when endpoint not present")
 
-	c.endpointStore.Add(istiodEndpoint)
+	_ = c.endpointStore.Add(istiodEndpoint)
 	reconcileHelper(t, c)
 	g.Expect(c.Actions()[0].Matches("create", "validatingwebhookconfigurations")).Should(BeTrue())
 	g.Expect(c.ValidatingWebhookConfigurations().Get(galleyWebhookName, kubeApisMeta.GetOptions{})).
@@ -317,9 +319,9 @@ func TestDeferDisabled(t *testing.T) {
 	c := createTestController(t, false)
 
 	// setup an existing deployment and config
-	c.deploymentStore.Add(galleyDeployment)
-	c.configStore.Add(galleyWebhookConfigWithCABundle1)
-	c.endpointStore.Add(istiodEndpoint)
+	_ = c.deploymentStore.Add(galleyDeployment)
+	_ = c.configStore.Add(galleyWebhookConfigWithCABundle1)
+	_ = c.endpointStore.Add(istiodEndpoint)
 	_, err := c.ValidatingWebhookConfigurations().Create(galleyWebhookConfigWithCABundle1)
 	g.Expect(err).Should(Succeed())
 
@@ -333,9 +335,9 @@ func TestUpgradeDowngrade(t *testing.T) {
 	g := NewGomegaWithT(t)
 	c := createTestController(t, true)
 
-	c.deploymentStore.Add(galleyDeployment)
-	c.configStore.Add(galleyWebhookConfigWithCABundle1)
-	c.endpointStore.Add(istiodEndpoint)
+	_ = c.deploymentStore.Add(galleyDeployment)
+	_ = c.configStore.Add(galleyWebhookConfigWithCABundle1)
+	_ = c.endpointStore.Add(istiodEndpoint)
 	_, err := c.ValidatingWebhookConfigurations().Create(galleyWebhookConfigWithCABundle1)
 	g.Expect(err).Should(Succeed())
 	reconcileHelper(t, c)
@@ -343,14 +345,14 @@ func TestUpgradeDowngrade(t *testing.T) {
 	g.Expect(c.ValidatingWebhookConfigurations().Get(galleyWebhookName, kubeApisMeta.GetOptions{})).
 		Should(Equal(galleyWebhookConfigWithCABundle1), "galley webhook should exist when istiod is deployed")
 
-	c.deploymentStore.Delete(galleyDeployment)
+	_ = c.deploymentStore.Delete(galleyDeployment)
 	reconcileHelper(t, c)
 	g.Expect(c.Actions()[0].Matches("update", "validatingwebhookconfigurations")).Should(BeTrue())
 	g.Expect(c.ValidatingWebhookConfigurations().Get(galleyWebhookName, kubeApisMeta.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundle0), "istiod webhook should exist when galley is removed")
 
-	c.deploymentStore.Add(galleyDeployment)
-	c.configStore.Add(galleyWebhookConfigWithCABundle1)
+	_ = c.deploymentStore.Add(galleyDeployment)
+	_ = c.configStore.Add(galleyWebhookConfigWithCABundle1)
 	_, err = c.ValidatingWebhookConfigurations().Update(galleyWebhookConfigWithCABundle1)
 	g.Expect(err).Should(Succeed())
 	reconcileHelper(t, c)
@@ -360,13 +362,13 @@ func TestUpgradeDowngrade(t *testing.T) {
 
 	galleyDeploymentWithZeroReplicas := galleyDeployment.DeepCopyObject().(*kubeApiApp.Deployment)
 	galleyDeploymentWithZeroReplicas.Spec.Replicas = &[]int32{0}[0]
-	c.deploymentStore.Update(galleyDeploymentWithZeroReplicas)
+	_ = c.deploymentStore.Update(galleyDeploymentWithZeroReplicas)
 	reconcileHelper(t, c)
 	g.Expect(c.Actions()[0].Matches("update", "validatingwebhookconfigurations")).Should(BeTrue())
 	g.Expect(c.ValidatingWebhookConfigurations().Get(galleyWebhookName, kubeApisMeta.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundle0), "istiod webhook should exist when galley has zero replicas")
 
-	c.deploymentStore.Delete(galleyDeployment)
+	_ = c.deploymentStore.Delete(galleyDeployment)
 	reconcileHelper(t, c)
 	g.Expect(c.Actions()[0].Matches("update", "validatingwebhookconfigurations")).Should(BeTrue())
 	g.Expect(c.ValidatingWebhookConfigurations().Get(galleyWebhookName, kubeApisMeta.GetOptions{})).
@@ -377,7 +379,7 @@ func TestUnregisterValidationWebhook(t *testing.T) {
 	g := NewGomegaWithT(t)
 	c := createTestController(t, true)
 
-	c.endpointStore.Add(istiodEndpoint)
+	_ = c.endpointStore.Add(istiodEndpoint)
 	reconcileHelper(t, c)
 	_, err := c.ValidatingWebhookConfigurations().Get(galleyWebhookName, kubeApiMeta.GetOptions{})
 	g.Expect(err).Should(Succeed())
@@ -394,12 +396,12 @@ func TestCertAndConfigFileChange(t *testing.T) {
 	g := NewGomegaWithT(t)
 	c := createTestController(t, true)
 
-	c.endpointStore.Add(istiodEndpoint)
+	_ = c.endpointStore.Add(istiodEndpoint)
 	reconcileHelper(t, c)
 	g.Expect(c.ValidatingWebhookConfigurations().Get(galleyWebhookName, kubeApisMeta.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundle0), "istiod config created when endpoint is ready")
 	// keep test store and tracker in-sync
-	c.configStore.Add(webhookConfigWithCABundle0)
+	_ = c.configStore.Add(webhookConfigWithCABundle0)
 
 	// verify the config updates after injecting a cafile change
 	c.injectedMu.Lock()
@@ -414,7 +416,7 @@ func TestCertAndConfigFileChange(t *testing.T) {
 	g.Expect(c.ValidatingWebhookConfigurations().Get(galleyWebhookName, kubeApisMeta.GetOptions{})).
 		Should(Equal(webhookConfigAfterCAUpdate), "webhook should change after cert change")
 	// keep test store and tracker in-sync
-	c.configStore.Update(webhookConfigAfterCAUpdate)
+	_ = c.configStore.Update(webhookConfigAfterCAUpdate)
 
 	// verify the config updates after injecting a config file change.
 	webhookConfigAfterConfigUpdate := webhookConfigAfterCAUpdate.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
@@ -427,7 +429,7 @@ func TestCertAndConfigFileChange(t *testing.T) {
 	g.Expect(c.ValidatingWebhookConfigurations().Get(galleyWebhookName, kubeApisMeta.GetOptions{})).
 		Should(Equal(webhookConfigAfterConfigUpdate), "webhook should change after cert change")
 	// keep test store and tracker in-sync
-	c.configStore.Update(webhookConfigAfterConfigUpdate)
+	_ = c.configStore.Update(webhookConfigAfterConfigUpdate)
 
 	// verify config is not updated if the config file is bad
 	c.injectedMu.Lock()

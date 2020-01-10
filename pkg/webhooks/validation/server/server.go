@@ -353,7 +353,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	}
 }
 
-func (wh *Webhook) serveReady(w http.ResponseWriter, r *http.Request) {
+func (wh *Webhook) serveReady(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
