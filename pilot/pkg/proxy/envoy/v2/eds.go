@@ -851,6 +851,8 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 			continue
 		}
 
+		groupCount +=  len(l.EndpointGroups)
+
 		loadAssignments = append(loadAssignments, l)
 	}
 
