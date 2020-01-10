@@ -74,6 +74,9 @@ type SourceAnalyzer struct {
 	namespace            resource.Namespace
 	istioNamespace       resource.Namespace
 
+	// List of code and resource suppressions to exclude messages on
+	suppressions []snapshotter.AnalysisSuppression
+
 	// Mesh config for this analyzer. This can come from multiple sources, and the last added version will take precedence.
 	meshCfg *v1alpha1.MeshConfig
 
@@ -176,6 +179,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		TriggerSnapshot:    snapshots.LocalAnalysis,
 		CollectionReporter: sa.collectionReporter,
 		AnalysisNamespaces: namespaces,
+		Suppressions:       sa.suppressions,
 	}
 	distributor := snapshotter.NewAnalyzingDistributor(distributorSettings)
 
@@ -202,6 +206,13 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 
 	result.Messages = updater.Get()
 	return result, nil
+}
+
+// SetSuppressions will set the list of suppressions for the analyzer. Any
+// resource that matches the provided suppression will not be included in the
+// final message output.
+func (sa *SourceAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSuppression) {
+	sa.suppressions = suppressions
 }
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
