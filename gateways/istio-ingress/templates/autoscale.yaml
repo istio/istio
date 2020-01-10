@@ -6,8 +6,7 @@ metadata:
   name: istio-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ $gateway.autoscaleMax }}

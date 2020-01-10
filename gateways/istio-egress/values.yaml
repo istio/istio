@@ -22,7 +22,11 @@ gateways:
       # This can be a real domain name ( istio.example.com )
       suffix: global
       enabled: true
-
+    
+    labels:
+      app: istio-egressgateway
+      istio: egressgateway
+  
 
     # Scalability tunning
     # replicaCount: 1

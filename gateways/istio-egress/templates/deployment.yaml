@@ -1,12 +1,11 @@
 {{ $gateway := index .Values "gateways" "istio-egressgateway" }}
-{{- $labels := (dict "app" "istio-egressgateway" "istio" "egressgateway") }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-{{ $labels | toYaml | indent 4 }}
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
 {{- if not $gateway.autoscaleEnabled }}
@@ -16,8 +15,7 @@ spec:
 {{- end }}
   selector:
     matchLabels:
-      app: istio-egressgateway
-      istio: egressgateway
+{{ $gateway.labels | toYaml | indent 6 }}
   strategy:
     rollingUpdate:
       maxSurge: {{ $gateway.rollingMaxSurge }}
@@ -25,7 +23,7 @@ spec:
   template:
     metadata:
       labels:
-{{ $labels | toYaml | indent 8 }}
+{{ $gateway.labels | toYaml | indent 8 }}
 {{- if eq .Release.Namespace "istio-system"}}
         heritage: Tiller
         release: istio
@@ -214,7 +212,7 @@ spec:
 {{ end }}
           - name: ISTIO_METAJSON_LABELS
             value: |
-              {{ $labels | toJson }}
+              {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           - name: SDS_ENABLED

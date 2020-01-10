@@ -6,7 +6,7 @@ metadata:
   name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   selector:
@@ -26,7 +26,7 @@ metadata:
   name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }} 
   labels:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   gateways:
@@ -51,18 +51,18 @@ metadata:
   name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
-   workloadLabels:
-     istio: egressgateway
-   filters:
-   - listenerMatch:
-       portNumber: 15443
-       listenerType: GATEWAY
-     filterName: envoy.filters.network.sni_cluster
-     filterType: NETWORK
-     filterConfig: {}
+  workloadLabels:
+    istio: egressgateway
+  filters:
+  - listenerMatch:
+      portNumber: 15443
+      listenerType: GATEWAY
+    filterName: envoy.filters.network.sni_cluster
+    filterType: NETWORK
+    filterConfig: {}
 ---
 ## To ensure all traffic to *.global is using mTLS
 apiVersion: networking.istio.io/v1alpha3
@@ -71,7 +71,7 @@ metadata:
   name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   host: "*.{{ $gateway.zvpn.suffix }}"

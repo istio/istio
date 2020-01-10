@@ -10,9 +10,8 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    istio: ingressgateway
 spec:
 {{- if $gateway.loadBalancerIP }}
   loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
@@ -26,7 +25,7 @@ spec:
 {{- end }}
   type: {{ $gateway.type }}
   selector:
-    app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
   ports:
 
     {{- range $key, $val := $gateway.ports }}
