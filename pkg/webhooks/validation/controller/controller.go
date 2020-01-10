@@ -128,15 +128,15 @@ func (o Options) Validate() error {
 // String produces a stringified version of the arguments for debugging.
 func (o Options) String() string {
 	buf := &bytes.Buffer{}
-	fmt.Fprintf(buf, "WatchedNamespace: %v\n", o.WatchedNamespace)
-	fmt.Fprintf(buf, "ResyncPeriod: %v\n", o.ResyncPeriod)
-	fmt.Fprintf(buf, "CAPath: %v\n", o.CAPath)
-	fmt.Fprintf(buf, "WebhookConfigName: %v\n", o.WebhookConfigName)
-	fmt.Fprintf(buf, "WebhookConfigPath: %v\n", o.WebhookConfigPath)
-	fmt.Fprintf(buf, "ServiceName: %v\n", o.ServiceName)
-	fmt.Fprintf(buf, "DeferToDeploymentName: %v\n", o.DeferToDeploymentName)
-	fmt.Fprintf(buf, "ClusterRoleName: %v\n", o.ClusterRoleName)
-	fmt.Fprintf(buf, "UnregisterValidationWebhook: %v\n", o.UnregisterValidationWebhook)
+	_, _ = fmt.Fprintf(buf, "WatchedNamespace: %v\n", o.WatchedNamespace)
+	_, _ = fmt.Fprintf(buf, "ResyncPeriod: %v\n", o.ResyncPeriod)
+	_, _ = fmt.Fprintf(buf, "CAPath: %v\n", o.CAPath)
+	_, _ = fmt.Fprintf(buf, "WebhookConfigName: %v\n", o.WebhookConfigName)
+	_, _ = fmt.Fprintf(buf, "WebhookConfigPath: %v\n", o.WebhookConfigPath)
+	_, _ = fmt.Fprintf(buf, "ServiceName: %v\n", o.ServiceName)
+	_, _ = fmt.Fprintf(buf, "DeferToDeploymentName: %v\n", o.DeferToDeploymentName)
+	_, _ = fmt.Fprintf(buf, "ClusterRoleName: %v\n", o.ClusterRoleName)
+	_, _ = fmt.Fprintf(buf, "UnregisterValidationWebhook: %v\n", o.UnregisterValidationWebhook)
 	return buf.String()
 }
 

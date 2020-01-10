@@ -20,12 +20,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync/atomic"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
 
@@ -102,15 +102,15 @@ func NewValidationServer(
 	liveness probe.Controller,
 	readiness probe.Controller,
 ) process.Component {
+	stop := make(chan struct{})
+	var stopped int32 // atomic
 	return process.ComponentFromFns(
 		// start
 		func() error {
-			stop := make(chan struct{})
-
 			log.Infof("Galley validation server started with \n%s", &options)
 
 			options.MixerValidator = validate.NewDefaultValidator(false)
-			options.PilotDescriptor = schemas.Istio
+			options.Schemas = collections.Istio
 			s, err := server.New(options)
 			if err != nil {
 				return fmt.Errorf("cannot create validation webhook service: %v", err)
@@ -142,16 +142,19 @@ func NewValidationServer(
 			}
 
 			go s.Run(stop)
-			go cmd.WaitSignal(stop)
 			return nil
 		},
 		// stop
 		func() {
-			// server doesn't have a stop function.
+			if atomic.CompareAndSwapInt32(&stopped, 0, 1) {
+				close(stop)
+			}
 		})
 }
 
 func NewValidationController(options controller.Options, kubeconfig string) process.Component {
+	stop := make(chan struct{})
+	var stopped int32 // atomic
 	return process.ComponentFromFns(
 		// start
 		func() error {
@@ -169,13 +172,14 @@ func NewValidationController(options controller.Options, kubeconfig string) proc
 			if err != nil {
 				return err
 			}
-			stop := make(chan struct{})
+
 			go c.Start(stop)
-			go cmd.WaitSignal(stop)
 			return nil
 		},
 		// stop
 		func() {
-			// controller doesn't have a stop function
+			if atomic.CompareAndSwapInt32(&stopped, 0, 1) {
+				close(stop)
+			}
 		})
 }

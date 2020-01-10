@@ -76,6 +76,10 @@ func serverCmd() *cobra.Command {
 				log.Fatalf("Invalid validation controller args: %v", err)
 			}
 
+			serverArgs.ValidationWebhookControllerArgs.ClusterRoleName = fmt.Sprintf("%s-%s",
+				serverArgs.ValidationWebhookControllerArgs.ServiceName,
+				serverArgs.ValidationWebhookControllerArgs.WatchedNamespace)
+
 			s := server.New(serverArgs)
 			if err := s.Start(); err != nil {
 				log.Fatalf("Error creating server: %v", err)

@@ -32,18 +32,17 @@ import (
 	kubeApiAdmission "k8s.io/api/admission/v1beta1"
 	kubeApiApps "k8s.io/api/apps/v1beta1"
 	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
-	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/util/pb"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema"
 )
 
 var scope = log.RegisterScope("validationServer", "validation webhook server", 0)
@@ -79,8 +78,8 @@ type Options struct {
 	// MixerValidator implements the backend validator functions for mixer configuration.
 	MixerValidator store.BackendValidator
 
-	// PilotDescriptor provides a description of all pilot configuration resources.
-	PilotDescriptor schema.Set
+	// Schemas provides a description of all configuration resources excluding mixer types.
+	Schemas collection.Schemas
 
 	// DomainSuffix is the DNS domain suffix for Pilot CRD resources,
 	// e.g. cluster.local.
@@ -104,10 +103,10 @@ type Options struct {
 func (o Options) String() string {
 	buf := &bytes.Buffer{}
 
-	fmt.Fprintf(buf, "DomainSuffix: %s\n", o.DomainSuffix)
-	fmt.Fprintf(buf, "Port: %d\n", o.Port)
-	fmt.Fprintf(buf, "CertFile: %s\n", o.CertFile)
-	fmt.Fprintf(buf, "KeyFile: %s\n", o.KeyFile)
+	_, _ = fmt.Fprintf(buf, "DomainSuffix: %s\n", o.DomainSuffix)
+	_, _ = fmt.Fprintf(buf, "Port: %d\n", o.Port)
+	_, _ = fmt.Fprintf(buf, "CertFile: %s\n", o.CertFile)
+	_, _ = fmt.Fprintf(buf, "KeyFile: %s\n", o.KeyFile)
 
 	return buf.String()
 }
@@ -129,7 +128,7 @@ type Webhook struct {
 	cert *tls.Certificate
 
 	// pilot
-	descriptor   schema.Set
+	schemas      collection.Schemas
 	domainSuffix string
 
 	// mixer
@@ -185,8 +184,8 @@ func reloadKeyCert(certFile, keyFile string) (*tls.Certificate, error) {
 func New(p Options) (*Webhook, error) {
 	if p.Mux != nil {
 		wh := &Webhook{
-			descriptor: p.PilotDescriptor,
-			validator:  p.MixerValidator,
+			schemas:   p.Schemas,
+			validator: p.MixerValidator,
 		}
 
 		p.Mux.HandleFunc("/admitpilot", wh.serveAdmitPilot)
@@ -216,7 +215,7 @@ func New(p Options) (*Webhook, error) {
 		certFile:       p.CertFile,
 		keyCertWatcher: keyCertWatcher,
 		cert:           pair,
-		descriptor:     p.PilotDescriptor,
+		schemas:        p.Schemas,
 		validator:      p.MixerValidator,
 	}
 
@@ -233,7 +232,7 @@ func New(p Options) (*Webhook, error) {
 
 //Stop the server
 func (wh *Webhook) Stop() {
-	wh.server.Close() // nolint: errcheck
+	_ = wh.server.Close()
 }
 
 var readyHook = func() {}
@@ -382,21 +381,21 @@ func (wh *Webhook) admitPilot(request *kubeApiAdmission.AdmissionRequest) *kubeA
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
-	s, exists := wh.descriptor.GetByType(crd.CamelCaseToKebabCase(obj.Kind))
+	s, exists := wh.schemas.FindByGroupAndKind(obj.GroupVersionKind().Group, obj.Kind)
 	if !exists {
 		scope.Infof("unrecognized type %v", obj.Kind)
 		reportValidationFailed(request, reasonUnknownType)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
 	}
 
-	out, err := crd.ConvertObject(s, &obj, wh.domainSuffix)
+	spec, err := pb.UnmarshalFromJSONMap(s, obj.GetSpec())
 	if err != nil {
 		scope.Infof("error decoding configuration: %v", err)
 		reportValidationFailed(request, reasonCRDConversionError)
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
-	if err := s.Validate(out.Name, out.Namespace, out.Spec); err != nil {
+	if err := s.Resource().ValidateProto(obj.Name, obj.Namespace, spec); err != nil {
 		scope.Infof("configuration is invalid: %v", err)
 		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))
@@ -421,13 +420,22 @@ func (wh *Webhook) admitMixer(request *kubeApiAdmission.AdmissionRequest) *kubeA
 	switch request.Operation {
 	case kubeApiAdmission.Create, kubeApiAdmission.Update:
 		ev.Type = store.Update
-		var obj unstructured.Unstructured
+		var obj crd.IstioKind
 		if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
 			reportValidationFailed(request, reasonYamlDecodeError)
 			return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 		}
 
-		ev.Value = mixerCrd.ToBackEndResource(&obj)
+		ev.Value = &store.BackEndResource{
+			Metadata: store.ResourceMeta{
+				Name:        obj.Name,
+				Namespace:   obj.Namespace,
+				Labels:      obj.Labels,
+				Annotations: obj.Annotations,
+				Revision:    obj.ResourceVersion,
+			},
+			Spec: obj.Spec,
+		}
 		ev.Key.Name = ev.Value.Metadata.Name
 
 		if reason, err := checkFields(request.Object.Raw, request.Kind.Kind, request.Namespace, ev.Key.Name); err != nil {
