@@ -21,8 +21,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema"
 )
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
@@ -30,22 +30,26 @@ var errorUnsupported = errors.New("unsupported operation: the config aggregator 
 // Make creates an aggregate config store from several config stores and
 // unifies their descriptors
 func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
-	union := schema.Set{}
+	union := collection.NewSchemasBuilder()
 	storeTypes := make(map[string][]model.ConfigStore)
 	for _, store := range stores {
-		for _, descriptor := range store.ConfigDescriptor() {
-			if len(storeTypes[descriptor.Type]) == 0 {
-				union = append(union, descriptor)
+		for _, s := range store.Schemas().All() {
+			if len(storeTypes[s.Resource().Kind()]) == 0 {
+				if err := union.Add(s); err != nil {
+					return nil, err
+				}
 			}
-			storeTypes[descriptor.Type] = append(storeTypes[descriptor.Type], store)
+			storeTypes[s.Resource().Kind()] = append(storeTypes[s.Resource().Kind()], store)
 		}
 	}
-	if err := union.Validate(); err != nil {
+
+	schemas := union.Build()
+	if err := schemas.Validate(); err != nil {
 		return nil, err
 	}
 	result := &store{
-		descriptor: union,
-		stores:     storeTypes,
+		schemas: schemas,
+		stores:  storeTypes,
 	}
 
 	// in most cases (all cases supported by helm), pilot has only one configStore, but it is always wrapped in this
@@ -84,8 +88,8 @@ func MakeCache(caches []model.ConfigStoreCache) (model.ConfigStoreCache, error) 
 }
 
 type store struct {
-	// descriptor is the unified
-	descriptor schema.Set
+	// schemas is the unified
+	schemas collection.Schemas
 
 	// stores is a mapping from config type to a store
 	stores map[string][]model.ConfigStore
@@ -99,8 +103,8 @@ func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersi
 	return cr.getResourceAtVersion(version, key)
 }
 
-func (cr *store) ConfigDescriptor() schema.Set {
-	return cr.descriptor
+func (cr *store) Schemas() collection.Schemas {
+	return cr.schemas
 }
 
 func (cr *store) Version() string {
@@ -145,15 +149,15 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	return configs, errs.ErrorOrNil()
 }
 
-func (cr *store) Delete(typ, name, namespace string) error {
+func (cr *store) Delete(_, _, _ string) error {
 	return errorUnsupported
 }
 
-func (cr *store) Create(config model.Config) (string, error) {
+func (cr *store) Create(model.Config) (string, error) {
 	return "", errorUnsupported
 }
 
-func (cr *store) Update(config model.Config) (string, error) {
+func (cr *store) Update(model.Config) (string, error) {
 	return "", errorUnsupported
 }
 
@@ -171,10 +175,10 @@ func (cr *storeCache) HasSynced() bool {
 	return true
 }
 
-func (cr *storeCache) RegisterEventHandler(typ string, handler func(model.Config, model.Config, model.Event)) {
+func (cr *storeCache) RegisterEventHandler(kind string, handler func(model.Config, model.Config, model.Event)) {
 	for _, cache := range cr.caches {
-		if _, exists := cache.ConfigDescriptor().GetByType(typ); exists {
-			cache.RegisterEventHandler(typ, handler)
+		if _, exists := cache.Schemas().FindByKind(kind); exists {
+			cache.RegisterEventHandler(kind, handler)
 		}
 	}
 }

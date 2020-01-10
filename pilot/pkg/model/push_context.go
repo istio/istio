@@ -26,12 +26,12 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/monitoring"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -820,24 +820,28 @@ func (ps *PushContext) updateContext(
 
 	for k := range pushReq.ConfigTypesUpdated {
 		switch k {
-		case schemas.ServiceEntry.Type, schemas.SyntheticServiceEntry.Type:
+		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Kind():
 			servicesChanged = true
-		case schemas.DestinationRule.Type:
+		case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind():
 			destinationRulesChanged = true
-		case schemas.VirtualService.Type:
+		case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind():
 			virtualServicesChanged = true
-		case schemas.Gateway.Type:
+		case collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind():
 			gatewayChanged = true
-		case schemas.Sidecar.Type:
+		case collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind():
 			sidecarsChanged = true
-		case schemas.EnvoyFilter.Type:
+		case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind():
 			envoyFiltersChanged = true
-		case schemas.ServiceRoleBinding.Type, schemas.ServiceRole.Type,
-			schemas.ClusterRbacConfig.Type, schemas.RbacConfig.Type,
-			schemas.AuthorizationPolicy.Type:
+		case collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(),
+			collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(),
+			collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Kind(),
+			collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind():
 			authzChanged = true
-		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type,
-			schemas.RequestAuthentication.Type:
+		case collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
+			collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(),
+			collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind():
 			authnChanged = true
 		}
 	}
@@ -985,7 +989,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 	ps.AuthnBetaPolicies = initAuthenticationPolicies(env)
 
 	// Processing alpha policy. This will be removed after beta API released.
-	authNPolicies, err := env.List(schemas.AuthenticationPolicy.Type, NamespaceAll)
+	authNPolicies, err := env.List(collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1023,7 +1027,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 		}
 	}
 
-	if specs, err := env.List(schemas.AuthenticationMeshPolicy.Type, NamespaceAll); err == nil {
+	if specs, err := env.List(collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(), NamespaceAll); err == nil {
 		for _, spec := range specs {
 			if spec.Name == constants.DefaultAuthenticationPolicyName {
 				ps.AuthnPolicies.defaultMeshPolicy = spec.Spec.(*authn.Policy)
@@ -1048,7 +1052,7 @@ func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSe
 func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.privateVirtualServicesByNamespace = map[string][]Config{}
 	ps.publicVirtualServices = []Config{}
-	virtualServices, err := env.List(schemas.VirtualService.Type, NamespaceAll)
+	virtualServices, err := env.List(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1204,7 +1208,7 @@ func (ps *PushContext) initDefaultExportMaps() {
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
 func (ps *PushContext) initSidecarScopes(env *Environment) error {
-	sidecarConfigs, err := env.List(schemas.Sidecar.Type, NamespaceAll)
+	sidecarConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1266,7 +1270,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 // Split out of DestinationRule expensive conversions - once per push.
 func (ps *PushContext) initDestinationRules(env *Environment) error {
-	configs, err := env.List(schemas.DestinationRule.Type, NamespaceAll)
+	configs, err := env.List(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1418,7 +1422,7 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment) error {
-	envoyFilterConfigs, err := env.List(schemas.EnvoyFilter.Type, NamespaceAll)
+	envoyFilterConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1492,7 +1496,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 
 // pre computes gateways per namespace
 func (ps *PushContext) initGateways(env *Environment) error {
-	gatewayConfigs, err := env.List(schemas.Gateway.Type, NamespaceAll)
+	gatewayConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
