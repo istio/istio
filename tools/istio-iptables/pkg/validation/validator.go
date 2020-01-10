@@ -42,6 +42,7 @@ type Config struct {
 	ServerListenAddress []string
 	ServerOriginalPort  uint16
 	ServerOriginalIP    net.IP
+	ServerReadyBarrier  chan ReturnCode
 }
 type Service struct {
 	Config *Config
@@ -64,6 +65,7 @@ func (validator *Validator) Run() error {
 	// infinite loop
 	go func() {
 		c := Client{Config: validator.Config}
+		<- c.Config.ServerReadyBarrier
 		for {
 			_ = c.Run()
 			// Avoid spamming the request to the validation server.
@@ -115,6 +117,7 @@ func NewValidator(config *config.Config, hostIP net.IP) *Validator {
 			ServerListenAddress: genListenerAddress(listenIP, []string{config.ProxyPort, config.InboundCapturePort}),
 			ServerOriginalPort:  config.IptablesProbePort,
 			ServerOriginalIP:    serverIP,
+			ServerReadyBarrier:  make(chan ReturnCode, 1),
 		},
 	}
 }
@@ -161,11 +164,10 @@ func (s *Service) Run() error {
 	c := make(chan ReturnCode, 2)
 	hasAtLeastOneListener := false
 	for _, addr := range s.Config.ServerListenAddress {
+		fmt.Println("Listening on " + addr)
 			config := &net.ListenConfig{Control: reuseAddr}
 
 				l, err := config.Listen(context.Background(), "tcp", addr) // bind to the address:port
-//		l, err := net.Listen("tcp", addr)
-		fmt.Println("Listening on " + addr)
 		if err != nil {
 			fmt.Println("Error on listening:", err.Error())
 			continue
@@ -173,9 +175,9 @@ func (s *Service) Run() error {
 
 		hasAtLeastOneListener = true
 		go restoreOriginalAddress(l, s.Config, c)
-
 	}
 	if hasAtLeastOneListener {
+		s.Config.ServerReadyBarrier <- DONE
 		// bump at least one since we currently support either v4 or v6
 		<-c
 		return nil
