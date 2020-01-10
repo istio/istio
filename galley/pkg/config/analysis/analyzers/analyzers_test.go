@@ -475,21 +475,6 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 	}
 }
 
-// Note that what gets measured here is both the input pipeline (reading in YAML files, turning it into a snapshot) and the analysis.
-// TODO: Can I separate those, so I can measure only the latter?
-// TODO: Can I adapt this for scale? Or separate scaling-sensitive tests?
-func BenchmarkAnalyzers(b *testing.B) {
-	for _, tc := range testGrid {
-		tc := tc // Capture range variable so subtests work correctly
-		b.Run(tc.name+"-bench", func(b *testing.B) {
-			_, err := setupAndRunCase(tc, nil)
-			if err != nil {
-				b.Fatalf("Error running benchmark on testcase %s: %v", tc.name, err)
-			}
-		})
-	}
-}
-
 func setupAndRunCase(tc testCase, cr snapshotter.CollectionReporterFn) (local.AnalysisResult, error) {
 	// Default processing log level is too chatty for these tests
 	prevLogLevel := scope.Processing.GetOutputLevel()
