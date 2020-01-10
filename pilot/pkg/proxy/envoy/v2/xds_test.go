@@ -307,34 +307,6 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	return server, tearDown
 }
 
-// localPilotTestEnv sets up pilot for local testing and initializes by invoking passed in init func, thay may set up
-// sevices/endpoints needed for the test.
-func localPilotTestEnv(t *testing.T, init func(server *bootstrap.Server)) (*bootstrap.Server, util.TearDownFunc) {
-	initMutex.Lock()
-	defer initMutex.Unlock()
-
-	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
-		args.Plugins = bootstrap.DefaultPlugins
-	})
-	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
-	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
-	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
-	testEnv.IstioSrc = env.IstioSrc
-	testEnv.IstioOut = env.IstioOut
-
-	localIP = getLocalIP()
-
-	init(server)
-
-	// Update cache
-	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
-	// TODO: channel to notify when the push is finished and to notify individual updates, for
-	// debug and for the canary.
-	time.Sleep(2 * time.Second)
-
-	return server, tearDown
-}
-
 // nolint: unparam
 func testPorts(base int) []*model.Port {
 	return []*model.Port{

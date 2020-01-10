@@ -245,7 +245,6 @@ func TestEndpointFlipFlops(t *testing.T) {
 
 // Validate that deleting a service clears entries from EndpointShardsByService.
 func TestDeleteService(t *testing.T) {
-	initLocalPilotTestEnv(t)
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
