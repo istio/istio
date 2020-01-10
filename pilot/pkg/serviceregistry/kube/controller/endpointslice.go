@@ -20,7 +20,6 @@ import (
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
