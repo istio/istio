@@ -35,6 +35,7 @@ import (
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -94,15 +95,26 @@ func (hasher) ID(*core.Node) string {
 	return ""
 }
 
+// XDSConf has config for XDS server
+type XDSConf struct {
+	Port int
+	CertFile string
+	KeyFile string
+}
+
 // StartXDSServer sets up a mock XDS server
-func StartXDSServer(t *testing.T, xdsPort int, cb *XDSCallbacks, ls *DynamicListener) *grpc.Server {
+func StartXDSServer(t *testing.T, conf XDSConf, cb *XDSCallbacks, ls *DynamicListener) *grpc.Server {
 	snapshotCache := cache.NewSnapshotCache(false, hasher{}, nil)
 	server := xds.NewServer(context.Background(), snapshotCache, cb)
-	gRPCServer := grpc.NewServer()
-
-	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", xdsPort))
+	tlsCred, err := credentials.NewServerTLSFromFile(conf.CertFile, conf.KeyFile)
 	if err != nil {
-		t.Fatalf("xDS server failed to listen on %s: %v", fmt.Sprintf(":%d", xdsPort), err)
+		t.Fatalf("Failed to setup TLS: %v", err)
+	}
+	gRPCServer := grpc.NewServer(grpc.Creds(tlsCred))
+
+	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", conf.Port))
+	if err != nil {
+		t.Fatalf("xDS server failed to listen on %s: %v", fmt.Sprintf(":%d", conf.Port), err)
 	}
 	t.Logf("xDS server listens on %s", lis.Addr().String())
 	discovery.RegisterAggregatedDiscoveryServiceServer(gRPCServer, server)

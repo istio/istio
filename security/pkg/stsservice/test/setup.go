@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -29,6 +30,7 @@ import (
 	"google.golang.org/grpc"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 
+	istioEnv "istio.io/istio/pkg/test/env"
 	proxyEnv "istio.io/istio/mixer/test/client/env"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
@@ -37,73 +39,10 @@ import (
 )
 
 const (
-	envoyConf = `
-admin:
-  access_log_path: {{.AccessLogPath}}
-  address:
-    socket_address:
-      address: 127.0.0.1
-      port_value: {{.Ports.AdminPort}}
-node:
-  id: id
-  cluster: unknown
-dynamic_resources:
-  lds_config: { ads: {} }
-  ads_config:
-    api_type: GRPC
-    grpc_services:
-    - google_grpc:
-        target_uri: 127.0.0.1:{{.Ports.DiscoveryPort}}
-        stat_prefix: xdsStats
-        call_credentials:
-          sts_service:
-            token_exchange_service_uri: http://127.0.0.1:{{.Ports.ServerProxyPort}}/token
-            subject_token_path: {{.TokenPath}}
-            subject_token_type: urn:ietf:params:oauth:token-type:jwt
-            scope: https://www.googleapis.com/auth/cloud-platform
-static_resources:
-  clusters:
-  - name: backend
-    connect_timeout: 5s
-    type: STATIC
-    hosts:
-    - socket_address:
-        address: 127.0.0.1
-        port_value: {{.Ports.BackendPort}}
-  listeners:
-    name: listener_0
-    address:
-      socket_address:
-        address: 127.0.0.1
-        port_value: 30000
-    filter_chains:
-    - filters:
-      - name: envoy.http_connection_manager
-        config:
-          stat_prefix: staticListener
-          route_config:
-            name: staticRoute
-            virtual_hosts:
-            - name: backend
-              domains: ["*"]
-              routes:
-              - match:
-                  prefix: /
-                route:
-                  cluster: backend
-`
-
-	initialToken = `eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJhdWQiOlsiaHR0cHM6Ly9jb250YWluZXIuZ29vZ2xlYXBpcy5jb20vdjEvcHJvamV
-jdHMvaGVsbG8taXN0aW8tMjM3MDIwL2xvY2F0aW9ucy91cy1jZW50cmFsMS1hL2NsdXN0ZXJzL2FkdmVudHVyZSJdLCJleHAiOjE
-1NjMzNDE5MDIsImlhdCI6MTU2MzI5ODcwMiwiaXNzIjoiaHR0cHM6Ly9jb250YWluZXIuZ29vZ2xlYXBpcy5jb20vdjEvcHJvamV
-jdHMvaGVsbG8taXN0aW8tMjM3MDIwL2xvY2F0aW9ucy91cy1jZW50cmFsMS1hL2NsdXN0ZXJzL2FkdmVudHVyZSIsImt1YmVybmV
-0ZXMuaW8iOnsibmFtZXNwYWNlIjoiZGVmYXVsdCIsInBvZCI6eyJuYW1lIjoic2xlZXAtNjk1YzY3Y2I1LTRxOTg1IiwidWlkIjo
-iODFhODdiNWItYTdmMC0xMWU5LWE5YjktNDIwMTBhODAwMWYxIn0sInNlcnZpY2VhY2NvdW50Ijp7Im5hbWUiOiJzbGVlcCIsInV
-pZCI6IjFmMmRkYjBmLTlkMTUtMTFlOS04NzViLTQyMDEwYTgwMDA4YiJ9fSwibmJmIjoxNTYzMjk4NzAyLCJzdWIiOiJzeXN0ZW0
-6c2VydmljZWFjY291bnQ6ZGVmYXVsdDpzbGVlcCJ9.qPpJN7p_G5yYNWgqLdWWivhPg2_ODr4dp6AR-uAPuW1a598jSH4r3Y4ZNy
-DShe4lepBamsmDdAL3cJnX-XfR38npYD6h6a-b2OU-ujWakSKrmN_fXha-EyHGmZj3u-fo-KxgR5OsiUWKDAHkmpmVevtAgA0USG
-gBOAZRK-biv1Gtw3ufgVcrlqT9A9dPuo1RE3h8_jFnfr8Gt3nIQ67jE9zwatggylMMUDeoQKHwF7ksCkAtEZmPj2JuOtuSYIgMuc
-GRGRJbd7qo8OngJDPCRrJqRV-7m-xf41GZoNnJEKvM8HbPwfW0htLAXFQr_IDPOAOoZ2sViJMi7Ww1HUfIew`
+	// Paths to credentials which will be loaded by proxy. These paths should
+	// match bootstrap config in testdata/bootstrap.yaml
+	certPath = "/tmp/sts-ca-certificates.crt"
+	proxyTokenPath = "/tmp/sts-envoy-token"
 )
 
 type Env struct{
@@ -120,7 +59,32 @@ func (e *Env) TearDown() {
 	e.xDSServer.GracefulStop()
 	e.stsServer.Stop()
 	e.proxySetUp.TearDown()
-	os.Remove(e.proxySetUp.TokenPath)
+	os.Remove(proxyTokenPath)
+}
+
+func getDataFromFile(filePath string, t *testing.T) string {
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("failed to read %q", filePath)
+	}
+	return string(data)
+}
+
+// setUpCredentialsInFile prepares initial credential for proxy to load
+func setUpCredentialsInFile(path string, cred string) error {
+	if path == "" {
+		return errors.New("empty file path")
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err = f.WriteString(cred); err != nil {
+		return err
+	}
+	f.Sync()
+	return nil
 }
 
 // SetUpTest starts Envoy, XDS server, STS server, token manager, and a token service backend.
@@ -138,7 +102,7 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 	// Set up test environment for Proxy
 	proxySetUp := proxyEnv.NewTestSetup(proxyEnv.STSTest, t)
 	proxySetUp.SetNoMixer(true)
-	proxySetUp.EnvoyTemplate = envoyConf
+	proxySetUp.EnvoyTemplate = getDataFromFile("testdata/bootstrap.yaml", t)
 	env.proxySetUp = proxySetUp
 	// Set up auth server that provides token service
 	backend, err := tokenBackend.StartNewServer(t, int(proxySetUp.Ports().MixerPort))
@@ -147,7 +111,7 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 	}
 	env.authServer = backend
 	// Set up STS server
-	stsServer, err := SetUpSTS(int(proxySetUp.Ports().ServerProxyPort), backend.URL)
+	stsServer, err := setUpSTS(int(proxySetUp.Ports().ServerProxyPort), backend.URL)
 	if err != nil {
 		t.Fatalf("failed to start a STS server: %v", err)
 	}
@@ -158,17 +122,25 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 	// Set up XDS server
 	env.ProxyListenerPort = int(proxySetUp.Ports().ClientProxyPort)
 	ls := &xdsService.DynamicListener{Port: env.ProxyListenerPort}
-	env.xDSServer = xdsService.StartXDSServer(t, int(proxySetUp.Ports().DiscoveryPort), cb, ls)
+	env.xDSServer = xdsService.StartXDSServer(t,
+		xdsService.XDSConf{Port: int(proxySetUp.Ports().DiscoveryPort),
+			CertFile: istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-certificate.crt",
+			KeyFile: istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-key.key"}, cb, ls)
 
-	// Generate bootstrap config and start proxy
-	if err := SetUpTokenFile(proxySetUp.TokenPath); err != nil {
-		t.Fatalf("failed to set up token file %s: %v", proxySetUp.TokenPath, err)
+	// Set up credential files for bootstrap config
+	jwtToken := getDataFromFile("testdata/trustworthy-jwt.jwt", t)
+	if err := setUpCredentialsInFile(proxyTokenPath, jwtToken); err != nil {
+		t.Fatalf("failed to set up token file %s: %v", proxyTokenPath, err)
 	}
-
+	caCert := getDataFromFile("testdata/ca-certificate.crt", t)
+	if err := setUpCredentialsInFile(certPath, caCert); err != nil {
+		t.Fatalf("failed to set up ca certificate file %s: %v", certPath, err)
+	}
 	return env
 }
 
 func (e *Env) StartProxy(t *testing.T) {
+	//e.proxySetUp.SetUp()
 	if err := e.proxySetUp.SetUp(); err != nil {
 		t.Fatalf("failed to start proxy: %v", err)
 	}
@@ -221,24 +193,7 @@ func (e *Env) genStsReq(t *testing.T, stsAddr string) (req *http.Request) {
 	return req
 }
 
-// SetUpTokenFile prepares initial credential for proxy to load
-func SetUpTokenFile(path string) error {
-	if path == "" {
-		return errors.New("empty file path")
-	}
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if _, err = f.WriteString(initialToken); err != nil {
-		return err
-	}
-	f.Sync()
-	return nil
-}
-
-func SetUpSTS(stsPort int, backendUrl string) (*stsServer.Server, error) {
+func setUpSTS(stsPort int, backendUrl string) (*stsServer.Server, error) {
 	// Create token exchange Google plugin
 	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(tokenBackend.FakeTrustDomain, tokenBackend.FakeProjectNum)
 	federatedTokenTestingEndpoint := backendUrl + "/v1/identitybindingtoken"
