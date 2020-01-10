@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -146,11 +147,11 @@ func TestEdsWeightedServiceEntry(t *testing.T) {
 
 func TestEDSOverlapping(t *testing.T) {
 
-	server, tearDown := localPilotTestEnv(t, func(server *bootstrap.Server) {
-		// add endpoints with multiple ports with the same port number.
-		addOverlappingEndpoints(server)
-	})
+	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
+
+	// add endpoints with multiple ports with the same port number.
+	addOverlappingEndpoints(server)
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
@@ -827,6 +828,7 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			Protocol: protocol.TCP,
 		},
 	})
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true, ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}}})
 }
 
 // Verify the endpoint debug interface is installed and returns some string.
