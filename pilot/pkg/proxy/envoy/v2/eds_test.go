@@ -766,7 +766,6 @@ func addEdsCluster(server *bootstrap.Server, hostName string, portName string, a
 		},
 	})
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
-	time.Sleep(1 * time.Second)
 }
 
 func updateServiceResolution(server *bootstrap.Server) {
@@ -826,7 +825,6 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 		},
 	})
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
-	time.Sleep(1 * time.Second)
 }
 
 // Verify the endpoint debug interface is installed and returns some string.
