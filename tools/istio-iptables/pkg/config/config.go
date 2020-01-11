@@ -36,8 +36,11 @@ type Config struct {
 	OutboundIPRangesInclude string `json:"OUTBOUND_IPRANGES_INCLUDE"`
 	OutboundIPRangesExclude string `json:"OUTBOUND_IPRANGES_EXCLUDE"`
 	KubevirtInterfaces      string `json:"KUBEVIRT_INTERFACES"`
+	IptablesProbePort       uint16 `json:"IPTABLES_PROBE_PORT"`
 	DryRun                  bool   `json:"DRY_RUN"`
 	RestoreFormat           bool   `json:"RESTORE_FORMAT"`
+	SkipRuleApply           bool   `json:"SKIP_RULE_APPLY"`
+	RunValidation           bool   `json:"RUN_VALIDATION"`
 	EnableInboundIPv6       bool   `json:"ENABLE_INBOUND_IPV6"`
 }
 
