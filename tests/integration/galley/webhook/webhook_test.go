@@ -31,7 +31,6 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	tkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/webhooks/validation/server"
 )
 
 var (
@@ -209,7 +209,7 @@ func startGalleyPortForwarderOrFail(t *testing.T, env *kube.Environment, ns stri
 		return tkube.CheckPodReady(galleyPod)
 	}, retry.Timeout(5*time.Minute))
 
-	forwarder, err := env.Accessor.NewPortForwarder(*galleyPod, 0, uint16(validation.DefaultArgs().Port))
+	forwarder, err := env.Accessor.NewPortForwarder(*galleyPod, 0, uint16(server.DefaultArgs().Port))
 	if err != nil {
 		t.Fatalf("failed creating port forwarding to galley: %v", err)
 	}

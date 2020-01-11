@@ -16,6 +16,7 @@
 package controller
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -45,14 +46,13 @@ import (
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 )
 
 var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
 
 type Options struct {
-	Client kubernetes.Interface
-
 	// Istio system namespace in which galley and istiod reside.
 	WatchedNamespace string
 
@@ -73,10 +73,9 @@ type Options struct {
 	// Name of the service running the webhook server.
 	ServiceName string
 
-	// name of the galley deployment in the watched namespace.
 	// When non-empty the controller will defer reconciling config
 	// until the named deployment no longer exists.
-	GalleyDeploymentName string
+	DeferToDeploymentName string
 
 	// Name of the ClusterRole that the controller should assign
 	// cluster-scoped ownership to. The webhook config will be GC'd
@@ -91,6 +90,17 @@ type Options struct {
 	UnregisterValidationWebhook bool
 }
 
+func DefaultArgs() Options {
+	return Options{
+		WatchedNamespace:  "istio-system",
+		CAPath:            constants.DefaultRootCert,
+		WebhookConfigName: "istio-galley",
+		WebhookConfigPath: "/etc/config/validatingwebhookconfiguration.yaml",
+		ServiceName:       "istio-galley",
+		ClusterRoleName:   "istio-galley-istio-system",
+	}
+}
+
 // Validate the options that exposed to end users
 func (o Options) Validate() error {
 	var errs *multierror.Error
@@ -100,8 +110,8 @@ func (o Options) Validate() error {
 	if o.WatchedNamespace == "" || !labels.IsDNS1123Label(o.WatchedNamespace) {
 		errs = multierror.Append(errs, fmt.Errorf("invalid namespace: %q", o.WatchedNamespace)) // nolint: lll
 	}
-	if o.GalleyDeploymentName != "" && !labels.IsDNS1123Label(o.GalleyDeploymentName) {
-		errs = multierror.Append(errs, fmt.Errorf("invalid deployment name: %q", o.GalleyDeploymentName))
+	if o.DeferToDeploymentName != "" && !labels.IsDNS1123Label(o.DeferToDeploymentName) {
+		errs = multierror.Append(errs, fmt.Errorf("invalid deployment name: %q", o.DeferToDeploymentName))
 	}
 	if o.ServiceName == "" || !labels.IsDNS1123Label(o.ServiceName) {
 		errs = multierror.Append(errs, fmt.Errorf("invalid service name: %q", o.ServiceName))
@@ -112,13 +122,29 @@ func (o Options) Validate() error {
 	if o.WebhookConfigPath == "" {
 		errs = multierror.Append(errs, errors.New("webhook config file not specified"))
 	}
-	return errs
+	return errs.ErrorOrNil()
+}
+
+// String produces a stringified version of the arguments for debugging.
+func (o Options) String() string {
+	buf := &bytes.Buffer{}
+	_, _ = fmt.Fprintf(buf, "WatchedNamespace: %v\n", o.WatchedNamespace)
+	_, _ = fmt.Fprintf(buf, "ResyncPeriod: %v\n", o.ResyncPeriod)
+	_, _ = fmt.Fprintf(buf, "CAPath: %v\n", o.CAPath)
+	_, _ = fmt.Fprintf(buf, "WebhookConfigName: %v\n", o.WebhookConfigName)
+	_, _ = fmt.Fprintf(buf, "WebhookConfigPath: %v\n", o.WebhookConfigPath)
+	_, _ = fmt.Fprintf(buf, "ServiceName: %v\n", o.ServiceName)
+	_, _ = fmt.Fprintf(buf, "DeferToDeploymentName: %v\n", o.DeferToDeploymentName)
+	_, _ = fmt.Fprintf(buf, "ClusterRoleName: %v\n", o.ClusterRoleName)
+	_, _ = fmt.Fprintf(buf, "UnregisterValidationWebhook: %v\n", o.UnregisterValidationWebhook)
+	return buf.String()
 }
 
 type readFileFunc func(filename string) ([]byte, error)
 
 type Controller struct {
 	o                 Options
+	client            kubernetes.Interface
 	ownerRefs         []kubeApiMeta.OwnerReference
 	queue             workqueue.RateLimitingInterface
 	sharedInformers   informers.SharedInformerFactory
@@ -161,7 +187,7 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 			if skip {
 				return
 			}
-			req := &reconcileRequest{fmt.Sprintf("adding (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
+			req := &reconcileRequest{fmt.Sprintf("add event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
 			queue.Add(req)
 		},
 		UpdateFunc: func(prev, curr interface{}) {
@@ -171,7 +197,7 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 				return
 			}
 			if !reflect.DeepEqual(prev, curr) {
-				req := &reconcileRequest{fmt.Sprintf("update (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
+				req := &reconcileRequest{fmt.Sprintf("update event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
 				queue.Add(req)
 			}
 		},
@@ -190,7 +216,7 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 			if skip {
 				return
 			}
-			req := &reconcileRequest{fmt.Sprintf("delete (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
+			req := &reconcileRequest{fmt.Sprintf("delete event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
 			queue.Add(req)
 		},
 	}
@@ -204,6 +230,12 @@ var (
 )
 
 func findClusterRoleOwnerRefs(client kubernetes.Interface, clusterRoleName string) []kubeApiMeta.OwnerReference {
+	if clusterRoleName == "" {
+		scope.Warn("No clusterrole specified to set ownerRef. " +
+			"The webhook configuration must be deleted manually.")
+		return nil
+	}
+
 	clusterRole, err := client.RbacV1().ClusterRoles().Get(clusterRoleName, kubeApiMeta.GetOptions{})
 	if err != nil {
 		scope.Warnf("Could not find clusterrole: %s to set ownerRef. "+
@@ -220,12 +252,13 @@ func findClusterRoleOwnerRefs(client kubernetes.Interface, clusterRoleName strin
 	}
 }
 
-func New(o Options) (*Controller, error) {
-	return newController(o, filewatcher.NewWatcher, ioutil.ReadFile, nil)
+func New(o Options, client kubernetes.Interface) (*Controller, error) {
+	return newController(o, client, filewatcher.NewWatcher, ioutil.ReadFile, nil)
 }
 
 func newController(
 	o Options,
+	client kubernetes.Interface,
 	newFileWatcher filewatcher.NewFileWatcherFunc,
 	readFile readFileFunc,
 	reconcileDone func(),
@@ -240,14 +273,15 @@ func newController(
 
 	c := &Controller{
 		o:             o,
+		client:        client,
 		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
 		fw:            caFileWatcher,
 		readFile:      readFile,
 		reconcileDone: reconcileDone,
-		ownerRefs:     findClusterRoleOwnerRefs(o.Client, o.ClusterRoleName),
+		ownerRefs:     findClusterRoleOwnerRefs(client, o.ClusterRoleName),
 	}
 
-	c.sharedInformers = informers.NewSharedInformerFactoryWithOptions(o.Client, o.ResyncPeriod,
+	c.sharedInformers = informers.NewSharedInformerFactoryWithOptions(client, o.ResyncPeriod,
 		informers.WithNamespace(o.WatchedNamespace))
 
 	webhookInformer := c.sharedInformers.Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer()
@@ -256,8 +290,11 @@ func newController(
 	endpointInformer := c.sharedInformers.Core().V1().Endpoints().Informer()
 	endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
 
-	deploymentInformer := c.sharedInformers.Apps().V1().Deployments().Informer()
-	deploymentInformer.AddEventHandler(makeHandler(c.queue, deploymentGVK, o.GalleyDeploymentName))
+	if o.DeferToDeploymentName != "" {
+		log.Infof("Deferring reconciliation to controller %v when present", o.DeferToDeploymentName)
+		deploymentInformer := c.sharedInformers.Apps().V1().Deployments().Informer()
+		deploymentInformer.AddEventHandler(makeHandler(c.queue, deploymentGVK, o.DeferToDeploymentName))
+	}
 
 	return c, nil
 }
@@ -335,24 +372,24 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	}()
 
 	scope.Infof("Reconcile(enter): %v", req)
-	defer func() { scope.Info("Reconcile(exit)") }()
+	defer func() { scope.Debugf("Reconcile(exit)") }()
 
 	// don't create the webhook config before the endpoint is ready
 	if !c.endpointReadyOnce {
-		ready, err := c.isEndpointReady()
+		ready, reason, err := c.isEndpointReady()
 		if err != nil {
 			scope.Errorf("Error checking endpoint readiness: %v", err)
 			return err
 		}
 		if !ready {
-			scope.Infof("Endpoint not ready: ready=%v err=%v", ready, err)
+			scope.Infof("Endpoint not ready: %v", reason)
 			return nil
 		}
 		c.endpointReadyOnce = true
 	}
 
 	// don't update the webhook config if its already managed by an existing galley deployment.
-	if c.o.GalleyDeploymentName != "" {
+	if c.o.DeferToDeploymentName != "" {
 		running, err := c.isGalleyDeploymentRunning()
 		if err != nil {
 			scope.Errorf("Error checking galley deployment: %v", err)
@@ -380,17 +417,17 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	return c.updateValidatingWebhookConfiguration(desired)
 }
 
-func (c *Controller) isEndpointReady() (ready bool, err error) {
+func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
 	endpoint, err := c.sharedInformers.Core().V1().
 		Endpoints().Lister().Endpoints(c.o.WatchedNamespace).Get(c.o.ServiceName)
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
-			return false, nil
+			return false, "resource not found", nil
 		}
-		return false, err
+		return false, fmt.Sprintf("error getting resource: %v", err), err
 	}
-	ready, _ = isEndpointReady(endpoint)
-	return ready, nil
+	ready, reason = isEndpointReady(endpoint)
+	return ready, reason, nil
 }
 
 func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string) {
@@ -407,7 +444,7 @@ func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string
 
 func (c *Controller) isGalleyDeploymentRunning() (running bool, err error) {
 	galley, err := c.sharedInformers.Apps().V1().
-		Deployments().Lister().Deployments(c.o.WatchedNamespace).Get(c.o.GalleyDeploymentName)
+		Deployments().Lister().Deployments(c.o.WatchedNamespace).Get(c.o.DeferToDeploymentName)
 
 	// galley does/doesn't exist
 	if err != nil {
@@ -427,7 +464,7 @@ func (c *Controller) isGalleyDeploymentRunning() (running bool, err error) {
 }
 
 func (c *Controller) deleteValidatingWebhookConfiguration() error {
-	err := c.o.Client.AdmissionregistrationV1beta1().
+	err := c.client.AdmissionregistrationV1beta1().
 		ValidatingWebhookConfigurations().Delete(c.o.WebhookConfigName, &kubeApiMeta.DeleteOptions{})
 	if err != nil {
 		scope.Errorf("Failed to delete validatingwebhookconfiguration: %v", err)
@@ -443,14 +480,16 @@ func (c *Controller) updateValidatingWebhookConfiguration(desired *kubeApiAdmiss
 		ValidatingWebhookConfigurations().Lister().Get(c.o.WebhookConfigName)
 
 	if kubeErrors.IsNotFound(err) {
-		_, err := c.o.Client.AdmissionregistrationV1beta1().
+		created, err := c.client.AdmissionregistrationV1beta1().
 			ValidatingWebhookConfigurations().Create(desired)
 		if err != nil {
-			scope.Errorf("Failed to create validatingwebhookconfiguration: %v", err)
+			scope.Errorf("Failed to create validatingwebhookconfiguration %v: %v",
+				c.o.WebhookConfigName, err)
 			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
 			return err
 		}
-		scope.Info("Successfully created validatingwebhookconfiguration")
+		scope.Infof("Successfully created validatingwebhookconfiguration %v (resourceVersion=%v)",
+			c.o.WebhookConfigName, created.ResourceVersion)
 		reportValidationConfigUpdate()
 		return nil
 	}
@@ -460,16 +499,24 @@ func (c *Controller) updateValidatingWebhookConfiguration(desired *kubeApiAdmiss
 	updated.OwnerReferences = desired.OwnerReferences
 
 	if !reflect.DeepEqual(updated, current) {
-		_, err := c.o.Client.AdmissionregistrationV1beta1().
+		latest, err := c.client.AdmissionregistrationV1beta1().
 			ValidatingWebhookConfigurations().Update(updated)
 		if err != nil {
-			scope.Errorf("Failed to update validatingwebhookconfiguration: %v", err)
+			scope.Errorf("Failed to update validatingwebhookconfiguration %v (resourceVersion=%v): %v",
+				c.o.WebhookConfigName, updated.ResourceVersion, err)
 			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
 			return err
 		}
+
+		scope.Infof("Successfully updated validatingwebhookconfiguration %v (resourceVersion=%v)",
+			c.o.WebhookConfigName, latest.ResourceVersion)
+		reportValidationConfigUpdate()
+		return nil
 	}
-	scope.Info("Successfully updated validatingwebhookconfiguration")
-	reportValidationConfigUpdate()
+
+	scope.Infof("validatingwebhookconfiguration %v (resourceVersion=%v) is up-to-date. No change required.",
+		c.o.WebhookConfigName, current.ResourceVersion)
+
 	return nil
 }
 
@@ -486,50 +533,22 @@ func (e configError) Reason() string {
 	return e.reason
 }
 
-func (c *Controller) buildValidatingWebhookConfiguration() (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
-	webhook, err := c.readFile(c.o.WebhookConfigPath)
-	if err != nil {
-		return nil, &configError{err, "could not read validatingwebhookconfiguration file"}
-	}
-	caBundle, err := c.readFile(c.o.CAPath)
-	if err != nil {
-		return nil, &configError{err, "could not read caBundle file"}
-	}
-	return buildValidatingWebhookConfiguration(caBundle, webhook, c.ownerRefs)
-}
-
-func buildValidatingWebhookConfiguration(
-	caBundle, webhook []byte,
-	ownerRefs []kubeApiMeta.OwnerReference,
-) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
-	config, err := decodeValidatingConfig(webhook)
-	if err != nil {
-		return nil, &configError{err, "could not decode validatingwebhookconfiguration file"}
-	}
-	if err := verifyCABundle(caBundle); err != nil {
-		return nil, &configError{err, "could not verify caBundle"}
-	}
-	// update runtime fields
-	config.OwnerReferences = ownerRefs
-	for i := range config.Webhooks {
-		config.Webhooks[i].ClientConfig.CABundle = caBundle
-	}
-
-	return config, nil
-}
-
 var (
 	codec  runtime.Codec
 	scheme *runtime.Scheme
 
-	failurePolicyFail  = kubeApiAdmission.Fail
-	sideEffectsUnknown = kubeApiAdmission.SideEffectClassUnknown
+	// defaults per k8s spec
+	defaultFailurePolicy     = kubeApiAdmission.Fail
+	defaultSideEffects       = kubeApiAdmission.SideEffectClassUnknown
+	defaultTimeout           = int32(30)
+	defaultNamespaceSelector = &kubeApiMeta.LabelSelector{}
+	defaultObjectSelector    = &kubeApiMeta.LabelSelector{}
 )
 
 func init() {
 	scheme = runtime.NewScheme()
 	utilruntime.Must(kubeApiAdmission.AddToScheme(scheme))
-	opt := json.SerializerOptions{true, false, false}
+	opt := json.SerializerOptions{Yaml: true}
 	yamlSerializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme, scheme, opt)
 	codec = versioning.NewDefaultingCodecForScheme(
 		scheme,
@@ -540,26 +559,59 @@ func init() {
 	)
 }
 
-func decodeValidatingConfig(encoded []byte) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
-	var config kubeApiAdmission.ValidatingWebhookConfiguration
-	if _, _, err := codec.Decode(encoded, nil, &config); err != nil {
-		return nil, err
+func (c *Controller) buildValidatingWebhookConfiguration() (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
+	webhook, err := c.readFile(c.o.WebhookConfigPath)
+	if err != nil {
+		return nil, &configError{err, "could not read validatingwebhookconfiguration file"}
+	}
+	caBundle, err := c.readFile(c.o.CAPath)
+	if err != nil {
+		return nil, &configError{err, "could not read caBundle file"}
 	}
 
-	// fill in missing defaults to minimize desired vs. actual diffs later.
-	for i := 0; i < len(config.Webhooks); i++ {
-		if config.Webhooks[i].FailurePolicy == nil {
-			config.Webhooks[i].FailurePolicy = &failurePolicyFail
-		}
-		if config.Webhooks[i].NamespaceSelector == nil {
-			config.Webhooks[i].NamespaceSelector = &kubeApiMeta.LabelSelector{}
-		}
-		if config.Webhooks[i].SideEffects == nil {
-			config.Webhooks[i].SideEffects = &sideEffectsUnknown
-		}
+	var config kubeApiAdmission.ValidatingWebhookConfiguration
+	if _, _, err := codec.Decode(webhook, nil, &config); err != nil {
+		return nil, &configError{err, "could not decode validatingwebhookconfiguration file"}
 	}
+	if err := verifyCABundle(caBundle); err != nil {
+		return nil, &configError{err, "could not verify caBundle"}
+	}
+
+	// update runtime fields
+	config.OwnerReferences = c.ownerRefs
+	for i := range config.Webhooks {
+		config.Webhooks[i].ClientConfig.CABundle = caBundle
+	}
+
+	applyDefaultsAndOverrides(&config, c.o.WebhookConfigName)
 
 	return &config, nil
+}
+
+func applyDefaultsAndOverrides(in *kubeApiAdmission.ValidatingWebhookConfiguration, webhookConfigName string) {
+	// Override the resource name from the file with the name we're watching and
+	// updating. This mirrors the behavior of Galley pre-1.5.
+	in.Name = webhookConfigName
+
+	// Fill in missing defaults to minimize desired vs. actual diffs later.
+	for i := 0; i < len(in.Webhooks); i++ {
+		wh := &in.Webhooks[i]
+		if wh.FailurePolicy == nil {
+			wh.FailurePolicy = &defaultFailurePolicy
+		}
+		if wh.NamespaceSelector == nil {
+			wh.NamespaceSelector = defaultNamespaceSelector
+		}
+		if wh.ObjectSelector == nil {
+			wh.ObjectSelector = defaultObjectSelector
+		}
+		if wh.SideEffects == nil {
+			wh.SideEffects = &defaultSideEffects
+		}
+		if wh.TimeoutSeconds == nil {
+			wh.TimeoutSeconds = &defaultTimeout
+		}
+	}
 }
 
 func verifyCABundle(caBundle []byte) error {
