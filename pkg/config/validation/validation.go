@@ -2174,20 +2174,6 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
 
-		// deprecated
-		for name := range weight.AppendRequestHeaders {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
-		for name := range weight.AppendResponseHeaders {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
-		for _, name := range weight.RemoveRequestHeaders {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
-		for _, name := range weight.RemoveResponseHeaders {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
-
 		// header manipulations
 		for name := range weight.Headers.GetRequest().GetAdd() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
