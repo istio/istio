@@ -1013,11 +1013,8 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	}
 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	var localityLbSettings = meshConfig.LocalityLbSetting
-	if lb != nil && lb.LocalityLbSetting != nil {
-		localityLbSettings = lb.LocalityLbSetting
-	}
-	applyLocalityLBSetting(proxy.Locality, cluster, localityLbSettings)
+	lbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+	applyLocalityLBSetting(proxy.Locality, cluster, lbSetting)
 
 	// The following order is important. If cluster type has been identified as Original DST since Resolution is PassThrough,
 	// and port is named as redis-xxx we end up creating a cluster with type Original DST and LbPolicy as MAGLEV which would be

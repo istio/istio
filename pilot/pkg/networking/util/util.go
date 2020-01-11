@@ -292,7 +292,7 @@ func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Por
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
 	if locality == "" {
-		return nil
+		return &core.Locality{}
 	}
 
 	region, zone, subzone := SplitLocality(locality)

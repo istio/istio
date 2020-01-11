@@ -23,9 +23,36 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	"istio.io/pkg/log"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
+
+func GetLocalityLbSetting(
+	mesh *v1alpha3.LocalityLoadBalancerSetting,
+	destrule *v1alpha3.LocalityLoadBalancerSetting,
+) *v1alpha3.LocalityLoadBalancerSetting {
+	// Locality lb is enabled if its defined in mesh config
+	enabled := mesh != nil
+	// Unless we explicitly override this in destination rule
+	if destrule != nil && destrule.Enabled != nil {
+		enabled = destrule.Enabled.GetValue()
+	}
+	if !enabled {
+		log.Errorf("howardjohn: not enabled! return false %v %v", mesh, destrule)
+		return nil
+	}
+
+	// Destination Rule overrides mesh config. If its defined, use that
+	if destrule != nil {
+		log.Errorf("howardjohn: override %v %v", mesh, destrule)
+		return destrule
+	}
+	log.Errorf("howardjohn: mesh %v %v", mesh, destrule)
+	// Otherwise fall back to mesh default
+	return mesh
+}
 
 func ApplyLocalityLBSetting(
 	locality *core.Locality,

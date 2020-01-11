@@ -687,19 +687,13 @@ func (s *DiscoveryServer) generateEndpoints(
 	}
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
-	if push.Mesh.LocalityLbSetting != nil {
-		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
-		clonedCLA := util.CloneClusterLoadAssignment(l)
-		l = &clonedCLA
-
-		// Failover should only be enabled when there is an outlier detection, otherwise Envoy
-		// will never detect the hosts are unhealthy and redirect traffic.
-		enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, proxy, clusterName)
-		var localityLbSettings = push.Mesh.LocalityLbSetting
-		if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
-			localityLbSettings = loadBalancerSettings.LocalityLbSetting
-		}
-		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, localityLbSettings, enableFailover)
+	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
+	// will never detect the hosts are unhealthy and redirect traffic.
+	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(push, proxy, clusterName)
+	adsLog.Errorf("howardjohn: lb: %v", lb)
+	lbSetting := loadbalancer.GetLocalityLbSetting(push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+	if lbSetting != nil {
+		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, lbSetting, enableFailover)
 	}
 	return l
 }
@@ -755,6 +749,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 // which is needed to access the traffic policy from the destination rule.
 func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname host.Name, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
 	for _, service := range push.Services(proxy) {
+		adsLog.Errorf("howardjohn: check svc %v == %v", service.Hostname, hostname)
 		if service.Hostname == hostname {
 			cfg := push.DestinationRule(proxy, service)
 			if cfg == nil {
@@ -775,6 +770,7 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	var outlierDetectionEnabled = false
 	var lbSettings *networkingapi.LoadBalancerSettings
 	destinationRule, port := getDestinationRule(push, proxy, hostname, portNumber)
+	adsLog.Errorf("howardjohn: dest rule for %v %v %v", proxy.ID, clusterName, destinationRule)
 	if destinationRule == nil || port == nil {
 		return false, nil
 	}
