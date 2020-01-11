@@ -159,27 +159,19 @@ func (s *DiscoveryServer) generateEndpoints(clusterName string, groupName string
 }
 
 // pushEgds is pushing updated EGDS resources for a single connection. This method will only be called when the EGDS feature was enabled.
-func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, version string,
-	updatedClusters map[string]struct{}, updatedGroups map[string]struct{}) error {
+func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, version string, 
+	updatedClusterGroups map[string]struct{}) error {
 	pushStart := time.Now()
-	groups := make([]*xdsapi.EndpointGroup, 0, len(updatedGroups))
+	groups := make([]*xdsapi.EndpointGroup, 0, len(updatedClusterGroups))
 
-	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
-	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
+	// A clusterGroup is combination of Cluster and Endpoint Groups. Because Endpoint Group represent static 
+	// data within a service and the data returned to Envoy should be processed based on different Clusters.
+	// The concept of cluster group is used to represent such key of data.
 	for _, clusterGroup := range con.ClusterGroups {
 		clusterName, groupName := ExtractClusterGroupKeys(clusterGroup)
-
-		if updatedClusters != nil {
-			if _, ok := updatedClusters[clusterName]; !ok {
-				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
-				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
-				continue
-			}
-		}
-
-		if updatedGroups != nil {
-			if _, f := updatedGroups[groupName]; !f {
-				// This happens in an incremental EGDS push.
+		if updatedClusterGroups != nil {
+			if !isNeedUpdate(updatedClusterGroups, clusterName, groupName) {
+				// ClusterGroup was not updated, skip recomputing. This happens in an incremental EGDS push.
 				continue
 			}
 		}
@@ -205,6 +197,25 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 
 	adsLog.Infof("EGDS: PUSH for node:%s groups:%d", con.node.ID, len(groups))
 	return nil
+}
+
+func isNeedUpdate(updatedClusterGroups map[string]struct{}, clusterName string, groupName string) bool {
+	if updatedClusterGroups == nil {
+		return true
+	}
+
+	if _, f := updatedClusterGroups[MakeClusterGroupKey(clusterName, groupName)]; f {
+		return true
+	}
+
+	// If there was group changes from DiscoveryServer.edsUpdate, there's only changed group names present
+	// since there is no cluster name available there. This means all cluster related to this group should 
+	// get updated.
+	if _, f := updatedClusterGroups[groupName]; f {
+		return true
+	}
+
+	return false
 }
 
 func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *model.Proxy, push *model.PushContext) *xdsapi.ClusterLoadAssignment {

@@ -427,19 +427,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				addOrUpdated := current.Difference(previous)
 
-				updatedClusters := make(map[string]struct{})
-				updatedGroups := make(map[string]struct{})
-				for clusterGroup := range addOrUpdated {
-					clusterName, groupName := ExtractClusterGroupKeys(clusterGroup)
-
-					updatedClusters[clusterName] = struct{}{}
-					updatedGroups[groupName] = struct{}{}
-				}
-
 				con.ClusterGroups = clusterGroups
 				adsLog.Debugf("ADS:EGDS: REQ %s %s groups:%d", peerAddr, con.ConID, len(con.ClusterGroups))
 
-				err := s.pushEgds(s.globalPushContext(), con, versionInfo(), updatedClusters, updatedGroups)
+				err := s.pushEgds(s.globalPushContext(), con, versionInfo(), addOrUpdated)
 				if err != nil {
 					return err
 				}
@@ -602,7 +593,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		// (may need a throttle)
 		var err error
 		if pushEv.egdsUpdatedGroups != nil {
-			err = s.pushEgds(pushEv.push, con, versionInfo(), nil, pushEv.egdsUpdatedGroups)
+			err = s.pushEgds(pushEv.push, con, versionInfo(), pushEv.egdsUpdatedGroups)
 		} else {
 			err = s.pushEds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices)
 		}
@@ -645,8 +636,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 
-	if len(con.Clusters) > 0 && pushTypes[EGDS] {
-		err := s.pushEgds(pushEv.push, con, currentVersion, nil, nil)
+	if len(con.ClusterGroups) > 0 && pushTypes[EGDS] {
+		err := s.pushEgds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
 			return err
 		}
