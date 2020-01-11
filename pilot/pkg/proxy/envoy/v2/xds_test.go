@@ -23,7 +23,6 @@ import (
 	"net/url"
 	"sync"
 	"testing"
-	"time"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -298,11 +297,8 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 
-	// Update cache
+	// Initiate push request for the config added.
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
-	// TODO: channel to notify when the push is finished and to notify individual updates, for
-	// debug and for the canary.
-	time.Sleep(2 * time.Second)
 
 	return server, tearDown
 }
