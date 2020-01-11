@@ -266,16 +266,15 @@ func (h *handler) findPod(uid string) (cacheController, *v1.Pod, bool) {
 	return c, pod, found
 }
 
+//The name of workload may contain '.'
 func keyFromUID(uid string) string {
 	if ip := net.ParseIP(uid); ip != nil {
 		return uid
 	}
 	fullname := strings.TrimPrefix(uid, kubePrefix)
-	if strings.Contains(fullname, ".") {
-		parts := strings.Split(fullname, ".")
-		if len(parts) == 2 {
-			return key(parts[1], parts[0])
-		}
+	dotPos := strings.LastIndex(fullname, ".")
+	if dotPos != -1 {
+		return key(fullname[dotPos+1:], fullname[:dotPos])
 	}
 	return fullname
 }
