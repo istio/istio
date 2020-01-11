@@ -86,9 +86,11 @@ var (
 					Resources:   []string{"*"},
 				},
 			}},
-			FailurePolicy:     &failurePolicyFail,
+			FailurePolicy:     &defaultFailurePolicy,
 			NamespaceSelector: &kubeApiMeta.LabelSelector{},
-			SideEffects:       &sideEffectsUnknown,
+			ObjectSelector:    &kubeApiMeta.LabelSelector{},
+			SideEffects:       &defaultSideEffects,
+			TimeoutSeconds:    &defaultTimeout,
 		}, {
 			Name: "hook1",
 			ClientConfig: kubeApiAdmission.WebhookClientConfig{Service: &kubeApiAdmission.ServiceReference{
@@ -104,9 +106,11 @@ var (
 					Resources:   []string{"*"},
 				},
 			}},
-			FailurePolicy:     &failurePolicyFail,
+			FailurePolicy:     &defaultFailurePolicy,
 			NamespaceSelector: &kubeApiMeta.LabelSelector{},
-			SideEffects:       &sideEffectsUnknown,
+			ObjectSelector:    &kubeApiMeta.LabelSelector{},
+			SideEffects:       &defaultSideEffects,
+			TimeoutSeconds:    &defaultTimeout,
 		}},
 	}
 
@@ -482,5 +486,57 @@ func TestLoadCaCertPem(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestConfigOverrideAndDefaulting(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	missingDefaults := unpatchedIstiodWebhookConfig.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
+
+	missingDefaults.Name = "wrong-name"
+	for i := 0; i < len(missingDefaults.Webhooks); i++ {
+		missingDefaults.Webhooks[i].FailurePolicy = nil
+		missingDefaults.Webhooks[i].NamespaceSelector = nil
+		missingDefaults.Webhooks[i].ObjectSelector = nil
+		missingDefaults.Webhooks[i].SideEffects = nil
+		missingDefaults.Webhooks[i].TimeoutSeconds = nil
+	}
+
+	applyDefaultsAndOverrides(missingDefaults, galleyWebhookName)
+	g.Expect(missingDefaults.Name).Should(Equal(galleyWebhookName))
+	for i := 0; i < len(missingDefaults.Webhooks); i++ {
+		g.Expect(missingDefaults.Webhooks[i].FailurePolicy).Should(Equal(&defaultFailurePolicy))
+		g.Expect(missingDefaults.Webhooks[i].NamespaceSelector).Should(Equal(defaultNamespaceSelector))
+		g.Expect(missingDefaults.Webhooks[i].ObjectSelector).Should(Equal(defaultObjectSelector))
+		g.Expect(missingDefaults.Webhooks[i].SideEffects).Should(Equal(&defaultSideEffects))
+		g.Expect(missingDefaults.Webhooks[i].TimeoutSeconds).Should(Equal(&defaultTimeout))
+	}
+
+	var (
+		nonDefaultFailurePolicy     = kubeApiAdmission.Ignore
+		nonDefaultSideEffects       = kubeApiAdmission.SideEffectClassNone
+		nonDefaultTimeout           = int32(3)
+		nonDefaultNamespaceSelector = &kubeApiMeta.LabelSelector{MatchLabels: map[string]string{"k": "n"}}
+		nonDefaultObjectSelector    = &kubeApiMeta.LabelSelector{MatchLabels: map[string]string{"k": "o"}}
+	)
+
+	nonDefaultFields := unpatchedIstiodWebhookConfig.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
+	for i := 0; i < len(missingDefaults.Webhooks); i++ {
+		missingDefaults.Webhooks[i].FailurePolicy = &nonDefaultFailurePolicy
+		missingDefaults.Webhooks[i].NamespaceSelector = nonDefaultNamespaceSelector
+		missingDefaults.Webhooks[i].ObjectSelector = nonDefaultObjectSelector
+		missingDefaults.Webhooks[i].SideEffects = &nonDefaultSideEffects
+		missingDefaults.Webhooks[i].TimeoutSeconds = &nonDefaultTimeout
+	}
+
+	applyDefaultsAndOverrides(nonDefaultFields, galleyWebhookName)
+	g.Expect(missingDefaults.Name).Should(Equal(galleyWebhookName))
+	for i := 0; i < len(missingDefaults.Webhooks); i++ {
+		g.Expect(missingDefaults.Webhooks[i].FailurePolicy).Should(Equal(&nonDefaultFailurePolicy))
+		g.Expect(missingDefaults.Webhooks[i].NamespaceSelector).Should(Equal(nonDefaultNamespaceSelector))
+		g.Expect(missingDefaults.Webhooks[i].ObjectSelector).Should(Equal(nonDefaultObjectSelector))
+		g.Expect(missingDefaults.Webhooks[i].SideEffects).Should(Equal(&nonDefaultSideEffects))
+		g.Expect(missingDefaults.Webhooks[i].TimeoutSeconds).Should(Equal(&nonDefaultTimeout))
 	}
 }

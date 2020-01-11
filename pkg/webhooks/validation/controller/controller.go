@@ -533,44 +533,16 @@ func (e configError) Reason() string {
 	return e.reason
 }
 
-func (c *Controller) buildValidatingWebhookConfiguration() (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
-	webhook, err := c.readFile(c.o.WebhookConfigPath)
-	if err != nil {
-		return nil, &configError{err, "could not read validatingwebhookconfiguration file"}
-	}
-	caBundle, err := c.readFile(c.o.CAPath)
-	if err != nil {
-		return nil, &configError{err, "could not read caBundle file"}
-	}
-	return buildValidatingWebhookConfiguration(caBundle, webhook, c.ownerRefs)
-}
-
-func buildValidatingWebhookConfiguration(
-	caBundle, webhook []byte,
-	ownerRefs []kubeApiMeta.OwnerReference,
-) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
-	config, err := decodeValidatingConfig(webhook)
-	if err != nil {
-		return nil, &configError{err, "could not decode validatingwebhookconfiguration file"}
-	}
-	if err := verifyCABundle(caBundle); err != nil {
-		return nil, &configError{err, "could not verify caBundle"}
-	}
-	// update runtime fields
-	config.OwnerReferences = ownerRefs
-	for i := range config.Webhooks {
-		config.Webhooks[i].ClientConfig.CABundle = caBundle
-	}
-
-	return config, nil
-}
-
 var (
 	codec  runtime.Codec
 	scheme *runtime.Scheme
 
-	failurePolicyFail  = kubeApiAdmission.Fail
-	sideEffectsUnknown = kubeApiAdmission.SideEffectClassUnknown
+	// defaults per k8s spec
+	defaultFailurePolicy     = kubeApiAdmission.Fail
+	defaultSideEffects       = kubeApiAdmission.SideEffectClassUnknown
+	defaultTimeout           = int32(30)
+	defaultNamespaceSelector = &kubeApiMeta.LabelSelector{}
+	defaultObjectSelector    = &kubeApiMeta.LabelSelector{}
 )
 
 func init() {
@@ -587,33 +559,59 @@ func init() {
 	)
 }
 
-func decodeValidatingConfig(encoded []byte) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
-	var config kubeApiAdmission.ValidatingWebhookConfiguration
-	if _, _, err := codec.Decode(encoded, nil, &config); err != nil {
-		return nil, err
+func (c *Controller) buildValidatingWebhookConfiguration() (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
+	webhook, err := c.readFile(c.o.WebhookConfigPath)
+	if err != nil {
+		return nil, &configError{err, "could not read validatingwebhookconfiguration file"}
+	}
+	caBundle, err := c.readFile(c.o.CAPath)
+	if err != nil {
+		return nil, &configError{err, "could not read caBundle file"}
 	}
 
-	// fill in missing defaults to minimize desired vs. actual diffs later.
-	for i := 0; i < len(config.Webhooks); i++ {
-		wh := &config.Webhooks[i]
-		if wh.FailurePolicy == nil {
-			wh.FailurePolicy = &failurePolicyFail
-		}
-		if wh.NamespaceSelector == nil {
-			wh.NamespaceSelector = &kubeApiMeta.LabelSelector{}
-		}
-		if wh.ObjectSelector == nil {
-			wh.ObjectSelector = &kubeApiMeta.LabelSelector{}
-		}
-		if wh.SideEffects == nil {
-			wh.SideEffects = &sideEffectsUnknown
-		}
-		if wh.TimeoutSeconds == nil {
-			wh.TimeoutSeconds = &[]int32{30}[0]
-		}
+	var config kubeApiAdmission.ValidatingWebhookConfiguration
+	if _, _, err := codec.Decode(webhook, nil, &config); err != nil {
+		return nil, &configError{err, "could not decode validatingwebhookconfiguration file"}
 	}
+	if err := verifyCABundle(caBundle); err != nil {
+		return nil, &configError{err, "could not verify caBundle"}
+	}
+
+	// update runtime fields
+	config.OwnerReferences = c.ownerRefs
+	for i := range config.Webhooks {
+		config.Webhooks[i].ClientConfig.CABundle = caBundle
+	}
+
+	applyDefaultsAndOverrides(&config, c.o.WebhookConfigName)
 
 	return &config, nil
+}
+
+func applyDefaultsAndOverrides(in *kubeApiAdmission.ValidatingWebhookConfiguration, webhookConfigName string) {
+	// Override the resource name from the file with the name we're watching and
+	// updating. This mirrors the behavior of Galley pre-1.5.
+	in.Name = webhookConfigName
+
+	// Fill in missing defaults to minimize desired vs. actual diffs later.
+	for i := 0; i < len(in.Webhooks); i++ {
+		wh := &in.Webhooks[i]
+		if wh.FailurePolicy == nil {
+			wh.FailurePolicy = &defaultFailurePolicy
+		}
+		if wh.NamespaceSelector == nil {
+			wh.NamespaceSelector = defaultNamespaceSelector
+		}
+		if wh.ObjectSelector == nil {
+			wh.ObjectSelector = defaultObjectSelector
+		}
+		if wh.SideEffects == nil {
+			wh.SideEffects = &defaultSideEffects
+		}
+		if wh.TimeoutSeconds == nil {
+			wh.TimeoutSeconds = &defaultTimeout
+		}
+	}
 }
 
 func verifyCABundle(caBundle []byte) error {
