@@ -35,12 +35,10 @@ import (
 	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/test/mock"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
 	"istio.io/istio/pkg/test/config"
 )
@@ -96,12 +94,12 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	}
 
 	options := Options{
-		CertFile:        certFile,
-		KeyFile:         keyFile,
-		Port:            port,
-		DomainSuffix:    testDomainSuffix,
-		PilotDescriptor: mock.Types,
-		MixerValidator:  &fakeValidator{},
+		CertFile:       certFile,
+		KeyFile:        keyFile,
+		Port:           port,
+		DomainSuffix:   testDomainSuffix,
+		Schemas:        collections.Mocks,
+		MixerValidator: &fakeValidator{},
 	}
 	wh, err := New(options)
 	if err != nil {
@@ -124,41 +122,36 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 	}
 
 	name := fmt.Sprintf("%s%d", "mock-config", i)
-	config := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type: schemas.MockConfig.Type,
-			Name: name,
-			Labels: map[string]string{
-				"key": name,
-			},
-			Annotations: map[string]string{
-				"annotationkey": name,
-			},
-		},
-		Spec: &config.MockConfig{
-			Key: key,
-			Pairs: []*config.ConfigPair{{
-				Key:   key,
-				Value: strconv.Itoa(i),
-			}},
-		},
+
+	r := collections.Mock.Resource()
+	var un unstructured.Unstructured
+	un.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   r.Group(),
+		Version: r.Version(),
+		Kind:    r.Kind(),
+	})
+	un.SetName(name)
+	un.SetLabels(map[string]string{"key": name})
+	un.SetAnnotations(map[string]string{"annotationKey": name})
+	un.Object["spec"] = &config.MockConfig{
+		Key: key,
+		Pairs: []*config.ConfigPair{{
+			Key:   key,
+			Value: strconv.Itoa(i),
+		}},
 	}
-	obj, err := crd.ConvertConfig(schemas.MockConfig, config)
+	raw, err := json.Marshal(&un)
 	if err != nil {
-		t.Fatalf("ConvertConfig(%v) failed: %v", config.Name, err)
-	}
-	raw, err := json.Marshal(&obj)
-	if err != nil {
-		t.Fatalf("Marshal(%v) failed: %v", config.Name, err)
+		t.Fatalf("Marshal(%v) failed: %v", name, err)
 	}
 	if includeBogusKey {
 		trial := make(map[string]interface{})
 		if err := json.Unmarshal(raw, &trial); err != nil {
-			t.Fatalf("Unmarshal(%v) failed: %v", config.Name, err)
+			t.Fatalf("Unmarshal(%v) failed: %v", name, err)
 		}
 		trial["unexpected_key"] = "any value"
 		if raw, err = json.Marshal(&trial); err != nil {
-			t.Fatalf("re-Marshal(%v) failed: %v", config.Name, err)
+			t.Fatalf("re-Marshal(%v) failed: %v", name, err)
 		}
 	}
 	return raw
@@ -182,7 +175,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid create",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -192,7 +185,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid update",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kubeApiAdmission.Update,
 			},
@@ -202,7 +195,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "unsupported operation",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kubeApiAdmission.Delete,
 			},
@@ -212,7 +205,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid spec",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: invalidConfig},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -222,7 +215,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "corrupt object",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: append([]byte("---"), valid...)},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -232,7 +225,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid extra key create",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: extraKeyConfig},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -252,17 +245,25 @@ func TestAdmitPilot(t *testing.T) {
 
 func makeMixerConfig(t *testing.T, i int, includeBogusKey bool) []byte {
 	t.Helper()
-	uns := &unstructured.Unstructured{}
+
 	name := fmt.Sprintf("%s%d", "mock-config", i)
-	uns.SetName(name)
-	uns.SetKind("mock")
-	uns.Object["spec"] = map[string]interface{}{"foo": 1}
+
+	r := collections.Mock.Resource()
+	var un unstructured.Unstructured
+	un.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   r.Group(),
+		Version: r.Version(),
+		Kind:    r.Kind(),
+	})
+	un.SetName(name)
+	un.Object["spec"] = map[string]interface{}{"foo": 1}
 	if includeBogusKey {
-		uns.Object["unexpected_key"] = "any value"
+		un.Object["unexpected_key"] = "any value"
 	}
-	raw, err := json.Marshal(uns)
+
+	raw, err := json.Marshal(&un)
 	if err != nil {
-		t.Fatalf("Marshal(%v) failed: %v", uns, err)
+		t.Fatalf("Marshal(%v) failed: %v", un, err)
 	}
 	return raw
 }
@@ -282,7 +283,7 @@ func TestAdmitMixer(t *testing.T) {
 		{
 			name: "valid create",
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Name:      "valid-create",
 				Object:    runtime.RawExtension{Raw: rawConfig},
 				Operation: kubeApiAdmission.Create,
@@ -293,7 +294,7 @@ func TestAdmitMixer(t *testing.T) {
 		{
 			name: "valid update",
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Name:      "valid-update",
 				Object:    runtime.RawExtension{Raw: rawConfig},
 				Operation: kubeApiAdmission.Update,
@@ -304,7 +305,7 @@ func TestAdmitMixer(t *testing.T) {
 		{
 			name: "valid delete",
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Name:      "valid-delete",
 				Object:    runtime.RawExtension{Raw: rawConfig},
 				Operation: kubeApiAdmission.Delete,
@@ -315,7 +316,7 @@ func TestAdmitMixer(t *testing.T) {
 		{
 			name: "invalid update",
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Name:      "invalid-update",
 				Object:    runtime.RawExtension{Raw: rawConfig},
 				Operation: kubeApiAdmission.Update,
@@ -326,7 +327,7 @@ func TestAdmitMixer(t *testing.T) {
 		{
 			name: "invalid delete",
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Name:      "to-be-deleted",
 				Object:    runtime.RawExtension{Raw: rawConfig},
 				Operation: kubeApiAdmission.Delete,
@@ -337,7 +338,7 @@ func TestAdmitMixer(t *testing.T) {
 		{
 			name: "invalid delete (missing name)",
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: rawConfig},
 				Operation: kubeApiAdmission.Delete,
 			},
@@ -347,7 +348,7 @@ func TestAdmitMixer(t *testing.T) {
 		{
 			name: "invalid create",
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Name:      "invalid create",
 				Object:    runtime.RawExtension{Raw: rawConfig},
 				Operation: kubeApiAdmission.Create,
@@ -358,7 +359,7 @@ func TestAdmitMixer(t *testing.T) {
 		{
 			name: "invalid operation",
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Name:      "invalid operation",
 				Object:    runtime.RawExtension{Raw: rawConfig},
 				Operation: kubeApiAdmission.Connect,
@@ -369,7 +370,7 @@ func TestAdmitMixer(t *testing.T) {
 		{
 			name: "invalid object",
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Name:      "invalid object",
 				Object:    runtime.RawExtension{Raw: append([]byte("---"), rawConfig...)},
 				Operation: kubeApiAdmission.Create,
@@ -380,7 +381,7 @@ func TestAdmitMixer(t *testing.T) {
 		{
 			name: "invalid extra key create",
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: "mock"},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Name:      "invalid extra key create",
 				Object:    runtime.RawExtension{Raw: extraKeyConfig},
 				Operation: kubeApiAdmission.Create,
