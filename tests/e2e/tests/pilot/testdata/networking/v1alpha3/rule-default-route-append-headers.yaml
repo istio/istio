@@ -11,21 +11,13 @@ spec:
           host: c
           subset: v1
         weight: 75
-        appendRequestHeaders: #deprecated
-          istio-custom-dest-req-header: user-defined-value
-        removeRequestHeaders: #deprecated
-        - istio-custom-dest-req-header-remove
-        appendResponseHeaders: #deprecated
-          istio-custom-dest-resp-header: user-defined-value
-        removeResponseHeaders: #deprecated
-        - istio-custom-dest-resp-header-remove
         headers:
           request:
-            add: 
+            add:
               dst-req-append: added-in-request
-            set: 
+            set:
               dst-req-replace: new-value
-            remove: 
+            remove:
               - dst-req-remove
           response:
             add:
@@ -44,9 +36,9 @@ spec:
             req-append: added-in-request
             istio-custom-header: user-defined-value
             istio-custom-req-header: user-defined-value
-          set: 
+          set:
             req-replace: new-value
-          remove: 
+          remove:
             - req-remove
             - istio-custom-req-header-remove
         response:
