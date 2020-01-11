@@ -30,6 +30,15 @@ import (
 
 // Snapshotter is a processor that handles input events and creates snapshotImpl collections.
 type Snapshotter struct {
+	// pendingEvents must be at start of struct to ensure 64bit alignment for atomics on
+	// 32bit architectures. See also: https://golang.org/pkg/sync/atomic/#pkg-note-BUG
+
+	// pendingEvents counts the number of events awaiting publishing.
+	pendingEvents int64
+
+	// lastSnapshotTime records the last time a snapshotImpl was published.
+	lastSnapshotTime atomic.Value
+
 	accumulators   map[collection.Name]*accumulator
 	selector       event.Router
 	xforms         []event.Transformer
@@ -38,12 +47,6 @@ type Snapshotter struct {
 
 	// lastEventTime records the last time an event was received.
 	lastEventTime time.Time
-
-	// pendingEvents counts the number of events awaiting publishing.
-	pendingEvents int64
-
-	// lastSnapshotTime records the last time a snapshotImpl was published.
-	lastSnapshotTime atomic.Value
 }
 
 var _ event.Processor = &Snapshotter{}
