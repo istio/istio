@@ -54,7 +54,7 @@ type Sink struct {
 }
 
 // New creates a new resource sink.
-func New(options *Options) *Sink { // nolint: lll
+func New(options *Options) *Sink {
 	nodeInfo := &mcp.SinkNode{
 		Id:          options.ID,
 		Annotations: options.Metadata,
