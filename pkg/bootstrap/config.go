@@ -74,22 +74,23 @@ var (
 
 // Config for creating a bootstrap file.
 type Config struct {
-	Node                string
-	DNSRefreshRate      string
-	Proxy               *meshAPI.ProxyConfig
-	PlatEnv             platform.Environment
-	PilotSubjectAltName []string
-	MixerSubjectAltName []string
-	LocalEnv            []string
-	NodeIPs             []string
-	PodName             string
-	PodNamespace        string
-	PodIP               net.IP
-	SDSUDSPath          string
-	SDSTokenPath        string
-	ControlPlaneAuth    bool
-	DisableReportCalls  bool
-	OutlierLogPath      string
+	Node                   string
+	DNSRefreshRate         string
+	Proxy                  *meshAPI.ProxyConfig
+	PlatEnv                platform.Environment
+	PilotSubjectAltName    []string
+	MixerSubjectAltName    []string
+	LocalEnv               []string
+	NodeIPs                []string
+	PodName                string
+	PodNamespace           string
+	PodIP                  net.IP
+	SDSUDSPath             string
+	SDSTokenPath           string
+	ControlPlaneAuth       bool
+	DisableReportCalls     bool
+	OutlierLogPath         string
+	SignCertAtKubernetesCa bool
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -119,6 +120,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.SDSUDSPath(cfg.SDSUDSPath),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
+		option.SignCertAtKubernetesCA(cfg.SignCertAtKubernetesCa),
 		option.OutlierLogPath(cfg.OutlierLogPath))
 
 	// Support passing extra info from node environment as metadata

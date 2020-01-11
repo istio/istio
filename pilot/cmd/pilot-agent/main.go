@@ -26,6 +26,8 @@ import (
 	"text/template"
 	"time"
 
+	"istio.io/istio/pilot/pkg/bootstrap"
+
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
@@ -417,6 +419,15 @@ var (
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
 				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+					// CitadelCACertPath is the directory for Citadel CA certificate.
+					// TODO (lei-tang): reuse CitadelCACertPath in https://github.com/istio/istio/pull/20017
+					// after https://github.com/istio/istio/pull/20017 is merged.
+					CitadelCACertPath := "./etc/istio/citadel-ca-cert"
+					signCertAtKubernetesCA := true
+					if _, err := ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err == nil {
+						// istiod certificate is signed by Citadel
+						signCertAtKubernetesCA = false
+					}
 					// Generate a custom bootstrap template.
 					opts := []option.Instance{
 						option.PodName(podName),
@@ -427,6 +438,7 @@ var (
 						option.DisableReportCalls(disableInternalTelemetry),
 						option.SDSTokenPath(sdsTokenPath),
 						option.SDSUDSPath(sdsUDSPath),
+						option.SignCertAtKubernetesCA(signCertAtKubernetesCA),
 					}
 
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly

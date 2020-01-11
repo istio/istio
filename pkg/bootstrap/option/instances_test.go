@@ -680,6 +680,17 @@ func TestOptions(t *testing.T) {
 			option:   option.SDSTokenPath("fake"),
 			expected: "fake",
 		},
+		{
+			testName: "sign_cert_at_kubernetes_ca enabled",
+			key:      "sign_cert_at_kubernetes_ca",
+			option:   option.SignCertAtKubernetesCA(true),
+			expected: true,
+		},
+		{testName: "sign_cert_at_kubernetes_ca disabled",
+			key:      "sign_cert_at_kubernetes_ca",
+			option:   option.SignCertAtKubernetesCA(false),
+			expected: false,
+		},
 	}
 
 	for _, c := range cases {
