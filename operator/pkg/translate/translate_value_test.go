@@ -27,7 +27,8 @@ import (
 )
 
 func TestValueToProto(t *testing.T) {
-	t.Skip("TODO: port to new istio/api.IstioOperatorSpec")
+    t.Skip("https://github.com/istio/istio/issues/20112")
+    // TODO port to new api
 
 	tests := []struct {
 		desc      string
