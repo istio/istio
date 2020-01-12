@@ -173,7 +173,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 	providers := map[string]*envoy_jwt.JwtProvider{}
 	// Each element of innerAndList is the requirement for each provider, in the form of
 	// {provider OR `allow_missing`}
-	// This list will be ANDed (if have more than one provider) for the final requirment.
+	// This list will be ANDed (if have more than one provider) for the final requirement.
 	innerAndList := []*envoy_jwt.JwtRequirement{}
 
 	// This is an (or) list for all providers. This will be OR with the innerAndList above so
