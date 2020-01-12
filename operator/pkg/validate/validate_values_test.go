@@ -158,7 +158,8 @@ cni:
 }
 
 func TestValidateValuesFromProfile(t *testing.T) {
-	t.Skip("FIXME: port to istio/api.IstioOperatorSpec")
+	t.Skip("https://github.com/istio/istio/issues/20112")
+    // TODO port to new api
 	tests := []struct {
 		desc     string
 		profile  string
