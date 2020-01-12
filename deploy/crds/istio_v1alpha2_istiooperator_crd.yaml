@@ -10,6 +10,8 @@ spec:
       served: true
       storage: true
   scope: Namespaced
+  subresources:
+    status: {}
   names:
     kind: IstioOperator
     listKind: IstioOperatorList
