@@ -380,7 +380,7 @@ func TestRequestAuthentication(t *testing.T) {
 					},
 					ExpectResponseCode: response.StatusCodeOK,
 					ExpectHeaders: map[string]string{
-						authHeaderKey:      "",
+						authHeaderKey:    "",
 						"X-Test-Payload": payload1,
 					},
 				},
@@ -399,7 +399,7 @@ func TestRequestAuthentication(t *testing.T) {
 					},
 					ExpectResponseCode: response.StatusCodeOK,
 					ExpectHeaders: map[string]string{
-						authHeaderKey:      "",
+						authHeaderKey:    "",
 						"X-Test-Payload": payload2,
 					},
 				},
