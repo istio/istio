@@ -17,6 +17,7 @@ package security
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -332,8 +333,8 @@ func TestAuthnJwt(t *testing.T) {
 
 // TestRequestAuthentication tests beta authn policy for jwt.
 func TestRequestAuthentication(t *testing.T) {
-	testIssuer1Token := jwt.TokenIssuer1
-
+	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
+	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -373,13 +374,33 @@ func TestRequestAuthentication(t *testing.T) {
 							PortName: "http",
 							Scheme:   scheme.HTTP,
 							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + testIssuer1Token},
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
 						},
 					},
 					ExpectResponseCode: response.StatusCodeOK,
 					ExpectHeaders: map[string]string{
 						authHeaderKey: "",
+						"X-Test-Payload-1": payload1,
+					},
+				},
+				{
+					Name: "valid-token-2-noauthz",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   c,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
+					ExpectHeaders: map[string]string{
+						authHeaderKey: "",
+						"X-Test-Payload-2": payload2,
 					},
 				},
 				{
@@ -396,9 +417,6 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 					},
 					ExpectResponseCode: response.StatusUnauthorized,
-					ExpectHeaders: map[string]string{
-						authHeaderKey: "Bearer " + jwt.TokenExpired,
-					},
 				},
 				{
 					Name: "no-token-noauthz",
@@ -422,7 +440,7 @@ func TestRequestAuthentication(t *testing.T) {
 							PortName: "http",
 							Scheme:   scheme.HTTP,
 							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + testIssuer1Token},
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
 						},
 					},
@@ -479,14 +497,14 @@ func TestRequestAuthentication(t *testing.T) {
 							PortName: "http",
 							Scheme:   scheme.HTTP,
 							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + testIssuer1Token},
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
 						},
 					},
 					ExpectResponseCode: response.StatusCodeOK,
 					ExpectHeaders: map[string]string{
-						authHeaderKey:    "Bearer " + testIssuer1Token,
-						"X-Test-Payload": "eyJleHAiOjQ3MTU3ODI3MjIsImdyb3VwcyI6WyJncm91cC0xIl0sImlhdCI6MTU2MjE4MjcyMiwiaXNzIjoidGVzdC1pc3N1ZXItMUBpc3Rpby5pbyIsInN1YiI6InN1Yi0xIn0", // nolint: lll
+						authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+						"X-Test-Payload": payload1,
 					},
 				},
 			}
@@ -605,7 +623,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					Host:               "example.com",
 					Path:               "/",
 					Token:              jwt.TokenIssuer2,
-					ExpectResponseCode: 401,
+					ExpectResponseCode: 403,
 				},
 				{
 					Name:               "deny with expired token",
@@ -622,11 +640,11 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					ExpectResponseCode: 200,
 				},
 				{
-					Name:               "deny with sub-2 token (bad issuer) on any.com",
+					Name:               "allow with sub-2 token on any.com",
 					Host:               "any-request-principlal-ok.com",
 					Path:               "/",
 					Token:              jwt.TokenIssuer2,
-					ExpectResponseCode: 401,
+					ExpectResponseCode: 200,
 				},
 				{
 					Name:               "deny without token on any.com",

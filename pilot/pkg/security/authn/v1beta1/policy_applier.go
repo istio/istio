@@ -161,13 +161,25 @@ func NewPolicyApplier(jwtPolicies []*model.Config, policy *authn_alpha_api.Polic
 	}
 }
 
+// convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.
+// Each rule is expected corresponding to one JWT issuer (provider).
+// The behavior of the filter should reject all requests with invalid token. On the other hand,
+// if no token provided, the request is allowed.
 func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthentication {
 	if len(jwtRules) == 0 {
 		return nil
 	}
 
 	providers := map[string]*envoy_jwt.JwtProvider{}
-	requirementAndList := []*envoy_jwt.JwtRequirement{}
+	// Each element of innerAndList is the requirement for each provider, in the form of
+	// {provider OR `allow_missing`}
+	// This list will be ANDed (if have more than one provider) for the final requirment.
+	innerAndList := []*envoy_jwt.JwtRequirement{}
+
+	// This is an (or) list for all providers. This will be OR with the innerAndList above so
+	// it can pass the requirement in the case that providers share the same location.
+	outterOrList := []*envoy_jwt.JwtRequirement{}
+
 	for i, jwtRule := range jwtRules {
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:               jwtRule.Issuer,
@@ -203,7 +215,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 
 		name := fmt.Sprintf("origins-%d", i)
 		providers[name] = provider
-		requirementAndList = append(requirementAndList, &envoy_jwt.JwtRequirement{
+		innerAndList = append(innerAndList, &envoy_jwt.JwtRequirement{
 			RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
 				RequiresAny: &envoy_jwt.JwtRequirementOrList{
 					Requirements: []*envoy_jwt.JwtRequirement{
@@ -221,9 +233,15 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 				},
 			},
 		})
+		outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+				ProviderName: name,
+			},
+		})
 	}
 
-	if len(requirementAndList) == 1 {
+	// If there is only one provider, simply use an OR of {provider, `allow_missing`}.
+	if len(innerAndList) == 1 {
 		return &envoy_jwt.JwtAuthentication{
 			Rules: []*envoy_jwt.RequirementRule{
 				{
@@ -232,12 +250,25 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 							Prefix: "/",
 						},
 					},
-					Requires: requirementAndList[0],
+					Requires: innerAndList[0],
 				},
 			},
 			Providers: providers,
 		}
 	}
+
+	// If there are more than one provider, filter should OR of
+	// {P1, P2 .., AND of {OR{P1, allow_missing}, OR{P2, allow_missing} ...}}
+	// where the innerAnd enforce a token, if provided, must be valid, and the
+	// outter OR aids the case where providers share the same location (as
+	// it will always fail with the innerAND).
+	outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
+		RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
+			RequiresAll: &envoy_jwt.JwtRequirementAndList{
+				Requirements: innerAndList,
+			},
+		},
+	})
 
 	return &envoy_jwt.JwtAuthentication{
 		Rules: []*envoy_jwt.RequirementRule{
@@ -248,9 +279,9 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 					},
 				},
 				Requires: &envoy_jwt.JwtRequirement{
-					RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
-						RequiresAll: &envoy_jwt.JwtRequirementAndList{
-							Requirements: requirementAndList,
+					RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+						RequiresAny: &envoy_jwt.JwtRequirementOrList{
+							Requirements: outterOrList,
 						},
 					},
 				},
