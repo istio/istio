@@ -767,7 +767,6 @@ func addEdsCluster(server *bootstrap.Server, hostName string, portName string, a
 			Protocol: protocol.HTTP,
 		},
 	})
-
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
