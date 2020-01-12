@@ -29,7 +29,8 @@ type IstioOperator struct {
 	Kind                 string                      `protobuf:"bytes,5,opt,name=kind,proto3" json:"kind,omitempty"`
 	ApiVersion           string                      `protobuf:"bytes,6,opt,name=apiVersion,proto3" json:"apiVersion,omitempty"`
 	Spec                 *v1alpha1.IstioOperatorSpec `protobuf:"bytes,7,opt,name=spec,proto3" json:"spec,omitempty"`
-	v11.ObjectMeta       `json:"metadata,omitempty" protobuf:"bytes,7,opt,name=metadata"`
+	Status				 *v1alpha1.InstallStatus     `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`
+	v11.ObjectMeta       `json:"metadata,omitempty" protobuf:"bytes,9,opt,name=metadata"`
 	v11.TypeMeta         `json:",inline"`
 	Placeholder          string   `protobuf:"bytes,111,opt,name=placeholder,proto3" json:"placeholder,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`

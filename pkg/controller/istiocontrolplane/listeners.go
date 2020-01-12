@@ -80,7 +80,7 @@ func NewIstioStatusUpdater(instance *iop.IstioOperator) helmreconciler.Rendering
 }
 
 // EndReconcile updates the status field on the IstioOperator instance based on the resulting err parameter.
-func (u *IstioStatusUpdater) EndReconcile(_ runtime.Object, status map[string]*v1alpha1.IstioOperatorSpec_VersionStatus) error {
+func (u *IstioStatusUpdater) EndReconcile(_ runtime.Object, status *v1alpha1.InstallStatus) error {
 	iop := &iop.IstioOperator{}
 	namespacedName := types.NamespacedName{
 		Name:      u.instance.Name,
@@ -89,7 +89,7 @@ func (u *IstioStatusUpdater) EndReconcile(_ runtime.Object, status map[string]*v
 	if err := u.reconciler.GetClient().Get(context.TODO(), namespacedName, iop); err != nil {
 		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
 	}
-	iop.Spec.ComponentStatus = status
+	iop.Status = status
 	return u.reconciler.GetClient().Status().Update(context.TODO(), iop)
 }
 

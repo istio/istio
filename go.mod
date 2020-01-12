@@ -47,7 +47,7 @@ require (
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	google.golang.org/grpc v1.24.0 // indirect
 	gopkg.in/yaml.v2 v2.2.4
-	istio.io/api v0.0.0-20200106170225-0593b0ef351d
+	istio.io/api v0.0.0-20200111000814-80fb3f4c4923
 	istio.io/pkg v0.0.0-20191029184635-5c2f5ef63692
 	k8s.io/api v0.17.0
 	k8s.io/apiextensions-apiserver v0.17.0

@@ -123,11 +123,11 @@ func (h *HelmReconciler) Reconcile() error {
 
 // processRecursive processes the given manifests in an order of dependencies defined in h. Dependencies are a tree,
 // where a child must wait for the parent to complete before starting.
-func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) map[string]*v1alpha1.IstioOperatorSpec_VersionStatus {
+func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1.InstallStatus {
 	deps, dch := h.customizer.Input().GetProcessingOrder(manifests)
-	out := make(map[string]*v1alpha1.IstioOperatorSpec_VersionStatus)
+	componentStatus := make(map[string]*v1alpha1.InstallStatus_VersionStatus)
 
-	// mu protects the shared InstallStatus out across goroutines
+	// mu protects the shared InstallStatus componentStatus across goroutines
 	var mu sync.Mutex
 	// wg waits for all manifest processing goroutines to finish
 	var wg sync.WaitGroup
@@ -145,37 +145,37 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) map[strin
 			}
 
 			// Set status when reconciling starts
-			status := v1alpha1.IstioOperatorSpec_RECONCILING
+			status := v1alpha1.InstallStatus_RECONCILING
 			mu.Lock()
-			if _, ok := out[c]; !ok {
-				out[c] = &v1alpha1.IstioOperatorSpec_VersionStatus{}
-				out[c].Status = status
+			if _, ok := componentStatus[c]; !ok {
+				componentStatus[c] = &v1alpha1.InstallStatus_VersionStatus{}
+				componentStatus[c].Status = status
 			}
 			mu.Unlock()
 
 			// Process manifests and get the status result
 			errString := ""
 			if len(m) == 0 {
-				status = v1alpha1.IstioOperatorSpec_NONE
+				status = v1alpha1.InstallStatus_NONE
 			} else {
-				status = v1alpha1.IstioOperatorSpec_HEALTHY
+				status = v1alpha1.InstallStatus_HEALTHY
 				if cnt, err := h.ProcessManifest(m[0]); err != nil {
 					errString = err.Error()
-					status = v1alpha1.IstioOperatorSpec_ERROR
+					status = v1alpha1.InstallStatus_ERROR
 				} else if cnt == 0 {
-					status = v1alpha1.IstioOperatorSpec_NONE
+					status = v1alpha1.InstallStatus_NONE
 				}
 			}
 
 			// Update status based on the result
 			mu.Lock()
-			if status == v1alpha1.IstioOperatorSpec_NONE {
-				delete(out, c)
+			if status == v1alpha1.InstallStatus_NONE {
+				delete(componentStatus, c)
 			} else {
-				out[c].Status = status
-				out[c].StatusString = v1alpha1.IstioOperatorSpec_Status_name[int32(status)]
+				componentStatus[c].Status = status
+				componentStatus[c].StatusString = v1alpha1.InstallStatus_Status_name[int32(status)]
 				if errString != "" {
-					out[c].Error = errString
+					componentStatus[c].Error = errString
 				}
 			}
 			mu.Unlock()
@@ -188,6 +188,11 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) map[strin
 		}()
 	}
 	wg.Wait()
+
+	out := &v1alpha1.InstallStatus{
+		//TODO: add overall status logic
+		ComponentStatus: componentStatus,
+	}
 
 	return out
 }

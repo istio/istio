@@ -145,7 +145,7 @@ type RenderingListener interface {
 	// EndReconcile occurs after reconciliation has completed.  It is similar to EndDelete, but applies to reconciliation.
 	// instance is the custom resource being reconciled
 	// status is the status and errors of components at the end of reconciliation.
-	EndReconcile(instance runtime.Object, status map[string]*v1alpha1.IstioOperatorSpec_VersionStatus) error
+	EndReconcile(instance runtime.Object, status *v1alpha1.InstallStatus) error
 }
 
 // ChartCustomizer defines callbacks used by a listener that manages customizations for a specific chart.

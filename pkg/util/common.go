@@ -28,7 +28,7 @@ var (
 	scope = log.RegisterScope("util", "util", 0)
 	// IstioOperatorGVK is GVK for IstioOperator
 	IstioOperatorGVK = schema.GroupVersionKind{
-		Version: "v1alpha2",
+		Version: "v1alpha1",
 		Group:   "install.istio.io",
 		Kind:    "IstioOperator",
 	}
