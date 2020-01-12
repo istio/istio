@@ -1,0 +1,19 @@
+# Cluster-wide resources using istio-system.
+# This is needed for installing a-la-carte or demo as first step, to create the cluster-wide resources
+# and bindings.
+
+# The other steps can be run without cluster-wide permissions, by a service account with permissions only inventory:
+# the istio-system namespace.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - clusterrole-12.yaml
+  - clusterrolebinding-12.yaml
+  - crds-namespace.gen.yaml
+  - serviceaccounts-12.yaml
+  - istiod.yaml
+
+commonLabels:
+  istio: cluster

@@ -1,0 +1,15 @@
+# Installs ingress and pilot in istio-system, minimal profile with ingress
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+  - ../../kustomize/minimal
+  - ../../kustomize/istio-ingress
+
+patchesStrategicMerge:
+  - allocation.yaml
+  - disable-automtls.yaml
+
+#commonLabels:
+#  release: istio-minimal

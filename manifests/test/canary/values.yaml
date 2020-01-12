@@ -1,0 +1,59 @@
+# Subset of 'values.yaml' used in injection
+# For canary we use control plane security
+
+istio_cni:
+  enabled: false
+
+debug: INFO
+
+version: ""
+
+global:
+  hub: gcr.io/istio-testing
+  tag: latest
+
+  imagePullPolicy: Always
+
+  controlPlaneSecurityEnabled: true
+
+  istioNamespace: istio-system-micro
+  trustDomain: ""
+
+  #network: default
+  # podDNSSearchNamespaces:
+
+  sds:
+    enabled: false
+    # customTokenDirectory
+    #useTrustworthyJwt: true
+
+
+  proxy:
+    privileged: true
+    enableCoreDump: false
+    image: proxyv2
+    clusterDomain: "cluster.local"
+
+    excludeInboundPorts: ""
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+    statusPort: 15020
+    logLevel: ""
+    readinessInitialDelaySeconds: 1
+    readinessPeriodSeconds: 2
+    readinessFailureThreshold: 10
+
+    # resources
+    componentLogLevel: "misc:error"
+
+
+    tracer: "none"
+
+    envoyStatsd:
+      enabled: false
+
+
+
+  proxy_init:
+    image: proxyv2
+

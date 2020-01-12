@@ -1,0 +1,64 @@
+{{- /*
+
+TODO(https://github.com/istio/istio/issues/18199) remove this configuration from charts once the operator starts managing it
+
+*/ -}}
+
+{{ if .Values.clusterResources }}
+{{- if .Values.global.mtls.enabled }}
+
+# Authentication policy to enable mutual TLS for all services (that have sidecar) in the mesh.
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  peers:
+  - mtls: {}
+---
+{{- if not .Values.global.mtls.auto }}
+# We only need explicit destination rule with ISITO_MUTUAL when auto mTLS is not enabled.
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "default"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+{{ end }}
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "api-server"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: "kubernetes.default.svc.{{ .Values.global.proxy.clusterDomain }}"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+{{- else }}
+# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  peers:
+  - mtls:
+      mode: PERMISSIVE
+---
+{{ end }}
+{{ end }}

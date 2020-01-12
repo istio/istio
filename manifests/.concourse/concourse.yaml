@@ -1,0 +1,151 @@
+---
+
+# s3, git, time, github-release, registry-image,
+# pool - serialize access to external systems
+# git - can also push
+
+resource_types:
+  - name: pull-request
+    type: docker-image
+    source:
+      repository: teliaoss/github-pr-resource
+
+
+resources:
+  - name: 24h
+    type: time
+    source: {interval: 24h}
+
+  - name: istio-installer #DO NOT SET TO FORK - for testing use another pipeline and pause this one
+    type: git
+    source:
+      uri: "https://github.com/istio/istio-installer"
+
+  - name: istio-master
+    type: git
+    source:
+      uri: "https://github.com/istio/istio"
+      branch: master
+
+  - name: istio-installer-pr
+    type: pull-request
+    source:
+        repository: "istio/istio-installer"
+        access_token: ((GITHUB_ACCESS_TOKEN))
+
+jobs:
+  - name: install-and-test
+    serial_groups: [ cluster ]
+    plan:
+    - get: 24h
+      trigger: true
+    - get: istio-installer
+      trigger: true
+    - get: istio-master
+      trigger: false
+    - task: log-used-repo
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ecx
+          - |
+            cd istio-installer
+            git remote -v
+            git branch
+
+    - task: install-master
+      params:
+        KUBECONFIG: ((KUBECONFIG))
+        # Remove overly generous resource request to avoid unnecessarily scaling up k8s nodes
+        RESOURCES_FLAGS: "--set global.resources.requests.cpu=0m --set resources.requests.cpu=0 --set resources.requests.memory=0 --set global.proxy.resources.requests.cpu=0 --set global.proxy.resources.requests.memory=0"
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            kubectl delete namespace istio-system --ignore-not-found
+            kubectl apply -k istio-installer/base
+            kubectl apply -k istio-installer/test/demo
+    - task: install-and-test-bookinfo
+      params:
+        KUBECONFIG: ((KUBECONFIG))
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-master
+            path: src/github.com/istio/istio
+          - name: istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            ISTIO_CONTROL=istio-system INGRESS_NS=istio-system istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
+  - name: validate-istio-installer-pr
+    serial_groups: [ cluster ]
+    plan:
+    - get: istio-installer-pr
+      trigger: true
+    - get: istio-master
+      trigger: false
+    - put: istio-installer-pr
+      params:
+        path: istio-installer-pr
+        status: pending
+    - task: validate
+      params:
+        KUBECONFIG: ((KUBECONFIG))
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-installer-pr
+          - name: istio-master
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            cd istio-installer-pr
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            kubectl delete namespace istio-system --ignore-not-found
+            kubectl apply -k base
+            kubectl apply -k test/demo
+            ISTIO_CONTROL=istio-system INGRESS_NS=istio-system bin/test.sh --skip-cleanup ../istio-master
+      on_failure:
+        put: istio-installer-pr
+        params:
+          path: istio-installer-pr
+          status: failure
+    - put: istio-installer-pr
+      params:
+        path: istio-installer-pr
+        status: success
