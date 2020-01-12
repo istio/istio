@@ -1,0 +1,7 @@
+# Config for minimal istio, similar with the minimal profile in 1.2
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - discovery.gen.yaml

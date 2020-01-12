@@ -1,0 +1,57 @@
+# Plain fortio service, to be manually injected by the test.
+# No annotation - the address is from the inject options.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortio
+
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio
+        version: v1
+    spec:
+      containers:
+      - name: fortio
+        image: "istio/fortio:latest"
+        ports:
+         - containerPort: 8080
+         - containerPort: 8081
+         - containerPort: 8079
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+
+---
+# Fortio should use MTLS
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: fortio
+spec:
+  host:  fortio
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL

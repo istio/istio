@@ -1,0 +1,323 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-pilot{{ .Values.version }}
+  namespace: {{ .Release.Namespace }}
+  # TODO: default template doesn't have this, which one is right ?
+  labels:
+    app: pilot
+    {{- if ne .Values.version ""}}
+    version: {{ .Values.version }}
+    {{- end }}
+    release: {{ .Release.Name }}
+{{- range $key, $val := .Values.pilot.deploymentLabels }}
+    {{ $key }}: "{{ $val }}"
+{{- end }}
+    istio: pilot
+spec:
+{{- if not .Values.pilot.autoscaleEnabled }}
+{{- if .Values.pilot.replicaCount }}
+  replicas: {{ .Values.pilot.replicaCount }}
+{{- end }}
+{{- end }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.pilot.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
+  selector:
+    matchLabels:
+      {{- if ne .Values.version ""}}
+      app: pilot
+      version: {{ .Values.version }}
+      {{ else }}
+      istio: pilot
+      {{- end }}
+  template:
+    metadata:
+      labels:
+        app: pilot
+        {{- if ne .Values.version ""}}
+        version: {{ .Values.version }}
+        {{ else }}
+        # Label used by the 'default' service. For versioned deployments we match with app and version.
+        # This avoids default deployment picking the canary
+        istio: pilot
+        {{- end }}
+{{- if eq .Release.Namespace "istio-system"}}
+        heritage: Tiller
+        release: istio
+        chart: pilot
+{{- end }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        {{- if .Values.pilot.podAnnotations }}
+{{ toYaml .Values.pilot.podAnnotations | indent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: istio-pilot-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      securityContext:
+        fsGroup: 1337
+      containers:
+        - name: discovery
+{{- if contains "/" .Values.pilot.image }}
+          image: "{{ .Values.pilot.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          args:
+          - "discovery"
+          - --monitoringAddr=:15014
+{{- if .Values.global.logging.level }}
+          - --log_output_level={{ .Values.global.logging.level }}
+{{- end}}
+{{- if .Values.global.logAsJson }}
+          - --log_as_json
+{{- end }}
+          - --domain
+          - {{ .Values.global.proxy.clusterDomain }}
+{{- if .Values.global.oneNamespace }}
+          - "-a"
+          - {{ .Release.Namespace }}
+{{- end }}
+          - --secureGrpcAddr
+          - ""
+{{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
+{{- end }}
+{{- if .Values.pilot.plugins }}
+          - --plugins={{ .Values.pilot.plugins }}
+{{- end }}
+          - --keepaliveMaxServerConnectionAge
+          - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
+          # TODO: make default
+          - --disable-install-crds=true
+          ports:
+          - containerPort: 8080
+          - containerPort: 15010
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          envFrom:
+          # Allow an istiod configmap injecting user-specified env.
+          - configMapRef:
+              name: istiod
+              optional: true
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          {{- if .Values.pilot.env }}
+          {{- range $key, $val := .Values.pilot.env }}
+          - name: {{ $key }}
+            value: "{{ $val }}"
+          {{- end }}
+          {{- end }}
+{{- if .Values.pilot.traceSampling }}
+          - name: PILOT_TRACE_SAMPLING
+            value: "{{ .Values.pilot.traceSampling }}"
+{{- end }}
+          - name: CONFIG_NAMESPACE
+            value: {{ .Values.pilot.configNamespace }}
+{{- if .Values.pilot.appNamespaces }}
+          - name: APP_NAMESPACE
+            value: {{ join "," .Values.pilot.appNamespaces }}
+{{- end }}
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+            value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+            value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
+{{- if .Values.global.istiod.enabled }}
+          - name: WEBHOOK
+            value: istio-sidecar-injector
+          - name: ISTIOD_ADDR
+            value: istio-pilot.{{ .Release.Namespace }}.svc:15012
+          - name: PILOT_EXTERNAL_GALLEY
+            value: "false"
+{{- end }}
+          resources:
+{{- if .Values.pilot.resources }}
+{{ toYaml .Values.pilot.resources | trim | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
+{{- end }}
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+          {{ if .Values.global.istiod.enabled }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+          - name: local-certs
+            mountPath: /var/run/secrets/istio-dns
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+          - name: inject
+            mountPath: /var/lib/istio/inject
+            readOnly: true
+          - name: istiod
+            mountPath: /var/lib/istio/local
+            readOnly: true
+          {{ end }}
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+        - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          ports:
+          - containerPort: 15011
+          args:
+          - proxy
+          - --domain
+          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+          - --serviceCluster
+          - istio-pilot
+          - --templateFile
+          - /var/lib/envoy/envoy.yaml.tmpl
+        {{- if .Values.global.controlPlaneSecurityEnabled}}
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+        {{- else }}
+          - --controlPlaneAuthPolicy
+          - NONE
+        {{- end }}
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
+        {{- if .Values.global.logAsJson }}
+          - --log_as_json
+        {{- end }}
+          env:
+          - name: SIGN_CERT_AT_KUBERNETES_CA
+            value: "{{ .Values.global.signCertAtKubernetesCa }}"
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: SDS_ENABLED
+            value: "{{ .Values.global.sds.enabled }}"
+          resources:
+{{- if .Values.global.proxy.resources }}
+{{ toYaml .Values.global.proxy.resources | trim | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
+{{- end }}
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+{{- if .Values.pilot.jwksResolverExtraRootCA }}
+          - name: extracacerts
+            mountPath: /cacerts
+{{- end }}
+          - name: pilot-envoy-config
+            mountPath: /var/lib/envoy
+          {{- if .Values.global.sds.enabled }}
+          - name: sds-uds-path
+            mountPath: /var/run/sds
+            readOnly: true
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+          {{- end }}
+{{- end }}
+      volumes:
+      {{- if .Values.global.istiod.enabled }}
+      # Technically not needed on this pod - but it helps debugging/testing SDS
+      # Should be removed after everything works.
+      - emptyDir:
+          medium: Memory
+        name: local-certs
+      - name: istio-token
+        projected:
+          sources:
+            - serviceAccountToken:
+                audience: {{ .Values.global.sds.token.aud }}
+                expirationSeconds: 43200
+                path: istio-token
+      - name: istiod
+        configMap:
+          name: istiod
+          optional: true
+      # Optional: user-generated root
+      - name: cacerts
+        secret:
+          secretName: cacerts
+          optional: true
+      # Optional - image should have
+      - name: inject
+        configMap:
+          name: istio-sidecar-injector
+          optional: true
+
+      {{ else }}
+      {{- if .Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds
+        name: sds-uds-path
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ .Values.global.sds.token.aud }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
+
+      - name: config-volume
+        configMap:
+          name: istio{{ .Values.version }}
+      - name: pilot-envoy-config
+        configMap:
+          name: pilot-envoy-config{{ .Values.version }}
+  {{- if .Values.global.controlPlaneSecurityEnabled}}
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-pilot-service-account
+          optional: true
+  {{- end }}
+  {{- if .Values.pilot.jwksResolverExtraRootCA }}
+      - name: extracacerts
+        configMap:
+          name: pilot-jwks-extra-cacerts{{ .Values.version }}
+  {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.pilot.tolerations }}
+      tolerations:
+{{ toYaml .Values.pilot.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
+---

@@ -1,0 +1,47 @@
+prometheusOperator:
+  # Controls the default scrape interval used in the ServiceMonitors
+  scrapeInterval: 15s
+
+  # Enabling this option will generate a Prometheus resource, causing the operator
+  # to create a prometheus deployment according to the generated spec. It will also
+  # create a service definition, destination rules, cluster roles and bindings, and
+  # a service account. Only use this option if you have not already created and configured
+  # a prometheus resource and/or you desire a distinct prometheus resource for Istio.
+  createPrometheusResource: false
+  hub: docker.io/prom
+  tag: v2.15.1
+  retention: 6h
+
+  service:
+    annotations: {}
+    nodePort:
+      enabled: false
+      port: 32090
+
+  nodeSelector: {}
+  tolerations: []
+
+  # Specify the pod anti-affinity that allows you to constrain which nodes
+  # your pod is eligible to be scheduled based on labels on pods that are
+  # already running on the node rather than based on labels on nodes.
+  # There are currently two types of anti-affinity:
+  #    "requiredDuringSchedulingIgnoredDuringExecution"
+  #    "preferredDuringSchedulingIgnoredDuringExecution"
+  # which denote "hard" vs. "soft" requirements, you can define your values
+  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  # correspondingly.
+  # For example:
+  # podAntiAffinityLabelSelector:
+  # - key: security
+  #   operator: In
+  #   values: S1,S2
+  #   topologyKey: "kubernetes.io/hostname"
+  # This pod anti-affinity rule says that the pod requires not to be scheduled
+  # onto a node if that node is already running a pod with label having key
+  # "security" and value "S1".
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+
+# Indicate if Citadel is enabled, i.e., whether its generated certificates are available
+security:
+  enabled: true

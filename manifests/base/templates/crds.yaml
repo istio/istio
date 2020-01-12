@@ -1,0 +1,8 @@
+{{ .Files.Get "files/crd-all.gen.yaml" }}
+{{ .Files.Get "files/crd-mixer.yaml" }}
+{{- if .Values.certmanager }}
+{{- if .Values.certmanager.enabled }}
+{{ .Files.Get "files/crd-certmanager-10.yaml" }}
+{{ .Files.Get "files/crd-certmanager-11.yaml" }}
+{{- end }}
+{{- end }}
