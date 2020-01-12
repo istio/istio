@@ -66,6 +66,9 @@ func TestEds(t *testing.T) {
 	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
 	addTestClientEndpoints(server)
 
+	// Trigger a push to update the contents of the registry to push context and push to connected clients.
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
 	adscConn2 := adsConnectAndWait(t, 0x0a0a0a0b)
@@ -321,7 +324,6 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			Protocol: protocol.HTTP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 // Verify server sends the endpoint. This check for a single endpoint with the given
@@ -699,8 +701,6 @@ func addUdsEndpoint(server *bootstrap.Server) {
 			Protocol: protocol.GRPC,
 		},
 	})
-
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
@@ -738,7 +738,6 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 			},
 		})
 	}
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 func addEdsCluster(server *bootstrap.Server, hostName string, portName string, address string, port int) {
