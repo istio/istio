@@ -1,0 +1,10 @@
+# Generic sidecar config isolating a namespace
+# kubectl apply -n NAMESPACE_TO_ISOLATE -f sidecar-local.yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+spec:
+  egress:
+    - hosts:
+        - "./*"

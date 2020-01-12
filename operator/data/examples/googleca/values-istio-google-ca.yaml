@@ -1,0 +1,25 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  security:
+    components:
+      nodeAgent:
+        enabled: true
+  values:
+    global:
+      controlPlaneSecurityEnabled: true
+      mtls:
+        enabled: true
+      sds:
+        enabled: true
+        udsPath: "unix:/var/run/sds/uds_path"
+        token:
+          aud: "istio-ca"
+      useMCP: true
+    nodeagent:
+      image: node-agent-k8s
+      env:
+        CA_PROVIDER: "GoogleCA"
+        CA_ADDR: "meshca.googleapis.com:443"
+        PLUGINS: "GoogleTokenExchange"
+        GKE_CLUSTER_URL: ""
