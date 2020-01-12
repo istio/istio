@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -128,6 +129,7 @@ func (sd *MemServiceDiscovery) AddHTTPService(name, vip string, port int) {
 // AddService adds an in-memory service.
 func (sd *MemServiceDiscovery) AddService(name host.Name, svc *model.Service) {
 	sd.mutex.Lock()
+	svc.Attributes.ServiceRegistry = string(serviceregistry.Mock)
 	sd.services[name] = svc
 	sd.mutex.Unlock()
 	// TODO: notify listeners
@@ -234,7 +236,6 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, en
 		sd.instancesByPortName[key] = append(instanceList, instance)
 
 	}
-
 	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
 }
 

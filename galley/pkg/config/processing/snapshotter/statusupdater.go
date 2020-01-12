@@ -51,6 +51,7 @@ func (u *InMemoryStatusUpdater) Update(m diag.Messages) {
 
 	if u.waitCh != nil {
 		close(u.waitCh)
+		u.waitCh = nil
 	}
 }
 

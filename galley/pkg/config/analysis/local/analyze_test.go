@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	authorizationapi "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -271,6 +272,35 @@ func TestResourceFiltering(t *testing.T) {
 			g.Expect(r.IsDisabled()).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Name()))
 		}
 	}
+}
+
+func TestRemoveResourcesWithoutPermission(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	usedCollection := k8smeta.K8SCoreV1Services
+	a := &testAnalyzer{
+		fn:     func(_ analysis.Context) {},
+		inputs: []collection.Name{usedCollection.Name()},
+	}
+
+	// Set up the mock so that when we query if the user has permission to list the collection, the answer is no.
+	mk := mock.NewKube()
+	mkClient, _ := mk.KubeClient()
+	mkSelfSubjectAccessReviews, _ := mkClient.AuthorizationV1().SelfSubjectAccessReviews().(*mock.SelfSubjectAccessReviewImpl)
+	mkSelfSubjectAccessReviews.DisallowResourceAttributes(&authorizationapi.ResourceAttributes{
+		Verb:     "list",
+		Group:    usedCollection.Resource().Group(),
+		Resource: usedCollection.Resource().CanonicalName(),
+	})
+
+	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", nil, true, timeout)
+	sa.AddRunningKubeSource(mk)
+
+	// Since this collection is used by an analyzer and service discovery is on, it would normally not be disabled...
+	// but since we fail the permissions pre-check, it should be disabled anyway.
+	actualCollection, found := sa.kubeResources.Find(usedCollection.Name().String())
+	g.Expect(found).To(BeTrue())
+	g.Expect(actualCollection.IsDisabled()).To(BeTrue(), fmt.Sprintf("%s should be disabled", actualCollection.Name()))
 }
 
 func tempFileFromString(t *testing.T, content string) *os.File {

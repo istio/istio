@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"istio.io/istio/galley/pkg/config/resource"
+
 	. "github.com/onsi/gomega"
 )
 
@@ -29,11 +31,10 @@ func TestMessage_String(t *testing.T) {
 	g.Expect(m.String()).To(Equal(`Error [IST-0042] Cheese type not found: "Feta"`))
 }
 
-func TestMessageWithOrigin_String(t *testing.T) {
+func TestMessageWithResource_String(t *testing.T) {
 	g := NewGomegaWithT(t)
-	o := testOrigin("toppings/cheese")
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
-	m := NewMessage(mt, o, "Feta")
+	m := NewMessage(mt, &resource.Instance{Origin: testOrigin("toppings/cheese")}, "Feta")
 
 	g.Expect(m.String()).To(Equal(`Error [IST-0042](toppings/cheese) Cheese type not found: "Feta"`))
 }
@@ -46,7 +47,7 @@ func TestMessage_Unstructured(t *testing.T) {
 	g.Expect(m.Unstructured(true)).To(Not(HaveKey("origin")))
 	g.Expect(m.Unstructured(false)).To(Not(HaveKey("origin")))
 
-	m = NewMessage(mt, testOrigin("toppings/cheese"), "Feta")
+	m = NewMessage(mt, &resource.Instance{Origin: testOrigin("toppings/cheese")}, "Feta")
 
 	g.Expect(m.Unstructured(true)).To((HaveKey("origin")))
 	g.Expect(m.Unstructured(false)).To(Not(HaveKey("origin")))
@@ -62,9 +63,8 @@ func TestMessageWithDocRef(t *testing.T) {
 
 func TestMessage_JSON(t *testing.T) {
 	g := NewGomegaWithT(t)
-	o := testOrigin("toppings/cheese")
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
-	m := NewMessage(mt, o, "Feta")
+	m := NewMessage(mt, &resource.Instance{Origin: testOrigin("toppings/cheese")}, "Feta")
 
 	j, _ := json.Marshal(&m)
 	g.Expect(string(j)).To(Equal(`{"code":"IST-0042","documentation_url":"https://istio.io/docs/reference/config/analysis/IST-0042"` +

@@ -349,16 +349,18 @@ func TestRequestAuthentication(t *testing.T) {
 			jwtPolicies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
 				file.AsStringOrFail(t, "testdata/requestauthn/b-authn-authz.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
+				file.AsStringOrFail(t, "testdata/requestauthn/e-authn.yaml.tmpl"),
 			)
 			g.ApplyConfigOrFail(t, ns, jwtPolicies...)
 			defer g.DeleteConfigOrFail(t, ns, jwtPolicies...)
 
-			var a, b, c, d echo.Instance
+			var a, b, c, d, e echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
 				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
+				With(&e, util.EchoConfig("e", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			testCases := []authn.TestCase{
@@ -376,6 +378,9 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 					},
 					ExpectResponseCode: response.StatusCodeOK,
+					ExpectHeaders: map[string]string{
+						authHeaderKey: "",
+					},
 				},
 				{
 					Name: "expired-token-noauthz",
@@ -391,6 +396,9 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 					},
 					ExpectResponseCode: response.StatusCodeOK,
+					ExpectHeaders: map[string]string{
+						authHeaderKey: "Bearer " + jwt.TokenExpired,
+					},
 				},
 				{
 					Name: "no-token-noauthz",
@@ -419,6 +427,9 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 					},
 					ExpectResponseCode: response.StatusCodeOK,
+					ExpectHeaders: map[string]string{
+						authHeaderKey: "",
+					},
 				},
 				{
 					Name: "expired-token",
@@ -459,6 +470,25 @@ func TestRequestAuthentication(t *testing.T) {
 					},
 					ExpectResponseCode: response.StatusCodeOK,
 				},
+				{
+					Name: "valid-token-forward",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   e,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + testIssuer1Token},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
+					ExpectHeaders: map[string]string{
+						authHeaderKey:    "Bearer " + testIssuer1Token,
+						"X-Test-Payload": "eyJleHAiOjQ3MTU3ODI3MjIsImdyb3VwcyI6WyJncm91cC0xIl0sImlhdCI6MTU2MjE4MjcyMiwiaXNzIjoidGVzdC1pc3N1ZXItMUBpc3Rpby5pbyIsInN1YiI6InN1Yi0xIn0", // nolint: lll
+					},
+				},
 			}
 			for _, c := range testCases {
 				t.Run(c.Name, func(t *testing.T) {
@@ -469,9 +499,9 @@ func TestRequestAuthentication(t *testing.T) {
 		})
 }
 
-// TestRequestAuthentication tests beta authn policy for jwt on ingress.
+// TestIngressRequestAuthentication tests beta authn policy for jwt on ingress.
 // The policy is also set at global namespace, with authorization on ingressgateway.
-func TestRequestAuthenticationOnIngress(t *testing.T) {
+func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {

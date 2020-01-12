@@ -26,27 +26,28 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/api/extensions/v1beta1"
 
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/util/pilotadapter"
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/config/validation"
-
-	"istio.io/pkg/log"
 )
 
 var (
 	inFilenames        []string
 	outConvertFilename string
+
+	schemas = collection.SchemasFor(
+		collections.IstioNetworkingV1Alpha3Virtualservices,
+		collections.IstioNetworkingV1Alpha3Gateways)
 )
 
 func convertConfigs(readers []io.Reader, writer io.Writer) error {
-	configDescriptor := schema.Set{
-		schemas.VirtualService,
-		schemas.Gateway,
-	}
-
 	configs, ingresses, err := readConfigs(readers)
 	if err != nil {
 		return err
@@ -71,7 +72,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 		return multierror.Prefix(err, "Ingress rules invalid")
 	}
 
-	writeYAMLOutput(configDescriptor, out, writer)
+	writeYAMLOutput(schemas, out, writer)
 
 	// sanity check that the outputs are valid
 	if err := validateConfigs(out); err != nil {
@@ -132,14 +133,14 @@ func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error
 	return out, outIngresses, nil
 }
 
-func writeYAMLOutput(descriptor schema.Set, configs []model.Config, writer io.Writer) {
+func writeYAMLOutput(schemas collection.Schemas, configs []model.Config, writer io.Writer) {
 	for i, cfg := range configs {
-		s, exists := descriptor.GetByType(cfg.Type)
+		s, exists := schemas.FindByKind(schema.NormalizeKind(cfg.Type))
 		if !exists {
-			log.Errorf("Unknown kind %q for %v", crd.ResourceName(cfg.Type), cfg.Name)
+			log.Errorf("Unknown kind %q for %v", cfg.Type, cfg.Name)
 			continue
 		}
-		obj, err := crd.ConvertConfig(s, cfg)
+		obj, err := pilotadapter.ConvertConfigToObject(s, cfg)
 		if err != nil {
 			log.Errorf("Could not decode %v: %v", cfg.Name, err)
 			continue
@@ -158,8 +159,10 @@ func writeYAMLOutput(descriptor schema.Set, configs []model.Config, writer io.Wr
 
 func validateConfigs(configs []model.Config) error {
 	var errs error
+	normalizedVirtualServicesKind :=
+		schema.NormalizeKind(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind())
 	for _, cfg := range configs {
-		if cfg.Type == schemas.VirtualService.Type {
+		if normalizedVirtualServicesKind == schema.NormalizeKind(cfg.Type) {
 			if err := validation.ValidateVirtualService(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
 				errs = multierror.Append(err, errs)
 			}

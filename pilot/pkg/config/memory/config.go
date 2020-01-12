@@ -46,8 +46,8 @@ func MakeWithLedger(descriptor schema.Set, configLedger ledger.Ledger) model.Con
 		data:       make(map[string]map[string]*sync.Map),
 		ledger:     configLedger,
 	}
-	for _, typ := range descriptor.Types() {
-		out.data[typ] = make(map[string]*sync.Map)
+	for _, kind := range descriptor.Types() {
+		out.data[schema.NormalizeKind(kind)] = make(map[string]*sync.Map)
 	}
 	return &out
 }
@@ -70,13 +70,14 @@ func (cr *store) Version() string {
 	return cr.ledger.RootHash()
 }
 
-func (cr *store) Get(typ, name, namespace string) *model.Config {
-	_, ok := cr.data[typ]
+func (cr *store) Get(kind, name, namespace string) *model.Config {
+	kind = schema.NormalizeKind(kind)
+	_, ok := cr.data[kind]
 	if !ok {
 		return nil
 	}
 
-	ns, exists := cr.data[typ][namespace]
+	ns, exists := cr.data[kind][namespace]
 	if !exists {
 		return nil
 	}
@@ -90,12 +91,13 @@ func (cr *store) Get(typ, name, namespace string) *model.Config {
 	return &config
 }
 
-func (cr *store) List(typ, namespace string) ([]model.Config, error) {
-	data, exists := cr.data[typ]
+func (cr *store) List(kind, namespace string) ([]model.Config, error) {
+	kind = schema.NormalizeKind(kind)
+	data, exists := cr.data[kind]
 	if !exists {
 		return nil, nil
 	}
-	out := make([]model.Config, 0, len(cr.data[typ]))
+	out := make([]model.Config, 0, len(cr.data[kind]))
 	if namespace == "" {
 		for _, ns := range data {
 			ns.Range(func(key, value interface{}) bool {
@@ -116,8 +118,9 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	return out, nil
 }
 
-func (cr *store) Delete(typ, name, namespace string) error {
-	data, ok := cr.data[typ]
+func (cr *store) Delete(kind, name, namespace string) error {
+	kind = schema.NormalizeKind(kind)
+	data, ok := cr.data[kind]
 	if !ok {
 		return errors.New("unknown type")
 	}
@@ -131,7 +134,7 @@ func (cr *store) Delete(typ, name, namespace string) error {
 		return errNotFound
 	}
 
-	err := cr.ledger.Delete(model.Key(typ, name, namespace))
+	err := cr.ledger.Delete(model.Key(kind, name, namespace))
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}
@@ -140,18 +143,18 @@ func (cr *store) Delete(typ, name, namespace string) error {
 }
 
 func (cr *store) Create(config model.Config) (string, error) {
-	typ := config.Type
-	s, ok := cr.descriptor.GetByType(typ)
+	kind := schema.NormalizeKind(config.Type)
+	s, ok := cr.descriptor.GetByType(kind)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
 	if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", err
 	}
-	ns, exists := cr.data[typ][config.Namespace]
+	ns, exists := cr.data[kind][config.Namespace]
 	if !exists {
 		ns = new(sync.Map)
-		cr.data[typ][config.Namespace] = ns
+		cr.data[kind][config.Namespace] = ns
 	}
 
 	_, exists = ns.Load(config.Name)
@@ -165,7 +168,7 @@ func (cr *store) Create(config model.Config) (string, error) {
 			config.CreationTimestamp = tnow
 		}
 
-		_, err := cr.ledger.Put(model.Key(typ, config.Namespace, config.Name), config.Version)
+		_, err := cr.ledger.Put(model.Key(kind, config.Namespace, config.Name), config.Version)
 		if err != nil {
 			log.Warnf(ledgerLogf, err)
 		}
@@ -176,8 +179,8 @@ func (cr *store) Create(config model.Config) (string, error) {
 }
 
 func (cr *store) Update(config model.Config) (string, error) {
-	typ := config.Type
-	s, ok := cr.descriptor.GetByType(typ)
+	kind := schema.NormalizeKind(config.Type)
+	s, ok := cr.descriptor.GetByType(kind)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
@@ -185,7 +188,7 @@ func (cr *store) Update(config model.Config) (string, error) {
 		return "", err
 	}
 
-	ns, exists := cr.data[typ][config.Namespace]
+	ns, exists := cr.data[kind][config.Namespace]
 	if !exists {
 		return "", errNotFound
 	}
@@ -201,7 +204,7 @@ func (cr *store) Update(config model.Config) (string, error) {
 
 	rev := time.Now().String()
 	config.ResourceVersion = rev
-	_, err := cr.ledger.Put(model.Key(typ, config.Namespace, config.Name), config.Version)
+	_, err := cr.ledger.Put(model.Key(kind, config.Namespace, config.Name), config.Version)
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}

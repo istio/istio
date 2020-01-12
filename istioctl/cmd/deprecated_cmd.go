@@ -44,12 +44,13 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/util/pilotadapter"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 	kubecfg "istio.io/istio/pkg/kube"
 )
 
@@ -68,44 +69,49 @@ var (
 
 	// sortWeight defines the output order for "get all".  We show the V3 types first.
 	sortWeight = map[string]int{
-		schemas.Gateway.Type:         10,
-		schemas.VirtualService.Type:  5,
-		schemas.DestinationRule.Type: 3,
-		schemas.ServiceEntry.Type:    1,
+		collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind():         10,
+		collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind():  5,
+		collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(): 3,
+		collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind():   1,
 	}
 
 	// mustList tracks which Istio types we SHOULD NOT silently ignore if we can't list.
 	// The user wants reasonable error messages when doing `get all` against a different
 	// server version.
 	mustList = map[string]bool{
-		schemas.Gateway.Type:              true,
-		schemas.VirtualService.Type:       true,
-		schemas.DestinationRule.Type:      true,
-		schemas.ServiceEntry.Type:         true,
-		schemas.HTTPAPISpec.Type:          true,
-		schemas.HTTPAPISpecBinding.Type:   true,
-		schemas.QuotaSpec.Type:            true,
-		schemas.QuotaSpecBinding.Type:     true,
-		schemas.AuthenticationPolicy.Type: true,
-		schemas.ServiceRole.Type:          true,
-		schemas.ServiceRoleBinding.Type:   true,
-		schemas.RbacConfig.Type:           true,
+		collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind():           true,
+		collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind():    true,
+		collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind():   true,
+		collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind():     true,
+		collections.IstioConfigV1Alpha2Httpapispecs.Resource().Kind():           true,
+		collections.IstioConfigV1Alpha2Httpapispecbindings.Resource().Kind():    true,
+		collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind():        true,
+		collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().Kind(): true,
+		collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind():       true,
+		collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind():             true,
+		collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind():      true,
+		collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Kind():              true,
 	}
+
+	gatewayKind         = collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind()
+	virtualServiceKind  = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind()
+	destinationRuleKind = collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind()
+	serviceEntryKind    = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind()
 
 	// Headings for short format listing specific to type
 	shortOutputHeadings = map[string]string{
-		"gateway":          "GATEWAY NAME\tHOSTS\tNAMESPACE\tAGE",
-		"virtual-service":  "VIRTUAL-SERVICE NAME\tGATEWAYS\tHOSTS\t#HTTP\t#TCP\tNAMESPACE\tAGE",
-		"destination-rule": "DESTINATION-RULE NAME\tHOST\tSUBSETS\tNAMESPACE\tAGE",
-		"service-entry":    "SERVICE-ENTRY NAME\tHOSTS\tPORTS\tNAMESPACE\tAGE",
+		gatewayKind:         "GATEWAY NAME\tHOSTS\tNAMESPACE\tAGE",
+		virtualServiceKind:  "VIRTUAL-SERVICE NAME\tGATEWAYS\tHOSTS\t#HTTP\t#TCP\tNAMESPACE\tAGE",
+		destinationRuleKind: "DESTINATION-RULE NAME\tHOST\tSUBSETS\tNAMESPACE\tAGE",
+		serviceEntryKind:    "SERVICE-ENTRY NAME\tHOSTS\tPORTS\tNAMESPACE\tAGE",
 	}
 
 	// Formatters for short format listing specific to type
 	shortOutputters = map[string]func(model.Config, io.Writer){
-		"gateway":          printShortGateway,
-		"virtual-service":  printShortVirtualService,
-		"destination-rule": printShortDestinationRule,
-		"service-entry":    printShortServiceEntry,
+		gatewayKind:         printShortGateway,
+		virtualServiceKind:  printShortVirtualService,
+		destinationRuleKind: printShortDestinationRule,
+		serviceEntryKind:    printShortServiceEntry,
 	}
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
@@ -309,16 +315,16 @@ istioctl get virtualservice bookinfo
 				return errors.New("a resource cannot be retrieved by name across all namespaces")
 			}
 
-			var typs []schema.Instance
+			var typs collection.Schemas
 			if !getByName && strings.EqualFold(args[0], "all") {
-				typs = configClient.ConfigDescriptor()
+				typs = pilotadapter.ConvertPilotSchemasToGalley(configClient.ConfigDescriptor())
 			} else {
 				typ, err := protoSchema(configClient, args[0])
 				if err != nil {
 					c.Println(c.UsageString())
 					return err
 				}
-				typs = []schema.Instance{typ}
+				typs = collection.SchemasFor(typ)
 			}
 
 			var ns string
@@ -331,18 +337,19 @@ istioctl get virtualservice bookinfo
 			var errs error
 			var configs []model.Config
 			if getByName {
-				config := configClient.Get(typs[0].Type, args[1], ns)
+				config := configClient.Get(typs.All()[0].Resource().Kind(), args[1], ns)
 				if config != nil {
 					configs = append(configs, *config)
 				}
 			} else {
-				for _, typ := range typs {
-					typeConfigs, err := configClient.List(typ.Type, ns)
+				for _, s := range typs.All() {
+					kind := s.Resource().Kind()
+					typeConfigs, err := configClient.List(kind, ns)
 					if err == nil {
 						configs = append(configs, typeConfigs...)
 					} else {
-						if mustList[typ.Type] {
-							errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type)))
+						if mustList[kind] {
+							errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", kind)))
 						}
 					}
 				}
@@ -367,8 +374,8 @@ istioctl get virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(schemas.Istio),
-		ArgAliases: configTypePluralResourceNames(schemas.Istio),
+		ValidArgs:  configTypeResourceNames(collections.Istio),
+		ArgAliases: configTypePluralResourceNames(collections.Istio),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -398,7 +405,7 @@ istioctl delete virtualservice bookinfo
 				}
 				ns := handlers.HandleNamespace(namespace, defaultNamespace)
 				for i := 1; i < len(args); i++ {
-					if err := configClient.Delete(typ.Type, args[i], ns); err != nil {
+					if err := configClient.Delete(typ.Resource().Kind(), args[i], ns); err != nil {
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
@@ -467,8 +474,8 @@ istioctl delete virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(schemas.Istio),
-		ArgAliases: configTypePluralResourceNames(schemas.Istio),
+		ValidArgs:  configTypeResourceNames(collections.Istio),
+		ArgAliases: configTypePluralResourceNames(collections.Istio),
 	}
 
 	contextCmd = &cobra.Command{
@@ -538,17 +545,19 @@ istioctl context-create --api-server http://127.0.0.1:8080
 )
 
 // The protoSchema is based on the kind (for example "virtualservice" or "destinationrule")
-func protoSchema(configClient model.ConfigStore, typ string) (schema.Instance, error) {
-	for _, desc := range configClient.ConfigDescriptor() {
+func protoSchema(configClient model.ConfigStore, typ string) (collection.Schema, error) {
+	if strings.Contains(typ, "-") {
+		return nil, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
+			typ, strings.ReplaceAll(typ, "-", ""))
+	}
+
+	for _, s := range pilotadapter.ConvertPilotSchemasToGalley(configClient.ConfigDescriptor()).All() {
 		switch strings.ToLower(typ) {
-		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
-			return desc, nil
-		case desc.Type, desc.Plural: // legacy hyphenated resources names
-			return schema.Instance{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
-				typ, crd.ResourceName(typ))
+		case strings.ToLower(s.Resource().Kind()), strings.ToLower(s.Resource().Plural()):
+			return s, nil
 		}
 	}
-	return schema.Instance{}, fmt.Errorf("configuration type %s not found, the types are %v",
+	return nil, fmt.Errorf("configuration type %s not found, the types are %v",
 		typ, strings.Join(supportedTypes(configClient), ", "))
 }
 
@@ -593,13 +602,13 @@ func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.
 		if prevType != c.Type {
 			if prevType != "" {
 				// Place a newline between types when doing 'get all'
-				fmt.Fprintf(&w, "\n")
+				_, _ = fmt.Fprintf(&w, "\n")
 			}
 			heading, ok := shortOutputHeadings[c.Type]
 			if !ok {
 				heading = unknownShortOutputHeading
 			}
-			fmt.Fprintf(&w, "%s\n", heading)
+			_, _ = fmt.Fprintf(&w, "%s\n", heading)
 			prevType = c.Type
 
 			if outputter, ok = shortOutputters[c.Type]; !ok {
@@ -609,19 +618,19 @@ func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.
 
 		outputter(c, &w)
 	}
-	w.Flush() // nolint: errcheck
+	_ = w.Flush()
 }
 
 func kindAsString(config model.Config) string {
 	return fmt.Sprintf("%s.%s.%s",
-		crd.KebabCaseToCamelCase(config.Type),
+		config.Type,
 		config.Group,
 		config.Version,
 	)
 }
 
 func printShortConfig(config model.Config, w io.Writer) {
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 		config.Name,
 		kindAsString(config),
 		config.Namespace,
@@ -631,11 +640,11 @@ func printShortConfig(config model.Config, w io.Writer) {
 func printShortVirtualService(config model.Config, w io.Writer) {
 	virtualService, ok := config.Spec.(*v1alpha3.VirtualService)
 	if !ok {
-		fmt.Fprintf(w, "Not a virtualservice: %v", config)
+		_, _ = fmt.Fprintf(w, "Not a virtualservice: %v", config)
 		return
 	}
 
-	fmt.Fprintf(w, "%s\t%s\t%s\t%5d\t%4d\t%s\t%s\n",
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%5d\t%4d\t%s\t%s\n",
 		config.Name,
 		strings.Join(virtualService.Gateways, ","),
 		strings.Join(virtualService.Hosts, ","),
@@ -648,7 +657,7 @@ func printShortVirtualService(config model.Config, w io.Writer) {
 func printShortDestinationRule(config model.Config, w io.Writer) {
 	destinationRule, ok := config.Spec.(*v1alpha3.DestinationRule)
 	if !ok {
-		fmt.Fprintf(w, "Not a destinationrule: %v", config)
+		_, _ = fmt.Fprintf(w, "Not a destinationrule: %v", config)
 		return
 	}
 
@@ -657,7 +666,7 @@ func printShortDestinationRule(config model.Config, w io.Writer) {
 		subsets = append(subsets, subset.Name)
 	}
 
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 		config.Name,
 		destinationRule.Host,
 		strings.Join(subsets, ","),
@@ -668,7 +677,7 @@ func printShortDestinationRule(config model.Config, w io.Writer) {
 func printShortServiceEntry(config model.Config, w io.Writer) {
 	serviceEntry, ok := config.Spec.(*v1alpha3.ServiceEntry)
 	if !ok {
-		fmt.Fprintf(w, "Not a serviceentry: %v", config)
+		_, _ = fmt.Fprintf(w, "Not a serviceentry: %v", config)
 		return
 	}
 
@@ -677,7 +686,7 @@ func printShortServiceEntry(config model.Config, w io.Writer) {
 		ports = append(ports, fmt.Sprintf("%s/%d", port.Protocol, port.Number))
 	}
 
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 		config.Name,
 		strings.Join(serviceEntry.Hosts, ","),
 		strings.Join(ports, ","),
@@ -688,7 +697,7 @@ func printShortServiceEntry(config model.Config, w io.Writer) {
 func printShortGateway(config model.Config, w io.Writer) {
 	gateway, ok := config.Spec.(*v1alpha3.Gateway)
 	if !ok {
-		fmt.Fprintf(w, "Not a gateway: %v", config)
+		_, _ = fmt.Fprintf(w, "Not a gateway: %v", config)
 		return
 	}
 
@@ -704,21 +713,21 @@ func printShortGateway(config model.Config, w io.Writer) {
 		hosts = append(hosts, host)
 	}
 
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 		config.Name, strings.Join(hosts, ","), config.Namespace,
 		renderTimestamp(config.CreationTimestamp))
 }
 
 // Print as YAML
 func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configList []model.Config) {
-	descriptor := configClient.ConfigDescriptor()
+	schema := pilotadapter.ConvertPilotSchemasToGalley(configClient.ConfigDescriptor())
 	for _, config := range configList {
-		s, exists := descriptor.GetByType(config.Type)
+		s, exists := schema.FindByKind(config.Type)
 		if !exists {
-			log.Errorf("Unknown kind %q for %v", crd.ResourceName(config.Type), config.Name)
+			log.Errorf("Unknown kind %q for %v", config.Type, config.Name)
 			continue
 		}
-		obj, err := crd.ConvertConfig(s, config)
+		obj, err := pilotadapter.ConvertConfigToObject(s, config)
 		if err != nil {
 			log.Errorf("Could not decode %v: %v", config.Name, err)
 			continue
@@ -728,21 +737,18 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 			log.Errorf("Could not convert %v to YAML: %v", config, err)
 			continue
 		}
-		fmt.Fprint(writer, string(bytes))
-		fmt.Fprintln(writer, "---")
+		_, _ = fmt.Fprint(writer, string(bytes))
+		_, _ = fmt.Fprintln(writer, "---")
 	}
 }
 
 func newClient() (model.ConfigStore, error) {
-	return controller.NewClient(kubeconfig, configContext, schemas.Istio, "", &model.DisabledLedger{})
+	return controller.NewClient(kubeconfig, configContext, pilotadapter.ConvertGalleySchemasToPilot(collections.Istio),
+		"", &model.DisabledLedger{})
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
-	types := configClient.ConfigDescriptor().Types()
-	for i := range types {
-		types[i] = crd.ResourceName(types[i])
-	}
-	return types
+	return configClient.ConfigDescriptor().Types()
 }
 
 func preprocMixerConfig(configs []crd.IstioKind) error {
@@ -826,18 +832,20 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 	return client, resources, nil
 }
 
-func configTypeResourceNames(configTypes schema.Set) []string {
-	resourceNames := make([]string, len(configTypes))
-	for _, typ := range configTypes {
-		resourceNames = append(resourceNames, crd.ResourceName(typ.Type))
+func configTypeResourceNames(schemas collection.Schemas) []string {
+	all := schemas.All()
+	resourceNames := make([]string, len(all))
+	for _, s := range all {
+		resourceNames = append(resourceNames, s.Resource().Kind())
 	}
 	return resourceNames
 }
 
-func configTypePluralResourceNames(configTypes schema.Set) []string {
-	resourceNames := make([]string, len(configTypes))
-	for _, typ := range configTypes {
-		resourceNames = append(resourceNames, crd.ResourceName(typ.Plural))
+func configTypePluralResourceNames(schemas collection.Schemas) []string {
+	all := schemas.All()
+	resourceNames := make([]string, len(all))
+	for _, s := range all {
+		resourceNames = append(resourceNames, s.Resource().Plural())
 	}
 	return resourceNames
 }
