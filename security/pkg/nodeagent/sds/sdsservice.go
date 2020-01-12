@@ -98,6 +98,9 @@ type sdsConnection struct {
 	// The secret associated with the proxy.
 	secret *model.SecretItem
 
+	// Indicates whether the secret is pushed. It can be used to notify if the secret push was blocked.
+	secretPushed bool
+
 	// Mutex to protect read/write to this connection
 	// TODO(JimmyCYJ): Move all read/write into member function with lock protection to avoid race condition.
 	mutex sync.RWMutex
@@ -251,14 +254,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				ResourceName: resourceName,
 			}
 
-			var firstRequestFlag bool
 			con.mutex.Lock()
 			if con.conID == "" {
 				// first request
 				con.conID = constructConnectionID(discReq.Node.Id)
 				key.ConnectionID = con.conID
 				addConn(key, con)
-				firstRequestFlag = true
 				sdsServiceLog.Infof("%s new connection", sdsLogPrefix(con.conID, resourceName))
 			}
 			conID := con.conID
@@ -295,24 +296,24 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				totalSecretUpdateFailureCounts.Increment()
 			}
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
-			// request's <token, resourceName, Version>, then this request is a confirmation request.
-			// nodeagent stops sending response to envoy in this case.
+			// request's <token, resourceName, Version>, then this request is an ACK request.
+			// Nodeagent pushes previously skipped updated secret if there is one.
 			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
 					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail)
+				if !con.secretPushed {
+					sdsServiceLog.Infof("%s push previously skipped updated secret",
+						conIDresourceNamePrefix)
+					con.pushChannel <- &sdsEvent{}
+				}
 				continue
 			}
 
-			if firstRequestFlag {
-				sdsServiceLog.Debugf("%s received first SDS request from proxy %q, version info "+
-					"%q, error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
-					discReq.ErrorDetail)
-			} else {
-				sdsServiceLog.Debugf("%s received SDS request from proxy %q, version info %q, "+
-					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
-					discReq.ErrorDetail)
-			}
+			sdsServiceLog.Debugf("%s received SDS request from proxy %q, version info %q, "+
+				"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+				discReq.ErrorDetail)
+
 
 			// In ingress gateway agent mode, if the first SDS request is received but kubernetes secret is not ready,
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
@@ -336,13 +337,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.mutex.Lock()
 			con.secret = secret
 			con.mutex.Unlock()
+			con.pushChannel <- &sdsEvent{}
 
-			if err := pushSDS(con); err != nil {
-				sdsServiceLog.Errorf("%s Close connection. Failed to push key/cert to proxy %q: %v",
-					conIDresourceNamePrefix, discReq.Node.Id, err)
-				return err
-			}
-			sdsServiceLog.Infof("%s pushed secret", conIDresourceNamePrefix)
 		case <-con.pushChannel:
 			con.mutex.RLock()
 			proxyID := con.proxyID
@@ -368,11 +364,10 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			if err := pushSDS(con); err != nil {
-				sdsServiceLog.Errorf("%s Close connection. Failed to push key/cert to proxy %q: %v",
+				sdsServiceLog.Errorf("%s close connection. Failed to push key/cert to proxy %q: %v",
 					conIDresourceNamePrefix, proxyID, err)
 				return err
 			}
-			sdsServiceLog.Infoa("Dynamic push for secret ", resourceName)
 		}
 	}
 }
@@ -553,13 +548,14 @@ func pushSDS(con *sdsConnection) error {
 
 	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
 	if !sdsPushTime.IsZero() {
-		sdsServiceLog.Errorf("%s skip multiple push, last push finishes at %s and is "+
-			"waiting for next SDS request", conIDresourceNamePrefix, sdsPushTime.String())
+		sdsServiceLog.Infof("%s skip push, wait for ACK. Last push at %s",
+			conIDresourceNamePrefix, sdsPushTime.Format("2006-01-02 15:04:05.999999"))
+		con.secretPushed = false
 		return nil
 	}
 
 	if secret == nil {
-		return fmt.Errorf("sdsConnection %v passed into pushSDS() contains nil secret", con)
+		return fmt.Errorf("sdsConnection %v passed into pushSDS() contains nil secret, no need to push", con)
 	}
 
 	response, err := sdsDiscoveryResponse(secret, conID, resourceName)
@@ -574,6 +570,7 @@ func pushSDS(con *sdsConnection) error {
 		return err
 	}
 
+	con.secretPushed = true
 	con.sdsPushTime = time.Now()
 
 	// Update metrics after push to avoid adding latency to SDS push.
