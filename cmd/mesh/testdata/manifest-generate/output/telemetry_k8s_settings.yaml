@@ -1422,6 +1422,8 @@ kind: Service
 metadata:
   name: istio-telemetry
   namespace: istio-system
+  annotations:
+    cloud.google.com/load-balancer-type: internal
   labels:
     app: mixer
     istio: mixer
