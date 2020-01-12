@@ -314,7 +314,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 				discReq.ErrorDetail)
 
-
 			// In ingress gateway agent mode, if the first SDS request is received but kubernetes secret is not ready,
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
 			// for a new kubernetes secret before sending SDS response.
@@ -364,7 +363,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			if err := pushSDS(con); err != nil {
-				sdsServiceLog.Errorf("%s close connection. Failed to push key/cert to proxy %q: %v",
+				sdsServiceLog.Errorf("%s Close connection. Failed to push key/cert to proxy %q: %v",
 					conIDresourceNamePrefix, proxyID, err)
 				return err
 			}

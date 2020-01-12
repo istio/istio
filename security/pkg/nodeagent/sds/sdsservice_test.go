@@ -527,8 +527,8 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 }
 
-func sdsClientForTestStreamSecretsMultiplePushBlockedUntilAck(t *testing.T, stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
-	notifyChan chan notifyMsg) {
+func sdsClientForTestStreamSecretsMultiplePushBlockedUntilAck(t *testing.T,
+	stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string, notifyChan chan notifyMsg) {
 	req := &api.DiscoveryRequest{
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
@@ -571,7 +571,7 @@ func sdsClientForTestStreamSecretsMultiplePushBlockedUntilAck(t *testing.T, stre
 
 	_, err = stream.Recv()
 	// The following checks the SDS response is received after the ACK is sent.
-	if time.Now().Sub(start) < delay {
+	if time.Since(start) < delay {
 		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("Received secret push before sending ACK")}
 	}
 	if err != nil {
