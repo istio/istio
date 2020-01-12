@@ -270,12 +270,11 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 	// may individually update their endpoints incrementally
 	for _, svc := range push.Services(nil) {
 		for _, registry := range nonK8sRegistries {
-			// in case this svc does not belong to the registry
-			if svc, _ := registry.GetService(svc.Hostname); svc == nil {
+			// skip the service in case this svc does not belong to the registry.
+			if svc.Attributes.ServiceRegistry != string(registry.Provider()) {
 				continue
 			}
-
-			entries := make([]*model.IstioEndpoint, 0)
+			endpoints := make([]*model.IstioEndpoint, 0)
 			for _, port := range svc.Ports {
 				if port.Protocol == protocol.UDP {
 					continue
@@ -288,11 +287,11 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 
 				for _, inst := range instances {
-					entries = append(entries, inst.Endpoint)
+					endpoints = append(endpoints, inst.Endpoint)
 				}
 			}
 
-			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, entries, true)
+			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, endpoints, true)
 		}
 	}
 
