@@ -1,9 +1,7 @@
 template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
-  {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-  {{- if not .Values.istio_cni.enabled }}
   - name: istio-init
   {{- if contains "/" .Values.global.proxy_init.image }}
     image: "{{ .Values.global.proxy_init.image }}"
@@ -36,10 +34,10 @@ template: |
     - "-k"
     - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
     {{ end -}}
-  {{- if .Values.istio_cni.enabled }}
+    {{ if .Values.istio_cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
-  {{- end }}
+    {{ end -}}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
   {{- if .Values.global.proxy_init.resources }}
     resources:
@@ -67,7 +65,6 @@ template: |
       runAsNonRoot: true
   {{- end }}
     restartPolicy: Always
-  {{  end -}}
   {{- if eq .Values.global.proxy.enableCoreDump true }}
   - name: enable-core-dump
     args:
@@ -95,7 +92,6 @@ template: |
       runAsNonRoot: false
       runAsUser: 0
   {{ end }}
-  {{- end }}
   containers:
   - name: istio-proxy
   {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
