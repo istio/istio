@@ -75,12 +75,10 @@ func TestCombinedMethods(t *testing.T) {
         Run(istioio.NewBuilder("tasks__security__my_task").
             Add(istioio.Script{
                 Input:         istioio.Path("myscript.sh"),
-                WorkDir:       env.IstioSrc,
             },
             istioio.MultiPodWait("foo"),
             istioio.Script{
                 Input:         istioio.Path("myotherscript.sh"),
-                WorkDir:       env.IstioSrc,
             }).Build())
 }
 ```
@@ -148,7 +146,6 @@ snippets with `istioio.Script`:
 ```golang
 istioio.Script{
     Input:   istioio.Path("myscript.sh"),
-    WorkDir: env.IstioSrc,
 }
 ```
 
