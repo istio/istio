@@ -15,11 +15,11 @@
 package local
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -87,6 +87,9 @@ type SourceAnalyzer struct {
 
 	// Hook function called when a collection is used in analysis
 	collectionReporter snapshotter.CollectionReporterFn
+
+	// How long to wait for snapshot + analysis to complete before aborting
+	timeout time.Duration
 }
 
 // AnalysisResult represents the returnable results of an analysis execution
@@ -99,7 +102,7 @@ type AnalysisResult struct {
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
+	cr snapshotter.CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *SourceAnalyzer {
 
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
@@ -126,6 +129,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
+		timeout:              timeout,
 	}
 
 	return sa
@@ -164,7 +168,10 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 
-	updater := &snapshotter.InMemoryStatusUpdater{}
+	updater := &snapshotter.InMemoryStatusUpdater{
+		WaitTimeout: sa.timeout,
+	}
+
 	distributorSettings := snapshotter.AnalyzingDistributorSettings{
 		StatusUpdater:      updater,
 		Analyzer:           sa.analyzer,
@@ -189,16 +196,17 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	if err != nil {
 		return result, err
 	}
+
 	rt.Start()
 	defer rt.Stop()
 
 	scope.Analysis.Debugf("Waiting for analysis messages to be available...")
-	if updater.WaitForReport(cancel) {
-		result.Messages = updater.Get()
-		return result, nil
+	if err := updater.WaitForReport(cancel); err != nil {
+		return result, fmt.Errorf("failed to get analysis result: %v", err)
 	}
 
-	return result, errors.New("cancelled")
+	result.Messages = updater.Get()
+	return result, nil
 }
 
 // SetSuppressions will set the list of suppressions for the analyzer. Any
