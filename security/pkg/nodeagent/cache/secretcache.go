@@ -77,8 +77,8 @@ const (
 	// The well-known path for an existing key file
 	existingKeyFile = "./etc/certs/key.pem"
 
-	// The well-known path for an existing root certificate file
-	existingRootCertFile = "./etc/certs/root-cert.pem"
+	// ExistingRootCertFile is the well-known path for an existing root certificate file
+	ExistingRootCertFile = "./etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
@@ -227,9 +227,9 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	// the files under the well known path.
 	sdsFromFile := false
 	var err error
-	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(existingRootCertFile) {
+	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(ExistingRootCertFile) {
 		sdsFromFile = true
-		ns, err = sc.generateRootCertFromExistingFile(existingRootCertFile, token, connKey)
+		ns, err = sc.generateRootCertFromExistingFile(ExistingRootCertFile, token, connKey)
 	} else if connKey.ResourceName == WorkloadKeyCertResourceName &&
 		sc.keyCertificateExist(existingCertChainFile, existingKeyFile) {
 		sdsFromFile = true
