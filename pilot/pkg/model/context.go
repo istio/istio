@@ -419,9 +419,8 @@ func compareVersion(ov, nv int) int {
 	}
 	if ov < nv {
 		return -1
-	} else {
-		return 1
 	}
+	return 1
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
