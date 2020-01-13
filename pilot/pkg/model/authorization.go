@@ -28,6 +28,13 @@ var (
 	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
 )
 
+type PolicyAction int
+
+const (
+	AllowPolicy PolicyAction = iota
+	DenyPolicy
+)
+
 type ServiceRoleConfig struct {
 	Name        string                 `json:"name"`
 	ServiceRole *rbacproto.ServiceRole `json:"service_role"`
@@ -181,7 +188,7 @@ func (policy *AuthorizationPolicies) ListServiceRoleBindings(ns string) map[stri
 
 // ListAuthorizationPolicies returns the AuthorizationPolicy for the workload in root namespace and the config namespace.
 func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace string,
-	workloadLabels labels.Collection) []AuthorizationPolicyConfig {
+	workloadLabels labels.Collection, action PolicyAction) []AuthorizationPolicyConfig {
 	if policy == nil {
 		return nil
 	}
@@ -201,6 +208,19 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace s
 			spec := config.AuthorizationPolicy
 			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 			if workloadLabels.IsSupersetOf(selector) {
+				switch config.AuthorizationPolicy.GetAction() {
+				case authpb.AuthorizationPolicy_ALLOW:
+					if action != AllowPolicy {
+						continue
+					}
+				case authpb.AuthorizationPolicy_DENY:
+					if action != DenyPolicy {
+						continue
+					}
+				default:
+					log.Errorf("found authorization policy with unsupported action: %s", config.AuthorizationPolicy.GetAction())
+					continue
+				}
 				ret = append(ret, config)
 			}
 		}

@@ -20,7 +20,6 @@ import (
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
-	istio_rbac "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
@@ -35,27 +34,45 @@ var (
 
 type v1beta1Generator struct {
 	trustDomainBundle trustdomain.Bundle
-	policies          []model.AuthorizationPolicyConfig
+	denyPolicies      []model.AuthorizationPolicyConfig
+	allowPolicies     []model.AuthorizationPolicyConfig
 }
 
-func NewGenerator(trustDomainBundle trustdomain.Bundle, policies []model.AuthorizationPolicyConfig) policy.Generator {
+func NewGenerator(trustDomainBundle trustdomain.Bundle, allowPolicies []model.AuthorizationPolicyConfig,
+	denyPolicies []model.AuthorizationPolicyConfig) policy.Generator {
 	return &v1beta1Generator{
 		trustDomainBundle: trustDomainBundle,
-		policies:          policies,
+		denyPolicies:      denyPolicies,
+		allowPolicies:     allowPolicies,
 	}
 }
 
-func (g *v1beta1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
+func (g *v1beta1Generator) Generate(forTCPFilter bool) (denyConfig *http_config.RBAC, allowConfig *http_config.RBAC) {
 	rbacLog.Debugf("building v1beta1 policy")
+	denyConfig = g.generatePolicy(g.denyPolicies, envoy_rbac.RBAC_DENY, forTCPFilter)
+	allowConfig = g.generatePolicy(g.allowPolicies, envoy_rbac.RBAC_ALLOW, forTCPFilter)
+	return
+}
+
+func (g *v1beta1Generator) generatePolicy(policies []model.AuthorizationPolicyConfig, action envoy_rbac.RBAC_Action,
+	forTCPFilter bool) *http_config.RBAC {
+	if len(policies) == 0 {
+		return nil
+	}
 
 	rbac := &envoy_rbac.RBAC{
-		Action:   envoy_rbac.RBAC_ALLOW,
+		Action:   action,
 		Policies: map[string]*envoy_rbac.Policy{},
 	}
 
-	for _, config := range g.policies {
+	for _, config := range policies {
 		for i, rule := range config.AuthorizationPolicy.Rules {
-			if p := g.generatePolicy(g.trustDomainBundle, rule, forTCPFilter); p != nil {
+			if rule == nil {
+				continue
+			}
+			m := authz_model.NewModelV1beta1(g.trustDomainBundle, rule)
+			rbacLog.Debugf("constructed internal model: %+v", m)
+			if p := m.Generate(nil, forTCPFilter); p != nil {
 				name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
 				rbac.Policies[name] = p
 				rbacLog.Debugf("generated policy %s: %+v", name, p)
@@ -63,14 +80,4 @@ func (g *v1beta1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 		}
 	}
 	return &http_config.RBAC{Rules: rbac}
-}
-
-func (g *v1beta1Generator) generatePolicy(trustDomainBundle trustdomain.Bundle, rule *istio_rbac.Rule, forTCPFilter bool) *envoy_rbac.Policy {
-	if rule == nil {
-		return nil
-	}
-
-	m := authz_model.NewModelV1beta1(trustDomainBundle, rule)
-	rbacLog.Debugf("constructed internal model: %+v", m)
-	return m.Generate(nil, forTCPFilter)
 }

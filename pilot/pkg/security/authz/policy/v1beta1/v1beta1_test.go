@@ -33,9 +33,6 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 		forTCPFilter bool
 	}{
 		{
-			name: "no policy",
-		},
-		{
 			name: "one policy",
 			policies: []model.AuthorizationPolicyConfig{
 				{
@@ -77,15 +74,12 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewGenerator(trustdomain.NewTrustDomainBundle("", nil), tc.policies)
+			g := NewGenerator(trustdomain.NewTrustDomainBundle("", nil), tc.policies, nil)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}
 
-			got := g.Generate(tc.forTCPFilter)
-			if got.GetRules() == nil {
-				t.Fatal("rule must not be nil")
-			}
+			_, got := g.Generate(tc.forTCPFilter)
 			if err := policy.Verify(got.GetRules(), tc.wantRules, false); err != nil {
 				t.Fatalf("%s\n%s", err, spew.Sdump(got))
 			}

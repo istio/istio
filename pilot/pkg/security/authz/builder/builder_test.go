@@ -126,7 +126,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 		p := policy.NewAuthzPolicies(tc.policies, t)
 		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
 
-		got := b.BuildHTTPFilter()
+		_, got := b.BuildHTTPFilter()
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.wantPolicies == nil {
 				if got != nil {
@@ -219,7 +219,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
 
 		t.Run(tc.name, func(t *testing.T) {
-			got := b.BuildTCPFilter()
+			_, got := b.BuildTCPFilter()
 			if got.Name != authz_model.RBACTCPFilterName {
 				t.Errorf("got filter name %q but want %q", got.Name, authz_model.RBACTCPFilterName)
 			}

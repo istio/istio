@@ -131,7 +131,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 			if b == nil {
 				t.Fatalf("failed to create builder")
 			}
-			got := b.generator.Generate(false)
+			_, got := b.generator.Generate(false)
 
 			if !reflect.DeepEqual(got, tc.want) {
 				gotYaml, err := protomarshal.ToYAML(got)

@@ -273,7 +273,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 				t.Fatal("failed to create generator")
 			}
 
-			got := g.Generate(tc.forTCPFilter)
+			_, got := g.Generate(tc.forTCPFilter)
 			gotStr := spew.Sdump(got)
 
 			if tc.isGlobalPermissiveEnabled {
