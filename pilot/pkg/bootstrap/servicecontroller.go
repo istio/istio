@@ -52,9 +52,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				return err
 			}
 		case serviceregistry.MCP:
-			if s.sseDiscovery != nil {
-				serviceControllers.AddRegistry(s.sseDiscovery)
-			}
+			log.Warnf("the MCP Service Registry is deprecated and no longer has an effect")
 		case serviceregistry.Consul:
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err

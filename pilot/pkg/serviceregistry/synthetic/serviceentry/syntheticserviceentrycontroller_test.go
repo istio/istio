@@ -118,23 +118,6 @@ var (
 		},
 	}
 
-	syntheticServiceEntry2 = &networking.ServiceEntry{
-		Hosts: []string{"example3.com"},
-		Ports: []*networking.Port{
-			{Number: 80, Name: "http-port2", Protocol: "http"},
-			{Number: 8080, Name: "http-alt-port2", Protocol: "http"},
-		},
-		Location:   networking.ServiceEntry_MESH_EXTERNAL,
-		Resolution: networking.ServiceEntry_DNS,
-		Endpoints: []*networking.ServiceEntry_Endpoint{
-			{
-				Address: "2.2.2.2",
-				Ports:   map[string]uint32{"http-port2": 7082, "http-alt-port2": 18082},
-				Labels:  map[string]string{"foo3": "bar3"},
-			},
-		},
-	}
-
 	testControllerOptions = &serviceentry.Options{
 		DomainSuffix: "cluster.local",
 		ConfigLedger: &model.DisabledLedger{},

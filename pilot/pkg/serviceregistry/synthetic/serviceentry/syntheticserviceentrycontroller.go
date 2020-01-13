@@ -37,11 +37,12 @@ import (
 )
 
 var (
-	errUnsupported      = errors.New("this operation is not supported by mcp controller")
-	endpointKey         = annotation.AlphaNetworkingEndpointsVersion.Name
-	serviceKey          = annotation.AlphaNetworkingServiceVersion.Name
-	notReadyEndpointkey = annotation.AlphaNetworkingNotReadyEndpoints.Name
+	errUnsupported = errors.New("this operation is not supported by mcp controller")
+	endpointKey    = annotation.AlphaNetworkingEndpointsVersion.Name
+	serviceKey     = annotation.AlphaNetworkingServiceVersion.Name
 )
+
+// TODO(nmittler): This should be moved to pilot/pkg/config
 
 // Controller is a combined interface for ConfigStoreCache
 // and MCP Updater
