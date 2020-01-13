@@ -45,6 +45,7 @@ var expectedStats = map[string]int{
 }
 
 func TestQuotaCache(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/20092")
 	// Only check cache is enabled, quota cache is enabled.
 	s := env.NewTestSetup(env.QuotaCacheTest, t)
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
