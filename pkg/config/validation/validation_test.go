@@ -2455,14 +2455,6 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
-		{name: "valid removeResponseHeaders", in: &networking.VirtualService{
-			Hosts: []string{"foo.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: true},
 		{name: "missing tcp route", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
 			Tcp: []*networking.TCPRoute{{
