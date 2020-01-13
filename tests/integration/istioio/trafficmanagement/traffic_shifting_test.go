@@ -17,7 +17,6 @@ package trafficmanagement
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/istioio"
 )
@@ -27,8 +26,7 @@ func TestTrafficShifting(t *testing.T) {
 		NewTest(t).
 		Run(istioio.NewBuilder("tasks__traffic_management__traffic_shifting").
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/traffic_shifting.txt"),
-				WorkDir: env.IstioSrc,
+				Input: istioio.Path("scripts/traffic_shifting.txt"),
 			}).
 			Defer(istioio.Script{
 				Input: istioio.Inline{
@@ -41,7 +39,6 @@ kubectl delete -f samples/bookinfo/networking/virtual-service-all-v1.yaml || tru
 kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml || true
 kubectl delete -f samples/sleep/sleep.yaml || true`,
 				},
-				WorkDir: env.IstioSrc,
 			}).
 			Build())
 }
