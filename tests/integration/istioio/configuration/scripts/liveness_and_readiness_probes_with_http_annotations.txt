@@ -50,10 +50,18 @@ spec:
 EOF
 # $endsnippet
 
+$ kubectl -n istio-io-health rollout status deployment liveness-http --timeout 60s
+
 # $snippet re-deploy_with_annotation_check_status.sh syntax="bash" outputis="text"
 $ kubectl -n istio-io-health get pod
+# $verify verifier="lineRegex"
+NAME *READY *STATUS *RESTARTS *AGE
+liveness-http-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0 ?
 # $endsnippet
 
 # $snippet delete_deploy_with_annotation.sh syntax="bash"
 $ kubectl -n istio-io-health delete deploy/liveness-http
 # $endsnippet
+
+# let delete operation finish
+sleep 30s

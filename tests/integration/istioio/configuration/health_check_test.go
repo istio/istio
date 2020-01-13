@@ -17,7 +17,6 @@ package configuration
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/istioio"
 )
@@ -28,25 +27,20 @@ func TestHealthCheck(t *testing.T) {
 		NewTest(t).
 		Run(istioio.NewBuilder("ops__configuration__mesh__app_health_check").
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/liveness_and_readiness_probes_with_command.txt"),
-				WorkDir: env.IstioSrc,
+				Input: istioio.Path("scripts/liveness_and_readiness_probes_with_command.txt"),
 			}).
 			Add(istioio.MultiPodWait("istio-io-health")).
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/liveness_and_readiness_probes_with_http_globally.txt"),
-				WorkDir: env.IstioSrc,
+				Input: istioio.Path("scripts/liveness_and_readiness_probes_with_http_globally.txt"),
 			}).
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/liveness_and_readiness_probes_with_http_annotations.txt"),
-				WorkDir: env.IstioSrc,
+				Input: istioio.Path("scripts/liveness_and_readiness_probes_with_http_annotations.txt"),
 			}).
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/liveness_and_readiness_probes_with_http_separate_port.txt"),
-				WorkDir: env.IstioSrc,
+				Input: istioio.Path("scripts/liveness_and_readiness_probes_with_http_separate_port.txt"),
 			}).
 			Defer(istioio.Script{
-				Input:   istioio.Path("scripts/cleanup.txt"),
-				WorkDir: env.IstioSrc,
+				Input: istioio.Path("scripts/cleanup.txt"),
 			}).
 			Build())
 }
