@@ -25,6 +25,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
@@ -35,7 +36,6 @@ import (
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -48,6 +48,7 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -59,7 +60,9 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 var (
@@ -111,13 +114,16 @@ type Server struct {
 	kubeClient          kubernetes.Interface
 	startFuncs          []startFunc
 	multicluster        *kubecontroller.Multicluster
-	httpServer          *http.Server
+	httpServer          *http.Server // debug
+	httpsServer         *http.Server // webhooks
+	httpsReadyClient    *http.Client
 	grpcServer          *grpc.Server
 	secureHTTPServer    *http.Server
 	secureGRPCServer    *grpc.Server
 	secureHTTPServerDNS *http.Server
 	secureGRPCServerDNS *grpc.Server
-	mux                 *http.ServeMux
+	mux                 *http.ServeMux // debug
+	httpsMux            *http.ServeMux // webhooks
 	kubeRegistry        *kubecontroller.Controller
 	certController      *chiron.WebhookController
 	ca                  *ca.IstioCA
@@ -134,8 +140,11 @@ type Server struct {
 	// for test
 	forceStop bool
 
-	// webhook is the injection webhook, or nil if injection disabled
-	webhook *inject.Webhook
+	// nil if injection disabled
+	injectionWebhook *inject.Webhook
+
+	webhookCertMu sync.Mutex
+	webhookCert   *tls.Certificate
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -208,10 +217,21 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
 	}
 
+	// common https server for webhooks (e.g. injection, validation)
+	if err := s.initHTTPSWebhookServer(args); err != nil {
+		return nil, fmt.Errorf("injectionWebhook server: %v", err)
+	}
+
 	// Will run the sidecar injector in pilot.
 	// Only operates if /var/lib/istio/inject exists
 	if err := s.initSidecarInjector(args); err != nil {
 		return nil, fmt.Errorf("sidecar injector: %v", err)
+	}
+
+	// Will run the config validater in pilot.
+	// Only operates if /var/lib/istio/validation exists
+	if err := s.initConfigValidation(args); err != nil {
+		return nil, fmt.Errorf("config validation: %v", err)
 	}
 
 	// Run the SDS signing server.
@@ -270,12 +290,20 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	log.Infof("starting discovery service at http=%s grpc=%s", s.HTTPListener.Addr(),
 		s.GRPCListener.Addr())
 
-	// At this point we are ready
+	// At this point we are ready ready
 	go func() {
 		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
 			log.Warna(err)
 		}
 	}()
+
+	if s.httpsServer != nil {
+		go func() {
+			if err := s.httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Warna(err)
+			}
+		}()
+	}
 
 	s.cleanupOnStop(stop)
 
@@ -295,9 +323,28 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	return nil
 }
 
+// A single container can't have two readiness probes. Piggyback the https server readiness
+// onto the http server readiness check. The "http" portion of the readiness check is satisfied
+// by the fact we've started listening on this handler and everything has already initialized.
+func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) {
+	if features.IstiodService.Get() != "" {
+		if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
+			log.Warnf("https webhook server not ready: %v", status)
+			w.WriteHeader(status)
+			return
+		}
+	}
+
+	// TODO check readiness of other secure gRPC and HTTP servers.
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.mux = http.NewServeMux()
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, s.webhook)
+	s.mux.HandleFunc("/ready", s.httpServerReadyHandler)
+
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, s.injectionWebhook)
 
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
@@ -400,13 +447,20 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 		if s.forceStop {
 			s.grpcServer.Stop()
 			_ = s.httpServer.Close()
+			if features.IstiodService.Get() != "" {
+				_ = s.httpsServer.Close()
+			}
 		} else {
 			s.grpcServer.GracefulStop()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			err := s.httpServer.Shutdown(ctx)
-			if err != nil {
+			if err := s.httpServer.Shutdown(ctx); err != nil {
 				log.Warna(err)
+			}
+			if features.IstiodService.Get() != "" {
+				if err := s.httpsServer.Shutdown(ctx); err != nil {
+					log.Warna(err)
+				}
 			}
 		}
 	}()
