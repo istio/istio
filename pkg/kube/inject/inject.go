@@ -75,6 +75,7 @@ var (
 		annotation.SidecarStatsInclusionRegexps.Name:              alwaysValidFunc,
 		annotation.SidecarUserVolume.Name:                         alwaysValidFunc,
 		annotation.SidecarUserVolumeMount.Name:                    alwaysValidFunc,
+		annotation.SidecarEnableCoreDump.Name:                     validateBool,
 		annotation.SidecarStatusPort.Name:                         validateStatusPort,
 		annotation.SidecarStatusReadinessInitialDelaySeconds.Name: validateUInt32,
 		annotation.SidecarStatusReadinessPeriodSeconds.Name:       validateUInt32,
@@ -384,6 +385,12 @@ func validateStatusPort(port string) error {
 // validateUInt32 validates that the given annotation value is a positive integer.
 func validateUInt32(value string) error {
 	_, err := strconv.ParseUint(value, 10, 32)
+	return err
+}
+
+// validateBool validates that the given annotation value is a boolean.
+func validateBool(value string) error {
+	_, err := strconv.ParseBool(value)
 	return err
 }
 
