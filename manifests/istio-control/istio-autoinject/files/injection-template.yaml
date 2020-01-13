@@ -36,6 +36,10 @@ template: |
     - "-k"
     - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
     {{ end -}}
+  {{- if .Values.istio_cni.enabled }}
+    - "--run-validation"
+    - "--skip-rule-apply"
+  {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
   {{- if .Values.global.proxy_init.resources }}
     resources:
@@ -44,6 +48,7 @@ template: |
     resources: {}
   {{- end }}
     securityContext:
+  {{- if not .Values.istio_cni.enabled }}
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
         add:
@@ -56,8 +61,12 @@ template: |
       runAsGroup: 0
       runAsNonRoot: false
       runAsUser: 0
-    restartPolicy: Always
+  {{- else }}
+      runAsGroup: 1337
+      runAsUser: 1337
+      runAsNonRoot: true
   {{- end }}
+    restartPolicy: Always
   {{  end -}}
   {{- if eq .Values.global.proxy.enableCoreDump true }}
   - name: enable-core-dump
