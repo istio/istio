@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
@@ -89,10 +91,30 @@ func BenchmarkAnalyzers(b *testing.B) {
 	}
 }
 
+func BenchmarkAnalyzersArtificialBlankData100(b *testing.B) {
+	benchmarkAnalyzersArtificialBlankData(100, b)
+}
+
+func BenchmarkAnalyzersArtificialBlankData200(b *testing.B) {
+	benchmarkAnalyzersArtificialBlankData(200, b)
+}
+
+func BenchmarkAnalyzersArtificialBlankData400(b *testing.B) {
+	benchmarkAnalyzersArtificialBlankData(400, b)
+}
+
+func BenchmarkAnalyzersArtificialBlankData800(b *testing.B) {
+	benchmarkAnalyzersArtificialBlankData(800, b)
+}
+
 // Benchmark analyzers against an artificial set of blank data.
 // This does not cover all scaling factors, and it's not representative of a realistic snapshot, but it does cover some things.
-func BenchmarkAnalyzersArtificialBlankData(b *testing.B) {
-	// TODO: Fix log spam
+func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
+	// Suppress log noise from validation warnings
+	validationScope := log.Scopes()["validation"]
+	oldLevel := validationScope.GetOutputLevel()
+	validationScope.SetOutputLevel(log.ErrorLevel)
+	defer validationScope.SetOutputLevel(oldLevel)
 
 	// Get the set of collections that could actually get used
 	m := schema.MustGet()
@@ -108,7 +130,7 @@ func BenchmarkAnalyzersArtificialBlankData(b *testing.B) {
 			return false
 		}
 
-		for i := 0; i < 100; i++ { // TODO: Configurable scaling factor
+		for i := 0; i < count; i++ {
 			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.Name(), i)))
 			r := &resource.Instance{
 				Metadata: resource.Metadata{

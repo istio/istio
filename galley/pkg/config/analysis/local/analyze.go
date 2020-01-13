@@ -57,10 +57,8 @@ const (
 
 // Pseudo-constants, since golang doesn't support a true const slice/array
 var (
-	requiredPerms = []string{"list", "watch"}
-
-	// AnalysisSnapshots are the snapshots used for local analysis
-	AnalysisSnapshots = []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry}
+	requiredPerms     = []string{"list", "watch"}
+	analysisSnapshots = []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry}
 )
 
 // Patch table
@@ -158,7 +156,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	}
 
 	var colsInSnapshots collection.Names
-	for _, c := range sa.m.AllCollectionsInSnapshots(AnalysisSnapshots) {
+	for _, c := range sa.m.AllCollectionsInSnapshots(analysisSnapshots) {
 		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
 	}
 
@@ -171,7 +169,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		StatusUpdater:      updater,
 		Analyzer:           sa.analyzer,
 		Distributor:        snapshotter.NewInMemoryDistributor(),
-		AnalysisSnapshots:  AnalysisSnapshots,
+		AnalysisSnapshots:  analysisSnapshots,
 		TriggerSnapshot:    snapshots.LocalAnalysis,
 		CollectionReporter: sa.collectionReporter,
 		AnalysisNamespaces: namespaces,
@@ -185,7 +183,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		Source:             newPrecedenceSource(sa.sources),
 		TransformProviders: sa.transformerProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   AnalysisSnapshots,
+		EnabledSnapshots:   analysisSnapshots,
 	}
 	rt, err := processor.Initialize(processorSettings)
 	if err != nil {
