@@ -26,6 +26,8 @@ import (
 
 	"istio.io/pkg/log"
 	"istio.io/pkg/pool"
+
+	"istio.io/istio/pkg/util/bs"
 )
 
 type signature [sha1.Size]byte
@@ -104,7 +106,7 @@ func encode(w io.Writer, v interface{}) bool {
 
 	switch t := v.(type) {
 	case string:
-		b = []byte(t)
+		b = bs.String2Bytes(t)
 	case proto.Marshaler:
 		// TODO (Issue #2539): This is likely to yield poor results, as proto serialization is not guaranteed
 		// to be stable, especially when maps are involved... We should probably have a better model here.

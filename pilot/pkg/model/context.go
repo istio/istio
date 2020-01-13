@@ -27,6 +27,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/golang/protobuf/jsonpb"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"istio.io/istio/pkg/util/bs"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/monitoring"
@@ -165,14 +166,14 @@ func (l StringList) MarshalJSON() ([]byte, error) {
 	if l == nil {
 		return nil, nil
 	}
-	return []byte(`"` + strings.Join(l, ",") + `"`), nil
+	return bs.String2Bytes(`"` + strings.Join(l, ",") + `"`), nil
 }
 
 func (l *StringList) UnmarshalJSON(data []byte) error {
-	if len(data) == 0 || string(data) == `""` {
+	if len(data) == 0 || bs.Bytes2String(data) == `""` {
 		*l = []string{}
 	} else {
-		*l = strings.Split(string(data[1:len(data)-1]), ",")
+		*l = strings.Split(bs.Bytes2String(data[1:len(data)-1]), ",")
 	}
 	return nil
 }
