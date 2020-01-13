@@ -38,6 +38,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/config/constants"
@@ -139,7 +140,7 @@ type Webhook struct {
 
 // Reload the server's cert/key for TLS from file and save it for later use by the https server.
 func (wh *Webhook) reloadKeyCert() {
-	pair, err := reloadKeyCert(wh.certFile, wh.keyFile)
+	pair, err := ReloadCertkey(wh.certFile, wh.keyFile)
 	if err != nil {
 		return
 	}
@@ -150,7 +151,7 @@ func (wh *Webhook) reloadKeyCert() {
 }
 
 // Reload the server's cert/key for TLS from file.
-func reloadKeyCert(certFile, keyFile string) (*tls.Certificate, error) {
+func ReloadCertkey(certFile, keyFile string) (*tls.Certificate, error) {
 	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		reportValidationCertKeyUpdateError(err)
@@ -186,11 +187,14 @@ func New(p Options) (*Webhook, error) {
 			validator: p.MixerValidator,
 		}
 
+		p.Mux.HandleFunc("/validate", wh.serveValidate)
+		// old handlers retained backwards compatibility during upgrades
 		p.Mux.HandleFunc("/admitpilot", wh.serveAdmitPilot)
 		p.Mux.HandleFunc("/admitmixer", wh.serveAdmitMixer)
+
 		return wh, nil
 	}
-	pair, err := reloadKeyCert(p.CertFile, p.KeyFile)
+	pair, err := ReloadCertkey(p.CertFile, p.KeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -220,9 +224,11 @@ func New(p Options) (*Webhook, error) {
 	// mtls disabled because apiserver webhook cert usage is still TBD.
 	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
 	h := http.NewServeMux()
+	h.HandleFunc(HTTPSHandlerReadyPath, wh.serveReady)
+	h.HandleFunc("/validate", wh.serveValidate)
+	// old handlers retained backwards compatibility during upgrades
 	h.HandleFunc("/admitpilot", wh.serveAdmitPilot)
 	h.HandleFunc("/admitmixer", wh.serveAdmitMixer)
-	h.HandleFunc(HTTPSHandlerReadyPath, wh.serveReady)
 	wh.server.Handler = h
 
 	return wh, nil
@@ -352,6 +358,24 @@ func (wh *Webhook) serveAdmitPilot(w http.ResponseWriter, r *http.Request) {
 
 func (wh *Webhook) serveAdmitMixer(w http.ResponseWriter, r *http.Request) {
 	serve(w, r, wh.admitMixer)
+}
+
+func (wh *Webhook) serveValidate(w http.ResponseWriter, r *http.Request) {
+	serve(w, r, wh.validate)
+}
+
+func (wh *Webhook) validate(request *kubeApiAdmission.AdmissionRequest) *kubeApiAdmission.AdmissionResponse {
+	switch request.Kind.Kind {
+	case collections.IstioPolicyV1Beta1Rules.Resource().Kind(),
+		collections.IstioPolicyV1Beta1Attributemanifests.Resource().Kind(),
+		collections.IstioConfigV1Alpha2Adapters.Resource().Kind(),
+		collections.IstioPolicyV1Beta1Handlers.Resource().Kind(),
+		collections.IstioPolicyV1Beta1Instances.Resource().Kind(),
+		collections.IstioConfigV1Alpha2Templates.Resource().Kind():
+		return wh.admitMixer(request)
+	default:
+		return wh.admitPilot(request)
+	}
 }
 
 func (wh *Webhook) admitPilot(request *kubeApiAdmission.AdmissionRequest) *kubeApiAdmission.AdmissionResponse {

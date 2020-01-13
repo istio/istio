@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	webhookConfigName = env.RegisterStringVar("WEBHOOK", "",
+	webhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_NAME", "",
 		"Name of webhook config to patch, if istioctl is not used.")
 )
 
@@ -57,44 +57,43 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 	}
 
 	// If the injection path exists, we will set up injection
-	if _, err := os.Stat(filepath.Join(injectPath, "config")); !os.IsNotExist(err) {
-		parameters := inject.WebhookParameters{
-			ConfigFile:          filepath.Join(injectPath, "config"),
-			ValuesFile:          filepath.Join(injectPath, "values"),
-			MeshFile:            args.Mesh.ConfigFile,
-			Env:                 s.environment,
-			CertFile:            filepath.Join(dnsCertDir, "cert-chain.pem"),
-			KeyFile:             filepath.Join(dnsCertDir, "key.pem"),
-			Port:                args.InjectionOptions.Port,
-			HealthCheckFile:     "",
-			HealthCheckInterval: 0,
-			// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
-			MonitoringPort: -1,
-		}
-
-		wh, err := inject.NewWebhook(parameters)
-		if err != nil {
-			return fmt.Errorf("failed to create injection webhook: %v", err)
-		}
-		// Patch cert if a webhook config name is provided.
-		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
-		// operator or CI/CD
-		if webhookConfigName.Get() != "" {
-			s.addStartFunc(func(stop <-chan struct{}) error {
-				if err := patchCertLoop(s.kubeClient, stop); err != nil {
-					return multierror.Prefix(err, "failed to start patch cert loop")
-				}
-				return nil
-			})
-		}
-		s.webhook = wh
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			go wh.Run(stop)
-			return nil
-		})
+	if _, err := os.Stat(filepath.Join(injectPath, "config")); os.IsNotExist(err) {
+		log.Infof("Skipping sidecar injector, template not found")
 		return nil
 	}
-	log.Infof("Skipping sidecar injector, template not found")
+
+	parameters := inject.WebhookParameters{
+		ConfigFile: filepath.Join(injectPath, "config"),
+		ValuesFile: filepath.Join(injectPath, "values"),
+		MeshFile:   args.Mesh.ConfigFile,
+		Env:        s.environment,
+		CertFile:   filepath.Join(dnsCertDir, "cert-chain.pem"),
+		KeyFile:    filepath.Join(dnsCertDir, "key.pem"),
+		// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
+		MonitoringPort: -1,
+		Mux:            s.httpsMux,
+	}
+
+	wh, err := inject.NewWebhook(parameters)
+	if err != nil {
+		return fmt.Errorf("failed to create injection webhook: %v", err)
+	}
+	// Patch cert if a webhook config name is provided.
+	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
+	// operator or CI/CD
+	if webhookConfigName.Get() != "" {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			if err := patchCertLoop(s.kubeClient, stop); err != nil {
+				return multierror.Prefix(err, "failed to start patch cert loop")
+			}
+			return nil
+		})
+	}
+	s.injectionWebhook = wh
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go wh.Run(stop)
+		return nil
+	})
 	return nil
 }
 

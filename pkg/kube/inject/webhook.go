@@ -155,6 +155,9 @@ type WebhookParameters struct {
 	HealthCheckFile string
 
 	Env *model.Environment
+
+	// Use an existing mux instead of creating our own.
+	Mux *http.ServeMux
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -187,9 +190,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	wh := &Webhook{
-		server: &http.Server{
-			Addr: fmt.Sprintf(":%v", p.Port),
-		},
 		Config:                 sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
@@ -205,10 +205,21 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		cert:                   &pair,
 		env:                    p.Env,
 	}
-	// mtls disabled because apiserver webhook cert usage is still TBD.
-	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
-	h := http.NewServeMux()
-	h.HandleFunc("/inject", wh.serveInject)
+
+	var mux *http.ServeMux
+	if p.Mux != nil {
+		p.Mux.HandleFunc("/inject", wh.serveInject)
+		mux = p.Mux
+	} else {
+		wh.server = &http.Server{
+			Addr: fmt.Sprintf(":%v", p.Port),
+			// mtls disabled because apiserver webhook cert usage is still TBD.
+			TLSConfig: &tls.Config{GetCertificate: wh.getCert},
+		}
+		mux = http.NewServeMux()
+		mux.HandleFunc("/inject", wh.serveInject)
+		wh.server.Handler = mux
+	}
 
 	if p.Env != nil {
 		p.Env.Watcher.AddMeshHandler(func() {
@@ -219,27 +230,28 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	if p.MonitoringPort >= 0 {
-		mon, err := startMonitor(h, p.MonitoringPort)
+		mon, err := startMonitor(mux, p.MonitoringPort)
 		if err != nil {
 			return nil, fmt.Errorf("could not start monitoring server %v", err)
 		}
 		wh.mon = mon
 	}
 
-	wh.server.Handler = h
-
 	return wh, nil
 }
 
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
-	go func() {
-		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
-		}
-	}()
+	if wh.server != nil {
+		go func() {
+			if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
+			}
+		}()
+		defer wh.server.Close()
+	}
 	defer wh.watcher.Close()
-	defer wh.server.Close()
+
 	if wh.mon != nil {
 		defer wh.mon.monitoringServer.Close()
 	}
