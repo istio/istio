@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -52,10 +51,7 @@ var blankTestAnalyzer = &testAnalyzer{
 	inputs: []collection.Name{},
 }
 
-var (
-	blankCombinedAnalyzer = analysis.Combine("testCombined", blankTestAnalyzer)
-	timeout               = 1 * time.Second
-)
+var blankCombinedAnalyzer = analysis.Combine("testCombined", blankTestAnalyzer)
 
 // Metadata implements Analyzer
 func (a *testAnalyzer) Metadata() analysis.Metadata {
@@ -75,7 +71,7 @@ func TestAbortWithNoSources(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 	_, err := sa.Analyze(cancel)
 	g.Expect(err).To(Not(BeNil()))
 }
@@ -99,7 +95,7 @@ func TestAnalyzersRun(t *testing.T) {
 		collectionAccessed = col
 	}
 
-	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", cr, false, timeout)
+	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", cr, false)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
@@ -126,7 +122,7 @@ func TestFilterOutputByNamespace(t *testing.T) {
 		},
 	}
 
-	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "ns1", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "ns1", "", nil, false)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
@@ -140,7 +136,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(*sa.meshCfg).To(Equal(*meshcfg.Default())) // Base default meshcfg
@@ -173,7 +169,7 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 		t.Fatalf("Error creating mesh config configmap: %v", err)
 	}
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", istioNamespace, nil, false, timeout)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", istioNamespace, nil, false)
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
@@ -184,7 +180,7 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 func TestAddReaderKubeSource(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	tmpfile := tempFileFromString(t, data.YamlN1I1V1)
 	defer os.Remove(tmpfile.Name())
@@ -208,7 +204,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	tmpfile := tempFileFromString(t, kubeyaml.JoinString(data.YamlN1I1V1, "bogus resource entry\n"))
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
@@ -221,7 +217,7 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	// With ingress off, we shouldn't generate any default resources
 	ingressOffMeshCfg := tempFileFromString(t, "ingressControllerMode: 'OFF'")
@@ -261,7 +257,7 @@ func TestResourceFiltering(t *testing.T) {
 	}
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", nil, true, timeout)
+	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", nil, true)
 	sa.AddRunningKubeSource(mk)
 
 	// All but the used collection should be disabled
@@ -293,7 +289,7 @@ func TestRemoveResourcesWithoutPermission(t *testing.T) {
 		Resource: usedCollection.Resource().CanonicalName(),
 	})
 
-	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", nil, true, timeout)
+	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", nil, true)
 	sa.AddRunningKubeSource(mk)
 
 	// Since this collection is used by an analyzer and service discovery is on, it would normally not be disabled...
