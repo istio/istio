@@ -99,6 +99,9 @@ type ADSC struct {
 	// All received endpoint groups, keyed by cluster name
 	egds map[string]map[string]*xdsapi.EndpointGroup
 
+	// Last updated EGDS
+	egdsUpdated []*xdsapi.EndpointGroup
+
 	// Metadata has the node metadata to send to pilot.
 	// If nil, the defaults will be used.
 	Metadata *pstruct.Struct
@@ -533,6 +536,8 @@ func (a *ADSC) handleEGDS(groups []*xdsapi.EndpointGroup) {
 	if a.egds == nil {
 		a.egds = make(map[string]map[string]*xdsapi.EndpointGroup)
 	}
+
+	a.egdsUpdated = groups
 	
 	for _, group := range groups {
 		clusterName, groupName := ep.ExtractClusterGroupKeys(group.Name)
@@ -781,4 +786,11 @@ func (a *ADSC) GetEndpoints() map[string]*xdsapi.ClusterLoadAssignment {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	return a.eds
+}
+
+// GetEgdsUpdated returns last EGDS update fragments
+func (a *ADSC) GetEgdsUpdated() []*xdsapi.EndpointGroup {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.egdsUpdated
 }

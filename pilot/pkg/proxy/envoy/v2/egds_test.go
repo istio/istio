@@ -263,6 +263,12 @@ func TestPushEdsWithEgds(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed while receiving EGDS updates. Reason: %s", err)
 	}
+
+	// And we should receive 28 group changes(because we got 7 clusters for a single service here.)
+	egdsUpdatedLen := len(adscConn.GetEgdsUpdated())
+	if egdsUpdatedLen != 28 {
+		t.Errorf("wrong EGDS updated groups received. Expect: 28, Got: %d", egdsUpdatedLen)
+	}
 }
 
 func TestBuildEndpointGroup(t *testing.T) {

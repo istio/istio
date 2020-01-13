@@ -810,6 +810,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	pushStart := time.Now()
 	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
 	groupCount := 0
+	empty := 0
 
 	// EGDS not supported or enabled, use legacy method
 	if !util.IsIstioVersionGE15(con.node) || s.Env.Mesh().GetEgdsGroupSize() <= 0 {
@@ -833,7 +834,12 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 			continue
 		}
 
-		groupCount += len(l.EndpointGroups)
+		count := len(l.EndpointGroups)
+		if count == 0 {
+			empty += count
+		}
+
+		groupCount += count
 
 		loadAssignments = append(loadAssignments, l)
 	}
@@ -849,11 +855,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	edsPushes.Increment()
 
 	if edsUpdatedServices == nil {
-		adsLog.Infof("EDS: PUSH for node:%s clusters:%d groupCount:%d",
-			con.node.ID, len(con.Clusters), groupCount)
+		adsLog.Infof("EDS: PUSH for node:%s clusters:%d groupCount:%d, empty: %d",
+			con.node.ID, len(con.Clusters), groupCount, empty)
 	} else {
-		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d groupCount:%d",
-			con.node.ID, len(con.Clusters), groupCount)
+		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d groupCount:%d, empty: %d",
+			con.node.ID, len(con.Clusters), groupCount, empty)
 	}
 
 	return nil

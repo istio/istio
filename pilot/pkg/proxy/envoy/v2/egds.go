@@ -16,9 +16,9 @@ package v2
 
 import (
 	"fmt"
-	"sync"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -159,12 +159,12 @@ func (s *DiscoveryServer) generateEndpoints(clusterName string, groupName string
 }
 
 // pushEgds is pushing updated EGDS resources for a single connection. This method will only be called when the EGDS feature was enabled.
-func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, version string, 
+func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, version string,
 	updatedClusterGroups map[string]struct{}) error {
 	pushStart := time.Now()
 	groups := make([]*xdsapi.EndpointGroup, 0, len(updatedClusterGroups))
 
-	// A clusterGroup is combination of Cluster and Endpoint Groups. Because Endpoint Group represent static 
+	// A clusterGroup is combination of Cluster and Endpoint Groups. Because Endpoint Group represent static
 	// data within a service and the data returned to Envoy should be processed based on different Clusters.
 	// The concept of cluster group is used to represent such key of data.
 	for _, clusterGroup := range con.ClusterGroups {
@@ -209,7 +209,7 @@ func isNeedUpdate(updatedClusterGroups map[string]struct{}, clusterName string, 
 	}
 
 	// If there was group changes from DiscoveryServer.edsUpdate, there's only changed group names present
-	// since there is no cluster name available there. This means all cluster related to this group should 
+	// since there is no cluster name available there. This means all cluster related to this group should
 	// get updated.
 	if _, f := updatedClusterGroups[groupName]; f {
 		return true
@@ -249,7 +249,7 @@ func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *mode
 	s.mutex.RUnlock()
 	if !f {
 		// Shouldn't happen here - unable to genereate EGDS data.
-		adsLog.Warnf("EGDS: missing data for cluster %s", clusterName)
+		adsLog.Warnf("EGDS: missing shards for cluster %s, namespace %s", clusterName, svc.Attributes.Namespace)
 		return nil
 	}
 
