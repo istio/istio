@@ -18,26 +18,25 @@ set -e
 set -u
 set -o pipefail
 
+$ kubectl create ns health-global
+
 # $snippet update_config_map.sh syntax="bash"
-kubectl -n istio-io-health get cm istio-sidecar-injector -n istio-system -o yaml | sed -e 's/"rewriteAppHTTPProbe":false/"rewriteAppHTTPProbe":true/' | kubectl apply -f -
+kubectl -n health-global get cm istio-sidecar-injector -n istio-system -o yaml | sed -e 's/"rewriteAppHTTPProbe":false/"rewriteAppHTTPProbe":true/' | kubectl apply -f -
 # $endsnippet
 
 # $snippet globally_re-deploy.sh syntax="bash"
-$ kubectl -n istio-io-health apply -f <(istioctl kube-inject -f @samples/health-check/liveness-http-same-port.yaml@)
+$ kubectl -n health-global apply -f <(istioctl kube-inject -f @samples/health-check/liveness-http-same-port.yaml@)
 # $endsnippet
 
-$ kubectl -n istio-io-health rollout status deployment liveness-http --timeout 60s
+$ kubectl -n health-global rollout status deployment liveness-http --timeout 60s
 
 # $snippet re-deploy_globally_check_status.sh syntax="bash" outputis="text"
-$ kubectl -n istio-io-health get pod
+$ kubectl -n health-global get pod
 # $verify verifier="lineRegex"
 NAME *READY *STATUS *RESTARTS *AGE
 liveness-http-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0 ?
 # $endsnippet
 
 # $snippet delete_globally_deploy.sh syntax="bash"
-$ kubectl -n istio-io-health delete -f <(istioctl kube-inject -f @samples/health-check/liveness-http-same-port.yaml@)
+$ kubectl -n health-global delete -f <(istioctl kube-inject -f @samples/health-check/liveness-http-same-port.yaml@)
 # $endsnippet
-
-# let delete operation finish
-sleep 30s

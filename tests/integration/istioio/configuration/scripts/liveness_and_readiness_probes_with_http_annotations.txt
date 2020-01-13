@@ -18,8 +18,10 @@ set -e
 set -u
 set -o pipefail
 
+$ kubectl create ns health-annotate
+
 # $snippet annotate_pod.sh syntax="bash"
-$ kubectl -n istio-io-health apply -f - <<EOF
+$ kubectl -n health-annotate apply -f - <<EOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -50,18 +52,15 @@ spec:
 EOF
 # $endsnippet
 
-$ kubectl -n istio-io-health rollout status deployment liveness-http --timeout 60s
+$ kubectl -n health-annotate rollout status deployment liveness-http --timeout 30s
 
 # $snippet re-deploy_with_annotation_check_status.sh syntax="bash" outputis="text"
-$ kubectl -n istio-io-health get pod
+$ kubectl -n health-annotate get pod
 # $verify verifier="lineRegex"
 NAME *READY *STATUS *RESTARTS *AGE
-liveness-http-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0 ?
+liveness-http-[0-9a-z]*-[0-9a-z]* *1/1 *Running *0 ?
 # $endsnippet
 
 # $snippet delete_deploy_with_annotation.sh syntax="bash"
-$ kubectl -n istio-io-health delete deploy/liveness-http
+$ kubectl -n health-annotate delete deploy/liveness-http
 # $endsnippet
-
-# let delete operation finish
-sleep 30s

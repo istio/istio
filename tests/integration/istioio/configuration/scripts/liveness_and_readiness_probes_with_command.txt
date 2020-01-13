@@ -64,6 +64,3 @@ liveness-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0 ?
 # $snippet delete_liveness_service.sh syntax="bash"
 $ kubectl -n istio-io-health delete -f <(istioctl kube-inject -f @samples/health-check/liveness-command.yaml@)
 # $endsnippet
-
-# let delete operation finish
-sleep 30s

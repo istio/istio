@@ -29,7 +29,6 @@ func TestHealthCheck(t *testing.T) {
 			Add(istioio.Script{
 				Input: istioio.Path("scripts/liveness_and_readiness_probes_with_command.txt"),
 			}).
-			Add(istioio.MultiPodWait("istio-io-health")).
 			Add(istioio.Script{
 				Input: istioio.Path("scripts/liveness_and_readiness_probes_with_http_globally.txt"),
 			}).

@@ -22,4 +22,7 @@ set -o pipefail
 $ kubectl -n istio-io-health delete policies default
 $ kubectl -n istio-io-health delete destinationrules default
 $ kubectl delete ns istio-io-health
+$ kubectl delete ns health-global
+$ kubectl delete ns health-annotate
+$ kubectl delete ns health-sepport
 # $endsnippet
