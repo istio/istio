@@ -143,7 +143,9 @@ spec:
   host: {{.Host}}
   trafficPolicy:
     loadBalancer:
-      enabled: false
+      simple: ROUND_ROBIN
+      localityLbSetting:
+        enabled: false
     outlierDetection:
       consecutiveErrors: 100
       interval: 1s
