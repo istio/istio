@@ -398,13 +398,13 @@ func (pversion *IstioVersion) Compare(inv *IstioVersion) int {
 	}
 
 	// check minor
-	if inv.Minor != -1 {
+	if inv.Minor > -1 {
 		if r := compareVersion(pversion.Minor, inv.Minor); r != 0 {
 			return r
 		}
 
 		// check patch
-		if inv.Patch != -1 {
+		if inv.Patch > -1 {
 			if r := compareVersion(pversion.Patch, inv.Patch); r != 0 {
 				return r
 			}
