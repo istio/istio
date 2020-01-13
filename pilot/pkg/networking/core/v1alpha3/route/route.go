@@ -461,16 +461,12 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 			requestHeadersToAdd := translateAppendHeaders(dst.Headers.GetRequest().GetSet(), false)
 			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.Headers.GetRequest().GetAdd(), true)...)
-			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.AppendRequestHeaders, true)...)
 			responseHeadersToAdd := translateAppendHeaders(dst.Headers.GetResponse().GetSet(), false)
 			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.Headers.GetResponse().GetAdd(), true)...)
-			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.AppendResponseHeaders, true)...)
 			requestHeadersToRemove := make([]string, 0)
 			requestHeadersToRemove = append(requestHeadersToRemove, dst.Headers.GetRequest().GetRemove()...)
-			requestHeadersToRemove = append(requestHeadersToRemove, dst.RemoveRequestHeaders...)
 			responseHeadersToRemove := make([]string, 0)
 			responseHeadersToRemove = append(responseHeadersToRemove, dst.Headers.GetResponse().GetRemove()...)
-			responseHeadersToRemove = append(responseHeadersToRemove, dst.RemoveResponseHeaders...)
 
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)

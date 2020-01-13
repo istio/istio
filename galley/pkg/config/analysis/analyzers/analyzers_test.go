@@ -191,8 +191,6 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.Deprecated, "VirtualService route-egressgateway"},
-			{msg.Deprecated, "VirtualService tornado"},
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"},
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"}, // Duplicate, because resource has two problems
 			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
