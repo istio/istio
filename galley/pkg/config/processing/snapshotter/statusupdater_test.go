@@ -16,7 +16,6 @@ package snapshotter
 
 import (
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -26,7 +25,7 @@ import (
 func TestInMemoryStatusUpdaterWriteThenWait(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	su := &InMemoryStatusUpdater{WaitTimeout: 1 * time.Second}
+	su := &InMemoryStatusUpdater{}
 
 	msgs := diag.Messages{
 		diag.NewMessage(diag.NewMessageType(diag.Error, "test", "test"), nil),
@@ -35,28 +34,28 @@ func TestInMemoryStatusUpdaterWriteThenWait(t *testing.T) {
 	cancelCh := make(chan struct{})
 
 	su.Update(msgs)
-	g.Expect(su.WaitForReport(cancelCh)).To(BeNil())
+	g.Expect(su.WaitForReport(cancelCh)).To(BeTrue())
 	g.Expect(su.Get()).To(Equal(msgs))
 }
 
 func TestInMemoryStatusUpdaterWriteNothingThenWait(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	su := &InMemoryStatusUpdater{WaitTimeout: 1 * time.Second}
+	su := &InMemoryStatusUpdater{}
 
 	var msgs diag.Messages
 
 	cancelCh := make(chan struct{})
 
 	su.Update(msgs)
-	g.Expect(su.WaitForReport(cancelCh)).To(BeNil())
+	g.Expect(su.WaitForReport(cancelCh)).To(BeTrue())
 	g.Expect(su.Get()).To(Equal(msgs))
 }
 
 func TestInMemoryStatusUpdaterWaitThenWrite(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	su := &InMemoryStatusUpdater{WaitTimeout: 1 * time.Second}
+	su := &InMemoryStatusUpdater{}
 
 	msgs := diag.Messages{
 		diag.NewMessage(diag.NewMessageType(diag.Error, "test", "test"), nil),
@@ -65,41 +64,9 @@ func TestInMemoryStatusUpdaterWaitThenWrite(t *testing.T) {
 	cancelCh := make(chan struct{})
 
 	go func() {
-		g.Expect(su.WaitForReport(cancelCh)).To(BeNil())
+		g.Expect(su.WaitForReport(cancelCh)).To(BeTrue())
 	}()
 
 	su.Update(msgs)
 	g.Expect(su.Get()).To(Equal(msgs))
-}
-
-func TestInMemoryStatusUpdaterTimesOut(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	su := &InMemoryStatusUpdater{WaitTimeout: 0}
-
-	cancelCh := make(chan struct{})
-
-	err := su.WaitForReport(cancelCh)
-	g.Expect(err).To(Not(BeNil()))
-}
-
-func TestInMemoryStatusUpdaterCancelled(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	su := &InMemoryStatusUpdater{WaitTimeout: 1 * time.Second}
-
-	cancelCh := make(chan struct{})
-	testDone := make(chan struct{})
-
-	var err error
-	go func() {
-		err = su.WaitForReport(cancelCh)
-		close(testDone)
-	}()
-
-	close(cancelCh)
-	<-testDone
-
-	g.Expect(err).To(Not(BeNil()))
-	g.Expect(err.Error()).To(ContainSubstring("cancelled"))
 }
