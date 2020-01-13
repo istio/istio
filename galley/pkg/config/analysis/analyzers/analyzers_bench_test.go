@@ -123,6 +123,7 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 		isUsedCollection[col] = true
 	}
 
+	// Generate blank test data
 	set := coll.NewSet(collections.All)
 	collections.All.ForEach(func(s collection.Schema) bool {
 		// Skip over collections that the Galley pipeline would always ignore
@@ -148,5 +149,9 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 	ctx := &context{set: set}
 
 	b.ResetTimer()
-	AllCombined().Analyze(ctx)
+	for _, a := range All() {
+		b.Run(a.Metadata().Name+"-bench", func(b *testing.B) {
+			a.Analyze(ctx)
+		})
+	}
 }
