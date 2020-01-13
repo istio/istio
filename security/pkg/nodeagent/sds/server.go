@@ -105,6 +105,9 @@ type Options struct {
 
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
+
+	// Whether enable Kubernetes CA signing.
+	EnableKubernetesCa bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

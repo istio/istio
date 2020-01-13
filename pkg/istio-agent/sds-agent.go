@@ -69,6 +69,10 @@ var (
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
 	pkcs8KeysEnv                       = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
+	// TODO (lei-tang): the default value of this option is currently set as true to be consistent
+	// with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
+	// we may change the default value of this option as false.
+	enableKubernetesCaEnv = env.RegisterBoolVar(enableKubernetesCaKey, true, "whether enable Kubernetes CA signing.").Get()
 
 	// Location of K8S CA root.
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
@@ -118,6 +122,9 @@ const (
 	InitialBackoff = "INITIAL_BACKOFF_MSEC"
 
 	pkcs8Key = "PKCS8_KEY"
+
+	// The environmental variable name for whether enabling k8s CA signing
+	enableKubernetesCaKey = "ENABLE_KUBERNETES_CA"
 )
 
 var (
@@ -344,7 +351,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 
 			if rootCert, err = ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err == nil {
 				log.Info("istiod uses self-issued certificate")
-			} else if rootCert, err = ioutil.ReadFile(k8sCAPath); err == nil {
+			} else if rootCert, err = ioutil.ReadFile(k8sCAPath); serverOptions.EnableKubernetesCa && err == nil {
 				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
 			} else if rootCert, err = ioutil.ReadFile(cache.ExistingRootCertFile); err == nil {
 				log.Infof("istiod uses the root certificate mounted in a well known location %v",
@@ -364,7 +371,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
 				if rootCert, err = ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err == nil {
 					log.Info("istiod uses self-issued certificate")
-				} else if rootCert, err = ioutil.ReadFile(k8sCAPath); err == nil {
+				} else if rootCert, err = ioutil.ReadFile(k8sCAPath); serverOptions.EnableKubernetesCa && err == nil {
 					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
 				} else if rootCert, err = ioutil.ReadFile(cache.ExistingRootCertFile); err == nil {
 					log.Infof("istiod uses the root certificate mounted in a well known location %v",
@@ -427,6 +434,7 @@ func applyEnvVars() {
 	serverOptions.CAEndpoint = caEndpointEnv
 	serverOptions.TrustDomain = trustDomainEnv
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
+	serverOptions.EnableKubernetesCa = enableKubernetesCaEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRefreshGraceDuration = secretRefreshGraceDurationEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
