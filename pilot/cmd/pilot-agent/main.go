@@ -419,15 +419,6 @@ var (
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
 				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
-					// CitadelCACertPath is the directory for Citadel CA certificate.
-					// TODO (lei-tang): reuse CitadelCACertPath in https://github.com/istio/istio/pull/20017
-					// after https://github.com/istio/istio/pull/20017 is merged.
-					CitadelCACertPath := "./etc/istio/citadel-ca-cert"
-					signCertAtKubernetesCA := true
-					if _, err := ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err == nil {
-						// istiod certificate is signed by Citadel
-						signCertAtKubernetesCA = false
-					}
 					// Generate a custom bootstrap template.
 					opts := []option.Instance{
 						option.PodName(podName),
@@ -438,7 +429,6 @@ var (
 						option.DisableReportCalls(disableInternalTelemetry),
 						option.SDSTokenPath(sdsTokenPath),
 						option.SDSUDSPath(sdsUDSPath),
-						option.SignCertAtKubernetesCA(signCertAtKubernetesCA),
 					}
 
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
@@ -522,23 +512,29 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
+			signCertAtKubernetesCA := true
+			if _, err := ioutil.ReadFile(istio_agent.CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err == nil {
+				// istiod certificate is signed by Citadel
+				signCertAtKubernetesCA = false
+			}
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
-				Config:              proxyConfig,
-				Node:                role.ServiceNode(),
-				LogLevel:            proxyLogLevel,
-				ComponentLogLevel:   proxyComponentLogLevel,
-				PilotSubjectAltName: pilotSAN,
-				MixerSubjectAltName: mixerSAN,
-				NodeIPs:             role.IPAddresses,
-				DNSRefreshRate:      dnsRefreshRate,
-				PodName:             podName,
-				PodNamespace:        podNamespace,
-				PodIP:               podIP,
-				SDSUDSPath:          sdsUDSPath,
-				SDSTokenPath:        sdsTokenPath,
-				ControlPlaneAuth:    controlPlaneAuthEnabled,
-				DisableReportCalls:  disableInternalTelemetry,
-				OutlierLogPath:      outlierLogPath,
+				Config:                 proxyConfig,
+				Node:                   role.ServiceNode(),
+				LogLevel:               proxyLogLevel,
+				ComponentLogLevel:      proxyComponentLogLevel,
+				PilotSubjectAltName:    pilotSAN,
+				MixerSubjectAltName:    mixerSAN,
+				NodeIPs:                role.IPAddresses,
+				DNSRefreshRate:         dnsRefreshRate,
+				PodName:                podName,
+				PodNamespace:           podNamespace,
+				PodIP:                  podIP,
+				SDSUDSPath:             sdsUDSPath,
+				SDSTokenPath:           sdsTokenPath,
+				ControlPlaneAuth:       controlPlaneAuthEnabled,
+				DisableReportCalls:     disableInternalTelemetry,
+				OutlierLogPath:         outlierLogPath,
+				SignCertAtKubernetesCA: signCertAtKubernetesCA,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())

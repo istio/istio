@@ -89,8 +89,8 @@ type Config struct {
 	SDSTokenPath           string
 	ControlPlaneAuth       bool
 	DisableReportCalls     bool
+	SignCertAtKubernetesCA bool
 	OutlierLogPath         string
-	SignCertAtKubernetesCa bool
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -120,7 +120,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.SDSUDSPath(cfg.SDSUDSPath),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
-		option.SignCertAtKubernetesCA(cfg.SignCertAtKubernetesCa),
+		option.SignCertAtKubernetesCA(cfg.SignCertAtKubernetesCA),
 		option.OutlierLogPath(cfg.OutlierLogPath))
 
 	// Support passing extra info from node environment as metadata

@@ -44,22 +44,23 @@ type envoy struct {
 }
 
 type ProxyConfig struct {
-	Config              meshconfig.ProxyConfig
-	Node                string
-	LogLevel            string
-	ComponentLogLevel   string
-	PilotSubjectAltName []string
-	MixerSubjectAltName []string
-	NodeIPs             []string
-	DNSRefreshRate      string
-	PodName             string
-	PodNamespace        string
-	PodIP               net.IP
-	SDSUDSPath          string
-	SDSTokenPath        string
-	ControlPlaneAuth    bool
-	DisableReportCalls  bool
-	OutlierLogPath      string
+	Config                 meshconfig.ProxyConfig
+	Node                   string
+	LogLevel               string
+	ComponentLogLevel      string
+	PilotSubjectAltName    []string
+	MixerSubjectAltName    []string
+	NodeIPs                []string
+	DNSRefreshRate         string
+	PodName                string
+	PodNamespace           string
+	PodIP                  net.IP
+	SDSUDSPath             string
+	SDSTokenPath           string
+	ControlPlaneAuth       bool
+	DisableReportCalls     bool
+	SignCertAtKubernetesCA bool
+	OutlierLogPath         string
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -151,21 +152,22 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 		fname = e.Config.CustomConfigFile
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
-			Node:                e.Node,
-			DNSRefreshRate:      e.DNSRefreshRate,
-			Proxy:               &e.Config,
-			PilotSubjectAltName: e.PilotSubjectAltName,
-			MixerSubjectAltName: e.MixerSubjectAltName,
-			LocalEnv:            os.Environ(),
-			NodeIPs:             e.NodeIPs,
-			PodName:             e.PodName,
-			PodNamespace:        e.PodNamespace,
-			PodIP:               e.PodIP,
-			SDSUDSPath:          e.SDSUDSPath,
-			SDSTokenPath:        e.SDSTokenPath,
-			ControlPlaneAuth:    e.ControlPlaneAuth,
-			DisableReportCalls:  e.DisableReportCalls,
-			OutlierLogPath:      e.OutlierLogPath,
+			Node:                   e.Node,
+			DNSRefreshRate:         e.DNSRefreshRate,
+			Proxy:                  &e.Config,
+			PilotSubjectAltName:    e.PilotSubjectAltName,
+			MixerSubjectAltName:    e.MixerSubjectAltName,
+			LocalEnv:               os.Environ(),
+			NodeIPs:                e.NodeIPs,
+			PodName:                e.PodName,
+			PodNamespace:           e.PodNamespace,
+			PodIP:                  e.PodIP,
+			SDSUDSPath:             e.SDSUDSPath,
+			SDSTokenPath:           e.SDSTokenPath,
+			ControlPlaneAuth:       e.ControlPlaneAuth,
+			DisableReportCalls:     e.DisableReportCalls,
+			OutlierLogPath:         e.OutlierLogPath,
+			SignCertAtKubernetesCA: e.SignCertAtKubernetesCA,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config: ", err)
