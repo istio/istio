@@ -19,8 +19,8 @@ import (
 	"strings"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/operator/pkg/tpath"
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util"
 )
 
 const (

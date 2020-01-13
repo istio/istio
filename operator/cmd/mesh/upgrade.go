@@ -24,10 +24,10 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 
-	"istio.io/operator/pkg/compare"
-	"istio.io/operator/pkg/hooks"
-	"istio.io/operator/pkg/manifest"
-	opversion "istio.io/operator/version"
+	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/hooks"
+	"istio.io/istio/operator/pkg/manifest"
+	opversion "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 )
 

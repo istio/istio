@@ -20,9 +20,9 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"istio.io/operator/pkg/helm"
-	"istio.io/operator/pkg/manifest"
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/util"
 )
 
 func TestValidateValues(t *testing.T) {

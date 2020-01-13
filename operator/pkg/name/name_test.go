@@ -18,11 +18,11 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/tpath"
 
 	"github.com/ghodss/yaml"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 )
 
 func TestGetFromTreePath(t *testing.T) {

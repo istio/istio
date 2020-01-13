@@ -18,10 +18,10 @@ import (
 	"fmt"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/operator/pkg/component/component"
-	"istio.io/operator/pkg/name"
-	"istio.io/operator/pkg/translate"
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/component/component"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 )
 
 // IstioOperator is an installation of an Istio control plane.

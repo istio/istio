@@ -19,7 +19,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 )
 
 func TestWritePathContext(t *testing.T) {

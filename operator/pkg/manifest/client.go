@@ -21,7 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 )
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things

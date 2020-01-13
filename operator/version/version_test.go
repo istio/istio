@@ -20,7 +20,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"istio.io/operator/pkg/version"
+	"istio.io/istio/operator/pkg/version"
 )
 
 const (

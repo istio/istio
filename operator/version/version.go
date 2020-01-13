@@ -17,7 +17,7 @@ package version
 import (
 	goversion "github.com/hashicorp/go-version"
 
-	pkgversion "istio.io/operator/pkg/version"
+	pkgversion "istio.io/istio/operator/pkg/version"
 	buildversion "istio.io/pkg/version"
 )
 

@@ -20,12 +20,12 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/helm"
 
 	"github.com/spf13/cobra"
 
-	"istio.io/operator/pkg/manifest"
-	"istio.io/operator/pkg/name"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/name"
 )
 
 type manifestGenerateArgs struct {

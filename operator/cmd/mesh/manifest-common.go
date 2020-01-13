@@ -24,16 +24,16 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/operator/pkg/component/controlplane"
-	"istio.io/operator/pkg/helm"
-	"istio.io/operator/pkg/kubectlcmd"
-	"istio.io/operator/pkg/manifest"
-	"istio.io/operator/pkg/name"
-	"istio.io/operator/pkg/tpath"
-	"istio.io/operator/pkg/translate"
-	"istio.io/operator/pkg/util"
-	"istio.io/operator/pkg/validate"
-	"istio.io/operator/version"
+	"istio.io/istio/operator/pkg/component/controlplane"
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/kubectlcmd"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/operator/version"
 )
 
 var (

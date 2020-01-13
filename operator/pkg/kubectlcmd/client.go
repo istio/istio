@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 

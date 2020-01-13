@@ -21,9 +21,9 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/kr/pretty"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/operator/pkg/util"
-	"istio.io/operator/pkg/version"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/version"
 )
 
 func TestValueToProto(t *testing.T) {

@@ -20,7 +20,7 @@ import (
 	"reflect"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 )
 
 var (

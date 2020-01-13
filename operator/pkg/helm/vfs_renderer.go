@@ -22,8 +22,8 @@ import (
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 
-	"istio.io/operator/pkg/util"
-	"istio.io/operator/pkg/vfs"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/vfs"
 
 	"istio.io/pkg/log"
 )

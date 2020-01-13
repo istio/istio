@@ -35,8 +35,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	iop "istio.io/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/operator/pkg/helmreconciler"
+	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/pkg/log"
 )
 
