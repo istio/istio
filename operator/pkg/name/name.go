@@ -118,7 +118,7 @@ func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1a
 	}
 	componentNode, ok := componentNodeI.(*v1alpha1.BoolValueForPB)
 	if !ok {
-		return false, fmt.Errorf("component %s enabled has bad type %T, expect *v1alpha2.BoolValueForPB", componentName, componentNodeI)
+		return false, fmt.Errorf("component %s enabled has bad type %T, expect *v1alpha1.BoolValueForPB", componentName, componentNodeI)
 	}
 	if componentNode == nil {
 		return false, nil

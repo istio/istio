@@ -66,9 +66,9 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
-			// Warn users if they use `manifest apply` without any config args.
-			if maArgs.inFilename == "" && len(maArgs.set) == 0 && !maArgs.skipConfirmation {
-				if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
+			// Warn users before starting to install Istio
+			if !rootArgs.dryRun && !maArgs.skipConfirmation {
+				if !confirm("This will install Istio into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
 					cmd.Print("Cancelled.\n")
 					os.Exit(1)
 				}

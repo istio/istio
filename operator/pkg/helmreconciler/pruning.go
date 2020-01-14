@@ -30,54 +30,56 @@ import (
 // function prunes all resources.
 func (h *HelmReconciler) Prune(all bool) error {
 	allErrors := []error{}
-	namespacedResources, nonNamespacedResources := h.customizer.PruningDetails().GetResourceTypes()
+	namespacedResourceMap, nonNamespacedResourceMap, _ := h.customizer.PruningDetails().GetResourceTypes()
 	targetNamespace := h.customizer.Input().GetTargetNamespace()
-	err := h.PruneResources(namespacedResources, all, targetNamespace)
+	err := h.PruneResources(namespacedResourceMap, all, targetNamespace)
 	if err != nil {
 		allErrors = append(allErrors, err)
 	}
-	err = h.PruneResources(nonNamespacedResources, all, "")
+	err = h.PruneResources(nonNamespacedResourceMap, all, "")
 	if err != nil {
 		allErrors = append(allErrors, err)
 	}
 	return utilerrors.NewAggregate(allErrors)
 }
 
-// Prune removes any resources not specified gvks. If all is set to true, it prunes all
+// Prune removes any resources not specified resourceMap. If all is set to true, it prunes all
 // resources.
-func (h *HelmReconciler) PruneResources(gvks []schema.GroupVersionKind, all bool, namespace string) error {
+func (h *HelmReconciler) PruneResources(resourceMap map[schema.GroupVersionKind]bool, all bool, namespace string) error {
 	allErrors := []error{}
 	ownerLabels := h.customizer.PruningDetails().GetOwnerLabels()
 	ownerAnnotations := h.customizer.PruningDetails().GetOwnerAnnotations()
-	for _, gvk := range gvks {
-		objects := &unstructured.UnstructuredList{}
-		objects.SetGroupVersionKind(gvk)
-		err := h.client.List(context.TODO(), objects, client.MatchingLabels(ownerLabels), client.InNamespace(namespace))
-		if err != nil {
-			// we only want to retrieve resources clusters
-			log.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
-			continue
-		}
-	objectLoop:
-		for _, object := range objects.Items {
-			annotations := object.GetAnnotations()
-			for ownerKey, ownerValue := range ownerAnnotations {
-				// we only want to delete objects that contain the annotations
-				// if we're not pruning all objects, we only want to prune those whose annotation value does not match what is expected
-				if value, ok := annotations[ownerKey]; !ok || (!all && value == ownerValue) {
-					continue objectLoop
-				}
+	for gvk, exists := range resourceMap {
+		if exists {
+			objects := &unstructured.UnstructuredList{}
+			objects.SetGroupVersionKind(gvk)
+			err := h.client.List(context.TODO(), objects, client.MatchingLabels(ownerLabels), client.InNamespace(namespace))
+			if err != nil {
+				// we only want to retrieve resources clusters
+				log.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
+				continue
 			}
-			err = h.client.Delete(context.TODO(), &object, client.PropagationPolicy(metav1.DeletePropagationBackground))
-			if err == nil {
-				if listenerErr := h.customizer.Listener().ResourceDeleted(&object); listenerErr != nil {
-					log.Errorf("error calling listener: %s", err)
+		objectLoop:
+			for _, object := range objects.Items {
+				annotations := object.GetAnnotations()
+				for ownerKey, ownerValue := range ownerAnnotations {
+					// we only want to delete objects that contain the annotations
+					// if we're not pruning all objects, we only want to prune those whose annotation value does not match what is expected
+					if value, ok := annotations[ownerKey]; !ok || (!all && value == ownerValue) {
+						continue objectLoop
+					}
 				}
-			} else {
-				if listenerErr := h.customizer.Listener().ResourceError(&object, err); listenerErr != nil {
-					log.Errorf("error calling listener: %s", err)
+				err = h.client.Delete(context.TODO(), &object, client.PropagationPolicy(metav1.DeletePropagationBackground))
+				if err == nil {
+					if listenerErr := h.customizer.Listener().ResourceDeleted(&object); listenerErr != nil {
+						log.Errorf("error calling listener: %s", err)
+					}
+				} else {
+					if listenerErr := h.customizer.Listener().ResourceError(&object, err); listenerErr != nil {
+						log.Errorf("error calling listener: %s", err)
+					}
+					allErrors = append(allErrors, err)
 				}
-				allErrors = append(allErrors, err)
 			}
 		}
 	}

@@ -51,7 +51,7 @@ func init() {
 
 }
 
-// IstioRenderingInput is a RenderingInput specific to an v1alpha2 IstioOperator instance.
+// IstioRenderingInput is a RenderingInput specific to an v1alpha1 IstioOperator instance.
 type IstioRenderingInput struct {
 	instance *v1alpha1.IstioOperator
 	crPath   string

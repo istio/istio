@@ -15,12 +15,11 @@
 package util
 
 import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"net/url"
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"istio.io/pkg/log"
 )
 
