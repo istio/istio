@@ -124,7 +124,7 @@ const (
 	pkcs8Key = "PKCS8_KEY"
 
 	// The environmental variable name for whether enabling k8s CA signing
-	enableKubernetesCaKey = "ENABLE_KUBERNETES_CA"
+	enableKubernetesCaKey = "SIGN_CERT_AT_KUBERNETES_CA"
 )
 
 var (
@@ -357,6 +357,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				log.Infof("istiod uses the root certificate mounted in a well known location %v",
 					cache.ExistingRootCertFile)
 			} else {
+				rootCert = nil
 				// for debugging only
 				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
 				serverOptions.CAEndpoint = "istio-pilot.istio-system.svc:15010"
@@ -377,6 +378,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 					log.Infof("istiod uses the root certificate mounted in a well known location %v",
 						cache.ExistingRootCertFile)
 				} else {
+					rootCert = nil
 					log.Fatal("invalid config - port 15012 missing a root certificate")
 				}
 			}
