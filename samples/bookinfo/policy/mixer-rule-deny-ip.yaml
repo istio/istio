@@ -2,6 +2,7 @@ apiVersion: config.istio.io/v1alpha2
 kind: handler
 metadata:
   name: whitelistip
+  namespace: istio-system
 spec:
   compiledAdapter: listchecker
   params:
@@ -15,6 +16,7 @@ apiVersion: config.istio.io/v1alpha2
 kind: instance
 metadata:
   name: sourceip
+  namespace: istio-system
 spec:
   compiledTemplate: listentry
   params:
@@ -24,6 +26,7 @@ apiVersion: config.istio.io/v1alpha2
 kind: rule
 metadata:
   name: checkip
+  namespace: istio-system
 spec:
   match: source.labels["istio"] == "ingressgateway"
   actions:
