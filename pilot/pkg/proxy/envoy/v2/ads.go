@@ -391,7 +391,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				clusterGroups := discReq.GetResourceNames()
 
-				// This is an acknowledgement
+				// This may be an acknowledgement
 				if discReq.ResponseNonce != "" {
 					con.mu.RLock()
 					egdsNonceSent := con.EndpointGroupNonceSent
@@ -409,9 +409,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						if len(clusterGroups) == 0 {
 							// xDS doesn't require resource names on ACK, 
 							// the test env doesn't return resource names.
+							con.mu.Lock()
+							con.EndpointNonceAcked = discReq.ResponseNonce
+							con.mu.Unlock()
+
 							continue
 						}
 
+						// If request resources don't match, this means this is a new subscribing request.
 						if listEqualUnordered(con.ClusterGroups, clusterGroups) {
 							adsLog.Debugf("ADS:EGDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 							con.mu.Lock()
