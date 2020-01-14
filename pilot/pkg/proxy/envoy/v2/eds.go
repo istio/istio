@@ -490,9 +490,9 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	egdsGroup, f := ep.Shards[clusterID]
 	if !f {
 		egdsGroup = &EndpointGroups{
-			NamePrefix: fmt.Sprintf("%s|%s|%s", serviceName, namespace, clusterID),
-			GroupSize:  s.Env.Mesh().GetEgdsGroupSize(),
-			mutex:      sync.Mutex{},
+			NamePrefix:  fmt.Sprintf("%s|%s|%s", serviceName, namespace, clusterID),
+			GroupSize:   s.Env.Mesh().GetEgdsGroupSize(),
+			mutex:       sync.Mutex{},
 			VersionInfo: 0,
 		}
 
@@ -500,6 +500,10 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	}
 
 	egdsUpdates := egdsGroup.accept(istioEndpoints)
+
+	adsLog.Debugf("endpoints for service(%s) updated, endpoint count: %d, egds upadted count: %d",
+		serviceName, len(istioEndpoints), len(egdsUpdates))
+
 	ep.mutex.Unlock()
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
