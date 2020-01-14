@@ -251,17 +251,14 @@ func ValidatePercent(val int32) error {
 	return nil
 }
 
-// validatePercentageOrDefault checks if the specified fractional percentage is
-// valid. If a nil fractional percentage is supplied, it validates the default
-// integer percent value.
-func validatePercentageOrDefault(percentage *networking.Percent, defaultPercent int32) error {
+// validatePercentage checks if the specified fractional percentage is valid.
+func validatePercentage(percentage *networking.Percent) error {
 	if percentage != nil {
 		if percentage.Value < 0.0 || percentage.Value > 100.0 || (percentage.Value > 0.0 && percentage.Value < 0.0001) {
 			return fmt.Errorf("percentage %v is neither 0.0, nor in range [0.0001, 100.0]", percentage.Value)
 		}
-		return nil
 	}
-	return ValidatePercent(defaultPercent)
+	return nil
 }
 
 // ValidateIPSubnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
@@ -1478,13 +1475,16 @@ var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationP
 		var errs error
 
 		if !clusterScoped {
+			// nolint: staticcheck
 			if len(in.Targets) == 0 && name != constants.DefaultAuthenticationPolicyName {
 				errs = appendErrors(errs, fmt.Errorf("authentication policy with no target rules  must be named %q, found %q",
 					constants.DefaultAuthenticationPolicyName, name))
 			}
+			// nolint: staticcheck
 			if len(in.Targets) > 0 && name == constants.DefaultAuthenticationPolicyName {
 				errs = appendErrors(errs, fmt.Errorf("authentication policy with name %q must not have any target rules", name))
 			}
+			// nolint: staticcheck
 			for _, target := range in.Targets {
 				errs = appendErrors(errs, validateAuthNPolicyTarget(target))
 			}
@@ -1493,6 +1493,7 @@ var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationP
 				errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy name must be %q, found %q",
 					constants.DefaultAuthenticationPolicyName, name))
 			}
+			// nolint: staticcheck
 			if len(in.Targets) > 0 {
 				errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
 			}
@@ -1500,6 +1501,7 @@ var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationP
 
 		jwtIssuers := make(map[string]bool)
 		for _, method := range in.Peers {
+			// nolint: staticcheck
 			if jwt := method.GetJwt(); jwt != nil {
 				if _, jwtExist := jwtIssuers[jwt.Issuer]; jwtExist {
 					errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", jwt.Issuer))
@@ -1509,6 +1511,7 @@ var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationP
 				errs = appendErrors(errs, validateJwt(jwt))
 			}
 		}
+		// nolint: staticcheck
 		for _, method := range in.Origins {
 			if method == nil {
 				errs = multierror.Append(errs, errors.New("origin cannot be empty"))
@@ -2054,9 +2057,6 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	for _, destinationSubnet := range match.DestinationSubnets {
 		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
-	if len(match.SourceSubnet) > 0 {
-		errs = appendErrors(errs, ValidateIPSubnet(match.SourceSubnet))
-	}
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
@@ -2079,29 +2079,8 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 		if http.Rewrite != nil {
 			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and redirect"))
 		}
-
-		if http.WebsocketUpgrade {
-			errs = appendErrors(errs, errors.New("WebSocket upgrade is not allowed on redirect rules")) // nolint: golint
-		}
 	} else if len(http.Route) == 0 {
 		errs = appendErrors(errs, errors.New("HTTP route or redirect is required"))
-	}
-
-	// deprecated
-	for name := range http.AppendHeaders {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-	}
-	for name := range http.AppendRequestHeaders {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-	}
-	for _, name := range http.RemoveRequestHeaders {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-	}
-	for name := range http.AppendResponseHeaders {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-	}
-	for _, name := range http.RemoveResponseHeaders {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
 
 	// header manipulation
@@ -2193,20 +2172,6 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 	for _, weight := range weights {
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
-		}
-
-		// deprecated
-		for name := range weight.AppendRequestHeaders {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
-		for name := range weight.AppendResponseHeaders {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
-		for _, name := range weight.RemoveRequestHeaders {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
-		for _, name := range weight.RemoveResponseHeaders {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
 
 		// header manipulations
@@ -2330,7 +2295,7 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 		return
 	}
 
-	errs = appendErrors(errs, validatePercentageOrDefault(abort.Percentage, abort.Percent))
+	errs = appendErrors(errs, validatePercentage(abort.Percentage))
 
 	switch abort.ErrorType.(type) {
 	case *networking.HTTPFaultInjection_Abort_GrpcStatus:
@@ -2358,7 +2323,7 @@ func validateHTTPFaultInjectionDelay(delay *networking.HTTPFaultInjection_Delay)
 		return
 	}
 
-	errs = appendErrors(errs, validatePercentageOrDefault(delay.Percentage, delay.Percent))
+	errs = appendErrors(errs, validatePercentage(delay.Percentage))
 
 	switch v := delay.HttpDelayType.(type) {
 	case *networking.HTTPFaultInjection_Delay_FixedDelay:

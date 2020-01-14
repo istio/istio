@@ -29,9 +29,10 @@ import (
 
 	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
-	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/webhooks/validation/controller"
+	"istio.io/istio/pkg/webhooks/validation/server"
 )
 
 const (
@@ -144,7 +145,14 @@ type Args struct { // nolint:maligned
 	// keep-alive options for the MCP gRPC Server.
 	KeepAlive *keepalive.Options
 
-	ValidationArgs *validation.WebhookParameters
+	// Enable the validating webhook server.
+	EnableValidationServer bool
+
+	// Enable a controller to manage the lifecycle of the validatingwebhookconfiguration.
+	EnableValidationController bool
+
+	ValidationWebhookServerArgs     server.Options
+	ValidationWebhookControllerArgs controller.Options
 
 	Liveness        probe.Options
 	Readiness       probe.Options
@@ -159,31 +167,34 @@ type Args struct { // nolint:maligned
 // DefaultArgs allocates an Args struct initialized with Galley's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		ResyncPeriod:                0,
-		KubeConfig:                  "",
-		APIAddress:                  "tcp://0.0.0.0:9901",
-		MaxReceivedMessageSize:      1024 * 1024,
-		MaxConcurrentStreams:        1024,
-		InitialWindowSize:           1024 * 1024,
-		InitialConnectionWindowSize: 1024 * 1024 * 16,
-		IntrospectionOptions:        ctrlz.DefaultOptions(),
-		Insecure:                    false,
-		AccessListFile:              defaultAccessListFile,
-		MeshConfigFile:              defaultMeshConfigFile,
-		EnableServer:                true,
-		CredentialOptions:           creds.DefaultOptions(),
-		ConfigPath:                  "",
-		DomainSuffix:                defaultDomainSuffix,
-		DisableResourceReadyCheck:   false,
-		ExcludedResourceKinds:       kuberesource.DefaultExcludedResourceKinds(),
-		SinkMeta:                    make([]string, 0),
-		KeepAlive:                   keepalive.DefaultOption(),
-		ValidationArgs:              validation.DefaultArgs(),
-		MonitoringPort:              15014,
-		EnableProfiling:             false,
-		PprofPort:                   9094,
-		WatchConfigFiles:            false,
-		EnableConfigAnalysis:        false,
+		ResyncPeriod:                    0,
+		KubeConfig:                      "",
+		APIAddress:                      "tcp://0.0.0.0:9901",
+		MaxReceivedMessageSize:          1024 * 1024,
+		MaxConcurrentStreams:            1024,
+		InitialWindowSize:               1024 * 1024,
+		InitialConnectionWindowSize:     1024 * 1024 * 16,
+		IntrospectionOptions:            ctrlz.DefaultOptions(),
+		Insecure:                        false,
+		AccessListFile:                  defaultAccessListFile,
+		MeshConfigFile:                  defaultMeshConfigFile,
+		EnableServer:                    true,
+		CredentialOptions:               creds.DefaultOptions(),
+		ConfigPath:                      "",
+		DomainSuffix:                    defaultDomainSuffix,
+		DisableResourceReadyCheck:       false,
+		ExcludedResourceKinds:           kuberesource.DefaultExcludedResourceKinds(),
+		SinkMeta:                        make([]string, 0),
+		KeepAlive:                       keepalive.DefaultOption(),
+		ValidationWebhookServerArgs:     server.DefaultArgs(),
+		ValidationWebhookControllerArgs: controller.DefaultArgs(),
+		EnableValidationController:      true,
+		EnableValidationServer:          true,
+		MonitoringPort:                  15014,
+		EnableProfiling:                 false,
+		PprofPort:                       9094,
+		WatchConfigFiles:                false,
+		EnableConfigAnalysis:            false,
 		Liveness: probe.Options{
 			Path:           defaultLivenessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,

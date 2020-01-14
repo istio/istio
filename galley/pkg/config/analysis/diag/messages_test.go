@@ -18,6 +18,8 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/config/resource"
 )
 
 func TestMessages_Sort(t *testing.T) {
@@ -25,27 +27,27 @@ func TestMessages_Sort(t *testing.T) {
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
-		testOrigin("B"),
+		testResource("B"),
 		"B",
 	)
 	secondMsg := NewMessage(
 		NewMessageType(Warning, "A1", "Template: %q"),
-		testOrigin("B"),
+		testResource("B"),
 		"B",
 	)
 	thirdMsg := NewMessage(
 		NewMessageType(Warning, "B1", "Template: %q"),
-		testOrigin("A"),
+		testResource("A"),
 		"B",
 	)
 	fourthMsg := NewMessage(
 		NewMessageType(Warning, "B1", "Template: %q"),
-		testOrigin("B"),
+		testResource("B"),
 		"A",
 	)
 	fifthMsg := NewMessage(
 		NewMessageType(Warning, "B1", "Template: %q"),
-		testOrigin("B"),
+		testResource("B"),
 		"B",
 	)
 
@@ -72,7 +74,7 @@ func TestMessages_SortWithNilOrigin(t *testing.T) {
 	)
 	thirdMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
-		testOrigin("B"),
+		testResource("B"),
 		"B",
 	)
 
@@ -89,18 +91,18 @@ func TestMessages_SortedCopy(t *testing.T) {
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
-		testOrigin("B"),
+		testResource("B"),
 		"B",
 	)
 	secondMsg := NewMessage(
 		NewMessageType(Warning, "A1", "Template: %q"),
-		testOrigin("B"),
+		testResource("B"),
 		"B",
 	)
 	// Oops, we have a duplicate (identical to firstMsg) - it should be removed.
 	thirdMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
-		testOrigin("B"),
+		testResource("B"),
 		"B",
 	)
 
@@ -110,4 +112,13 @@ func TestMessages_SortedCopy(t *testing.T) {
 	newMsgs := msgs.SortedDedupedCopy()
 
 	g.Expect(newMsgs).To(Equal(expectedMsgs))
+}
+
+func testResource(name string) *resource.Instance {
+	return &resource.Instance{
+		Metadata: resource.Metadata{
+			FullName: resource.NewShortOrFullName("default", name),
+		},
+		Origin: testOrigin(name),
+	}
 }

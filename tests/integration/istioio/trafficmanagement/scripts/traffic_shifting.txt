@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+
+# Copyright 2019 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+# setup bookinfo & sleep pods
+kubectl label namespace default istio-injection=enabled --overwrite || true
+
+kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+kubectl apply -f samples/bookinfo/networking/destination-rule-all.yaml
+kubectl apply -f samples/sleep/sleep.yaml
+
+for deploy in "productpage-v1" "details-v1" "ratings-v1" "reviews-v1" "reviews-v2" "reviews-v3" "sleep"; do
+  if ! kubectl rollout status deployment "$deploy" --timeout 5m; then
+    echo "$deploy deployment rollout status check failed"
+    exit 1
+  fi
+done
+
+# Verification utils
+
+SLEEP_POD=$(kubectl get pod -l app=sleep -n default -o 'jsonpath={.items..metadata.name}')
+INGRESS_URL="http://istio-ingressgateway.istio-system"
+# reviews_v3_traffic_percentage
+# gets the % of productpage requests with reviews from reviews:v3 service
+function reviews_v3_traffic_percentage() {
+  set +e
+  local total_request_count=100
+  local v3_count=0
+  local v3_search_string="glyphicon glyphicon-star" # search string present in reviews_v3 response html
+  for ((i = 1; i <= total_request_count; i++)); do
+    if (kubectl exec "${SLEEP_POD}" -c sleep -n "default" -- curl -s $INGRESS_URL/productpage | grep -q "$v3_search_string"); then
+      v3_count=$((v3_count + 1))
+    fi
+  done
+  function is_in_range() {
+    local tol=10 #tolerance
+    local lower_bound=$(($2 - tol))
+    local upper_bound=$(($2 + tol))
+    if ((lower_bound < $1 && $1 < upper_bound)); then
+      return 0
+    fi
+    return 1
+  }
+  declare -a ranges=(0 25 50 75 100)
+  for i in "${ranges[@]}"; do
+    if is_in_range $v3_count "$i"; then
+      return "$i"
+    fi
+  done
+  set -e
+}
+
+function verify_traffic_shift() {
+  reviews_v3_traffic_percentage
+  local got=$?
+  if ((got != $1)); then
+    echo "reviews-v3 traffic split mismatch: expected $1, got $got"
+    exit 1
+  fi
+}
+
+# Step 1
+
+# $snippet route_all_v1 syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl apply -f @samples/bookinfo/networking/virtual-service-all-v1.yaml@
+# $verify
+virtualservice.networking.istio.io/productpage created
+virtualservice.networking.istio.io/reviews created
+virtualservice.networking.istio.io/ratings created
+virtualservice.networking.istio.io/details created
+# $endsnippet
+
+sleep 10
+# Step 2: verify no rating stars visible, (reviews-v3 traffic=0%)
+verify_traffic_shift 0
+
+# Step 3: switch 50% traffic to v3
+
+# $snippet route_50_percent_v3 syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl apply -f @samples/bookinfo/networking/virtual-service-reviews-50-v3.yaml@
+# $verify
+virtualservice.networking.istio.io/reviews configured
+# $endsnippet
+
+# Step 4: Confirm the rule was replaced
+
+# $snippet verify_review_virtualservice syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl get virtualservice reviews -o yaml
+# $verify verifier="contains"
+subset: v3
+# $endsnippet
+
+# Step 5: verify rating stars visible 50% of the time
+verify_traffic_shift 50
+
+# Step 6: route 100% traffic to v3
+
+# $snippet route_100_percent_v3 syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl apply -f @samples/bookinfo/networking/virtual-service-reviews-v3.yaml@
+# $endsnippet
+
+verify_traffic_shift 100

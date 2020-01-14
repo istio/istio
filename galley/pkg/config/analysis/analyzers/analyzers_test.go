@@ -21,7 +21,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -191,8 +190,6 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.Deprecated, "VirtualService route-egressgateway"},
-			{msg.Deprecated, "VirtualService tornado"},
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"},
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"}, // Duplicate, because resource has two problems
 			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
@@ -399,7 +396,7 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true, 10*time.Second)
+			sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
 
 			// If a mesh config file is specified, use it instead of the defaults
 			if testCase.meshConfigFile != "" {
@@ -516,9 +513,10 @@ func extractFields(msgs diag.Messages) []message {
 		expMsg := message{
 			messageType: m.Type,
 		}
-		if m.Origin != nil {
-			expMsg.origin = m.Origin.FriendlyName()
+		if m.Resource != nil {
+			expMsg.origin = m.Resource.Origin.FriendlyName()
 		}
+
 		result = append(result, expMsg)
 	}
 	return result

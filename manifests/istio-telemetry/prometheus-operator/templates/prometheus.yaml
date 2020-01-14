@@ -1,0 +1,137 @@
+{{- if .Values.prometheusOperator.createPrometheusResource }}
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  image: "{{ .Values.prometheusOperator.hub }}/{{ .Values.prometheusOperator.image | default "prometheus" }}:{{ .Values.prometheusOperator.tag }}"
+  version: {{ .Values.prometheusOperator.tag }}
+  retention: {{ .Values.prometheusOperator.retention }}
+  scrapeInterval: {{ .Values.prometheusOperator.scrapeInterval }}
+  serviceAccountName: prometheus
+  serviceMonitorSelector:
+    any: true
+  serviceMonitorNamespaceSelector:
+    any: true
+  secrets: [ istio.prometheus ]
+  enableAdminAPI: false
+{{- if .Values.global.priorityClassName }}
+  priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+  affinity:
+  {{- include "nodeaffinity" . | indent 2 }}
+  {{- include "podAntiAffinity" . | indent 2 }}
+{{- if .Values.prometheusOperator.tolerations }}
+  tolerations:
+{{ toYaml .Values.prometheusOperator.tolerations | indent 2 }}
+{{- end }}
+  podMetadata:
+    labels:
+      app: prometheus
+      release: {{ .Release.Name }}
+    annotations:
+      sidecar.istio.io/inject: "false"
+  resources:
+    requests:
+      memory: 400Mi
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-{{ .Release.Namespace }}
+  labels:
+    app: prometheus
+    release: {{ .Release.Name }}
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - services
+  - endpoints
+  - pods
+  - nodes/proxy
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-{{ .Release.Namespace }}
+  labels:
+    app: prometheus
+    release: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-{{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: {{ .Release.Namespace }}
+---
+{{- if not .Values.prometheusOperator.service.nodePort.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    prometheus.io/scrape: 'true'
+    {{- if .Values.service }}
+    {{- range $key, $val := .Values.prometheusOperator.service.annotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+    {{- end }}
+  labels:
+    app: prometheus
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - name: http-prometheus
+    protocol: TCP
+    port: 9090
+{{- else }}
+# Using separate ingress for nodeport, to avoid conflict with pilot e2e test configs.
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-nodeport
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: prometheus
+    release: {{ .Release.Name }}
+spec:
+  type: NodePort
+  ports:
+  - port: 9090
+    nodePort: {{ .Values.prometheusOperator.service.nodePort.port }}
+    name: http-prometheus
+  selector:
+    app: prometheus
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+{{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- end }}
+metadata:
+  name: prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: prometheus
+    release: {{ .Release.Name }}
+{{- end }}

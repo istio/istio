@@ -253,7 +253,7 @@ func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	arg := Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
-		RecycleInterval:         2 * time.Second,
+		RecycleInterval:         100 * time.Millisecond,
 		WorkloadUDSPath:         socket,
 	}
 	st := &mockSecretStore{
@@ -377,10 +377,10 @@ type notifyMsg struct {
 func waitForNotificationToProceed(t *testing.T, notifyChan chan notifyMsg, proceedNotice string) {
 	for {
 		if notify := <-notifyChan; notify.Err != nil {
-			t.Errorf("get error from stream: %v", notify.Message)
+			t.Fatalf("get error from stream: %v", notify.Message)
 		} else {
 			if notify.Message != proceedNotice {
-				t.Errorf("push signal does not match, expected %s but got %s", proceedNotice,
+				t.Fatalf("push signal does not match, expected %s but got %s", proceedNotice,
 					notify.Message)
 			}
 			return
@@ -510,14 +510,14 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 	// Wait the recycle job run to clear all staled client connections.
 	// TODO(JimmyCYJ): replace this sleep with measuring metrics totalStaleConnCounts.
-	time.Sleep(10 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	// Add RLock to avoid racetest fail.
 	sdsClientsMutex.RLock()
-	defer sdsClientsMutex.RUnlock()
 	if len(sdsClients) != 0 {
 		t.Fatalf("sdsClients, got %d, expected 0", len(sdsClients))
 	}
+	sdsClientsMutex.RUnlock()
 
 	totalPushVal, err := util.GetMetricsCounterValue("total_pushes")
 	if err != nil {

@@ -66,6 +66,9 @@ func TestEds(t *testing.T) {
 	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
 	addTestClientEndpoints(server)
 
+	// Trigger a push to update the contents of the registry to push context and push to connected clients.
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
 	adscConn2 := adsConnectAndWait(t, 0x0a0a0a0b)
@@ -145,22 +148,21 @@ func TestEdsWeightedServiceEntry(t *testing.T) {
 }
 
 func TestEDSOverlapping(t *testing.T) {
-
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	// add endpoints with multiple ports with the same port number
+	// add endpoints with multiple ports with the same port number.
 	addOverlappingEndpoints(server)
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
+
 	testOverlappingPorts(server, adscConn, t)
 }
 
 // Validates the behavior when Service resolution type is updated after initial EDS push.
 // See https://github.com/istio/istio/issues/18355 for more details.
 func TestEDSServiceResolutionUpdate(t *testing.T) {
-
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -187,7 +189,6 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 
 // Validate that when endpoints of a service flipflop between 1 and 0 does not trigger a full push.
 func TestEndpointFlipFlops(t *testing.T) {
-
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -247,7 +248,6 @@ func TestEndpointFlipFlops(t *testing.T) {
 
 // Validate that deleting a service clears entries from EndpointShardsByService.
 func TestDeleteService(t *testing.T) {
-
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -324,7 +324,6 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			Protocol: protocol.HTTP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 // Verify server sends the endpoint. This check for a single endpoint with the given
@@ -702,8 +701,6 @@ func addUdsEndpoint(server *bootstrap.Server) {
 			Protocol: protocol.GRPC,
 		},
 	})
-
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
@@ -741,7 +738,6 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 			},
 		})
 	}
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 func addEdsCluster(server *bootstrap.Server, hostName string, portName string, address string, port int) {

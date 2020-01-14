@@ -1,0 +1,22 @@
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-pilot{{ .Values.version }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: pilot
+    release: {{ .Release.Name }}
+    istio: pilot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: pilot
+      {{- if ne .Values.version ""}}
+      version: {{ .Values.version }}
+      {{- end }}
+      release: {{ .Release.Name }}
+      istio: pilot
+---
+{{- end }}

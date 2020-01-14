@@ -41,6 +41,7 @@ var (
 	SidecarRewriteAppHTTPProbers          = workloadAnnotation(annotation.SidecarRewriteAppHTTPProbers.Name, "")
 	SidecarProxyImage                     = workloadAnnotation(annotation.SidecarProxyImage.Name, "")
 	SidecarInterceptionMode               = workloadAnnotation(annotation.SidecarInterceptionMode.Name, "")
+	SidecarEnableCoreDump                 = workloadAnnotation(annotation.SidecarEnableCoreDump.Name, "")
 	SidecarStatusPort                     = workloadAnnotation(annotation.SidecarStatusPort.Name, "")
 	SidecarReadinessInitialDelaySeconds   = workloadAnnotation(annotation.SidecarStatusReadinessInitialDelaySeconds.Name, "")
 	SidecarReadinessPeriodSeconds         = workloadAnnotation(annotation.SidecarStatusReadinessPeriodSeconds.Name, "")

@@ -56,8 +56,8 @@ func TestServer(t *testing.T) {
 	a.ConfigPath = configDir
 	a.AccessListFile = accessListFile
 	a.Insecure = true
-	a.ValidationArgs.EnableValidation = false
-	a.ValidationArgs.EnableReconcileWebhookConfiguration = false
+	a.EnableValidationController = false
+	a.EnableValidationServer = false
 	a.EnableProfiling = true
 
 	s := New(a)

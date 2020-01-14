@@ -22,7 +22,9 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	"time"
+
+	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 
 	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
@@ -70,7 +72,7 @@ var (
 	msgOutputFormat string
 	meshCfgFile     string
 	allNamespaces   bool
-	analysisTimeout time.Duration
+	suppress        []string
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -103,6 +105,13 @@ istioctl analyze a.yaml b.yaml
 
 # Analyze yaml files without connecting to a live cluster
 istioctl analyze --use-kube=false a.yaml b.yaml
+
+# Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
+istioctl analyze -S "IST0103=Pod mypod.testing"
+
+# Analyze the current live cluster and suppress PodMissingProxy for all pods in namespace 'testing',
+# and suppress MisplacedAnnotation on deployment foobar in namespace default.
+istioctl analyze -S "IST0103=Pod *.testing" -S "IST0107=Deployment foobar.default"
 
 # List available analyzers
 istioctl analyze -L
@@ -137,7 +146,34 @@ istioctl analyze -L
 			}
 
 			sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
-				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true)
+
+			// Check for suppressions and add them to our SourceAnalyzer
+			var suppressions []snapshotter.AnalysisSuppression
+			for _, s := range suppress {
+				parts := strings.Split(s, "=")
+				if len(parts) != 2 {
+					return fmt.Errorf("%s is not a valid suppression value. See istioctl analyze --help", s)
+				}
+				// Check to see if the supplied code is valid. If not, emit a
+				// warning but continue.
+				codeIsValid := false
+				for _, at := range msg.All() {
+					if at.Code() == parts[0] {
+						codeIsValid = true
+						break
+					}
+				}
+
+				if !codeIsValid {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Supplied message code '%s' is an unknown message code and will not have any effect.\n", parts[0])
+				}
+				suppressions = append(suppressions, snapshotter.AnalysisSuppression{
+					Code:         parts[0],
+					ResourceName: parts[1],
+				})
+			}
+			sa.SetSuppressions(suppressions)
 
 			// If we're using kube, use that as a base source.
 			if useKube {
@@ -176,7 +212,6 @@ istioctl analyze -L
 
 			// Do the analysis
 			result, err := sa.Analyze(cancel)
-
 			if err != nil {
 				return err
 			}
@@ -279,8 +314,10 @@ istioctl analyze -L
 		"Overrides the mesh config values to use for analysis.")
 	analysisCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false,
 		"Analyze all namespaces")
-	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
-		"the duration to wait before failing")
+	analysisCmd.PersistentFlags().StringArrayVarP(&suppress, "suppress", "S", []string{},
+		"Suppress reporting a message code on a specific resource. Values are supplied in the form "+
+			`<code>=<resource> (e.g. '--suppress "IST0102=DestinationRule primary-dr.default"'). Can be repeated. `+
+			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
 	return analysisCmd
 }
 
@@ -329,8 +366,8 @@ func colorSuffix() string {
 
 func renderMessage(m diag.Message) string {
 	origin := ""
-	if m.Origin != nil {
-		origin = " (" + m.Origin.FriendlyName() + ")"
+	if m.Resource != nil {
+		origin = " (" + m.Resource.Origin.FriendlyName() + ")"
 	}
 	return fmt.Sprintf(
 		"%s%v%s [%v]%s %s", colorPrefix(m), m.Type.Level(), colorSuffix(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
