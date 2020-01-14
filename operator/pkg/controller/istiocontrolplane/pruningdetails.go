@@ -16,13 +16,13 @@ package istiocontrolplane
 
 import (
 	"strconv"
+	"sync"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/util"
 )
 
 const (
@@ -69,59 +69,69 @@ var (
 		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
 	}
 
+	// namespacedResourceMap is the namespaced scoped resource map of Group/Kind/Version as key and bool as value
+	// initial value of each Group/Kind/Version is 'false', which will be updated to 'true' if the operator creates the
+	// corresponding resource, then the prune process will only try to delete resource of 'true' to accelerate the pruning loop
 	// ordered by which types should be deleted, first to last
-	namespacedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
-		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
-		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
-		{Group: "apps", Version: "v1", Kind: "Deployment"},
-		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
-		{Group: "", Version: "v1", Kind: "Service"},
-		{Group: "", Version: "v1", Kind: "Endpoints"},
-		{Group: "", Version: "v1", Kind: "ConfigMap"},
-		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
-		{Group: "", Version: "v1", Kind: "Pod"},
-		{Group: "", Version: "v1", Kind: "Secret"},
-		{Group: "", Version: "v1", Kind: "ServiceAccount"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "Role"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
-		{Group: "authentication.istio.io", Version: "v1alpha1", Kind: "Policy"},
-		{Group: "config.istio.io", Version: "v1alpha2", Kind: "adapter"},
-		{Group: "config.istio.io", Version: "v1alpha2", Kind: "attributemanifest"},
-		{Group: "config.istio.io", Version: "v1alpha2", Kind: "handler"},
-		{Group: "config.istio.io", Version: "v1alpha2", Kind: "instance"},
-		{Group: "config.istio.io", Version: "v1alpha2", Kind: "HTTPAPISpec"},
-		{Group: "config.istio.io", Version: "v1alpha2", Kind: "HTTPAPISpecBinding"},
-		{Group: "config.istio.io", Version: "v1alpha2", Kind: "QuotaSpec"},
-		{Group: "config.istio.io", Version: "v1alpha2", Kind: "QuotaSpecBinding"},
-		{Group: "config.istio.io", Version: "v1alpha2", Kind: "rule"},
-		{Group: "config.istio.io", Version: "v1alpha2", Kind: "template"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "DestinationRule"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "EnvoyFilter"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Gateway"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "ServiceEntry"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Sidecar"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "VirtualService"},
-		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ClusterRbacConfig"},
-		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "RbacConfig"},
-		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ServiceRole"},
-		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ServiceRoleBinding"},
-		{Group: "security.istio.io", Version: "v1beta1", Kind: "AuthorizationPolicy"},
-		{Group: "security.istio.io", Version: "v1beta1", Kind: "RequestAuthentication"},
+	namespacedResourceMap = map[schema.GroupVersionKind]bool{
+		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"}:     false,
+		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"}:              false,
+		{Group: "apps", Version: "v1", Kind: "StatefulSet"}:                             false,
+		{Group: "apps", Version: "v1", Kind: "Deployment"}:                              false,
+		{Group: "apps", Version: "v1", Kind: "DaemonSet"}:                               false,
+		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"}:                      false,
+		{Group: "", Version: "v1", Kind: "Service"}:                                     false,
+		{Group: "", Version: "v1", Kind: "Endpoints"}:                                   false,
+		{Group: "", Version: "v1", Kind: "ConfigMap"}:                                   false,
+		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"}:                       false,
+		{Group: "", Version: "v1", Kind: "Pod"}:                                         false,
+		{Group: "", Version: "v1", Kind: "Secret"}:                                      false,
+		{Group: "", Version: "v1", Kind: "ServiceAccount"}:                              false,
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "RoleBinding"}:   false,
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"}:        false,
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "Role"}:          false,
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"}:               false,
+		{Group: "authentication.istio.io", Version: "v1alpha1", Kind: "Policy"}:         false,
+		{Group: "certmanager.k8s.io", Version: "v1beta1", Kind: "Certificate"}:          false,
+		{Group: "certmanager.k8s.io", Version: "v1beta1", Kind: "Challenge"}:            false,
+		{Group: "certmanager.k8s.io", Version: "v1beta1", Kind: "Issuer"}:               false,
+		{Group: "certmanager.k8s.io", Version: "v1beta1", Kind: "Order"}:                false,
+		{Group: "config.istio.io", Version: "v1alpha2", Kind: "adapter"}:                false,
+		{Group: "config.istio.io", Version: "v1alpha2", Kind: "attributemanifest"}:      false,
+		{Group: "config.istio.io", Version: "v1alpha2", Kind: "handler"}:                false,
+		{Group: "config.istio.io", Version: "v1alpha2", Kind: "instance"}:               false,
+		{Group: "config.istio.io", Version: "v1alpha2", Kind: "HTTPAPISpec"}:            false,
+		{Group: "config.istio.io", Version: "v1alpha2", Kind: "HTTPAPISpecBinding"}:     false,
+		{Group: "config.istio.io", Version: "v1alpha2", Kind: "QuotaSpec"}:              false,
+		{Group: "config.istio.io", Version: "v1alpha2", Kind: "QuotaSpecBinding"}:       false,
+		{Group: "config.istio.io", Version: "v1alpha2", Kind: "rule"}:                   false,
+		{Group: "config.istio.io", Version: "v1alpha2", Kind: "template"}:               false,
+		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "DestinationRule"}:    false,
+		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "EnvoyFilter"}:        false,
+		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Gateway"}:            false,
+		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "ServiceEntry"}:       false,
+		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Sidecar"}:            false,
+		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "VirtualService"}:     false,
+		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ClusterRbacConfig"}:        false,
+		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "RbacConfig"}:               false,
+		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ServiceRole"}:              false,
+		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ServiceRoleBinding"}:       false,
+		{Group: "security.istio.io", Version: "v1beta1", Kind: "AuthorizationPolicy"}:   false,
+		{Group: "security.istio.io", Version: "v1beta1", Kind: "RequestAuthentication"}: false,
 	}
 
+	// nonNamespacedResourceMap is the cluster wide resource map of Group/Kind/Version as key and bool as value
+	// initial value of each Group/Kind/Version is 'false', which will be updated to 'true' if the operator creates the
+	// corresponding resource, then the prune process will only try to delete resource of 'true' to accelerate the pruning loop
 	// ordered by which types should be deleted, first to last
-	nonNamespacedResources = []schema.GroupVersionKind{
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
-		{Group: "certmanager.k8s.io", Version: "v1beta1", Kind: "ClusterIssuer"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
-		{Group: "authentication.istio.io", Version: "v1alpha1", Kind: "MeshPolicy"},
-		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
+	nonNamespacedResourceMap = map[schema.GroupVersionKind]bool{
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"}:   false,
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"}: false,
+		{Group: "certmanager.k8s.io", Version: "v1beta1", Kind: "ClusterIssuer"}:                            false,
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"}:                            false,
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"}:                     false,
+		{Group: "authentication.istio.io", Version: "v1alpha1", Kind: "MeshPolicy"}:                         false,
+		//{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"}: false,
 	}
 )
 
@@ -132,13 +142,14 @@ func NewIstioPruningDetails(instance *v1alpha1.IstioOperator) helmreconciler.Pru
 	return &helmreconciler.SimplePruningDetails{
 		OwnerLabels: map[string]string{
 			OwnerNameKey:  name,
-			OwnerGroupKey: util.IstioOperatorGVK.Group,
-			OwnerKindKey:  util.IstioOperatorGVK.Kind,
+			OwnerGroupKey: v1alpha1.IstioOperatorGVK.Group,
+			OwnerKindKey:  v1alpha1.IstioOperatorGVK.Kind,
 		},
 		OwnerAnnotations: map[string]string{
 			OwnerGenerationKey: generation,
 		},
-		NamespacedResources:    namespacedResources,
-		NonNamespacedResources: nonNamespacedResources,
+		NamespacedResourceMap:    namespacedResourceMap,
+		NonNamespacedResourceMap: nonNamespacedResourceMap,
+		PruningDetailsMU:         &sync.Mutex{},
 	}
 }
