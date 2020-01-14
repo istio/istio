@@ -54,7 +54,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -119,7 +118,6 @@ type Server struct {
 	secureGRPCServerDNS *grpc.Server
 	mux                 *http.ServeMux
 	kubeRegistry        *kubecontroller.Controller
-	sseDiscovery        *serviceentry.Discovery
 	certController      *chiron.WebhookController
 	ca                  *ca.IstioCA
 

@@ -695,8 +695,8 @@ func appendTLSCerts(rs *meshconfig.RemoteService) {
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registryID), "serviceregistry",
 		string(serviceregistry.Kubernetes),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s}",
-			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.MCP, serviceregistry.Mock))
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
+			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.Mock))
 	proxyCmd.PersistentFlags().StringVar(&proxyIP, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",

@@ -316,11 +316,6 @@ func (s *Server) sseMCPController(args *PilotArgs,
 		XDSUpdater:   s.EnvoyXdsServer,
 	}
 	ctl := serviceentry.NewSyntheticServiceEntryController(sseOptions)
-	sseDiscoveryOptions := &serviceentry.DiscoveryOptions{
-		ClusterID:    s.clusterID,
-		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-	}
-	s.sseDiscovery = serviceentry.NewDiscovery(ctl, sseDiscoveryOptions)
 	incrementalSinkOptions := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{
 			{

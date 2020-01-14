@@ -18,8 +18,8 @@ import (
 	"testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -60,7 +60,7 @@ func TestMain(m *testing.M) {
 				Galley:     g,
 				MeshConfig: &meshCfg,
 				ServiceArgs: bootstrap.ServiceArgs{
-					Registries: []string{string(serviceregistry.MCP)},
+					Registries: []string{},
 				},
 			}); err != nil {
 				return err
