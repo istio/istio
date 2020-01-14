@@ -236,6 +236,6 @@ func SDSTokenPath(value string) Instance {
 	return newOption("sds_token_path", value)
 }
 
-func SignCertAtKubernetesCA(value bool) Instance {
-	return newOption("sign_cert_at_kubernetes_ca", value)
+func PilotCertProvider(value string) Instance {
+	return newOption("pilot_cert_provider", value)
 }

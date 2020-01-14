@@ -46,6 +46,9 @@ var (
 	dnsCertDir  = "./var/run/secrets/istio-dns"
 	dnsKeyFile  = path.Join(dnsCertDir, "key.pem")
 	dnsCertFile = path.Join(dnsCertDir, "cert-chain.pem")
+
+	KubernetesCAProvider = "kubernetes"
+	CitadelCAProvider    = "citadel"
 )
 
 // CertController can create certificates signed by K8S server.
@@ -132,13 +135,16 @@ func (s *Server) initDNSCerts(hostname string) error {
 
 	var certChain, keyPEM []byte
 	var err error
-	if features.SignCertAtK8sCa.Get() {
+	if features.PilotCertProvider.Get() == KubernetesCAProvider {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
-	} else {
+	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
 		log.Infof("Generating Citadel-signed cert for %v", names)
 		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
+	} else {
+		log.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
+		err = fmt.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
 	}
 	if err != nil {
 		return err

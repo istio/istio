@@ -681,15 +681,16 @@ func TestOptions(t *testing.T) {
 			expected: "fake",
 		},
 		{
-			testName: "sign_cert_at_kubernetes_ca enabled",
-			key:      "sign_cert_at_kubernetes_ca",
-			option:   option.SignCertAtKubernetesCA(true),
-			expected: true,
+			testName: "pilot_cert_provider kubernetes",
+			key:      "pilot_cert_provider",
+			option:   option.PilotCertProvider("kubernetes"),
+			expected: "kubernetes",
 		},
-		{testName: "sign_cert_at_kubernetes_ca disabled",
-			key:      "sign_cert_at_kubernetes_ca",
-			option:   option.SignCertAtKubernetesCA(false),
-			expected: false,
+		{
+			testName: "pilot_cert_provider citadel",
+			key:      "pilot_cert_provider",
+			option:   option.PilotCertProvider("citadel"),
+			expected: "citadel",
 		},
 	}
 

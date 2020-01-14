@@ -262,9 +262,9 @@
             ],
             "validation_context": {
               "trusted_ca": {
-                {{ if .sign_cert_at_kubernetes_ca }}
+                {{ if eq .pilot_cert_provider "kubernetes" }}
                 "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-                {{ else }}
+                {{ else if eq .pilot_cert_provider "citadel" }}
                 "filename": "./etc/istio/citadel-ca-cert/ca-cert-ns.pem"
                 {{ end }}
               },

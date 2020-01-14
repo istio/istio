@@ -26,8 +26,6 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
-
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
@@ -131,6 +129,11 @@ var (
 		"number of attributes for stackdriver")
 	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
 		"max number of message events for stackdriver")
+	// TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
+	// with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
+	// we may change the default value of this option as "citadel".
+	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "kubernetes",
+		"the provider of Pilot DNS certificate.").Get()
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -512,29 +515,24 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			signCertAtKubernetesCA := true
-			if _, err := ioutil.ReadFile(istio_agent.CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err == nil {
-				// istiod certificate is signed by Citadel
-				signCertAtKubernetesCA = false
-			}
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
-				Config:                 proxyConfig,
-				Node:                   role.ServiceNode(),
-				LogLevel:               proxyLogLevel,
-				ComponentLogLevel:      proxyComponentLogLevel,
-				PilotSubjectAltName:    pilotSAN,
-				MixerSubjectAltName:    mixerSAN,
-				NodeIPs:                role.IPAddresses,
-				DNSRefreshRate:         dnsRefreshRate,
-				PodName:                podName,
-				PodNamespace:           podNamespace,
-				PodIP:                  podIP,
-				SDSUDSPath:             sdsUDSPath,
-				SDSTokenPath:           sdsTokenPath,
-				ControlPlaneAuth:       controlPlaneAuthEnabled,
-				DisableReportCalls:     disableInternalTelemetry,
-				OutlierLogPath:         outlierLogPath,
-				SignCertAtKubernetesCA: signCertAtKubernetesCA,
+				Config:              proxyConfig,
+				Node:                role.ServiceNode(),
+				LogLevel:            proxyLogLevel,
+				ComponentLogLevel:   proxyComponentLogLevel,
+				PilotSubjectAltName: pilotSAN,
+				MixerSubjectAltName: mixerSAN,
+				NodeIPs:             role.IPAddresses,
+				DNSRefreshRate:      dnsRefreshRate,
+				PodName:             podName,
+				PodNamespace:        podNamespace,
+				PodIP:               podIP,
+				SDSUDSPath:          sdsUDSPath,
+				SDSTokenPath:        sdsTokenPath,
+				ControlPlaneAuth:    controlPlaneAuthEnabled,
+				DisableReportCalls:  disableInternalTelemetry,
+				OutlierLogPath:      outlierLogPath,
+				PilotCertProvider:   pilotCertProvider,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
