@@ -416,7 +416,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 							continue
 						}
 
-						// If request resources don't match, this means this is a new subscribing request.
+						// If request resources don't match, this means this is a new subscribing request, not an acknowledgement.
 						if listEqualUnordered(con.ClusterGroups, clusterGroups) {
 							adsLog.Debugf("ADS:EGDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 							con.mu.Lock()
