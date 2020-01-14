@@ -20,7 +20,7 @@ import (
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/listers/discovery/v1alpha1"
+	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -152,25 +152,34 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 	})
 }
 
-func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
-	return esc.serviceInstances(c, proxy, proxyNamespace, esc.proxyServiceInstances)
+func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
+	eps, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(proxy.Metadata.Namespace).List(klabels.Everything())
+	if err != nil {
+		log.Errorf("Get endpointslice by index failed: %v", err)
+		return nil
+	}
+	out := make([]*model.ServiceInstance, 0)
+	for _, ep := range eps {
+		instances := esc.proxyServiceInstances(c, ep, proxy)
+		out = append(out, instances...)
+	}
+
+	return out
 }
 
-func (esc *endpointSliceController) proxyServiceInstances(c *Controller, obj interface{}, proxy *model.Proxy) (string, []*model.ServiceInstance) {
+func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
-	slice := obj.(*discoveryv1alpha1.EndpointSlice)
-
-	hostname := kube.ServiceHostname(slice.Labels[discoveryv1alpha1.LabelServiceName], slice.Namespace, c.domainSuffix)
+	hostname := kube.ServiceHostname(ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, c.domainSuffix)
 	c.RLock()
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
 
 	if svc == nil {
-		return slice.Namespace, out
+		return out
 	}
 
-	for _, port := range slice.Ports {
+	for _, port := range ep.Ports {
 		if port.Name == nil || port.Port == nil {
 			continue
 		}
@@ -183,7 +192,7 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, obj int
 
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
-			for _, ep := range slice.Endpoints {
+			for _, ep := range ep.Endpoints {
 				for _, a := range ep.Addresses {
 					if a == ip {
 						out = append(out, c.getEndpoints(podIP, ip, *port.Port, svcPort, svc))
@@ -197,13 +206,13 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, obj int
 		}
 	}
 
-	return slice.Namespace, out
+	return out
 }
 
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
-	slices, err := v1alpha1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
+	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, nil
