@@ -236,7 +236,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			discoveryType := convertResolution(proxy, service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			if features.FilterGatewayClusterConfig && proxy.Type == model.Router && !proxy.GatewayClusterNames[clusterName] {
-				continue
+				if service.Attributes.Namespace != "istio-system" {
+					continue
+				}
 			}
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
 			defaultCluster := buildDefaultCluster(push, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port, service.MeshExternal)
