@@ -25,6 +25,8 @@ import (
 	"net/http"
 	"strings"
 
+	"istio.io/istio/pkg/jwt"
+
 	k8sauth "k8s.io/api/authentication/v1"
 )
 
@@ -83,17 +85,30 @@ func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, callerToken 
 
 // reviewServiceAccountAtK8sAPIServer reviews the CSR credential (k8s service account) at k8s API server.
 // targetToken: the JWT of the K8s service account to be reviewed
-func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken string) (*http.Response, error) {
-	saReq := saValidationRequest{
-		APIVersion: "authentication.k8s.io/v1",
-		Kind:       "TokenReview",
-		Spec: specForSaValidationRequest{
-			Token: targetToken,
-			// If the audiences are not specified, the api server will use the audience of api server,
-			// which is also the issuer of the jwt.
-			// This feature is only available on Kubernetes v1.13 and above.
-			Audiences: []string{defaultAudience},
-		},
+func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken, jwtPolicy string) (*http.Response, error) {
+	var saReq saValidationRequest
+	if jwtPolicy == jwt.JWTPolicyThirdPartyJWT {
+		saReq = saValidationRequest{
+			APIVersion: "authentication.k8s.io/v1",
+			Kind:       "TokenReview",
+			Spec: specForSaValidationRequest{
+				Token: targetToken,
+				// If the audiences are not specified, the api server will use the audience of api server,
+				// which is also the issuer of the jwt.
+				// This feature is only available on Kubernetes v1.13 and above.
+				Audiences: []string{defaultAudience},
+			},
+		}
+	} else if jwtPolicy == jwt.JWTPolicyFirstPartyJWT {
+		saReq = saValidationRequest{
+			APIVersion: "authentication.k8s.io/v1",
+			Kind:       "TokenReview",
+			Spec: specForSaValidationRequest{
+				Token: targetToken,
+			},
+		}
+	} else {
+		return nil, fmt.Errorf("invalid JWT policy: %v", jwtPolicy)
 	}
 	saReqJSON, err := json.Marshal(saReq)
 	if err != nil {
@@ -116,17 +131,18 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken str
 // Return {<namespace>, <serviceaccountname>} in the targetToken when the validation passes.
 // Otherwise, return the error.
 // targetToken: the JWT of the K8s service account to be reviewed
-func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken string) ([]string, error) {
+// jwtPolicy: the policy for validating JWT.
+func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken, jwtPolicy string) ([]string, error) {
 	// SDS requires JWT to be trustworthy (has aud, exp, and mounted to the pod).
 	isTrustworthyJwt, err := isTrustworthyJwt(targetToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if jwt is trustworthy: %v", err)
 	}
-	if !isTrustworthyJwt {
+	if !isTrustworthyJwt && jwtPolicy == jwt.JWTPolicyThirdPartyJWT {
 		return nil, fmt.Errorf("legacy JWTs are not allowed and the provided jwt is not trustworthy")
 	}
 
-	resp, err := authn.reviewServiceAccountAtK8sAPIServer(targetToken)
+	resp, err := authn.reviewServiceAccountAtK8sAPIServer(targetToken, jwtPolicy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get a token review response: %v", err)
 	}

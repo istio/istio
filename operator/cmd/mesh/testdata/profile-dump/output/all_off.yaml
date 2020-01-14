@@ -281,6 +281,7 @@ values:
     imagePullSecrets: []
     istiod:
       enabled: true
+    jwtPolicy: third-party-jwt
     k8sIngress:
       enableHttps: false
       enabled: false

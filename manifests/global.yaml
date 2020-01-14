@@ -564,6 +564,10 @@ global:
   # we may change the default value of this option as "citadel".
   pilotCertProvider: "kubernetes"
 
+  # Configure the policy for validating JWT.
+  # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
+  jwtPolicy: "third-party-jwt"
+
 # Internal setting - used when generating helm templates for kustomize.
 # clusterResources controls the inclusion of cluster-wide resources when generating the charts/installing.
 # For backward compat, it is set to 'true', resulting in the old-style installation.

@@ -203,6 +203,7 @@ spec:
         gatewayName: ingressgateway
         enableHttps: false
       pilotCertProvider: kubernetes
+      jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"
