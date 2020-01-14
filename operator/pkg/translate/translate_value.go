@@ -20,10 +20,10 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/operator/pkg/name"
-	"istio.io/operator/pkg/tpath"
-	"istio.io/operator/pkg/util"
-	"istio.io/operator/pkg/version"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
 

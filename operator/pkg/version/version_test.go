@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"

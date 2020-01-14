@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	"istio.io/operator/pkg/apis"
-	"istio.io/operator/pkg/controller"
-	"istio.io/operator/pkg/controller/istiocontrolplane"
+	"istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/operator/pkg/controller"
+	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
 )

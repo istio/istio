@@ -28,8 +28,8 @@ import (
 
 	"github.com/mholt/archiver"
 
-	"istio.io/operator/pkg/httprequest"
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/httprequest"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 

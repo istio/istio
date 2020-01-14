@@ -19,7 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/helm"
 )
 
 func profileListCmd(rootArgs *rootArgs) *cobra.Command {

@@ -25,8 +25,8 @@ import (
 
 	"github.com/kr/pretty"
 
-	"istio.io/operator/pkg/kubectlcmd"
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/kubectlcmd"
+	"istio.io/istio/operator/pkg/util"
 )
 
 // applyParams is used to capture the inputs to operatorInit applyManifest call.

@@ -29,7 +29,7 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 

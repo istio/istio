@@ -92,7 +92,7 @@ To build the operator CLI, simply:
 make mesh
 ```
 
-This will create a binary called `mesh` either in ${GOPATH}/bin or ${GOPATH}/go/src/istio.io/operator/out/<architecture>,
+This will create a binary called `mesh` either in ${GOPATH}/bin or ${GOPATH}/go/src/istio.io/istio/out/<architecture>,
 depending on your platform. Ensure this is in your PATH to run the examples below.
 
 #### Controller (in cluster)

@@ -171,14 +171,19 @@ func (c *Config) IsMtlsEnabled() bool {
 }
 
 func (c *Config) IstioOperator() string {
-	data := c.ControlPlaneValues
-	if data == "" && c.ValuesFile != "" {
-		var err error
-		data, err = file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
+	data := ""
+	if c.ControlPlaneValues != "" {
+		data = Indent(c.ControlPlaneValues, "  ")
+	} else if c.ValuesFile != "" {
+		valfile, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
 		if err != nil {
 			return ""
 		}
+		data = fmt.Sprintf(`
+  values:
+%s`, Indent(valfile, "    "))
 	}
+
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return ""
@@ -190,9 +195,8 @@ kind: IstioOperator
 spec:
   hub: %s
   tag: %s
-  values:
 %s
-`, s.Hub, s.Tag, Indent(data, "    "))
+`, s.Hub, s.Tag, data)
 }
 
 // indents a block of text with an indent string

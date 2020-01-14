@@ -18,7 +18,7 @@ import (
 	"io"
 	"strings"
 
-	"istio.io/operator/pkg/name"
+	"istio.io/istio/operator/pkg/name"
 )
 
 func InsertChildrenRecursive(componentName name.ComponentName, tree ComponentTree, children ComponentNameToListMap) {
