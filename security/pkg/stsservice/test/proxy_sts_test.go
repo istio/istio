@@ -25,10 +25,13 @@ import (
 )
 
 // TestProxySTS verifies that XDS server receives token correctly.
-// Proxy loads bootstrap config, and its gRPC STS sends request to STS server for
-// token, STS server has a token manager, which makes API calls to auth server for
-// token. Once gRPC STS receives token, proxy sets up XDS stream with XDS server.
-// XDS server verifies the token is correct and pushes LDS to proxy.
+// Here is the flow being tested:
+// 1. Proxy loads bootstrap config, and its gRPC STS client sends request to a STS
+// server for token.
+// 2. STS server has a token manager, which makes API calls to auth server for
+// token. STS server returns token to gRPC STS client.
+// 3. Once gRPC STS receives token, proxy sets up XDS stream with XDS server.
+// 4. XDS server verifies the token is correct and pushes LDS to proxy.
 // To verify that the dynamic listener is loaded, the test sends http request to
 // that dynamic listener.
 func TestProxySTS(t *testing.T) {
