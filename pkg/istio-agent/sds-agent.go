@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -351,7 +352,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 
 			if serverOptions.PilotCertProvider == "citadel" {
 				log.Info("istiod uses self-issued certificate")
-				if rootCert, err = ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err != nil {
+				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, bootstrap.CACertNamespaceConfigMapDataName)); err != nil {
 					certReadErr = true
 				}
 			} else if serverOptions.PilotCertProvider == "kubernetes" {
@@ -380,11 +381,10 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15010") {
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
-			}
-			if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
+			} else if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
 				if serverOptions.PilotCertProvider == "citadel" {
 					log.Info("istiod uses self-issued certificate")
-					if rootCert, err = ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err != nil {
+					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, bootstrap.CACertNamespaceConfigMapDataName)); err != nil {
 						certReadErr = true
 					}
 				} else if serverOptions.PilotCertProvider == "kubernetes" {
@@ -405,6 +405,8 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 					rootCert = nil
 					log.Fatal("invalid config - port 15012 missing a root certificate")
 				}
+			} else {
+				log.Fatal("invalid config - the port is not 15010 or 15012")
 			}
 		}
 
