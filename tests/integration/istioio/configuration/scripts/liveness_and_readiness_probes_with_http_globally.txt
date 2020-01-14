@@ -21,7 +21,7 @@ set -o pipefail
 $ kubectl create ns health-global
 
 # $snippet update_config_map.sh syntax="bash"
-kubectl -n health-global get cm istio-sidecar-injector -n istio-system -o yaml | sed -e 's/"rewriteAppHTTPProbe":false/"rewriteAppHTTPProbe":true/' | kubectl apply -f -
+kubectl get cm istio-sidecar-injector -n istio-system -o yaml | sed -e 's/"rewriteAppHTTPProbe":false/"rewriteAppHTTPProbe":true/' | kubectl apply -f -
 # $endsnippet
 
 # $snippet globally_re-deploy.sh syntax="bash"
