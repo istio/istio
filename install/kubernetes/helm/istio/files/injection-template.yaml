@@ -6,7 +6,6 @@ initContainers:
 {{ else -}}
 - name: istio-init
 {{ end -}}
-
 {{- if contains "/" .Values.global.proxy_init.image }}
   image: "{{ .Values.global.proxy_init.image }}"
 {{- else }}
@@ -52,14 +51,21 @@ initContainers:
   securityContext:
   {{- if not .Values.istio_cni.enabled }}
     allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+    privileged: {{ .Values.global.proxy.privileged }}
+  {{- else }}
+    allowPrivilegeEscalation: false
+    privileged: false
+  {{- end  }}
     capabilities:
+  {{- if not .Values.istio_cni.enabled }}
       add:
       - NET_ADMIN
       - NET_RAW
+  {{- end }}
       drop:
       - ALL
-    privileged: {{ .Values.global.proxy.privileged }}
     readOnlyRootFilesystem: false
+  {{- if not .Values.istio_cni.enabled }}
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0

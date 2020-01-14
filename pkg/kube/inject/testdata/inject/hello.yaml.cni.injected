@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-validation"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -167,7 +167,7 @@ spec:
         - --skip-rule-apply
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
-        name: istio-init
+        name: istio-validation
         resources:
           limits:
             cpu: 100m
@@ -176,6 +176,12 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
