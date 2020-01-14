@@ -680,6 +680,18 @@ func TestOptions(t *testing.T) {
 			option:   option.SDSTokenPath("fake"),
 			expected: "fake",
 		},
+		{
+			testName: "pilot_cert_provider kubernetes",
+			key:      "pilot_cert_provider",
+			option:   option.PilotCertProvider("kubernetes"),
+			expected: "kubernetes",
+		},
+		{
+			testName: "pilot_cert_provider citadel",
+			key:      "pilot_cert_provider",
+			option:   option.PilotCertProvider("citadel"),
+			expected: "citadel",
+		},
 	}
 
 	for _, c := range cases {

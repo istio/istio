@@ -158,6 +158,51 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 }
 
+func TestGetLocalityLbSetting(t *testing.T) {
+	// dummy config for test
+	failover := []*networking.LocalityLoadBalancerSetting_Failover{nil}
+	cases := []struct {
+		name     string
+		mesh     *networking.LocalityLoadBalancerSetting
+		dr       *networking.LocalityLoadBalancerSetting
+		expected *networking.LocalityLoadBalancerSetting
+	}{
+		{"all disabled",
+			nil,
+			nil,
+			nil,
+		},
+		{"mesh only",
+			&networking.LocalityLoadBalancerSetting{},
+			nil,
+			&networking.LocalityLoadBalancerSetting{},
+		},
+		{"dr only",
+			nil,
+			&networking.LocalityLoadBalancerSetting{},
+			nil,
+		},
+		{"dr only override",
+			nil,
+			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
+		},
+		{"both",
+			&networking.LocalityLoadBalancerSetting{},
+			&networking.LocalityLoadBalancerSetting{Failover: failover},
+			&networking.LocalityLoadBalancerSetting{Failover: failover},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetLocalityLbSetting(tt.mesh, tt.dr)
+			if !reflect.DeepEqual(tt.expected, got) {
+				t.Fatalf("Expected: %v, got: %v", tt.expected, got)
+			}
+		})
+	}
+}
+
 func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
