@@ -226,6 +226,14 @@ var (
 			"if headless services have a large number of pods.",
 	)
 
+	EnableEDSForHeadless = env.RegisterBoolVar(
+		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
+		false,
+		"If enabled, for headless service in Kubernetes, pilot will send endpoints over EDS, "+
+			"allowing the sidecar to load balance among pods in the headless service. This feature "+
+			"should be enabled if applications access all services explicitly via a HTTP proxy port in the sidecar.",
+	)
+
 	BlockHTTPonHTTPSPort = env.RegisterBoolVar(
 		"PILOT_BLOCK_HTTP_ON_443",
 		true,
