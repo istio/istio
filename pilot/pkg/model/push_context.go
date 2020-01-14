@@ -227,7 +227,32 @@ type PushRequest struct {
 	// Start represents the time a push was started. This represents the time of adding to the PushQueue.
 	// Note that this does not include time spent debouncing.
 	Start time.Time
+
+	// Reason represents the reason for requesting a push. This should only be a fixed set of values,
+	// to avoid unbounded cardinality in metrics. If this is not set, it may be automatically filled in later.
+	// There should only be multiple reasons if the push request is the result of two distinct triggers, rather than
+	// classifying a single trigger as having multiple reasons.
+	Reason []TriggerReason
 }
+
+type TriggerReason string
+
+const (
+	// Describes a push triggered by an Endpoint change
+	EndpointUpdate TriggerReason = "endpoint"
+	// Describes a push triggered by a config (generally and Istio CRD) change.
+	ConfigUpdate TriggerReason = "config"
+	// Describes a push triggered by a Service change
+	ServiceUpdate TriggerReason = "service"
+	// Describes a push triggered by a change to an individual proxy (such as label change)
+	ProxyUpdate TriggerReason = "proxy"
+	// Describes a push triggered by a change to bootstrap config, such as mesh config
+	BootstrapUpdate TriggerReason = "bootstrap"
+	// Describes a push triggered by an unknown reason
+	UnknownTrigger TriggerReason = "unknown"
+	// Describes a push triggered for debugging
+	DebugTrigger TriggerReason = "debug"
+)
 
 // Merge two update requests together
 func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
@@ -247,6 +272,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 
 		// The other push context is presumed to be later and more up to date
 		Push: other.Push,
+
+		// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
+		Reason: append(first.Reason, other.Reason...),
 	}
 
 	// Only merge EdsUpdates when incremental eds push needed.
