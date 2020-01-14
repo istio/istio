@@ -37,7 +37,7 @@ do
             SKIP_SETUP=1
             ;;
         *)
-            if [ ! -z "$ISTIO_PATH" ]; then
+            if [ -n "$ISTIO_PATH" ]; then
                 echo "invalid arguments"
                 print_help
             fi
@@ -57,7 +57,7 @@ if [ ! -d "$ISTIO_PATH" ]; then
     print_help
 fi
 
-cd $ISTIO_PATH
+cd "$ISTIO_PATH"
 
 BOOKINFO_DEPLOYMENTS="details-v1 productpage-v1 ratings-v1 reviews-v1 reviews-v2 reviews-v3"
 
@@ -75,19 +75,19 @@ if [ "$SKIP_SETUP" -ne 1 ]; then
         kubectl -n bookinfo delete -f samples/bookinfo/networking/destination-rule-all.yaml --ignore-not-found
         kubectl -n bookinfo delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
 
-        kubectl label ns bookinfo istio-env=${ISTIO_CONTROL} --overwrite
+        kubectl label ns bookinfo istio-env="${ISTIO_CONTROL}" --overwrite
     fi
 
     # Must skip if testing with global inject
     if [ -z "$SKIP_LABEL" ]; then
-        kubectl label ns bookinfo istio-env=${ISTIO_CONTROL} --overwrite
+        kubectl label ns bookinfo istio-env="${ISTIO_CONTROL}" --overwrite
     fi
     kubectl -n bookinfo apply -f samples/bookinfo/platform/kube/bookinfo.yaml
     kubectl -n bookinfo apply -f samples/bookinfo/networking/destination-rule-all.yaml
     kubectl -n bookinfo apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
     for depl in ${BOOKINFO_DEPLOYMENTS}; do
-        kubectl -n bookinfo rollout status deployments $depl --timeout=$WAIT_TIMEOUT
+        kubectl -n bookinfo rollout status deployments "$depl" --timeout="$WAIT_TIMEOUT"
     done
 fi
 
@@ -95,17 +95,23 @@ set +e
 n=1
 while true
 do
-    export INGRESS_HOST=$(kubectl -n ${INGRESS_NS} get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    export INGRESS_PORT=$(kubectl -n ${INGRESS_NS} get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
-    export SECURE_INGRESS_PORT=$(kubectl -n ${INGRESS_NS} get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
-    if [ -z $INGRESS_HOST ]; then
-        export INGRESS_HOST=$(kubectl get po -l istio=ingressgateway -n ${INGRESS_NS} -o jsonpath='{.items[0].status.hostIP}')
-        export INGRESS_PORT=$(kubectl -n ${INGRESS_NS} get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
-        export SECURE_INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].nodePort}')
+    INGRESS_HOST=$(kubectl -n "${INGRESS_NS}" get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    export INGRESS_HOST
+    INGRESS_PORT=$(kubectl -n "${INGRESS_NS}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+    export INGRESS_PORT
+    SECURE_INGRESS_PORT=$(kubectl -n "${INGRESS_NS}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
+    export SECURE_INGRESS_PORT
+    if [ -z "$INGRESS_HOST" ]; then
+        INGRESS_HOST=$(kubectl get po -l istio=ingressgateway -n "${INGRESS_NS}" -o jsonpath='{.items[0].status.hostIP}')
+        export INGRESS_HOST
+        INGRESS_PORT=$(kubectl -n "${INGRESS_NS}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
+        export INGRESS_PORT
+        SECURE_INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].nodePort}')
+        export SECURE_INGRESS_PORT
     fi
     export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
-    RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://${GATEWAY_URL}/productpage)
-    if [ $RESULT -eq "200"  ]; then
+    RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://"${GATEWAY_URL}"/productpage)
+    if [ "$RESULT" -eq "200"  ]; then
         break
     fi
     if [ $n -ge 5 ]; then
