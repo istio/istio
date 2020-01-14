@@ -106,8 +106,8 @@ type Options struct {
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
 
-	// Whether enable Kubernetes CA signing.
-	EnableKubernetesCa bool
+	// PilotCertProvider is the provider of the Pilot certificate.
+	PilotCertProvider string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

@@ -69,10 +69,6 @@ var (
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
 	pkcs8KeysEnv                       = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
-	// TODO (lei-tang): the default value of this option is currently set as true to be consistent
-	// with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
-	// we may change the default value of this option as false.
-	enableKubernetesCaEnv = env.RegisterBoolVar(enableKubernetesCaKey, true, "whether enable Kubernetes CA signing.").Get()
 
 	// Location of K8S CA root.
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
@@ -122,9 +118,6 @@ const (
 	InitialBackoff = "INITIAL_BACKOFF_MSEC"
 
 	pkcs8Key = "PKCS8_KEY"
-
-	// The environmental variable name for whether enabling k8s CA signing
-	enableKubernetesCaKey = "SIGN_CERT_AT_KUBERNETES_CA"
 )
 
 var (
@@ -166,6 +159,9 @@ type SDSAgent struct {
 
 	// Expected SAN
 	SAN string
+
+	// PilotCertProvider is the provider of the Pilot certificate
+	PilotCertProvider string
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -176,8 +172,10 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(discAddr string, tlsRequired bool) *SDSAgent {
+func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider string) *SDSAgent {
 	ac := &SDSAgent{}
+
+	ac.PilotCertProvider = pilotCertProvider
 
 	discHost, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
@@ -234,6 +232,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 
 	gatewaySdsCacheOptions = workloadSdsCacheOptions
 
+	serverOptions.PilotCertProvider = conf.PilotCertProvider
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
 	serverOptions.UseLocalJWT = true
@@ -341,6 +340,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 		var rootCert []byte
 
 		tls := true
+		certReadErr := false
 
 		if serverOptions.CAEndpoint == "" {
 			// When serverOptions.CAEndpoint is nil, the default CA endpoint
@@ -349,14 +349,26 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			log.Info("Istio Agent uses default istiod CA")
 			serverOptions.CAEndpoint = "istio-pilot.istio-system.svc:15012"
 
-			if rootCert, err = ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err == nil {
+			if serverOptions.PilotCertProvider == "citadel" {
 				log.Info("istiod uses self-issued certificate")
-			} else if rootCert, err = ioutil.ReadFile(k8sCAPath); serverOptions.EnableKubernetesCa && err == nil {
+				if rootCert, err = ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err != nil {
+					certReadErr = true
+				}
+			} else if serverOptions.PilotCertProvider == "kubernetes" {
 				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
-			} else if rootCert, err = ioutil.ReadFile(cache.ExistingRootCertFile); err == nil {
-				log.Infof("istiod uses the root certificate mounted in a well known location %v",
+				if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
+					certReadErr = true
+				}
+			} else if serverOptions.PilotCertProvider == "custom" {
+				log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
 					cache.ExistingRootCertFile)
+				if rootCert, err = ioutil.ReadFile(cache.ExistingRootCertFile); err != nil {
+					certReadErr = true
+				}
 			} else {
+				certReadErr = true
+			}
+			if certReadErr {
 				rootCert = nil
 				// for debugging only
 				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
@@ -370,14 +382,26 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				tls = false
 			}
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
-				if rootCert, err = ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err == nil {
+				if serverOptions.PilotCertProvider == "citadel" {
 					log.Info("istiod uses self-issued certificate")
-				} else if rootCert, err = ioutil.ReadFile(k8sCAPath); serverOptions.EnableKubernetesCa && err == nil {
+					if rootCert, err = ioutil.ReadFile(CitadelCACertPath + "/" + bootstrap.CACertNamespaceConfigMapDataName); err != nil {
+						certReadErr = true
+					}
+				} else if serverOptions.PilotCertProvider == "kubernetes" {
 					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
-				} else if rootCert, err = ioutil.ReadFile(cache.ExistingRootCertFile); err == nil {
-					log.Infof("istiod uses the root certificate mounted in a well known location %v",
+					if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
+						certReadErr = true
+					}
+				} else if serverOptions.PilotCertProvider == "custom" {
+					log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
 						cache.ExistingRootCertFile)
+					if rootCert, err = ioutil.ReadFile(cache.ExistingRootCertFile); err != nil {
+						certReadErr = true
+					}
 				} else {
+					certReadErr = true
+				}
+				if certReadErr {
 					rootCert = nil
 					log.Fatal("invalid config - port 15012 missing a root certificate")
 				}
@@ -436,7 +460,6 @@ func applyEnvVars() {
 	serverOptions.CAEndpoint = caEndpointEnv
 	serverOptions.TrustDomain = trustDomainEnv
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
-	serverOptions.EnableKubernetesCa = enableKubernetesCaEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRefreshGraceDuration = secretRefreshGraceDurationEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
