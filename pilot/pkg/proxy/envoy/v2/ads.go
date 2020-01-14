@@ -386,6 +386,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					errCode := codes.Code(discReq.ErrorDetail.Code)
 					adsLog.Warnf("ADS:EGDS: ACK ERROR %v %s %s:%s", peerAddr, con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 					incrementXDSRejects(egdsReject, con.node.ID, errCode.String())
+					
 					continue
 				}
 
@@ -402,12 +403,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						adsLog.Debugf("ADS:EGDS: Expired nonce received %s %s, sent %s, received %s",
 							peerAddr, con.ConID, egdsNonceSent, discReq.ResponseNonce)
 						egdsExpiredNonce.Increment()
+
 						continue
 					}
 
 					if discReq.VersionInfo == egdsVersionInfoSent {
 						if len(clusterGroups) == 0 {
-							// xDS doesn't require resource names on ACK, 
+							// xDS doesn't require resource names on ACK,
 							// the test env doesn't return resource names.
 							con.mu.Lock()
 							con.EndpointNonceAcked = discReq.ResponseNonce
@@ -422,6 +424,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 							con.mu.Lock()
 							con.EndpointGroupNonceAcked = discReq.ResponseNonce
 							con.mu.Unlock()
+
 							continue
 						}
 					}
