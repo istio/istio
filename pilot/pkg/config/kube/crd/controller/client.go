@@ -366,7 +366,7 @@ func (cl *Client) Create(config model.Config) (string, error) {
 
 	s, exists := rc.descriptor.GetByType(config.Type)
 	if !exists {
-		return "", fmt.Errorf("unrecognized type %q", config.Type)
+		return "", fmt.Errorf("unrecognized Create type %q", config.Type)
 	}
 
 	if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
@@ -463,7 +463,7 @@ func (cl *Client) GetResourceAtVersion(version string, key string) (resourceVers
 func (cl *Client) List(typ, namespace string) ([]model.Config, error) {
 	t, ok := crd.KnownTypes[typ]
 	if !ok {
-		return nil, fmt.Errorf("unrecognized type %q", typ)
+		return nil, fmt.Errorf("unrecognized List type %q", typ)
 	}
 	rc, ok := cl.clientset[crd.APIVersion(&t.Schema)]
 	if !ok {

@@ -174,13 +174,6 @@ debug and diagnose their Istio mesh.
 		Manual:  "Istio Control",
 	}))
 
-	// Deprecated commands
-	rootCmd.AddCommand(postCmd)
-	rootCmd.AddCommand(putCmd)
-	rootCmd.AddCommand(getCmd)
-	rootCmd.AddCommand(deleteCmd)
-	rootCmd.AddCommand(contextCmd)
-
 	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
 
 	// BFS apply the flag error function to all subcommands

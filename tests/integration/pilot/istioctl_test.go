@@ -20,11 +20,56 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/onsi/gomega"
+
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/util/file"
+)
+
+const (
+	describeSvcAOutput = `Service: a
+   Port: grpc 7070/GRPC targets pod port 7070
+   Port: http 80/HTTP targets pod port 8090
+7070 DestinationRule: a for "a"
+   Matching subsets: v1
+   No Traffic Policy
+7070 Pod is PERMISSIVE, clients configured automatically
+7070 VirtualService: a
+   when headers are end-user=jason
+80 DestinationRule: a for "a"
+   Matching subsets: v1
+   No Traffic Policy
+80 Pod is PERMISSIVE, clients configured automatically
+80 VirtualService: a
+   when headers are end-user=jason
+`
+
+	describePodAOutput = `
+   Pod Ports: 7070 (app), 8090 (app), 8080 (app), 3333 (app), 15090 (istio-proxy)
+--------------------
+Service: a
+   Port: grpc 7070/GRPC targets pod port 7070
+   Port: http 80/HTTP targets pod port 8090
+7070 DestinationRule: a for "a"
+   Matching subsets: v1
+   No Traffic Policy
+7070 Pod is PERMISSIVE, clients configured automatically
+7070 VirtualService: a
+   when headers are end-user=jason
+80 DestinationRule: a for "a"
+   Matching subsets: v1
+   No Traffic Policy
+80 Pod is PERMISSIVE, clients configured automatically
+80 VirtualService: a
+   when headers are end-user=jason
+`
 )
 
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
@@ -71,4 +116,61 @@ func TestVersion(t *testing.T) {
 				}
 			}
 		})
+}
+
+func TestDescribe(t *testing.T) {
+	framework.NewTest(t).
+		RunParallel(func(ctx framework.TestContext) {
+
+			ctx.NewSubTest("ISTIOCTL").
+				RequiresEnvironment(environment.Kube).
+				RunParallel(func(ctx framework.TestContext) {
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "istioctl-describe",
+						Inject: true,
+					})
+
+					deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
+					g.ApplyConfigOrFail(t, ns, deployment)
+
+					var a echo.Instance
+					echoboot.NewBuilderOrFail(ctx, ctx).
+						With(&a, echoConfig(ns, "a")).
+						BuildOrFail(ctx)
+
+					istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+					args := []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+						"x", "describe", "svc", "a"}
+					output := istioCtl.InvokeOrFail(t, args)
+					g := gomega.NewGomegaWithT(t)
+					g.Expect(output).To(gomega.BeIdenticalTo(describeSvcAOutput))
+
+					podID, err := getPodID(a)
+					if err != nil {
+						t.Fatalf("Could not get Pod ID: %v", err)
+					}
+
+					args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+						"x", "describe", "pod", podID}
+					output = istioCtl.InvokeOrFail(t, args)
+					g.Expect(output).To(gomega.ContainSubstring(describePodAOutput))
+				})
+
+		})
+}
+
+func getPodID(i echo.Instance) (string, error) {
+	wls, err := i.Workloads()
+	if err != nil {
+		return "", nil
+	}
+
+	for _, wl := range wls {
+		hostname := strings.Split(wl.Sidecar().NodeID(), "~")[2]
+		podID := strings.Split(hostname, ".")[0]
+		return podID, nil
+	}
+
+	return "", fmt.Errorf("no workloads")
 }
