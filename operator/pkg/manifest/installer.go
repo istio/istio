@@ -352,6 +352,9 @@ func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	if yamlGet == nil {
+		return []interface{}{}, nil
+	}
 	if yamlGet["kind"] != "List" {
 		return nil, fmt.Errorf("`kubectl get` returned a yaml whose kind is not List")
 	}
