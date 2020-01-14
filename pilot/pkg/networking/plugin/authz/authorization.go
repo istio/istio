@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authz_builder "istio.io/istio/pilot/pkg/security/authz/builder"
+	authzBuilder "istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -80,7 +80,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	// TODO: Get trust domain from MeshConfig instead.
 	// https://github.com/istio/istio/issues/17873
 	trustDomainBundle := trustdomain.NewTrustDomainBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
-	builder := authz_builder.NewBuilder(trustDomainBundle, in.ServiceInstance,
+	builder := authzBuilder.NewBuilder(trustDomainBundle, in.ServiceInstance,
 		in.Node.WorkloadLabels, in.Node.ConfigNamespace, in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
 	if builder == nil {
 		return

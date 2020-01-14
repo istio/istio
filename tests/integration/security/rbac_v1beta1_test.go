@@ -290,3 +290,65 @@ func TestV1beta1_WorkloadSelector(t *testing.T) {
 			rbacUtil.RunRBACTest(t, cases)
 		})
 }
+
+// TestV1beta1_Deny tests the authorization policy with action "DENY".
+func TestV1beta1_Deny(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-deny",
+				Inject: true,
+			})
+
+			var a, b, c echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				BuildOrFail(t)
+
+			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase(b, "/deny", false),
+				newTestCase(b, "/global-deny", false),
+				newTestCase(b, "/other", true),
+				newTestCase(b, "/allow", true),
+				newTestCase(c, "/allow/admin", false),
+				newTestCase(c, "/global-deny", false),
+				newTestCase(c, "/other", false),
+				newTestCase(c, "/allow", true),
+			}
+
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": rootNamespace,
+			}
+
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				g.ApplyConfigOrFail(t, ns, policy...)
+				return policy
+			}
+
+			policy := applyPolicy("testdata/rbac/v1beta1-deny.yaml.tmpl", ns)
+			defer g.DeleteConfigOrFail(t, ns, policy...)
+			policyNSRoot := applyPolicy("testdata/rbac/v1beta1-deny-ns-root.yaml.tmpl", rootNS{})
+			defer g.DeleteConfigOrFail(t, rootNS{}, policyNSRoot...)
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}

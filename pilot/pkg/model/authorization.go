@@ -28,13 +28,6 @@ var (
 	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
 )
 
-type PolicyAction int
-
-const (
-	AllowPolicy PolicyAction = iota
-	DenyPolicy
-)
-
 type ServiceRoleConfig struct {
 	Name        string                 `json:"name"`
 	ServiceRole *rbacproto.ServiceRole `json:"service_role"`
@@ -187,10 +180,11 @@ func (policy *AuthorizationPolicies) ListServiceRoleBindings(ns string) map[stri
 }
 
 // ListAuthorizationPolicies returns the AuthorizationPolicy for the workload in root namespace and the config namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace string,
-	workloadLabels labels.Collection, action PolicyAction) []AuthorizationPolicyConfig {
+// The first one in the returned tuple is the deny policies and the second one is the allow policies.
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace string, workloadLabels labels.Collection) (
+	denyPolicies []AuthorizationPolicyConfig, allowPolicies []AuthorizationPolicyConfig) {
 	if policy == nil {
-		return nil
+		return
 	}
 
 	var namespaces []string
@@ -202,7 +196,6 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace s
 		namespaces = append(namespaces, configNamespace)
 	}
 
-	var ret []AuthorizationPolicyConfig
 	for _, ns := range namespaces {
 		for _, config := range policy.NamespaceToV1beta1Policies[ns] {
 			spec := config.AuthorizationPolicy
@@ -210,23 +203,17 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace s
 			if workloadLabels.IsSupersetOf(selector) {
 				switch config.AuthorizationPolicy.GetAction() {
 				case authpb.AuthorizationPolicy_ALLOW:
-					if action != AllowPolicy {
-						continue
-					}
+					allowPolicies = append(allowPolicies, config)
 				case authpb.AuthorizationPolicy_DENY:
-					if action != DenyPolicy {
-						continue
-					}
+					denyPolicies = append(denyPolicies, config)
 				default:
 					log.Errorf("found authorization policy with unsupported action: %s", config.AuthorizationPolicy.GetAction())
-					continue
 				}
-				ret = append(ret, config)
 			}
 		}
 	}
 
-	return ret
+	return
 }
 
 func (policy *AuthorizationPolicies) addServiceRoles(roles []Config) {
