@@ -24,8 +24,8 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v2"
 
-	"istio.io/operator/pkg/version"
-	binversion "istio.io/operator/version"
+	"istio.io/istio/operator/pkg/version"
+	binversion "istio.io/istio/operator/version"
 )
 
 func TestGetVersionCompatibleMap(t *testing.T) {

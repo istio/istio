@@ -22,11 +22,11 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"istio.io/operator/pkg/httprequest"
-	"istio.io/operator/pkg/util"
-	"istio.io/operator/pkg/version"
-	"istio.io/operator/pkg/vfs"
-	binversion "istio.io/operator/version"
+	"istio.io/istio/operator/pkg/httprequest"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/version"
+	"istio.io/istio/operator/pkg/vfs"
+	binversion "istio.io/istio/operator/version"
 )
 
 const (

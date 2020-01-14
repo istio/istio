@@ -19,7 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	binversion "istio.io/operator/version"
+	binversion "istio.io/istio/operator/version"
 	"istio.io/pkg/version"
 )
 

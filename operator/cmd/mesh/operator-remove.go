@@ -21,9 +21,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/operator/pkg/kubectlcmd"
-	"istio.io/operator/pkg/manifest"
-	"istio.io/operator/pkg/object"
+	"istio.io/istio/operator/pkg/kubectlcmd"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/pkg/log"
 )
 

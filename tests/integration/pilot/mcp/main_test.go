@@ -78,10 +78,11 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["pilot.configSource.subscribedResources[0]"] = "SERVICE_REGISTRY"
 	// ICP doesn't support set with list, so need to override here
 	cfg.ControlPlaneValues = `
-galley:
-  enableServiceDiscovery: true
-pilot:
-  configSource:
-    subscribedResources: ["SERVICE_REGISTRY"]
+values:
+  galley:
+    enableServiceDiscovery: true
+  pilot:
+    configSource:
+      subscribedResources: ["SERVICE_REGISTRY"]
 `
 }

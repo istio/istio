@@ -26,9 +26,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/operator/pkg/object"
-	"istio.io/operator/pkg/tpath"
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 

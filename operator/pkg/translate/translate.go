@@ -26,12 +26,12 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/operator/pkg/name"
-	"istio.io/operator/pkg/object"
-	"istio.io/operator/pkg/tpath"
-	"istio.io/operator/pkg/util"
-	"istio.io/operator/pkg/version"
-	"istio.io/operator/pkg/vfs"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/version"
+	"istio.io/istio/operator/pkg/vfs"
 	"istio.io/pkg/log"
 )
 

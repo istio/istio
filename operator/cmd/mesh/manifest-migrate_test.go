@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 )
 
 func TestManifestMigrate(t *testing.T) {

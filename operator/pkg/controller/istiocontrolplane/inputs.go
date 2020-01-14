@@ -15,9 +15,9 @@
 package istiocontrolplane
 
 import (
-	"istio.io/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/operator/pkg/helmreconciler"
-	"istio.io/operator/pkg/name"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
 )
 
 var (
