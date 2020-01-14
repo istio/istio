@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/hooks"
 	"istio.io/istio/operator/pkg/manifest"
-	opversion "istio.io/istio/operator/version"
+	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
 
@@ -124,12 +124,12 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 
 	// Get the target version from the tag in the IOPS
-	targetVersion := targetIOPS.GetTag()
-	if targetVersion != opversion.OperatorVersionString {
+	targetTag := targetIOPS.GetTag()
+	targetVersion, err := pkgversion.TagToVersionString(targetTag)
+	if err != nil {
 		if !args.force {
-			return fmt.Errorf("the target version %v is not supported by istioctl %v, "+
-				"please download istioctl %v and run upgrade again", targetVersion,
-				opversion.OperatorVersionString, targetVersion)
+			return fmt.Errorf("failed to convert the target tag '%s' into a valid version, "+
+					"you can use --force flag to skip the version check if you know the tag is correct", targetTag)
 		}
 	}
 
