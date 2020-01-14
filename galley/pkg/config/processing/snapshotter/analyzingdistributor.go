@@ -15,9 +15,10 @@
 package snapshotter
 
 import (
-	"istio.io/api/annotation"
 	"strings"
 	"sync"
+
+	"istio.io/api/annotation"
 
 	"github.com/ryanuber/go-glob"
 
@@ -212,10 +213,10 @@ FilterMessages:
 		if m.Resource != nil && m.Resource.Metadata.Annotations[annotation.GalleyAnalyzeSuppress.Name] != "" {
 			for _, code := range strings.Split(m.Resource.Metadata.Annotations[annotation.GalleyAnalyzeSuppress.Name], ",") {
 				if code == "*" || m.Type.Code() == code {
+					scope.Analysis.Debugf("Suppressing code %s on resource %s due to resource annotation", m.Type.Code(), m.Resource.Origin.FriendlyName())
 					continue FilterMessages
 				}
 			}
-
 		}
 
 		// Filter out any messages that match our suppressions.
