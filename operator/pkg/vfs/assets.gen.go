@@ -11773,6 +11773,8 @@ template: |
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
     {{- end }}
     env:
+    - name: PILOT_CERT_PROVIDER
+      value: {{ .Values.global.pilotCertProvider }}
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
     {{- if .Values.global.configNamespace }}
@@ -11931,7 +11933,7 @@ template: |
   {{- end }}
     {{  end -}}
     volumeMounts:
-    {{- if not .Values.global.signCertAtKubernetesCa }}
+    {{- if eq .Values.global.pilotCertProvider "citadel" }}
     - mountPath: /etc/istio/citadel-ca-cert
       name: citadel-ca-cert
     {{- end }}
@@ -11973,7 +11975,7 @@ template: |
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
-  {{- if not .Values.global.signCertAtKubernetesCa }}
+  {{- if eq .Values.global.pilotCertProvider "citadel" }}
   - name: citadel-ca-cert
     configMap:
       name: istio-ca-root-cert
@@ -13193,8 +13195,8 @@ spec:
           - --log_as_json
         {{- end }}
           env:
-          - name: SIGN_CERT_AT_KUBERNETES_CA
-            value: "{{ .Values.global.signCertAtKubernetesCa }}"
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
             valueFrom:
               fieldRef:

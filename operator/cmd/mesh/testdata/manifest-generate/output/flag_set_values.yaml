@@ -6824,15 +6824,17 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: istio-ingressgateway
-      release: istio
       istio: ingressgateway
+      
+      release: istio
 ---
 
 
@@ -6875,12 +6877,15 @@ metadata:
   annotations:
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
   ports:
     -
       name: status-port
@@ -6923,6 +6928,8 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
     release: istio
 ---
 
@@ -7641,6 +7648,8 @@ spec:
         - MUTUAL_TLS
         - --trust-domain=cluster.local
         env:
+        - name: PILOT_CERT_PROVIDER
+          value: null
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -7940,13 +7949,15 @@ data:
       {{- end }}
         - --controlPlaneBootstrap=false
       {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
-        - --templateFile=/etc/istio/custom-bootstrap/envoy_bootstrap.json
+        - --templateFile=/etc/istio/custom-bootstrap/custom_bootstrap.json
       {{- end }}
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
         {{- end }}
         env:
+        - name: PILOT_CERT_PROVIDER
+          value: {{ .Values.global.pilotCertProvider }}
         # Temp, pending PR to make it default or based on the istiodAddr env
         - name: CA_ADDR
         {{- if .Values.global.configNamespace }}
@@ -8042,6 +8053,18 @@ data:
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.trustDomain }}"
         {{- end }}
+        {{- if eq .Values.global.proxy.tracer "stackdriver" }}
+        - name: STACKDRIVER_TRACING_ENABLED
+          value: "true"
+        - name: STACKDRIVER_TRACING_DEBUG
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
+        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+        {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
           - name: {{ $key }}
@@ -8093,6 +8116,10 @@ data:
       {{- end }}
         {{  end -}}
         volumeMounts:
+        {{- if eq .Values.global.pilotCertProvider "citadel" }}
+        - mountPath: /etc/istio/citadel-ca-cert
+          name: citadel-ca-cert
+        {{- end }}
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
@@ -8131,6 +8158,11 @@ data:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+      {{- if eq .Values.global.pilotCertProvider "citadel" }}
+      - name: citadel-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      {{- end }}
       - name: istio-certs
         secret:
           optional: true
