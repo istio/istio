@@ -3284,7 +3284,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 							Fields: map[string]*types.Value{
 								"typed_config": {
 									Kind: &types.Value_StructValue{StructValue: &types.Struct{
-										Fields:  map[string]*types.Value{
+										Fields: map[string]*types.Value{
 											"@type": {
 												Kind: &types.Value_StringValue{
 													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
