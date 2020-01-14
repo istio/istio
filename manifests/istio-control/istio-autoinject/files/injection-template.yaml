@@ -61,15 +61,9 @@ template: |
         drop:
         - ALL
       readOnlyRootFilesystem: false
-    {{- if not .Values.istio_cni.enabled }}
-      runAsGroup: 0
-      runAsNonRoot: false
-      runAsUser: 0
-    {{- else }}
       runAsGroup: 1337
+      runAsNonRoot: false
       runAsUser: 1337
-      runAsNonRoot: true
-    {{- end }}
     restartPolicy: Always
   {{- if eq .Values.global.proxy.enableCoreDump true }}
   - name: enable-core-dump

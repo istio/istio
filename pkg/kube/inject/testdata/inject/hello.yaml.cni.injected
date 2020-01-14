@@ -183,7 +183,7 @@ spec:
           privileged: false
           readOnlyRootFilesystem: false
           runAsGroup: 1337
-          runAsNonRoot: true
+          runAsNonRoot: false
           runAsUser: 1337
       volumes:
       - emptyDir:

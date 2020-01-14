@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"ec8689dff7f37cdfd2c61ffe1941cc189d9f3a65df1a77e3355ae529d0d12194","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"53c497dc3f4cda13afb17eee86370ebc56f9acf0479f9aaa1ca3e0bd72834f59","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: 80,90
       creationTimestamp: null
@@ -209,9 +209,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-          runAsGroup: 0
+          runAsGroup: 1337
           runAsNonRoot: false
-          runAsUser: 0
+          runAsUser: 1337
       volumes:
       - emptyDir:
           medium: Memory
