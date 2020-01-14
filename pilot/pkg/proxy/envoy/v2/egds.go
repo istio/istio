@@ -411,15 +411,19 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 	// Increase the version
 	g.VersionInfo++
 
+	// Changed EGDS resource names.
+	names := make(map[string]struct{})
+
 	// Total number of group slices.
 	g.GroupCount = uint32(math.Ceil(float64(len(eps)) / float64(g.GroupSize)))
 
 	// Generate all groups first. Since groups won't change until next reshard event.
 	for ix := uint32(0); ix < g.GroupCount; ix++ {
 		key := fmt.Sprintf("%s|%d-%d", g.NamePrefix, ix, g.VersionInfo)
-		if _, f := g.IstioEndpointGroups[key]; !f {
-			g.IstioEndpointGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
-		}
+		g.IstioEndpointGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
+
+		// Add changed group keys
+		names[key] = struct{}{}
 	}
 
 	for _, ep := range eps {
@@ -433,5 +437,5 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 		}
 	}
 
-	return nil
+	return names
 }
