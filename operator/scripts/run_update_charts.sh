@@ -37,6 +37,7 @@ do
     cp -Rf "${INSTALLER_DIR}/${c}" "${OUT_DIR}/charts"
 done
 
-go-bindata --nocompress --nometadata --pkg vfs -o "${OPERATOR_DIR}/pkg/vfs/assets.gen.go" --prefix "${OUT_DIR}/" "${OUT_DIR}/..."
+cd "${OUT_DIR}"
+go-bindata --nocompress --nometadata --pkg vfs -o "${OPERATOR_DIR}/pkg/vfs/assets.gen.go" ./...
 
-#rm -Rf "${OUT_DIR}"
+rm -Rf "${OUT_DIR}"

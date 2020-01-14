@@ -330,7 +330,7 @@ lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markd
 	@testlinter
 	@envvarlinter galley istioctl mixer pilot security sidecar-injector
 
-go-gen: gen-charts
+go-gen:
 	@mkdir -p /tmp/bin
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH="${PATH}":/tmp/bin go generate ./...
@@ -338,8 +338,7 @@ go-gen: gen-charts
 gen-charts:
 	@operator/scripts/run_update_charts.sh
 
-
-gen: go-gen mirror-licenses format update-crds
+gen: go-gen mirror-licenses format update-crds gen-charts
 
 gen-check: gen check-clean-repo
 
