@@ -131,13 +131,14 @@ func gatewayID(ip string) string { //nolint: unparam
 //
 // The server will have a set of pre-defined instances and services, and read CRDs from the
 // common tests/testdata directory.
-func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
+func initLocalPilotTestEnv(t *testing.T, additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, util.TearDownFunc) {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
-	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+	additionalArgs = append(additionalArgs, func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 	})
+	server, tearDown := util.EnsureTestServer(additionalArgs...)
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)

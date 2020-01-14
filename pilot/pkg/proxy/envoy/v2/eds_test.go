@@ -52,14 +52,15 @@ const (
 )
 
 func TestEds(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := initLocalPilotTestEnv(t, func(args *bootstrap.PilotArgs) {
+		args.MeshConfig.LocalityLbSetting = &v1alpha3.LocalityLoadBalancerSetting{}
+	})
 	defer tearDown()
 
 	// will be checked in the direct request test
 	addUdsEndpoint(server)
 
 	// enable locality load balancing and add relevant endpoints in order to test
-	server.EnvoyXdsServer.Env.Mesh().LocalityLbSetting = &v1alpha3.LocalityLoadBalancerSetting{}
 	addLocalityEndpoints(server, "locality.cluster.local")
 	addLocalityEndpoints(server, "locality-no-outlier-detection.cluster.local")
 
