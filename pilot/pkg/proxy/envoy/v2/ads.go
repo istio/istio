@@ -239,7 +239,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 			}
 
-			adsLog.Errorf("howardjohn: I have a node: %+v with discReq: %+v", con, discReq)
 			switch discReq.TypeUrl {
 			case ClusterType:
 				if con.CDSWatch {
