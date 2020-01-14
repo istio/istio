@@ -284,10 +284,3 @@ var (
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "kubernetes",
 		"the provider of Pilot DNS certificate.")
 )
-
-var (
-	// TODO: define all other default ports here, add docs
-
-	// DefaultPortHTTPProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
-	DefaultPortHTTPProxy = 15002
-)
