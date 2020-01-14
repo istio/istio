@@ -4,7 +4,9 @@
 /galley/                                                         @istio/wg-config-maintainers
 /install/                                                        @istio/wg-environments-maintainers
 /istioctl/                                                       @istio/wg-user-experience-maintainers
+/manifests/                                                      @istio/wg-environments-maintainers
 /mixer/                                                          @istio/wg-policies-and-telemetry-maintainers
+/operator/                                                       @istio/wg-environments-maintainers
 /pilot/                                                          @istio/wg-networking-maintainers
 /pilot/pkg/security/                                             @istio/wg-security-maintainers
 /pilot/pkg/config/                                               @istio/wg-config-maintainers @istio/wg-networking-maintainers
