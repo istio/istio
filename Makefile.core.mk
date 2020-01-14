@@ -330,10 +330,14 @@ lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markd
 	@testlinter
 	@envvarlinter galley istioctl mixer pilot security sidecar-injector
 
-go-gen:
+go-gen: gen-charts
 	@mkdir -p /tmp/bin
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH="${PATH}":/tmp/bin go generate ./...
+
+gen-charts:
+	@operator/scripts/run_update_charts.sh
+
 
 gen: go-gen mirror-licenses format update-crds
 
@@ -599,7 +603,7 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-one-namespace-trust-domain.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \
-                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml 
+                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools
