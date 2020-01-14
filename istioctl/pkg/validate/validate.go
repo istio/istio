@@ -21,20 +21,23 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	mixercrd "istio.io/istio/mixer/pkg/config/crd"
 	mixerstore "istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schemas"
-
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,6 +68,16 @@ Example resource specifications include:
 		constant.InstanceKind:          {},
 		constant.AttributeManifestKind: {},
 	}
+
+	// Remove all mixer types from Istio. Mixer types use different validation logic.
+	validIstioSchemas = collections.Istio.Remove(
+		collections.IstioPolicyV1Beta1Rules.Name(),
+		collections.IstioConfigV1Alpha2Adapters.Name(),
+		collections.IstioConfigV1Alpha2Templates.Name(),
+		collections.IstioPolicyV1Beta1Handlers.Name(),
+		collections.IstioPolicyV1Beta1Instances.Name(),
+		collections.IstioPolicyV1Beta1Attributemanifests.Name())
+
 	istioDeploymentLabel = []string{
 		"app",
 		"version",
@@ -87,16 +100,16 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
-	schema, exists := schemas.Istio.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
+	schema, exists := validIstioSchemas.FindByKind(un.GetKind())
 	if exists {
-		obj, err := crd.ConvertObjectFromUnstructured(schema, un, "")
+		obj, err := convertObjectFromUnstructured(schema, un, "")
 		if err != nil {
 			return fmt.Errorf("cannot parse proto message: %v", err)
 		}
 		if err = checkFields(un); err != nil {
 			return err
 		}
-		return schema.Validate(obj.Name, obj.Namespace, obj.Spec)
+		return schema.Resource().ValidateProto(obj.Name, obj.Namespace, obj.Spec)
 	}
 
 	if v.mixerValidator != nil && un.GetAPIVersion() == mixerAPIVersion {
@@ -123,7 +136,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	}
 	var errs error
 	if un.IsList() {
-		_ = un.EachListItem(func(item runtime.Object) error { // nolint: errcheck
+		_ = un.EachListItem(func(item runtime.Object) error {
 			castItem := item.(*unstructured.Unstructured)
 			if castItem.GetKind() == "Service" {
 				err := v.validateServicePortPrefix(istioNamespace, castItem)
@@ -340,4 +353,54 @@ func handleNamespace(istioNamespace string) string {
 		istioNamespace = controller.IstioNamespace
 	}
 	return istioNamespace
+}
+
+// TODO(nmittler): Remove this once Pilot migrates to galley schema.
+func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Unstructured, domain string) (*model.Config, error) {
+	data, err := fromSchemaAndJSONMap(schema, un.Object["spec"])
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              schema.Resource().Kind(),
+			Group:             schema.Resource().Group(),
+			Version:           schema.Resource().Version(),
+			Name:              un.GetName(),
+			Namespace:         un.GetNamespace(),
+			Domain:            domain,
+			Labels:            un.GetLabels(),
+			Annotations:       un.GetAnnotations(),
+			ResourceVersion:   un.GetResourceVersion(),
+			CreationTimestamp: un.GetCreationTimestamp().Time,
+		},
+		Spec: data,
+	}, nil
+}
+
+// TODO(nmittler): Remove this once Pilot migrates to galley schema.
+func fromSchemaAndYAML(schema collection.Schema, yml string) (proto.Message, error) {
+	pb, err := schema.Resource().NewProtoInstance()
+	if err != nil {
+		return nil, err
+	}
+	if err = gogoprotomarshal.ApplyYAML(yml, pb); err != nil {
+		return nil, err
+	}
+	return pb, nil
+}
+
+// TODO(nmittler): Remove this once Pilot migrates to galley schema.
+func fromSchemaAndJSONMap(schema collection.Schema, data interface{}) (proto.Message, error) {
+	// Marshal to YAML bytes
+	str, err := yaml.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	out, err := fromSchemaAndYAML(schema, string(str))
+	if err != nil {
+		return nil, multierror.Prefix(err, fmt.Sprintf("YAML decoding error: %v", string(str)))
+	}
+	return out, nil
 }

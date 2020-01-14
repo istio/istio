@@ -37,10 +37,11 @@ import (
 var (
 {{ range .Entries }}
 	{{ commentBlock (wordWrap (printf "%s %s" .Collection.VariableName .Collection.Description) 70) 1 }}
-	{{ .Collection.VariableName}} = collection.Builder {
+	{{ .Collection.VariableName }} = collection.Builder {
 		Name: "{{ .Collection.Name }}",
+		VariableName: "{{ .Collection.VariableName }}",
 		Disabled: {{ .Collection.Disabled }},
-		Schema: resource.Builder {
+		Resource: resource.Builder {
 			Group: "{{ .Resource.Group }}",
 			Kind: "{{ .Resource.Kind }}",
 			Plural: "{{ .Resource.Plural }}",
@@ -49,7 +50,7 @@ var (
 			ProtoPackage: "{{ .Resource.ProtoPackage }}",
 			ClusterScoped: {{ .Resource.ClusterScoped }},
 			ValidateProto: validation.{{ .Resource.Validate }},
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 {{ end }}
 

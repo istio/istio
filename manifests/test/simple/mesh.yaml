@@ -1,0 +1,22 @@
+# Currently used by the injector, as ProxyConfig
+# Used to test manual injector with the new template
+# This includes values used in inject template - not everything
+
+defaultConfig:
+  interceptionMode: REDIRECT
+
+  # TODO: annotation override. "--drainDuration"
+  drainDuration: 45s
+
+  parentShutdownDuration: 1m0s
+
+  discoveryAddress: istio-pilot.istio-system:15010
+
+  connectTimeout: 1s
+
+  proxyAdminPort: 15000
+  concurrency: 0
+
+
+
+

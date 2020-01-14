@@ -36,13 +36,13 @@ func DisableExcludedCollections(in collection.Schemas, providers transformer.Pro
 	resultBuilder := collection.NewSchemasBuilder()
 	for _, s := range in.All() {
 		disabled := false
-		if isKindExcluded(excludedResourceKinds, s.Kind()) {
+		if isKindExcluded(excludedResourceKinds, s.Resource().Kind()) {
 			// Found a matching exclude directive for this KubeResource. Disable the resource.
 			disabled = true
 
 			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
 			if enableServiceDiscovery {
-				a := rt.DefaultProvider().GetAdapter(s)
+				a := rt.DefaultProvider().GetAdapter(s.Resource())
 				if a.IsRequiredForServiceDiscovery() {
 					// This is needed for service discovery. Re-enable.
 					disabled = false
@@ -69,9 +69,9 @@ func DisableExcludedCollections(in collection.Schemas, providers transformer.Pro
 func DefaultExcludedResourceKinds() []string {
 	resources := make([]string, 0)
 	for _, r := range schema.MustGet().KubeCollections().All() {
-		a := rt.DefaultProvider().GetAdapter(r)
+		a := rt.DefaultProvider().GetAdapter(r.Resource())
 		if a.IsDefaultExcluded() {
-			resources = append(resources, r.Kind())
+			resources = append(resources, r.Resource().Kind())
 		}
 	}
 	return resources

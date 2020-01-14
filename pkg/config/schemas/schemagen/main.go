@@ -62,7 +62,7 @@ var (
     // Istio lists all Istio schemas.
     Istio = schema.Set{
     {{ range .Schemas -}}
-	  {{ if (ne .Type "synthetic-service-entry") -}}
+	  {{ if (not .Exclude) -}}
           {{ .VariableName }},
 	  {{ end -}}
     {{ end -}}
@@ -176,6 +176,7 @@ type SchemaInfo struct {
 	ClusterScoped bool   `json:"clusterScoped"`
 	VariableName  string `json:"variableName"`
 	Description   string `json:"description"`
+	Exclude       bool   `json:"exclude"`
 }
 
 func getPackage() string {

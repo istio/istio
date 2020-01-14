@@ -27,9 +27,9 @@ import (
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/istioctl/pkg/validate"
+	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/operator/cmd/mesh"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
 )
@@ -162,7 +162,8 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(profileCmd)
 
-	experimentalCmd.AddCommand(mesh.UpgradeCmd())
+	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UpgradeCmd()))
+	rootCmd.AddCommand(mesh.UpgradeCmd())
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
 	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())

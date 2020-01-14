@@ -19,7 +19,9 @@ import (
 	"reflect"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/validation"
 )
 
@@ -27,8 +29,8 @@ import (
 type Schema interface {
 	fmt.Stringer
 
-	// CanonicalResourceName of the resource.
-	CanonicalResourceName() string
+	// CanonicalName of the resource.
+	CanonicalName() string
 
 	// IsClusterScoped indicates that this resource is scoped to a particular namespace within a cluster.
 	IsClusterScoped() bool
@@ -45,6 +47,9 @@ type Schema interface {
 	// Version of this resource.
 	Version() string
 
+	// APIVersion is a utility that returns a k8s API version string of the form "Group/Version".
+	APIVersion() string
+
 	// Proto returns the protocol buffer type name for this resource.
 	Proto() string
 
@@ -52,7 +57,10 @@ type Schema interface {
 	ProtoPackage() string
 
 	// NewProtoInstance returns a new instance of the protocol buffer message for this resource.
-	NewProtoInstance() proto.Message
+	NewProtoInstance() (proto.Message, error)
+
+	// MustNewProtoInstance calls NewProtoInstance and panics if an error occurs.
+	MustNewProtoInstance() proto.Message
 
 	// Validate this schema.
 	Validate() error
@@ -60,6 +68,10 @@ type Schema interface {
 	// ValidateProto validates that the given protocol buffer message is of the correct type for this schema
 	// and that the contents are valid.
 	ValidateProto(name, namespace string, config proto.Message) error
+
+	// Equal is a helper function for testing equality between Schema instances. This supports comparison
+	// with the cmp library.
+	Equal(other Schema) bool
 }
 
 // Builder for a Schema.
@@ -89,98 +101,151 @@ type Builder struct {
 	ValidateProto validation.ValidateFunc
 }
 
-// NewSchema creates a new Schema instance with the given configuration.
-func (b Builder) Build() Schema {
-	return &immutableSchema{
+// Build a Schema instance.
+func (b Builder) Build() (Schema, error) {
+	s := b.BuildNoValidate()
+
+	// Validate the schema.
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+// MustBuild calls Build and panics if it fails.
+func (b Builder) MustBuild() Schema {
+	s, err := b.Build()
+	if err != nil {
+		panic(fmt.Sprintf("MustBuild: %v", err))
+	}
+	return s
+}
+
+// BuildNoValidate builds the Schema without checking the fields.
+func (b Builder) BuildNoValidate() Schema {
+	if b.ValidateProto == nil {
+		b.ValidateProto = validation.EmptyValidate
+	}
+
+	return &schemaImpl{
 		clusterScoped: b.ClusterScoped,
 		kind:          b.Kind,
 		plural:        b.Plural,
 		group:         b.Group,
 		version:       b.Version,
+		apiVersion:    b.Group + "/" + b.Version,
 		proto:         b.Proto,
 		protoPackage:  b.ProtoPackage,
 		validateProto: b.ValidateProto,
 	}
 }
 
-type immutableSchema struct {
+type schemaImpl struct {
 	clusterScoped bool
 	kind          string
 	plural        string
 	group         string
 	version       string
+	apiVersion    string
 	proto         string
 	protoPackage  string
 	validateProto validation.ValidateFunc
 }
 
-func (s *immutableSchema) IsClusterScoped() bool {
+func (s *schemaImpl) IsClusterScoped() bool {
 	return s.clusterScoped
 }
 
-func (s *immutableSchema) Kind() string {
+func (s *schemaImpl) Kind() string {
 	return s.kind
 }
 
-func (s *immutableSchema) Plural() string {
+func (s *schemaImpl) Plural() string {
 	return s.plural
 }
 
-func (s *immutableSchema) Group() string {
+func (s *schemaImpl) Group() string {
 	return s.group
 }
 
-func (s *immutableSchema) Version() string {
+func (s *schemaImpl) Version() string {
 	return s.version
 }
 
-func (s *immutableSchema) Proto() string {
+func (s *schemaImpl) APIVersion() string {
+	return s.apiVersion
+}
+
+func (s *schemaImpl) Proto() string {
 	return s.proto
 }
 
-func (s *immutableSchema) ProtoPackage() string {
+func (s *schemaImpl) ProtoPackage() string {
 	return s.protoPackage
 }
 
-func (s *immutableSchema) CanonicalResourceName() string {
+func (s *schemaImpl) CanonicalName() string {
 	if s.group == "" {
 		return "core/" + s.version + "/" + s.kind
 	}
 	return s.group + "/" + s.version + "/" + s.kind
 }
 
-func (s *immutableSchema) Validate() error {
-	if getProtoMessageType(s.proto) == nil {
-		return fmt.Errorf("proto message not found: %v", s.proto)
+func (s *schemaImpl) Validate() (err error) {
+	if !labels.IsDNS1123Label(s.kind) {
+		err = multierror.Append(err, fmt.Errorf("invalid kind: %s", s.kind))
 	}
-	return nil
+	if !labels.IsDNS1123Label(s.plural) {
+		err = multierror.Append(err, fmt.Errorf("invalid plural for kind %s: %s", s.kind, s.plural))
+	}
+	if getProtoMessageType(s.proto) == nil {
+		err = multierror.Append(err, fmt.Errorf("proto message not found: %v", s.proto))
+	}
+	return
 }
 
-// String interface method implementation.
-func (s *immutableSchema) String() string {
+func (s *schemaImpl) String() string {
 	return fmt.Sprintf("[Schema](%s, %q, %s)", s.kind, s.protoPackage, s.proto)
 }
 
-// NewProtoInstance returns a new instance of the underlying proto for this resource.
-func (s *immutableSchema) NewProtoInstance() proto.Message {
+func (s *schemaImpl) NewProtoInstance() (proto.Message, error) {
 	goType := getProtoMessageType(s.proto)
 	if goType == nil {
-		panic(fmt.Errorf("message not found: %q", s.proto))
+		return nil, fmt.Errorf("message not found: %q", s.proto)
 	}
 
 	instance := reflect.New(goType).Interface()
 
-	if p, ok := instance.(proto.Message); !ok {
-		panic(fmt.Sprintf(
-			"NewProtoInstance: message is not an instance of proto.Message. kind:%s, type:%v, value:%v",
-			s.kind, goType, instance))
-	} else {
-		return p
+	p, ok := instance.(proto.Message)
+	if !ok {
+		return nil, fmt.Errorf(
+			"newProtoInstance: message is not an instance of proto.Message. kind:%s, type:%v, value:%v",
+			s.kind, goType, instance)
 	}
+	return p, nil
 }
 
-func (s *immutableSchema) ValidateProto(name, namespace string, config proto.Message) error {
+func (s *schemaImpl) MustNewProtoInstance() proto.Message {
+	p, err := s.NewProtoInstance()
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
+func (s *schemaImpl) ValidateProto(name, namespace string, config proto.Message) error {
 	return s.validateProto(name, namespace, config)
+}
+
+func (s *schemaImpl) Equal(o Schema) bool {
+	return s.IsClusterScoped() == o.IsClusterScoped() &&
+		s.Kind() == o.Kind() &&
+		s.Plural() == o.Plural() &&
+		s.Group() == o.Group() &&
+		s.Version() == o.Version() &&
+		s.Proto() == o.Proto() &&
+		s.ProtoPackage() == o.ProtoPackage()
 }
 
 // getProtoMessageType returns the Go lang type of the proto with the specified name.

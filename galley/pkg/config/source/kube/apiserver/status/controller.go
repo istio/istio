@@ -76,9 +76,9 @@ func (c *ControllerImpl) Start(p *rt.Provider, resources []collection.Schema) {
 			continue
 		}
 
-		iface, err := p.GetDynamicResourceInterface(r)
+		iface, err := p.GetDynamicResourceInterface(r.Resource())
 		if err != nil {
-			scope.Source.Errorf("Unable to create a dynamic resource interface for resource %v", r.CanonicalResourceName())
+			scope.Source.Errorf("Unable to create a dynamic resource interface for resource %v", r.Resource().CanonicalName())
 		}
 		ifaces[r.Name()] = iface
 	}
@@ -118,13 +118,19 @@ func (c *ControllerImpl) Report(messages diag.Messages) {
 
 	for _, m := range messages {
 
-		if m.Origin == nil {
+		if m.Resource == nil {
+			// This should not happen. All messages should be reported against at least one resource.
+			scope.Source.Errorf("Encountered a diagnostic message without a resource: %v", m)
+			continue
+		}
+
+		if m.Resource.Origin == nil {
 			// This should not happen. All messages should be reported against at least one origin.
 			scope.Source.Errorf("Encountered a diagnostic message without an origin: %v", m)
 			continue
 		}
 
-		origin, ok := m.Origin.(*rt.Origin)
+		origin, ok := m.Resource.Origin.(*rt.Origin)
 		if !ok {
 			// This should not happen. All messages should be routed back to the appropriate source.
 			scope.Source.Errorf("Encountered a diagnostic message with unrecognized origin: %v", m)

@@ -19,7 +19,10 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"strconv"
 	"strings"
+
+	"istio.io/istio/tools/istio-iptables/pkg/validation"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -41,7 +44,6 @@ var rootCmd = &cobra.Command{
 	Long: "Script responsible for setting up port forwarding for Istio sidecar.",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
-
 		var ext dep.Dependencies
 		if cfg.DryRun {
 			ext = &dep.StdoutStubDependencies{}
@@ -50,7 +52,21 @@ var rootCmd = &cobra.Command{
 		}
 
 		iptConfigurator := NewIptablesConfigurator(cfg, ext)
-		iptConfigurator.run()
+		if !cfg.SkipRuleApply {
+			iptConfigurator.run()
+		}
+		if cfg.RunValidation {
+			hostIP, err := getLocalIP()
+			if err != nil {
+				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
+				panic(err)
+			}
+			validator := validation.NewValidator(cfg, hostIP)
+
+			if validator.Run() != nil {
+				os.Exit(constants.ValidationErrorCode)
+			}
+		}
 	},
 }
 
@@ -71,6 +87,9 @@ func constructConfig() *config.Config {
 		OutboundIPRangesInclude: viper.GetString(constants.ServiceCidr),
 		OutboundIPRangesExclude: viper.GetString(constants.ServiceExcludeCidr),
 		KubevirtInterfaces:      viper.GetString(constants.KubeVirtInterfaces),
+		IptablesProbePort:       uint16(viper.GetUint(constants.IptablesProbePort)),
+		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
+		RunValidation:           viper.GetBool(constants.RunValidation),
 	}
 
 	// TODO: Make this more configurable, maybe with a whitelist of users to be captured for output instead of a blacklist.
@@ -234,6 +253,24 @@ func init() {
 		handleError(err)
 	}
 	viper.SetDefault(constants.RestoreFormat, true)
+
+	rootCmd.Flags().String(constants.IptablesProbePort, strconv.Itoa(constants.DefaultIptablesProbePort), "set listen port for failure detection")
+	if err := viper.BindPFlag(constants.IptablesProbePort, rootCmd.Flags().Lookup(constants.IptablesProbePort)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.IptablesProbePort, strconv.Itoa(constants.DefaultIptablesProbePort))
+
+	rootCmd.Flags().Bool(constants.SkipRuleApply, false, "Skip iptables apply")
+	if err := viper.BindPFlag(constants.SkipRuleApply, rootCmd.Flags().Lookup(constants.SkipRuleApply)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.SkipRuleApply, false)
+
+	rootCmd.Flags().Bool(constants.RunValidation, false, "Validate iptables")
+	if err := viper.BindPFlag(constants.RunValidation, rootCmd.Flags().Lookup(constants.RunValidation)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.RunValidation, false)
 }
 
 func Execute() {

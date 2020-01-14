@@ -18,6 +18,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/schema/ast"
@@ -91,8 +92,9 @@ var (
 	// Bar describes a really cool bar thing
 	Bar = collection.Builder {
 		Name: "bar",
+		VariableName: "Bar",
 		Disabled: false,
-		Schema: resource.Builder {
+		Resource: resource.Builder {
 			Group: "bar.group",
 			Kind: "barkind",
 			Plural: "barkinds",
@@ -101,14 +103,15 @@ var (
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 	// Foo describes a really cool foo thing
 	Foo = collection.Builder {
 		Name: "foo",
+		VariableName: "Foo",
 		Disabled: true,
-		Schema: resource.Builder {
+		Resource: resource.Builder {
 			Group: "foo.group",
 			Kind: "fookind",
 			Plural: "fookinds",
@@ -117,7 +120,7 @@ var (
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
-		}.Build(),
+		}.MustBuild(),
 	}.MustBuild()
 
 
@@ -149,7 +152,9 @@ var (
 				g.Expect(err.Error()).To(Equal(s))
 			} else {
 				g.Expect(err).To(BeNil())
-				g.Expect(strings.TrimSpace(s)).To(Equal(strings.TrimSpace(c.output)))
+				if diff := cmp.Diff(strings.TrimSpace(s), strings.TrimSpace(c.output)); diff != "" {
+					t.Fatal(diff)
+				}
 			}
 		})
 	}

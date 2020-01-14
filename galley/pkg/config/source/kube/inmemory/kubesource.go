@@ -62,7 +62,7 @@ type kubeResource struct {
 
 func (r *kubeResource) newKey() kubeResourceKey {
 	return kubeResourceKey{
-		kind:     r.schema.Kind(),
+		kind:     r.schema.Resource().Kind(),
 		fullName: r.resource.Metadata.FullName,
 	}
 }
@@ -79,7 +79,7 @@ func NewKubeSource(schemas collection.Schemas) *KubeSource {
 	name := fmt.Sprintf("kube-inmemory-%d", inMemoryKubeNameDiscriminator)
 	inMemoryKubeNameDiscriminator++
 
-	s := inmemory.New(schemas.CollectionNames())
+	s := inmemory.New(schemas)
 
 	return &KubeSource{
 		name:    name,
@@ -245,12 +245,12 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, yamlChunk []byte) (kubeRe
 		return kubeResource{}, fmt.Errorf("failed interpreting jsonChunk: %v", err)
 	}
 
-	resourceSpec, found := r.FindByGroupAndKind(groupVersionKind.Group, groupVersionKind.Kind)
+	schema, found := r.FindByGroupAndKind(groupVersionKind.Group, groupVersionKind.Kind)
 	if !found {
 		return kubeResource{}, fmt.Errorf("failed finding schema for group/kind: %s/%s", groupVersionKind.Group, groupVersionKind.Kind)
 	}
 
-	t := rt.DefaultProvider().GetAdapter(resourceSpec)
+	t := rt.DefaultProvider().GetAdapter(schema.Resource())
 	obj, err := t.ParseJSON(jsonChunk)
 	if err != nil {
 		return kubeResource{}, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
@@ -260,7 +260,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, yamlChunk []byte) (kubeRe
 	// If namespace is blank and we have a default set, fill in the default
 	// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
 	// Don't do this for cluster scoped resources
-	if !resourceSpec.IsClusterScoped() {
+	if !schema.Resource().IsClusterScoped() {
 		if objMeta.GetNamespace() == "" && s.defaultNs != "" {
 			scope.Source.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
 			objMeta.SetNamespace(string(s.defaultNs))
@@ -276,8 +276,8 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, yamlChunk []byte) (kubeRe
 	}
 
 	return kubeResource{
-		schema:   resourceSpec,
+		schema:   schema,
 		sha:      sha1.Sum(yamlChunk),
-		resource: rt.ToResource(objMeta, resourceSpec, item),
+		resource: rt.ToResource(objMeta, schema, item),
 	}, nil
 }

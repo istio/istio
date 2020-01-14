@@ -24,11 +24,11 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 // sortedConfigStore lets us facade any ConfigStore (such as memory.Make()'s) providing
@@ -55,9 +55,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "bookinfo-gateway",
 				Namespace: "default",
-				Type:      schemas.Gateway.Type,
-				Group:     schemas.Gateway.Group,
-				Version:   schemas.Gateway.Version,
+				Type:      collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Gateways.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Gateways.Resource().Version(),
 			},
 			Spec: &networking.Gateway{
 				Selector: map[string]string{"istio": "ingressgateway"},
@@ -80,9 +80,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "bookinfo",
 				Namespace: "default",
-				Type:      schemas.VirtualService.Type,
-				Group:     schemas.VirtualService.Group,
-				Version:   schemas.VirtualService.Version,
+				Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
 			},
 			Spec: &networking.VirtualService{
 				Hosts:    []string{"*"},
@@ -132,9 +132,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "googleapis",
 				Namespace: "default",
-				Type:      schemas.DestinationRule.Type,
-				Group:     schemas.DestinationRule.Group,
-				Version:   schemas.DestinationRule.Version,
+				Type:      collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
 			},
 			Spec: &networking.DestinationRule{
 				Host: "*.googleapis.com",
@@ -152,9 +152,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "googleapis",
 				Namespace: "default",
-				Type:      schemas.ServiceEntry.Type,
-				Group:     schemas.ServiceEntry.Group,
-				Version:   schemas.ServiceEntry.Version,
+				Type:      collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{"*.googleapis.com"},

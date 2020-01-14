@@ -62,12 +62,12 @@ func NewProvider(interfaces kube.Interfaces, resyncPeriod time.Duration) *Provid
 
 // GetAdapter returns a type for the group/kind. If the type is a well-known type, then the returned type will have
 // a specialized implementation. Otherwise, it will be using the dynamic conversion logic.
-func (p *Provider) GetAdapter(c resource.Schema) *Adapter {
-	if t, found := p.known[asTypesKey(c.Group(), c.Kind())]; found {
+func (p *Provider) GetAdapter(r resource.Schema) *Adapter {
+	if t, found := p.known[asTypesKey(r.Group(), r.Kind())]; found {
 		return t
 	}
 
-	return p.getDynamicAdapter(c)
+	return p.getDynamicAdapter(r)
 }
 
 func (p *Provider) sharedInformerFactory() (informers.SharedInformerFactory, error) {
@@ -89,7 +89,7 @@ func (p *Provider) sharedInformerFactory() (informers.SharedInformerFactory, err
 }
 
 // GetDynamicResourceInterface returns a dynamic.NamespaceableResourceInterface for the given resource.
-func (p *Provider) GetDynamicResourceInterface(c resource.Schema) (dynamic.NamespaceableResourceInterface, error) {
+func (p *Provider) GetDynamicResourceInterface(r resource.Schema) (dynamic.NamespaceableResourceInterface, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -105,8 +105,8 @@ func (p *Provider) GetDynamicResourceInterface(c resource.Schema) (dynamic.Names
 	}
 
 	return p.dynamicInterface.Resource(kubeSchema.GroupVersionResource{
-		Group:    c.Group(),
-		Version:  c.Version(),
-		Resource: c.Plural(),
+		Group:    r.Group(),
+		Version:  r.Version(),
+		Resource: r.Plural(),
 	}), nil
 }

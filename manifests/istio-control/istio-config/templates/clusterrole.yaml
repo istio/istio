@@ -1,0 +1,51 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-galley-{{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+rules:
+  # For reading Istio resources
+  - apiGroups: [
+    "authentication.istio.io",
+    "config.istio.io",
+    "networking.istio.io",
+    "rbac.istio.io",
+    "security.istio.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+    # For updating Istio resource statuses
+  - apiGroups: [
+    "authentication.istio.io",
+    "config.istio.io",
+    "networking.istio.io",
+    "rbac.istio.io",
+    "security.istio.io"]
+    resources: ["*/status"]
+    verbs: ["update"]
+{{- if not .Values.global.operatorManageWebhooks }}
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    verbs: ["*"]
+{{- end }}
+  - apiGroups: ["extensions","apps"]
+    resources: ["deployments"]
+    resourceNames: ["istio-galley"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["deployments/finalizers"]
+    resourceNames: ["istio-galley"]
+    verbs: ["update"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    verbs: ["get", "list", "watch"]
+---

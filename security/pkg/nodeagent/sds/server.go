@@ -105,6 +105,9 @@ type Options struct {
 
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
+
+	// PilotCertProvider is the provider of the Pilot certificate.
+	PilotCertProvider string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -237,7 +240,7 @@ func (s *Server) initWorkloadSdsService(options *Options) error { //nolint: unpa
 	var err error
 	s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
 	if err != nil {
-		sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+		sdsServiceLog.Errorf("Failed to set up UDS path: %v", err)
 	}
 
 	go func() {

@@ -22,25 +22,27 @@ import (
 	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
+	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
 
 func TestSnapshot_Basics(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	set := coll.NewSet([]collection.Name{data.K8SCollection1})
-	set.Collection(data.K8SCollection1).Set(data.EntryN1I1V1)
+	set := coll.NewSet(collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).Build())
+	set.Collection(basicmeta.K8SCollection1.Name()).Set(data.EntryN1I1V1)
 	sn := &Snapshot{set: set}
 
-	resources := sn.Resources(data.K8SCollection1.String())
+	resources := sn.Resources(basicmeta.K8SCollection1.Name().String())
 	g.Expect(resources).To(HaveLen(1))
 
-	r, err := resource.Deserialize(resources[0])
+	r, err := resource.Deserialize(resources[0], basicmeta.K8SCollection1.Resource())
 	g.Expect(err).To(BeNil())
-	g.Expect(r).To(Equal(data.EntryN1I1V1))
+	fixtures.ExpectEqual(t, r, data.EntryN1I1V1)
 
-	v := sn.Version(data.K8SCollection1.String())
-	g.Expect(v).To(Equal(data.K8SCollection1.String() + "/1"))
+	v := sn.Version(basicmeta.K8SCollection1.Name().String())
+	g.Expect(v).To(Equal(basicmeta.K8SCollection1.Name().String() + "/1"))
 
 	expected := `[0] k8s/collection1 (@k8s/collection1/1)
   [0] n1/i1
@@ -51,21 +53,21 @@ func TestSnapshot_Basics(t *testing.T) {
 func TestSnapshot_SerializeError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	set := coll.NewSet([]collection.Name{data.K8SCollection1})
+	set := coll.NewSet(collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).Build())
 	e := data.Event1Col1AddItem1.Resource.Clone()
 	e.Message = nil
-	set.Collection(data.K8SCollection1).Set(e)
+	set.Collection(basicmeta.K8SCollection1.Name()).Set(e)
 	sn := &Snapshot{set: set}
 
-	resources := sn.Resources(data.K8SCollection1.String())
+	resources := sn.Resources(basicmeta.K8SCollection1.Name().String())
 	g.Expect(resources).To(HaveLen(0))
 }
 
 func TestSnapshot_WrongCollection(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	set := coll.NewSet([]collection.Name{data.K8SCollection1})
-	set.Collection(data.K8SCollection1).Set(data.Event1Col1AddItem1.Resource)
+	set := coll.NewSet(collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).Build())
+	set.Collection(basicmeta.K8SCollection1.Name()).Set(data.Event1Col1AddItem1.Resource)
 	sn := &Snapshot{set: set}
 
 	g.Expect(sn.Version("foo")).To(Equal(""))

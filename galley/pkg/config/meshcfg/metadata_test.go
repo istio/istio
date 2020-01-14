@@ -18,11 +18,12 @@ import (
 	"testing"
 
 	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 func TestMeshConfigNameValidity(t *testing.T) {
 	m := schema.MustGet()
-	_, found := m.AllCollections().Find(IstioMeshconfig.String())
+	_, found := m.AllCollections().Find(collections.IstioMeshV1Alpha1MeshConfig.Name().String())
 	if !found {
 		t.Fatalf("Mesh config collection not found in metadata.")
 	}

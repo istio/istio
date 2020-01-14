@@ -25,8 +25,10 @@ import (
 	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	apiv2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -970,6 +972,101 @@ func TestDisablePanicThresholdAsDefault(t *testing.T) {
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold).To(Not(BeNil()))
 		g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(0)))
+	}
+}
+
+func TestApplyOutlierDetection(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tests := []struct {
+		name string
+		cfg  *networking.OutlierDetection
+		o    *apiv2_cluster.OutlierDetection
+	}{
+		{
+			"No outlier detection is set",
+			&networking.OutlierDetection{},
+			&apiv2_cluster.OutlierDetection{},
+		},
+		{
+			"Deprecated consecutive errors is set",
+			&networking.OutlierDetection{
+				ConsecutiveErrors: 3,
+			},
+			&apiv2_cluster.OutlierDetection{
+				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 0},
+				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
+				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		{
+			"Consecutive gateway and 5xx errors are set",
+			&networking.OutlierDetection{
+				Consecutive_5XxErrors:    &types.UInt32Value{Value: 4},
+				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 3},
+			},
+			&apiv2_cluster.OutlierDetection{
+				Consecutive_5Xx:                    &wrappers.UInt32Value{Value: 4},
+				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 100},
+				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
+				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		{
+			"Only consecutive gateway is set",
+			&networking.OutlierDetection{
+				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 3},
+			},
+			&apiv2_cluster.OutlierDetection{
+				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
+				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		{
+			"Only consecutive 5xx is set",
+			&networking.OutlierDetection{
+				Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+			},
+			&apiv2_cluster.OutlierDetection{
+				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 3},
+				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		{
+			"Consecutive gateway is set to 0",
+			&networking.OutlierDetection{
+				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 0},
+			},
+			&apiv2_cluster.OutlierDetection{
+				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 0},
+				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 0},
+			},
+		},
+		{
+			"Consecutive 5xx is set to 0",
+			&networking.OutlierDetection{
+				Consecutive_5XxErrors: &types.UInt32Value{Value: 0},
+			},
+			&apiv2_cluster.OutlierDetection{
+				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 0},
+				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+				&core.Locality{}, testMesh,
+				&networking.DestinationRule{
+					Host: "*.example.org",
+					TrafficPolicy: &networking.TrafficPolicy{
+						OutlierDetection: tt.cfg,
+					},
+				})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(clusters[0].OutlierDetection).To(Equal(tt.o))
+		})
 	}
 }
 

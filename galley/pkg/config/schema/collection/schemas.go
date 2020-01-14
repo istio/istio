@@ -20,11 +20,22 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/hashicorp/go-multierror"
 )
 
 // Schemas contains metadata about configuration resources.
 type Schemas struct {
-	byCollection map[string]Schema
+	byCollection map[Name]Schema
+	byAddOrder   []Schema
+}
+
+// SchemasFor is a shortcut for creating Schemas. It uses MustAdd for each element.
+func SchemasFor(schemas ...Schema) Schemas {
+	b := NewSchemasBuilder()
+	for _, s := range schemas {
+		b.MustAdd(s)
+	}
+	return b.Build()
 }
 
 // SchemasBuilder is a builder for the schemas type.
@@ -35,7 +46,7 @@ type SchemasBuilder struct {
 // NewSchemasBuilder returns a new instance of SchemasBuilder.
 func NewSchemasBuilder() *SchemasBuilder {
 	s := Schemas{
-		byCollection: make(map[string]Schema),
+		byCollection: make(map[Name]Schema),
 	}
 
 	return &SchemasBuilder{
@@ -45,11 +56,12 @@ func NewSchemasBuilder() *SchemasBuilder {
 
 // Add a new collection to the schemas.
 func (b *SchemasBuilder) Add(s Schema) error {
-	if _, found := b.schemas.byCollection[s.Name().String()]; found {
+	if _, found := b.schemas.byCollection[s.Name()]; found {
 		return fmt.Errorf("collection already exists: %v", s.Name())
 	}
 
-	b.schemas.byCollection[s.Name().String()] = s
+	b.schemas.byCollection[s.Name()] = s
+	b.schemas.byAddOrder = append(b.schemas.byAddOrder, s)
 	return nil
 }
 
@@ -59,19 +71,6 @@ func (b *SchemasBuilder) MustAdd(s Schema) *SchemasBuilder {
 		panic(fmt.Sprintf("SchemasBuilder.MustAdd: %v", err))
 	}
 	return b
-}
-
-// UnregisterSchemas unregisters all schemas in s from this builder.
-func (b *SchemasBuilder) UnregisterSchemas(s Schemas) *SchemasBuilder {
-	for _, info := range s.All() {
-		b.Remove(info.Name())
-	}
-	return b
-}
-
-// Remove a Schema from the builder.
-func (b *SchemasBuilder) Remove(c Name) { // nolint:interfacer
-	delete(b.schemas.byCollection, c.String())
 }
 
 // Build a new schemas from this SchemasBuilder.
@@ -84,9 +83,18 @@ func (b *SchemasBuilder) Build() Schemas {
 	return s
 }
 
+// ForEach executes the given function on each contained schema, until the function returns true.
+func (s Schemas) ForEach(handleSchema func(Schema) (done bool)) {
+	for _, schema := range s.byAddOrder {
+		if handleSchema(schema) {
+			return
+		}
+	}
+}
+
 // Find looks up a Schema by its collection name.
 func (s Schemas) Find(collection string) (Schema, bool) {
-	i, ok := s.byCollection[collection]
+	i, ok := s.byCollection[Name(collection)]
 	return i, ok
 }
 
@@ -99,10 +107,30 @@ func (s Schemas) MustFind(collection string) Schema {
 	return i
 }
 
-// FindByGroupAndKind searches and returns the resource spec with the given group/kind
+// FindByKind searches and returns the first schema with the given kind
+func (s Schemas) FindByKind(kind string) (Schema, bool) {
+	for _, rs := range s.byAddOrder {
+		if strings.EqualFold(rs.Resource().Kind(), kind) {
+			return rs, true
+		}
+	}
+
+	return nil, false
+}
+
+// MustFindByKind calls FindByKind and panics if not found.
+func (s Schemas) MustFindByKind(kind string) Schema {
+	r, found := s.FindByKind(kind)
+	if !found {
+		panic(fmt.Sprintf("Schemas.MustFindByKind: unable to find %s", kind))
+	}
+	return r
+}
+
+// FindByGroupAndKind searches and returns the first schema with the given group/kind
 func (s Schemas) FindByGroupAndKind(group, kind string) (Schema, bool) {
-	for _, rs := range s.byCollection {
-		if rs.Group() == group && rs.Kind() == kind {
+	for _, rs := range s.byAddOrder {
+		if rs.Resource().Group() == group && strings.EqualFold(rs.Resource().Kind(), kind) {
 			return rs, true
 		}
 	}
@@ -121,20 +149,34 @@ func (s Schemas) MustFindByGroupAndKind(group, kind string) Schema {
 
 // All returns all known Schemas
 func (s Schemas) All() []Schema {
-	result := make([]Schema, 0, len(s.byCollection))
+	return append(make([]Schema, 0, len(s.byAddOrder)), s.byAddOrder...)
+}
 
-	for _, info := range s.byCollection {
-		result = append(result, info)
+// Remove creates a copy of this schema with the given collections removed.
+func (s Schemas) Remove(names ...Name) Schemas {
+	b := NewSchemasBuilder()
+
+	for _, s := range s.byAddOrder {
+		shouldAdd := true
+		for _, n := range names {
+			if n == s.Name() {
+				shouldAdd = false
+				break
+			}
+		}
+		if shouldAdd {
+			b.MustAdd(s)
+		}
 	}
 
-	return result
+	return b.Build()
 }
 
 // CollectionNames returns all known collections.
 func (s Schemas) CollectionNames() Names {
-	result := make(Names, 0, len(s.byCollection))
+	result := make(Names, 0, len(s.byAddOrder))
 
-	for _, info := range s.byCollection {
+	for _, info := range s.byAddOrder {
 		result = append(result, info.Name())
 	}
 
@@ -145,10 +187,26 @@ func (s Schemas) CollectionNames() Names {
 	return result
 }
 
+// Kinds returns all known resource kinds.
+func (s Schemas) Kinds() []string {
+	kinds := make(map[string]struct{}, len(s.byAddOrder))
+	for _, s := range s.byAddOrder {
+		kinds[s.Resource().Kind()] = struct{}{}
+	}
+
+	out := make([]string, 0, len(kinds))
+	for kind := range kinds {
+		out = append(out, kind)
+	}
+
+	sort.Strings(out)
+	return out
+}
+
 // DisabledCollectionNames returns the names of disabled collections
 func (s Schemas) DisabledCollectionNames() Names {
 	disabledCollections := make(Names, 0)
-	for _, i := range s.byCollection {
+	for _, i := range s.byAddOrder {
 		if i.IsDisabled() {
 			disabledCollections = append(disabledCollections, i.Name())
 		}
@@ -157,15 +215,13 @@ func (s Schemas) DisabledCollectionNames() Names {
 }
 
 // Validate the schemas. Returns error if there is a problem.
-func (s Schemas) Validate() error {
-	for _, c := range s.All() {
-		if err := c.Validate(); err != nil {
-			return err
-		}
+func (s Schemas) Validate() (err error) {
+	for _, c := range s.byAddOrder {
+		err = multierror.Append(err, c.Resource().Validate()).ErrorOrNil()
 	}
-	return nil
+	return
 }
 
 func (s Schemas) Equal(o Schemas) bool {
-	return cmp.Equal(s.byCollection, o.byCollection)
+	return cmp.Equal(s.byAddOrder, o.byAddOrder)
 }

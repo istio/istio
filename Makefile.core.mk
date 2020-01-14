@@ -259,7 +259,8 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
   ./tools/istio-iptables \
-  ./tools/istio-clean-iptables
+  ./tools/istio-clean-iptables \
+  ./operator/cmd/manager
 
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
@@ -321,7 +322,7 @@ lint-go-split:
 	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
 
-lint: lint-go-split lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
+lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
@@ -399,7 +400,7 @@ with_junit_report: | $(JUNIT_REPORT)
 
 # Run coverage tests
 ifeq ($(WHAT),)
-       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
+       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test operator-test
 else
        TEST_OBJ = selected-pkg-test
 endif
@@ -417,6 +418,10 @@ pilot-test:
 .PHONY: istioctl-test
 istioctl-test:
 	go test ${T} ./istioctl/...
+
+.PHONY: operator-test
+operator-test:
+	go test ${T} ./operator/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
@@ -488,7 +493,7 @@ common-coverage:
 
 .PHONY: racetest
 
-RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
+RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest operator-racetest
 racetest: $(JUNIT_REPORT)
 	$(MAKE) -e -f Makefile.core.mk --keep-going $(RACE_TESTS) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
@@ -500,6 +505,10 @@ pilot-racetest:
 .PHONY: istioctl-racetest
 istioctl-racetest:
 	RACE_TEST=true go test ${T} -race ./istioctl/...
+
+.PHONY: operator-racetest
+operator-racetest:
+	RACE_TEST=true go test ${T} -race ./operator/...
 
 .PHONY: mixer-racetest
 mixer-racetest:

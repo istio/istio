@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/galley/pkg/config/util/pb"
 )
 
-func (p *Provider) getDynamicAdapter(c resource.Schema) *Adapter {
+func (p *Provider) getDynamicAdapter(r resource.Schema) *Adapter {
 	return &Adapter{
 		extractObject: func(o interface{}) metav1.Object {
 			res, ok := o.(*unstructured.Unstructured)
@@ -45,7 +45,7 @@ func (p *Provider) getDynamicAdapter(c resource.Schema) *Adapter {
 				return nil, fmt.Errorf("extractResource: not unstructured: %v", o)
 			}
 
-			pr := c.NewProtoInstance()
+			pr := r.MustNewProtoInstance()
 			if err := pb.UnmarshalData(pr, u.Object["spec"]); err != nil {
 				return nil, err
 			}
@@ -54,7 +54,7 @@ func (p *Provider) getDynamicAdapter(c resource.Schema) *Adapter {
 		},
 
 		newInformer: func() (cache.SharedIndexInformer, error) {
-			d, err := p.GetDynamicResourceInterface(c)
+			d, err := p.GetDynamicResourceInterface(r)
 			if err != nil {
 				return nil, err
 			}

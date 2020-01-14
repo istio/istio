@@ -50,14 +50,14 @@ var (
 
 	// SyntheticServiceEntry describes synthetic service entries
 	SyntheticServiceEntry = schema.Instance{
-		Type:          "synthetic-service-entry",
-		Plural:        "synthetic-service-entries",
+		Type:          "service-entry",
+		Plural:        "service-entries",
 		Group:         "networking",
 		Version:       "v1alpha3",
 		MessageName:   "istio.networking.v1alpha3.ServiceEntry",
 		Validate:      validation.ValidateSyntheticServiceEntry,
 		Collection:    "istio/networking/v1alpha3/synthetic/serviceentries",
-		ClusterScoped: true,
+		ClusterScoped: false,
 		VariableName:  "SyntheticServiceEntry",
 	}
 

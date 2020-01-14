@@ -20,13 +20,14 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
 func TestNames_Clone(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	n := collection.Names{data.K8SCollection1, data.Collection2}
+	n := collection.Names{basicmeta.K8SCollection1.Name(), basicmeta.Collection2.Name()}
 
 	n2 := n.Clone()
 	g.Expect(n2).To(Equal(n))
@@ -35,8 +36,8 @@ func TestNames_Clone(t *testing.T) {
 func TestNames_Sort(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	n := collection.Names{data.Collection2, data.Collection3, data.K8SCollection1}
-	expected := collection.Names{data.Collection2, data.Collection3, data.K8SCollection1}
+	n := collection.Names{data.Foo.Name(), data.Baz.Name(), data.Bar.Name()}
+	expected := collection.Names{data.Bar.Name(), data.Baz.Name(), data.Foo.Name()}
 
 	n.Sort()
 	g.Expect(n).To(Equal(expected))

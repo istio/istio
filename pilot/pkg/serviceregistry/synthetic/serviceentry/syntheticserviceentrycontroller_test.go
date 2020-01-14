@@ -118,23 +118,6 @@ var (
 		},
 	}
 
-	syntheticServiceEntry2 = &networking.ServiceEntry{
-		Hosts: []string{"example3.com"},
-		Ports: []*networking.Port{
-			{Number: 80, Name: "http-port2", Protocol: "http"},
-			{Number: 8080, Name: "http-alt-port2", Protocol: "http"},
-		},
-		Location:   networking.ServiceEntry_MESH_EXTERNAL,
-		Resolution: networking.ServiceEntry_DNS,
-		Endpoints: []*networking.ServiceEntry_Endpoint{
-			{
-				Address: "2.2.2.2",
-				Ports:   map[string]uint32{"http-port2": 7082, "http-alt-port2": 18082},
-				Labels:  map[string]string{"foo3": "bar3"},
-			},
-		},
-	}
-
 	testControllerOptions = &serviceentry.Options{
 		DomainSuffix: "cluster.local",
 		ConfigLedger: &model.DisabledLedger{},
@@ -609,8 +592,9 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 		}
 	}
 
+	// add a new resource and remove an old resource
 	change = convertToChange([]proto.Message{message1},
-		[]string{"random-namespace/test-synthetic-se1"},
+		[]string{"random-namespace/test-synthetic-se2"},
 		setIncremental(),
 		setAnnotations(map[string]string{
 			annotation.AlphaNetworkingServiceVersion.Name: "1",
@@ -622,6 +606,36 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
+	update = <-fx.Events
+	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
+
+	update = <-fx.Events
+	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
+
+	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(entries).To(gomega.HaveLen(2))
+	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se1"))
+	g.Expect(entries[0].Spec).To(gomega.Equal(message1))
+	g.Expect(entries[1].Name).To(gomega.Equal("test-synthetic-se2"))
+	g.Expect(entries[1].Spec).To(gomega.Equal(message1))
+
+	// only remove an old resource, should trigger a push
+	change = convertToChange(nil,
+		nil,
+		setIncremental(),
+		setAnnotations(map[string]string{
+			annotation.AlphaNetworkingServiceVersion.Name: "1",
+		}),
+		setRemoved([]string{"random-namespace/test-synthetic-se2"}),
+		setCollection(schemas.SyntheticServiceEntry.Collection),
+		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	update = <-fx.Events
+	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
 	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(1))

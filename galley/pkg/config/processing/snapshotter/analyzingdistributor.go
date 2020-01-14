@@ -17,6 +17,8 @@ package snapshotter
 import (
 	"sync"
 
+	"github.com/ryanuber/go-glob"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
@@ -66,6 +68,23 @@ type AnalyzingDistributorSettings struct {
 
 	// Namespaces that should be analyzed
 	AnalysisNamespaces []resource.Namespace
+
+	// Suppressions that suppress a set of matching messages.
+	Suppressions []AnalysisSuppression
+}
+
+// AnalysisSuppression describes a resource and analysis code to be suppressed
+// (e.g. ignored) during analysis. Used when a particular message code is to be
+// ignored for a specific resource.
+type AnalysisSuppression struct {
+	// Code is the analysis code to suppress (e.g. "IST0104").
+	Code string
+
+	// ResourceName is the name of the resource to suppress the message for. For
+	// K8s resources it has the same form as used by istioctl (e.g.
+	// "DestinationRule default.istio-system"). Note that globbing wildcards are
+	// supported (e.g. "DestinationRule *.istio-system").
+	ResourceName string
 }
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
@@ -140,24 +159,7 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 	d.s.Analyzer.Analyze(ctx)
 	scope.Analysis.Debugf("Finished analyzing the current snapshot, found messages: %v", ctx.messages)
 
-	// Only keep messages for resources in namespaces we want to analyze if the
-	// message doesn't have an origin (meaning we can't determine the
-	// namespace). Also kept are cluster-level resources where the namespace is
-	// the empty string. If no such limit is specified, keep them all.
-	var msgs diag.Messages
-	if len(namespaces) == 0 {
-		msgs = ctx.messages
-	} else {
-		for _, m := range ctx.messages {
-			if m.Origin != nil && m.Origin.Namespace() != "" {
-				if _, ok := namespaces[m.Origin.Namespace()]; !ok {
-					continue
-				}
-			}
-			msgs = append(msgs, m)
-		}
-	}
-
+	msgs := filterMessages(ctx.messages, namespaces, d.s.Suppressions)
 	if !ctx.Canceled() {
 		d.s.StatusUpdater.Update(msgs.SortedDedupedCopy())
 	}
@@ -183,6 +185,43 @@ func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
 	}
 
 	return &Snapshot{set: coll.NewSetFromCollections(collections)}
+}
+
+func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
+	nsNames := make(map[string]struct{})
+	for k := range namespaces {
+		nsNames[k.String()] = struct{}{}
+	}
+
+	var msgs diag.Messages
+FilterMessages:
+	for _, m := range messages {
+		// Only keep messages for resources in namespaces we want to analyze if the
+		// message doesn't have an origin (meaning we can't determine the
+		// namespace). Also kept are cluster-level resources where the namespace is
+		// the empty string. If no such limit is specified, keep them all.
+		if len(namespaces) > 0 && m.Resource != nil && m.Resource.Origin.Namespace() != "" {
+			if _, ok := nsNames[m.Resource.Origin.Namespace().String()]; !ok {
+				continue FilterMessages
+			}
+		}
+
+		// Filter out any messages that match our suppressions.
+		for _, s := range suppressions {
+			if m.Resource == nil || s.Code != m.Type.Code() {
+				continue
+			}
+
+			if !glob.Glob(s.ResourceName, m.Resource.Origin.FriendlyName()) {
+				continue
+			}
+			scope.Analysis.Debugf("Suppressing code %s on resource %s due to suppressions list", m.Type.Code(), m.Resource.Origin.FriendlyName())
+			continue FilterMessages
+		}
+
+		msgs = append(msgs, m)
+	}
+	return msgs
 }
 
 type context struct {

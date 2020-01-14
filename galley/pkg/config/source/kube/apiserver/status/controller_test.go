@@ -391,7 +391,7 @@ func expectedMessage(m diag.Message) *diag.Message {
 	return &diag.Message{
 		Type:       m.Type,
 		Parameters: m.Parameters,
-		Origin:     m.Origin,
+		Resource:   m.Resource,
 		DocRef:     DocRef,
 	}
 }

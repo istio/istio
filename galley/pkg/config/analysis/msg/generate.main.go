@@ -133,26 +133,27 @@ var (
 	{{end}}
 )
 
+// All returns a list of all known message types.
+func All() []*diag.MessageType {
+	return []*diag.MessageType{
+		{{- range .Messages}}
+			{{.Name}},
+		{{- end}}
+	}
+}
+
 {{range .Messages}}
 // New{{.Name}} returns a new diag.Message based on {{.Name}}.
 func New{{.Name}}(r *resource.Instance{{range .Args}}, {{.Name}} {{.Type}}{{end}}) diag.Message {
 	return diag.NewMessage(
 		{{.Name}},
-		originOrNil(r),
+		r,
 		{{- range .Args}}
 			{{.Name}},
 		{{- end}}
 	)
 }
 {{end}}
-
-func originOrNil(r *resource.Instance) resource.Origin {
-	var o resource.Origin
-	if r != nil {
-		o = r.Origin
-	}
-	return o
-}
 `
 
 func generate(m *messages) (string, error) {

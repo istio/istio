@@ -15,12 +15,15 @@
 package resource
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/resource"
 )
 
 var scope = log.RegisterScope("resource", "Core resource model scope", 0)
@@ -88,13 +91,13 @@ func SerializeMetadata(m Metadata) (*mcp.Metadata, error) {
 }
 
 // Deserialize an entry from an envelope.
-func Deserialize(e *mcp.Resource) (*Instance, error) {
+func Deserialize(e *mcp.Resource, s resource.Schema) (*Instance, error) {
 	p, err := types.EmptyAny(e.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling proto: %v", err)
 	}
 
-	metadata, err := DeserializeMetadata(e.Metadata)
+	metadata, err := DeserializeMetadata(e.Metadata, s)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +113,8 @@ func Deserialize(e *mcp.Resource) (*Instance, error) {
 }
 
 // MustDeserialize deserializes an entry from an envelope or panics.
-func MustDeserialize(e *mcp.Resource) *Instance {
-	m, err := Deserialize(e)
+func MustDeserialize(e *mcp.Resource, s resource.Schema) *Instance {
+	m, err := Deserialize(e, s)
 	if err != nil {
 		panic(fmt.Sprintf("resource.MustDeserialize: %v", err))
 	}
@@ -119,10 +122,10 @@ func MustDeserialize(e *mcp.Resource) *Instance {
 }
 
 // DeserializeAll extracts all entries from the given envelopes and returns.
-func DeserializeAll(es []*mcp.Resource) ([]*Instance, error) {
+func DeserializeAll(es []*mcp.Resource, s resource.Schema) ([]*Instance, error) {
 	result := make([]*Instance, len(es))
 	for i, e := range es {
-		r, err := Deserialize(e)
+		r, err := Deserialize(e, s)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +135,11 @@ func DeserializeAll(es []*mcp.Resource) ([]*Instance, error) {
 }
 
 // DeserializeMetadata extracts metadata portion of the envelope
-func DeserializeMetadata(m *mcp.Metadata) (Metadata, error) {
+func DeserializeMetadata(m *mcp.Metadata, s resource.Schema) (Metadata, error) {
+	if s == nil {
+		return Metadata{}, errors.New("error unmarshaling metadata. Resource schema must not be nil")
+	}
+
 	createTime, err := types.TimestampFromProto(m.CreateTime)
 	if err != nil {
 		return Metadata{}, fmt.Errorf("error unmarshaling create time: %v", err)
@@ -149,5 +156,6 @@ func DeserializeMetadata(m *mcp.Metadata) (Metadata, error) {
 		Version:     Version(m.Version),
 		Annotations: m.Annotations,
 		Labels:      m.Labels,
+		Schema:      s,
 	}, nil
 }

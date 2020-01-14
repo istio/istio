@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	authorizationapi "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -84,8 +85,8 @@ func TestAnalyzersRun(t *testing.T) {
 	m := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Exists(data.K8SCollection1, resource.NewFullName("", ""))
-			ctx.Report(data.K8SCollection1, m)
+			ctx.Exists(basicmeta.K8SCollection1.Name(), resource.NewFullName("", ""))
+			ctx.Report(basicmeta.K8SCollection1.Name(), m)
 		},
 	}
 
@@ -101,7 +102,7 @@ func TestAnalyzersRun(t *testing.T) {
 	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
 	g.Expect(result.Messages).To(ConsistOf(m))
-	g.Expect(collectionAccessed).To(Equal(data.K8SCollection1))
+	g.Expect(collectionAccessed).To(Equal(basicmeta.K8SCollection1.Name()))
 	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
 
@@ -116,8 +117,8 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	msg2 := msg.NewInternalError(r2, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Report(data.K8SCollection1, msg1)
-			ctx.Report(data.K8SCollection1, msg2)
+			ctx.Report(basicmeta.K8SCollection1.Name(), msg1)
+			ctx.Report(basicmeta.K8SCollection1.Name(), msg2)
 		},
 	}
 
@@ -138,9 +139,9 @@ func TestAddRunningKubeSource(t *testing.T) {
 	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	sa.AddRunningKubeSource(mk)
-	g.Expect(sa.sources).To(HaveLen(2))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
-	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&apiserver.Source{}))       // All other resources via api server
+	g.Expect(*sa.meshCfg).To(Equal(*meshcfg.Default())) // Base default meshcfg
+	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // Resources via api server
 }
 
 func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
@@ -148,12 +149,14 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 
 	istioNamespace := resource.Namespace("istio-system")
 
+	testRootNamespace := "testNamespace"
+
 	cfg := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: meshConfigMapName,
 		},
 		Data: map[string]string{
-			meshConfigMapKey: "",
+			meshConfigMapKey: fmt.Sprintf("rootNamespace: %s", testRootNamespace),
 		},
 	}
 
@@ -169,10 +172,9 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", istioNamespace, nil, false)
 
 	sa.AddRunningKubeSource(mk)
-	g.Expect(sa.sources).To(HaveLen(3))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
-	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // in-cluster meshcfg
-	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&apiserver.Source{}))       // All other resources via api server
+	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
+	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // Resources via api server
 }
 
 func TestAddReaderKubeSource(t *testing.T) {
@@ -185,18 +187,18 @@ func TestAddReaderKubeSource(t *testing.T) {
 
 	err := sa.AddReaderKubeSource([]io.Reader{tmpfile})
 	g.Expect(err).To(BeNil())
-	g.Expect(sa.sources).To(HaveLen(2))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
-	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&inmemory.KubeSource{}))    // All other resources via files
+	g.Expect(*sa.meshCfg).To(Equal(*meshcfg.Default())) // Base default meshcfg
+	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&inmemory.KubeSource{})) // Resources via files
 
 	// Note that a blank file for mesh cfg is equivalent to specifying all the defaults
-	tmpMeshFile := tempFileFromString(t, "")
+	testRootNamespace := "testNamespace"
+	tmpMeshFile := tempFileFromString(t, fmt.Sprintf("rootNamespace: %s", testRootNamespace))
 	defer func() { _ = os.Remove(tmpMeshFile.Name()) }()
 
-	err = sa.AddFileKubeMeshConfigSource(tmpMeshFile.Name())
+	err = sa.AddFileKubeMeshConfig(tmpMeshFile.Name())
 	g.Expect(err).To(BeNil())
-	g.Expect(sa.sources).To(HaveLen(3))
-	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // meshcfg read from a file
+	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace)) // Should be mesh config from the file now
 }
 
 func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
@@ -209,7 +211,31 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 
 	err := sa.AddReaderKubeSource([]io.Reader{tmpfile})
 	g.Expect(err).To(Not(BeNil()))
-	g.Expect(sa.sources).To(HaveLen(2))
+	g.Expect(sa.sources).To(HaveLen(1))
+}
+
+func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
+
+	// With ingress off, we shouldn't generate any default resources
+	ingressOffMeshCfg := tempFileFromString(t, "ingressControllerMode: 'OFF'")
+	defer func() { _ = os.Remove(ingressOffMeshCfg.Name()) }()
+
+	err := sa.AddFileKubeMeshConfig(ingressOffMeshCfg.Name())
+	g.Expect(err).To(BeNil())
+	sa.AddDefaultResources()
+	g.Expect(sa.sources).To(BeEmpty())
+
+	// With ingress on, though, we should.
+	ingressStrictMeshCfg := tempFileFromString(t, "ingressControllerMode: 'STRICT'")
+	defer func() { _ = os.Remove(ingressStrictMeshCfg.Name()) }()
+
+	err = sa.AddFileKubeMeshConfig(ingressStrictMeshCfg.Name())
+	g.Expect(err).To(BeNil())
+	sa.AddDefaultResources()
+	g.Expect(sa.sources).To(HaveLen(1))
 }
 
 func TestResourceFiltering(t *testing.T) {
@@ -242,6 +268,35 @@ func TestResourceFiltering(t *testing.T) {
 			g.Expect(r.IsDisabled()).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Name()))
 		}
 	}
+}
+
+func TestRemoveResourcesWithoutPermission(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	usedCollection := k8smeta.K8SCoreV1Services
+	a := &testAnalyzer{
+		fn:     func(_ analysis.Context) {},
+		inputs: []collection.Name{usedCollection.Name()},
+	}
+
+	// Set up the mock so that when we query if the user has permission to list the collection, the answer is no.
+	mk := mock.NewKube()
+	mkClient, _ := mk.KubeClient()
+	mkSelfSubjectAccessReviews, _ := mkClient.AuthorizationV1().SelfSubjectAccessReviews().(*mock.SelfSubjectAccessReviewImpl)
+	mkSelfSubjectAccessReviews.DisallowResourceAttributes(&authorizationapi.ResourceAttributes{
+		Verb:     "list",
+		Group:    usedCollection.Resource().Group(),
+		Resource: usedCollection.Resource().CanonicalName(),
+	})
+
+	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", nil, true)
+	sa.AddRunningKubeSource(mk)
+
+	// Since this collection is used by an analyzer and service discovery is on, it would normally not be disabled...
+	// but since we fail the permissions pre-check, it should be disabled anyway.
+	actualCollection, found := sa.kubeResources.Find(usedCollection.Name().String())
+	g.Expect(found).To(BeTrue())
+	g.Expect(actualCollection.IsDisabled()).To(BeTrue(), fmt.Sprintf("%s should be disabled", actualCollection.Name()))
 }
 
 func tempFileFromString(t *testing.T, content string) *os.File {

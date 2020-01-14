@@ -34,7 +34,7 @@ type kubeEndpointsController interface {
 	Run(stopCh <-chan struct{})
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 		labelsList labels.Collection) ([]*model.ServiceInstance, error)
-	GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance
+	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 }
 
 // kubeEndpoints abstracts the common behavior across endpoint and endpoint slices.
@@ -43,32 +43,8 @@ type kubeEndpoints struct {
 	informer cache.SharedIndexInformer
 }
 
-// instancesFunc provides a way to get services instances for endpoint/endpointslice.
-type instancesFunc func(c *Controller, obj interface{}, proxy *model.Proxy) (string, []*model.ServiceInstance)
-
 // updateEdsFunc is called to send eds updates for endpoints/endpointslice.
 type updateEdsFunc func(obj interface{}, event model.Event)
-
-// serviceInstances function builds proxy service instances using the passed in instancesFunc.
-func (e *kubeEndpoints) serviceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string, fn instancesFunc) []*model.ServiceInstance {
-	var otherNamespaceInstances []*model.ServiceInstance
-	var sameNamespaceInstances []*model.ServiceInstance
-
-	for _, item := range e.informer.GetStore().List() {
-		ns, instances := fn(c, item, proxy)
-		if ns == proxyNamespace {
-			sameNamespaceInstances = append(sameNamespaceInstances, instances...)
-		} else {
-			otherNamespaceInstances = append(otherNamespaceInstances, instances...)
-		}
-	}
-
-	// Put the sameNamespaceInstances in front of otherNamespaceInstances so that Pilot will
-	// first use endpoints from sameNamespaceInstances. This makes sure if there are two endpoints
-	// referring to the same IP/port, the one in sameNamespaceInstances will be used. (The other one
-	// in otherNamespaceInstances will thus be rejected by Pilot).
-	return append(sameNamespaceInstances, otherNamespaceInstances...)
-}
 
 func (e *kubeEndpoints) HasSynced() bool {
 	return e.informer.HasSynced()

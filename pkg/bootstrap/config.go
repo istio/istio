@@ -90,6 +90,7 @@ type Config struct {
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 	OutlierLogPath      string
+	PilotCertProvider   string
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -101,13 +102,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		cfg.PilotSubjectAltName = defaultPilotSAN()
 	}
 	if cfg.PlatEnv == nil {
-		if platform.IsGCP() {
-			cfg.PlatEnv = platform.NewGCP()
-		} else if platform.IsAWS() {
-			cfg.PlatEnv = platform.NewAWS()
-		} else {
-			cfg.PlatEnv = &platform.Unknown{}
-		}
+		cfg.PlatEnv = platform.Discover()
 	}
 
 	// Remove duplicates from the node IPs.
@@ -125,6 +120,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.SDSUDSPath(cfg.SDSUDSPath),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
+		option.PilotCertProvider(cfg.PilotCertProvider),
 		option.OutlierLogPath(cfg.OutlierLogPath))
 
 	// Support passing extra info from node environment as metadata
