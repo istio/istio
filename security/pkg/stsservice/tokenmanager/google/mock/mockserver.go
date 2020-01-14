@@ -84,9 +84,10 @@ type AuthorizationServer struct {
 }
 
 type Config struct {
-	Port int
-	SubjectToken string
-	TrustDomain string
+	Port                int
+	SubjectToken        string
+	TrustDomain         string
+	ExpectedAccessToken string
 }
 
 // StartNewServer creates a mock server and starts it. The server listens on
@@ -99,6 +100,9 @@ func StartNewServer(t *testing.T, conf Config) (*AuthorizationServer, error) {
 	td := FakeTrustDomain
 	if conf.TrustDomain != "" {
 		td = conf.TrustDomain
+	}
+	if conf.ExpectedAccessToken != "" {
+		FakeAccessToken = conf.ExpectedAccessToken
 	}
 	server := &AuthorizationServer{
 		t: t,

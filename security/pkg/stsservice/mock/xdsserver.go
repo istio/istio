@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
 	"istio.io/pkg/log"
 
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -100,9 +102,9 @@ func (hasher) ID(*core.Node) string {
 
 // XDSConf has config for XDS server
 type XDSConf struct {
-	Port int
+	Port     int
 	CertFile string
-	KeyFile string
+	KeyFile  string
 }
 
 // StartXDSServer sets up a mock XDS server
@@ -142,8 +144,8 @@ type XDSCallbacks struct {
 	callbackError     bool
 	lastReceivedToken string
 	mutex             sync.RWMutex
-
-	t *testing.T
+	expectedToken     string
+	t                 *testing.T
 }
 
 func CreateXdsCallback(t *testing.T) *XDSCallbacks {
@@ -154,6 +156,18 @@ func (c *XDSCallbacks) SetCallbackError(setErr bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.callbackError = setErr
+}
+
+func (c *XDSCallbacks) SetExpectedToken(expected string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.expectedToken = expected
+}
+
+func (c *XDSCallbacks) ExpectedToken() string {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.expectedToken
 }
 
 func (c *XDSCallbacks) NumStream() int {
@@ -177,19 +191,24 @@ func (c *XDSCallbacks) OnStreamOpen(ctx context.Context, id int64, url string) e
 	if metadata, ok := metadata.FromIncomingContext(ctx); ok {
 		if h, ok := metadata[credentialTokenHeaderKey]; ok {
 			if len(h) != 1 {
-				xdsServerLog.Infof("xDS stream (id: %d, url: %s) sends multiple tokens (%d)", id, url, len(h))
+				c.t.Errorf("xDS stream (id: %d, url: %s) sends multiple tokens (%d)", id, url, len(h))
 			}
 			if h[0] != c.lastReceivedToken {
 				c.numTokenReceived++
 				c.lastReceivedToken = h[0]
 			}
-			xdsServerLog.Infof("xDS stream (id: %d, url: %s) has valid token: %v", id, url, h[0])
+			if c.expectedToken != "" && strings.TrimPrefix(h[0], "Bearer ") != c.expectedToken {
+				c.t.Errorf("xDS stream (id: %d, url: %s) sent a token that does "+
+					"not match expected token (%s vs %s)", id, url, h[0], c.expectedToken)
+			} else {
+				c.t.Logf("xDS stream (id: %d, url: %s) has valid token: %v", id, url, h[0])
+			}
 		} else {
-			xdsServerLog.Errorf("XDS stream (id: %d, url: %s) does not have token in metadata %+v",
+			c.t.Errorf("XDS stream (id: %d, url: %s) does not have token in metadata %+v",
 				id, url, metadata)
 		}
 	} else {
-		xdsServerLog.Errorf("failed to get metadata from XDS stream (id: %d, url: %s)", id, url)
+		c.t.Errorf("failed to get metadata from XDS stream (id: %d, url: %s)", id, url)
 	}
 
 	if c.callbackError {

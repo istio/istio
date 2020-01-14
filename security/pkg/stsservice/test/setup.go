@@ -29,10 +29,11 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 
-	istioEnv "istio.io/istio/pkg/test/env"
 	proxyEnv "istio.io/istio/mixer/test/client/env"
+	istioEnv "istio.io/istio/pkg/test/env"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
@@ -42,25 +43,27 @@ import (
 const (
 	// Paths to credentials which will be loaded by proxy. These paths should
 	// match bootstrap config in testdata/bootstrap.yaml
-	certPath = "/tmp/sts-ca-certificates.crt"
+	certPath       = "/tmp/sts-ca-certificates.crt"
 	proxyTokenPath = "/tmp/sts-envoy-token.jwt"
 )
 
-type Env struct{
-	proxySetUp *proxyEnv.TestSetup
-	authServer *tokenBackend.AuthorizationServer
-	stsServer *stsServer.Server
-	xDSServer *grpc.Server
-	xDSCb  *xdsService.XDSCallbacks
+type Env struct {
+	proxySetUp        *proxyEnv.TestSetup
+	authServer        *tokenBackend.AuthorizationServer
+	stsServer         *stsServer.Server
+	xDSServer         *grpc.Server
+	xDSCb             *xdsService.XDSCallbacks
 	ProxyListenerPort int
-	trustworthyToken string
+	initialToken      string // initial token is sent to STS server for token exchange
 }
 
 func (e *Env) TearDown() {
+	// Stop proxy first, otherwise XDS stream is still alive and server's graceful
+	// stop will be blocked.
+	e.proxySetUp.TearDown()
 	e.authServer.Stop()
 	e.xDSServer.GracefulStop()
 	e.stsServer.Stop()
-	e.proxySetUp.TearDown()
 }
 
 func getDataFromFile(filePath string, t *testing.T) string {
@@ -110,7 +113,7 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 	}
 
 	env := &Env{
-		trustworthyToken: jwtToken,
+		initialToken: jwtToken,
 	}
 	// Set up test environment for Proxy
 	proxySetUp := proxyEnv.NewTestSetup(proxyEnv.STSTest, t)
@@ -120,8 +123,9 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 	env.DumpPortMap(t)
 	// Set up auth server that provides token service
 	backend, err := tokenBackend.StartNewServer(t, tokenBackend.Config{
-		SubjectToken: jwtToken,
-		Port: int(proxySetUp.Ports().MixerPort),
+		SubjectToken:        jwtToken,
+		Port:                int(proxySetUp.Ports().MixerPort),
+		ExpectedAccessToken: cb.ExpectedToken(),
 	})
 	if err != nil {
 		t.Fatalf("failed to start a auth backend: %v", err)
@@ -134,6 +138,7 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 	}
 	env.stsServer = stsServer
 
+	// Make sure STS server and auth backend are running
 	env.WaitForStsFlowReady(t)
 
 	// Set up XDS server
@@ -142,7 +147,7 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 	xds, err := xdsService.StartXDSServer(
 		xdsService.XDSConf{Port: int(proxySetUp.Ports().DiscoveryPort),
 			CertFile: istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-certificate.crt",
-			KeyFile: istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-key.key"}, cb, ls, true)
+			KeyFile:  istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-key.key"}, cb, ls, true)
 	if err != nil {
 		t.Fatalf("failed to start XDS server: %v", err)
 	}
@@ -159,12 +164,12 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 // test backend   : BackendPort
 // proxy admin    : AdminPort
 func (e *Env) DumpPortMap(t *testing.T) {
-	log.Printf("\n\tport allocation status\t\t\t\n" +
-		"auth server\t:\t%d\n" +
-		"STS server\t:\t%d\n" +
-		"listener port\t:\t%d\n" +
-		"XDS server\t:\t%d\n" +
-		"test backend\t:\t%d\n" +
+	log.Printf("\n\tport allocation status\t\t\t\n"+
+		"auth server\t:\t%d\n"+
+		"STS server\t:\t%d\n"+
+		"listener port\t:\t%d\n"+
+		"XDS server\t:\t%d\n"+
+		"test backend\t:\t%d\n"+
 		"proxy admin\t:\t%d", e.proxySetUp.Ports().MixerPort,
 		e.proxySetUp.Ports().ServerProxyPort, e.proxySetUp.Ports().ClientProxyPort,
 		e.proxySetUp.Ports().DiscoveryPort, e.proxySetUp.Ports().BackendPort,
@@ -175,6 +180,7 @@ func (e *Env) StartProxy(t *testing.T) {
 	if err := e.proxySetUp.SetUp(); err != nil {
 		t.Fatalf("failed to start proxy: %v", err)
 	}
+	log.Println("proxy is running...")
 }
 
 // WaitForStsFlowReady sends STS requests to STS server using HTTP client, and
@@ -214,7 +220,7 @@ func (e *Env) genStsReq(t *testing.T, stsAddr string) (req *http.Request) {
 	stsQuery.Set("audience", "audience")
 	stsQuery.Set("scope", "https://www.googleapis.com/auth/cloud-platform")
 	stsQuery.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
-	stsQuery.Set("subject_token", e.trustworthyToken)
+	stsQuery.Set("subject_token", e.initialToken)
 	stsQuery.Set("subject_token_type", stsServer.SubjectTokenType)
 	stsQuery.Set("actor_token", "")
 	stsQuery.Set("actor_token_type", "")

@@ -15,8 +15,12 @@
 package test
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/onsi/gomega"
+
+	"istio.io/istio/mixer/test/client/env"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 )
 
@@ -28,17 +32,29 @@ import (
 // To verify that the dynamic listener is loaded, the test sends http request to
 // that dynamic listener.
 func TestProxySTS(t *testing.T) {
+	// Enable this test when gRPC fix is picked by Istio Proxy
+	// https://github.com/grpc/grpc/pull/21641
+	t.Skip("https://github.com/istio/istio/issues/20133")
+	expectedToken := "expected access token"
 	// Sets up callback that verifies token on new XDS stream.
 	cb := xdsService.CreateXdsCallback(t)
+	cb.SetExpectedToken(expectedToken)
 	// Start all test servers and proxy
 	setup := SetUpTest(t, cb)
-	// Get initial stats
-	t.Logf("num stream: %d", cb.NumStream())
-	t.Logf("num token: %d", cb.NumTokenReceived())
+	// Verify that initially XDS stream is not set up, stats do not update initial stats
+	g := gomega.NewGomegaWithT(t)
+	g.Expect(cb.NumStream()).To(gomega.Equal(0))
+	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
 	setup.StartProxy(t)
 	// Verify that token is received
-	t.Logf("num stream: %d", cb.NumStream())
-	t.Logf("num token: %d", cb.NumTokenReceived())
-	// Verify that LDS push is done and dynamic listener works properly
+	g.Expect(cb.NumStream()).To(gomega.Equal(1))
+	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(1))
+	// Verify that LDS push is done and dynamic listener works properly, this is
+	// to make sure XDS stream is working properly
+	setup.proxySetUp.WaitEnvoyReady()
+	// Issues a GET echo request with 0 size body to the dynamic listener
+	if _, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", setup.ProxyListenerPort)); err != nil {
+		t.Errorf("Failed in request: %v", err)
+	}
 	setup.TearDown()
 }
