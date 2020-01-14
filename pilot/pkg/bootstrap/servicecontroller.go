@@ -51,8 +51,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initKubeRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-		case serviceregistry.MCP:
-			log.Warnf("the MCP Service Registry is deprecated and no longer has an effect")
 		case serviceregistry.Consul:
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
