@@ -23,6 +23,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"istio.io/pkg/log"
 
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -38,6 +39,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 )
+
+var xdsServerLog = log.RegisterScope("xdsServer", "XDS service debugging", 0)
 
 const (
 	// credentialTokenHeaderKey is the header key in gPRC header which is used to
@@ -103,20 +106,26 @@ type XDSConf struct {
 }
 
 // StartXDSServer sets up a mock XDS server
-func StartXDSServer(t *testing.T, conf XDSConf, cb *XDSCallbacks, ls *DynamicListener) *grpc.Server {
+func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS bool) (*grpc.Server, error) {
 	snapshotCache := cache.NewSnapshotCache(false, hasher{}, nil)
 	server := xds.NewServer(context.Background(), snapshotCache, cb)
-	tlsCred, err := credentials.NewServerTLSFromFile(conf.CertFile, conf.KeyFile)
-	if err != nil {
-		t.Fatalf("Failed to setup TLS: %v", err)
+	var gRPCServer *grpc.Server
+	if isTLS {
+		tlsCred, err := credentials.NewServerTLSFromFile(conf.CertFile, conf.KeyFile)
+		if err != nil {
+			xdsServerLog.Errorf("Failed to setup TLS: %v", err)
+			return nil, err
+		}
+		gRPCServer = grpc.NewServer(grpc.Creds(tlsCred))
+	} else {
+		gRPCServer = grpc.NewServer()
 	}
-	gRPCServer := grpc.NewServer(grpc.Creds(tlsCred))
-
 	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", conf.Port))
 	if err != nil {
-		t.Fatalf("xDS server failed to listen on %s: %v", fmt.Sprintf(":%d", conf.Port), err)
+		xdsServerLog.Errorf("xDS server failed to listen on %s: %v", fmt.Sprintf(":%d", conf.Port), err)
+		return nil, err
 	}
-	t.Logf("xDS server listens on %s", lis.Addr().String())
+	xdsServerLog.Infof("%s xDS server listens on %s", time.Now().String(), lis.Addr().String())
 	discovery.RegisterAggregatedDiscoveryServiceServer(gRPCServer, server)
 	snapshotCache.SetSnapshot("", cache.Snapshot{
 		Listeners: cache.Resources{Version: time.Now().String(), Items: map[string]cache.Resource{
@@ -124,7 +133,7 @@ func StartXDSServer(t *testing.T, conf XDSConf, cb *XDSCallbacks, ls *DynamicLis
 	go func() {
 		_ = gRPCServer.Serve(lis)
 	}()
-	return gRPCServer
+	return gRPCServer, nil
 }
 
 type XDSCallbacks struct {
@@ -160,7 +169,7 @@ func (c *XDSCallbacks) NumTokenReceived() int {
 }
 
 func (c *XDSCallbacks) OnStreamOpen(ctx context.Context, id int64, url string) error {
-	c.t.Logf("xDS stream (id: %d, url: %s) is open", id, url)
+	xdsServerLog.Infof("xDS stream (id: %d, url: %s) is open", id, url)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -168,18 +177,19 @@ func (c *XDSCallbacks) OnStreamOpen(ctx context.Context, id int64, url string) e
 	if metadata, ok := metadata.FromIncomingContext(ctx); ok {
 		if h, ok := metadata[credentialTokenHeaderKey]; ok {
 			if len(h) != 1 {
-				c.t.Logf("xDS stream (id: %d, url: %s) sends multiple tokens (%d)", id, url, len(h))
+				xdsServerLog.Infof("xDS stream (id: %d, url: %s) sends multiple tokens (%d)", id, url, len(h))
 			}
 			if h[0] != c.lastReceivedToken {
 				c.numTokenReceived++
 				c.lastReceivedToken = h[0]
 			}
+			xdsServerLog.Infof("xDS stream (id: %d, url: %s) has valid token: %v", id, url, h[0])
 		} else {
-			c.t.Errorf("XDS stream (id: %d, url: %s) does not have token in metadata %+v",
+			xdsServerLog.Errorf("XDS stream (id: %d, url: %s) does not have token in metadata %+v",
 				id, url, metadata)
 		}
 	} else {
-		c.t.Errorf("failed to get metadata from XDS stream (id: %d, url: %s)", id, url)
+		xdsServerLog.Errorf("failed to get metadata from XDS stream (id: %d, url: %s)", id, url)
 	}
 
 	if c.callbackError {
@@ -188,19 +198,19 @@ func (c *XDSCallbacks) OnStreamOpen(ctx context.Context, id int64, url string) e
 	return nil
 }
 func (c *XDSCallbacks) OnStreamClosed(id int64) {
-	c.t.Logf("xDS stream (id: %d) is closed", id)
+	xdsServerLog.Infof("xDS stream (id: %d) is closed", id)
 }
 func (c *XDSCallbacks) OnStreamRequest(id int64, _ *api.DiscoveryRequest) error {
-	c.t.Logf("receive xDS request (id: %d)", id)
+	xdsServerLog.Infof("receive xDS request (id: %d)", id)
 	return nil
 }
 func (c *XDSCallbacks) OnStreamResponse(id int64, _ *api.DiscoveryRequest, _ *api.DiscoveryResponse) {
-	c.t.Logf("on stream %d response", id)
+	xdsServerLog.Infof("on stream %d response", id)
 }
 func (c *XDSCallbacks) OnFetchRequest(context.Context, *api.DiscoveryRequest) error {
-	c.t.Logf("on fetch request")
+	xdsServerLog.Infof("on fetch request")
 	return nil
 }
 func (c *XDSCallbacks) OnFetchResponse(*api.DiscoveryRequest, *api.DiscoveryResponse) {
-	c.t.Logf("on fetch response")
+	xdsServerLog.Infof("on fetch response")
 }

@@ -83,17 +83,31 @@ type AuthorizationServer struct {
 	generateAccessTokenError    error
 }
 
+type Config struct {
+	Port int
+	SubjectToken string
+	TrustDomain string
+}
+
 // StartNewServer creates a mock server and starts it. The server listens on
 // port for requests. If port is 0, a randomly chosen port is in use.
-func StartNewServer(t *testing.T, port int) (*AuthorizationServer, error) {
+func StartNewServer(t *testing.T, conf Config) (*AuthorizationServer, error) {
+	st := FakeSubjectToken
+	if conf.SubjectToken != "" {
+		st = conf.SubjectToken
+	}
+	td := FakeTrustDomain
+	if conf.TrustDomain != "" {
+		td = conf.TrustDomain
+	}
 	server := &AuthorizationServer{
 		t: t,
 		expectedFederatedTokenRequest: federatedTokenRequest{
-			Audience:           FakeTrustDomain,
+			Audience:           td,
 			GrantType:          "urn:ietf:params:oauth:grant-type:token-exchange",
 			RequestedTokenType: "urn:ietf:params:oauth:token-type:access_token",
 			SubjectTokenType:   "urn:ietf:params:oauth:token-type:jwt",
-			SubjectToken:       FakeSubjectToken,
+			SubjectToken:       st,
 			Scope:              "https://www.googleapis.com/auth/cloud-platform",
 		},
 		expectedAccessTokenRequest: accessTokenRequest{
@@ -101,7 +115,7 @@ func StartNewServer(t *testing.T, port int) (*AuthorizationServer, error) {
 			Scope: []string{"https://www.googleapis.com/auth/cloud-platform"},
 		},
 	}
-	return server, server.Start(0)
+	return server, server.Start(conf.Port)
 }
 
 func (ms *AuthorizationServer) SetGenFedTokenError(err error) {

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -42,7 +43,7 @@ const (
 	// Paths to credentials which will be loaded by proxy. These paths should
 	// match bootstrap config in testdata/bootstrap.yaml
 	certPath = "/tmp/sts-ca-certificates.crt"
-	proxyTokenPath = "/tmp/sts-envoy-token"
+	proxyTokenPath = "/tmp/sts-envoy-token.jwt"
 )
 
 type Env struct{
@@ -52,6 +53,7 @@ type Env struct{
 	xDSServer *grpc.Server
 	xDSCb  *xdsService.XDSCallbacks
 	ProxyListenerPort int
+	trustworthyToken string
 }
 
 func (e *Env) TearDown() {
@@ -59,7 +61,6 @@ func (e *Env) TearDown() {
 	e.xDSServer.GracefulStop()
 	e.stsServer.Stop()
 	e.proxySetUp.TearDown()
-	os.Remove(proxyTokenPath)
 }
 
 func getDataFromFile(filePath string, t *testing.T) string {
@@ -70,8 +71,8 @@ func getDataFromFile(filePath string, t *testing.T) string {
 	return string(data)
 }
 
-// setUpCredentialsInFile prepares initial credential for proxy to load
-func setUpCredentialsInFile(path string, cred string) error {
+// WriteDataToFile writes data into file
+func WriteDataToFile(path string, content string) error {
 	if path == "" {
 		return errors.New("empty file path")
 	}
@@ -80,7 +81,7 @@ func setUpCredentialsInFile(path string, cred string) error {
 		return err
 	}
 	defer f.Close()
-	if _, err = f.WriteString(cred); err != nil {
+	if _, err = f.WriteString(content); err != nil {
 		return err
 	}
 	f.Sync()
@@ -98,14 +99,30 @@ func setUpCredentialsInFile(path string, cred string) error {
 // test backend   : BackendPort
 // proxy admin    : AdminPort
 func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
-	env := &Env{}
+	// Set up credential files for bootstrap config
+	jwtToken := getDataFromFile("testdata/trustworthy-jwt.jwt", t)
+	if err := WriteDataToFile(proxyTokenPath, jwtToken); err != nil {
+		t.Fatalf("failed to set up token file %s: %v", proxyTokenPath, err)
+	}
+	caCert := getDataFromFile("testdata/ca-certificate.crt", t)
+	if err := WriteDataToFile(certPath, caCert); err != nil {
+		t.Fatalf("failed to set up ca certificate file %s: %v", certPath, err)
+	}
+
+	env := &Env{
+		trustworthyToken: jwtToken,
+	}
 	// Set up test environment for Proxy
 	proxySetUp := proxyEnv.NewTestSetup(proxyEnv.STSTest, t)
 	proxySetUp.SetNoMixer(true)
 	proxySetUp.EnvoyTemplate = getDataFromFile("testdata/bootstrap.yaml", t)
 	env.proxySetUp = proxySetUp
+	env.DumpPortMap(t)
 	// Set up auth server that provides token service
-	backend, err := tokenBackend.StartNewServer(t, int(proxySetUp.Ports().MixerPort))
+	backend, err := tokenBackend.StartNewServer(t, tokenBackend.Config{
+		SubjectToken: jwtToken,
+		Port: int(proxySetUp.Ports().MixerPort),
+	})
 	if err != nil {
 		t.Fatalf("failed to start a auth backend: %v", err)
 	}
@@ -122,25 +139,39 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 	// Set up XDS server
 	env.ProxyListenerPort = int(proxySetUp.Ports().ClientProxyPort)
 	ls := &xdsService.DynamicListener{Port: env.ProxyListenerPort}
-	env.xDSServer = xdsService.StartXDSServer(t,
+	xds, err := xdsService.StartXDSServer(
 		xdsService.XDSConf{Port: int(proxySetUp.Ports().DiscoveryPort),
 			CertFile: istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-certificate.crt",
-			KeyFile: istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-key.key"}, cb, ls)
+			KeyFile: istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/server-key.key"}, cb, ls, true)
+	if err != nil {
+		t.Fatalf("failed to start XDS server: %v", err)
+	}
+	env.xDSServer = xds
 
-	// Set up credential files for bootstrap config
-	jwtToken := getDataFromFile("testdata/trustworthy-jwt.jwt", t)
-	if err := setUpCredentialsInFile(proxyTokenPath, jwtToken); err != nil {
-		t.Fatalf("failed to set up token file %s: %v", proxyTokenPath, err)
-	}
-	caCert := getDataFromFile("testdata/ca-certificate.crt", t)
-	if err := setUpCredentialsInFile(certPath, caCert); err != nil {
-		t.Fatalf("failed to set up ca certificate file %s: %v", certPath, err)
-	}
 	return env
 }
 
+// DumpPortMap dumps port allocation status
+// auth server    : MixerPort
+// STS server     : ServerProxyPort
+// proxy listener : ClientProxyPort
+// XDS server     : DiscoveryPort
+// test backend   : BackendPort
+// proxy admin    : AdminPort
+func (e *Env) DumpPortMap(t *testing.T) {
+	log.Printf("\n\tport allocation status\t\t\t\n" +
+		"auth server\t:\t%d\n" +
+		"STS server\t:\t%d\n" +
+		"listener port\t:\t%d\n" +
+		"XDS server\t:\t%d\n" +
+		"test backend\t:\t%d\n" +
+		"proxy admin\t:\t%d", e.proxySetUp.Ports().MixerPort,
+		e.proxySetUp.Ports().ServerProxyPort, e.proxySetUp.Ports().ClientProxyPort,
+		e.proxySetUp.Ports().DiscoveryPort, e.proxySetUp.Ports().BackendPort,
+		e.proxySetUp.Ports().AdminPort)
+}
+
 func (e *Env) StartProxy(t *testing.T) {
-	//e.proxySetUp.SetUp()
 	if err := e.proxySetUp.SetUp(); err != nil {
 		t.Fatalf("failed to start proxy: %v", err)
 	}
@@ -149,7 +180,7 @@ func (e *Env) StartProxy(t *testing.T) {
 // WaitForStsFlowReady sends STS requests to STS server using HTTP client, and
 // verifies that the STS flow is ready.
 func (e *Env) WaitForStsFlowReady(t *testing.T) {
-	t.Logf("Check if all servers in the STS flow are up and ready")
+	t.Logf("%s check if all servers in the STS flow are up and ready", time.Now().String())
 	addr, _ := net.ResolveTCPAddr("tcp", fmt.Sprintf("127.0.0.1:%d", e.proxySetUp.Ports().ServerProxyPort))
 	stsServerAddress := addr.String()
 	hTTPClient := &http.Client{
@@ -167,7 +198,7 @@ func (e *Env) WaitForStsFlowReady(t *testing.T) {
 		resp, err := hTTPClient.Do(req)
 		if err == nil {
 			if resp.StatusCode == http.StatusOK && resp.Header.Get("Content-Type") == "application/json" {
-				t.Logf("All servers in the STS flow are up and ready")
+				t.Logf("%s all servers in the STS flow are up and ready", time.Now().String())
 				return
 			}
 		}
@@ -183,7 +214,7 @@ func (e *Env) genStsReq(t *testing.T, stsAddr string) (req *http.Request) {
 	stsQuery.Set("audience", "audience")
 	stsQuery.Set("scope", "https://www.googleapis.com/auth/cloud-platform")
 	stsQuery.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
-	stsQuery.Set("subject_token", tokenBackend.FakeSubjectToken)
+	stsQuery.Set("subject_token", e.trustworthyToken)
 	stsQuery.Set("subject_token_type", stsServer.SubjectTokenType)
 	stsQuery.Set("actor_token", "")
 	stsQuery.Set("actor_token_type", "")

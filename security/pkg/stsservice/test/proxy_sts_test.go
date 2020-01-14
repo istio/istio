@@ -16,7 +16,6 @@ package test
 
 import (
 	"testing"
-	"time"
 
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 )
@@ -37,7 +36,6 @@ func TestProxySTS(t *testing.T) {
 	t.Logf("num stream: %d", cb.NumStream())
 	t.Logf("num token: %d", cb.NumTokenReceived())
 	setup.StartProxy(t)
-	time.Sleep(5000 * time.Second)
 	// Verify that token is received
 	t.Logf("num stream: %d", cb.NumStream())
 	t.Logf("num token: %d", cb.NumTokenReceived())

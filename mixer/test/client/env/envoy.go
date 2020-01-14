@@ -40,7 +40,7 @@ func (s *TestSetup) newEnvoy() (envoy.Instance, error) {
 		return nil, err
 	}
 
-	debugLevel := ev.RegisterStringVar("ENVOY_DEBUG", "debug", "Specifies the debug level for Envoy.").Get()
+	debugLevel := ev.RegisterStringVar("ENVOY_DEBUG", "info", "Specifies the debug level for Envoy.").Get()
 
 	options := []envoy.Option{
 		envoy.ConfigPath(confPath),

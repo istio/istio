@@ -24,7 +24,7 @@ import (
 func TestGetFederatedToken(t *testing.T) {
 	r := NewPlugin()
 
-	ms, err := mock.StartNewServer(t, 0)
+	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
