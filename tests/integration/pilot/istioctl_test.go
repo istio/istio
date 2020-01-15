@@ -83,7 +83,7 @@ func TestVersion(t *testing.T) {
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
@@ -135,7 +135,7 @@ func TestDescribe(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {
