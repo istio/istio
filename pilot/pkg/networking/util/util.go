@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/strcase"
 )
 
 const (
@@ -417,7 +418,8 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 				Fields: map[string]*pstruct.Value{
 					"config": {
 						Kind: &pstruct.Value_StringValue{
-							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace, config.Type, config.Name),
+							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace,
+								strcase.CamelCaseToKebabCase(config.Type), config.Name),
 						},
 					},
 				},

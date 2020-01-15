@@ -59,4 +59,8 @@ var (
 	Kube = collection.NewSchemasBuilder().
 		MustAdd(K8SCollection1).
 		Build()
+
+	// Pilot contains only collections used by Pilot.
+	Pilot = collection.NewSchemasBuilder().
+		Build()
 )

@@ -30,12 +30,12 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -62,6 +62,15 @@ import (
 // - labels of the gateway set to "app=ingressgateway" for node_port, service set to 'ingressgateway' (matching default install)
 //   If we need more flexibility - we can add it (but likely we'll deprecate ingress support first)
 // -
+
+var (
+	schemas = collection.SchemasFor(
+		collections.IstioNetworkingV1Alpha3Virtualservices,
+		collections.IstioNetworkingV1Alpha3Gateways)
+
+	virtualServiceKind = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind()
+	gatewayKind        = collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind()
+)
 
 // Control needs RBAC permissions to write to Pods.
 
@@ -152,7 +161,7 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	for _, f := range c.virtualServiceHandlers {
 		f(model.Config{}, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type: schemas.VirtualService.Type,
+				Type: virtualServiceKind,
 			},
 		}, event)
 	}
@@ -160,9 +169,9 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	return nil
 }
 
-func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Config, model.Event)) {
-	switch typ {
-	case schemas.VirtualService.Type:
+func (c *controller) RegisterEventHandler(kind string, f func(model.Config, model.Config, model.Event)) {
+	switch kind {
+	case virtualServiceKind:
 		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
 	}
 }
@@ -171,7 +180,7 @@ func (c *controller) Version() string {
 	panic("implement me")
 }
 
-func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+func (c *controller) GetResourceAtVersion(string, string) (resourceVersion string, err error) {
 	panic("implement me")
 }
 
@@ -188,14 +197,14 @@ func (c *controller) Run(stop <-chan struct{}) {
 	<-stop
 }
 
-func (c *controller) ConfigDescriptor() schema.Set {
+func (c *controller) Schemas() collection.Schemas {
 	//TODO: are these two config descriptors right?
-	return schema.Set{schemas.Gateway, schemas.VirtualService}
+	return schemas
 }
 
 //TODO: we don't return out of this function now
 func (c *controller) Get(typ, name, namespace string) *model.Config {
-	if typ != schemas.Gateway.Type && typ != schemas.VirtualService.Type {
+	if typ != gatewayKind && typ != virtualServiceKind {
 		return nil
 	}
 
@@ -219,7 +228,7 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	if typ != schemas.Gateway.Type && typ != schemas.VirtualService.Type {
+	if typ != gatewayKind && typ != virtualServiceKind {
 		return nil, errUnsupportedOp
 	}
 
@@ -238,15 +247,15 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		}
 
 		switch typ {
-		case schemas.VirtualService.Type:
+		case virtualServiceKind:
 			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
-		case schemas.Gateway.Type:
+		case gatewayKind:
 			gateways := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			out = append(out, gateways)
 		}
 	}
 
-	if typ == schemas.VirtualService.Type {
+	if typ == virtualServiceKind {
 		for _, obj := range ingressByHost {
 			out = append(out, *obj)
 		}

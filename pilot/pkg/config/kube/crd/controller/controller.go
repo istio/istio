@@ -28,12 +28,12 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -47,7 +47,7 @@ type controller struct {
 
 type cacheHandler struct {
 	c        *controller
-	schema   schema.Instance
+	schema   collection.Schema
 	informer cache.SharedIndexInformer
 	handlers []func(model.Config, model.Config, model.Event)
 }
@@ -94,41 +94,43 @@ func NewController(client *Client, options controller2.Options) model.ConfigStor
 	}
 
 	// add stores for CRD kinds
-	for _, s := range client.ConfigDescriptor() {
+	for _, s := range client.Schemas().All() {
 		out.addInformer(s, options.WatchedNamespace, options.ResyncPeriod)
 	}
 
 	return out
 }
 
-func (c *controller) addInformer(schema schema.Instance, namespace string, resyncPeriod time.Duration) {
-	c.kinds[schema.Type] = c.newCacheHandler(schema, crd.KnownTypes[schema.Type].Object.DeepCopyObject(), schema.Type, resyncPeriod,
+func (c *controller) addInformer(schema collection.Schema, namespace string, resyncPeriod time.Duration) {
+	kind := schema.Resource().Kind()
+	schemaType := crd.SupportedTypes[kind]
+	c.kinds[kind] = c.newCacheHandler(schema, schemaType.Object.DeepCopyObject(), kind, resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
-			result = crd.KnownTypes[schema.Type].Collection.DeepCopyObject()
-			rc, ok := c.client.clientset[crd.APIVersion(&schema)]
+			result = schemaType.Collection.DeepCopyObject()
+			rc, ok := c.client.clientset[schema.Resource().APIVersion()]
 			if !ok {
-				return nil, fmt.Errorf("client not initialized %s", schema.Type)
+				return nil, fmt.Errorf("client not initialized %s", kind)
 			}
 			req := rc.dynamic.Get().
-				Resource(crd.ResourceName(schema.Plural)).
+				Resource(schema.Resource().Plural()).
 				VersionedParams(&opts, meta_v1.ParameterCodec)
 
-			if !schema.ClusterScoped {
+			if !schema.Resource().IsClusterScoped() {
 				req = req.Namespace(namespace)
 			}
 			err = req.Do().Into(result)
 			return
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			rc, ok := c.client.clientset[crd.APIVersion(&schema)]
+			rc, ok := c.client.clientset[schema.Resource().APIVersion()]
 			if !ok {
-				return nil, fmt.Errorf("client not initialized %s", schema.Type)
+				return nil, fmt.Errorf("client not initialized %s", kind)
 			}
 			opts.Watch = true
 			req := rc.dynamic.Get().
-				Resource(crd.ResourceName(schema.Plural)).
+				Resource(schema.Resource().Plural()).
 				VersionedParams(&opts, meta_v1.ParameterCodec)
-			if !schema.ClusterScoped {
+			if !schema.Resource().IsClusterScoped() {
 				req = req.Namespace(namespace)
 			}
 			return req.Watch()
@@ -147,7 +149,7 @@ func (c *controller) checkReadyForEvents(curr interface{}) error {
 }
 
 func (c *controller) newCacheHandler(
-	schema schema.Instance,
+	schema collection.Schema,
 	o runtime.Object,
 	otype string,
 	resyncPeriod time.Duration,
@@ -244,8 +246,8 @@ func (h *cacheHandler) onEvent(old, curr interface{}, event model.Event) error {
 	return nil
 }
 
-func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Config, model.Event)) {
-	h, exists := c.kinds[typ]
+func (c *controller) RegisterEventHandler(kind string, f func(model.Config, model.Config, model.Event)) {
+	h, exists := c.kinds[kind]
 	if !exists {
 		return
 	}
@@ -286,12 +288,12 @@ func (c *controller) Run(stop <-chan struct{}) {
 	log.Info("controller terminated")
 }
 
-func (c *controller) ConfigDescriptor() schema.Set {
-	return c.client.ConfigDescriptor()
+func (c *controller) Schemas() collection.Schemas {
+	return c.client.Schemas()
 }
 
 func (c *controller) Get(typ, name, namespace string) *model.Config {
-	s, exists := c.client.ConfigDescriptor().GetByType(typ)
+	s, exists := c.client.Schemas().FindByKind(typ)
 	if !exists {
 		return nil
 	}
@@ -314,7 +316,7 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 
 	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
 	if err == nil && features.EnableCRDValidation.Get() {
-		if err = s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+		if err = s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
 			handleValidationFailure(obj, err)
 			return nil
 		}
@@ -336,7 +338,7 @@ func (c *controller) Delete(typ, name, namespace string) error {
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	s, ok := c.client.ConfigDescriptor().GetByType(typ)
+	s, ok := c.client.Schemas().FindByKind(typ)
 	if !ok {
 		return nil, fmt.Errorf("missing type %q", typ)
 	}
@@ -355,7 +357,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
 
 		if err == nil && features.EnableCRDValidation.Get() {
-			err = s.Validate(config.Name, config.Namespace, config.Spec)
+			err = s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec)
 		}
 
 		if err != nil {

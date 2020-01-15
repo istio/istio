@@ -20,12 +20,12 @@ import (
 	"path/filepath"
 	"sort"
 
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
-
-	"istio.io/pkg/log"
 )
 
 var (
@@ -44,20 +44,20 @@ type FileSnapshot struct {
 
 // NewFileSnapshot returns a snapshotter.
 // If no types are provided in the descriptor, all Istio types will be allowed.
-func NewFileSnapshot(root string, descriptor schema.Set) *FileSnapshot {
+func NewFileSnapshot(root string, schemas collection.Schemas) *FileSnapshot {
 	snapshot := &FileSnapshot{
 		root:             root,
 		configTypeFilter: make(map[string]bool),
 	}
 
-	types := descriptor.Types()
-	if len(types) == 0 {
-		types = schemas.Istio.Types()
+	kinds := schemas.Kinds()
+	if len(kinds) == 0 {
+		kinds = collections.Pilot.Kinds()
 	}
 
-	for _, k := range types {
-		if s, ok := schemas.Istio.GetByType(k); ok {
-			snapshot.configTypeFilter[s.Type] = true
+	for _, k := range kinds {
+		if _, ok := collections.Pilot.FindByKind(k); ok {
+			snapshot.configTypeFilter[k] = true
 		}
 	}
 
