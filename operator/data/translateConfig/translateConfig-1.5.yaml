@@ -36,6 +36,8 @@ kubernetesMapping:
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"
   "Components.{{.ComponentName}}.K8S.ServiceAnnotations":
     outPath: "[Service:{{.ResourceName}}].metadata.annotations"
+  "Components.{{.ComponentName}}.K8S.Service":
+    outPath: "[Service:{{.ResourceName}}].spec"
 globalNamespaces:
   Pilot:      "istioNamespace"
   Galley:     "configNamespace"

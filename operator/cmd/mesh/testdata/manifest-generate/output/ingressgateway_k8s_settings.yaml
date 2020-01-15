@@ -1,0 +1,267 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+
+    release: istio
+spec:
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        app: istio-ingressgateway
+        istio: ingressgateway
+        heritage: Tiller
+        release: istio
+        chart: gateways
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-ingressgateway-service-account
+      containers:
+        - name: istio-proxy
+          image: "gcr.io/istio-testing/proxyv2:latest"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 15020
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 15029
+            - containerPort: 15030
+            - containerPort: 15031
+            - containerPort: 15032
+            - containerPort: 15443
+            - containerPort: 15011
+            - containerPort: 8060
+            - containerPort: 853
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+            - proxy
+            - router
+            - --domain
+            - $(POD_NAMESPACE).svc.cluster.local
+            - --proxyLogLevel=warning
+            - --proxyComponentLogLevel=misc:error
+            - --log_output_level=default:info
+            - --drainDuration
+            - '45s' #drainDuration
+            - --parentShutdownDuration
+            - '1m0s' #parentShutdownDuration
+            - --connectTimeout
+            - '10s' #connectTimeout
+            - --serviceCluster
+            - istio-ingressgateway
+            - --zipkinAddress
+            - zipkin.istio-system:9411
+            - --proxyAdminPort
+            - "15000"
+            - --statusPort
+            - "15020"
+            - --controlPlaneAuthPolicy
+            - NONE
+            - --discoveryAddress
+            - istio-pilot.istio-system.svc:15012
+            - --trust-domain=cluster.local
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+
+          env:
+            - name: "ISTIO_META_USER_SDS"
+              value: "true"
+            - name: CA_ADDR
+              value: istio-pilot.istio-system.svc:15012
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.hostIP
+            - name: SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: ISTIO_META_WORKLOAD_NAME
+              value: istio-ingressgateway
+            - name: ISTIO_META_OWNER
+              value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
+            - name: ISTIO_META_MESH_ID
+              value: "cluster.local"
+            - name: ISTIO_AUTO_MTLS_ENABLED
+              value: "true"
+            - name: ISTIO_META_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: ISTIO_META_CONFIG_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ISTIO_META_ROUTER_MODE
+              value: sni-dnat
+
+            - name: ISTIO_METAJSON_LABELS
+              value: |
+                {"app":"istio-ingressgateway","istio":"ingressgateway"}
+            - name: ISTIO_META_CLUSTER_ID
+              value: "Kubernetes"
+            - name: SDS_ENABLED
+              value: "false"
+          volumeMounts:
+            - name: istio-token
+              mountPath: /var/run/secrets/tokens
+              readOnly: true
+
+            - name: istio-certs
+              mountPath: /etc/certs
+              readOnly: true
+            - name: ingressgateway-certs
+              mountPath: "/etc/istio/ingressgateway-certs"
+              readOnly: true
+            - name: ingressgateway-ca-certs
+              mountPath: "/etc/istio/ingressgateway-ca-certs"
+              readOnly: true
+      volumes:
+        - name: istio-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: istio-token
+                  expirationSeconds: 43200
+                  audience: istio-ca
+        - name: istio-certs
+          secret:
+            secretName: istio.istio-ingressgateway-service-account
+            optional: true
+        - name: ingressgateway-certs
+          secret:
+            secretName: "istio-ingressgateway-certs"
+            optional: true
+        - name: ingressgateway-ca-certs
+          secret:
+            secretName: "istio-ingressgateway-ca-certs"
+            optional: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: beta.kubernetes.io/arch
+                    operator: In
+                    values:
+                      - "amd64"
+                      - "ppc64le"
+                      - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 2
+              preference:
+                matchExpressions:
+                  - key: beta.kubernetes.io/arch
+                    operator: In
+                    values:
+                      - "amd64"
+            - weight: 2
+              preference:
+                matchExpressions:
+                  - key: beta.kubernetes.io/arch
+                    operator: In
+                    values:
+                      - "ppc64le"
+            - weight: 2
+              preference:
+                matchExpressions:
+                  - key: beta.kubernetes.io/arch
+                    operator: In
+                    values:
+                      - "s390x"
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  annotations:
+  labels:
+    app: istio-ingressgateway
+    release: istio
+    istio: ingressgateway
+spec:
+  type: LoadBalancer
+  selector:
+    app: istio-ingressgateway
+  externalTrafficPolicy: Local
+  ports:
+  - name: foo
+    port: 1234
+    targetPort: 1234
+  - name: status-port
+    port: 15020
+    targetPort: 15020
+  - name: http2
+    port: 80
+    targetPort: 80
+  - name: https
+    port: 443
+  - name: kiali
+    port: 15029
+    targetPort: 15029
+  - name: prometheus
+    port: 15030
+    targetPort: 15030
+  - name: grafana
+    port: 15031
+    targetPort: 15031
+  - name: tracing
+    port: 15032
+    targetPort: 15032
+  - name: tls
+    port: 15443
+    targetPort: 15443

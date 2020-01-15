@@ -144,6 +144,15 @@ func TestManifestGenerateTelemetry(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateGateway(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "ingressgateway_k8s_settings",
+			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
+		},
+	})
+}
+
 func TestManifestGenerateOrdered(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it
