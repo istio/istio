@@ -46,12 +46,12 @@ import (
 	"k8s.io/utils/pointer"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/operator/pkg/helm"
-	"istio.io/operator/pkg/kubectlcmd"
-	"istio.io/operator/pkg/name"
-	"istio.io/operator/pkg/object"
-	"istio.io/operator/pkg/util"
-	pkgversion "istio.io/operator/pkg/version"
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/kubectlcmd"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/util"
+	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
 
@@ -659,7 +659,7 @@ func getPods(client kubernetes.Interface, namespace string, selector map[string]
 func namespacesReady(namespaces []v1.Namespace) bool {
 	for _, namespace := range namespaces {
 		if !isNamespaceReady(&namespace) {
-			logAndPrint("Namespace is not ready: %s/%s", namespace.GetName())
+			logAndPrint("Namespace is not ready: %s", namespace.GetName())
 			return false
 		}
 	}

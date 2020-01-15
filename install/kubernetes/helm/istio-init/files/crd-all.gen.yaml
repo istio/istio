@@ -2886,6 +2886,9 @@ spec:
   versions:
   - name: v1alpha3
     served: true
+    storage: false
+  - name: v1beta1
+    served: true
     storage: true
 
 ---
@@ -3329,6 +3332,9 @@ spec:
   versions:
   - name: v1alpha3
     served: true
+    storage: false
+  - name: v1beta1
+    served: true
     storage: true
 
 ---
@@ -3474,6 +3480,9 @@ spec:
   versions:
   - name: v1alpha3
     served: true
+    storage: false
+  - name: v1beta1
+    served: true
     storage: true
 
 ---
@@ -3596,6 +3605,9 @@ spec:
       type: object
   versions:
   - name: v1alpha3
+    served: true
+    storage: false
+  - name: v1beta1
     served: true
     storage: true
 
@@ -4271,6 +4283,9 @@ spec:
       type: object
   versions:
   - name: v1alpha3
+    served: true
+    storage: false
+  - name: v1beta1
     served: true
     storage: true
 

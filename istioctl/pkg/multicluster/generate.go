@@ -28,17 +28,17 @@ import (
 	ktypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/mesh/v1alpha1"
-	operatorV1alpha1 "istio.io/operator/pkg/apis/istio/v1alpha1"
-	operatorV1alpha2 "istio.io/operator/pkg/apis/istio/v1alpha2"
-	"istio.io/operator/pkg/util"
-	"istio.io/operator/pkg/validate"
+	iop "istio.io/api/operator/v1alpha1"
+	operatorV1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/validate"
 
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // defaults the user can override
-func defaultControlPlane() (*operatorV1alpha2.IstioControlPlane, error) {
+func defaultControlPlane() (*operatorV1alpha1.IstioOperator, error) {
 	typedValues := &operatorV1alpha1.Values{
 		Security: &operatorV1alpha1.SecurityConfig{
 			SelfSigned: &types.BoolValue{Value: false},
@@ -50,13 +50,13 @@ func defaultControlPlane() (*operatorV1alpha2.IstioControlPlane, error) {
 		return nil, err
 	}
 
-	return &operatorV1alpha2.IstioControlPlane{
+	return &operatorV1alpha1.IstioOperator{
 		Kind:       "IstioOperator",
 		ApiVersion: "install.istio.io/v1alpha1",
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "default",
 		},
-		Spec: &operatorV1alpha2.IstioControlPlaneSpec{
+		Spec: &iop.IstioOperatorSpec{
 			Profile: "default",
 			Values:  typedValuesJSON,
 		},
@@ -65,7 +65,7 @@ func defaultControlPlane() (*operatorV1alpha2.IstioControlPlane, error) {
 
 // overlay configuration which will override user config.
 func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alpha1.MeshNetworks) ( // nolint: interfacer
-	*operatorV1alpha2.IstioControlPlane, error) {
+	*operatorV1alpha1.IstioOperator, error) {
 	meshNetworksJSON, err := protomarshal.ToJSONMap(meshNetworks)
 	if err != nil {
 		return nil, err
@@ -101,13 +101,13 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 		return nil, err
 	}
 
-	return &operatorV1alpha2.IstioControlPlane{
+	return &operatorV1alpha1.IstioOperator{
 		Kind:       "IstioOperator",
 		ApiVersion: "install.istio.io/v1alpha1",
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "default",
 		},
-		Spec: &operatorV1alpha2.IstioControlPlaneSpec{
+		Spec: &iop.IstioOperatorSpec{
 			Values:            typedValuesJSON,
 			UnvalidatedValues: untypedValues,
 		},
@@ -115,17 +115,17 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 }
 
 func generateIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alpha1.MeshNetworks, from string) (string, error) { // nolint:interfacer
-	var base *operatorV1alpha2.IstioControlPlane
+	var base *operatorV1alpha1.IstioOperator
 	if from != "" {
 		b, err := ioutil.ReadFile(from)
 		if err != nil {
 			return "", err
 		}
-		var user operatorV1alpha2.IstioControlPlane
+		var user operatorV1alpha1.IstioOperator
 		if err := util.UnmarshalWithJSONPB(string(b), &user); err != nil {
 			return "", err
 		}
-		if errs := validate.CheckIstioControlPlaneSpec(user.Spec, false); len(errs) != 0 {
+		if errs := validate.CheckIstioOperatorSpec(user.Spec, false); len(errs) != 0 {
 			return "", fmt.Errorf("source spec was not valid: %v", errs)
 		}
 		base = &user

@@ -19,8 +19,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/helmreconciler"
 )
 
 type IstioRenderingCustomizerFactory struct{}

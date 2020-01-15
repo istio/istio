@@ -18,10 +18,10 @@ import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schemas"
-
 	istiolog "istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/labels"
 )
 
 var (
@@ -81,21 +81,21 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 		policy.RbacConfig = rbacConfig.Spec.(*rbacproto.RbacConfig)
 	}
 
-	roles, err := env.List(schemas.ServiceRole.Type, NamespaceAll)
+	roles, err := env.List(collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
 	sortConfigByCreationTime(roles)
 	policy.addServiceRoles(roles)
 
-	bindings, err := env.List(schemas.ServiceRoleBinding.Type, NamespaceAll)
+	bindings, err := env.List(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
 	sortConfigByCreationTime(bindings)
 	policy.addServiceRoleBindings(bindings)
 
-	policies, err := env.List(schemas.AuthorizationPolicy.Type, NamespaceAll)
+	policies, err := env.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}

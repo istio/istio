@@ -21,16 +21,18 @@ import (
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 // TODO: move this out of 'external' package. Either 'serviceentry' package or
 // merge with aggregate (caching, events), and possibly merge both into the
 // config directory, for a single top-level cache and event system.
+
+var serviceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind()
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
 
@@ -60,74 +62,75 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 		refreshIndexes: true,
 	}
 	if configController != nil {
-		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(old, curr model.Config, event model.Event) {
-			cs := convertServices(curr)
+		configController.RegisterEventHandler(serviceEntryKind,
+			func(old, curr model.Config, event model.Event) {
+				cs := convertServices(curr)
 
-			// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
-			// only when services have changed - otherwise, just push endpoint updates.
-			fp := true
-			if event == model.EventUpdate {
-				// This is not needed, update should always have old populated, but just in case.
-				if old.Spec != nil {
-					os := convertServices(old)
-					fp = servicesChanged(os, cs)
-				} else {
-					log.Warnf("Spec is not available in the old service entry during update, proceeding with full push %v", old)
-				}
-			}
-
-			// If service entry is deleted, cleanup endpoint shards for services.
-			if event == model.EventDelete {
-				for _, svc := range cs {
-					c.XdsUpdater.SvcUpdate(c.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, event)
-				}
-			}
-
-			// Recomputing the index here is too expensive - lazy build when it is needed.
-			c.changeMutex.Lock()
-			c.lastChange = time.Now()
-			c.refreshIndexes = fp // Only recompute indexes if services have changed.
-			c.changeMutex.Unlock()
-
-			if fp {
-				pushReq := &model.PushRequest{
-					Full:               true,
-					NamespacesUpdated:  map[string]struct{}{curr.Namespace: {}},
-					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
-				}
-				c.XdsUpdater.ConfigUpdate(pushReq)
-			} else {
-				instances := convertInstances(curr, cs)
-				// If only instances have changed, just update the indexes for the changed instances.
-				c.updateExistingInstances(instances)
-				endpointsByHostname := make(map[string][]*model.IstioEndpoint)
-				for _, instance := range instances {
-					for _, port := range instance.Service.Ports {
-						endpointsByHostname[string(instance.Service.Hostname)] = append(endpointsByHostname[string(instance.Service.Hostname)],
-							&model.IstioEndpoint{
-								Address:         instance.Endpoint.Address,
-								EndpointPort:    uint32(port.Port),
-								ServicePortName: port.Name,
-								Labels:          instance.Endpoint.Labels,
-								UID:             instance.Endpoint.UID,
-								ServiceAccount:  instance.Endpoint.ServiceAccount,
-								Network:         instance.Endpoint.Network,
-								Locality:        instance.Endpoint.Locality,
-								Attributes: model.ServiceAttributes{
-									Name:      instance.Service.Attributes.Name,
-									Namespace: instance.Service.Attributes.Namespace,
-								},
-								TLSMode: instance.Endpoint.TLSMode,
-							})
+				// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
+				// only when services have changed - otherwise, just push endpoint updates.
+				fp := true
+				if event == model.EventUpdate {
+					// This is not needed, update should always have old populated, but just in case.
+					if old.Spec != nil {
+						os := convertServices(old)
+						fp = servicesChanged(os, cs)
+					} else {
+						log.Warnf("Spec is not available in the old service entry during update, proceeding with full push %v", old)
 					}
 				}
 
-				for host, eps := range endpointsByHostname {
-					_ = c.XdsUpdater.EDSUpdate(c.Cluster(), host, curr.Namespace, eps)
+				// If service entry is deleted, cleanup endpoint shards for services.
+				if event == model.EventDelete {
+					for _, svc := range cs {
+						c.XdsUpdater.SvcUpdate(c.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, event)
+					}
 				}
 
-			}
-		})
+				// Recomputing the index here is too expensive - lazy build when it is needed.
+				c.changeMutex.Lock()
+				c.lastChange = time.Now()
+				c.refreshIndexes = fp // Only recompute indexes if services have changed.
+				c.changeMutex.Unlock()
+
+				if fp {
+					pushReq := &model.PushRequest{
+						Full:               true,
+						NamespacesUpdated:  map[string]struct{}{curr.Namespace: {}},
+						ConfigTypesUpdated: map[string]struct{}{serviceEntryKind: {}},
+					}
+					c.XdsUpdater.ConfigUpdate(pushReq)
+				} else {
+					instances := convertInstances(curr, cs)
+					// If only instances have changed, just update the indexes for the changed instances.
+					c.updateExistingInstances(instances)
+					endpointsByHostname := make(map[string][]*model.IstioEndpoint)
+					for _, instance := range instances {
+						for _, port := range instance.Service.Ports {
+							endpointsByHostname[string(instance.Service.Hostname)] = append(endpointsByHostname[string(instance.Service.Hostname)],
+								&model.IstioEndpoint{
+									Address:         instance.Endpoint.Address,
+									EndpointPort:    uint32(port.Port),
+									ServicePortName: port.Name,
+									Labels:          instance.Endpoint.Labels,
+									UID:             instance.Endpoint.UID,
+									ServiceAccount:  instance.Endpoint.ServiceAccount,
+									Network:         instance.Endpoint.Network,
+									Locality:        instance.Endpoint.Locality,
+									Attributes: model.ServiceAttributes{
+										Name:      instance.Service.Attributes.Name,
+										Namespace: instance.Service.Attributes.Namespace,
+									},
+									TLSMode: instance.Endpoint.TLSMode,
+								})
+						}
+					}
+
+					for host, eps := range endpointsByHostname {
+						_ = c.XdsUpdater.EDSUpdate(c.Cluster(), host, curr.Namespace, eps)
+					}
+
+				}
+			})
 	}
 	return c
 }
@@ -141,17 +144,17 @@ func (d *ServiceEntryStore) Cluster() string {
 }
 
 // AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
-func (d *ServiceEntryStore) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+func (d *ServiceEntryStore) AppendServiceHandler(_ func(*model.Service, model.Event)) error {
 	return nil
 }
 
 // AppendInstanceHandler adds instance event handler. Service Entries does not use these handlers.
-func (d *ServiceEntryStore) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+func (d *ServiceEntryStore) AppendInstanceHandler(_ func(*model.ServiceInstance, model.Event)) error {
 	return nil
 }
 
 // Run is used by some controllers to execute background jobs after init is done.
-func (d *ServiceEntryStore) Run(stop <-chan struct{}) {}
+func (d *ServiceEntryStore) Run(_ <-chan struct{}) {}
 
 // Services list declarations of all services in the system
 func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
@@ -187,14 +190,14 @@ func (d *ServiceEntryStore) getServices() []*model.Service {
 // ManagementPorts retrieves set of health check ports by instance IP.
 // This does not apply to Service Entry registry, as Service entries do not
 // manage the service instances.
-func (d *ServiceEntryStore) ManagementPorts(addr string) model.PortList {
+func (d *ServiceEntryStore) ManagementPorts(_ string) model.PortList {
 	return nil
 }
 
 // WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
 // This does not apply to Service Entry registry, as Service entries do not
 // manage the service instances.
-func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+func (d *ServiceEntryStore) WorkloadHealthCheckInfo(_ string) model.ProbeList {
 	return nil
 }
 
@@ -332,7 +335,7 @@ func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg
-func (d *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
+func (d *ServiceEntryStore) GetIstioServiceAccounts(*model.Service, []int) []string {
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
 	return nil

@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"os"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 
 	"github.com/spf13/cobra"
 
-	"istio.io/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/helm"
 )
 
 func profileDiffCmd(rootArgs *rootArgs) *cobra.Command {

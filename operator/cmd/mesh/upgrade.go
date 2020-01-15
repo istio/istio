@@ -24,10 +24,10 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 
-	"istio.io/operator/pkg/compare"
-	"istio.io/operator/pkg/hooks"
-	"istio.io/operator/pkg/manifest"
-	opversion "istio.io/operator/version"
+	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/hooks"
+	"istio.io/istio/operator/pkg/manifest"
+	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
 
@@ -76,7 +76,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 		"c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
 		"The name of the kubeconfig context to use")
-	cmd.PersistentFlags().BoolVar(&args.skipConfirmation, "skip-confirmation", false,
+	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false,
 		"If skip-confirmation is set, skips the prompting confirmation for value changes in this upgrade")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
 		"Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
@@ -124,12 +124,12 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 
 	// Get the target version from the tag in the IOPS
-	targetVersion := targetIOPS.GetTag()
-	if targetVersion != opversion.OperatorVersionString {
+	targetTag := targetIOPS.GetTag()
+	targetVersion, err := pkgversion.TagToVersionString(targetTag)
+	if err != nil {
 		if !args.force {
-			return fmt.Errorf("the target version %v is not supported by istioctl %v, "+
-				"please download istioctl %v and run upgrade again", targetVersion,
-				opversion.OperatorVersionString, targetVersion)
+			return fmt.Errorf("failed to convert the target tag '%s' into a valid version, "+
+					"you can use --force flag to skip the version check if you know the tag is correct", targetTag)
 		}
 	}
 

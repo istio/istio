@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/operator/pkg/name"
+	"istio.io/istio/operator/pkg/name"
 )
 
 // RenderingCustomizer encompasses all the customization details for a specific rendering invocation.

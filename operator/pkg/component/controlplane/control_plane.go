@@ -16,12 +16,12 @@ package controlplane
 
 import (
 	"fmt"
-
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/operator/pkg/component/component"
-	"istio.io/operator/pkg/name"
-	"istio.io/operator/pkg/translate"
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/component/component"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
+	"sort"
 )
 
 // IstioOperator is an installation of an Istio control plane.
@@ -63,7 +63,8 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
 		out.components = append(out.components, component.NewEgressComponent(c.Name, idx, &o))
 	}
-	for cn, c := range installSpec.AddonComponents {
+	for _, cn := range orderedKeys(installSpec.AddonComponents) {
+		c := installSpec.AddonComponents[cn]
 		if c.Enabled == nil || !c.Enabled.Value {
 			continue
 		}
@@ -78,6 +79,15 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		out.components = append(out.components, component.NewAddonComponent(cn, rn, &o))
 	}
 	return out, nil
+}
+
+func orderedKeys(m map[string]*v1alpha1.ExternalComponentSpec) []string {
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func defaultIfEmpty(val, dflt string) string {

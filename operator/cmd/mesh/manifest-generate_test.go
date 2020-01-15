@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/operator/pkg/compare"
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/version"
 )
 

@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go-bindata --nocompress --nometadata --pkg vfs -o assets.gen.go --prefix ../../data ../../data/...
-
 // Package vfs is a set of file system utilities to access compiled-in helm charts.
 package vfs
 

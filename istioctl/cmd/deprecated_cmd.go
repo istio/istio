@@ -46,7 +46,6 @@ import (
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/util/pilotadapter"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
@@ -315,16 +314,16 @@ istioctl get virtualservice bookinfo
 				return errors.New("a resource cannot be retrieved by name across all namespaces")
 			}
 
-			var typs collection.Schemas
+			var schemas collection.Schemas
 			if !getByName && strings.EqualFold(args[0], "all") {
-				typs = pilotadapter.ConvertPilotSchemasToGalley(configClient.ConfigDescriptor())
+				schemas = configClient.Schemas()
 			} else {
 				typ, err := protoSchema(configClient, args[0])
 				if err != nil {
 					c.Println(c.UsageString())
 					return err
 				}
-				typs = collection.SchemasFor(typ)
+				schemas = collection.SchemasFor(typ)
 			}
 
 			var ns string
@@ -337,12 +336,12 @@ istioctl get virtualservice bookinfo
 			var errs error
 			var configs []model.Config
 			if getByName {
-				config := configClient.Get(typs.All()[0].Resource().Kind(), args[1], ns)
+				config := configClient.Get(schemas.All()[0].Resource().Kind(), args[1], ns)
 				if config != nil {
 					configs = append(configs, *config)
 				}
 			} else {
-				for _, s := range typs.All() {
+				for _, s := range schemas.All() {
 					kind := s.Resource().Kind()
 					typeConfigs, err := configClient.List(kind, ns)
 					if err == nil {
@@ -374,8 +373,8 @@ istioctl get virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(collections.Istio),
-		ArgAliases: configTypePluralResourceNames(collections.Istio),
+		ValidArgs:  configTypeResourceNames(collections.Pilot),
+		ArgAliases: configTypePluralResourceNames(collections.Pilot),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -474,8 +473,8 @@ istioctl delete virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(collections.Istio),
-		ArgAliases: configTypePluralResourceNames(collections.Istio),
+		ValidArgs:  configTypeResourceNames(collections.Pilot),
+		ArgAliases: configTypePluralResourceNames(collections.Pilot),
 	}
 
 	contextCmd = &cobra.Command{
@@ -551,7 +550,7 @@ func protoSchema(configClient model.ConfigStore, typ string) (collection.Schema,
 			typ, strings.ReplaceAll(typ, "-", ""))
 	}
 
-	for _, s := range pilotadapter.ConvertPilotSchemasToGalley(configClient.ConfigDescriptor()).All() {
+	for _, s := range configClient.Schemas().All() {
 		switch strings.ToLower(typ) {
 		case strings.ToLower(s.Resource().Kind()), strings.ToLower(s.Resource().Plural()):
 			return s, nil
@@ -720,14 +719,14 @@ func printShortGateway(config model.Config, w io.Writer) {
 
 // Print as YAML
 func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configList []model.Config) {
-	schema := pilotadapter.ConvertPilotSchemasToGalley(configClient.ConfigDescriptor())
+	schema := configClient.Schemas()
 	for _, config := range configList {
 		s, exists := schema.FindByKind(config.Type)
 		if !exists {
 			log.Errorf("Unknown kind %q for %v", config.Type, config.Name)
 			continue
 		}
-		obj, err := pilotadapter.ConvertConfigToObject(s, config)
+		obj, err := crd.ConvertConfig(s, config)
 		if err != nil {
 			log.Errorf("Could not decode %v: %v", config.Name, err)
 			continue
@@ -743,12 +742,12 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	return controller.NewClient(kubeconfig, configContext, pilotadapter.ConvertGalleySchemasToPilot(collections.Istio),
+	return controller.NewClient(kubeconfig, configContext, collections.Pilot,
 		"", &model.DisabledLedger{})
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
-	return configClient.ConfigDescriptor().Types()
+	return configClient.Schemas().Kinds()
 }
 
 func preprocMixerConfig(configs []crd.IstioKind) error {

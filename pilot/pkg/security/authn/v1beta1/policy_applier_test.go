@@ -183,8 +183,8 @@ func TestJwtFilter(t *testing.T) {
 														},
 													},
 													{
-														RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-															AllowMissingOrFailed: &empty.Empty{},
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
 														},
 													},
 												},
@@ -265,8 +265,47 @@ func TestJwtFilter(t *testing.T) {
 														},
 													},
 													{
-														RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-															AllowMissingOrFailed: &empty.Empty{},
+														RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
+															RequiresAll: &envoy_jwt.JwtRequirementAndList{
+																Requirements: []*envoy_jwt.JwtRequirement{
+																	{
+																		RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+																			RequiresAny: &envoy_jwt.JwtRequirementOrList{
+																				Requirements: []*envoy_jwt.JwtRequirement{
+																					{
+																						RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																							ProviderName: "origins-0",
+																						},
+																					},
+																					{
+																						RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																							AllowMissing: &empty.Empty{},
+																						},
+																					},
+																				},
+																			},
+																		},
+																	},
+																	{
+																		RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+																			RequiresAny: &envoy_jwt.JwtRequirementOrList{
+																				Requirements: []*envoy_jwt.JwtRequirement{
+																					{
+																						RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																							ProviderName: "origins-1",
+																						},
+																					},
+																					{
+																						RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																							AllowMissing: &empty.Empty{},
+																						},
+																					},
+																				},
+																			},
+																		},
+																	},
+																},
+															},
 														},
 													},
 												},
@@ -341,8 +380,8 @@ func TestJwtFilter(t *testing.T) {
 														},
 													},
 													{
-														RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-															AllowMissingOrFailed: &empty.Empty{},
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
 														},
 													},
 												},
@@ -405,8 +444,8 @@ func TestJwtFilter(t *testing.T) {
 														},
 													},
 													{
-														RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-															AllowMissingOrFailed: &empty.Empty{},
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
 														},
 													},
 												},
@@ -470,8 +509,8 @@ func TestJwtFilter(t *testing.T) {
 														},
 													},
 													{
-														RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-															AllowMissingOrFailed: &empty.Empty{},
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
 														},
 													},
 												},
@@ -536,8 +575,8 @@ func TestJwtFilter(t *testing.T) {
 														},
 													},
 													{
-														RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-															AllowMissingOrFailed: &empty.Empty{},
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
 														},
 													},
 												},
@@ -620,8 +659,8 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 											},
 										},
 										{
-											RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-												AllowMissingOrFailed: &empty.Empty{},
+											RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+												AllowMissing: &empty.Empty{},
 											},
 										},
 									},
@@ -681,8 +720,47 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 											},
 										},
 										{
-											RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-												AllowMissingOrFailed: &empty.Empty{},
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
+												RequiresAll: &envoy_jwt.JwtRequirementAndList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+																RequiresAny: &envoy_jwt.JwtRequirementOrList{
+																	Requirements: []*envoy_jwt.JwtRequirement{
+																		{
+																			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																				ProviderName: "origins-0",
+																			},
+																		},
+																		{
+																			RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																				AllowMissing: &empty.Empty{},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+																RequiresAny: &envoy_jwt.JwtRequirementOrList{
+																	Requirements: []*envoy_jwt.JwtRequirement{
+																		{
+																			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																				ProviderName: "origins-1",
+																			},
+																		},
+																		{
+																			RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																				AllowMissing: &empty.Empty{},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
 											},
 										},
 									},
@@ -744,8 +822,8 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 											},
 										},
 										{
-											RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-												AllowMissingOrFailed: &empty.Empty{},
+											RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+												AllowMissing: &empty.Empty{},
 											},
 										},
 									},
@@ -796,8 +874,8 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 											},
 										},
 										{
-											RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-												AllowMissingOrFailed: &empty.Empty{},
+											RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+												AllowMissing: &empty.Empty{},
 											},
 										},
 									},

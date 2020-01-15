@@ -14,7 +14,7 @@
 
 package mesh
 
-import "istio.io/operator/pkg/manifest"
+import "istio.io/istio/operator/pkg/manifest"
 
 const (
 	operatorResourceName = "istio-operator"

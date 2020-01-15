@@ -16,7 +16,9 @@ package controller
 
 import (
 	v1 "k8s.io/api/core/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -82,14 +84,23 @@ func (e *endpointsController) registerEndpointsHandler() {
 		})
 }
 
-func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
-	return e.serviceInstances(c, proxy, proxyNamespace, e.proxyServiceInstances)
+func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
+	eps, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).Endpoints(proxy.Metadata.Namespace).List(klabels.Everything())
+	if err != nil {
+		log.Errorf("Get endpoints by index failed: %v", err)
+		return nil
+	}
+	out := make([]*model.ServiceInstance, 0)
+	for _, ep := range eps {
+		instances := e.proxyServiceInstances(c, ep, proxy)
+		out = append(out, instances...)
+	}
+
+	return out
 }
 
-func (e *endpointsController) proxyServiceInstances(c *Controller, obj interface{}, proxy *model.Proxy) (string, []*model.ServiceInstance) {
+func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-
-	endpoints := obj.(*v1.Endpoints)
 
 	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
 	c.RLock()
@@ -123,7 +134,7 @@ func (e *endpointsController) proxyServiceInstances(c *Controller, obj interface
 		}
 	}
 
-	return endpoints.Namespace, out
+	return out
 }
 
 func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,

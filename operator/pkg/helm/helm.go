@@ -28,7 +28,7 @@ import (
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"k8s.io/helm/pkg/timeconv"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 

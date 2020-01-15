@@ -411,6 +411,28 @@ func TestSchemas_Remove(t *testing.T) {
 	}.MustBuild()
 
 	schemas := collection.SchemasFor(foo, bar)
-	g.Expect(schemas.Remove(bar.Name())).To(Equal(collection.SchemasFor(foo)))
-	g.Expect(schemas.Remove(foo.Name(), bar.Name(), baz.Name())).To(Equal(collection.SchemasFor()))
+	g.Expect(schemas.Remove(bar)).To(Equal(collection.SchemasFor(foo)))
+	g.Expect(schemas.Remove(foo, bar, baz)).To(Equal(collection.SchemasFor()))
+	g.Expect(schemas).To(Equal(collection.SchemasFor(foo, bar)))
+}
+
+func TestSchemas_Add(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	foo := collection.Builder{
+		Name:     "foo",
+		Resource: emptyResource,
+	}.MustBuild()
+	bar := collection.Builder{
+		Name:     "bar",
+		Resource: emptyResource,
+	}.MustBuild()
+	baz := collection.Builder{
+		Name:     "baz",
+		Resource: emptyResource,
+	}.MustBuild()
+
+	schemas := collection.SchemasFor(foo, bar)
+	g.Expect(schemas.Add(baz)).To(Equal(collection.SchemasFor(foo, bar, baz)))
+	g.Expect(schemas).To(Equal(collection.SchemasFor(foo, bar)))
 }

@@ -23,11 +23,11 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 
-	iopv1alpha1 "istio.io/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/operator/pkg/kubectlcmd"
-	"istio.io/operator/pkg/translate"
-	"istio.io/operator/pkg/util"
-	binversion "istio.io/operator/version"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/kubectlcmd"
+	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
+	binversion "istio.io/istio/operator/version"
 )
 
 const (

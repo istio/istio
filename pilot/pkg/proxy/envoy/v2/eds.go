@@ -27,6 +27,7 @@ import (
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -37,7 +38,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -500,7 +500,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		s.ConfigUpdate(&model.PushRequest{
 			Full:               requireFull,
 			NamespacesUpdated:  map[string]struct{}{namespace: {}},
-			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+			ConfigTypesUpdated: map[string]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(): {}},
 			EdsUpdates:         edsUpdates,
 		})
 	}
@@ -686,19 +686,15 @@ func (s *DiscoveryServer) generateEndpoints(
 	}
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
-	if push.Mesh.LocalityLbSetting != nil {
+	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
+	// will never detect the hosts are unhealthy and redirect traffic.
+	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(push, proxy, clusterName)
+	lbSetting := loadbalancer.GetLocalityLbSetting(push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		clonedCLA := util.CloneClusterLoadAssignment(l)
 		l = &clonedCLA
-
-		// Failover should only be enabled when there is an outlier detection, otherwise Envoy
-		// will never detect the hosts are unhealthy and redirect traffic.
-		enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, proxy, clusterName)
-		var localityLbSettings = push.Mesh.LocalityLbSetting
-		if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
-			localityLbSettings = loadBalancerSettings.LocalityLbSetting
-		}
-		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, localityLbSettings, enableFailover)
+		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, lbSetting, enableFailover)
 	}
 	return l
 }

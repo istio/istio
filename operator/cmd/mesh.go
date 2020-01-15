@@ -17,7 +17,7 @@ package main
 import (
 	"os"
 
-	"istio.io/operator/cmd/mesh"
+	"istio.io/istio/operator/cmd/mesh"
 )
 
 func main() {

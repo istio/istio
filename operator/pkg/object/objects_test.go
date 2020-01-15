@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util"
 )
 
 func TestHash(t *testing.T) {
