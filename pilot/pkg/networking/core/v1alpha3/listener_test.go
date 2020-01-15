@@ -117,9 +117,8 @@ var (
 			ConfigNamespace: "not-default",
 			IstioVersion:    "1.4",
 		},
-		ConfigNamespace:     "not-default",
-		WorkloadLabels:      labels.Collection{{"istio": "ingressgateway"}},
-		GatewayClusterNames: map[string]bool{},
+		ConfigNamespace: "not-default",
+		WorkloadLabels:  labels.Collection{{"istio": "ingressgateway"}},
 	}
 	proxyInstances = []*model.ServiceInstance{
 		{

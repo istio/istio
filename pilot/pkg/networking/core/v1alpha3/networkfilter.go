@@ -166,8 +166,6 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, proxyConfig)
-
-	node.GatewayClusterNames[clusterName] = true
 	return buildNetworkFiltersStack(node, port, tcpFilter, statPrefix, clusterName)
 }
 
@@ -207,9 +205,6 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 	if len(routes) == 1 {
 		service := node.SidecarScope.ServiceForHostname(host.Name(routes[0].Destination.Host), push.ServiceByHostnameAndNamespace)
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
-		if node.Type == model.Router {
-			node.GatewayClusterNames[clusterName] = true
-		}
 		return buildOutboundNetworkFiltersWithSingleDestination(push, node, clusterName, port)
 	}
 	return buildOutboundNetworkFiltersWithWeightedClusters(node, routes, push, port, configMeta)

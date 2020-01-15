@@ -21,22 +21,13 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	var rawRoutes []*xdsapi.RouteConfiguration
-	if features.FilterGatewayClusterConfig && con.node.Type == model.Router {
-		rawRoutes = con.node.GatewayRoutes
-		if !subset(con.Routes, con.node.GatewayRouteNames) {
-			adsLog.Warnf("Missing some routes in the cached routes. Requested: %v, Cached: %v", con.Routes, con.node.GatewayRouteNames)
-		}
-	} else {
-		rawRoutes = s.generateRawRoutes(con, push)
-	}
+	rawRoutes := s.generateRawRoutes(con, push)
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
 			con.RouteConfigs[r.Name] = r
@@ -87,20 +78,4 @@ func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string, non
 	}
 
 	return resp
-}
-
-// subset returns true if the first array is completely
-// contained in the second array.
-func subset(first, second []string) bool {
-	set := make(map[string]bool)
-	for _, v := range second {
-		set[v] = true
-	}
-
-	for _, v := range first {
-		if !set[v] {
-			return false
-		}
-	}
-	return true
 }

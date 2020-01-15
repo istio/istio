@@ -512,6 +512,65 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
+// GatewayServices returns the set of services which are refered from the proxy gateways.
+func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
+	svcs := ps.Services(proxy)
+	// gateway set.
+	gateways := map[string]bool{}
+	// host set.
+	hostsFromGateways := map[string]struct{}{}
+
+	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+		gateways[gw] = true
+	}
+	log.Debugf("GatewayServices: gateway %v has following gw resources:%v", proxy.ID, gateways)
+
+	for _, vsConfig := range ps.VirtualServices(proxy, gateways) {
+		vs, ok := vsConfig.Spec.(*networking.VirtualService)
+		if !ok { // should never happen
+			log.Errorf("Failed in getting a virtual service: %v", vsConfig.Labels)
+			return svcs
+		}
+
+		for _, h := range vs.Http {
+			for _, r := range h.Route {
+				hostsFromGateways[r.Destination.Host] = struct{}{}
+			}
+			if h.Mirror != nil {
+				hostsFromGateways[h.Mirror.Host] = struct{}{}
+			}
+		}
+
+		for _, h := range vs.Tls {
+			for _, r := range h.Route {
+				hostsFromGateways[r.Destination.Host] = struct{}{}
+			}
+		}
+
+		for _, h := range vs.Tcp {
+			for _, r := range h.Route {
+				hostsFromGateways[r.Destination.Host] = struct{}{}
+			}
+		}
+	}
+
+	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
+
+	gwSvcs := make([]*Service, 0, len(svcs))
+
+	for _, s := range svcs {
+		svcHost := string(s.Hostname)
+
+		if _, ok := hostsFromGateways[svcHost]; ok {
+			gwSvcs = append(gwSvcs, s)
+		}
+	}
+
+	log.Debugf("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
+
+	return gwSvcs
+}
+
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
@@ -560,16 +619,16 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 		rule := cfg.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
-			if gateways[constants.IstioMeshGateway] {
+			if _, ok := gateways[constants.IstioMeshGateway]; ok {
 				out = append(out, cfg)
 			}
 		} else {
 			for _, g := range rule.Gateways {
 				// note: Gateway names do _not_ use wildcard matching, so we do not use Name.Matches here
-				if gateways[resolveGatewayName(g, cfg.ConfigMeta)] {
+				if _, ok := gateways[resolveGatewayName(g, cfg.ConfigMeta)]; ok {
 					out = append(out, cfg)
 					break
-				} else if g == constants.IstioMeshGateway && gateways[g] {
+				} else if _, ok := gateways[g]; ok && g == constants.IstioMeshGateway {
 					// "mesh" gateway cannot be expanded into FQDN
 					out = append(out, cfg)
 					break

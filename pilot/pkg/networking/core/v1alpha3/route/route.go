@@ -433,9 +433,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 			if percent > 0 {
 				n := GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port)
-				if node.Type == model.Router {
-					node.GatewayClusterNames[n] = true
-				}
 				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
 					Cluster: n,
 					RuntimeFraction: &core.RuntimeFractionalPercent{
@@ -477,9 +474,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
-			if node.Type == model.Router {
-				node.GatewayClusterNames[n] = true
-			}
 
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
 				Name:                    n,
