@@ -509,26 +509,39 @@ func TestAuthorizationPolicies(t *testing.T) {
 
 func addRbacConfigToStore(kind, name, namespace string, store model.IstioConfigStore, t *testing.T) {
 	var value proto.Message
+	var group, version string
 	switch kind {
 	case collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind():
+		group = collections.IstioRbacV1Alpha1Serviceroles.Resource().Group()
+		version = collections.IstioRbacV1Alpha1Serviceroles.Resource().Version()
 		value = &rbacproto.ServiceRole{Rules: []*rbacproto.AccessRule{
 			{Services: []string{"service0"}, Methods: []string{"GET"}}}}
 	case collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind():
+		group = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group()
+		version = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version()
 		value = &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "User0"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"}}
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind():
+		group = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Group()
+		version = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Version()
 		value = &authz.AuthorizationPolicy{
 			Selector: &api.WorkloadSelector{
 				MatchLabels: map[string]string{"app": "test"},
 			},
 		}
-	default:
+	case collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Kind():
+		group = collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Group()
+		version = collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Version()
 		value = &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_ON}
+	default:
+		panic("Unknown kind: " + kind)
 	}
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      kind,
+			Group:     group,
+			Version:   version,
 			Name:      name,
 			Namespace: namespace,
 		},

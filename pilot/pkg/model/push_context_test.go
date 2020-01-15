@@ -198,9 +198,9 @@ func TestAuthNPolicies(t *testing.T) {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
 				Type:      collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
+				Group:     collections.IstioAuthenticationV1Alpha1Policies.Resource().Group(),
+				Version:   collections.IstioAuthenticationV1Alpha1Policies.Resource().Version(),
 				Name:      key,
-				Group:     "authentication",
-				Version:   "v1alpha2",
 				Domain:    "cluster.local",
 				Namespace: testNamespace,
 			},
@@ -224,9 +224,9 @@ func TestAuthNPolicies(t *testing.T) {
 	globalCfg := Config{
 		ConfigMeta: ConfigMeta{
 			Type:    collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(),
+			Group:   collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Group(),
+			Version: collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Version(),
 			Name:    constants.DefaultAuthenticationPolicyName,
-			Group:   "authentication",
-			Version: "v1alpha2",
 			Domain:  "cluster.local",
 		},
 		Spec: globalPolicy,
@@ -373,8 +373,6 @@ func TestJwtAuthNPolicy(t *testing.T) {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
 				Name:      key,
-				Group:     "authentication",
-				Version:   "v1alpha2",
 				Domain:    "cluster.local",
 				Namespace: "default",
 			},
@@ -383,9 +381,13 @@ func TestJwtAuthNPolicy(t *testing.T) {
 		if key == constants.DefaultAuthenticationPolicyName {
 			// Cluster-scoped policy
 			cfg.ConfigMeta.Type = collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind()
+			cfg.ConfigMeta.Version = collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Version()
+			cfg.ConfigMeta.Group = collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Group()
 			cfg.ConfigMeta.Namespace = NamespaceAll
 		} else {
 			cfg.ConfigMeta.Type = collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind()
+			cfg.ConfigMeta.Version = collections.IstioAuthenticationV1Alpha1Policies.Resource().Version()
+			cfg.ConfigMeta.Group = collections.IstioAuthenticationV1Alpha1Policies.Resource().Group()
 		}
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Error(err)

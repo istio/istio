@@ -286,7 +286,7 @@ func TestRemoveResourcesWithoutPermission(t *testing.T) {
 	mkSelfSubjectAccessReviews.DisallowResourceAttributes(&authorizationapi.ResourceAttributes{
 		Verb:     "list",
 		Group:    usedCollection.Resource().Group(),
-		Resource: usedCollection.Resource().CanonicalName(),
+		Resource: usedCollection.Resource().GroupVersionKind().String(),
 	})
 
 	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", nil, true)
