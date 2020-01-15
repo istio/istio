@@ -767,12 +767,13 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, po
 		}
 	}
 
-	re := regexp.MustCompile("/apis/networking/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
+	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
+	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
 		return "", "", fmt.Errorf("not a VS path: %s", path)
 	}
-	return ss[2], ss[1], nil
+	return ss[3], ss[2], nil
 }
 
 // getIstioVirtualServicePathForSvcFromRoute returns something like "/apis/networking/v1alpha3/namespaces/default/virtual-service/reviews"
@@ -914,12 +915,13 @@ func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, p
 		return "", "", err
 	}
 
-	re := regexp.MustCompile("/apis/networking/v1alpha3/namespaces/(?P<namespace>[^/]+)/destination-rule/(?P<name>[^/]+)")
+	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
+	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/destination-rule/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
 		return "", "", fmt.Errorf("not a DR path: %s", path)
 	}
-	return ss[2], ss[1], nil
+	return ss[3], ss[2], nil
 }
 
 // getIstioDestinationRulePathForSvc returns something like "/apis/networking/v1alpha3/namespaces/default/destination-rule/reviews"

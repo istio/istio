@@ -146,18 +146,6 @@ func TestDescribe(t *testing.T) {
 			var args []string
 			g := gomega.NewGomegaWithT(t)
 
-			// @@@ TODO remove this, it is for testing this integration test
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"pc", "cluster", podID, "-o", "json"}
-			output = istioCtl.InvokeOrFail(t, args)
-			fmt.Printf("@@@ ecs pc cluster is %s\n", output)
-
-			// @@@ TODO remove this, it is for testing this integration test
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"pc", "routes", podID, "-o", "json"}
-			output = istioCtl.InvokeOrFail(t, args)
-			fmt.Printf("@@@ ecs pc routes is %s\n", output)
-
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "describe", "pod", podID}
 			output = istioCtl.InvokeOrFail(t, args)
