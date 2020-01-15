@@ -2,6 +2,7 @@ apiVersion: config.istio.io/v1alpha2
 kind: listchecker
 metadata:
   name: whitelist
+  namespace: istio-system
 spec:
   # providerUrl: ordinarily black and white lists are maintained
   # externally and fetched asynchronously using the providerUrl.
@@ -12,6 +13,7 @@ apiVersion: config.istio.io/v1alpha2
 kind: listentry
 metadata:
   name: appversion
+  namespace: istio-system
 spec:
   value: source.labels["version"]
 ---
@@ -19,6 +21,7 @@ apiVersion: config.istio.io/v1alpha2
 kind: rule
 metadata:
   name: checkversion
+  namespace: istio-system
 spec:
   match: destination.labels["app"] == "ratings"
   actions:
