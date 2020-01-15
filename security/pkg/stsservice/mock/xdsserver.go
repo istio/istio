@@ -147,7 +147,11 @@ type XDSCallbacks struct {
 	mutex             sync.RWMutex
 	expectedToken     string
 	t                 *testing.T
-	numStreamClose    int
+
+	// These members close a stream for numStreamClose times, each time the stream
+	// lasts for streamDuration seconds. The numStreamClose + 1 stream is kept open.
+	numStreamClose int
+	streamDuration time.Duration
 }
 
 func CreateXdsCallback(t *testing.T) *XDSCallbacks {
@@ -166,12 +170,13 @@ func (c *XDSCallbacks) SetExpectedToken(expected string) {
 	c.expectedToken = expected
 }
 
-// SetNumberOfStreamClose force XDS server to close gRPC stream n times and then
-// accept streams.
-func (c *XDSCallbacks) SetNumberOfStreamClose(n int) {
+// SetNumberOfStreamClose force XDS server to close gRPC stream n times. Each
+// stream will last d seconds before close.
+func (c *XDSCallbacks) SetNumberOfStreamClose(n int, d int) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.numStreamClose = n
+	c.streamDuration = time.Duration(d) * time.Second
 }
 
 func (c *XDSCallbacks) ExpectedToken() string {
@@ -214,6 +219,7 @@ func (c *XDSCallbacks) OnStreamOpen(ctx context.Context, id int64, url string) e
 				c.t.Logf("xDS stream (id: %d, url: %s) has valid token: %v", id, url, h[0])
 			}
 			if c.numStream <= c.numStreamClose {
+				time.Sleep(c.streamDuration)
 				c.t.Logf("force close %d/%d xDS stream (id: %d, url: %s)", c.numStream, c.numStreamClose, id, url)
 				return fmt.Errorf("force to close the stream (id: %d, url: %s)", id, url)
 			}

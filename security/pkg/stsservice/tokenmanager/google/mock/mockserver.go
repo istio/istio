@@ -15,12 +15,12 @@
 package mock
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -184,10 +184,10 @@ func (ms *AuthorizationServer) Start(port int) error {
 	mux.HandleFunc(atEndpoint, ms.getAccessToken)
 	ms.t.Logf("Registered handler for endpoints:\n%s\n%s", atEndpoint, "/v1/identitybindingtoken")
 	server := &http.Server{
-		Addr:    ":",
+		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
 		Handler: mux,
 	}
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		log.Errorf("Server failed to listen %v", err)
 		return err
@@ -197,7 +197,6 @@ func (ms *AuthorizationServer) Start(port int) error {
 
 	ms.Port = port
 	ms.URL = fmt.Sprintf("http://localhost:%d", port)
-	server.Addr = ":" + strconv.Itoa(port)
 
 	go func() {
 		if err := server.Serve(ln); err != nil {
@@ -216,12 +215,10 @@ func (ms *AuthorizationServer) Stop() error {
 	if ms.server == nil {
 		return nil
 	}
-
-	return ms.server.Close()
+	return ms.server.Shutdown(context.TODO())
 }
 
 func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *http.Request) {
-	ms.numGetFederatedTokenCalls++
 	decoder := json.NewDecoder(req.Body)
 	var request federatedTokenRequest
 	err := decoder.Decode(&request)
@@ -230,11 +227,11 @@ func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *htt
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	var fakeErr error
-	var want federatedTokenRequest
+
 	ms.mutex.Lock()
-	want = ms.expectedFederatedTokenRequest
-	fakeErr = ms.generateFederatedTokenError
+	ms.numGetFederatedTokenCalls++
+	want := ms.expectedFederatedTokenRequest
+	fakeErr := ms.generateFederatedTokenError
 	ms.mutex.Unlock()
 
 	if req.Header.Get("Content-Type") != "application/json" {
@@ -261,7 +258,6 @@ func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *htt
 }
 
 func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.Request) {
-	ms.numGetAccessTokenCalls++
 	decoder := json.NewDecoder(req.Body)
 	var request accessTokenRequest
 	err := decoder.Decode(&request)
@@ -271,11 +267,15 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		return
 	}
 
-	var fakeErr error
-	want := accessTokenRequest{}
 	ms.mutex.Lock()
-	want = ms.expectedAccessTokenRequest
-	fakeErr = ms.generateAccessTokenError
+	ms.numGetAccessTokenCalls++
+	want := ms.expectedAccessTokenRequest
+	fakeErr := ms.generateAccessTokenError
+	tokenLifeInSec := ms.accessTokenLife
+	token := ms.accessToken
+	if ms.enableDynamicAccessToken {
+		token = token + time.Now().String()
+	}
 	ms.mutex.Unlock()
 
 	if req.Header.Get("Authorization") != "" {
@@ -301,14 +301,10 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	token := ms.accessToken
-	if ms.enableDynamicAccessToken {
-		token = token + time.Now().String()
-	}
 	resp := accessTokenResponse{
 		AccessToken: token,
 		ExpireTime: duration.Duration{
-			Seconds: 3600,
+			Seconds: int64(tokenLifeInSec),
 		},
 	}
 

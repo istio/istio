@@ -24,9 +24,9 @@ import (
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
 
-// TestCachedToken verifies when proxy reconnect XDS server and sends token on
-// the new stream, if the original token is not expired, gRPC library does not call
-// STS server and returns cached token to proxy.
+// TestCachedToken verifies when proxy reconnects XDS server and sends token on
+// the stream, if the original token is not expired, gRPC library does not call
+// STS server and provides cached token to proxy.
 func TestCachedToken(t *testing.T) {
 	// Enable this test when gRPC fix is picked by Istio Proxy
 	// https://github.com/grpc/grpc/pull/21641
@@ -34,7 +34,8 @@ func TestCachedToken(t *testing.T) {
 	// Sets up callback that verifies token on new XDS stream.
 	cb := xdsService.CreateXdsCallback(t)
 	numCloseStream := 3
-	cb.SetNumberOfStreamClose(numCloseStream)
+	// Force XDS server to close streams 3 times and keep the 4th stream open.
+	cb.SetNumberOfStreamClose(numCloseStream, 0)
 	// Start all test servers and proxy
 	setup := stsTest.SetUpTest(t, cb, testID.STSCacheTest)
 	// Explicitly set token life time to a long duration.
@@ -42,11 +43,11 @@ func TestCachedToken(t *testing.T) {
 	// Explicitly set auth server to return different access token to each call.
 	setup.AuthServer.EnableDynamicAccessToken(true)
 	// Verify that initially XDS stream is not set up, stats are not incremented.
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
 	// Get initial number of calls to auth server. They are not zero due to STS flow test
-	// in the test setup, to make sure the servers are up and ready to serve.
+	// in the test setup phase, which is to make sure the servers are up and ready.
 	initialNumFederatedTokenCall := setup.AuthServer.NumGetFederatedTokenCalls()
 	initialNumAccessTokenCall := setup.AuthServer.NumGetAccessTokenCalls()
 	setup.StartProxy(t)
@@ -55,7 +56,7 @@ func TestCachedToken(t *testing.T) {
 	// same token is received.
 	g.Expect(cb.NumStream()).To(gomega.Equal(numCloseStream + 1))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(1))
-	// Verify only one extra call for each token, and no more calls to auth server during reconnect.
+	// Verify there is only one extra call for each token.
 	g.Expect(setup.AuthServer.NumGetFederatedTokenCalls()).To(gomega.Equal(initialNumFederatedTokenCall + 1))
 	g.Expect(setup.AuthServer.NumGetAccessTokenCalls()).To(gomega.Equal(initialNumAccessTokenCall + 1))
 	setup.TearDown()

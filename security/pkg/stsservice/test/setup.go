@@ -95,12 +95,13 @@ func WriteDataToFile(path string, content string) error {
 // Envoy loads a test config that requires token credential to access XDS server.
 // That token credential is provisioned by STS server.
 // Here is a map between ports and servers
-// auth server    : MixerPort
-// STS server     : ServerProxyPort
-// proxy listener : ClientProxyPort
-// XDS server     : DiscoveryPort
-// test backend   : BackendPort
-// proxy admin    : AdminPort
+// auth server            : MixerPort
+// STS server             : ServerProxyPort
+// Dynamic proxy listener : ClientProxyPort
+// Static proxy listener  : TCPProxyPort
+// XDS server             : DiscoveryPort
+// test backend           : BackendPort
+// proxy admin            : AdminPort
 func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16) *Env {
 	// Set up credential files for bootstrap config
 	jwtToken := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/trustworthy-jwt.jwt", t)
@@ -157,23 +158,25 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16) *Env {
 }
 
 // DumpPortMap dumps port allocation status
-// auth server    : MixerPort
-// STS server     : ServerProxyPort
-// proxy listener : ClientProxyPort
-// XDS server     : DiscoveryPort
-// test backend   : BackendPort
-// proxy admin    : AdminPort
+// auth server            : MixerPort
+// STS server             : ServerProxyPort
+// Dynamic proxy listener : ClientProxyPort
+// Static proxy listener  : TCPProxyPort
+// XDS server             : DiscoveryPort
+// test backend           : BackendPort
+// proxy admin            : AdminPort
 func (e *Env) DumpPortMap(t *testing.T) {
 	log.Printf("\n\tport allocation status\t\t\t\n"+
-		"auth server\t:\t%d\n"+
-		"STS server\t:\t%d\n"+
-		"listener port\t:\t%d\n"+
-		"XDS server\t:\t%d\n"+
-		"test backend\t:\t%d\n"+
-		"proxy admin\t:\t%d", e.ProxySetUp.Ports().MixerPort,
+		"auth server\t\t:\t%d\n"+
+		"STS server\t\t:\t%d\n"+
+		"dynamic listener port\t:\t%d\n"+
+		"static listener port\t:\t%d\n"+
+		"XDS server\t\t:\t%d\n"+
+		"test backend\t\t:\t%d\n"+
+		"proxy admin\t\t:\t%d", e.ProxySetUp.Ports().MixerPort,
 		e.ProxySetUp.Ports().ServerProxyPort, e.ProxySetUp.Ports().ClientProxyPort,
-		e.ProxySetUp.Ports().DiscoveryPort, e.ProxySetUp.Ports().BackendPort,
-		e.ProxySetUp.Ports().AdminPort)
+		e.ProxySetUp.Ports().TCPProxyPort, e.ProxySetUp.Ports().DiscoveryPort,
+		e.ProxySetUp.Ports().BackendPort, e.ProxySetUp.Ports().AdminPort)
 }
 
 func (e *Env) StartProxy(t *testing.T) {

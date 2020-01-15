@@ -65,6 +65,8 @@ const (
 	TracingHeaderTest
 	STSTest
 	STSCacheTest
+	STSRenewTest
+	STSFailureTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
