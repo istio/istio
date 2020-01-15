@@ -148,6 +148,8 @@ const (
 
 	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
 	AlpnFilterName = "istio.alpn"
+
+	ThriftRLSDefaultTimeoutMS = 50
 )
 
 type FilterChainMatchOptions struct {
@@ -2058,7 +2060,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 func buildThriftRatelimit(rlsCluster, domain string) *thrift_ratelimit.RateLimit {
 	thriftRateLimit := &thrift_ratelimit.RateLimit{
 		Domain:          domain,
-		Timeout:         ptypes.DurationProto(20 * time.Millisecond),
+		Timeout:         ptypes.DurationProto(ThriftRLSDefaultTimeoutMS * time.Millisecond),
 		FailureModeDeny: false,
 		RateLimitService: &ratelimit.RateLimitServiceConfig{
 			GrpcService: &core.GrpcService{
