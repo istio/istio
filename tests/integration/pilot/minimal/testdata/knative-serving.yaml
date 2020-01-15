@@ -711,6 +711,7 @@ metadata:
 apiVersion: v1
 data:
   _example: ""
+  registriesSkippingTagResolving: istio.testing
   queueSidecarImage: gcr.io/knative-releases/knative.dev/serving/cmd/queue@sha256:077d82a8f7b3f8c645e95abdf20acf1f1c5ea4d2215aa43ac707920914db5cf8
 kind: ConfigMap
 metadata:

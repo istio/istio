@@ -82,7 +82,7 @@ E2E_ARGS+=("--use_local_cluster")
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 E2E_ARGS+=("--image_pull_policy" "IfNotPresent")
 
-export HUB=${HUB:-"istio-testing"}
+export HUB=${HUB:-"istio.testing"}
 export TAG="${TAG:-"istio-testing"}"
 
 make init

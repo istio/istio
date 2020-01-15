@@ -19,7 +19,7 @@ set -eux
 export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 mkdir -p "${ARTIFACTS}/out"
 
-HUB=istio-testing TAG=istio-testing make -f Makefile.core.mk controller docker
+HUB=istio.testing TAG=istio-testing make -f Makefile.core.mk controller docker
 
 ISTIO_DIR="${GOPATH}/src/istio.io/istio"
 
@@ -31,7 +31,7 @@ fi
 
 # Write out our personal HUB and TAG to the operator iamge to be consumed
 cp deploy/operator.yaml "${ARTIFACTS}/out"
-yq w "${ARTIFACTS}"/out/operator.yaml spec.template.spec.containers[*].image istio-testing/operator:istio-testing -i
+yq w "${ARTIFACTS}"/out/operator.yaml spec.template.spec.containers[*].image istio.testing/operator:istio-testing -i
 
 # yq doesn't preserve yaml start and end of documents - so we must create those for a proper deployment
 echo "---" > "${ARTIFACTS}"/out/deployment.yaml
@@ -52,7 +52,7 @@ source "./prow/lib.sh"
 setup_kind_cluster ""
 
 # Load the operator image into kind
-kind --loglevel debug --name istio-testing load docker-image istio-testing/operator:istio-testing
+kind --loglevel debug --name istio-testing load docker-image istio.testing/operator:istio-testing
 
 KUBECONFIG=$(kind get kubeconfig-path --name="istio-testing")
 export KUBECONFIG

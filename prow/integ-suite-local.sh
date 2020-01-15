@@ -31,7 +31,7 @@ setup_and_export_git_sha
 
 cd "${ROOT}"
 
-export HUB=${HUB:-"istio-testing"}
+export HUB=${HUB:-"istio.testing"}
 export TAG="${TAG:-"istio-testing"}"
 
 make docker.app_sidecar docker.app

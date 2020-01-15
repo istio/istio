@@ -72,7 +72,7 @@ export TEST_ENV=kind
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 export PULL_POLICY=IfNotPresent
 
-export HUB=${HUB:-"istio-testing"}
+export HUB=${HUB:-"istio.testing"}
 export TAG="${TAG:-"istio-testing"}"
 
 # Setup junit report and verbose logging
