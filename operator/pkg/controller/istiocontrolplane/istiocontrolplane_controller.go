@@ -169,6 +169,13 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		iop.SetFinalizers(finalizers.List())
 		err := r.client.Update(context.TODO(), iop)
 		if err != nil {
+			if errors.IsNotFound(err) {
+				log.Infof("Could not add finalizer to %v: the object was deleted", request)
+				return reconcile.Result{}, nil
+			} else if errors.IsConflict(err) {
+				log.Infof("Could not add finalizer to %v due to conflict. Operation will be retried in next reconcile attempt", request)
+				return reconcile.Result{}, nil
+			}
 			log.Errorf("Failed to update IstioOperator with finalizer, %v", err)
 			return reconcile.Result{}, err
 		}
