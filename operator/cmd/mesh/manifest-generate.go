@@ -29,8 +29,8 @@ import (
 )
 
 type manifestGenerateArgs struct {
-	// inFilename is the path to the input IstioOperator CR.
-	inFilename string
+	// inFilename is an array of paths to the input IstioOperator CR files.
+	inFilename []string
 	// outFilename is the path to the generated output directory.
 	outFilename string
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
@@ -41,7 +41,7 @@ type manifestGenerateArgs struct {
 }
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
-	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path")
 	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
