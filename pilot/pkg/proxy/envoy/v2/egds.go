@@ -296,6 +296,8 @@ func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct
 
 	added := make([]*model.IstioEndpoint, 0, len(newEps))
 
+	t0 := time.Now()
+
 MainAddedLoop:
 	for _, nep := range newEps {
 		for _, pep := range prevEps {
@@ -320,6 +322,11 @@ MainRemovedLoop:
 		// The endpoint was not found in new list. Mark it removed.
 		removed = append(removed, pep)
 	}
+
+	eslapsedTime := time.Since(t0)
+
+	adsLog.Debugf(fmt.Sprintf("endpoints diff calculated, total: %d, added: %d, removed: %d, time cost: %d", 
+		len(g.IstioEndpoints), len(added), len(removed), eslapsedTime))
 
 	names := g.updateEndpointGroups(added, removed)
 
