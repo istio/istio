@@ -39389,7 +39389,7 @@ spec:
     telemetry:
       enabled: true
       v2:
-        enabled: false
+        enabled: true
         prometheus:
           enabled: true
         stackdriver:
