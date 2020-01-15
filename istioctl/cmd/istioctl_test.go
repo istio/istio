@@ -21,10 +21,10 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/schema"
 )
 
 // sortedConfigStore lets us facade any ConfigStore (such as memory.Make()'s) providing
@@ -90,7 +90,7 @@ func mockClientFactoryGenerator(configs []model.Config) func() (model.ConfigStor
 		}
 
 		// Initialize memory based model.ConfigStore with configs
-		outConfig := memory.Make(realClient.ConfigDescriptor())
+		outConfig := memory.Make(realClient.Schemas())
 		for _, config := range configs {
 			if _, err := outConfig.Create(config); err != nil {
 				return nil, err
@@ -119,8 +119,8 @@ func (cs sortedConfigStore) Delete(typ, name, namespace string) error {
 	return cs.store.Delete(typ, name, namespace)
 }
 
-func (cs sortedConfigStore) ConfigDescriptor() schema.Set {
-	return cs.store.ConfigDescriptor()
+func (cs sortedConfigStore) Schemas() collection.Schemas {
+	return cs.store.Schemas()
 }
 
 func (cs sortedConfigStore) Version() string {

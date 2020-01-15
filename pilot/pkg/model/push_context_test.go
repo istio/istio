@@ -25,13 +25,13 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -196,7 +196,7 @@ func TestAuthNPolicies(t *testing.T) {
 	for key, value := range authNPolicies {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
-				Type:      schemas.AuthenticationPolicy.Type,
+				Type:      collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
 				Name:      key,
 				Group:     "authentication",
 				Version:   "v1alpha2",
@@ -222,7 +222,7 @@ func TestAuthNPolicies(t *testing.T) {
 	}
 	globalCfg := Config{
 		ConfigMeta: ConfigMeta{
-			Type:    schemas.AuthenticationMeshPolicy.Type,
+			Type:    collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(),
 			Name:    constants.DefaultAuthenticationPolicyName,
 			Group:   "authentication",
 			Version: "v1alpha2",
@@ -381,10 +381,10 @@ func TestJwtAuthNPolicy(t *testing.T) {
 		}
 		if key == constants.DefaultAuthenticationPolicyName {
 			// Cluster-scoped policy
-			cfg.ConfigMeta.Type = schemas.AuthenticationMeshPolicy.Type
+			cfg.ConfigMeta.Type = collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind()
 			cfg.ConfigMeta.Namespace = NamespaceAll
 		} else {
-			cfg.ConfigMeta.Type = schemas.AuthenticationPolicy.Type
+			cfg.ConfigMeta.Type = collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind()
 		}
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Error(err)
@@ -588,9 +588,9 @@ func TestSidecarScope(t *testing.T) {
 	}
 	configWithWorkloadSelector := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      schemas.Sidecar.Type,
-			Group:     schemas.Sidecar.Group,
-			Version:   schemas.Sidecar.Version,
+			Type:      collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(),
+			Group:     collections.IstioNetworkingV1Alpha3Sidecars.Resource().Group(),
+			Version:   collections.IstioNetworkingV1Alpha3Sidecars.Resource().Version(),
 			Name:      "foo",
 			Namespace: "default",
 		},
@@ -598,9 +598,9 @@ func TestSidecarScope(t *testing.T) {
 	}
 	rootConfig := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      schemas.Sidecar.Type,
-			Group:     schemas.Sidecar.Group,
-			Version:   schemas.Sidecar.Version,
+			Type:      collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(),
+			Group:     collections.IstioNetworkingV1Alpha3Sidecars.Resource().Group(),
+			Version:   collections.IstioNetworkingV1Alpha3Sidecars.Resource().Version(),
 			Name:      "global",
 			Namespace: "istio-system",
 		},
@@ -668,8 +668,8 @@ func newFakeStore() *fakeStore {
 
 var _ ConfigStore = (*fakeStore)(nil)
 
-func (*fakeStore) ConfigDescriptor() schema.Set {
-	return schemas.Istio
+func (*fakeStore) Schemas() collection.Schemas {
+	return collections.Pilot
 }
 
 func (*fakeStore) Get(typ, name, namespace string) *Config { return nil }

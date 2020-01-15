@@ -27,8 +27,8 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
@@ -201,7 +201,7 @@ patterns:
 		t.Error("should produce an error")
 	}
 
-	gotFromJSON, err := schemas.HTTPAPISpec.FromJSON(wantJSON)
+	gotFromJSON, err := crd.FromJSON(collections.IstioConfigV1Alpha2Httpapispecs, wantJSON)
 	if err != nil {
 		t.Errorf("FromJSON failed: %v", err)
 	}
@@ -221,7 +221,7 @@ patterns:
 		t.Error("should produce an error")
 	}
 
-	gotFromYAML, err := schemas.HTTPAPISpec.FromYAML(wantYAML)
+	gotFromYAML, err := crd.FromYAML(collections.IstioConfigV1Alpha2Httpapispecs, wantYAML)
 	if err != nil {
 		t.Errorf("FromYAML failed: %v", err)
 	}
@@ -229,7 +229,7 @@ patterns:
 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
 	}
 
-	if _, err = schemas.HTTPAPISpec.FromYAML(":"); err == nil {
+	if _, err = crd.FromYAML(collections.IstioConfigV1Alpha2Httpapispecs, ":"); err == nil {
 		t.Errorf("should produce an error")
 	}
 
@@ -245,7 +245,7 @@ patterns:
 		t.Error("should produce an error")
 	}
 
-	gotFromJSONMap, err := schemas.HTTPAPISpec.FromJSONMap(wantJSONMap)
+	gotFromJSONMap, err := crd.FromJSONMap(collections.IstioConfigV1Alpha2Httpapispecs, wantJSONMap)
 	if err != nil {
 		t.Errorf("FromJSONMap failed: %v", err)
 	}
@@ -253,16 +253,16 @@ patterns:
 		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
 	}
 
-	if _, err = schemas.HTTPAPISpec.FromJSONMap(1); err == nil {
+	if _, err = crd.FromJSONMap(collections.IstioConfigV1Alpha2Httpapispecs, 1); err == nil {
 		t.Error("should produce an error")
 	}
-	if _, err = schemas.HTTPAPISpec.FromJSON(":"); err == nil {
+	if _, err = crd.FromJSON(collections.IstioConfigV1Alpha2Httpapispecs, ":"); err == nil {
 		t.Errorf("should produce an error")
 	}
 }
 
 func TestProtoSchemaConversions(t *testing.T) {
-	destinationRuleSchema := &schema.Instance{MessageName: schemas.DestinationRule.MessageName}
+	destinationRuleSchema := collections.IstioNetworkingV1Alpha3Destinationrules
 
 	msg := &networking.DestinationRule{
 		Host: "something.svc.local",
@@ -319,8 +319,8 @@ trafficPolicy:
 		},
 	}
 
-	badSchema := &schema.Instance{MessageName: "bad-name"}
-	if _, err := badSchema.FromYAML(wantYAML); err == nil {
+	badSchema := schemaFor("bad", "bad-name")
+	if _, err := crd.FromYAML(badSchema, wantYAML); err == nil {
 		t.Errorf("FromYAML should have failed using Schema with bad MessageName")
 	}
 
@@ -336,7 +336,7 @@ trafficPolicy:
 		t.Error("should produce an error")
 	}
 
-	gotFromJSON, err := destinationRuleSchema.FromJSON(wantJSON)
+	gotFromJSON, err := crd.FromJSON(destinationRuleSchema, wantJSON)
 	if err != nil {
 		t.Errorf("FromJSON failed: %v", err)
 	}
@@ -356,7 +356,7 @@ trafficPolicy:
 		t.Error("should produce an error")
 	}
 
-	gotFromYAML, err := destinationRuleSchema.FromYAML(wantYAML)
+	gotFromYAML, err := crd.FromYAML(destinationRuleSchema, wantYAML)
 	if err != nil {
 		t.Errorf("FromYAML failed: %v", err)
 	}
@@ -364,7 +364,7 @@ trafficPolicy:
 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
 	}
 
-	if _, err = destinationRuleSchema.FromYAML(":"); err == nil {
+	if _, err = crd.FromYAML(destinationRuleSchema, ":"); err == nil {
 		t.Errorf("should produce an error")
 	}
 
@@ -380,7 +380,7 @@ trafficPolicy:
 		t.Error("should produce an error")
 	}
 
-	gotFromJSONMap, err := destinationRuleSchema.FromJSONMap(wantJSONMap)
+	gotFromJSONMap, err := crd.FromJSONMap(destinationRuleSchema, wantJSONMap)
 	if err != nil {
 		t.Errorf("FromJSONMap failed: %v", err)
 	}
@@ -388,10 +388,10 @@ trafficPolicy:
 		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
 	}
 
-	if _, err = destinationRuleSchema.FromJSONMap(1); err == nil {
+	if _, err = crd.FromJSONMap(destinationRuleSchema, 1); err == nil {
 		t.Error("should produce an error")
 	}
-	if _, err = destinationRuleSchema.FromJSON(":"); err == nil {
+	if _, err = crd.FromJSONMap(destinationRuleSchema, ":"); err == nil {
 		t.Errorf("should produce an error")
 	}
 }

@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/util/pilotadapter"
 	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -29,6 +28,6 @@ var (
 )
 
 func newClient() (model.ConfigStore, error) {
-	return controller.NewClient(kubeconfig, configContext, pilotadapter.ConvertGalleySchemasToPilot(collections.Istio),
+	return controller.NewClient(kubeconfig, configContext, collections.Pilot,
 		"", &model.DisabledLedger{})
 }

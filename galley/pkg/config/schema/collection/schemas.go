@@ -152,14 +152,30 @@ func (s Schemas) All() []Schema {
 	return append(make([]Schema, 0, len(s.byAddOrder)), s.byAddOrder...)
 }
 
-// Remove creates a copy of this schema with the given collections removed.
-func (s Schemas) Remove(names ...Name) Schemas {
+// Add creates a copy of this Schemas with the given schemas added.
+func (s Schemas) Add(toAdd ...Schema) Schemas {
+	b := NewSchemasBuilder()
+
+	for _, s := range s.byAddOrder {
+		b.MustAdd(s)
+	}
+
+	for _, s := range toAdd {
+		b.MustAdd(s)
+	}
+
+	return b.Build()
+
+}
+
+// Remove creates a copy of this Schemas with the given schemas removed.
+func (s Schemas) Remove(toRemove ...Schema) Schemas {
 	b := NewSchemasBuilder()
 
 	for _, s := range s.byAddOrder {
 		shouldAdd := true
-		for _, n := range names {
-			if n == s.Name() {
+		for _, r := range toRemove {
+			if r.Name() == s.Name() {
 				shouldAdd = false
 				break
 			}

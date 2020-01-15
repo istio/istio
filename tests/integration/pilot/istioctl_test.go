@@ -148,7 +148,7 @@ func TestDescribe(t *testing.T) {
 
 					podID, err := getPodID(a)
 					if err != nil {
-						t.Fatalf("Could not get Pod ID: %v", err)
+						ctx.Fatalf("Could not get Pod ID: %v", err)
 					}
 
 					args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
