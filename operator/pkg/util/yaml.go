@@ -203,3 +203,15 @@ func IsYAMLEqual(a, b string) bool {
 
 	return string(ajb) == string(bjb)
 }
+
+// IsYAMLEmpty reports whether the YAML string y is logically empty.
+func IsYAMLEmpty(y string) bool {
+	var yc []string
+	for _, l := range strings.Split(y, "\n") {
+		yt := strings.TrimSpace(l)
+		if !strings.HasPrefix(yt, "#") && !strings.HasPrefix(yt, "---") {
+			yc = append(yc, l)
+		}
+	}
+	return strings.TrimSpace(strings.Join(yc, "\n")) == "{}"
+}
