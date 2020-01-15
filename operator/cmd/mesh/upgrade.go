@@ -76,7 +76,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 		"c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
 		"The name of the kubeconfig context to use")
-	cmd.PersistentFlags().BoolVar(&args.skipConfirmation, "skip-confirmation", false,
+	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false,
 		"If skip-confirmation is set, skips the prompting confirmation for value changes in this upgrade")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
 		"Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
