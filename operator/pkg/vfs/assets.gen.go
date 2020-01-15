@@ -38902,7 +38902,7 @@ spec:
 
   # Policy feature
     policy:
-      enabled: true
+      enabled: false
       k8s:
         hpaSpec:
           maxReplicas: 5
