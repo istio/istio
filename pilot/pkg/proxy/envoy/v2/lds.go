@@ -19,6 +19,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
@@ -26,7 +27,13 @@ import (
 func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawListeners := s.generateRawListeners(con, push)
+
+	var rawListeners []*xdsapi.Listener
+	if features.FilterGatewayClusterConfig && con.node.Type == model.Router {
+		rawListeners = con.node.GatewayListeners
+	} else {
+		rawListeners = s.generateRawListeners(con, push)
+	}
 
 	if s.DebugConfigs {
 		con.LDSListeners = rawListeners

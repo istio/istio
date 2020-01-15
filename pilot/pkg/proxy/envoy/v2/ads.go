@@ -30,6 +30,7 @@ import (
 
 	istiolog "istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -237,6 +238,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					defer cancel()
 				}
 			}
+			if features.FilterGatewayClusterConfig && con.node.Type == model.Router {
+				s.buildListenersRoutesToComputeClusterNamesForGateways(con, s.globalPushContext())
+			}
 
 			switch discReq.TypeUrl {
 			case ClusterType:
@@ -393,6 +397,40 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return nil
 			}
 		}
+	}
+}
+
+// buildListenersRoutesToComputeClusterNamesForGateways builds Listeners and Routes to compute cluster names that are going to be referred by the gateway proxy
+// This is related to avoid pushing clusters to the gateway proxy which are not going to be referred
+func (s *DiscoveryServer) buildListenersRoutesToComputeClusterNamesForGateways(con *XdsConnection, push *model.PushContext) {
+	proxy := con.node
+	adsLog.Infof("Collecting clusters names and route names for the node: %v", proxy.ID)
+	proxy.GatewayClusterNames = map[string]bool{}
+	proxy.GatewayListeners = s.generateRawListeners(con, push)
+	if len(proxy.GatewayRouteNames) != 0 {
+		adsLog.Debugf("Cached %v routenames : %v", len(proxy.GatewayRouteNames), proxy.GatewayRouteNames)
+		rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(proxy, push, proxy.GatewayRouteNames)
+		for _, r := range rawRoutes {
+			if err := r.Validate(); err != nil {
+				adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", r.Name, con.node.ID, err, r)
+				rdsBuildErrPushes.Increment()
+				// Generating invalid routes is a bug.
+				// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
+			}
+			for _, vh := range r.VirtualHosts {
+				for _, vhr := range vh.Routes {
+					ra := vhr.GetRoute()
+					if ra != nil && ra.GetCluster() != "" {
+						proxy.GatewayClusterNames[ra.GetCluster()] = true
+						adsLog.Debugf("Caching from routes: clustername : %q", ra.GetCluster())
+					}
+				}
+			}
+		}
+		proxy.GatewayRoutes = rawRoutes
+	}
+	if len(proxy.GatewayClusterNames) != 0 {
+		adsLog.Debugf("Cached %v clusternames : %v", len(proxy.GatewayClusterNames), proxy.GatewayClusterNames)
 	}
 }
 

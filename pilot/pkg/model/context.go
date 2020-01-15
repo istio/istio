@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/golang/protobuf/jsonpb"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -157,6 +158,8 @@ type Proxy struct {
 	// This is used to find out clusters for which configuration must be generated in CDS response
 	GatewayClusterNames map[string]bool
 	GatewayRouteNames   []string
+	GatewayListeners    []*xdsapi.Listener
+	GatewayRoutes       []*xdsapi.RouteConfiguration
 }
 
 var (

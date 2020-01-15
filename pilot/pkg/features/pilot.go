@@ -53,7 +53,7 @@ var (
 	// For larger clusters it can increase memory use and GC - useful for small tests.
 	DebugConfigs = env.RegisterBoolVar("PILOT_DEBUG_ADSZ_CONFIG", false, "").Get()
 
-	// FilterGatewayClusterConfig controls if a subset of clusters(only that requires) should be pushed to gateways
+	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
 	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false, "").Get()
 
 	DebounceAfter = env.RegisterDurationVar(
