@@ -168,6 +168,7 @@ func TestManifestGenerateOrdered(t *testing.T) {
 }
 
 func TestMultiICPSFiles(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	t.Run("multi-ICPS files", func(t *testing.T) {
 		inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
 		inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")

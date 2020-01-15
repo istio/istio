@@ -1,8 +1,7 @@
 spec:
-  hub: docker.io/istio
-  tag: 1.1.4
-  telemetry:
-    enabled: true
+  components:
+    telemetry:
+      enabled: true
   values:
     mixer:
       adapters:
