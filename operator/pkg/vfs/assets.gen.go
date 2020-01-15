@@ -1,247 +1,248 @@
 // Code generated for package vfs by go-bindata DO NOT EDIT. (@generated)
 // sources:
-// ../../data/charts/base/Chart.yaml
-// ../../data/charts/base/files/crd-all.gen.yaml
-// ../../data/charts/base/files/crd-certmanager-10.yaml
-// ../../data/charts/base/files/crd-certmanager-11.yaml
-// ../../data/charts/base/files/crd-mixer.yaml
-// ../../data/charts/base/kustomization.yaml
-// ../../data/charts/base/templates/clusterrole.yaml
-// ../../data/charts/base/templates/clusterrolebinding.yaml
-// ../../data/charts/base/templates/crds.yaml
-// ../../data/charts/base/templates/endpoints.yaml
-// ../../data/charts/base/templates/namespaces.yaml
-// ../../data/charts/base/templates/serviceaccount.yaml
-// ../../data/charts/base/templates/services.yaml
-// ../../data/charts/base/values.yaml
-// ../../data/charts/gateways/istio-egress/Chart.yaml
-// ../../data/charts/gateways/istio-egress/NOTES.txt
-// ../../data/charts/gateways/istio-egress/templates/_affinity.tpl
-// ../../data/charts/gateways/istio-egress/templates/_helpers.tpl
-// ../../data/charts/gateways/istio-egress/templates/autoscale.yaml
-// ../../data/charts/gateways/istio-egress/templates/deployment.yaml
-// ../../data/charts/gateways/istio-egress/templates/poddisruptionbudget.yaml
-// ../../data/charts/gateways/istio-egress/templates/preconfigured.yaml
-// ../../data/charts/gateways/istio-egress/templates/service.yaml
-// ../../data/charts/gateways/istio-egress/templates/serviceaccount.yaml
-// ../../data/charts/gateways/istio-egress/values.yaml
-// ../../data/charts/gateways/istio-ingress/Chart.yaml
-// ../../data/charts/gateways/istio-ingress/NOTES.txt
-// ../../data/charts/gateways/istio-ingress/templates/_affinity.tpl
-// ../../data/charts/gateways/istio-ingress/templates/addongateway.yaml
-// ../../data/charts/gateways/istio-ingress/templates/autoscale.yaml
-// ../../data/charts/gateways/istio-ingress/templates/certificate.yaml
-// ../../data/charts/gateways/istio-ingress/templates/deployment.yaml
-// ../../data/charts/gateways/istio-ingress/templates/gateway.yaml
-// ../../data/charts/gateways/istio-ingress/templates/hosts.yaml
-// ../../data/charts/gateways/istio-ingress/templates/meshexpansion.yaml
-// ../../data/charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml
-// ../../data/charts/gateways/istio-ingress/templates/preconfigured.yaml
-// ../../data/charts/gateways/istio-ingress/templates/role.yaml
-// ../../data/charts/gateways/istio-ingress/templates/rolebindings.yaml
-// ../../data/charts/gateways/istio-ingress/templates/service.yaml
-// ../../data/charts/gateways/istio-ingress/templates/serviceaccount.yaml
-// ../../data/charts/gateways/istio-ingress/templates/sidecar.yaml
-// ../../data/charts/gateways/istio-ingress/values.yaml
-// ../../data/charts/istio-cni/Chart.yaml
-// ../../data/charts/istio-cni/templates/clusterrole.yaml
-// ../../data/charts/istio-cni/templates/clusterrolebinding.yaml
-// ../../data/charts/istio-cni/templates/configmap-cni.yaml
-// ../../data/charts/istio-cni/templates/daemonset.yaml
-// ../../data/charts/istio-cni/templates/serviceaccount.yaml
-// ../../data/charts/istio-cni/values.yaml
-// ../../data/charts/istio-control/istio-autoinject/Chart.yaml
-// ../../data/charts/istio-control/istio-autoinject/NOTES.txt
-// ../../data/charts/istio-control/istio-autoinject/files/injection-template.yaml
-// ../../data/charts/istio-control/istio-autoinject/templates/_affinity.tpl
-// ../../data/charts/istio-control/istio-autoinject/templates/_helpers.tpl
-// ../../data/charts/istio-control/istio-autoinject/templates/clusterrole.yaml
-// ../../data/charts/istio-control/istio-autoinject/templates/clusterrolebinding.yaml
-// ../../data/charts/istio-control/istio-autoinject/templates/configmap.yaml
-// ../../data/charts/istio-control/istio-autoinject/templates/deployment.yaml
-// ../../data/charts/istio-control/istio-autoinject/templates/mutatingwebhook.yaml
-// ../../data/charts/istio-control/istio-autoinject/templates/poddisruptionbudget.yaml
-// ../../data/charts/istio-control/istio-autoinject/templates/service.yaml
-// ../../data/charts/istio-control/istio-autoinject/templates/serviceaccount.yaml
-// ../../data/charts/istio-control/istio-autoinject/templates/sidecar-injector-configmap.yaml
-// ../../data/charts/istio-control/istio-autoinject/values.yaml
-// ../../data/charts/istio-control/istio-config/Chart.yaml
-// ../../data/charts/istio-control/istio-config/OWNERS
-// ../../data/charts/istio-control/istio-config/README.md
-// ../../data/charts/istio-control/istio-config/templates/_affinity.tpl
-// ../../data/charts/istio-control/istio-config/templates/_helpers.tpl
-// ../../data/charts/istio-control/istio-config/templates/clusterrole.yaml
-// ../../data/charts/istio-control/istio-config/templates/clusterrolebinding.yaml
-// ../../data/charts/istio-control/istio-config/templates/configmap-envoy.yaml
-// ../../data/charts/istio-control/istio-config/templates/configmap-mesh.yaml
-// ../../data/charts/istio-control/istio-config/templates/configmap.yaml
-// ../../data/charts/istio-control/istio-config/templates/deployment.yaml
-// ../../data/charts/istio-control/istio-config/templates/poddisruptionbudget.yaml
-// ../../data/charts/istio-control/istio-config/templates/service.yaml
-// ../../data/charts/istio-control/istio-config/templates/serviceaccount.yaml
-// ../../data/charts/istio-control/istio-config/templates/validatingwebhookconfiguration.yaml.tpl
-// ../../data/charts/istio-control/istio-config/values.yaml
-// ../../data/charts/istio-control/istio-discovery/Chart.yaml
-// ../../data/charts/istio-control/istio-discovery/NOTES.txt
-// ../../data/charts/istio-control/istio-discovery/files/injection-template.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/_affinity.tpl
-// ../../data/charts/istio-control/istio-discovery/templates/_helpers.tpl
-// ../../data/charts/istio-control/istio-discovery/templates/autoscale.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/clusterrole.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/configmap-envoy.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/configmap-jwks.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/configmap.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/deployment.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/service.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/serviceaccount.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml
-// ../../data/charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml
-// ../../data/charts/istio-control/istio-discovery/values.yaml
-// ../../data/charts/istio-policy/Chart.yaml
-// ../../data/charts/istio-policy/templates/_affinity.tpl
-// ../../data/charts/istio-policy/templates/_helpers.tpl
-// ../../data/charts/istio-policy/templates/autoscale.yaml
-// ../../data/charts/istio-policy/templates/clusterrole.yaml
-// ../../data/charts/istio-policy/templates/clusterrolebinding.yaml
-// ../../data/charts/istio-policy/templates/config.yaml
-// ../../data/charts/istio-policy/templates/deployment.yaml
-// ../../data/charts/istio-policy/templates/poddisruptionbudget.yaml
-// ../../data/charts/istio-policy/templates/service.yaml
-// ../../data/charts/istio-policy/templates/serviceaccount.yaml
-// ../../data/charts/istio-policy/values.yaml
-// ../../data/charts/istio-telemetry/grafana/Chart.yaml
-// ../../data/charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json
-// ../../data/charts/istio-telemetry/grafana/dashboards/galley-dashboard.json
-// ../../data/charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json
-// ../../data/charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json
-// ../../data/charts/istio-telemetry/grafana/dashboards/istio-service-dashboard.json
-// ../../data/charts/istio-telemetry/grafana/dashboards/istio-workload-dashboard.json
-// ../../data/charts/istio-telemetry/grafana/dashboards/mixer-dashboard.json
-// ../../data/charts/istio-telemetry/grafana/dashboards/pilot-dashboard.json
-// ../../data/charts/istio-telemetry/grafana/fix_datasources.sh
-// ../../data/charts/istio-telemetry/grafana/templates/_affinity.tpl
-// ../../data/charts/istio-telemetry/grafana/templates/configmap-dashboards.yaml
-// ../../data/charts/istio-telemetry/grafana/templates/configmap.yaml
-// ../../data/charts/istio-telemetry/grafana/templates/deployment.yaml
-// ../../data/charts/istio-telemetry/grafana/templates/grafana-policy.yaml
-// ../../data/charts/istio-telemetry/grafana/templates/pvc.yaml
-// ../../data/charts/istio-telemetry/grafana/templates/service.yaml
-// ../../data/charts/istio-telemetry/grafana/templates/tests/test-grafana-connection.yaml
-// ../../data/charts/istio-telemetry/grafana/values.yaml
-// ../../data/charts/istio-telemetry/kiali/Chart.yaml
-// ../../data/charts/istio-telemetry/kiali/templates/_affinity.tpl
-// ../../data/charts/istio-telemetry/kiali/templates/clusterrole.yaml
-// ../../data/charts/istio-telemetry/kiali/templates/clusterrolebinding.yaml
-// ../../data/charts/istio-telemetry/kiali/templates/configmap.yaml
-// ../../data/charts/istio-telemetry/kiali/templates/demosecret.yaml
-// ../../data/charts/istio-telemetry/kiali/templates/deployment.yaml
-// ../../data/charts/istio-telemetry/kiali/templates/service.yaml
-// ../../data/charts/istio-telemetry/kiali/templates/serviceaccount.yaml
-// ../../data/charts/istio-telemetry/kiali/values.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/Chart.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/_affinity.tpl
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/autoscale.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/clusterrole.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/clusterrolebinding.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/config.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/configmap-envoy.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/deployment.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/poddisruptionbudget.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/service.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/serviceaccount.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/templates/stackdriver.yaml
-// ../../data/charts/istio-telemetry/mixer-telemetry/values.yaml
-// ../../data/charts/istio-telemetry/prometheus/Chart.yaml
-// ../../data/charts/istio-telemetry/prometheus/templates/_affinity.tpl
-// ../../data/charts/istio-telemetry/prometheus/templates/clusterrole.yaml
-// ../../data/charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml
-// ../../data/charts/istio-telemetry/prometheus/templates/configmap.yaml
-// ../../data/charts/istio-telemetry/prometheus/templates/deployment.yaml
-// ../../data/charts/istio-telemetry/prometheus/templates/ingress.yaml
-// ../../data/charts/istio-telemetry/prometheus/templates/service.yaml
-// ../../data/charts/istio-telemetry/prometheus/templates/serviceaccount.yaml
-// ../../data/charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml
-// ../../data/charts/istio-telemetry/prometheus/values.yaml
-// ../../data/charts/istio-telemetry/prometheus-operator/Chart.yaml
-// ../../data/charts/istio-telemetry/prometheus-operator/templates/_affinity.tpl
-// ../../data/charts/istio-telemetry/prometheus-operator/templates/prometheus.yaml
-// ../../data/charts/istio-telemetry/prometheus-operator/templates/servicemonitors.yaml
-// ../../data/charts/istio-telemetry/prometheus-operator/values.yaml
-// ../../data/charts/istio-telemetry/tracing/Chart.yaml
-// ../../data/charts/istio-telemetry/tracing/templates/_affinity.tpl
-// ../../data/charts/istio-telemetry/tracing/templates/deployment-jaeger.yaml
-// ../../data/charts/istio-telemetry/tracing/templates/deployment-opencensus.yaml
-// ../../data/charts/istio-telemetry/tracing/templates/deployment-zipkin.yaml
-// ../../data/charts/istio-telemetry/tracing/templates/pvc.yaml
-// ../../data/charts/istio-telemetry/tracing/templates/service-jaeger.yaml
-// ../../data/charts/istio-telemetry/tracing/templates/service.yaml
-// ../../data/charts/istio-telemetry/tracing/values.yaml
-// ../../data/charts/istiocoredns/Chart.yaml
-// ../../data/charts/istiocoredns/templates/_affinity.tpl
-// ../../data/charts/istiocoredns/templates/clusterrole.yaml
-// ../../data/charts/istiocoredns/templates/clusterrolebinding.yaml
-// ../../data/charts/istiocoredns/templates/configmap.yaml
-// ../../data/charts/istiocoredns/templates/deployment.yaml
-// ../../data/charts/istiocoredns/templates/service.yaml
-// ../../data/charts/istiocoredns/templates/serviceaccount.yaml
-// ../../data/charts/istiocoredns/values.yaml
-// ../../data/charts/security/certmanager/Chart.yaml
-// ../../data/charts/security/certmanager/templates/NOTES.txt
-// ../../data/charts/security/certmanager/templates/_affinity.tpl
-// ../../data/charts/security/certmanager/templates/deployment.yaml
-// ../../data/charts/security/certmanager/templates/issuer.yaml
-// ../../data/charts/security/certmanager/templates/poddisruptionbudget.yaml
-// ../../data/charts/security/certmanager/templates/rbac.yaml
-// ../../data/charts/security/certmanager/templates/serviceaccount.yaml
-// ../../data/charts/security/certmanager/values.yaml
-// ../../data/charts/security/citadel/Chart.yaml
-// ../../data/charts/security/citadel/templates/NOTES.txt
-// ../../data/charts/security/citadel/templates/_affinity.tpl
-// ../../data/charts/security/citadel/templates/_helpers.tpl
-// ../../data/charts/security/citadel/templates/clusterrole.yaml
-// ../../data/charts/security/citadel/templates/clusterrolebinding.yaml
-// ../../data/charts/security/citadel/templates/deployment.yaml
-// ../../data/charts/security/citadel/templates/poddisruptionbudget.yaml
-// ../../data/charts/security/citadel/templates/service.yaml
-// ../../data/charts/security/citadel/templates/serviceaccount.yaml
-// ../../data/charts/security/citadel/values.yaml
-// ../../data/charts/security/nodeagent/Chart.yaml
-// ../../data/charts/security/nodeagent/templates/_affinity.tpl
-// ../../data/charts/security/nodeagent/templates/clusterrole.yaml
-// ../../data/charts/security/nodeagent/templates/clusterrolebinding.yaml
-// ../../data/charts/security/nodeagent/templates/daemonset.yaml
-// ../../data/charts/security/nodeagent/templates/serviceaccount.yaml
-// ../../data/charts/security/nodeagent/values.yaml
-// ../../data/examples/googleca/values-istio-google-ca.yaml
-// ../../data/examples/multicluster/values-istio-multicluster-gateways.yaml
-// ../../data/examples/multicluster/values-istio-multicluster-primary.yaml
-// ../../data/examples/user-gateway/ingress-gateway-only.yaml
-// ../../data/examples/vm/values-istio-meshexpansion-gateways.yaml
-// ../../data/examples/vm/values-istio-meshexpansion.yaml
-// ../../data/operator/Chart.yaml
-// ../../data/operator/templates/clusterrole.yaml
-// ../../data/operator/templates/clusterrole_binding.yaml
-// ../../data/operator/templates/crd.yaml
-// ../../data/operator/templates/deployment.yaml
-// ../../data/operator/templates/namespace.yaml
-// ../../data/operator/templates/service.yaml
-// ../../data/operator/templates/service_account.yaml
-// ../../data/profiles/default.yaml
-// ../../data/profiles/demo.yaml
-// ../../data/profiles/empty.yaml
-// ../../data/profiles/minimal.yaml
-// ../../data/profiles/remote.yaml
-// ../../data/profiles/sds.yaml
-// ../../data/translateConfig/reverseTranslateConfig-1.4.yaml
-// ../../data/translateConfig/reverseTranslateConfig-1.5.yaml
-// ../../data/translateConfig/translateConfig-1.3.yaml
-// ../../data/translateConfig/translateConfig-1.4.yaml
-// ../../data/translateConfig/translateConfig-1.5.yaml
-// ../../data/versions.yaml
+// charts/base/Chart.yaml
+// charts/base/files/crd-all.gen.yaml
+// charts/base/files/crd-certmanager-10.yaml
+// charts/base/files/crd-certmanager-11.yaml
+// charts/base/files/crd-mixer.yaml
+// charts/base/kustomization.yaml
+// charts/base/templates/clusterrole.yaml
+// charts/base/templates/clusterrolebinding.yaml
+// charts/base/templates/crds.yaml
+// charts/base/templates/endpoints.yaml
+// charts/base/templates/namespaces.yaml
+// charts/base/templates/serviceaccount.yaml
+// charts/base/templates/services.yaml
+// charts/base/values.yaml
+// charts/gateways/istio-egress/Chart.yaml
+// charts/gateways/istio-egress/NOTES.txt
+// charts/gateways/istio-egress/templates/_affinity.tpl
+// charts/gateways/istio-egress/templates/_helpers.tpl
+// charts/gateways/istio-egress/templates/autoscale.yaml
+// charts/gateways/istio-egress/templates/deployment.yaml
+// charts/gateways/istio-egress/templates/poddisruptionbudget.yaml
+// charts/gateways/istio-egress/templates/preconfigured.yaml
+// charts/gateways/istio-egress/templates/service.yaml
+// charts/gateways/istio-egress/templates/serviceaccount.yaml
+// charts/gateways/istio-egress/values.yaml
+// charts/gateways/istio-ingress/Chart.yaml
+// charts/gateways/istio-ingress/NOTES.txt
+// charts/gateways/istio-ingress/templates/_affinity.tpl
+// charts/gateways/istio-ingress/templates/addongateway.yaml
+// charts/gateways/istio-ingress/templates/autoscale.yaml
+// charts/gateways/istio-ingress/templates/certificate.yaml
+// charts/gateways/istio-ingress/templates/deployment.yaml
+// charts/gateways/istio-ingress/templates/gateway.yaml
+// charts/gateways/istio-ingress/templates/hosts.yaml
+// charts/gateways/istio-ingress/templates/meshexpansion.yaml
+// charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml
+// charts/gateways/istio-ingress/templates/preconfigured.yaml
+// charts/gateways/istio-ingress/templates/role.yaml
+// charts/gateways/istio-ingress/templates/rolebindings.yaml
+// charts/gateways/istio-ingress/templates/service.yaml
+// charts/gateways/istio-ingress/templates/serviceaccount.yaml
+// charts/gateways/istio-ingress/templates/sidecar.yaml
+// charts/gateways/istio-ingress/values.yaml
+// charts/istio-cni/Chart.yaml
+// charts/istio-cni/templates/clusterrole.yaml
+// charts/istio-cni/templates/clusterrolebinding.yaml
+// charts/istio-cni/templates/configmap-cni.yaml
+// charts/istio-cni/templates/daemonset.yaml
+// charts/istio-cni/templates/serviceaccount.yaml
+// charts/istio-cni/values.yaml
+// charts/istio-control/istio-autoinject/Chart.yaml
+// charts/istio-control/istio-autoinject/NOTES.txt
+// charts/istio-control/istio-autoinject/files/injection-template.yaml
+// charts/istio-control/istio-autoinject/templates/_affinity.tpl
+// charts/istio-control/istio-autoinject/templates/_helpers.tpl
+// charts/istio-control/istio-autoinject/templates/clusterrole.yaml
+// charts/istio-control/istio-autoinject/templates/clusterrolebinding.yaml
+// charts/istio-control/istio-autoinject/templates/configmap.yaml
+// charts/istio-control/istio-autoinject/templates/deployment.yaml
+// charts/istio-control/istio-autoinject/templates/mutatingwebhook.yaml
+// charts/istio-control/istio-autoinject/templates/poddisruptionbudget.yaml
+// charts/istio-control/istio-autoinject/templates/service.yaml
+// charts/istio-control/istio-autoinject/templates/serviceaccount.yaml
+// charts/istio-control/istio-autoinject/templates/sidecar-injector-configmap.yaml
+// charts/istio-control/istio-autoinject/values.yaml
+// charts/istio-control/istio-config/Chart.yaml
+// charts/istio-control/istio-config/OWNERS
+// charts/istio-control/istio-config/README.md
+// charts/istio-control/istio-config/templates/_affinity.tpl
+// charts/istio-control/istio-config/templates/_helpers.tpl
+// charts/istio-control/istio-config/templates/clusterrole.yaml
+// charts/istio-control/istio-config/templates/clusterrolebinding.yaml
+// charts/istio-control/istio-config/templates/configmap-envoy.yaml
+// charts/istio-control/istio-config/templates/configmap-mesh.yaml
+// charts/istio-control/istio-config/templates/configmap.yaml
+// charts/istio-control/istio-config/templates/deployment.yaml
+// charts/istio-control/istio-config/templates/poddisruptionbudget.yaml
+// charts/istio-control/istio-config/templates/service.yaml
+// charts/istio-control/istio-config/templates/serviceaccount.yaml
+// charts/istio-control/istio-config/templates/validatingwebhookconfiguration.yaml.tpl
+// charts/istio-control/istio-config/values.yaml
+// charts/istio-control/istio-discovery/Chart.yaml
+// charts/istio-control/istio-discovery/NOTES.txt
+// charts/istio-control/istio-discovery/files/injection-template.yaml
+// charts/istio-control/istio-discovery/templates/_affinity.tpl
+// charts/istio-control/istio-discovery/templates/_helpers.tpl
+// charts/istio-control/istio-discovery/templates/autoscale.yaml
+// charts/istio-control/istio-discovery/templates/clusterrole.yaml
+// charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml
+// charts/istio-control/istio-discovery/templates/configmap-envoy.yaml
+// charts/istio-control/istio-discovery/templates/configmap-jwks.yaml
+// charts/istio-control/istio-discovery/templates/configmap.yaml
+// charts/istio-control/istio-discovery/templates/deployment.yaml
+// charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml
+// charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml
+// charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml
+// charts/istio-control/istio-discovery/templates/service.yaml
+// charts/istio-control/istio-discovery/templates/serviceaccount.yaml
+// charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml
+// charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml
+// charts/istio-control/istio-discovery/values.yaml
+// charts/istio-policy/Chart.yaml
+// charts/istio-policy/templates/_affinity.tpl
+// charts/istio-policy/templates/_helpers.tpl
+// charts/istio-policy/templates/autoscale.yaml
+// charts/istio-policy/templates/clusterrole.yaml
+// charts/istio-policy/templates/clusterrolebinding.yaml
+// charts/istio-policy/templates/config.yaml
+// charts/istio-policy/templates/deployment.yaml
+// charts/istio-policy/templates/poddisruptionbudget.yaml
+// charts/istio-policy/templates/service.yaml
+// charts/istio-policy/templates/serviceaccount.yaml
+// charts/istio-policy/values.yaml
+// charts/istio-telemetry/grafana/Chart.yaml
+// charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json
+// charts/istio-telemetry/grafana/dashboards/galley-dashboard.json
+// charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json
+// charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json
+// charts/istio-telemetry/grafana/dashboards/istio-service-dashboard.json
+// charts/istio-telemetry/grafana/dashboards/istio-workload-dashboard.json
+// charts/istio-telemetry/grafana/dashboards/mixer-dashboard.json
+// charts/istio-telemetry/grafana/dashboards/pilot-dashboard.json
+// charts/istio-telemetry/grafana/fix_datasources.sh
+// charts/istio-telemetry/grafana/templates/_affinity.tpl
+// charts/istio-telemetry/grafana/templates/configmap-dashboards.yaml
+// charts/istio-telemetry/grafana/templates/configmap.yaml
+// charts/istio-telemetry/grafana/templates/deployment.yaml
+// charts/istio-telemetry/grafana/templates/grafana-policy.yaml
+// charts/istio-telemetry/grafana/templates/pvc.yaml
+// charts/istio-telemetry/grafana/templates/service.yaml
+// charts/istio-telemetry/grafana/templates/tests/test-grafana-connection.yaml
+// charts/istio-telemetry/grafana/values.yaml
+// charts/istio-telemetry/kiali/Chart.yaml
+// charts/istio-telemetry/kiali/templates/_affinity.tpl
+// charts/istio-telemetry/kiali/templates/clusterrole.yaml
+// charts/istio-telemetry/kiali/templates/clusterrolebinding.yaml
+// charts/istio-telemetry/kiali/templates/configmap.yaml
+// charts/istio-telemetry/kiali/templates/demosecret.yaml
+// charts/istio-telemetry/kiali/templates/deployment.yaml
+// charts/istio-telemetry/kiali/templates/service.yaml
+// charts/istio-telemetry/kiali/templates/serviceaccount.yaml
+// charts/istio-telemetry/kiali/values.yaml
+// charts/istio-telemetry/mixer-telemetry/Chart.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/_affinity.tpl
+// charts/istio-telemetry/mixer-telemetry/templates/autoscale.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/clusterrole.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/clusterrolebinding.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/config.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/configmap-envoy.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/deployment.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/poddisruptionbudget.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/service.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/serviceaccount.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/stackdriver.yaml
+// charts/istio-telemetry/mixer-telemetry/values.yaml
+// charts/istio-telemetry/prometheus/Chart.yaml
+// charts/istio-telemetry/prometheus/templates/_affinity.tpl
+// charts/istio-telemetry/prometheus/templates/clusterrole.yaml
+// charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml
+// charts/istio-telemetry/prometheus/templates/configmap.yaml
+// charts/istio-telemetry/prometheus/templates/deployment.yaml
+// charts/istio-telemetry/prometheus/templates/ingress.yaml
+// charts/istio-telemetry/prometheus/templates/service.yaml
+// charts/istio-telemetry/prometheus/templates/serviceaccount.yaml
+// charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml
+// charts/istio-telemetry/prometheus/values.yaml
+// charts/istio-telemetry/prometheus-operator/Chart.yaml
+// charts/istio-telemetry/prometheus-operator/templates/_affinity.tpl
+// charts/istio-telemetry/prometheus-operator/templates/prometheus.yaml
+// charts/istio-telemetry/prometheus-operator/templates/servicemonitors.yaml
+// charts/istio-telemetry/prometheus-operator/values.yaml
+// charts/istio-telemetry/tracing/Chart.yaml
+// charts/istio-telemetry/tracing/templates/_affinity.tpl
+// charts/istio-telemetry/tracing/templates/deployment-jaeger.yaml
+// charts/istio-telemetry/tracing/templates/deployment-opencensus.yaml
+// charts/istio-telemetry/tracing/templates/deployment-zipkin.yaml
+// charts/istio-telemetry/tracing/templates/pvc.yaml
+// charts/istio-telemetry/tracing/templates/service-jaeger.yaml
+// charts/istio-telemetry/tracing/templates/service.yaml
+// charts/istio-telemetry/tracing/values.yaml
+// charts/istiocoredns/Chart.yaml
+// charts/istiocoredns/templates/_affinity.tpl
+// charts/istiocoredns/templates/clusterrole.yaml
+// charts/istiocoredns/templates/clusterrolebinding.yaml
+// charts/istiocoredns/templates/configmap.yaml
+// charts/istiocoredns/templates/deployment.yaml
+// charts/istiocoredns/templates/service.yaml
+// charts/istiocoredns/templates/serviceaccount.yaml
+// charts/istiocoredns/values.yaml
+// charts/security/certmanager/Chart.yaml
+// charts/security/certmanager/templates/NOTES.txt
+// charts/security/certmanager/templates/_affinity.tpl
+// charts/security/certmanager/templates/deployment.yaml
+// charts/security/certmanager/templates/issuer.yaml
+// charts/security/certmanager/templates/poddisruptionbudget.yaml
+// charts/security/certmanager/templates/rbac.yaml
+// charts/security/certmanager/templates/serviceaccount.yaml
+// charts/security/certmanager/values.yaml
+// charts/security/citadel/Chart.yaml
+// charts/security/citadel/templates/NOTES.txt
+// charts/security/citadel/templates/_affinity.tpl
+// charts/security/citadel/templates/_helpers.tpl
+// charts/security/citadel/templates/clusterrole.yaml
+// charts/security/citadel/templates/clusterrolebinding.yaml
+// charts/security/citadel/templates/deployment.yaml
+// charts/security/citadel/templates/poddisruptionbudget.yaml
+// charts/security/citadel/templates/service.yaml
+// charts/security/citadel/templates/serviceaccount.yaml
+// charts/security/citadel/values.yaml
+// charts/security/nodeagent/Chart.yaml
+// charts/security/nodeagent/templates/_affinity.tpl
+// charts/security/nodeagent/templates/clusterrole.yaml
+// charts/security/nodeagent/templates/clusterrolebinding.yaml
+// charts/security/nodeagent/templates/daemonset.yaml
+// charts/security/nodeagent/templates/serviceaccount.yaml
+// charts/security/nodeagent/values.yaml
+// examples/googleca/values-istio-google-ca.yaml
+// examples/multicluster/values-istio-multicluster-gateways.yaml
+// examples/multicluster/values-istio-multicluster-primary.yaml
+// examples/user-gateway/ingress-gateway-only.yaml
+// examples/vm/values-istio-meshexpansion-gateways.yaml
+// examples/vm/values-istio-meshexpansion.yaml
+// operator/Chart.yaml
+// operator/templates/clusterrole.yaml
+// operator/templates/clusterrole_binding.yaml
+// operator/templates/crd.yaml
+// operator/templates/deployment.yaml
+// operator/templates/namespace.yaml
+// operator/templates/service.yaml
+// operator/templates/service_account.yaml
+// profiles/default.yaml
+// profiles/demo.yaml
+// profiles/empty.yaml
+// profiles/minimal.yaml
+// profiles/remote.yaml
+// profiles/sds.yaml
+// translateConfig/reverseTranslateConfig-1.4.yaml
+// translateConfig/reverseTranslateConfig-1.5.yaml
+// translateConfig/translate-ICP-IOP-1.5.yaml
+// translateConfig/translateConfig-1.3.yaml
+// translateConfig/translateConfig-1.4.yaml
+// translateConfig/translateConfig-1.5.yaml
+// versions.yaml
 package vfs
 
 import (
@@ -6548,8 +6549,7 @@ metadata:
   name: istio-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-egressgateway
-    istio: egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ $gateway.autoscaleMax }}
@@ -6583,14 +6583,13 @@ func chartsGatewaysIstioEgressTemplatesAutoscaleYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioEgressTemplatesDeploymentYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
-{{- $labels := (dict "app" "istio-egressgateway" "istio" "egressgateway") }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-{{ $labels | toYaml | indent 4 }}
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
 {{- if not $gateway.autoscaleEnabled }}
@@ -6600,8 +6599,7 @@ spec:
 {{- end }}
   selector:
     matchLabels:
-      app: istio-egressgateway
-      istio: egressgateway
+{{ $gateway.labels | toYaml | indent 6 }}
   strategy:
     rollingUpdate:
       maxSurge: {{ $gateway.rollingMaxSurge }}
@@ -6609,7 +6607,7 @@ spec:
   template:
     metadata:
       labels:
-{{ $labels | toYaml | indent 8 }}
+{{ $gateway.labels | toYaml | indent 8 }}
 {{- if eq .Release.Namespace "istio-system"}}
         heritage: Tiller
         release: istio
@@ -6798,7 +6796,7 @@ spec:
 {{ end }}
           - name: ISTIO_METAJSON_LABELS
             value: |
-              {{ $labels | toJson }}
+              {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           - name: SDS_ENABLED
@@ -6884,22 +6882,21 @@ func chartsGatewaysIstioEgressTemplatesDeploymentYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: istio-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-egressgateway
-    istio: egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-        app: istio-egressgateway
-        istio: egressgateway
-        release: {{ .Release.Name }}
+{{ $gateway.labels | toYaml | indent 6 }}
+      release: {{ .Release.Name }}
 {{- end }}
 `)
 
@@ -6926,7 +6923,7 @@ metadata:
   name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   selector:
@@ -6946,7 +6943,7 @@ metadata:
   name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }} 
   labels:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   gateways:
@@ -6971,27 +6968,27 @@ metadata:
   name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
-   workloadLabels:
-     istio: egressgateway
-   filters:
-   - listenerMatch:
-       portNumber: 15443
-       listenerType: GATEWAY
-     filterName: envoy.filters.network.sni_cluster
-     filterType: NETWORK
-     filterConfig: {}
+  workloadLabels:
+    istio: egressgateway
+  filters:
+  - listenerMatch:
+      portNumber: 15443
+      listenerType: GATEWAY
+    filterName: envoy.filters.network.sni_cluster
+    filterType: NETWORK
+    filterConfig: {}
 ---
 ## To ensure all traffic to *.global is using mTLS
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: istio-multicluster-destinationrule
+  name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   host: "*.{{ $gateway.zvpn.suffix }}"
@@ -7028,13 +7025,12 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    istio: egressgateway
 spec:
   type: ClusterIP
   selector:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
   ports:
     {{- range $key, $val := $gateway.ports }}
     -
@@ -7060,7 +7056,8 @@ func chartsGatewaysIstioEgressTemplatesServiceYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsGatewaysIstioEgressTemplatesServiceaccountYaml = []byte(`apiVersion: v1
+var _chartsGatewaysIstioEgressTemplatesServiceaccountYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+apiVersion: v1
 kind: ServiceAccount
 {{- if .Values.global.imagePullSecrets }}
 imagePullSecrets:
@@ -7072,7 +7069,7 @@ metadata:
   name: istio-egressgateway-service-account
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-egressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 `)
 
@@ -7115,7 +7112,11 @@ gateways:
       # This can be a real domain name ( istio.example.com )
       suffix: global
       enabled: true
-
+    
+    labels:
+      app: istio-egressgateway
+      istio: egressgateway
+  
 
     # Scalability tunning
     # replicaCount: 1
@@ -7497,8 +7498,7 @@ metadata:
   name: istio-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ $gateway.autoscaleMax }}
@@ -7594,14 +7594,13 @@ func chartsGatewaysIstioIngressTemplatesCertificateYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioIngressTemplatesDeploymentYaml = []byte(`{{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- $labels := (dict "app" "istio-ingressgateway" "istio" "ingressgateway") }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-{{ $labels | toYaml | indent 4 }}
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
 {{- if not $gateway.autoscaleEnabled }}
@@ -7611,8 +7610,7 @@ spec:
 {{- end }}
   selector:
     matchLabels:
-      app: istio-ingressgateway
-      istio: ingressgateway
+{{ $gateway.labels | toYaml | indent 6 }}
   strategy:
     rollingUpdate:
       maxSurge: {{ $gateway.rollingMaxSurge }}
@@ -7620,7 +7618,7 @@ spec:
   template:
     metadata:
       labels:
-{{ $labels | toYaml | indent 8 }}
+{{ $gateway.labels | toYaml | indent 8 }}
 {{- if eq .Release.Namespace "istio-system"}}
         heritage: Tiller
         release: istio
@@ -7875,7 +7873,7 @@ spec:
 {{ end }}
           - name: ISTIO_METAJSON_LABELS
             value: |
-              {{ $labels | toJson }}
+              {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           - name: SDS_ENABLED
@@ -8210,22 +8208,21 @@ func chartsGatewaysIstioIngressTemplatesMeshexpansionYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    istio: ingressgateway
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 6 }}
       release: {{ .Release.Name }}
-      istio: ingressgateway
 {{- end }}
 `)
 
@@ -8252,7 +8249,7 @@ metadata:
   name: istio-autogenerated-k8s-ingress
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   selector:
@@ -8287,7 +8284,7 @@ metadata:
   name: istio-multicluster-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   selector:
@@ -8308,7 +8305,7 @@ metadata:
   name: istio-multicluster-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
    workloadLabels:
@@ -8330,10 +8327,10 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: istio-multicluster-destinationrule
+  name: istio-multicluster-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   host: "*.global"
@@ -8442,9 +8439,8 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    istio: ingressgateway
 spec:
 {{- if $gateway.loadBalancerIP }}
   loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
@@ -8458,7 +8454,7 @@ spec:
 {{- end }}
   type: {{ $gateway.type }}
   selector:
-    app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
   ports:
 
     {{- range $key, $val := $gateway.ports }}
@@ -8500,7 +8496,8 @@ func chartsGatewaysIstioIngressTemplatesServiceYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsGatewaysIstioIngressTemplatesServiceaccountYaml = []byte(`apiVersion: v1
+var _chartsGatewaysIstioIngressTemplatesServiceaccountYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+apiVersion: v1
 kind: ServiceAccount
 {{- if .Values.global.imagePullSecrets }}
 imagePullSecrets:
@@ -8512,7 +8509,7 @@ metadata:
   name: istio-ingressgateway-service-account
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 `)
 
@@ -8580,6 +8577,9 @@ gateways:
         limits:
           cpu: 2000m
           memory: 1024Mi
+    labels:
+      app: istio-ingressgateway
+      istio: ingressgateway
     ports:
     ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
     # Note that AWS ELB will by default perform health checks on the first port
@@ -9357,7 +9357,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - --log_as_json
   {{- end }}
   {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
-    - --templateFile=/etc/istio/custom-bootstrap/envoy_bootstrap.json
+    - --templateFile=/etc/istio/custom-bootstrap/custom_bootstrap.json
   {{- end }}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
@@ -9455,6 +9455,18 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     {{- else if .Values.global.trustDomain }}
     - name: ISTIO_META_MESH_ID
       value: "{{ .Values.global.trustDomain }}"
+    {{- end }}
+    {{- if eq .Values.global.proxy.tracer "stackdriver" }}
+    - name: STACKDRIVER_TRACING_ENABLED
+      value: "true"
+    - name: STACKDRIVER_TRACING_DEBUG
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
+    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
     {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
@@ -9915,6 +9927,23 @@ data:
         datadog:
           # Address of the DataDog Agent
           address: {{ .Values.global.tracer.datadog.address }}
+      {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
+      tracing:
+        stackdriver:
+          # enables trace output to stdout.
+          debug: {{ $.Values.global.tracer.stackdriver.debug }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+          # The global default max number of attributes per span.
+          maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+          # The global default max number of annotation events per span.
+          maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+          # The global default max number of message events per span.
+          maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+        {{- end }}
       {{- end }}
 
     {{- $defPilotHostname := printf "istio-pilot%s.%s" .Values.version .Values.global.configNamespace }}
@@ -11747,13 +11776,15 @@ template: |
   {{- end }}
     - --controlPlaneBootstrap=false
   {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
-    - --templateFile=/etc/istio/custom-bootstrap/envoy_bootstrap.json
+    - --templateFile=/etc/istio/custom-bootstrap/custom_bootstrap.json
   {{- end }}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
     {{- end }}
     env:
+    - name: PILOT_CERT_PROVIDER
+      value: {{ .Values.global.pilotCertProvider }}
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
     {{- if .Values.global.configNamespace }}
@@ -11849,6 +11880,18 @@ template: |
     - name: ISTIO_META_MESH_ID
       value: "{{ .Values.global.trustDomain }}"
     {{- end }}
+    {{- if eq .Values.global.proxy.tracer "stackdriver" }}
+    - name: STACKDRIVER_TRACING_ENABLED
+      value: "true"
+    - name: STACKDRIVER_TRACING_DEBUG
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
+    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+    {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
       - name: {{ $key }}
@@ -11900,6 +11943,10 @@ template: |
   {{- end }}
     {{  end -}}
     volumeMounts:
+    {{- if eq .Values.global.pilotCertProvider "citadel" }}
+    - mountPath: /etc/istio/citadel-ca-cert
+      name: citadel-ca-cert
+    {{- end }}
     {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
@@ -11938,6 +11985,11 @@ template: |
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
+  {{- if eq .Values.global.pilotCertProvider "citadel" }}
+  - name: citadel-ca-cert
+    configMap:
+      name: istio-ca-root-cert
+  {{- end }}
   - name: istio-certs
     secret:
       optional: true
@@ -12845,7 +12897,21 @@ data:
           address: {{ .Values.global.tracer.datadog.address }}
       {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
       tracing:
-        stackdriver: {}
+        stackdriver:
+          # enables trace output to stdout.
+          debug: {{ $.Values.global.tracer.stackdriver.debug }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+          # The global default max number of attributes per span.
+          maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+          # The global default max number of annotation events per span.
+          maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+          # The global default max number of message events per span.
+          maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+        {{- end }}
       {{- end }}
 
     {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
@@ -13044,6 +13110,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -13139,6 +13207,8 @@ spec:
           - --log_as_json
         {{- end }}
           env:
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -39272,6 +39342,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
+      pilotCertProvider: kubernetes
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"
@@ -40188,6 +40259,46 @@ func translateconfigReversetranslateconfig15Yaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "translateConfig/reverseTranslateConfig-1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _translateconfigTranslateIcpIop15Yaml = []byte(`trafficManagement.components.pilot: components.pilot
+policy.components.policy: components.policy
+telemetry.components.telemetry: components.telemetry
+security.components.citadel: components.citadel
+security.components.certManager: components.certManager
+security.components.nodeAgent: components.nodeAgent
+configManagement.components.galley: components.galley
+autoInjection.components.injector: components.sidecarInjector
+cni: components.cni
+
+gateways.components.ingressGateway: components.ingressGateways.[name:istio-ingressgateway]
+gateways.components.egressGateway: components.egressGateways.[name:istio-egressgateway]
+
+values.grafana.enabled: addonComponents.grafana.enabled
+values.kiali.enabled: addonComponents.kiali.enabled
+values.prometheus.enabled: addonComponents.prometheus.enabled
+values.tracing.enabled: addonComponents.tracing.enabled
+
+defaultNamespace: meshConfig.rootNamespace
+values: values
+unvalidatedValues: unvalidatedValues
+hub: hub
+tag: tag
+`)
+
+func translateconfigTranslateIcpIop15YamlBytes() ([]byte, error) {
+	return _translateconfigTranslateIcpIop15Yaml, nil
+}
+
+func translateconfigTranslateIcpIop15Yaml() (*asset, error) {
+	bytes, err := translateconfigTranslateIcpIop15YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/translate-ICP-IOP-1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -41174,6 +41285,7 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/sds.yaml":                                                                   profilesSdsYaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                     translateconfigReversetranslateconfig14Yaml,
 	"translateConfig/reverseTranslateConfig-1.5.yaml":                                     translateconfigReversetranslateconfig15Yaml,
+	"translateConfig/translate-ICP-IOP-1.5.yaml":                                          translateconfigTranslateIcpIop15Yaml,
 	"translateConfig/translateConfig-1.3.yaml":                                            translateconfigTranslateconfig13Yaml,
 	"translateConfig/translateConfig-1.4.yaml":                                            translateconfigTranslateconfig14Yaml,
 	"translateConfig/translateConfig-1.5.yaml":                                            translateconfigTranslateconfig15Yaml,
@@ -41570,6 +41682,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.5.yaml": &bintree{translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
+		"translate-ICP-IOP-1.5.yaml":      &bintree{translateconfigTranslateIcpIop15Yaml, map[string]*bintree{}},
 		"translateConfig-1.3.yaml":        &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
 		"translateConfig-1.4.yaml":        &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
 		"translateConfig-1.5.yaml":        &bintree{translateconfigTranslateconfig15Yaml, map[string]*bintree{}},
