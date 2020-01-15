@@ -504,8 +504,8 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	egdsUpdates := egdsGroup.accept(istioEndpoints)
 
 	groupBuildTime := time.Since(t0)
-	adsLog.Infof("endpoints for service(%s) updated, endpoint count: %d, egds upadted count: %d, time taken: %s",
-		serviceName, len(istioEndpoints), len(egdsUpdates), groupBuildTime)
+	adsLog.Infof("endpoints for service(%s) updated, endpoint count: %d, egds upadted/total: %d/%d, time: %s",
+		serviceName, len(istioEndpoints), len(egdsUpdates), egdsGroup.GroupCount, groupBuildTime)
 
 	ep.mutex.Unlock()
 

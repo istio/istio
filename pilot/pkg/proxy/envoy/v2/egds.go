@@ -23,7 +23,6 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/google/go-cmp/cmp"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -292,113 +291,65 @@ func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct
 		return g.reshard()
 	}
 
-	// Calculate the diff in memory.
-
-	added := make([]*model.IstioEndpoint, 0, len(newEps))
-
-	t0 := time.Now()
-
-MainAddedLoop:
-	for _, nep := range newEps {
-		for _, pep := range prevEps {
-			if cmpIstioEndpoint(nep, pep) == true {
-				continue MainAddedLoop
-			}
-		}
-
-		added = append(added, nep)
-	}
-
-	removed := make([]*model.IstioEndpoint, 0, len(prevEps))
-
-MainRemovedLoop:
-	for _, pep := range prevEps {
-		for _, nep := range newEps {
-			if cmpIstioEndpoint(pep, nep) == true {
-				continue MainRemovedLoop
-			}
-		}
-
-		// The endpoint was not found in new list. Mark it removed.
-		removed = append(removed, pep)
-	}
-
-	eslapsedTime := time.Since(t0)
-
-	adsLog.Debugf(fmt.Sprintf("endpoints diff calculated, total: %d, added: %d, removed: %d, time cost: %d", 
-		len(g.IstioEndpoints), len(added), len(removed), eslapsedTime))
-
-	names := g.updateEndpointGroups(added, removed)
-
-	return names
-}
-
-// updateEndpointGroups accepts changed groups with mapped endpoints. It does the update
-// by replacing existing groups entirely.
-func (g *EndpointGroups) updateEndpointGroups(updated []*model.IstioEndpoint, removed []*model.IstioEndpoint) map[string]struct{} {
-	updatedGroupKeys := make(map[string]struct{})
-
-	// Merge keys of changed groups.
-	for _, ep := range updated {
-		updatedGroupKeys[g.makeGroupKey(ep)] = struct{}{}
-	}
-
-	for _, ep := range removed {
-		updatedGroupKeys[g.makeGroupKey(ep)] = struct{}{}
-	}
-
-	// Now reconstruct the group of changed.
-	updatedGroups := make(map[string][]*model.IstioEndpoint, g.GroupCount)
-	for _, ep := range g.IstioEndpoints {
-		key := g.makeGroupKey(ep)
-
-		if _, f := updatedGroupKeys[key]; f {
-			_, f := updatedGroups[key]
-			if !f {
-				updatedGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
-			}
-
-			updatedGroups[key] = append(updatedGroups[key], ep)
-		}
-	}
-
-	// If there is still no key mapped, it means the group has no endpoints now
-	// However we still need to map it.
-	for key := range updatedGroupKeys {
-		if _, f := updatedGroups[key]; !f {
-			updatedGroups[key] = make([]*model.IstioEndpoint, 0, 0)
-		}
-	}
-
-	// Changed EGDS resource names.
 	names := make(map[string]struct{})
+	updatedCount := 0
+	emtpyCount := 0
 
-	for key, eps := range updatedGroups {
-		g.IstioEndpointGroups[key] = eps
-		names[key] = struct{}{}
+	newGroups := make(map[string][]*model.IstioEndpoint)
+
+MainLoop:
+	for _, ep := range newEps {
+		key := g.makeGroupKey(ep)
+		if _, f := newGroups[key]; !f {
+			newGroups[key] = make([]*model.IstioEndpoint, 0)
+		}
+
+		newGroups[key] = append(newGroups[key], ep)
+
+		if eps, f := g.IstioEndpointGroups[key]; !f {
+			// Should not happen
+			panic(fmt.Sprintf("encounter unknown group id before reshard event, id: %s", key))
+		} else {
+			for _, pep := range eps {
+				if ep.Equals(pep) {
+					continue MainLoop
+				}
+			}
+
+			names[key] = struct{}{}
+		}
 	}
+
+	updatedCount = len(names)
+	newGroupCount := len(newGroups)
+
+	for key := range g.IstioEndpointGroups {
+		if _, f := newGroups[key]; !f {
+			newGroups[key] = make([]*model.IstioEndpoint, 0)
+
+			if len(g.IstioEndpointGroups[key]) > 0 {
+				// Old group name did present on new groups. This means groups contains no endpoints any more.
+				// But the previous group had. Mark it changed and we still need to construct an empty group.
+				names[key] = struct{}{}
+			}
+		}
+	}
+
+	emtpyCount = len(newGroups) - newGroupCount
+
+	adsLog.Debugf("EGDS updatedCount: %d, emptyCount: %d, newGroups: %d", updatedCount, emtpyCount, newGroupCount)
+
+	for k, eps := range g.IstioEndpointGroups {
+		adsLog.Debugf("group details: %s => %d", k, len(eps))
+	}
+
+	g.IstioEndpointGroups = newGroups
 
 	return names
-}
-
-func cmpIstioEndpoint(from *model.IstioEndpoint, other *model.IstioEndpoint) bool {
-	if from == nil || other == nil {
-		return false
-	}
-
-	// When comparing, the cached EnvoyEndpoint should be removed.
-	// A shallow copy is enough.
-	copyA := from
-	copyB := other
-
-	copyA.EnvoyEndpoint = nil
-	copyB.EnvoyEndpoint = nil
-
-	return cmp.Equal(copyA, copyB)
 }
 
 func (g *EndpointGroups) makeGroupKey(ep *model.IstioEndpoint) string {
-	index := ep.HashUint32() % g.GroupCount
+	index := ep.HashUint32(g.GroupSize) % g.GroupCount
 	key := fmt.Sprintf("%s|%d-%d", g.NamePrefix, index, g.VersionInfo)
 
 	return key

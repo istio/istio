@@ -24,6 +24,7 @@ package model
 
 import (
 	"bytes"
+	"reflect"
 	"fmt"
 	"hash/fnv"
 	"sort"
@@ -702,16 +703,104 @@ func copyInternal(v interface{}) interface{} {
 	return copied
 }
 
-// HashUint32 returns the hash code of IstioEndpoint in uint32 format
-func (ep *IstioEndpoint) HashUint32() uint32 {
+// HashUint32 returns the hash code of IstioEndpoint in uint32 format.
+// The parameter affinity will be used to generate similar when endpoint Addresses are close.
+func (ep *IstioEndpoint) HashUint32(affinity uint32) uint32 {
 	if ep == nil {
 		return 0
 	}
 
+	addr := ep.Address
+	total := 0
+
+	// Only appliable for IPv4 address
+	if addr != "" && affinity > 0 {
+		slots := strings.Split(addr, ".")
+		if len(slots) == 4 {
+			var err error
+
+			for ix := range slots {
+				num, e := strconv.Atoi(slots[ix])
+				if e != nil {
+					err = e
+					break
+				}
+
+				// From the IP higher bits to lower bits
+				num = num << (8*(3 - ix))
+
+				total += num
+			}
+			
+			if err == nil {
+				slot := int(total / int(affinity))
+				addr = fmt.Sprintf("%d", slot)
+			}
+		}
+	}
+
+	log.Debugf("remap addr %s => %s, affinity=%d, total=%d", ep.Address, addr, affinity, total)
+
 	h := fnv.New32a()
-	h.Write([]byte(fmt.Sprintf("%s-%s-%s-%d-%d", ep.Address, ep.Network, ep.Locality, ep.LbWeight, ep.EndpointPort)))
+	h.Write([]byte(fmt.Sprintf("%s-%s-%s-%d-%s-%s", addr, ep.Network, ep.Locality, len(ep.Labels), ep.Attributes.Name, ep.Family)))
 
 	sum := h.Sum32()
 
 	return sum
+}
+
+// Equals return whether two endpoints are the same
+func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
+	if ep == nil || other == nil {
+		return false
+	}
+
+	// We try to avoid using reflect.DeepEqual() because it is very costly.
+	// About 100 times difference between using reflect or not when the
+	// number of endpoints waiting to be compared is very large(such as 1000+)
+	if !ep.Labels.Equals(other.Labels) {
+		return false
+	}
+
+	if ep.Family != other.Family {
+		return false
+	}
+
+	if ep.Address != other.Address {
+		return false
+	}
+
+	if ep.ServicePortName != other.ServicePortName {
+		return false
+	}
+
+	if ep.UID != other.UID {
+		return false
+	}
+
+	if ep.ServiceAccount != other.ServiceAccount {
+		return false
+	}
+
+	if ep.Network != other.Network {
+		return false
+	}
+
+	if ep.Locality != other.Locality {
+		return false
+	}
+
+	if ep.LbWeight != other.LbWeight {
+		return false
+	}
+
+	if ep.TLSMode != other.TLSMode {
+		return false
+	}
+
+	if !reflect.DeepEqual(ep.Attributes, other.Attributes) {
+		return false
+	}
+
+	return true
 }
