@@ -68,7 +68,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			// Warn users if they use `manifest apply` without any config args.
 			if !rootArgs.dryRun && !maArgs.skipConfirmation {
-				if !confirm("This will install Istio into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
+				if !confirm("This will install Istio into the cluster or update Istio if it is already installed. Proceed? (y/N)", cmd.OutOrStdout()) {
 					cmd.Print("Cancelled.\n")
 					os.Exit(1)
 				}
