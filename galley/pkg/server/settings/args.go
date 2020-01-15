@@ -27,6 +27,7 @@ import (
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/probe"
 
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/keepalive"
@@ -60,6 +61,8 @@ type Args struct { // nolint:maligned
 
 	// SecureGRPC is an existing GRPC server, will be used by Galley instead of creating its own
 	SecureGRPC *grpc.Server
+
+	AltDistributor snapshotter.Distributor
 
 	// KubeRestConfig has a rest config, common with other components
 	KubeRestConfig *rest.Config

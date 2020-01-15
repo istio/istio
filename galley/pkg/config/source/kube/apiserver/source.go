@@ -15,10 +15,12 @@
 package apiserver
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
 	"sync"
+	"text/tabwriter"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
@@ -190,21 +192,25 @@ func (s *Source) startWatchers() {
 		return strings.Compare(resources[i].Resource().GroupVersionKind().String(), resources[j].Resource().GroupVersionKind().String()) < 0
 	})
 
-	scope.Source.Info("Creating watchers for Kubernetes CRDs")
-	s.watchers = make(map[collection.Name]*watcher)
+	// print the table as a single multi-line string so that other log statements are not interleaved.
+	var watcherTable bytes.Buffer
+	tw := tabwriter.NewWriter(&watcherTable, 0, 8, 2, '\t', 0)
+	_, _ = fmt.Fprintf(tw, "IDX\tGVK\tNAME\tBUILTIN\tDISABLED\tFOUND\t\n")
 	for i, r := range resources {
+		a := s.provider.GetAdapter(r.Resource())
+		found := s.foundResources[asKey(r.Resource().Group(), r.Resource().Kind())]
+		_, _ = fmt.Fprintf(tw, "[%v]\t%v\t%v\t%v\t%v\t%v\n",
+			i, r.Resource().GroupVersionKind(), r.Name(), a.IsBuiltIn(), r.IsDisabled(), found)
+	}
+	tw.Flush()
+
+	scope.Source.Infof("Creating watchers for Kubernetes CRDs:\n%v", watcherTable.String())
+
+	s.watchers = make(map[collection.Name]*watcher)
+	for _, r := range resources {
 		a := s.provider.GetAdapter(r.Resource())
 
 		found := s.foundResources[asKey(r.Resource().Group(), r.Resource().Kind())]
-
-		scope.Source.Infof("[%d]", i)
-		scope.Source.Infof("  Source:       %s", r.Resource().GroupVersionKind())
-		scope.Source.Infof("  Name:  		 %s", r.Name())
-		scope.Source.Infof("  Built-in:     %v", a.IsBuiltIn())
-		scope.Source.Infof("  Disabled:     %v", r.IsDisabled())
-		if !a.IsBuiltIn() {
-			scope.Source.Infof("  Found:  %v", found)
-		}
 
 		// Send a Full Sync event immediately for custom resources that were never found, or that are disabled.
 		// For everything else, create a watcher.

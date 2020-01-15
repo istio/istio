@@ -23,13 +23,16 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+	resource2 "istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/schema/resource"
+	"istio.io/istio/galley/pkg/config/schema/snapshots"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/mcp/sink"
@@ -46,6 +49,7 @@ const ledgerLogf = "error tracking pilot config versions for mcp distribution: %
 type Controller interface {
 	model.ConfigStoreCache
 	sink.Updater
+	snapshotter.Distributor
 }
 
 // Options stores the configurable attributes of a Control
@@ -68,6 +72,9 @@ type controller struct {
 
 	syncedMu sync.Mutex
 	synced   map[string]bool
+
+	directMu      sync.Mutex
+	directVersion map[string]string
 }
 
 // NewController provides a new Controller controller
@@ -87,6 +94,7 @@ func NewController(options *Options) Controller {
 		eventHandlers: make(map[resource.GroupVersionKind][]func(model.Config, model.Config, model.Event)),
 		synced:        synced,
 		ledger:        options.ConfigLedger,
+		directVersion: make(map[string]string),
 	}
 }
 
@@ -123,6 +131,53 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) (out 
 		out = append(out, *config)
 	}
 	return out, nil
+}
+
+func (c *controller) Distribute(group string, s *snapshotter.Snapshot) {
+	switch group {
+	case snapshots.Istiod, snapshots.SyntheticServiceEntry:
+	default:
+		return
+	}
+
+	c.directMu.Lock()
+	defer c.directMu.Unlock()
+	for _, collection := range s.Collections() {
+		if _, exists := c.schemas.Find(collection); !exists {
+			continue
+		}
+
+		version := s.Version(collection)
+		if version == c.directVersion[collection] {
+			continue // skip unchanged collections
+		}
+
+		resources := s.ResourceInstances(collection)
+		objects := make([]*sink.Object, 0, len(resources))
+		for _, r := range resources {
+			metadata, err := resource2.SerializeMetadata(r.Metadata)
+			if err != nil {
+				scope.Processing.Errorf("Error serializing metadata for resource (%v): %v", r, err)
+				continue
+			}
+
+			objects = append(objects, &sink.Object{
+				Metadata: metadata,
+				Body:     r.Message,
+			})
+		}
+		change := &sink.Change{
+			Collection: collection,
+			Objects:    objects,
+		}
+		if err := c.Apply(change); err != nil {
+			log.Errorf("failed to apply collection=%v version=%v: err=%v",
+				collection, version, err)
+			// log error
+		} else {
+			c.directVersion[collection] = version
+		}
+	}
 }
 
 // Apply receives changes from MCP server and creates the

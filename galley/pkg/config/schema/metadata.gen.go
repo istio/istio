@@ -331,6 +331,32 @@ collections:
 
 # The snapshots to generate
 snapshots:
+  # Used by Istiod when running galley's processing pipeline in-process.
+  - name: "istiod"
+    strategy: debounce
+    collections:
+      - "istio/authentication/v1alpha1/meshpolicies"
+      - "istio/authentication/v1alpha1/policies"
+      - "istio/config/v1alpha2/httpapispecs"
+      - "istio/config/v1alpha2/httpapispecbindings"
+      - "istio/mesh/v1alpha1/MeshConfig"
+      - "istio/mixer/v1/config/client/quotaspecbindings"
+      - "istio/mixer/v1/config/client/quotaspecs"
+      - "istio/networking/v1alpha3/destinationrules"
+      - "istio/networking/v1alpha3/envoyfilters"
+      - "istio/networking/v1alpha3/gateways"
+      - "istio/networking/v1alpha3/serviceentries"
+      - "istio/networking/v1alpha3/sidecars"
+      - "istio/networking/v1alpha3/virtualservices"
+      - "istio/rbac/v1alpha1/clusterrbacconfigs"
+      - "istio/rbac/v1alpha1/rbacconfigs"
+      - "istio/rbac/v1alpha1/servicerolebindings"
+      - "istio/rbac/v1alpha1/serviceroles"
+      - "istio/security/v1beta1/authorizationpolicies"
+      - "istio/security/v1beta1/requestauthentications"
+      - "k8s/core/v1/namespaces"
+      - "k8s/core/v1/services"
+
   # Used by Galley to distribute configuration.
   - name: "default"
     strategy: debounce

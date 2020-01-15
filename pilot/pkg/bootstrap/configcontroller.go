@@ -26,6 +26,8 @@ import (
 
 	"google.golang.org/grpc/keepalive"
 
+	"istio.io/pkg/env"
+
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
@@ -35,6 +37,9 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/schema/snapshots"
+	"istio.io/istio/galley/pkg/server/components"
+	"istio.io/istio/galley/pkg/server/settings"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
@@ -58,10 +63,17 @@ const (
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
 )
 
+var useBuiltinGalleyConfigSource = env.RegisterBoolVar("USE_BUILTIN_GALLEY_SOURCE", false,
+	"Use the built-in Galley's processing pipeline as the source of configuration ")
+
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
 	meshConfig := s.environment.Mesh()
-	if len(meshConfig.ConfigSources) > 0 {
+	if useBuiltinGalleyConfigSource.Get() {
+		if err := s.initInprocessGalleyController(args); err != nil {
+			return err
+		}
+	} else if len(meshConfig.ConfigSources) > 0 {
 		// Using MCP for config.
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
@@ -275,6 +287,45 @@ func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSour
 		}
 	}
 	return securityOption, nil
+}
+
+func (s *Server) initInprocessGalleyController(args *PilotArgs) error {
+	opts := &mcp.Options{
+		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+		ConfigLedger: buildLedger(args.Config),
+		XDSUpdater:   s.EnvoyXdsServer,
+	}
+
+	controller := mcp.NewController(opts)
+
+	processingArgs := settings.DefaultArgs()
+	processingArgs.KubeConfig = args.Config.KubeConfig
+	processingArgs.EnableValidationController = false
+	processingArgs.EnableValidationServer = true
+	processingArgs.MonitoringPort = 0
+	processingArgs.Liveness.UpdateInterval = 0
+	processingArgs.Readiness.UpdateInterval = 0
+	processingArgs.AltDistributor = controller
+	processingArgs.Insecure = true // TODO - use sidecar?
+	processingArgs.Snapshots = []string{snapshots.Istiod, snapshots.SyntheticServiceEntry}
+
+	processing := components.NewProcessing(processingArgs)
+
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		if err := processing.Start(); err != nil {
+			return err
+		}
+
+		go func() {
+			<-stop
+			processing.Stop()
+		}()
+
+		return nil
+	})
+
+	s.ConfigStores = append(s.ConfigStores, controller)
+	return nil
 }
 
 func (s *Server) mcpController(

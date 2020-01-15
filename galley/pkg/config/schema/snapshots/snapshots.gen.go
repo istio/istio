@@ -8,6 +8,9 @@ var (
 	// Default describes the snapshot default
 	Default = "default"
 
+	// Istiod describes the snapshot istiod
+	Istiod = "istiod"
+
 	// LocalAnalysis describes the snapshot localAnalysis
 	LocalAnalysis = "localAnalysis"
 
@@ -19,6 +22,7 @@ var (
 func SnapshotNames() []string {
 	return []string{
 		Default,
+		Istiod,
 		LocalAnalysis,
 		SyntheticServiceEntry,
 	}

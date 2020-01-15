@@ -119,7 +119,13 @@ func (p *Processing) Start() (err error) {
 		return
 	}
 
-	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+	var distributor snapshotter.Distributor
+
+	if p.args.AltDistributor != nil {
+		distributor = p.args.AltDistributor
+	} else {
+		distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+	}
 
 	if p.args.EnableConfigAnalysis {
 		combinedAnalyzer := analyzers.AllCombined()
