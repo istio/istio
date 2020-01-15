@@ -35,6 +35,8 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -1753,15 +1755,15 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		},
 	}
 	configStore := &fakes.IstioConfigStore{
-		ListStub: func(kind, namespace string) (configs []model.Config, e error) {
+		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
 			switch kind {
-			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind():
+			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				result := make([]model.Config, len(virtualServices))
 				for i := range virtualServices {
 					result[i] = *virtualServices[i]
 				}
 				return result, nil
-			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind():
+			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 				return []model.Config{envoyFilter}, nil
 			default:
 				return nil, nil

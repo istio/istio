@@ -32,13 +32,13 @@ import (
 
 const checkInterval = 100 * time.Millisecond
 
-var gatewayKind = collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind()
+var gatewayGvk = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
 
 var createConfigSet = []*model.Config{
 	{
 		ConfigMeta: model.ConfigMeta{
 			Name: "magic",
-			Type: gatewayKind,
+			Type: gatewayGvk.Kind,
 		},
 		Spec: &networking.Gateway{
 			Servers: []*networking.Server{
@@ -59,7 +59,7 @@ var updateConfigSet = []*model.Config{
 	{
 		ConfigMeta: model.ConfigMeta{
 			Name: "magic",
-			Type: gatewayKind,
+			Type: gatewayGvk.Kind,
 		},
 		Spec: &networking.Gateway{
 			Servers: []*networking.Server{
@@ -107,7 +107,7 @@ func TestMonitorForChange(t *testing.T) {
 	mon.Start(stop)
 
 	g.Eventually(func() error {
-		c, err := store.List(gatewayKind, "")
+		c, err := store.List(gatewayGvk, "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		if len(c) != 1 {
@@ -122,7 +122,7 @@ func TestMonitorForChange(t *testing.T) {
 	}).Should(gomega.Succeed())
 
 	g.Eventually(func() error {
-		c, err := store.List(gatewayKind, "")
+		c, err := store.List(gatewayGvk, "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		gateway := c[0].Spec.(*networking.Gateway)
@@ -134,7 +134,7 @@ func TestMonitorForChange(t *testing.T) {
 	}).Should(gomega.Succeed())
 
 	g.Eventually(func() ([]model.Config, error) {
-		return store.List(gatewayKind, "")
+		return store.List(gatewayGvk, "")
 	}).Should(gomega.HaveLen(0))
 
 }
@@ -175,7 +175,7 @@ func TestMonitorForError(t *testing.T) {
 	//nil data return and error return keeps the existing data aka createConfigSet
 	<-delay
 	g.Eventually(func() error {
-		c, err := store.List(gatewayKind, "")
+		c, err := store.List(gatewayGvk, "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		if len(c) != 1 {

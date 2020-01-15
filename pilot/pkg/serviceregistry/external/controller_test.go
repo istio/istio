@@ -29,7 +29,7 @@ import (
 
 var (
 	serviceEntrySchemas = collection.SchemasFor(collections.IstioNetworkingV1Alpha3Serviceentries)
-	serviceEntryKind    = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind()
+	serviceEntryKind    = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
 )
 
 type Event struct {
@@ -80,7 +80,7 @@ func TestController(t *testing.T) {
 
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              serviceEntryKind,
+			Type:              serviceEntryKind.Kind,
 			Name:              "fake",
 			Namespace:         "fake-ns",
 			CreationTimestamp: time.Now(),
@@ -144,7 +144,7 @@ func TestServiceEntryChanges(t *testing.T) {
 
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              serviceEntryKind,
+			Type:              serviceEntryKind.Kind,
 			Name:              "fake",
 			Namespace:         "fake-ns",
 			CreationTimestamp: ct,
@@ -189,7 +189,7 @@ func TestServiceEntryChanges(t *testing.T) {
 	// Update service entry with Host changes
 	updatecfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              serviceEntryKind,
+			Type:              serviceEntryKind.Kind,
 			Name:              "fake",
 			Namespace:         "fake-ns",
 			ResourceVersion:   revision,
@@ -235,7 +235,7 @@ func TestServiceEntryChanges(t *testing.T) {
 	// Update Service Entry with Endpoint changes
 	updatecfg = model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              serviceEntryKind,
+			Type:              serviceEntryKind.Kind,
 			Name:              "fake",
 			Namespace:         "fake-ns",
 			ResourceVersion:   revision,
@@ -311,7 +311,7 @@ func TestServiceEntryDelete(t *testing.T) {
 
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      serviceEntryKind,
+			Type:      serviceEntryKind.Kind,
 			Name:      "httpbin-egress",
 			Namespace: "test-ns",
 		},

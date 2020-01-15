@@ -77,11 +77,11 @@ func TestConfigDescriptor(t *testing.T) {
 		t.Errorf("descriptor.Types() => got %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
 	}
 
-	aType, aExists := schemas.FindByKind(a.Resource().Kind())
+	aType, aExists := schemas.FindByGroupVersionKind(a.Resource().GroupVersionKind())
 	if !aExists || !reflect.DeepEqual(aType, a) {
 		t.Errorf("descriptor.GetByType(a) => got %+v, want %+v", aType, a)
 	}
-	if _, exists := schemas.FindByKind("missing"); exists {
+	if _, exists := schemas.FindByGroupVersionKind(resource.GroupVersionKind{Kind: "missing"}); exists {
 		t.Error("descriptor.GetByType(missing) => got true, want false")
 	}
 
@@ -541,11 +541,11 @@ func addRbacConfigToStore(kind, name, namespace string, store model.IstioConfigS
 
 type fakeStore struct {
 	model.ConfigStore
-	cfg map[string][]model.Config
+	cfg map[resource.GroupVersionKind][]model.Config
 	err error
 }
 
-func (l *fakeStore) List(typ, namespace string) ([]model.Config, error) {
+func (l *fakeStore) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	ret := l.cfg[typ]
 	return ret, l.err
 }
@@ -557,8 +557,8 @@ func (l *fakeStore) Schemas() collection.Schemas {
 func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{
-		cfg: map[string][]model.Config{
-			collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().Kind(): {
+		cfg: map[resource.GroupVersionKind][]model.Config{
+			collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Namespace: ns,
@@ -582,7 +582,7 @@ func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 					},
 				},
 			},
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(): {
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count",
@@ -667,8 +667,8 @@ func TestMatchesDestHost(t *testing.T) {
 func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{
-		cfg: map[string][]model.Config{
-			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Kind(): {
+		cfg: map[resource.GroupVersionKind][]model.Config{
+			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count-1",
@@ -686,7 +686,7 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 					},
 				},
 			},
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(): {
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count-2",
@@ -745,8 +745,8 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 	}
 
 	l := &fakeStore{
-		cfg: map[string][]model.Config{
-			collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(): {gw1, gw2, gw3},
+		cfg: map[resource.GroupVersionKind][]model.Config{
+			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {gw1, gw2, gw3},
 		},
 	}
 	ii := model.MakeIstioStore(l)
@@ -769,8 +769,8 @@ func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
 	workloadLabels := labels.Collection{}
 
 	l := &fakeStore{
-		cfg: map[string][]model.Config{
-			collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind(): {
+		cfg: map[resource.GroupVersionKind][]model.Config{
+			collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count",

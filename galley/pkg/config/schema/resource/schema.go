@@ -29,8 +29,8 @@ import (
 type Schema interface {
 	fmt.Stringer
 
-	// CanonicalName of the resource.
-	CanonicalName() string
+	// GroupVersionKind of the resource. This is the only way to uniquely identify a resource.
+	GroupVersionKind() GroupVersionKind
 
 	// IsClusterScoped indicates that this resource is scoped to a particular namespace within a cluster.
 	IsClusterScoped() bool
@@ -72,6 +72,21 @@ type Schema interface {
 	// Equal is a helper function for testing equality between Schema instances. This supports comparison
 	// with the cmp library.
 	Equal(other Schema) bool
+}
+
+type GroupVersionKind struct {
+	Group   string
+	Version string
+	Kind    string
+}
+
+var _ fmt.Stringer = GroupVersionKind{}
+
+func (g GroupVersionKind) String() string {
+	if g.Group == "" {
+		return "core/" + g.Version + "/" + g.Kind
+	}
+	return g.Group + "/" + g.Version + "/" + g.Kind
 }
 
 // Builder for a Schema.
@@ -153,6 +168,14 @@ type schemaImpl struct {
 	validateProto validation.ValidateFunc
 }
 
+func (s *schemaImpl) GroupVersionKind() GroupVersionKind {
+	return GroupVersionKind{
+		Group:   s.group,
+		Version: s.version,
+		Kind:    s.kind,
+	}
+}
+
 func (s *schemaImpl) IsClusterScoped() bool {
 	return s.clusterScoped
 }
@@ -183,13 +206,6 @@ func (s *schemaImpl) Proto() string {
 
 func (s *schemaImpl) ProtoPackage() string {
 	return s.protoPackage
-}
-
-func (s *schemaImpl) CanonicalName() string {
-	if s.group == "" {
-		return "core/" + s.version + "/" + s.kind
-	}
-	return s.group + "/" + s.version + "/" + s.kind
 }
 
 func (s *schemaImpl) Validate() (err error) {

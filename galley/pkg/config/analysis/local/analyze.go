@@ -322,11 +322,11 @@ func (sa *SourceAnalyzer) disableKubeResourcesWithoutPermissions(client kubernet
 		if !s.IsDisabled() {
 			allowed, err := hasPermissionsOnCollection(client, s, requiredPerms)
 			if err != nil {
-				scope.Analysis.Errorf("Error checking permissions for resource %q (skipping it): %v", s.Resource().CanonicalName(), err)
+				scope.Analysis.Errorf("Error checking permissions for resource %q (skipping it): %v", s.Resource().GroupVersionKind(), err)
 				s = s.Disable()
 			} else if !allowed {
 				scope.Analysis.Errorf("Skipping resource %q since the current user doesn't have required permissions %v",
-					s.Resource().CanonicalName(), requiredPerms)
+					s.Resource().GroupVersionKind(), requiredPerms)
 				s = s.Disable()
 			}
 		}
@@ -347,7 +347,7 @@ func hasPermissionsOnCollection(client kubernetes.Interface, s collection.Schema
 				ResourceAttributes: &authorizationapi.ResourceAttributes{
 					Verb:     verb,
 					Group:    s.Resource().Group(),
-					Resource: s.Resource().CanonicalName(),
+					Resource: s.Resource().GroupVersionKind().String(),
 				},
 			},
 		}

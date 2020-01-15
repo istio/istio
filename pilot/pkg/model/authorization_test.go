@@ -23,6 +23,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
@@ -846,7 +848,7 @@ func newConfig(name, ns string, spec proto.Message) Config {
 
 type authzFakeStore struct {
 	data []struct {
-		typ string
+		typ resource.GroupVersionKind
 		ns  string
 		cfg Config
 	}
@@ -854,11 +856,11 @@ type authzFakeStore struct {
 
 func (fs *authzFakeStore) add(config Config) {
 	fs.data = append(fs.data, struct {
-		typ string
+		typ resource.GroupVersionKind
 		ns  string
 		cfg Config
 	}{
-		typ: config.Type,
+		typ: config.GroupVersionKind(),
 		ns:  config.Namespace,
 		cfg: config,
 	})
@@ -868,11 +870,11 @@ func (fs *authzFakeStore) Schemas() collection.Schemas {
 	return collection.SchemasFor()
 }
 
-func (fs *authzFakeStore) Get(_, _, _ string) *Config {
+func (fs *authzFakeStore) Get(_ resource.GroupVersionKind, _, _ string) *Config {
 	return nil
 }
 
-func (fs *authzFakeStore) List(typ, namespace string) ([]Config, error) {
+func (fs *authzFakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
 	var configs []Config
 	for _, data := range fs.data {
 		if data.typ == typ {
@@ -885,7 +887,7 @@ func (fs *authzFakeStore) List(typ, namespace string) ([]Config, error) {
 	return configs, nil
 }
 
-func (fs *authzFakeStore) Delete(_, _, _ string) error {
+func (fs *authzFakeStore) Delete(_ resource.GroupVersionKind, _, _ string) error {
 	return fmt.Errorf("not implemented")
 }
 func (fs *authzFakeStore) Create(Config) (string, error) {

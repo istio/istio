@@ -28,6 +28,8 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -116,7 +118,7 @@ type XdsEvent struct {
 
 	namespacesUpdated map[string]struct{}
 
-	configTypesUpdated map[string]struct{}
+	configTypesUpdated map[resource.GroupVersionKind]struct{}
 
 	// Push context to use for the push.
 	push *model.PushContext

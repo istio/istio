@@ -22,6 +22,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/api/annotation"
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -34,7 +36,7 @@ import (
 
 var (
 	sseCollection = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String()
-	sseKind       = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Kind()
+	sseKind       = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind()
 	sseProto      = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Proto()
 
 	gateway = &networking.Gateway{
@@ -160,7 +162,7 @@ func TestIncrementalControllerListInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	c, err := controller.List("gateway", "some-phony-name-space")
+	c, err := controller.List(resource.GroupVersionKind{Kind: "gateway"}, "some-phony-name-space")
 	g.Expect(c).To(gomega.BeNil())
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(err.Error()).To(gomega.ContainSubstring("list unknown type gateway"))

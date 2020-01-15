@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/pkg/ledger"
 
 	"github.com/golang/sync/errgroup"
@@ -93,7 +94,7 @@ func newClientSet(schemas collection.Schemas) (map[string]*restClient, error) {
 	builderMap := make(map[string]*restClientBuilder)
 
 	for _, s := range schemas.All() {
-		knownType, exists := crd.SupportedTypes[s.Resource().Kind()]
+		knownType, exists := crd.SupportedTypes[s.Resource().GroupVersionKind()]
 		if !exists {
 			return nil, fmt.Errorf("missing known kind for %q", s.Resource().Kind())
 		}
@@ -150,7 +151,8 @@ func (rc *restClient) updateRESTConfig(cfg *rest.Config) (config *rest.Config, e
 	schemeBuilder := runtime.NewSchemeBuilder(
 		func(scheme *runtime.Scheme) error {
 			for _, kind := range rc.types {
-				scheme.AddKnownTypes(rc.apiVersion, kind.Object, kind.Collection)
+				scheme.AddKnownTypeWithName(rc.apiVersion.WithKind(kind.Schema.Resource().Kind()), kind.Object)
+				scheme.AddKnownTypeWithName(rc.apiVersion.WithKind(kind.Schema.Resource().Kind()+"List"), kind.Collection)
 			}
 			meta_v1.AddToGroupVersion(scheme, rc.apiVersion)
 			return nil
@@ -341,21 +343,21 @@ func (cl *Client) Schemas() collection.Schemas {
 }
 
 // Get implements store interface
-func (cl *Client) Get(typ, name, namespace string) *model.Config {
+func (cl *Client) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
 	t, ok := crd.SupportedTypes[typ]
 	if !ok {
-		log.Warn("unknown type " + typ)
+		log.Warnf("unknown type: %s", typ)
 		return nil
 	}
 	rc, ok := cl.clientset[t.Schema.Resource().APIVersion()]
 	if !ok {
-		log.Warn("cannot find client for type " + typ)
+		log.Warnf("cannot find client for type: %s", typ)
 		return nil
 	}
 
-	s, exists := rc.schemas.FindByKind(typ)
+	s, exists := rc.schemas.FindByGroupVersionKind(typ)
 	if !exists {
-		log.Warn("cannot find proto schema for type " + typ)
+		log.Warnf("cannot find proto schema for type: %s", typ)
 		return nil
 	}
 
@@ -386,9 +388,9 @@ func (cl *Client) Create(config model.Config) (string, error) {
 		return "", fmt.Errorf("unrecognized apiVersion %q", config)
 	}
 
-	s, exists := rc.schemas.FindByKind(config.Type)
+	s, exists := rc.schemas.FindByGroupVersionKind(config.GroupVersionKind())
 	if !exists {
-		return "", fmt.Errorf("unrecognized type %q", config.Type)
+		return "", fmt.Errorf("unrecognized type: %s", config.GroupVersionKind())
 	}
 
 	if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
@@ -400,7 +402,7 @@ func (cl *Client) Create(config model.Config) (string, error) {
 		return "", err
 	}
 
-	obj := crd.SupportedTypes[s.Resource().Kind()].Object.DeepCopyObject().(crd.IstioObject)
+	obj := crd.SupportedTypes[s.Resource().GroupVersionKind()].Object.DeepCopyObject().(crd.IstioObject)
 	err = rc.dynamic.Post().
 		NamespaceIfScoped(out.GetObjectMeta().Namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
@@ -419,7 +421,7 @@ func (cl *Client) Update(config model.Config) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("unrecognized apiVersion %q", config)
 	}
-	s, exists := rc.schemas.FindByKind(config.Type)
+	s, exists := rc.schemas.FindByGroupVersionKind(config.GroupVersionKind())
 	if !exists {
 		return "", fmt.Errorf("unrecognized type %q", config.Type)
 	}
@@ -437,7 +439,7 @@ func (cl *Client) Update(config model.Config) (string, error) {
 		return "", err
 	}
 
-	obj := crd.SupportedTypes[s.Resource().Kind()].Object.DeepCopyObject().(crd.IstioObject)
+	obj := crd.SupportedTypes[s.Resource().GroupVersionKind()].Object.DeepCopyObject().(crd.IstioObject)
 	err = rc.dynamic.Put().
 		NamespaceIfScoped(out.GetObjectMeta().Namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
@@ -452,7 +454,7 @@ func (cl *Client) Update(config model.Config) (string, error) {
 }
 
 // Delete implements store interface
-func (cl *Client) Delete(typ, name, namespace string) error {
+func (cl *Client) Delete(typ resource.GroupVersionKind, name, namespace string) error {
 	t, ok := crd.SupportedTypes[typ]
 	if !ok {
 		return fmt.Errorf("unrecognized type %q", typ)
@@ -461,7 +463,7 @@ func (cl *Client) Delete(typ, name, namespace string) error {
 	if !ok {
 		return fmt.Errorf("unrecognized apiVersion %v", t.Schema.Resource().APIVersion())
 	}
-	s, exists := rc.schemas.FindByKind(typ)
+	s, exists := rc.schemas.FindByGroupVersionKind(typ)
 	if !exists {
 		return fmt.Errorf("missing type %q", typ)
 	}
@@ -482,18 +484,18 @@ func (cl *Client) GetResourceAtVersion(version string, key string) (resourceVers
 }
 
 // List implements store interface
-func (cl *Client) List(kind, namespace string) ([]model.Config, error) {
+func (cl *Client) List(kind resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	t, ok := crd.SupportedTypes[kind]
 	if !ok {
-		return nil, fmt.Errorf("unrecognized type %q", kind)
+		return nil, fmt.Errorf("unrecognized type: %s", kind)
 	}
 	rc, ok := cl.clientset[t.Schema.Resource().APIVersion()]
 	if !ok {
-		return nil, fmt.Errorf("unrecognized apiVersion %v", t.Schema.Resource().APIVersion())
+		return nil, fmt.Errorf("unrecognized apiVersion: %v", t.Schema.Resource().APIVersion())
 	}
-	s, exists := rc.schemas.FindByKind(kind)
+	s, exists := rc.schemas.FindByGroupVersionKind(kind)
 	if !exists {
-		return nil, fmt.Errorf("missing type %q", kind)
+		return nil, fmt.Errorf("missing type: %s", kind)
 	}
 
 	list := t.Collection.DeepCopyObject().(crd.IstioObjectList)

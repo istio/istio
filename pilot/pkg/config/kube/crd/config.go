@@ -18,6 +18,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -46,6 +48,15 @@ func (in *IstioKind) GetObjectMeta() meta_v1.ObjectMeta {
 // SetObjectMeta for a wrapper
 func (in *IstioKind) SetObjectMeta(metadata meta_v1.ObjectMeta) {
 	in.ObjectMeta = metadata
+}
+
+// IstioGroupVersionKind converts a Kubernetes GVK to and Istio GVK
+func (in *IstioKind) IstioGroupVersionKind() resource.GroupVersionKind {
+	return resource.GroupVersionKind{
+		Group:   in.GroupVersionKind().Group,
+		Version: in.GroupVersionKind().Version,
+		Kind:    in.GroupVersionKind().Kind,
+	}
 }
 
 // IstioKindList is the generic Kubernetes API list wrapper
