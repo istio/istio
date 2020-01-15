@@ -28,24 +28,30 @@ import (
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestGetAuthorizationPolicies(t *testing.T) {
 	testNS := "test-ns"
 	roleCfg := Config{
 		ConfigMeta: ConfigMeta{
-			Type: schemas.ServiceRole.Type, Name: "test-role-1", Namespace: testNS},
+			Type:      collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(),
+			Name:      "test-role-1",
+			Namespace: testNS,
+		},
 		Spec: &rbacproto.ServiceRole{
 			Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}},
 		},
 	}
 	bindingCfg := Config{
 		ConfigMeta: ConfigMeta{
-			Type: schemas.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: testNS},
+			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Name:      "test-binding-1",
+			Namespace: testNS,
+		},
 		Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
@@ -53,7 +59,10 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	}
 	invalidateBindingCfg := Config{
 		ConfigMeta: ConfigMeta{
-			Type: schemas.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: testNS},
+			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Name:      "test-binding-1",
+			Namespace: testNS,
+		},
 		Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: ""},
@@ -588,7 +597,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
 			got := authzPolicies.ListAuthorizationPolicies(
-				tc.ns, []labels.Instance{labels.Instance(tc.workloadLabels)})
+				tc.ns, []labels.Instance{tc.workloadLabels})
 			if !reflect.DeepEqual(tc.want, got) {
 				t.Errorf("want:%v\n but got: %v\n", tc.want, got)
 			}
@@ -665,7 +674,7 @@ func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 			config: []Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      schemas.RbacConfig.Type,
+						Type:      collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Kind(),
 						Name:      "default",
 						Namespace: "",
 					},
@@ -771,21 +780,21 @@ func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *Authorizat
 }
 
 func newConfig(name, ns string, spec proto.Message) Config {
-	var typ string
+	var kind string
 
 	switch spec.(type) {
 	case *rbacproto.RbacConfig:
-		typ = schemas.ClusterRbacConfig.Type
+		kind = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind()
 	case *rbacproto.ServiceRole:
-		typ = schemas.ServiceRole.Type
+		kind = collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind()
 	case *rbacproto.ServiceRoleBinding:
-		typ = schemas.ServiceRoleBinding.Type
+		kind = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind()
 	case *authpb.AuthorizationPolicy:
-		typ = schemas.AuthorizationPolicy.Type
+		kind = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind()
 	}
 	return Config{
 		ConfigMeta: ConfigMeta{
-			Type:      typ,
+			Type:      kind,
 			Name:      name,
 			Namespace: ns,
 		},
@@ -813,11 +822,11 @@ func (fs *authzFakeStore) add(config Config) {
 	})
 }
 
-func (fs *authzFakeStore) ConfigDescriptor() schema.Set {
-	return nil
+func (fs *authzFakeStore) Schemas() collection.Schemas {
+	return collection.SchemasFor()
 }
 
-func (fs *authzFakeStore) Get(typ, name, namespace string) *Config {
+func (fs *authzFakeStore) Get(_, _, _ string) *Config {
 	return nil
 }
 
@@ -834,14 +843,14 @@ func (fs *authzFakeStore) List(typ, namespace string) ([]Config, error) {
 	return configs, nil
 }
 
-func (fs *authzFakeStore) Delete(typ, name, namespace string) error {
+func (fs *authzFakeStore) Delete(_, _, _ string) error {
 	return fmt.Errorf("not implemented")
 }
-func (fs *authzFakeStore) Create(config Config) (string, error) {
+func (fs *authzFakeStore) Create(Config) (string, error) {
 	return "not implemented", nil
 }
 
-func (fs *authzFakeStore) Update(config Config) (string, error) {
+func (fs *authzFakeStore) Update(Config) (string, error) {
 	return "not implemented", nil
 }
 

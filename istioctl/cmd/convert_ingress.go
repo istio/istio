@@ -30,11 +30,9 @@ import (
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/util/pilotadapter"
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/validation"
 )
 
@@ -135,12 +133,12 @@ func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error
 
 func writeYAMLOutput(schemas collection.Schemas, configs []model.Config, writer io.Writer) {
 	for i, cfg := range configs {
-		s, exists := schemas.FindByKind(schema.NormalizeKind(cfg.Type))
+		s, exists := schemas.FindByKind(cfg.Type)
 		if !exists {
 			log.Errorf("Unknown kind %q for %v", cfg.Type, cfg.Name)
 			continue
 		}
-		obj, err := pilotadapter.ConvertConfigToObject(s, cfg)
+		obj, err := crd.ConvertConfig(s, cfg)
 		if err != nil {
 			log.Errorf("Could not decode %v: %v", cfg.Name, err)
 			continue
@@ -159,10 +157,8 @@ func writeYAMLOutput(schemas collection.Schemas, configs []model.Config, writer 
 
 func validateConfigs(configs []model.Config) error {
 	var errs error
-	normalizedVirtualServicesKind :=
-		schema.NormalizeKind(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind())
 	for _, cfg := range configs {
-		if normalizedVirtualServicesKind == schema.NormalizeKind(cfg.Type) {
+		if collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind() == cfg.Type {
 			if err := validation.ValidateVirtualService(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
 				errs = multierror.Append(err, errs)
 			}

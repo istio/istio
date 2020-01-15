@@ -21,12 +21,12 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 func createServiceEntries(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
@@ -46,21 +46,21 @@ type channelTerminal struct {
 type FakeXdsUpdater struct {
 }
 
-func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, namespace string, entry []*model.IstioEndpoint) error {
+func (fx *FakeXdsUpdater) EDSUpdate(_, _, _ string, _ []*model.IstioEndpoint) error {
 	return nil
 }
 
 func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
+func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
 }
 
-func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, namespace string, event model.Event) {
+func (fx *FakeXdsUpdater) SvcUpdate(_, _ string, _ string, _ model.Event) {
 }
 
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, func()) {
-	store := memory.Make(schemas.Istio)
+	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
 	stop := make(chan struct{})
@@ -208,7 +208,7 @@ func TestNonServiceConfig(t *testing.T) {
 	// Create a non-service configuration element. This should not affect the service registry at all.
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schemas.DestinationRule.Type,
+			Type:              collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",
@@ -246,7 +246,7 @@ func TestServicesChanged(t *testing.T) {
 
 	var updatedHTTPDNS = &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schemas.ServiceEntry.Type,
+			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,
@@ -281,7 +281,7 @@ func TestServicesChanged(t *testing.T) {
 
 	var updatedHTTPDNSPort = &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schemas.ServiceEntry.Type,
+			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,
@@ -317,7 +317,7 @@ func TestServicesChanged(t *testing.T) {
 
 	var updatedEndpoint = &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schemas.ServiceEntry.Type,
+			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,

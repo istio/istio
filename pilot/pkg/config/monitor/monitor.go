@@ -21,8 +21,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // Monitor will poll a config function in order to update a ConfigStore as
@@ -80,7 +81,7 @@ func (m *Monitor) checkAndUpdate() {
 	}
 
 	// make a deep copy of newConfigs to prevent data race
-	copyConfigs := []*model.Config{}
+	copyConfigs := make([]*model.Config, 0)
 	for _, config := range newConfigs {
 		cpy := *config
 		cpy.Spec = proto.Clone(config.Spec)

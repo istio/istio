@@ -38,6 +38,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -57,8 +58,8 @@ var (
 
 func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
 	return &fakes.IstioConfigStore{
-		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
-			if typ == "envoy-filter" {
+		ListStub: func(kind, namespace string) (configs []model.Config, e error) {
+			if kind == collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind() {
 				// to emulate returning multiple envoy filter configs
 				for i, cp := range configPatches {
 					configs = append(configs, model.Config{

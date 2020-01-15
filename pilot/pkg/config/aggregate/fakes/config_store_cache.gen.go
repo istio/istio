@@ -4,21 +4,11 @@ package fakes
 import (
 	"sync"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema"
 )
 
 type ConfigStoreCache struct {
-	ConfigDescriptorStub        func() schema.Set
-	configDescriptorMutex       sync.RWMutex
-	configDescriptorArgsForCall []struct {
-	}
-	configDescriptorReturns struct {
-		result1 schema.Set
-	}
-	configDescriptorReturnsOnCall map[int]struct {
-		result1 schema.Set
-	}
 	CreateStub        func(model.Config) (string, error)
 	createMutex       sync.RWMutex
 	createArgsForCall []struct {
@@ -107,6 +97,16 @@ type ConfigStoreCache struct {
 	runArgsForCall []struct {
 		arg1 <-chan struct{}
 	}
+	SchemasStub        func() collection.Schemas
+	schemasMutex       sync.RWMutex
+	schemasArgsForCall []struct {
+	}
+	schemasReturns struct {
+		result1 collection.Schemas
+	}
+	schemasReturnsOnCall map[int]struct {
+		result1 collection.Schemas
+	}
 	UpdateStub        func(model.Config) (string, error)
 	updateMutex       sync.RWMutex
 	updateArgsForCall []struct {
@@ -132,58 +132,6 @@ type ConfigStoreCache struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *ConfigStoreCache) ConfigDescriptor() schema.Set {
-	fake.configDescriptorMutex.Lock()
-	ret, specificReturn := fake.configDescriptorReturnsOnCall[len(fake.configDescriptorArgsForCall)]
-	fake.configDescriptorArgsForCall = append(fake.configDescriptorArgsForCall, struct {
-	}{})
-	fake.recordInvocation("ConfigDescriptor", []interface{}{})
-	fake.configDescriptorMutex.Unlock()
-	if fake.ConfigDescriptorStub != nil {
-		return fake.ConfigDescriptorStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.configDescriptorReturns
-	return fakeReturns.result1
-}
-
-func (fake *ConfigStoreCache) ConfigDescriptorCallCount() int {
-	fake.configDescriptorMutex.RLock()
-	defer fake.configDescriptorMutex.RUnlock()
-	return len(fake.configDescriptorArgsForCall)
-}
-
-func (fake *ConfigStoreCache) ConfigDescriptorCalls(stub func() schema.Set) {
-	fake.configDescriptorMutex.Lock()
-	defer fake.configDescriptorMutex.Unlock()
-	fake.ConfigDescriptorStub = stub
-}
-
-func (fake *ConfigStoreCache) ConfigDescriptorReturns(result1 schema.Set) {
-	fake.configDescriptorMutex.Lock()
-	defer fake.configDescriptorMutex.Unlock()
-	fake.ConfigDescriptorStub = nil
-	fake.configDescriptorReturns = struct {
-		result1 schema.Set
-	}{result1}
-}
-
-func (fake *ConfigStoreCache) ConfigDescriptorReturnsOnCall(i int, result1 schema.Set) {
-	fake.configDescriptorMutex.Lock()
-	defer fake.configDescriptorMutex.Unlock()
-	fake.ConfigDescriptorStub = nil
-	if fake.configDescriptorReturnsOnCall == nil {
-		fake.configDescriptorReturnsOnCall = make(map[int]struct {
-			result1 schema.Set
-		})
-	}
-	fake.configDescriptorReturnsOnCall[i] = struct {
-		result1 schema.Set
-	}{result1}
 }
 
 func (fake *ConfigStoreCache) Create(arg1 model.Config) (string, error) {
@@ -616,6 +564,58 @@ func (fake *ConfigStoreCache) RunArgsForCall(i int) <-chan struct{} {
 	return argsForCall.arg1
 }
 
+func (fake *ConfigStoreCache) Schemas() collection.Schemas {
+	fake.schemasMutex.Lock()
+	ret, specificReturn := fake.schemasReturnsOnCall[len(fake.schemasArgsForCall)]
+	fake.schemasArgsForCall = append(fake.schemasArgsForCall, struct {
+	}{})
+	fake.recordInvocation("Schemas", []interface{}{})
+	fake.schemasMutex.Unlock()
+	if fake.SchemasStub != nil {
+		return fake.SchemasStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.schemasReturns
+	return fakeReturns.result1
+}
+
+func (fake *ConfigStoreCache) SchemasCallCount() int {
+	fake.schemasMutex.RLock()
+	defer fake.schemasMutex.RUnlock()
+	return len(fake.schemasArgsForCall)
+}
+
+func (fake *ConfigStoreCache) SchemasCalls(stub func() collection.Schemas) {
+	fake.schemasMutex.Lock()
+	defer fake.schemasMutex.Unlock()
+	fake.SchemasStub = stub
+}
+
+func (fake *ConfigStoreCache) SchemasReturns(result1 collection.Schemas) {
+	fake.schemasMutex.Lock()
+	defer fake.schemasMutex.Unlock()
+	fake.SchemasStub = nil
+	fake.schemasReturns = struct {
+		result1 collection.Schemas
+	}{result1}
+}
+
+func (fake *ConfigStoreCache) SchemasReturnsOnCall(i int, result1 collection.Schemas) {
+	fake.schemasMutex.Lock()
+	defer fake.schemasMutex.Unlock()
+	fake.SchemasStub = nil
+	if fake.schemasReturnsOnCall == nil {
+		fake.schemasReturnsOnCall = make(map[int]struct {
+			result1 collection.Schemas
+		})
+	}
+	fake.schemasReturnsOnCall[i] = struct {
+		result1 collection.Schemas
+	}{result1}
+}
+
 func (fake *ConfigStoreCache) Update(arg1 model.Config) (string, error) {
 	fake.updateMutex.Lock()
 	ret, specificReturn := fake.updateReturnsOnCall[len(fake.updateArgsForCall)]
@@ -734,8 +734,6 @@ func (fake *ConfigStoreCache) VersionReturnsOnCall(i int, result1 string) {
 func (fake *ConfigStoreCache) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.configDescriptorMutex.RLock()
-	defer fake.configDescriptorMutex.RUnlock()
 	fake.createMutex.RLock()
 	defer fake.createMutex.RUnlock()
 	fake.deleteMutex.RLock()
@@ -752,6 +750,8 @@ func (fake *ConfigStoreCache) Invocations() map[string][][]interface{} {
 	defer fake.registerEventHandlerMutex.RUnlock()
 	fake.runMutex.RLock()
 	defer fake.runMutex.RUnlock()
+	fake.schemasMutex.RLock()
+	defer fake.schemasMutex.RUnlock()
 	fake.updateMutex.RLock()
 	defer fake.updateMutex.RUnlock()
 	fake.versionMutex.RLock()
