@@ -71,9 +71,6 @@ var (
 
 	// Ignore unmeshed pods.  This makes it easy to suppress warnings about kube-system etc
 	ignoreUnmeshed = false
-
-	destinationRuleType = collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind()
-	virtualServiceType  = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind()
 )
 
 func podDescribeCmd() *cobra.Command {
@@ -1144,7 +1141,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			var dr *model.Config
 			if err == nil && drName != "" && drNamespace != "" {
-				dr = configClient.Get(destinationRuleType, drName, drNamespace)
+				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(), drName, drNamespace)
 				if dr != nil {
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
 				}
@@ -1152,7 +1149,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs := configClient.Get(virtualServiceType, vsName, vsNamespace)
+				vs := configClient.Get(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(), vsName, vsNamespace)
 				if vs != nil {
 					if row == 0 {
 						fmt.Fprintf(writer, "\n")
@@ -1377,7 +1374,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			var dr *model.Config
 			if err == nil && drName != "" && drNamespace != "" {
-				dr = configClient.Get(destinationRuleType, drName, drNamespace)
+				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(), drName, drNamespace)
 				if dr != nil {
 					if len(svc.Spec.Ports) > 1 {
 						// If there is more than one port, prefix each DR by the port it applies to
@@ -1396,7 +1393,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs := configClient.Get(virtualServiceType, vsName, vsNamespace)
+				vs := configClient.Get(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(), vsName, vsNamespace)
 
 				if vs != nil {
 					if len(svc.Spec.Ports) > 1 {
