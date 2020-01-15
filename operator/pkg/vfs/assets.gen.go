@@ -39339,7 +39339,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
-      pilotCertProvider: citadel
+      pilotCertProvider: kubernetes
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"
