@@ -120,43 +120,38 @@ func TestVersion(t *testing.T) {
 
 func TestDescribe(t *testing.T) {
 	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		RunParallel(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "istioctl-describe",
+				Inject: true,
+			})
 
-			ctx.NewSubTest("ISTIOCTL").
-				RequiresEnvironment(environment.Kube).
-				RunParallel(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
-						Prefix: "istioctl-describe",
-						Inject: true,
-					})
+			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
+			g.ApplyConfigOrFail(t, ns, deployment)
 
-					deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-					g.ApplyConfigOrFail(t, ns, deployment)
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
 
-					var a echo.Instance
-					echoboot.NewBuilderOrFail(ctx, ctx).
-						With(&a, echoConfig(ns, "a")).
-						BuildOrFail(ctx)
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
-					istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			args := []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "describe", "svc", "a"}
+			output := istioCtl.InvokeOrFail(t, args)
+			g := gomega.NewGomegaWithT(t)
+			g.Expect(output).To(gomega.BeIdenticalTo(describeSvcAOutput))
 
-					args := []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-						"x", "describe", "svc", "a"}
-					output := istioCtl.InvokeOrFail(t, args)
-					g := gomega.NewGomegaWithT(t)
-					g.Expect(output).To(gomega.BeIdenticalTo(describeSvcAOutput))
+			podID, err := getPodID(a)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
 
-					podID, err := getPodID(a)
-					if err != nil {
-						ctx.Fatalf("Could not get Pod ID: %v", err)
-					}
-
-					args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-						"x", "describe", "pod", podID}
-					output = istioCtl.InvokeOrFail(t, args)
-					g.Expect(output).To(gomega.ContainSubstring(describePodAOutput))
-				})
-
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "describe", "pod", podID}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.ContainSubstring(describePodAOutput))
 		})
 }
 
