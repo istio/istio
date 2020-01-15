@@ -13109,6 +13109,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
             valueFrom:
               fieldRef:
