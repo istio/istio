@@ -354,6 +354,8 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				log.Info("istiod uses self-issued certificate")
 				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, bootstrap.CACertNamespaceConfigMapDataName)); err != nil {
 					certReadErr = true
+				} else {
+					log.Infof("the CA cert of istiod is: %v", string(rootCert))
 				}
 			} else if serverOptions.PilotCertProvider == "kubernetes" {
 				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
@@ -386,6 +388,8 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 					log.Info("istiod uses self-issued certificate")
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, bootstrap.CACertNamespaceConfigMapDataName)); err != nil {
 						certReadErr = true
+					} else {
+						log.Infof("the CA cert of istiod is: %v", string(rootCert))
 					}
 				} else if serverOptions.PilotCertProvider == "kubernetes" {
 					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
