@@ -57,6 +57,7 @@ template: |
         add:
         - NET_ADMIN
         - NET_RAW
+        - SYS_MODULE
     {{- end }}
         drop:
         - ALL

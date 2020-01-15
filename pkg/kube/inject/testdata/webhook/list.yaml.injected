@@ -172,6 +172,7 @@ spec:
             add:
             - NET_ADMIN
             - NET_RAW
+            - SYS_MODULE
             drop:
             - ALL
           privileged: false
@@ -364,6 +365,7 @@ spec:
             add:
             - NET_ADMIN
             - NET_RAW
+            - SYS_MODULE
             drop:
             - ALL
           privileged: false

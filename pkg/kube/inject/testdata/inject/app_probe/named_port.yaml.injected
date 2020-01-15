@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"c769d6c16537322ae9d718a4cc21542ec8f622550bb8cb0424e2613dba6585b8","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"a75db5303e0690bb71bdc1c9b61ec373a2d07f9d403f811aaddf4831c7442769","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
       creationTimestamp: null
@@ -184,6 +184,7 @@ spec:
             add:
             - NET_ADMIN
             - NET_RAW
+            - SYS_MODULE
             drop:
             - ALL
           privileged: false

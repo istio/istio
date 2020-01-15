@@ -183,6 +183,7 @@ items:
               add:
               - NET_ADMIN
               - NET_RAW
+              - SYS_MODULE
               drop:
               - ALL
             privileged: false
@@ -382,6 +383,7 @@ items:
               add:
               - NET_ADMIN
               - NET_RAW
+              - SYS_MODULE
               drop:
               - ALL
             privileged: false
