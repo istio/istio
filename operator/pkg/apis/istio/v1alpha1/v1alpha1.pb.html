@@ -2007,6 +2007,12 @@ No
 <td><code>pilotCertProvider</code></td>
 <td><code>string</code></td>
 <td>
+<p>Configure the Pilot certificate provider.
+Currently, two providers are supported: &ldquo;kubernetes&rdquo; and &ldquo;citadel&rdquo;.
+TODO (lei-tang): the default value of this option is currently set as &ldquo;kubernetes&rdquo; to be consistent
+with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
+we may change the default value of this option as &ldquo;citadel&rdquo;.</p>
+
 </td>
 <td>
 No

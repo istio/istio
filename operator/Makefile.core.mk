@@ -37,14 +37,14 @@ mandiff: update-charts
 
 fmt: format-go tidy-go
 
-gen: generate-v1alpha1 generate-vfs tidy-go mirror-licenses
+gen: operator-proto generate-vfs tidy-go mirror-licenses
 
 gen-check: clean gen check-clean-repo
 
 clean: clean-values clean-vfs clean-charts
 
-update-charts: installer.sha
-	@scripts/run_update_charts.sh `cat installer.sha`
+update-charts:
+	@scripts/run_update_charts.sh
 
 clean-charts:
 	@rm -fr data/charts
@@ -120,7 +120,7 @@ $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons): $(v1alpha1_protos
 	@rm -fr ${TMPDIR}/pkg
 	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(v1alpha1_path)/values_types.pb.go
 
-generate-v1alpha1: $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons)
+operator-proto: $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons)
 
 clean-values:
 	@rm -fr $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons)

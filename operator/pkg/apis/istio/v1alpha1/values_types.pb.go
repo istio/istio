@@ -1737,11 +1737,16 @@ type GlobalConfig struct {
 	// Specifies the Istio control plane’s telemetry Pod IP address or remote cluster DNS resolvable hostname
 	RemoteTelemetryAddress string `protobuf:"bytes,49,opt,name=remoteTelemetryAddress,proto3" json:"remoteTelemetryAddress,omitempty"`
 	// Specifies the configution of istiod
-	Istiod               *IstiodConfig `protobuf:"bytes,54,opt,name=istiod,proto3" json:"istiod,omitempty"`
-	PilotCertProvider    string        `protobuf:"bytes,56,opt,name=pilotCertProvider,proto3" json:"pilotCertProvider,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
+	Istiod *IstiodConfig `protobuf:"bytes,54,opt,name=istiod,proto3" json:"istiod,omitempty"`
+	// Configure the Pilot certificate provider.
+	// Currently, two providers are supported: "kubernetes" and "citadel".
+	// TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
+	// with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
+	// we may change the default value of this option as "citadel".
+	PilotCertProvider    string   `protobuf:"bytes,56,opt,name=pilotCertProvider,proto3" json:"pilotCertProvider,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *GlobalConfig) Reset()         { *m = GlobalConfig{} }

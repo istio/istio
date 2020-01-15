@@ -392,29 +392,35 @@ var (
 // To compare only on major, call this function with { X, -1, -1}.
 // to compare only on major & minor, call this function with {X, Y, -1}.
 func (pversion *IstioVersion) Compare(inv *IstioVersion) int {
-	if pversion.Major > inv.Major {
-		return 1
-	} else if pversion.Major < inv.Major {
-		return -1
+	// check major
+	if r := compareVersion(pversion.Major, inv.Major); r != 0 {
+		return r
 	}
 
-	// check minors
+	// check minor
 	if inv.Minor > -1 {
-		if pversion.Minor > inv.Minor {
-			return 1
-		} else if pversion.Minor < inv.Minor {
-			return -1
+		if r := compareVersion(pversion.Minor, inv.Minor); r != 0 {
+			return r
 		}
+
 		// check patch
 		if inv.Patch > -1 {
-			if pversion.Patch > inv.Patch {
-				return 1
-			} else if pversion.Patch < inv.Patch {
-				return -1
+			if r := compareVersion(pversion.Patch, inv.Patch); r != 0 {
+				return r
 			}
 		}
 	}
 	return 0
+}
+
+func compareVersion(ov, nv int) int {
+	if ov == nv {
+		return 0
+	}
+	if ov < nv {
+		return -1
+	}
+	return 1
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -641,11 +647,6 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 
 // ParseIstioVersion parses a version string and returns IstioVersion struct
 func ParseIstioVersion(ver string) *IstioVersion {
-	if strings.HasPrefix(ver, "master-") {
-		// This proxy is from a master branch build. Assume latest version
-		return MaxIstioVersion
-	}
-
 	// strip the release- prefix if any and extract the version string
 	ver = istioVersionRegexp.FindString(strings.TrimPrefix(ver, "release-"))
 
