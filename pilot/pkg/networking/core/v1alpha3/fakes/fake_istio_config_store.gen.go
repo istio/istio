@@ -4,9 +4,9 @@ package fakes
 import (
 	"sync"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema"
 )
 
 type IstioConfigStore struct {
@@ -30,16 +30,6 @@ type IstioConfigStore struct {
 	}
 	clusterRbacConfigReturnsOnCall map[int]struct {
 		result1 *model.Config
-	}
-	ConfigDescriptorStub        func() schema.Set
-	configDescriptorMutex       sync.RWMutex
-	configDescriptorArgsForCall []struct {
-	}
-	configDescriptorReturns struct {
-		result1 schema.Set
-	}
-	configDescriptorReturnsOnCall map[int]struct {
-		result1 schema.Set
 	}
 	CreateStub        func(model.Config) (string, error)
 	createMutex       sync.RWMutex
@@ -150,6 +140,16 @@ type IstioConfigStore struct {
 	}
 	rbacConfigReturnsOnCall map[int]struct {
 		result1 *model.Config
+	}
+	SchemasStub        func() collection.Schemas
+	schemasMutex       sync.RWMutex
+	schemasArgsForCall []struct {
+	}
+	schemasReturns struct {
+		result1 collection.Schemas
+	}
+	schemasReturnsOnCall map[int]struct {
+		result1 collection.Schemas
 	}
 	ServiceEntriesStub        func() []model.Config
 	serviceEntriesMutex       sync.RWMutex
@@ -319,58 +319,6 @@ func (fake *IstioConfigStore) ClusterRbacConfigReturnsOnCall(i int, result1 *mod
 	}
 	fake.clusterRbacConfigReturnsOnCall[i] = struct {
 		result1 *model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) ConfigDescriptor() schema.Set {
-	fake.configDescriptorMutex.Lock()
-	ret, specificReturn := fake.configDescriptorReturnsOnCall[len(fake.configDescriptorArgsForCall)]
-	fake.configDescriptorArgsForCall = append(fake.configDescriptorArgsForCall, struct {
-	}{})
-	fake.recordInvocation("ConfigDescriptor", []interface{}{})
-	fake.configDescriptorMutex.Unlock()
-	if fake.ConfigDescriptorStub != nil {
-		return fake.ConfigDescriptorStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.configDescriptorReturns
-	return fakeReturns.result1
-}
-
-func (fake *IstioConfigStore) ConfigDescriptorCallCount() int {
-	fake.configDescriptorMutex.RLock()
-	defer fake.configDescriptorMutex.RUnlock()
-	return len(fake.configDescriptorArgsForCall)
-}
-
-func (fake *IstioConfigStore) ConfigDescriptorCalls(stub func() schema.Set) {
-	fake.configDescriptorMutex.Lock()
-	defer fake.configDescriptorMutex.Unlock()
-	fake.ConfigDescriptorStub = stub
-}
-
-func (fake *IstioConfigStore) ConfigDescriptorReturns(result1 schema.Set) {
-	fake.configDescriptorMutex.Lock()
-	defer fake.configDescriptorMutex.Unlock()
-	fake.ConfigDescriptorStub = nil
-	fake.configDescriptorReturns = struct {
-		result1 schema.Set
-	}{result1}
-}
-
-func (fake *IstioConfigStore) ConfigDescriptorReturnsOnCall(i int, result1 schema.Set) {
-	fake.configDescriptorMutex.Lock()
-	defer fake.configDescriptorMutex.Unlock()
-	fake.ConfigDescriptorStub = nil
-	if fake.configDescriptorReturnsOnCall == nil {
-		fake.configDescriptorReturnsOnCall = make(map[int]struct {
-			result1 schema.Set
-		})
-	}
-	fake.configDescriptorReturnsOnCall[i] = struct {
-		result1 schema.Set
 	}{result1}
 }
 
@@ -921,6 +869,58 @@ func (fake *IstioConfigStore) RbacConfigReturnsOnCall(i int, result1 *model.Conf
 	}{result1}
 }
 
+func (fake *IstioConfigStore) Schemas() collection.Schemas {
+	fake.schemasMutex.Lock()
+	ret, specificReturn := fake.schemasReturnsOnCall[len(fake.schemasArgsForCall)]
+	fake.schemasArgsForCall = append(fake.schemasArgsForCall, struct {
+	}{})
+	fake.recordInvocation("Schemas", []interface{}{})
+	fake.schemasMutex.Unlock()
+	if fake.SchemasStub != nil {
+		return fake.SchemasStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.schemasReturns
+	return fakeReturns.result1
+}
+
+func (fake *IstioConfigStore) SchemasCallCount() int {
+	fake.schemasMutex.RLock()
+	defer fake.schemasMutex.RUnlock()
+	return len(fake.schemasArgsForCall)
+}
+
+func (fake *IstioConfigStore) SchemasCalls(stub func() collection.Schemas) {
+	fake.schemasMutex.Lock()
+	defer fake.schemasMutex.Unlock()
+	fake.SchemasStub = stub
+}
+
+func (fake *IstioConfigStore) SchemasReturns(result1 collection.Schemas) {
+	fake.schemasMutex.Lock()
+	defer fake.schemasMutex.Unlock()
+	fake.SchemasStub = nil
+	fake.schemasReturns = struct {
+		result1 collection.Schemas
+	}{result1}
+}
+
+func (fake *IstioConfigStore) SchemasReturnsOnCall(i int, result1 collection.Schemas) {
+	fake.schemasMutex.Lock()
+	defer fake.schemasMutex.Unlock()
+	fake.SchemasStub = nil
+	if fake.schemasReturnsOnCall == nil {
+		fake.schemasReturnsOnCall = make(map[int]struct {
+			result1 collection.Schemas
+		})
+	}
+	fake.schemasReturnsOnCall[i] = struct {
+		result1 collection.Schemas
+	}{result1}
+}
+
 func (fake *IstioConfigStore) ServiceEntries() []model.Config {
 	fake.serviceEntriesMutex.Lock()
 	ret, specificReturn := fake.serviceEntriesReturnsOnCall[len(fake.serviceEntriesArgsForCall)]
@@ -1215,8 +1215,6 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.authorizationPoliciesMutex.RUnlock()
 	fake.clusterRbacConfigMutex.RLock()
 	defer fake.clusterRbacConfigMutex.RUnlock()
-	fake.configDescriptorMutex.RLock()
-	defer fake.configDescriptorMutex.RUnlock()
 	fake.createMutex.RLock()
 	defer fake.createMutex.RUnlock()
 	fake.deleteMutex.RLock()
@@ -1235,6 +1233,8 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.quotaSpecByDestinationMutex.RUnlock()
 	fake.rbacConfigMutex.RLock()
 	defer fake.rbacConfigMutex.RUnlock()
+	fake.schemasMutex.RLock()
+	defer fake.schemasMutex.RUnlock()
 	fake.serviceEntriesMutex.RLock()
 	defer fake.serviceEntriesMutex.RUnlock()
 	fake.serviceRoleBindingsMutex.RLock()

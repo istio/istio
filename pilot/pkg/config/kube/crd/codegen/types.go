@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,9 +26,8 @@ import (
 	"log"
 	"text/template"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 // ConfigData is data struct to feed to types.go template.
@@ -38,15 +37,15 @@ type ConfigData struct {
 }
 
 // MakeConfigData prepare data for code generation for the given schema.
-func MakeConfigData(schema schema.Instance) ConfigData {
+func MakeConfigData(schema collection.Schema) ConfigData {
 	out := ConfigData{
-		IstioKind: crd.KebabCaseToCamelCase(schema.Type),
-		CrdKind:   crd.KebabCaseToCamelCase(schema.Type),
+		IstioKind: schema.Resource().Kind(),
+		CrdKind:   schema.Resource().Kind(),
 	}
-	if len(schema.VariableName) > 0 {
-		out.IstioKind = schema.VariableName
+	if len(schema.VariableName()) > 0 {
+		out.IstioKind = schema.VariableName()
 	}
-	log.Printf("Generating Istio type %s for %s.%s CRD\n", out.IstioKind, out.CrdKind, schema.Group)
+	log.Printf("Generating Istio type %s for %s.%s CRD\n", out.IstioKind, out.CrdKind, schema.Resource().Group())
 	return out
 }
 
@@ -59,9 +58,9 @@ func main() {
 
 	// Prepare to generate types for mock schema and all Istio schemas
 	typeList := []ConfigData{
-		MakeConfigData(schemas.MockConfig),
+		MakeConfigData(collections.Mock),
 	}
-	for _, s := range schemas.Istio {
+	for _, s := range collections.Pilot.All() {
 		typeList = append(typeList, MakeConfigData(s))
 	}
 	var buffer bytes.Buffer

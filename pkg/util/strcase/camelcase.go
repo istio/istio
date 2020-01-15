@@ -15,6 +15,7 @@
 package strcase
 
 import (
+	"bytes"
 	"strings"
 )
 
@@ -25,19 +26,20 @@ func CamelCase(s string) string {
 	}
 	t := make([]byte, 0, 32)
 	i := 0
-	if s[0] == '_' {
+	if isWordSeparator(s[0]) {
 		// Need a capital letter; drop the '_'.
 		t = append(t, 'X')
 		i++
 	}
 	// Invariant: if the next letter is lower case, it must be converted
 	// to upper case.
-	// That is, we process a word at a time, where words are marked by _ or
+	// That is, we process a word at a time, where words are marked by _, - or
 	// upper case letter. Digits are treated as words.
 	for ; i < len(s); i++ {
 		c := s[i]
-		if c == '_' && i+1 < len(s) && isASCIILower(s[i+1]) {
-			continue // Skip the underscore in s.
+		if isWordSeparator(c) {
+			// Skip the separate and capitalize the next letter.
+			continue
 		}
 		if isASCIIDigit(c) {
 			t = append(t, c)
@@ -65,6 +67,33 @@ func CamelCaseWithSeparator(n string, sep string) string {
 		p[i] = CamelCase(p[i])
 	}
 	return strings.Join(p, "")
+}
+
+// CamelCaseToKebabCase converts "MyName" to "my-name"
+func CamelCaseToKebabCase(s string) string {
+	switch s {
+	case "HTTPAPISpec":
+		return "http-api-spec"
+	case "HTTPAPISpecBinding":
+		return "http-api-spec-binding"
+	default:
+		var out bytes.Buffer
+		for i := range s {
+			if 'A' <= s[i] && s[i] <= 'Z' {
+				if i > 0 {
+					out.WriteByte('-')
+				}
+				out.WriteByte(s[i] - 'A' + 'a')
+			} else {
+				out.WriteByte(s[i])
+			}
+		}
+		return out.String()
+	}
+}
+
+func isWordSeparator(c byte) bool {
+	return c == '_' || c == '-'
 }
 
 // Is c an ASCII lower-case letter?

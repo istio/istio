@@ -15,8 +15,9 @@
 package memory
 
 import (
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 const (
@@ -56,8 +57,8 @@ func NewMonitor(store model.ConfigStore) Monitor {
 func NewBufferedMonitor(store model.ConfigStore, bufferSize int) Monitor {
 	handlers := make(map[string][]Handler)
 
-	for _, typ := range store.ConfigDescriptor().Types() {
-		handlers[typ] = make([]Handler, 0)
+	for _, kind := range store.Schemas().Kinds() {
+		handlers[kind] = make([]Handler, 0)
 	}
 
 	return &configstoreMonitor{

@@ -156,6 +156,24 @@ a:
 `,
 		},
 		{
+			desc:      "AddListEntry",
+			path:      `a.b.[name:n2].list`,
+			value:     `foo`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list:
+    - v1
+    - v2
+    - v3_regex
+    - foo
+`,
+		},
+		{
 			desc:      "path not found",
 			path:      `a.c.[name:n2].list.[v3]`,
 			wantFound: false,
@@ -185,7 +203,7 @@ a:
 				return
 			}
 
-			err := WritePathContext(pc, tt.value)
+			err := WritePathContext(pc, tt.value, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -311,6 +329,85 @@ a:
 			}
 			p := util.PathFromString(tt.path)
 			err := WriteNode(root, p, tt.value)
+			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
+				t.Errorf("%s: gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
+				return
+			}
+			if got, want := util.ToYAML(root), tt.want; err == nil && util.YAMLDiff(got, want) != "" {
+				t.Errorf("%s: got:\n%s\nwant:\n%s\ndiff:\n%s\n", tt.desc, got, want, util.YAMLDiff(got, want))
+			}
+		})
+	}
+}
+
+func TestMergeNode(t *testing.T) {
+	testTreeYAML := `
+a:
+  b:
+    c: val1
+    list1:
+    - i1: val1
+    - i2: val2
+`
+	tests := []struct {
+		desc     string
+		baseYAML string
+		path     string
+		value    string
+		want     string
+		wantErr  string
+	}{
+		{
+			desc:     "merge list entry",
+			baseYAML: testTreeYAML,
+			path:     "a.b.list1.[i1:val1]",
+			value: `
+i2b: val2`,
+			want: `
+a:
+  b:
+    c: val1
+    list1:
+    - i1: val1
+      i2b: val2
+    - i2: val2
+`,
+		},
+		{
+			desc:     "merge list",
+			baseYAML: testTreeYAML,
+			path:     "a.b.list1",
+			value: `
+i3:
+  a: val3
+`,
+			want: `
+a:
+  b:
+    c: val1
+    list1:
+    - i1: val1
+    - i2: val2
+    - i3:
+        a: val3
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			root := make(map[string]interface{})
+			if tt.baseYAML != "" {
+				if err := yaml.Unmarshal([]byte(tt.baseYAML), &root); err != nil {
+					t.Fatal(err)
+				}
+			}
+			p := util.PathFromString(tt.path)
+			iv := make(map[string]interface{})
+			err := yaml.Unmarshal([]byte(tt.value), &iv)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = MergeNode(root, p, iv)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Errorf("%s: gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 				return

@@ -78,10 +78,12 @@ collections:
   - name: "istio/authentication/v1alpha1/meshpolicies"
     kind: "MeshPolicy"
     group: "authentication.istio.io"
+    pilot: true
 
   - name: "istio/authentication/v1alpha1/policies"
     kind: "Policy"
     group: "authentication.istio.io"
+    pilot: true
 
   - name: "istio/config/v1alpha2/adapters"
     kind: "adapter"
@@ -90,10 +92,12 @@ collections:
   - name: "istio/config/v1alpha2/httpapispecs"
     kind: "HTTPAPISpec"
     group: "config.istio.io"
+    pilot: true
 
   - name: "istio/config/v1alpha2/httpapispecbindings"
     kind: "HTTPAPISpecBinding"
     group: "config.istio.io"
+    pilot: true
 
   - name: "istio/config/v1alpha2/templates"
     kind: "template"
@@ -106,26 +110,32 @@ collections:
   - name: "istio/mixer/v1/config/client/quotaspecs"
     kind: "QuotaSpec"
     group: "config.istio.io"
+    pilot: true
 
   - name: "istio/mixer/v1/config/client/quotaspecbindings"
     kind: "QuotaSpecBinding"
     group: "config.istio.io"
+    pilot: true
 
   - name: "istio/networking/v1alpha3/destinationrules"
     kind: "DestinationRule"
     group: "networking.istio.io"
+    pilot: true
 
   - name: "istio/networking/v1alpha3/envoyfilters"
     kind: "EnvoyFilter"
     group: "networking.istio.io"
+    pilot: true
 
   - name: "istio/networking/v1alpha3/gateways"
     kind: "Gateway"
     group: "networking.istio.io"
+    pilot: true
 
   - name: "istio/networking/v1alpha3/serviceentries"
     kind: "ServiceEntry"
     group: "networking.istio.io"
+    pilot: true
 
   - name: "istio/networking/v1alpha3/synthetic/serviceentries"
     kind: "ServiceEntry"
@@ -134,10 +144,12 @@ collections:
   - name: "istio/networking/v1alpha3/sidecars"
     kind: "Sidecar"
     group: "networking.istio.io"
+    pilot: true
 
   - name: "istio/networking/v1alpha3/virtualservices"
     kind: "VirtualService"
     group: "networking.istio.io"
+    pilot: true
 
   - name: "istio/policy/v1beta1/attributemanifests"
     kind: "attributemanifest"
@@ -158,26 +170,32 @@ collections:
   - name: "istio/rbac/v1alpha1/clusterrbacconfigs"
     kind: "ClusterRbacConfig"
     group: "rbac.istio.io"
+    pilot: true
 
   - name: "istio/rbac/v1alpha1/rbacconfigs"
     kind: "RbacConfig"
     group: "rbac.istio.io"
+    pilot: true
 
   - name: "istio/rbac/v1alpha1/servicerolebindings"
     kind: "ServiceRoleBinding"
     group: "rbac.istio.io"
+    pilot: true
 
   - name: "istio/rbac/v1alpha1/serviceroles"
     kind: "ServiceRole"
     group: "rbac.istio.io"
+    pilot: true
 
   - name: "istio/security/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"
     group: "security.istio.io"
+    pilot: true
 
   - name: "istio/security/v1beta1/requestauthentications"
     kind: "RequestAuthentication"
     group: "security.istio.io"
+    pilot: true
 
   ### K8s collections ###
 

@@ -198,7 +198,7 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_P
 			errs = util.AppendErr(errs, err)
 			continue
 		}
-		errs = util.AppendErr(errs, tpath.WritePathContext(inc, p.Value))
+		errs = util.AppendErr(errs, tpath.WritePathContext(inc, p.Value, false))
 	}
 	oy, err := yaml.Marshal(bo)
 	if err != nil {
