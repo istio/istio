@@ -83,7 +83,7 @@ func TestVersion(t *testing.T) {
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, istioctl.Config{})
 
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
@@ -95,7 +95,7 @@ func TestVersion(t *testing.T) {
 				return
 			}
 
-			t.Logf("Did not find control plane version. This may mean components have different versions.")
+			ctx.Logf("Did not find control plane version. This may mean components have different versions.")
 
 			// At this point, we expect the version for each component
 			expectedRegexps := []*regexp.Regexp{
@@ -111,7 +111,7 @@ func TestVersion(t *testing.T) {
 			}
 			for _, regexp := range expectedRegexps {
 				if !regexp.MatchString(output) {
-					t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
+					ctx.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
 						strings.Join(args, " "), output, regexp)
 				}
 			}
@@ -135,23 +135,38 @@ func TestDescribe(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
-
-			args := []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"x", "describe", "svc", "a"}
-			output := istioCtl.InvokeOrFail(t, args)
-			g := gomega.NewGomegaWithT(t)
-			g.Expect(output).To(gomega.MatchRegexp(describeSvcAOutput))
+			istioCtl := istioctl.NewOrFail(ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
 
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			// @@@ TODO remove this, it is for testing this integration test
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "cluster", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			fmt.Printf("@@@ ecs pc cluster is %s\n", output)
+
+			// @@@ TODO remove this, it is for testing this integration test
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "routes", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			fmt.Printf("@@@ ecs pc routes is %s\n", output)
+
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "describe", "pod", podID}
 			output = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(describePodAOutput))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "describe", "svc", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(describeSvcAOutput))
 		})
 }
 
