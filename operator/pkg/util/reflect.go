@@ -262,6 +262,28 @@ func UpdateSlicePtr(parentSlice interface{}, index int, value interface{}) error
 	return nil
 }
 
+// AppendToSlicePtr appends an entry in the parent, which must be a slice ptr, with the given value.
+func AppendToSlicePtr(parentSlice interface{}, value interface{}) error {
+	scope.Debugf("AppendToSlicePtr parent=\n%s\n, value=\n%v", pretty.Sprint(parentSlice), value)
+	pv := reflect.ValueOf(parentSlice)
+	v := reflect.ValueOf(value)
+
+	if !IsSliceInterfacePtr(parentSlice) {
+		return fmt.Errorf("AppendToSlicePtr parent type is %T, must be *[]interface{}", parentSlice)
+	}
+
+	pvv := pv.Elem()
+	var newSlice reflect.Value
+	if pvv.Kind() == reflect.Interface {
+		newSlice = reflect.Append(pv.Elem().Elem(), v)
+	} else {
+		newSlice = reflect.Append(pv.Elem(), v)
+	}
+	fmt.Printf("parentSlice has type %T, newSlice %T", parentSlice, newSlice.Interface())
+	pv.Elem().Set(newSlice)
+	return nil
+}
+
 // InsertIntoMap inserts value with key into parent which must be a map, map ptr, or interface to map.
 func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) error {
 	scope.Debugf("InsertIntoMap key=%v, value=%s, map=\n%s", key, pretty.Sprint(value), pretty.Sprint(parentMap))
