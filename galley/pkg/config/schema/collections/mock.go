@@ -33,7 +33,7 @@ var (
 			ClusterScoped: false,
 			Kind:          "MockConfig",
 			Plural:        "mockconfigs",
-			Group:         "test",
+			Group:         "test.istio.io",
 			Version:       "v1",
 			Proto:         "test.MockConfig",
 			ProtoPackage:  "istio.io/istio/pkg/test/config",

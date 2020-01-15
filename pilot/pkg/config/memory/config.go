@@ -24,8 +24,8 @@ import (
 
 	"istio.io/pkg/ledger"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema"
 )
 
 var (
@@ -35,35 +35,35 @@ var (
 
 const ledgerLogf = "error tracking pilot config memory versions for distribution: %v"
 
-// Make creates an in-memory config store from a config descriptor
-func Make(descriptor schema.Set) model.ConfigStore {
-	return MakeWithLedger(descriptor, ledger.Make(time.Minute))
+// Make creates an in-memory config store from a config schemas
+func Make(schemas collection.Schemas) model.ConfigStore {
+	return MakeWithLedger(schemas, ledger.Make(time.Minute))
 }
 
-func MakeWithLedger(descriptor schema.Set, configLedger ledger.Ledger) model.ConfigStore {
+func MakeWithLedger(schemas collection.Schemas, configLedger ledger.Ledger) model.ConfigStore {
 	out := store{
-		descriptor: descriptor,
-		data:       make(map[string]map[string]*sync.Map),
-		ledger:     configLedger,
+		schemas: schemas,
+		data:    make(map[string]map[string]*sync.Map),
+		ledger:  configLedger,
 	}
-	for _, kind := range descriptor.Types() {
-		out.data[schema.NormalizeKind(kind)] = make(map[string]*sync.Map)
+	for _, kind := range schemas.Kinds() {
+		out.data[kind] = make(map[string]*sync.Map)
 	}
 	return &out
 }
 
 type store struct {
-	descriptor schema.Set
-	data       map[string]map[string]*sync.Map
-	ledger     ledger.Ledger
+	schemas collection.Schemas
+	data    map[string]map[string]*sync.Map
+	ledger  ledger.Ledger
 }
 
 func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return cr.ledger.GetPreviousValue(version, key)
 }
 
-func (cr *store) ConfigDescriptor() schema.Set {
-	return cr.descriptor
+func (cr *store) Schemas() collection.Schemas {
+	return cr.schemas
 }
 
 func (cr *store) Version() string {
@@ -71,7 +71,6 @@ func (cr *store) Version() string {
 }
 
 func (cr *store) Get(kind, name, namespace string) *model.Config {
-	kind = schema.NormalizeKind(kind)
 	_, ok := cr.data[kind]
 	if !ok {
 		return nil
@@ -92,7 +91,6 @@ func (cr *store) Get(kind, name, namespace string) *model.Config {
 }
 
 func (cr *store) List(kind, namespace string) ([]model.Config, error) {
-	kind = schema.NormalizeKind(kind)
 	data, exists := cr.data[kind]
 	if !exists {
 		return nil, nil
@@ -119,7 +117,6 @@ func (cr *store) List(kind, namespace string) ([]model.Config, error) {
 }
 
 func (cr *store) Delete(kind, name, namespace string) error {
-	kind = schema.NormalizeKind(kind)
 	data, ok := cr.data[kind]
 	if !ok {
 		return errors.New("unknown type")
@@ -143,12 +140,12 @@ func (cr *store) Delete(kind, name, namespace string) error {
 }
 
 func (cr *store) Create(config model.Config) (string, error) {
-	kind := schema.NormalizeKind(config.Type)
-	s, ok := cr.descriptor.GetByType(kind)
+	kind := config.Type
+	s, ok := cr.schemas.FindByKind(kind)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+	if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", err
 	}
 	ns, exists := cr.data[kind][config.Namespace]
@@ -179,12 +176,12 @@ func (cr *store) Create(config model.Config) (string, error) {
 }
 
 func (cr *store) Update(config model.Config) (string, error) {
-	kind := schema.NormalizeKind(config.Type)
-	s, ok := cr.descriptor.GetByType(kind)
+	kind := config.Type
+	s, ok := cr.schemas.FindByKind(kind)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+	if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", err
 	}
 

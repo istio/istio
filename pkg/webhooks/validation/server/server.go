@@ -39,7 +39,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/util/pilotadapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/config/constants"
@@ -388,7 +387,7 @@ func (wh *Webhook) admitPilot(request *kubeApiAdmission.AdmissionRequest) *kubeA
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
 	}
 
-	out, err := pilotadapter.ConvertObjectToConfig(s, &obj, wh.domainSuffix)
+	out, err := crd.ConvertObject(s, &obj, wh.domainSuffix)
 	if err != nil {
 		scope.Infof("error decoding configuration: %v", err)
 		reportValidationFailed(request, reasonCRDConversionError)

@@ -15,7 +15,6 @@
 package bootstrap
 
 import (
-	"encoding/base64"
 	"time"
 
 	"istio.io/istio/security/pkg/pki/ca"
@@ -92,8 +91,7 @@ func (nc *NamespaceController) namespaceAdded(obj interface{}) {
 
 	if ok {
 		rootCert := nc.ca.GetCAKeyCertBundle().GetRootCertPem()
-		certEncoded := base64.StdEncoding.EncodeToString(rootCert)
-		err := certutil.InsertDataToConfigMapWithRetry(nc.core, ns.GetName(), certEncoded, CACertNamespaceConfigMap,
+		err := certutil.InsertDataToConfigMapWithRetry(nc.core, ns.GetName(), string(rootCert), CACertNamespaceConfigMap,
 			CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)
 		if err != nil {
 			log.Errorf("error when inserting CA cert to configmap: %v", err)
@@ -109,14 +107,13 @@ func (nc *NamespaceController) namespaceUpdated(oldObj, newObj interface{}) {
 
 	if ok {
 		rootCert := nc.ca.GetCAKeyCertBundle().GetRootCertPem()
-		certEncoded := base64.StdEncoding.EncodeToString(rootCert)
 		// Every namespaceResyncPeriod, namespaceUpdated() will be invoked
 		// for every namespace. If a namespace does not have the Citadel CA
 		// certificate or the certificate in a ConfigMap of the namespace is not
 		// up to date, Citadel updates the certificate in the namespace.
 		// For simplifying the implementation and no overhead for reading the certificate from the ConfigMap,
 		// simply updates the ConfigMap to the current Citadel CA certificate.
-		err := certutil.InsertDataToConfigMapWithRetry(nc.core, ns.GetName(), certEncoded, CACertNamespaceConfigMap,
+		err := certutil.InsertDataToConfigMapWithRetry(nc.core, ns.GetName(), string(rootCert), CACertNamespaceConfigMap,
 			CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)
 		if err != nil {
 			log.Errorf("error when updating CA cert in configmap: %v", err)
