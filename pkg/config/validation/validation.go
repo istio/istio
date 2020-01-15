@@ -1562,6 +1562,10 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 			return err
 		}
 
+		if in.Action == security_beta.AuthorizationPolicy_DENY && in.Rules == nil {
+			return fmt.Errorf("a deny policy without `rules` is meaningless and has no effect, found in %s.%s", name, namespace)
+		}
+
 		var errs error
 		for i, rule := range in.GetRules() {
 			if rule.From != nil && len(rule.From) == 0 {
@@ -1572,7 +1576,8 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d in %s.%s", i, name, namespace))
 				} else {
 					src := from.Source
-					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 {
+					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 &&
+						len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 && len(src.NotIpBlocks) == 0 {
 						errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d in %s.%s", i, name, namespace))
 					}
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
@@ -1586,18 +1591,29 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d in %s.%s", i, name, namespace))
 				} else {
 					op := to.Operation
-					if len(op.Ports) == 0 && len(op.Methods) == 0 && len(op.Paths) == 0 && len(op.Hosts) == 0 {
+					if len(op.Ports) == 0 && len(op.Methods) == 0 && len(op.Paths) == 0 && len(op.Hosts) == 0 &&
+						len(op.NotPorts) == 0 && len(op.NotMethods) == 0 && len(op.NotPaths) == 0 && len(op.NotHosts) == 0 {
 						errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be empty, found at rule %d in %s.%s", i, name, namespace))
 					}
 					errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetPorts()))
 				}
 			}
 			for _, condition := range rule.GetWhen() {
-				if condition.GetKey() == "" || len(condition.GetValues()) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("`condition` must not have empty key or values, found at %q in %s.%s", condition, name, namespace))
-				}
-				if err := security.ValidateAttribute(condition.GetKey(), condition.GetValues()); err != nil {
-					errs = appendErrors(errs, fmt.Errorf("invalid condition in %s.%s: %v", name, namespace, err))
+				key := condition.GetKey()
+				if key == "" {
+					errs = appendErrors(errs, fmt.Errorf("`key` must not be empty, found in %s.%s", name, namespace))
+				} else {
+					if len(condition.GetValues()) == 0 && len(condition.GetNotValues()) == 0 {
+						errs = appendErrors(errs, fmt.Errorf("at least one of `values` or `notValues` must be set for key %s, found in %s.%s",
+							key, name, namespace))
+					} else {
+						if err := security.ValidateAttribute(key, condition.GetValues()); err != nil {
+							errs = appendErrors(errs, fmt.Errorf("invalid `value` for `key` %s: %v, found in %s.%s", key, err, name, namespace))
+						}
+						if err := security.ValidateAttribute(key, condition.GetNotValues()); err != nil {
+							errs = appendErrors(errs, fmt.Errorf("invalid `notValue` for `key` %s: %v, found in %s.%s", key, err, name, namespace))
+						}
+					}
 				}
 			}
 		}

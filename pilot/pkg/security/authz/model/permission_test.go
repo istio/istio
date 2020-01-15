@@ -47,7 +47,9 @@ func TestPermission_Match(t *testing.T) {
 				Services: []string{"review.default"},
 				Constraints: []KeyValues{
 					{
-						"destination.name": []string{"s1", "s2"},
+						"destination.name": Values{
+							Values: []string{"s1", "s2"},
+						},
 					},
 				},
 			},
@@ -63,7 +65,9 @@ func TestPermission_Match(t *testing.T) {
 				Services: []string{"product.default"},
 				Constraints: []KeyValues{
 					{
-						"destination.name": []string{"s1", "s2"},
+						"destination.name": Values{
+							Values: []string{"s1", "s2"},
+						},
 					},
 				},
 			},
@@ -81,7 +85,9 @@ func TestPermission_Match(t *testing.T) {
 				},
 				Constraints: []KeyValues{
 					{
-						"destination.labels[token]": []string{"t1", "t2"},
+						"destination.labels[token]": Values{
+							Values: []string{"t1", "t2"},
+						},
 					},
 				},
 			},
@@ -98,7 +104,9 @@ func TestPermission_Match(t *testing.T) {
 				Services: []string{"product.default"},
 				Constraints: []KeyValues{
 					{
-						"destination.user": []string{"user2"},
+						"destination.user": Values{
+							Values: []string{"user2"},
+						},
 					},
 				},
 			},
@@ -120,19 +128,29 @@ func TestPermission_Match(t *testing.T) {
 				Services: []string{"product.default"},
 				Constraints: []KeyValues{
 					{
-						"destination.name": []string{"s1", "s2"},
+						"destination.name": Values{
+							Values: []string{"s1", "s2"},
+						},
 					},
 					{
-						"destination.namespace": []string{"ns1", "ns2"},
+						"destination.namespace": Values{
+							Values: []string{"ns1", "ns2"},
+						},
 					},
 					{
-						"destination.user": []string{"sa1", "sa2"},
+						"destination.user": Values{
+							Values: []string{"sa1", "sa2"},
+						},
 					},
 					{
-						"destination.labels[token]": []string{"t1", "t2"},
+						"destination.labels[token]": Values{
+							Values: []string{"t1", "t2"},
+						},
 					},
 					{
-						"request.headers[user-agent]": []string{"x1", "x2"},
+						"request.headers[user-agent]": Values{
+							Values: []string{"x1", "x2"},
+						},
 					},
 				},
 			},
@@ -164,9 +182,21 @@ func TestPermission_ValidateForTCP(t *testing.T) {
 			},
 		},
 		{
+			name: "permission with notPath",
+			perm: &Permission{
+				NotPaths: []string{"/"},
+			},
+		},
+		{
 			name: "permission with method",
 			perm: &Permission{
 				Methods: []string{"GET"},
+			},
+		},
+		{
+			name: "permission with notMethod",
+			perm: &Permission{
+				NotMethods: []string{"GET"},
 			},
 		},
 		{
@@ -174,10 +204,14 @@ func TestPermission_ValidateForTCP(t *testing.T) {
 			perm: &Permission{
 				Constraints: []KeyValues{
 					{
-						attrDestIP: []string{"1.2.3.4"},
+						attrDestIP: Values{
+							Values: []string{"1.2.3.4"},
+						},
 					},
 					{
-						attrRequestHeader: []string{"TOKEN"},
+						attrRequestHeader: Values{
+							Values: []string{"TOKEN"},
+						},
 					},
 				},
 			},
@@ -187,10 +221,14 @@ func TestPermission_ValidateForTCP(t *testing.T) {
 			perm: &Permission{
 				Constraints: []KeyValues{
 					{
-						attrDestIP: []string{"1.2.3.4"},
+						attrDestIP: Values{
+							Values: []string{"1.2.3.4"},
+						},
 					},
 					{
-						attrDestPort: []string{"80"},
+						attrDestPort: Values{
+							Values: []string{"80"},
+						},
 					},
 				},
 			},
@@ -373,7 +411,9 @@ func TestPermission_Generate(t *testing.T) {
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						attrDestIP: []string{"1.2.3.4", "5.6.7.8"},
+						attrDestIP: Values{
+							Values: []string{"1.2.3.4", "5.6.7.8"},
+						},
 					},
 				},
 			},
@@ -394,7 +434,9 @@ func TestPermission_Generate(t *testing.T) {
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						attrDestPort: []string{"8000", "9000"},
+						attrDestPort: Values{
+							Values: []string{"8000", "9000"},
+						},
 					},
 				},
 			},
@@ -411,7 +453,9 @@ func TestPermission_Generate(t *testing.T) {
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						pathHeader: []string{"/hello", "/world"},
+						pathHeader: Values{
+							Values: []string{"/hello", "/world"},
+						},
 					},
 				},
 			},
@@ -432,7 +476,9 @@ func TestPermission_Generate(t *testing.T) {
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						methodHeader: []string{"GET", "POST"},
+						methodHeader: Values{
+							Values: []string{"GET", "POST"},
+						},
 					},
 				},
 			},
@@ -453,7 +499,9 @@ func TestPermission_Generate(t *testing.T) {
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						hostHeader: []string{"istio.io", "github.com"},
+						hostHeader: Values{
+							Values: []string{"istio.io", "github.com"},
+						},
 					},
 				},
 			},
@@ -474,8 +522,12 @@ func TestPermission_Generate(t *testing.T) {
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-id"):  []string{"id-1", "id-2"},
-						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-tag"): []string{"tag-1", "tag-2"},
+						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-id"): Values{
+							Values: []string{"id-1", "id-2"},
+						},
+						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-tag"): Values{
+							Values: []string{"tag-1", "tag-2"},
+						},
 					},
 				},
 			},
@@ -504,7 +556,9 @@ func TestPermission_Generate(t *testing.T) {
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						attrConnSNI: []string{"sni-1", "sni-2"},
+						attrConnSNI: Values{
+							Values: []string{"sni-1", "sni-2"},
+						},
 					},
 				},
 			},
@@ -523,7 +577,9 @@ func TestPermission_Generate(t *testing.T) {
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						"experimental.envoy.filters.a.b[c]": []string{"v1", "v2"},
+						"experimental.envoy.filters.a.b[c]": Values{
+							Values: []string{"v1", "v2"},
+						},
 					},
 				},
 			},
@@ -548,12 +604,73 @@ func TestPermission_Generate(t *testing.T) {
                       exact: v2`,
 		},
 		{
+			name: "permission with notValues",
+			permission: &Permission{
+				Constraints: []KeyValues{
+					{
+						attrDestIP: Values{
+							NotValues: []string{"1.2.3.4", "5.6.7.8"},
+						},
+					},
+				},
+			},
+			wantYAML: `
+        andRules:
+          rules:
+          - notRule:
+              orRules:
+                rules:
+                - destinationIp:
+                    addressPrefix: 1.2.3.4
+                    prefixLen: 32
+                - destinationIp:
+                    addressPrefix: 5.6.7.8
+                    prefixLen: 32`,
+		},
+		{
+			name: "permission with values and notValues",
+			permission: &Permission{
+				Constraints: []KeyValues{
+					{
+						attrDestIP: Values{
+							Values:    []string{"1.2.3.4", "5.6.7.8"},
+							NotValues: []string{"1.2.3.4", "5.6.7.8"},
+						},
+					},
+				},
+			},
+			wantYAML: `
+        andRules:
+          rules:
+          - orRules:
+              rules:
+              - destinationIp:
+                  addressPrefix: 1.2.3.4
+                  prefixLen: 32
+              - destinationIp:
+                  addressPrefix: 5.6.7.8
+                  prefixLen: 32
+          - notRule:
+              orRules:
+                rules:
+                - destinationIp:
+                    addressPrefix: 1.2.3.4
+                    prefixLen: 32
+                - destinationIp:
+                    addressPrefix: 5.6.7.8
+                    prefixLen: 32`,
+		},
+		{
 			name: "permission with unknown constraint",
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						"unknown":  []string{"v1", "v2"},
-						attrDestIP: []string{"1.2.3.4"},
+						"unknown": Values{
+							Values: []string{"v1", "v2"},
+						},
+						attrDestIP: Values{
+							Values: []string{"1.2.3.4"},
+						},
 					},
 				},
 			},
@@ -571,8 +688,12 @@ func TestPermission_Generate(t *testing.T) {
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						attrDestPort: []string{"9999999"},
-						attrDestIP:   []string{"1.2.3.4"},
+						attrDestPort: Values{
+							Values: []string{"9999999"},
+						},
+						attrDestIP: Values{
+							Values: []string{"1.2.3.4"},
+						},
 					},
 				},
 			},
@@ -590,12 +711,20 @@ func TestPermission_Generate(t *testing.T) {
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						attrDestIP:   []string{"1.2.3.4", "5.6.7.8"},
-						attrDestPort: []string{"8000", "9000"},
+						attrDestIP: Values{
+							Values: []string{"1.2.3.4", "5.6.7.8"},
+						},
+						attrDestPort: Values{
+							Values: []string{"8000", "9000"},
+						},
 					},
 					{
-						pathHeader:   []string{"/hello", "/world"},
-						methodHeader: []string{"GET", "POST"},
+						pathHeader: Values{
+							Values: []string{"/hello", "/world"},
+						},
+						methodHeader: Values{
+							Values: []string{"GET", "POST"},
+						},
 					},
 				},
 			},

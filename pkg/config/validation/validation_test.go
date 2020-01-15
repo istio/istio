@@ -3945,6 +3945,20 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "allow-rules-nil",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: true,
+		},
+		{
+			name: "deny-rules-nil",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+			},
+			valid: false,
+		},
+		{
 			name: "selector-empty-value",
 			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
@@ -4122,6 +4136,38 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 						When: []*security_beta.Condition{
 							{
 								Key: "source.principal",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "condition-value-invalid",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						When: []*security_beta.Condition{
+							{
+								Key:    "source.ip",
+								Values: []string{"a.b.c.d"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "condition-notValue-invalid",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						When: []*security_beta.Condition{
+							{
+								Key:       "source.ip",
+								NotValues: []string{"a.b.c.d"},
 							},
 						},
 					},
