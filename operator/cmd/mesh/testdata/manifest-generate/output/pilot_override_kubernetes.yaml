@@ -82,6 +82,8 @@ spec:
         - 60m
         - --disable-install-crds=true
         env:
+        - name: PILOT_CERT_PROVIDER
+          value: kubernetes
         - name: POD_NAME
           valueFrom:
             fieldRef:
