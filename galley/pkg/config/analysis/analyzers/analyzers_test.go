@@ -399,7 +399,14 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			result, err := setupAndRunCase(tc, cr)
+			// Set up Analyzer for this test case
+			sa, err := setupAnalyzerForCase(tc, cr)
+			if err != nil {
+				t.Fatalf("Error setting up analysis for testcase %s: %v", tc.name, err)
+			}
+
+			// Run the analysis
+			result, err := runAnalyzer(sa)
 			if err != nil {
 				t.Fatalf("Error running analysis on testcase %s: %v", tc.name, err)
 			}
@@ -475,26 +482,21 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 	}
 }
 
-func setupAndRunCase(tc testCase, cr snapshotter.CollectionReporterFn) (local.AnalysisResult, error) {
-	// Default processing log level is too chatty for these tests
-	prevLogLevel := scope.Processing.GetOutputLevel()
-	scope.Processing.SetOutputLevel(log.ErrorLevel)
-	defer scope.Processing.SetOutputLevel(prevLogLevel)
-
+func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*local.SourceAnalyzer, error) {
 	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true)
 
 	// If a mesh config file is specified, use it instead of the defaults
 	if tc.meshConfigFile != "" {
 		err := sa.AddFileKubeMeshConfig(tc.meshConfigFile)
 		if err != nil {
-			return local.AnalysisResult{}, fmt.Errorf("error applying mesh config file %s: %v", tc.meshConfigFile, err)
+			return nil, fmt.Errorf("error applying mesh config file %s: %v", tc.meshConfigFile, err)
 		}
 	}
 
 	// Include default resources
 	err := sa.AddDefaultResources()
 	if err != nil {
-		return local.AnalysisResult{}, fmt.Errorf("error adding default resources: %v", err)
+		return nil, fmt.Errorf("error adding default resources: %v", err)
 	}
 
 	// Gather test files
@@ -502,7 +504,7 @@ func setupAndRunCase(tc testCase, cr snapshotter.CollectionReporterFn) (local.An
 	for _, f := range tc.inputFiles {
 		of, err := os.Open(f)
 		if err != nil {
-			return local.AnalysisResult{}, fmt.Errorf("error opening test file: %q", f)
+			return nil, fmt.Errorf("error opening test file: %q", f)
 		}
 		files = append(files, of)
 	}
@@ -510,16 +512,24 @@ func setupAndRunCase(tc testCase, cr snapshotter.CollectionReporterFn) (local.An
 	// Include resources from test files
 	err = sa.AddReaderKubeSource(files)
 	if err != nil {
-		return local.AnalysisResult{}, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
+		return nil, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
 	}
-	cancel := make(chan struct{})
 
-	// Run the analysis
+	return sa, nil
+}
+
+func runAnalyzer(sa *local.SourceAnalyzer) (local.AnalysisResult, error) {
+	// Default processing log level is too chatty for these tests
+	prevLogLevel := scope.Processing.GetOutputLevel()
+	scope.Processing.SetOutputLevel(log.ErrorLevel)
+	defer scope.Processing.SetOutputLevel(prevLogLevel)
+
+	cancel := make(chan struct{})
 	result, err := sa.Analyze(cancel)
 	if err != nil {
-		return local.AnalysisResult{}, fmt.Errorf("error running analysis on testcase %s: %v", tc.name, err)
+		return local.AnalysisResult{}, err
 	}
-	return result, nil
+	return result, err
 }
 
 // Pull just the fields we want to check out of diag.Message

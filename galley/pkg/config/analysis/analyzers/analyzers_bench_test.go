@@ -77,15 +77,22 @@ type origin struct {
 func (o origin) Namespace() resource.Namespace { return "" }
 func (o origin) FriendlyName() string          { return o.friendlyName }
 
-// Note that what gets measured here is both the input pipeline (reading in YAML files, turning it into a snapshot) and the analysis.
-// This also doesn't tell us anything about how an analyzer performs at scale, since we're just looking at unit test data.
+// This is a very basic benchmark on unit test data, so it doesn't tell us anything about how an analyzer performs at scale
 func BenchmarkAnalyzers(b *testing.B) {
 	for _, tc := range testGrid {
 		tc := tc // Capture range variable so subtests work correctly
 		b.Run(tc.name+"-bench", func(b *testing.B) {
-			_, err := setupAndRunCase(tc, nil)
+			sa, err := setupAnalyzerForCase(tc, nil)
 			if err != nil {
-				b.Fatalf("Error running benchmark on testcase %s: %v", tc.name, err)
+				b.Fatalf("Error setting up analysis for benchmark on testcase %s: %v", tc.name, err)
+			}
+
+			b.ResetTimer()
+
+			// Run the analysis
+			_, err = runAnalyzer(sa)
+			if err != nil {
+				b.Fatalf("Error running analysis for benchmark on testcase %s: %v", tc.name, err)
 			}
 		})
 	}
