@@ -1027,14 +1027,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	push *model.PushContext) *xdsapi.Listener {
 	httpProxyPort := push.Mesh.ProxyHttpPort
-	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 	if httpProxyPort == 0 {
-		// make sure http proxy is enabled for 'none' interception.
-		if noneMode {
-			httpProxyPort = int32(features.DefaultPortHTTPProxy)
-		} else {
-			return nil
-		}
+		return nil
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
