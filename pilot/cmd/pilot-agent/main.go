@@ -129,10 +129,7 @@ var (
 		"number of attributes for stackdriver")
 	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
 		"max number of message events for stackdriver")
-	// TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
-	// with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
-	// we may change the default value of this option as "citadel".
-	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "kubernetes",
+	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
 		"the provider of Pilot DNS certificate.").Get()
 
 	sdsUdsWaitTimeout = time.Minute

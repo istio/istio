@@ -288,9 +288,6 @@ var (
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
-	// TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
-	// with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
-	// we may change the default value of this option as "citadel".
-	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "kubernetes",
+	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
 		"the provider of Pilot DNS certificate.")
 )
