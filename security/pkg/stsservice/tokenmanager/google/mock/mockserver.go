@@ -303,7 +303,7 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 	}
 	token := ms.accessToken
 	if ms.enableDynamicAccessToken {
-		token = token+time.Now().String()
+		token = token + time.Now().String()
 	}
 	resp := accessTokenResponse{
 		AccessToken: token,

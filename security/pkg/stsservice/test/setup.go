@@ -103,11 +103,11 @@ func WriteDataToFile(path string, content string) error {
 // proxy admin    : AdminPort
 func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16) *Env {
 	// Set up credential files for bootstrap config
-	jwtToken := getDataFromFile(istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/trustworthy-jwt.jwt", t)
+	jwtToken := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/trustworthy-jwt.jwt", t)
 	if err := WriteDataToFile(proxyTokenPath, jwtToken); err != nil {
 		t.Fatalf("failed to set up token file %s: %v", proxyTokenPath, err)
 	}
-	caCert := getDataFromFile(istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/ca-certificate.crt", t)
+	caCert := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/ca-certificate.crt", t)
 	if err := WriteDataToFile(certPath, caCert); err != nil {
 		t.Fatalf("failed to set up ca certificate file %s: %v", certPath, err)
 	}
@@ -118,7 +118,7 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16) *Env {
 	// Set up test environment for Proxy
 	proxySetUp := proxyEnv.NewTestSetup(testID, t)
 	proxySetUp.SetNoMixer(true)
-	proxySetUp.EnvoyTemplate = getDataFromFile(istioEnv.IstioSrc + "/security/pkg/stsservice/test/testdata/bootstrap.yaml", t)
+	proxySetUp.EnvoyTemplate = getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/bootstrap.yaml", t)
 	env.ProxySetUp = proxySetUp
 	env.DumpPortMap(t)
 	// Set up auth server that provides token service

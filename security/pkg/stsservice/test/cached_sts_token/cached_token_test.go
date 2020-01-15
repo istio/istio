@@ -19,9 +19,9 @@ import (
 
 	"github.com/onsi/gomega"
 
+	testID "istio.io/istio/mixer/test/client/env"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
-	testID "istio.io/istio/mixer/test/client/env"
 )
 
 // TestCachedToken verifies when proxy reconnect XDS server and sends token on
@@ -53,10 +53,10 @@ func TestCachedToken(t *testing.T) {
 	setup.ProxySetUp.WaitEnvoyReady()
 	// Verify that proxy re-connects XDS server after each stream close, and the
 	// same token is received.
-	g.Expect(cb.NumStream()).To(gomega.Equal(numCloseStream+1))
+	g.Expect(cb.NumStream()).To(gomega.Equal(numCloseStream + 1))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(1))
 	// Verify only one extra call for each token, and no more calls to auth server during reconnect.
-	g.Expect(setup.AuthServer.NumGetFederatedTokenCalls()).To(gomega.Equal(initialNumFederatedTokenCall+1))
-	g.Expect(setup.AuthServer.NumGetAccessTokenCalls()).To(gomega.Equal(initialNumAccessTokenCall+1))
+	g.Expect(setup.AuthServer.NumGetFederatedTokenCalls()).To(gomega.Equal(initialNumFederatedTokenCall + 1))
+	g.Expect(setup.AuthServer.NumGetAccessTokenCalls()).To(gomega.Equal(initialNumAccessTokenCall + 1))
 	setup.TearDown()
 }
