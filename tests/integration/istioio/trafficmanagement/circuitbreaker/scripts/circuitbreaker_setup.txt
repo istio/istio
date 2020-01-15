@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+# Copyright 2020 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+cat<<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-io-circuitbreaker
+  labels:
+    istio-injection: enabled
+EOF
+
+# $snippet deploy_httpbin.sh syntax="bash"
+$ kubectl apply -f @samples/httpbin/httpbin.yaml@ -n istio-io-circuitbreaker
+# $endsnippet
+
+# $snippet deploy_httpbin_destination_rule.sh syntax="bash"
+$ cat<<EOF | kubectl -n istio-io-circuitbreaker apply -f -
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: httpbin
+spec:
+  host: httpbin
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 1
+      http:
+        http1MaxPendingRequests: 1
+        maxRequestsPerConnection: 1
+    outlierDetection:
+      consecutiveErrors: 1
+      interval: 1s
+      baseEjectionTime: 3m
+      maxEjectionPercent: 100
+EOF
+
+$ kubectl get destinationrule httpbin -n istio-io-circuitbreaker -o yaml
+# $verify verifier="contains"
+spec:
+  host: httpbin
+  trafficPolicy:
+    connectionPool:
+      http:
+        http1MaxPendingRequests: 1
+        maxRequestsPerConnection: 1
+      tcp:
+        maxConnections: 1
+    outlierDetection:
+      baseEjectionTime: 3m
+      consecutiveErrors: 1
+      interval: 1s
+      maxEjectionPercent: 100
+# $endsnippet
+
+# $snippet deploy_fortio.sh syntax="bash"
+$ kubectl apply -f @samples/httpbin/sample-client/fortio-deploy.yaml@ -n istio-io-circuitbreaker
+# $endsnippet
