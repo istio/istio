@@ -101,7 +101,6 @@ func orderedManifests(mm name.ManifestMap) []string {
 		keys = append(keys, string(k))
 	}
 	sort.Strings(keys)
-	fmt.Printf("Sorted keys: %s\n\n", strings.Join(keys, "\n"))
 	for _, k := range keys {
 		out = append(out, strings.Join(mm[name.ComponentName(k)], helm.YAMLSeparator))
 	}

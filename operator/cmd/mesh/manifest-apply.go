@@ -49,7 +49,7 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
-	cmd.PersistentFlags().BoolVar(&args.skipConfirmation, "skip-confirmation", false, skipConfirmationFlagHelpStr)
+	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for all Istio resources to be ready."+
 		" The --wait flag must be set for this flag to apply")

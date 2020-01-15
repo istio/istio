@@ -659,7 +659,7 @@ func getPods(client kubernetes.Interface, namespace string, selector map[string]
 func namespacesReady(namespaces []v1.Namespace) bool {
 	for _, namespace := range namespaces {
 		if !isNamespaceReady(&namespace) {
-			logAndPrint("Namespace is not ready: %s/%s", namespace.GetName())
+			logAndPrint("Namespace is not ready: %s", namespace.GetName())
 			return false
 		}
 	}

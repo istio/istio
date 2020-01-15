@@ -156,4 +156,8 @@ var (
 		MustAdd(K8SCoreV1Services).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		Build()
+
+	// Pilot contains only collections used by Pilot.
+	Pilot = collection.NewSchemasBuilder().
+		Build()
 )

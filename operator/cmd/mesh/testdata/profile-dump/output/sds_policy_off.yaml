@@ -304,6 +304,7 @@ values:
     operatorManageWebhooks: false
     outboundTrafficPolicy:
       mode: ALLOW_ANY
+    pilotCertProvider: kubernetes
     policyCheckFailOpen: false
     priorityClassName: ""
     proxy:

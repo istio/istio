@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: lll
-//go:generate go run $REPO_ROOT/pkg/config/schemas/schemagen --input=$REPO_ROOT/pkg/config/schemas/schemagen/schemas.yaml --output=$REPO_ROOT/pkg/config/schemas/schemas.gen.go
-//go:generate goimports -w $REPO_ROOT/pkg/config/schemas/schemas.gen.go
+package crd
 
-package main
+// nolint: lll
+//go:generate go run $REPO_ROOT/pilot/pkg/config/kube/crd/codegen/types.go --template $REPO_ROOT/pilot/pkg/config/kube/crd/codegen/types.go.tmpl --output $REPO_ROOT/pilot/pkg/config/kube/crd/types.gen.go

@@ -38,6 +38,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -48,7 +49,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 const (
@@ -446,8 +446,8 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			p := &fakePlugin{}
 			virtualService := model.Config{
 				ConfigMeta: model.ConfigMeta{
-					Type:      schemas.VirtualService.Type,
-					Version:   schemas.VirtualService.Version,
+					Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+					Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
 					Name:      "test_vs",
 					Namespace: "default",
 				},
@@ -1753,19 +1753,19 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		},
 	}
 	configStore := &fakes.IstioConfigStore{
-		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
-			if typ == "virtual-service" {
+		ListStub: func(kind, namespace string) (configs []model.Config, e error) {
+			switch kind {
+			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind():
 				result := make([]model.Config, len(virtualServices))
 				for i := range virtualServices {
 					result[i] = *virtualServices[i]
 				}
 				return result, nil
-			}
-			if typ == "envoy-filter" {
+			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind():
 				return []model.Config{envoyFilter}, nil
+			default:
+				return nil, nil
 			}
-			return nil, nil
-
 		},
 	}
 

@@ -22,8 +22,7 @@ INSTALLER_CHARTS=(base gateways istio-cni istiocoredns istio-telemetry istio-con
 
 function usage() {
   echo "$0
-    -o <path> path where output/artifacts are stored  (required)
-    -v <ver>  version for istio/installer branch      (optional)"
+    -o <path> path where output/artifacts are stored  (required)"
   exit 1
 }
 
@@ -34,7 +33,6 @@ function die() {
 while getopts o:v:d: arg ; do
   case "${arg}" in
     o) OUTPUT_DIR="${OPTARG}";;
-    v) INSTALLER_VERSION="${OPTARG}";;
     *) usage;;
   esac
 done
@@ -45,25 +43,11 @@ set -x
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 OPERATOR_BASE_DIR="${SCRIPT_DIR}/.."
-
-INSTALLER_SHA=$(cat "${OPERATOR_BASE_DIR}/installer.sha")
-INSTALLER_VERSION=${INSTALLER_VERSION:-"${INSTALLER_SHA}"}
+INSTALLER_DIR="${SCRIPT_DIR}/../../manifests"
 
 mkdir -p "${OUTPUT_DIR}"
 
 function copy_installer_charts() {
-    if [[ -z "${INSTALLER_DIR:-}" ]]; then
-      # installer dir not specified, clone from github
-      INSTALLER_DIR=$(mktemp -d)
-
-      git clone https://github.com/istio/installer.git "${INSTALLER_DIR}"
-
-      pushd .
-      cd "${INSTALLER_DIR}"
-      git fetch
-      git checkout "${INSTALLER_VERSION}"
-      popd
-    fi
     local OUTPUT_CHARTS_DIR="${OUTPUT_DIR}/charts"
     mkdir -p "${OUTPUT_CHARTS_DIR}"
 

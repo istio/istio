@@ -30,6 +30,9 @@ import (
 	authz "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
@@ -37,48 +40,56 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 // getByMessageName finds a schema by message name if it is available
 // In test setup, we do not have more than one descriptor with the same message type, so this
 // function is ok for testing purpose.
-func getByMessageName(descriptor schema.Set, name string) (schema.Instance, bool) {
-	for _, s := range descriptor {
-		if s.MessageName == name {
+func getByMessageName(schemas collection.Schemas, name string) (collection.Schema, bool) {
+	for _, s := range schemas.All() {
+		if s.Resource().Proto() == name {
 			return s, true
 		}
 	}
-	return schema.Instance{}, false
+	return nil, false
+}
+
+func schemaFor(kind, proto string) collection.Schema {
+	return collection.Builder{
+		Name: kind,
+		Resource: resource.Builder{
+			Kind:   kind,
+			Plural: kind + "s",
+			Proto:  proto,
+		}.BuildNoValidate(),
+	}.MustBuild()
 }
 
 func TestConfigDescriptor(t *testing.T) {
-	a := schema.Instance{Type: "a", MessageName: "proxy.A"}
-	descriptor := schema.Set{
+	a := schemaFor("a", "proxy.A")
+	schemas := collection.SchemasFor(
 		a,
-		schema.Instance{Type: "b", MessageName: "proxy.B"},
-		schema.Instance{Type: "c", MessageName: "proxy.C"},
-	}
+		schemaFor("b", "proxy.B"),
+		schemaFor("c", "proxy.C"))
 	want := []string{"a", "b", "c"}
-	got := descriptor.Types()
+	got := schemas.Kinds()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("descriptor.Types() => got %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
 	}
 
-	aType, aExists := descriptor.GetByType(a.Type)
+	aType, aExists := schemas.FindByKind(a.Resource().Kind())
 	if !aExists || !reflect.DeepEqual(aType, a) {
 		t.Errorf("descriptor.GetByType(a) => got %+v, want %+v", aType, a)
 	}
-	if _, exists := descriptor.GetByType("missing"); exists {
+	if _, exists := schemas.FindByKind("missing"); exists {
 		t.Error("descriptor.GetByType(missing) => got true, want false")
 	}
 
-	aSchema, aSchemaExists := getByMessageName(descriptor, a.MessageName)
+	aSchema, aSchemaExists := getByMessageName(schemas, a.Resource().Proto())
 	if !aSchemaExists || !reflect.DeepEqual(aSchema, a) {
 		t.Errorf("descriptor.GetByMessageName(a) => got %+v, want %+v", aType, a)
 	}
-	_, aSchemaNotExist := getByMessageName(descriptor, "blah")
+	_, aSchemaNotExist := getByMessageName(schemas, "blah")
 	if aSchemaNotExist {
 		t.Errorf("descriptor.GetByMessageName(blah) => got true, want false")
 	}
@@ -261,9 +272,9 @@ func TestLabelsEquals(t *testing.T) {
 
 func TestConfigKey(t *testing.T) {
 	cfg := mock_config.Make("ns", 2)
-	want := "mock-config/ns/mock-config2"
+	want := "MockConfig/ns/mock-config2"
 	if key := cfg.ConfigMeta.Key(); key != want {
-		t.Errorf("config.Key() => got %q, want %q", key, want)
+		t.Fatalf("config.Key() => got %q, want %q", key, want)
 	}
 }
 
@@ -395,10 +406,10 @@ func TestMostSpecificHostMatch(t *testing.T) {
 }
 
 func TestServiceRoles(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
-	addRbacConfigToStore(schemas.ServiceRole.Type, "role1", "istio-system", store, t)
-	addRbacConfigToStore(schemas.ServiceRole.Type, "role2", "default", store, t)
-	addRbacConfigToStore(schemas.ServiceRole.Type, "role3", "istio-system", store, t)
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	addRbacConfigToStore(collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(), "role1", "istio-system", store, t)
+	addRbacConfigToStore(collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(), "role2", "default", store, t)
+	addRbacConfigToStore(collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(), "role3", "istio-system", store, t)
 	tests := []struct {
 		namespace  string
 		expectName map[string]bool
@@ -423,10 +434,10 @@ func TestServiceRoles(t *testing.T) {
 }
 
 func TestServiceRoleBindings(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
-	addRbacConfigToStore(schemas.ServiceRoleBinding.Type, "binding1", "istio-system", store, t)
-	addRbacConfigToStore(schemas.ServiceRoleBinding.Type, "binding2", "default", store, t)
-	addRbacConfigToStore(schemas.ServiceRoleBinding.Type, "binding3", "istio-system", store, t)
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	addRbacConfigToStore(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(), "binding1", "istio-system", store, t)
+	addRbacConfigToStore(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(), "binding2", "default", store, t)
+	addRbacConfigToStore(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(), "binding3", "istio-system", store, t)
 	tests := []struct {
 		namespace  string
 		expectName map[string]bool
@@ -451,8 +462,8 @@ func TestServiceRoleBindings(t *testing.T) {
 }
 
 func TestRbacConfig(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
-	addRbacConfigToStore(schemas.RbacConfig.Type, constants.DefaultRbacConfigName, "", store, t)
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	addRbacConfigToStore(collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Kind(), constants.DefaultRbacConfigName, "", store, t)
 	rbacConfig := store.RbacConfig()
 	if rbacConfig.Name != constants.DefaultRbacConfigName {
 		t.Errorf("model.RbacConfig: expecting %s, but got %s", constants.DefaultRbacConfigName, rbacConfig.Name)
@@ -460,8 +471,8 @@ func TestRbacConfig(t *testing.T) {
 }
 
 func TestClusterRbacConfig(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
-	addRbacConfigToStore(schemas.ClusterRbacConfig.Type, constants.DefaultRbacConfigName, "", store, t)
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	addRbacConfigToStore(collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(), constants.DefaultRbacConfigName, "", store, t)
 	rbacConfig := store.ClusterRbacConfig()
 	if rbacConfig.Name != constants.DefaultRbacConfigName {
 		t.Errorf("model.ClusterRbacConfig: expecting %s, but got %s", constants.DefaultRbacConfigName, rbacConfig.Name)
@@ -469,10 +480,10 @@ func TestClusterRbacConfig(t *testing.T) {
 }
 
 func TestAuthorizationPolicies(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
-	addRbacConfigToStore(schemas.AuthorizationPolicy.Type, "policy1", "istio-system", store, t)
-	addRbacConfigToStore(schemas.AuthorizationPolicy.Type, "policy2", "default", store, t)
-	addRbacConfigToStore(schemas.AuthorizationPolicy.Type, "policy3", "istio-system", store, t)
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	addRbacConfigToStore(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(), "policy1", "istio-system", store, t)
+	addRbacConfigToStore(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(), "policy2", "default", store, t)
+	addRbacConfigToStore(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(), "policy3", "istio-system", store, t)
 	tests := []struct {
 		namespace  string
 		expectName map[string]bool
@@ -496,17 +507,17 @@ func TestAuthorizationPolicies(t *testing.T) {
 	}
 }
 
-func addRbacConfigToStore(configType, name, namespace string, store model.IstioConfigStore, t *testing.T) {
+func addRbacConfigToStore(kind, name, namespace string, store model.IstioConfigStore, t *testing.T) {
 	var value proto.Message
-	switch configType {
-	case schemas.ServiceRole.Type:
+	switch kind {
+	case collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind():
 		value = &rbacproto.ServiceRole{Rules: []*rbacproto.AccessRule{
 			{Services: []string{"service0"}, Methods: []string{"GET"}}}}
-	case schemas.ServiceRoleBinding.Type:
+	case collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind():
 		value = &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "User0"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"}}
-	case schemas.AuthorizationPolicy.Type:
+	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind():
 		value = &authz.AuthorizationPolicy{
 			Selector: &api.WorkloadSelector{
 				MatchLabels: map[string]string{"app": "test"},
@@ -517,7 +528,7 @@ func addRbacConfigToStore(configType, name, namespace string, store model.IstioC
 	}
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      configType,
+			Type:      kind,
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -539,15 +550,15 @@ func (l *fakeStore) List(typ, namespace string) ([]model.Config, error) {
 	return ret, l.err
 }
 
-func (l *fakeStore) ConfigDescriptor() schema.Set {
-	return schemas.Istio
+func (l *fakeStore) Schemas() collection.Schemas {
+	return collections.Pilot
 }
 
 func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{
 		cfg: map[string][]model.Config{
-			schemas.QuotaSpecBinding.Type: {
+			collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().Kind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Namespace: ns,
@@ -571,7 +582,7 @@ func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 					},
 				},
 			},
-			schemas.QuotaSpec.Type: {
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count",
@@ -657,7 +668,7 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{
 		cfg: map[string][]model.Config{
-			schemas.ServiceEntry.Type: {
+			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Kind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count-1",
@@ -675,7 +686,7 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 					},
 				},
 			},
-			schemas.QuotaSpec.Type: {
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count-2",
@@ -735,7 +746,7 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 
 	l := &fakeStore{
 		cfg: map[string][]model.Config{
-			schemas.Gateway.Type: {gw1, gw2, gw3},
+			collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(): {gw1, gw2, gw3},
 		},
 	}
 	ii := model.MakeIstioStore(l)
@@ -759,7 +770,7 @@ func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
 
 	l := &fakeStore{
 		cfg: map[string][]model.Config{
-			schemas.EnvoyFilter.Type: {
+			collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count",
