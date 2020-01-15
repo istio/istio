@@ -39568,6 +39568,7 @@ spec:
             memory: 40Mi
 
     policy:
+      enabled: true
       k8s:
         resources:
           requests:
