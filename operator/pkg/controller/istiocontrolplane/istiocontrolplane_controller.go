@@ -159,6 +159,13 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 			finalizerError = r.client.Update(context.TODO(), iop)
 		}
 		if finalizerError != nil {
+			if errors.IsNotFound(finalizerError) {
+				log.Infof("Could not remove finalizer from %v: the object was deleted", request)
+				return reconcile.Result{}, nil
+			} else if errors.IsConflict(finalizerError) {
+				log.Infof("Could not remove finalizer from %v due to conflict. Operation will be retried in next reconcile attempt", request)
+				return reconcile.Result{}, nil
+			}
 			log.Errorf("error removing finalizer: %s", finalizerError)
 			return reconcile.Result{}, finalizerError
 		}
