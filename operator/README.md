@@ -15,14 +15,14 @@ architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Introduction
 
-The operator uses the [IstioOperator API](https://github.com/istio/api/operator/v1alpha1/operator.proto), which has
+The operator uses the [IstioOperator API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto), which has
 three main components:
 
-- [MeshConfig](https://github.com/istio/api/mesh/v1alpha1/operator.proto) for runtime config consumed directly by Istio
+- [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/operator.proto) for runtime config consumed directly by Istio
 control plane components.
-- [Component configuration API](https://github.com/istio/api/operator/v1alpha1/component.proto), for managing
+- [Component configuration API](https://github.com/istio/api/blob/master/operator/v1alpha1/component.proto), for managing
 K8s settings like resources, auto scaling, pod disruption budgets and others defined in the
-[KubernetesResourceSpec](https://github.com/istio/api/blob/7791470ecc4c5e123589ff2b781f47b1bcae6ddd/operator/v1alpha1/component.proto)
+[KubernetesResourceSpec](https://github.com/istio/api/blob/master/blob/7791470ecc4c5e123589ff2b781f47b1bcae6ddd/operator/v1alpha1/component.proto)
 for Istio core and addon components.
 - The legacy
 [Helm installation API](https://istio.io/docs/reference/config/installation-options/) for backwards
@@ -50,7 +50,7 @@ See [Select a specific configuration_profile](#select-a-specific-configuration-p
 
 If you don't specify a configuration profile, Istio is installed using the `default` configuration profile. All
 profiles listed in istio.io are available by default, or `profile:` can point to a local file path to reference a custom
-profile base to use as a starting point for customization. See the [API reference](https://github.com/istio/api/operator/v1alpha1/operator.proto)
+profile base to use as a starting point for customization. See the [API reference](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto)
 for details.
 
 ## Developer quick start
@@ -268,7 +268,7 @@ istioctl manifest diff ./out/helm-template/manifest.yaml ./out/mesh-manifest/man
 
 ### New API customization
 
-The [new platform level installation API](https://github.com/istio/api/operator/v1alpha1/operator.proto)
+The [new platform level installation API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto)
 defines install time parameters like feature and component enablement and namespace, and K8s settings like resources, HPA spec etc. in a structured way.
 The simplest customization is to turn features and components on and off. For example, to turn off all policy ([samples/sds-policy-off.yaml](samples/sds-policy-off.yaml)):
 
@@ -313,7 +313,7 @@ spec:
 ```
 
 The K8s settings are defined in detail in the
-[operator API](https://github.com/istio/api/operator/v1alpha1/operator.proto).
+[operator API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto).
 The settings are the same for all components, so a user can configure pilot K8s settings in exactly the same, consistent
 way as galley settings. Supported K8s settings currently include:
 
