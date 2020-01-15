@@ -54,7 +54,7 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // NewOrFail returns a new instance of "istioctl".
-func NewOrFail(c resource.Context, config Config) Instance {
+func NewOrFail(_ *testing.T, c resource.Context, config Config) Instance {
 	failer, ok := c.(test.Failer)
 	if !ok {
 		panic("context must be a Failer (typically a framework.TestContext)")
