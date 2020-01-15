@@ -1394,7 +1394,6 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
 				vs := configClient.Get(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(), vsName, vsNamespace)
-
 				if vs != nil {
 					if len(svc.Spec.Ports) > 1 {
 						// If there is more than one port, prefix each DR by the port it applies to
