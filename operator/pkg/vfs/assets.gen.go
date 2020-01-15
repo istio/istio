@@ -39339,6 +39339,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
+      pilotCertProvider: citadel
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"
