@@ -2049,9 +2049,9 @@ func TestValidateDestination(t *testing.T) {
 
 func TestValidateHTTPRoute(t *testing.T) {
 	testCases := []struct {
-		name        string
-		route       *networking.HTTPRoute
-		valid       bool
+		name  string
+		route *networking.HTTPRoute
+		valid bool
 	}{
 		{name: "empty", route: &networking.HTTPRoute{ // nothing
 		}, valid:                                     false},
