@@ -1300,8 +1300,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForP
 	}
 
 	// No conflicts. Add a thrift filter chain option to the listenerOpts
-	clusterName := fmt.Sprintf("outbound|%d||%s", pluginParams.Port.Port, pluginParams.Service.Hostname)
-	// TODO(peter.novotnak@reddit.com) support more features here
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", pluginParams.Service.Hostname, pluginParams.Port.Port)
 	thriftOpts := &thriftListenerOpts{
 		protocol:    thrift_proxy.ProtocolType_AUTO_PROTOCOL,
 		transport:   thrift_proxy.TransportType_AUTO_TRANSPORT,
@@ -2073,7 +2072,7 @@ func buildThriftRatelimit(rlsCluster, domain string) *thrift_ratelimit.RateLimit
 	}
 
 	if err := thriftRateLimit.Validate(); err != nil {
-		panic(err)
+		log.Warn(err.Error())
 	}
 
 	return thriftRateLimit
