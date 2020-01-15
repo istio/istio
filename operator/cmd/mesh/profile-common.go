@@ -16,7 +16,6 @@ package mesh
 
 import (
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 
 	"github.com/ghodss/yaml"

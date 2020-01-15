@@ -30,18 +30,18 @@ func TestReadLayeredYAMLs(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "single",
-			overlays: []string{"first"},
+			name:     "layer1",
+			overlays: []string{"yaml_layer1"},
 			wantErr:  false,
 		},
 		{
-			name:     "double",
-			overlays: []string{"first", "second"},
+			name:     "layer1_2",
+			overlays: []string{"yaml_layer1", "yaml_layer2"},
 			wantErr:  false,
 		},
 		{
-			name:     "triple",
-			overlays: []string{"first", "second", "third"},
+			name:     "layer1_2_3",
+			overlays: []string{"yaml_layer1", "yaml_layer2", "yaml_layer3"},
 			wantErr:  false,
 		},
 	}

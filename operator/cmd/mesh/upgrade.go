@@ -16,9 +16,7 @@ package mesh
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"strings"
 	"time"
 
 	goversion "github.com/hashicorp/go-version"
