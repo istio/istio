@@ -60,7 +60,7 @@ var createConfigSet = []*model.Config{
 var updateConfigSet = []*model.Config{
 	{
 		ConfigMeta: model.ConfigMeta{
-			Name: "magic",
+			Name:    "magic",
 			Type:    gatewayGvk.Kind,
 			Version: gatewayGvk.Version,
 			Group:   gatewayGvk.Group,
