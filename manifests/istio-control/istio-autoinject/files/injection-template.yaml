@@ -71,6 +71,7 @@ template: |
       runAsNonRoot: true
     {{- end }}
     restartPolicy: Always
+  {{ end -}}
   {{- if eq .Values.global.proxy.enableCoreDump true }}
   - name: enable-core-dump
     args:
