@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	versionsMapURL = "https://raw.githubusercontent.com/istio/operator/master/data/versions.yaml"
+	versionsMapURL = "https://raw.githubusercontent.com/istio/istio/master/operator/data/versions.yaml"
 )
 
 type manifestVersionsArgs struct {
