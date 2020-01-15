@@ -37,7 +37,7 @@ var (
 
 func init() {
 	var err error
-	OperatorVersionString := OperatorCodeBaseVersion
+	OperatorVersionString = OperatorCodeBaseVersion
 	// If dockerinfo has a tag (e.g., specified by LDFlags), we will use it as the version of operator
 	tag := buildversion.DockerInfo.Tag
 	if pkgversion.IsVersionString(tag) {
