@@ -58,9 +58,9 @@ template: |
         - ALL
       privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: false
-      runAsGroup: 0
-      runAsNonRoot: false
-      runAsUser: 0
+      runAsGroup: 1337
+      runAsNonRoot: true
+      runAsUser: 1337
     restartPolicy: Always
   {{- end }}
   {{  end -}}

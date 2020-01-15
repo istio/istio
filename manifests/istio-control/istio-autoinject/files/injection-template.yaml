@@ -62,7 +62,7 @@ template: |
         - ALL
       readOnlyRootFilesystem: false
       runAsGroup: 1337
-      runAsNonRoot: false
+      runAsNonRoot: true
       runAsUser: 1337
     restartPolicy: Always
   {{- if eq .Values.global.proxy.enableCoreDump true }}
