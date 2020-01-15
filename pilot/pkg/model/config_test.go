@@ -534,6 +534,10 @@ func addRbacConfigToStore(kind, name, namespace string, store model.IstioConfigS
 		group = collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Group()
 		version = collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Version()
 		value = &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_ON}
+	case collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind():
+		group = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Group()
+		version = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Version()
+		value = &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_ON}
 	default:
 		panic("Unknown kind: " + kind)
 	}

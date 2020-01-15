@@ -145,10 +145,12 @@ func (b Builder) BuildNoValidate() Schema {
 
 	return &schemaImpl{
 		clusterScoped: b.ClusterScoped,
-		kind:          b.Kind,
+		gvk: GroupVersionKind{
+			Group:   b.Group,
+			Version: b.Version,
+			Kind:    b.Kind,
+		},
 		plural:        b.Plural,
-		group:         b.Group,
-		version:       b.Version,
 		apiVersion:    b.Group + "/" + b.Version,
 		proto:         b.Proto,
 		protoPackage:  b.ProtoPackage,
@@ -158,10 +160,8 @@ func (b Builder) BuildNoValidate() Schema {
 
 type schemaImpl struct {
 	clusterScoped bool
-	kind          string
+	gvk           GroupVersionKind
 	plural        string
-	group         string
-	version       string
 	apiVersion    string
 	proto         string
 	protoPackage  string
@@ -169,11 +169,7 @@ type schemaImpl struct {
 }
 
 func (s *schemaImpl) GroupVersionKind() GroupVersionKind {
-	return GroupVersionKind{
-		Group:   s.group,
-		Version: s.version,
-		Kind:    s.kind,
-	}
+	return s.gvk
 }
 
 func (s *schemaImpl) IsClusterScoped() bool {
@@ -181,7 +177,7 @@ func (s *schemaImpl) IsClusterScoped() bool {
 }
 
 func (s *schemaImpl) Kind() string {
-	return s.kind
+	return s.gvk.Kind
 }
 
 func (s *schemaImpl) Plural() string {
@@ -189,11 +185,11 @@ func (s *schemaImpl) Plural() string {
 }
 
 func (s *schemaImpl) Group() string {
-	return s.group
+	return s.gvk.Group
 }
 
 func (s *schemaImpl) Version() string {
-	return s.version
+	return s.gvk.Version
 }
 
 func (s *schemaImpl) APIVersion() string {
@@ -209,11 +205,11 @@ func (s *schemaImpl) ProtoPackage() string {
 }
 
 func (s *schemaImpl) Validate() (err error) {
-	if !labels.IsDNS1123Label(s.kind) {
-		err = multierror.Append(err, fmt.Errorf("invalid kind: %s", s.kind))
+	if !labels.IsDNS1123Label(s.Kind()) {
+		err = multierror.Append(err, fmt.Errorf("invalid kind: %s", s.Kind()))
 	}
 	if !labels.IsDNS1123Label(s.plural) {
-		err = multierror.Append(err, fmt.Errorf("invalid plural for kind %s: %s", s.kind, s.plural))
+		err = multierror.Append(err, fmt.Errorf("invalid plural for kind %s: %s", s.Kind(), s.plural))
 	}
 	if getProtoMessageType(s.proto) == nil {
 		err = multierror.Append(err, fmt.Errorf("proto message not found: %v", s.proto))
@@ -222,7 +218,7 @@ func (s *schemaImpl) Validate() (err error) {
 }
 
 func (s *schemaImpl) String() string {
-	return fmt.Sprintf("[Schema](%s, %q, %s)", s.kind, s.protoPackage, s.proto)
+	return fmt.Sprintf("[Schema](%s, %q, %s)", s.Kind(), s.protoPackage, s.proto)
 }
 
 func (s *schemaImpl) NewProtoInstance() (proto.Message, error) {
@@ -237,7 +233,7 @@ func (s *schemaImpl) NewProtoInstance() (proto.Message, error) {
 	if !ok {
 		return nil, fmt.Errorf(
 			"newProtoInstance: message is not an instance of proto.Message. kind:%s, type:%v, value:%v",
-			s.kind, goType, instance)
+			s.Kind(), goType, instance)
 	}
 	return p, nil
 }
