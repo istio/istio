@@ -1,0 +1,23 @@
+trafficManagement.components.pilot: components.pilot
+policy.components.policy: components.policy
+telemetry.components.telemetry: components.telemetry
+security.components.citadel: components.citadel
+security.components.certManager: components.certManager
+security.components.nodeAgent: components.nodeAgent
+configManagement.components.galley: components.galley
+autoInjection.components.injector: components.sidecarInjector
+cni: components.cni
+
+gateways.components.ingressGateway: components.ingressGateways.[name:istio-ingressgateway]
+gateways.components.egressGateway: components.egressGateways.[name:istio-egressgateway]
+
+values.grafana.enabled: addonComponents.grafana.enabled
+values.kiali.enabled: addonComponents.kiali.enabled
+values.prometheus.enabled: addonComponents.prometheus.enabled
+values.tracing.enabled: addonComponents.tracing.enabled
+
+defaultNamespace: meshConfig.rootNamespace
+values: values
+unvalidatedValues: unvalidatedValues
+hub: hub
+tag: tag
