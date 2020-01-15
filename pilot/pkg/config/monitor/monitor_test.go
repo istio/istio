@@ -37,8 +37,10 @@ var gatewayGvk = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVer
 var createConfigSet = []*model.Config{
 	{
 		ConfigMeta: model.ConfigMeta{
-			Name: "magic",
-			Type: gatewayGvk.Kind,
+			Name:    "magic",
+			Type:    gatewayGvk.Kind,
+			Version: gatewayGvk.Version,
+			Group:   gatewayGvk.Group,
 		},
 		Spec: &networking.Gateway{
 			Servers: []*networking.Server{
@@ -59,7 +61,9 @@ var updateConfigSet = []*model.Config{
 	{
 		ConfigMeta: model.ConfigMeta{
 			Name: "magic",
-			Type: gatewayGvk.Kind,
+			Type:    gatewayGvk.Kind,
+			Version: gatewayGvk.Version,
+			Group:   gatewayGvk.Group,
 		},
 		Spec: &networking.Gateway{
 			Servers: []*networking.Server{

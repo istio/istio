@@ -41,6 +41,8 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	roleCfg := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Serviceroles.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Serviceroles.Resource().Group(),
 			Name:      "test-role-1",
 			Namespace: testNS,
 		},
@@ -51,6 +53,8 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	bindingCfg := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
 			Name:      "test-binding-1",
 			Namespace: testNS,
 		},
@@ -62,6 +66,8 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	invalidateBindingCfg := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
 			Name:      "test-binding-1",
 			Namespace: testNS,
 		},
@@ -824,21 +830,31 @@ func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *Authorizat
 }
 
 func newConfig(name, ns string, spec proto.Message) Config {
-	var kind string
+	var kind, version, group string
 
 	switch spec.(type) {
 	case *rbacproto.RbacConfig:
 		kind = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind()
+		version = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Version()
+		group = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Group()
 	case *rbacproto.ServiceRole:
 		kind = collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind()
+		version = collections.IstioRbacV1Alpha1Serviceroles.Resource().Version()
+		group = collections.IstioRbacV1Alpha1Serviceroles.Resource().Group()
 	case *rbacproto.ServiceRoleBinding:
 		kind = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind()
+		version = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version()
+		group = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group()
 	case *authpb.AuthorizationPolicy:
 		kind = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind()
+		version = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Version()
+		group = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Group()
 	}
 	return Config{
 		ConfigMeta: ConfigMeta{
 			Type:      kind,
+			Version:   version,
+			Group:     group,
 			Name:      name,
 			Namespace: ns,
 		},

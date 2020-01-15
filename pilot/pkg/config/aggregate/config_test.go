@@ -202,7 +202,7 @@ func TestAggregateStoreCache(t *testing.T) {
 		cacheStore.RegisterEventHandler(resource.GroupVersionKind{Kind: "SomeConfig"}, func(model.Config, model.Config, model.Event) {})
 
 		typ, h := store1.RegisterEventHandlerArgsForCall(0)
-		g.Expect(typ).To(gomega.Equal("SomeConfig"))
+		g.Expect(typ).To(gomega.Equal(resource.GroupVersionKind{Kind: "SomeConfig"}))
 		g.Expect(h).ToNot(gomega.BeNil())
 	})
 }

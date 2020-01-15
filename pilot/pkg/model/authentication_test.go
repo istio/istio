@@ -33,7 +33,7 @@ const (
 )
 
 var (
-	requestAuthenticationKind = collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind()
+	requestAuthenticationGvk = collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind()
 )
 
 func TestGetJwtPoliciesForWorkload(t *testing.T) {
@@ -52,7 +52,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			want: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "foo",
 					},
@@ -60,7 +62,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "istio-config",
 					},
@@ -75,7 +79,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			want: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "bar",
 					},
@@ -83,7 +89,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "istio-config",
 					},
@@ -98,7 +106,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			want: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "istio-config",
 					},
@@ -113,7 +123,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			want: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "foo",
 					},
@@ -121,7 +133,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "with-selector",
 						Namespace: "foo",
 					},
@@ -136,7 +150,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "istio-config",
 					},
@@ -144,7 +160,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "global-with-selector",
 						Namespace: "istio-config",
 					},
@@ -165,7 +183,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			want: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "bar",
 					},
@@ -173,7 +193,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "istio-config",
 					},
@@ -181,7 +203,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "global-with-selector",
 						Namespace: "istio-config",
 					},
@@ -202,7 +226,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			want: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "foo",
 					},
@@ -210,7 +236,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "default",
 						Namespace: "istio-config",
 					},
@@ -218,7 +246,9 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationKind,
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
 						Name:      "global-with-selector",
 						Namespace: "istio-config",
 					},
@@ -261,7 +291,12 @@ func getTestAuthenticationPolicies(configs []*Config, t *testing.T) *Authenticat
 func createTestConfig(name string, namespace string, selector *selectorpb.WorkloadSelector) *Config {
 	return &Config{
 		ConfigMeta: ConfigMeta{
-			Type: collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind(), Name: name, Namespace: namespace},
+			Type:      collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind(),
+			Version:   collections.IstioSecurityV1Beta1Requestauthentications.Resource().Version(),
+			Group:     collections.IstioSecurityV1Beta1Requestauthentications.Resource().Group(),
+			Name:      name,
+			Namespace: namespace,
+		},
 		Spec: &securityBeta.RequestAuthentication{
 			Selector: selector,
 		},

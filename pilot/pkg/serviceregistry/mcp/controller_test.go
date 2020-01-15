@@ -211,7 +211,7 @@ func TestListAllNameSpace(t *testing.T) {
 	g.Expect(len(c)).To(Equal(3))
 
 	for _, conf := range c {
-		g.Expect(conf.Type).To(Equal(gatewayGvk))
+		g.Expect(conf.GroupVersionKind()).To(Equal(gatewayGvk))
 		if conf.Name == "some-gateway1" {
 			g.Expect(conf.Spec).To(Equal(message))
 			g.Expect(conf.Namespace).To(Equal("namespace1"))
@@ -250,7 +250,7 @@ func TestListSpecificNameSpace(t *testing.T) {
 	g.Expect(len(c)).To(Equal(2))
 
 	for _, conf := range c {
-		g.Expect(conf.Type).To(Equal(gatewayGvk))
+		g.Expect(conf.GroupVersionKind()).To(Equal(gatewayGvk))
 		g.Expect(conf.Namespace).To(Equal("namespace1"))
 		if conf.Name == "some-gateway1" {
 			g.Expect(conf.Spec).To(Equal(message))
@@ -314,7 +314,7 @@ func TestApplyValidTypeWithNoNamespace(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(c)).To(Equal(1))
 		g.Expect(c[0].Name).To(Equal("some-gateway"))
-		g.Expect(c[0].Type).To(Equal(gatewayGvk))
+		g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
 		g.Expect(c[0].Spec).To(Equal(message))
 		g.Expect(c[0].Spec).To(ContainSubstring(fmt.Sprintf("number:%d", port)))
 	}
@@ -342,7 +342,7 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].Type).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
 	g.Expect(c[0].Spec).To(Equal(message))
 }
 
@@ -366,7 +366,7 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].Type).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
 	g.Expect(c[0].Spec).To(Equal(message))
 }
 
@@ -392,7 +392,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].Type).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
 	g.Expect(c[0].Spec).To(Equal(message))
 
 	change = convertToChange([]proto.Message{},
@@ -465,7 +465,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("foo"))
 	g.Expect(c[0].Namespace).To(Equal("bar-namespace"))
-	g.Expect(c[0].Type).To(Equal(authenticationPolicyGvk))
+	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationPolicyGvk))
 	g.Expect(c[0].Spec).To(Equal(message0))
 
 	c, err = controller.List(authenticationMeshPolicyGvk, "")
@@ -473,7 +473,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("default"))
 	g.Expect(c[0].Namespace).To(Equal(""))
-	g.Expect(c[0].Type).To(Equal(authenticationMeshPolicyGvk))
+	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationMeshPolicyGvk))
 	g.Expect(c[0].Spec).To(Equal(message1))
 
 	// verify the namespace scoped resource can be deleted
@@ -491,7 +491,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("default"))
 	g.Expect(c[0].Namespace).To(Equal(""))
-	g.Expect(c[0].Type).To(Equal(authenticationMeshPolicyGvk))
+	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationMeshPolicyGvk))
 	g.Expect(c[0].Spec).To(Equal(message1))
 
 	// verify the namespace scoped resource can be added and mesh-scoped resource removed
@@ -518,7 +518,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("foo"))
 	g.Expect(c[0].Namespace).To(Equal("bar-namespace"))
-	g.Expect(c[0].Type).To(Equal(authenticationPolicyGvk))
+	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationPolicyGvk))
 	g.Expect(c[0].Spec).To(Equal(message0))
 }
 

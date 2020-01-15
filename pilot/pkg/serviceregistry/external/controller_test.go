@@ -81,6 +81,8 @@ func TestController(t *testing.T) {
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              serviceEntryKind.Kind,
+			Version:   serviceEntryKind.Version,
+			Group:     serviceEntryKind.Group,
 			Name:              "fake",
 			Namespace:         "fake-ns",
 			CreationTimestamp: time.Now(),
@@ -145,6 +147,8 @@ func TestServiceEntryChanges(t *testing.T) {
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              serviceEntryKind.Kind,
+			Version:           serviceEntryKind.Version,
+			Group:             serviceEntryKind.Group,
 			Name:              "fake",
 			Namespace:         "fake-ns",
 			CreationTimestamp: ct,
@@ -190,6 +194,8 @@ func TestServiceEntryChanges(t *testing.T) {
 	updatecfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              serviceEntryKind.Kind,
+			Version:   serviceEntryKind.Version,
+			Group:     serviceEntryKind.Group,
 			Name:              "fake",
 			Namespace:         "fake-ns",
 			ResourceVersion:   revision,
@@ -236,6 +242,8 @@ func TestServiceEntryChanges(t *testing.T) {
 	updatecfg = model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              serviceEntryKind.Kind,
+			Version:   serviceEntryKind.Version,
+			Group:     serviceEntryKind.Group,
 			Name:              "fake",
 			Namespace:         "fake-ns",
 			ResourceVersion:   revision,
@@ -312,6 +320,8 @@ func TestServiceEntryDelete(t *testing.T) {
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      serviceEntryKind.Kind,
+			Version:   serviceEntryKind.Version,
+			Group:     serviceEntryKind.Group,
 			Name:      "httpbin-egress",
 			Namespace: "test-ns",
 		},
