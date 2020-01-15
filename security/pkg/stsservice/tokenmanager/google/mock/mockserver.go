@@ -81,13 +81,18 @@ type AuthorizationServer struct {
 	mutex                       sync.RWMutex
 	generateFederatedTokenError error
 	generateAccessTokenError    error
+	accessTokenLife             int // life of issued access token in seconds
+	accessToken                 string
+	enableDynamicAccessToken    bool // whether generates different token each time
+	numGetFederatedTokenCalls   int
+	numGetAccessTokenCalls      int
 }
 
 type Config struct {
-	Port                int
-	SubjectToken        string
-	TrustDomain         string
-	ExpectedAccessToken string
+	Port         int
+	SubjectToken string
+	TrustDomain  string
+	AccessToken  string
 }
 
 // StartNewServer creates a mock server and starts it. The server listens on
@@ -101,8 +106,9 @@ func StartNewServer(t *testing.T, conf Config) (*AuthorizationServer, error) {
 	if conf.TrustDomain != "" {
 		td = conf.TrustDomain
 	}
-	if conf.ExpectedAccessToken != "" {
-		FakeAccessToken = conf.ExpectedAccessToken
+	token := FakeAccessToken
+	if conf.AccessToken != "" {
+		token = conf.AccessToken
 	}
 	server := &AuthorizationServer{
 		t: t,
@@ -118,6 +124,9 @@ func StartNewServer(t *testing.T, conf Config) (*AuthorizationServer, error) {
 			Name:  fmt.Sprintf("projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum),
 			Scope: []string{"https://www.googleapis.com/auth/cloud-platform"},
 		},
+		accessTokenLife:          3600,
+		accessToken:              token,
+		enableDynamicAccessToken: false,
 	}
 	return server, server.Start(conf.Port)
 }
@@ -132,6 +141,39 @@ func (ms *AuthorizationServer) SetGenAcsTokenError(err error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 	ms.generateAccessTokenError = err
+}
+
+// SetTokenLifeTime sets life time of issued access token to d seconds
+func (ms *AuthorizationServer) SetTokenLifeTime(d int) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.accessTokenLife = d
+}
+
+// SetAccessToken sets the issued access token to token
+func (ms *AuthorizationServer) SetAccessToken(token string) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.accessToken = token
+}
+
+// SetAccessToken sets the issued access token to token
+func (ms *AuthorizationServer) EnableDynamicAccessToken(enable bool) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.enableDynamicAccessToken = enable
+}
+
+func (ms *AuthorizationServer) NumGetAccessTokenCalls() int {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	return ms.numGetAccessTokenCalls
+}
+
+func (ms *AuthorizationServer) NumGetFederatedTokenCalls() int {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	return ms.numGetFederatedTokenCalls
 }
 
 // Start starts the mock server.
@@ -179,6 +221,7 @@ func (ms *AuthorizationServer) Stop() error {
 }
 
 func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *http.Request) {
+	ms.numGetFederatedTokenCalls++
 	decoder := json.NewDecoder(req.Body)
 	var request federatedTokenRequest
 	err := decoder.Decode(&request)
@@ -218,6 +261,7 @@ func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *htt
 }
 
 func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.Request) {
+	ms.numGetAccessTokenCalls++
 	decoder := json.NewDecoder(req.Body)
 	var request accessTokenRequest
 	err := decoder.Decode(&request)
@@ -257,8 +301,12 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	token := ms.accessToken
+	if ms.enableDynamicAccessToken {
+		token = token+time.Now().String()
+	}
 	resp := accessTokenResponse{
-		AccessToken: FakeAccessToken,
+		AccessToken: token,
 		ExpireTime: duration.Duration{
 			Seconds: 3600,
 		},
