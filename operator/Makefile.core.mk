@@ -20,8 +20,6 @@ pwd := $(shell pwd)
 # make targets
 .PHONY: lint lint-dependencies test_with_coverage mandiff build fmt vfsgen update-charts update-goldens
 
-build: mesh
-
 lint-dependencies:
 	@! go mod graph | grep k8s.io/kubernetes || echo "depenency on k8s.io/kubernetes not allowed" || exit 2
 
