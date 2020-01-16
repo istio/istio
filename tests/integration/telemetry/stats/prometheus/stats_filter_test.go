@@ -40,6 +40,7 @@ var (
 	galInst        galley.Instance
 	ingInst        ingress.Instance
 	promInst       prometheus.Instance
+	usingOperator  bool
 )
 
 func getIstioInstance() *istio.Instance {
@@ -106,6 +107,11 @@ func buildQuery() (sourceQuery, destinationQuery string) {
 // proxy bootstrap config. To avoid flake, it does not verify correctness of metrics, which
 // should be covered by integration test in proxy repo.
 func TestStatsFilter(t *testing.T) {
+	if !usingOperator {
+		// TODO: remove this condition when operator is used in all tests.
+		t.Log("Stats filter test only runs with operator.")
+		return
+	}
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -142,6 +148,7 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+	usingOperator = cfg.Operator
 	// disable mixer telemetry and enable telemetry v2
 	cfg.Values["telemetry.enabled"] = "true"
 	cfg.Values["telemetry.v1.enabled"] = "false"
