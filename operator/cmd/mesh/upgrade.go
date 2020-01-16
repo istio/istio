@@ -125,7 +125,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	if err != nil {
 		if !args.force {
 			return fmt.Errorf("failed to convert the target tag '%s' into a valid version, "+
-					"you can use --force flag to skip the version check if you know the tag is correct", targetTag)
+				"you can use --force flag to skip the version check if you know the tag is correct", targetTag)
 		}
 	}
 

@@ -96,7 +96,7 @@ TMPDIR := $(shell mktemp -d)
 
 repo_dir := .
 out_path = ${TMPDIR}
-protoc = protoc -Icommon-protos -I.
+protoc = protoc -I../common-protos -I.
 
 go_plugin_prefix := --go_out=plugins=grpc,
 go_plugin := $(go_plugin_prefix):$(out_path)
