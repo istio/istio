@@ -261,7 +261,7 @@ func init() {
 	}
 	viper.SetDefault(constants.IptablesProbePort, strconv.Itoa(constants.DefaultIptablesProbePort))
 
-	rootCmd.Flags().String(constants.ProbeTimeout, strconv.FormatUint(constants.DefaultProbeTimeout, 10), "set timeout in nanosecond for failure detection")
+	rootCmd.Flags().Duration(constants.ProbeTimeout, constants.DefaultProbeTimeout, "failure detection timeout")
 	if err := viper.BindPFlag(constants.ProbeTimeout, rootCmd.Flags().Lookup(constants.ProbeTimeout)); err != nil {
 		handleError(err)
 	}

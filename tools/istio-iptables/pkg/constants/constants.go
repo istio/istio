@@ -115,7 +115,7 @@ const (
 
 const (
 	DefaultIptablesProbePort = 15002
-	DefaultProbeTimeout      = uint64(5 * time.Second)
+	DefaultProbeTimeout      = 5 * time.Second
 )
 
 const (

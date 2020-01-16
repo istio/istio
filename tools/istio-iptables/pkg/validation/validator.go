@@ -119,7 +119,7 @@ func NewValidator(config *config.Config, hostIP net.IP) *Validator {
 			ServerOriginalPort:  config.IptablesProbePort,
 			ServerOriginalIP:    serverIP,
 			ServerReadyBarrier:  make(chan ReturnCode, 1),
-			ProbeTimeout:        time.Duration(config.ProbeTimeout),
+			ProbeTimeout:        config.ProbeTimeout,
 		},
 	}
 }
