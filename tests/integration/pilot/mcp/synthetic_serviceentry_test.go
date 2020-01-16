@@ -23,7 +23,8 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -143,7 +144,7 @@ func TestSyntheticServiceEntry(t *testing.T) {
 	// apply a sse
 	applyConfig(serviceEntry, testParams, t)
 
-	collection := metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String()
+	collection := collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String()
 
 	if err := g.WaitForSnapshot(collection, syntheticServiceEntryValidator(testParams)); err != nil {
 		t.Fatalf("failed waiting for %s:\n%v\n", collection, err)
@@ -293,8 +294,8 @@ func validateSse(response *structpath.Instance, params testParam) error {
 
 func syntheticServiceEntryValidator(params testParam) galley.SnapshotValidatorFunc {
 	return galley.NewSingleObjectSnapshotValidator(params.namespace.Name(), func(ns string, actual *galley.SnapshotObject) error {
-		sp := metadata.MustGet().AllCollections().Get(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String())
-		typeURL := "type.googleapis.com/" + sp.MessageName
+		sp := schema.MustGet().AllCollections().MustFind(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String())
+		typeURL := "type.googleapis.com/" + sp.Resource().Proto()
 		v := structpath.ForProto(actual)
 		if err := v.Equals(typeURL, "{.TypeURL}").
 			Equals(fmt.Sprintf("%s/%s", params.namespace.Name(), params.svcName), "{.Metadata.name}").

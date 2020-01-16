@@ -1,0 +1,37 @@
+# Small general-purpose load generator.
+#
+#  curl -J https://raw.githubusercontent.com/istio-ecosystem/istio-installer/master/test/k8s/loadgen.yaml |
+#      sed s/DOMAIN/DOMAIN TO LOAD/ | kubectl apply -f -
+#
+# Will generate 10 QPS - replace with other value if needed.
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loader
+spec:
+  selector:
+    matchLabels:
+      app: loader
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: loader
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "5"
+          - -qps
+          - "10"
+          - http://DOMAIN/echo?size=5000

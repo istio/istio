@@ -17,6 +17,7 @@ package fixtures_test
 import (
 	"testing"
 
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
@@ -33,7 +34,7 @@ func TestExpect_FullSync(t *testing.T) {
 	acc := &fixtures.Accumulator{}
 	acc.Handle(data.Event1Col1Synced)
 
-	fixtures.ExpectFullSync(t, acc, data.Collection1)
+	fixtures.ExpectFullSync(t, acc, basicmeta.K8SCollection1)
 }
 
 func TestExpect_None(t *testing.T) {

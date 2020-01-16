@@ -31,8 +31,8 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
         Description: "Checks that VirtualService resources reference Gateways that exist"
         // Each analyzer should register the collections that it needs to use as input.
         Inputs: collection.Names{
-            metadata.IstioNetworkingV1Alpha3Gateways,
-            metadata.IstioNetworkingV1Alpha3Virtualservices,
+            collections.IstioNetworkingV1Alpha3Gateways.Name,
+            collections.IstioNetworkingV1Alpha3Virtualservices.Name,
         },
     }
 }
@@ -41,9 +41,9 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
     // The context object has several functions that let you access the configuration resources
     // in the current snapshot. The available collections, and how they map to k8s resources,
-    // are defined in galley/pkg/config/processor/metadata/metadata.yaml
+    // are defined in galley/pkg/config/schema/metadata.yaml
     // Available resources are listed under the "localAnalysis" and "syntheticServiceEntry" snapshots in that file.
-    c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Instance) bool {
+    c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name, func(r *resource.Instance) bool {
         s.analyzeVirtualService(r, c)
         return true
     })
@@ -60,16 +60,15 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 
     // The resource name includes the namespace, if one exists. It should generally be safe to
     // assume that the namespace is not blank, except for cluster-scoped resources.
-    ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
     for _, gwName := range vs.Gateways {
-        if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewName(ns, gwName)) {
+        if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways, resource.NewName(r.Metadata.FullName.Namespace, gwName)) {
             // Messages are defined in galley/pkg/config/analysis/msg/messages.yaml
             // From there, code is generated for each message type, including a constructor function
             // that you can use to create a new validation message of each type.
             msg := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
 
             // Messages are reported via the passed-in context object.
-            c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg)
+            c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name, msg)
         }
     }
 }

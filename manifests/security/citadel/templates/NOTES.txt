@@ -1,0 +1,7 @@
+This template contains the 'singleton' part of Istio.
+
+All other components support multiple instances (profiles) running in parallel.
+
+For upgrade purpose, this component should run in istio-system - where the existing mesh certificates are stored.
+Will install a new deployment of Citadel, using 1.1 - it can run in parallel with the old-style install of either 1.0
+or 1.1.

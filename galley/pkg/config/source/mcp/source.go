@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
@@ -31,10 +31,11 @@ type Source struct {
 }
 
 // NewSource creates a new MCP event Source.
-func NewSource(collections collection.Names) *Source {
-	caches := make(map[string]*cache, len(collections))
-	for _, c := range collections {
-		caches[c.String()] = newCache(c)
+func NewSource(schemas collection.Schemas) *Source {
+	all := schemas.All()
+	caches := make(map[string]*cache, len(all))
+	for _, c := range all {
+		caches[c.Name().String()] = newCache(c)
 	}
 
 	return &Source{

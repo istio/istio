@@ -24,7 +24,7 @@ func (ms *Messages) Add(m Message) {
 	*ms = append(*ms, m)
 }
 
-// Sort the message lexicographically by level, code, origin, then string.
+// Sort the message lexicographically by level, code, resource origin name, then string.
 func (ms *Messages) Sort() {
 	sort.Slice(*ms, func(i, j int) bool {
 		a, b := (*ms)[i], (*ms)[j]
@@ -33,12 +33,12 @@ func (ms *Messages) Sort() {
 			return a.Type.Level().sortOrder < b.Type.Level().sortOrder
 		case a.Type.Code() != b.Type.Code():
 			return a.Type.Code() < b.Type.Code()
-		case a.Origin == nil && b.Origin != nil:
+		case a.Resource == nil && b.Resource != nil:
 			return true
-		case a.Origin != nil && b.Origin == nil:
+		case a.Resource != nil && b.Resource == nil:
 			return false
-		case a.Origin != nil && b.Origin != nil && a.Origin.FriendlyName() != b.Origin.FriendlyName():
-			return a.Origin.FriendlyName() < b.Origin.FriendlyName()
+		case a.Resource != nil && b.Resource != nil && a.Resource.Origin.FriendlyName() != b.Resource.Origin.FriendlyName():
+			return a.Resource.Origin.FriendlyName() < b.Resource.Origin.FriendlyName()
 		default:
 			return a.String() < b.String()
 		}

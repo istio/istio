@@ -16,10 +16,11 @@ package service
 
 import (
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	configKube "istio.io/istio/pkg/config/kube"
 
 	v1 "k8s.io/api/core/v1"
@@ -36,14 +37,26 @@ func (s *PortNameAnalyzer) Metadata() analysis.Metadata {
 		Name:        "service.PortNameAnalyzer",
 		Description: "Checks the port names associated with each service",
 		Inputs: collection.Names{
-			metadata.K8SCoreV1Services,
+			collections.K8SCoreV1Services.Name(),
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Instance) bool {
+	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+		svcNs := r.Metadata.FullName.Namespace
+
+		// Skip system namespaces entirely
+		if util.IsSystemNamespace(svcNs) {
+			return true
+		}
+
+		// Skip port name check for istio control plane
+		if util.IsIstioControlPlane(r) {
+			return true
+		}
+
 		s.analyzeService(r, c)
 		return true
 	})
@@ -53,7 +66,7 @@ func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Conte
 	svc := r.Message.(*v1.ServiceSpec)
 	for _, port := range svc.Ports {
 		if instance := configKube.ConvertProtocol(port.Port, port.Name, port.Protocol); instance.IsUnsupported() {
-			c.Report(metadata.K8SCoreV1Services, msg.NewPortNameIsNotUnderNamingConvention(
+			c.Report(collections.K8SCoreV1Services.Name(), msg.NewPortNameIsNotUnderNamingConvention(
 				r, port.Name, int(port.Port), port.TargetPort.String()))
 		}
 	}

@@ -19,28 +19,32 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	resource2 "istio.io/istio/galley/pkg/config/schema/resource"
 )
 
 // ToResource converts the given object and proto to a resource.Instance
-func ToResource(object metav1.Object, r *schema.KubeResource, item proto.Message) *resource.Instance {
+func ToResource(object metav1.Object, schema collection.Schema, item proto.Message) *resource.Instance {
 	var o *Origin
 
 	name := resource.NewFullName(resource.Namespace(object.GetNamespace()), resource.LocalName(object.GetName()))
 	version := resource.Version(object.GetResourceVersion())
 
-	if r != nil {
+	var resourceSchema resource2.Schema
+	if schema != nil {
+		resourceSchema = schema.Resource()
 		o = &Origin{
 			FullName:   name,
-			Collection: r.Collection.Name,
-			Kind:       r.Kind,
+			Collection: schema.Name(),
+			Kind:       schema.Resource().Kind(),
 			Version:    version,
 		}
 	}
 
 	return &resource.Instance{
 		Metadata: resource.Metadata{
+			Schema:      resourceSchema,
 			FullName:    name,
 			Version:     version,
 			Annotations: object.GetAnnotations(),

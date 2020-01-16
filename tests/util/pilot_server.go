@@ -25,7 +25,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
@@ -92,11 +91,6 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
-		},
-		Service: bootstrap.ServiceArgs{
-			// Using the Mock service registry, which provides the hello and world services.
-			Registries: []string{
-				string(serviceregistry.Mock)},
 		},
 		MeshConfig:        &meshConfig,
 		MCPMaxMessageSize: 1024 * 1024 * 4,

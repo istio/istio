@@ -25,7 +25,7 @@ docker: docker.all
 
 DOCKER_TARGETS ?= docker.pilot docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
 	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s \
-	docker.istioctl
+	docker.istioctl docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -51,7 +51,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
-                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables istioctl
+                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables istioctl manager
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
@@ -94,7 +94,7 @@ else
 endif
 
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent
+docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent istio-iptables
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
@@ -165,12 +165,17 @@ docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
 	$(DOCKER_RULE)
 
 docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.kubectl: docker/Dockerfile$$(suffix $$@)
+docker.kubectl: docker/Dockerfile.kubectl
 	$(DOCKER_RULE)
 
 docker.istioctl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.istioctl: istioctl/docker/Dockerfile.istioctl
 docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
+	$(DOCKER_RULE)
+
+docker.operator: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.operator: operator/docker/Dockerfile.operator
+docker.operator: $(ISTIO_OUT_LINUX)/manager
 	$(DOCKER_RULE)
 
 # mixer docker images
@@ -208,6 +213,7 @@ dockerx:
 		DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
 		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
 		BASE_VERSION=$(BASE_VERSION) \
+		DOCKERX_PUSH=$(DOCKERX_PUSH) \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
 
@@ -330,6 +336,13 @@ dockerx.push: dockerx
 	$(foreach TGT,$(DOCKER_TARGETS), time ( \
 		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-$(DEFAULT_DISTRIBUTION)}; done); \
 	)
+
+# Build and push docker images using dockerx. Pushing is done inline as an optimization
+# This is not done in the dockerx.push target because it requires using the docker-container driver.
+# See https://github.com/docker/buildx#working-with-builder-instances for info to set this up
+dockerx.pushx: DOCKERX_PUSH=true
+dockerx.pushx: dockerx
+	@:
 
 # Scan images for security vulnerabilities using the ImageScanner tool
 docker.scan_images: $(DOCKER_PUSH_TARGETS)

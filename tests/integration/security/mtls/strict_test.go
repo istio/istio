@@ -43,12 +43,10 @@ func TestMtlsStrict(t *testing.T) {
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
-
-						return true
+						// Exclude calls to the headless service.
+						// Auto mtls does not apply to headless service, because for headless service
+						// the cluster discovery type is ORIGINAL_DST, and it will not apply upstream tls setting
+						return opts.Target != rctx.Headless
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would

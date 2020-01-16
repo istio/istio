@@ -28,6 +28,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -37,9 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/security/authz/converter"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -246,7 +247,7 @@ func createAuthorizationPoliciesFromFiles(files []string, rootNamespace string) 
 		}
 		configs = append(configs, configFromFile...)
 	}
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
 	for _, config := range configs {
 		if _, err := store.Create(config); err != nil {
 			return nil, err

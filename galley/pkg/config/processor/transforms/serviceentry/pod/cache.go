@@ -19,8 +19,8 @@ import (
 	"reflect"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pkg/spiffe"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -84,10 +84,10 @@ func (pc *cacheImpl) GetPodByIP(ip string) (Info, bool) {
 
 // Handle implements event.Handler
 func (pc *cacheImpl) Handle(e event.Event) {
-	switch e.Source {
-	case metadata.K8SCoreV1Nodes:
+	switch e.Source.Name() {
+	case collections.K8SCoreV1Nodes.Name():
 		pc.handleNode(e)
-	case metadata.K8SCoreV1Pods:
+	case collections.K8SCoreV1Pods.Name():
 		pc.handlePod(e)
 	default:
 		return

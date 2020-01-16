@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -193,6 +195,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 						Action: &route.Route_Route{
 							Route: &route.RouteAction{
 								ClusterSpecifier: &route.RouteAction_Cluster{Cluster: util.PassthroughCluster},
+								// Disable timeout instead of assuming some defaults.
+								Timeout: ptypes.DurationProto(0 * time.Millisecond),
 							},
 						},
 					},
@@ -267,10 +271,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 	// this listener and not all virtual services accessible to this proxy.
 	virtualServices = egressListener.VirtualServices()
 
-	// When generating RDS for ports created via the SidecarScope, we treat
-	// these ports as HTTP proxy style ports. All services attached to this listener
-	// must feature in this RDS route irrespective of the service port.
-	if egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil {
+	// When generating RDS for ports created via the SidecarScope, we treat ports as HTTP proxy style ports
+	// if ports protocol is HTTP_PROXY.
+	if egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil &&
+		protocol.Parse(egressListener.IstioListener.Port.Protocol) == protocol.HTTP_PROXY {
 		listenerPort = 0
 	}
 

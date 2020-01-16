@@ -38,7 +38,6 @@ function getSha() {
 make update-common
 
 export GO111MODULE=on
-go get -u "istio.io/operator@${UPDATE_BRANCH}"
 go get -u "istio.io/api@${UPDATE_BRANCH}"
 go get -u "istio.io/gogo-genproto@${UPDATE_BRANCH}"
 go get -u "istio.io/pkg@${UPDATE_BRANCH}"

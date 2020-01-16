@@ -76,60 +76,60 @@ func TestStsService(t *testing.T) {
 		expectedToken        *stsservice.TokenInfo
 	}{
 		"Send a valid STS request and get STS success response": {
-			stsRequest:           genStsRequest(validStsReq, "http://"+sTSAddr.String()+tokenPath),
+			stsRequest:           genStsRequest(validStsReq, "http://"+sTSAddr.String()+TokenPath),
 			stsRespParam:         genSuccessStsRespParam(),
 			expectedStsResponse:  genStsResponse(successStsResp, genSuccessStsRespParam(), nil, nil),
 			expectedResponseType: successStsResp,
 		},
 		"Send an invalid STS request (empty grant type) and get STS error response": {
-			stsRequest:           genStsRequest(emptyGrantType, "http://"+sTSAddr.String()+tokenPath),
+			stsRequest:           genStsRequest(emptyGrantType, "http://"+sTSAddr.String()+TokenPath),
 			expectedStsResponse:  genStsResponse(validationFailure, genSuccessStsRespParam(), errors.New("request query grant_type is invalid"), nil),
 			expectedResponseType: validationFailure,
 		},
 		"Send an invalid STS request (incorrect grant type) and get STS error response": {
-			stsRequest:           genStsRequest(incorrectGrantType, "http://"+sTSAddr.String()+tokenPath),
+			stsRequest:           genStsRequest(incorrectGrantType, "http://"+sTSAddr.String()+TokenPath),
 			expectedStsResponse:  genStsResponse(validationFailure, genSuccessStsRespParam(), errors.New("request query grant_type is invalid"), nil),
 			expectedResponseType: validationFailure,
 		},
 		"Send an invalid STS request (empty subject token) and get STS error response": {
-			stsRequest:           genStsRequest(emptySubjectToken, "http://"+sTSAddr.String()+tokenPath),
+			stsRequest:           genStsRequest(emptySubjectToken, "http://"+sTSAddr.String()+TokenPath),
 			expectedStsResponse:  genStsResponse(validationFailure, genSuccessStsRespParam(), errors.New("subject_token is empty"), nil),
 			expectedResponseType: validationFailure,
 		},
 		"Send an invalid STS request (empty subject token type) and get STS error response": {
-			stsRequest:           genStsRequest(emptySubjectTokenType, "http://"+sTSAddr.String()+tokenPath),
+			stsRequest:           genStsRequest(emptySubjectTokenType, "http://"+sTSAddr.String()+TokenPath),
 			expectedStsResponse:  genStsResponse(validationFailure, genSuccessStsRespParam(), errors.New("subject_token_type is invalid"), nil),
 			expectedResponseType: validationFailure,
 		},
 		"Send an invalid STS request (incorrect subject token type) and get STS error response": {
-			stsRequest:           genStsRequest(incorrectSubjectTokenType, "http://"+sTSAddr.String()+tokenPath),
+			stsRequest:           genStsRequest(incorrectSubjectTokenType, "http://"+sTSAddr.String()+TokenPath),
 			expectedStsResponse:  genStsResponse(validationFailure, genSuccessStsRespParam(), errors.New("subject_token_type is invalid"), nil),
 			expectedResponseType: validationFailure,
 		},
 		"Send an invalid STS request (incorrect request method) and get STS error response": {
-			stsRequest:           genStsRequest(incorrectRequestMethod, "http://"+sTSAddr.String()+tokenPath),
+			stsRequest:           genStsRequest(incorrectRequestMethod, "http://"+sTSAddr.String()+TokenPath),
 			expectedStsResponse:  genStsResponse(validationFailure, genSuccessStsRespParam(), errors.New("request method is invalid"), nil),
 			expectedResponseType: validationFailure,
 		},
 		"Send an invalid STS request (incorrect content type) and get STS error response": {
-			stsRequest:           genStsRequest(incorrectContentType, "http://"+sTSAddr.String()+tokenPath),
+			stsRequest:           genStsRequest(incorrectContentType, "http://"+sTSAddr.String()+TokenPath),
 			expectedStsResponse:  genStsResponse(validationFailure, genSuccessStsRespParam(), errors.New("request content type is invalid"), nil),
 			expectedResponseType: validationFailure,
 		},
 		"Send a valid STS request and get STS error response": {
-			stsRequest:           genStsRequest(validStsReq, "http://"+sTSAddr.String()+tokenPath),
+			stsRequest:           genStsRequest(validStsReq, "http://"+sTSAddr.String()+TokenPath),
 			genTokenError:        errors.New("failed to generate token"),
 			expectedStsResponse:  genStsResponse(tokenGenerationFailure, emptyStsParam, errors.New("failed to generate token"), nil),
 			expectedResponseType: tokenGenerationFailure,
 		},
 		"Send a dump request and get dump information in response": {
-			stsRequest:           genStsRequest(tokenStatusDump, "http://"+sTSAddr.String()+stsStatusPath),
+			stsRequest:           genStsRequest(tokenStatusDump, "http://"+sTSAddr.String()+StsStatusPath),
 			expectedStsResponse:  genStsResponse(StatusDumpSuccess, emptyStsParam, nil, mockToken),
 			expectedResponseType: StatusDumpSuccess,
 			expectedToken:        mockToken,
 		},
 		"Send a dump request and get error response": {
-			stsRequest:           genStsRequest(tokenStatusDump, "http://"+sTSAddr.String()+stsStatusPath),
+			stsRequest:           genStsRequest(tokenStatusDump, "http://"+sTSAddr.String()+StsStatusPath),
 			dumpTokenError:       errors.New("failed to dump token"),
 			expectedStsResponse:  genStsResponse(StatusDumpFailure, emptyStsParam, errors.New("failed to dump token"), nil),
 			expectedResponseType: StatusDumpFailure,
@@ -270,13 +270,13 @@ func verifyDumpResponse(t *testing.T, tCase string, body, expBody []byte) {
 
 func genStsRequest(reqType stsReqType, serverAddr string) (req *http.Request) {
 	stsQuery := url.Values{}
-	stsQuery.Set("grant_type", tokenExchangeGrantType)
+	stsQuery.Set("grant_type", TokenExchangeGrantType)
 	stsQuery.Set("resource", "https//:backend.example.com")
 	stsQuery.Set("audience", "audience")
 	stsQuery.Set("scope", "scope")
 	stsQuery.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
 	stsQuery.Set("subject_token", "subject token")
-	stsQuery.Set("subject_token_type", subjectTokenType)
+	stsQuery.Set("subject_token_type", SubjectTokenType)
 	stsQuery.Set("actor_token", "")
 	stsQuery.Set("actor_token_type", "")
 	if reqType == emptyGrantType {
@@ -293,7 +293,7 @@ func genStsRequest(reqType stsReqType, serverAddr string) (req *http.Request) {
 
 	if reqType == incorrectRequestMethod {
 		req, _ = http.NewRequest("GET", serverAddr, strings.NewReader(stsQuery.Encode()))
-		req.Header.Set("Content-Type", urlEncodedForm)
+		req.Header.Set("Content-Type", URLEncodedForm)
 	} else if reqType == incorrectContentType {
 		req, _ = http.NewRequest("POST", serverAddr, strings.NewReader(stsQuery.Encode()))
 		req.Header.Set("Content-Type", "application/json")
@@ -301,7 +301,7 @@ func genStsRequest(reqType stsReqType, serverAddr string) (req *http.Request) {
 		req, _ = http.NewRequest("GET", serverAddr, nil)
 	} else {
 		req, _ = http.NewRequest("POST", serverAddr, strings.NewReader(stsQuery.Encode()))
-		req.Header.Set("Content-Type", urlEncodedForm)
+		req.Header.Set("Content-Type", URLEncodedForm)
 	}
 	reqDump, _ := httputil.DumpRequest(req, true)
 	log.Infof("STS request: %s", string(reqDump))

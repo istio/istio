@@ -4,7 +4,9 @@
 /galley/                                                         @istio/wg-config-maintainers
 /install/                                                        @istio/wg-environments-maintainers
 /istioctl/                                                       @istio/wg-user-experience-maintainers
+/manifests/                                                      @istio/wg-environments-maintainers
 /mixer/                                                          @istio/wg-policies-and-telemetry-maintainers
+/operator/                                                       @istio/wg-environments-maintainers
 /pilot/                                                          @istio/wg-networking-maintainers
 /pilot/pkg/security/                                             @istio/wg-security-maintainers
 /pilot/pkg/config/                                               @istio/wg-config-maintainers @istio/wg-networking-maintainers
@@ -28,6 +30,7 @@
 /pkg/spiffe/                                                     @istio/wg-security-maintainers
 /pkg/test/                                                       @istio/wg-test-and-release-maintainers
 /pkg/tracing/                                                    @istio/wg-policies-and-telemetry-maintainers
+/pkg/webhooks/                                                   @istio/wg-environments-maintainers
 /prow/                                                           @istio/wg-test-and-release-maintainers
 /release/                                                        @istio/wg-test-and-release-maintainers
 /samples/                                                        @istio/wg-docs-maintainers

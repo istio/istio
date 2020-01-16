@@ -18,42 +18,21 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
-	"istio.io/istio/pkg/config/schemas"
 )
-
-var (
-	camelKebabs = []struct{ in, out string }{
-		{"ExampleNameX", "example-name-x"},
-		{"Example1", "example1"},
-		{"ExampleXY", "example-x-y"},
-	}
-)
-
-func TestCamelKebab(t *testing.T) {
-	for _, tt := range camelKebabs {
-		s := CamelCaseToKebabCase(tt.in)
-		if s != tt.out {
-			t.Errorf("CamelCaseToKebabCase(%q) => %q, want %q", tt.in, s, tt.out)
-		}
-		u := KebabCaseToCamelCase(tt.out)
-		if u != tt.in {
-			t.Errorf("kebabToCamel(%q) => %q, want %q", tt.out, u, tt.in)
-		}
-	}
-}
 
 func TestConvert(t *testing.T) {
-	if _, err := ConvertConfig(schemas.VirtualService, model.Config{}); err == nil {
+	if _, err := ConvertConfig(collections.IstioNetworkingV1Alpha3Virtualservices, model.Config{}); err == nil {
 		t.Errorf("expected error for converting empty config")
 	}
-	if _, err := ConvertObject(schemas.VirtualService, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
+	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            schemas.VirtualService.Type,
+			Type:            collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
 			Group:           "networking.istio.io",
 			Version:         "v1alpha3",
 			Name:            "test",
@@ -66,11 +45,11 @@ func TestConvert(t *testing.T) {
 		Spec: mock.ExampleVirtualService,
 	}
 
-	obj, err := ConvertConfig(schemas.VirtualService, config)
+	obj, err := ConvertConfig(collections.IstioNetworkingV1Alpha3Virtualservices, config)
 	if err != nil {
 		t.Errorf("ConvertConfig() => unexpected error %v", err)
 	}
-	got, err := ConvertObject(schemas.VirtualService, obj, "cluster")
+	got, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, obj, "cluster")
 	if err != nil {
 		t.Errorf("ConvertObject() => unexpected error %v", err)
 	}

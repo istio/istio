@@ -25,7 +25,7 @@ import (
 	"istio.io/pkg/appsignals"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 )
@@ -51,8 +51,8 @@ type source struct {
 var _ event.Source = &source{}
 
 // New returns a new filesystem based processor.Source.
-func New(root string, resources schema.KubeResources, watchConfigFiles bool) (event.Source, error) {
-	src := inmemory.NewKubeSource(resources)
+func New(root string, schemas collection.Schemas, watchConfigFiles bool) (event.Source, error) {
+	src := inmemory.NewKubeSource(schemas)
 	name := fmt.Sprintf("fs-%d", nameDiscriminator)
 	nameDiscriminator++
 

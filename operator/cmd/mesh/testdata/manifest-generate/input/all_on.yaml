@@ -1,0 +1,38 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    base:
+      enabled: true
+    pilot:
+      enabled: true
+    policy:
+      enabled: true
+    telemetry:
+      enabled: true
+    proxy:
+      enabled: true
+    sidecarInjector:
+      enabled: true
+    citadel:
+      enabled: true
+    nodeAgent:
+      enabled: false
+    galley:
+      enabled: true
+    cni:
+      enabled: false
+    ingressGateways:
+      - namespace: istio-system
+        name: istio-ingressgateway
+        enabled: true
+    egressGateways:
+      - namespace: istio-system
+        name: istio-egressgateway
+        enabled: true
+
+  addonComponents:
+    prometheus:
+      enabled: true
+    coreDNS:
+      enabled: true

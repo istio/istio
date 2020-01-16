@@ -28,5 +28,7 @@ spec:
     - route:
       - destination:
           host: appendh.test.istio.io
-      appendHeaders:
-        istio-custom-header: user-defined-value
+      headers:
+        request:
+          add:
+            istio-custom-header: user-defined-value

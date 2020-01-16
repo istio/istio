@@ -16,39 +16,13 @@ package dependencies
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
-	"os/user"
 	"strings"
-
-	"istio.io/pkg/env"
 )
 
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct {
-}
-
-// GetLocalIP returns the local IP address
-func (r *RealDependencies) GetLocalIP() (net.IP, error) {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, a := range addrs {
-		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			return ipnet.IP, nil
-		}
-	}
-	return nil, fmt.Errorf("no valid local IP address found")
-}
-
-// LookupUser returns user, which runs this executable
-func (r *RealDependencies) LookupUser() (*user.User, error) {
-	username := env.RegisterStringVar("ENVOY_USER", "istio-proxy", "User used for iptable rules").Get()
-
-	return user.Lookup(username)
 }
 
 func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...string) error {

@@ -17,7 +17,6 @@ package security
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/istioio"
 )
@@ -29,8 +28,7 @@ func TestAuthorizationForHTTPServices(t *testing.T) {
 		NewTest(t).
 		Run(istioio.NewBuilder("tasks__security__authorization_for_http_services").
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/authz_http.txt"),
-				WorkDir: env.IstioSrc,
+				Input: istioio.Path("scripts/authz_http.txt"),
 			}, istioio.YamlResources{
 				BaseName:      "enforcing_namespace_level_access_control",
 				Input:         istioio.BookInfo("rbac/namespace-policy.yaml"),
@@ -63,6 +61,5 @@ kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml || true
 kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml || true
 kubectl delete -f samples/sleep/sleep.yaml || true`,
 				},
-				WorkDir: env.IstioSrc,
 			}).Build())
 }

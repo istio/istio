@@ -203,13 +203,10 @@ func (builder *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigG
 
 func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) *ListenerBuilder {
-
-	noneMode := node.GetInterceptionMode() == model.InterceptionNone
-
 	// Do not generate any management port listeners if the user has specified a SidecarScope object
 	// with ingress listeners. Specifying the ingress listener implies that the user wants
 	// to only have those specific listeners and nothing else, in the inbound path.
-	if node.SidecarScope.HasCustomIngressListeners || noneMode {
+	if node.SidecarScope.HasCustomIngressListeners || node.GetInterceptionMode() == model.InterceptionNone {
 		return builder
 	}
 	// Let ServiceDiscovery decide which IP and Port are used for management if

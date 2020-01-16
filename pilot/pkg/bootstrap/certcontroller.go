@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/pkg/log"
 )
@@ -45,6 +46,9 @@ var (
 	dnsCertDir  = "./var/run/secrets/istio-dns"
 	dnsKeyFile  = path.Join(dnsCertDir, "key.pem")
 	dnsCertFile = path.Join(dnsCertDir, "cert-chain.pem")
+
+	KubernetesCAProvider = "kubernetes"
+	CitadelCAProvider    = "citadel"
 )
 
 // CertController can create certificates signed by K8S server.
@@ -92,7 +96,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	return nil
 }
 
-// initDNSCerts will create the certificates to be used by Istiod GRPC server and webhooks, signed by K8S server.
+// initDNSCerts will create the certificates to be used by Istiod GRPC server and webhooks.
 // If the certificate creation fails - for example no support in K8S - returns an error.
 // Will use the mesh.yaml DiscoveryAddress to find the default expected address of the control plane,
 // with an environment variable allowing override.
@@ -129,11 +133,19 @@ func (s *Server) initDNSCerts(hostname string) error {
 		names = append(names, "istio-pilot.istio-system.svc")
 	}
 
-	log.Infoa("Generating K8S-signed cert for ", names)
-
-	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
-	certChain, keyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
-		strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
+	var certChain, keyPEM []byte
+	var err error
+	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+		log.Infof("Generating K8S-signed cert for %v", names)
+		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
+			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
+	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
+		log.Infof("Generating Citadel-signed cert for %v", names)
+		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
+	} else {
+		log.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
+		err = fmt.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
+	}
 	if err != nil {
 		return err
 	}
