@@ -71,7 +71,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename",
 		"f", "", "Path to file containing IstioOperator CustomResource")
 	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
-		versionsMapURL, "URI for operator versions to Istio versions map")
+		"", "URI for operator versions to Istio versions map")
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig",
 		"c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
