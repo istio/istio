@@ -51,7 +51,7 @@ func NewGenerator(
 	}
 }
 
-func (g *v1alpha1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
+func (g *v1alpha1Generator) Generate(forTCPFilter bool) (denyConfig *http_config.RBAC, allowConfig *http_config.RBAC) {
 	rbacLog.Debugf("building v1alpha1 policy")
 	enforcedConfig := &envoy_rbac.RBAC{
 		Action:   envoy_rbac.RBAC_ALLOW,
@@ -96,7 +96,7 @@ func (g *v1alpha1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	// If RBAC Config is set to permissive mode globally, RBAC is transparent to users;
 	// when mapping to rbac filter config, there is only shadow rules (no normal rules).
 	if g.isGlobalPermissiveEnabled {
-		return &http_config.RBAC{ShadowRules: permissiveConfig}
+		return nil, &http_config.RBAC{ShadowRules: permissiveConfig}
 	}
 
 	ret := &http_config.RBAC{Rules: enforcedConfig}
@@ -105,7 +105,7 @@ func (g *v1alpha1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	if len(permissiveConfig.Policies) > 0 {
 		ret.ShadowRules = permissiveConfig
 	}
-	return ret
+	return nil, ret
 }
 
 func (g *v1alpha1Generator) generatePolicy(trustDomainBundle trustdomain.Bundle, role *istio_rbac.ServiceRole,
