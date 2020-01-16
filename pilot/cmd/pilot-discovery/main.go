@@ -74,6 +74,9 @@ var (
 				return err
 			}
 
+			// fill in missing defaults
+			serverArgs.Default()
+
 			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain, hasKubeRegistry()))
 
 			// Create the stop channel for all of the servers.

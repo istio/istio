@@ -6424,9 +6424,6 @@ rules:
     "security.istio.io"]
     resources: ["*/status"]
     verbs: ["update"]
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["validatingwebhookconfigurations"]
-    verbs: ["*"]
   - apiGroups: ["extensions","apps"]
     resources: ["deployments"]
     resourceNames: ["istio-galley"]
@@ -6492,71 +6489,15 @@ data:
     apiVersion: admissionregistration.k8s.io/v1beta1
     kind: ValidatingWebhookConfiguration
     metadata:
-      name: istio-galley-istio-system
+      name: istio-galley
       namespace: istio-system
       labels:
         app: galley
         release: istio
         istio: galley
+      annotations:
+        "deprecation.istio.io": "This file may need to be be manually deleted after Istiod is installed"
     webhooks:
-      - name: pilot.validation.istio.io
-        clientConfig:
-          service:
-            name: istio-galley
-            namespace: istio-system
-            path: "/admitpilot"
-          caBundle: ""
-        rules:
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - config.istio.io
-            apiVersions:
-            - v1alpha2
-            resources:
-            - httpapispecs
-            - httpapispecbindings
-            - quotaspecs
-            - quotaspecbindings
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - rbac.istio.io
-            - security.istio.io
-            - authentication.istio.io
-            - networking.istio.io
-            apiVersions:
-            - "*"
-            resources:
-            - "*"
-        failurePolicy: Fail
-        sideEffects: None
-      - name: mixer.validation.istio.io
-        clientConfig:
-          service:
-            name: istio-galley
-            namespace: istio-system
-            path: "/admitmixer"
-          caBundle: ""
-        rules:
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - config.istio.io
-            apiVersions:
-            - v1alpha2
-            resources:
-            - rules
-            - attributemanifests
-            - adapters
-            - handlers
-            - instances
-            - templates
-        failurePolicy: Fail
-        sideEffects: None
 ---
 
 
@@ -6633,7 +6574,7 @@ spec:
         - --readinessProbeInterval=1s
         - --insecure=true
         - --enable-validation=true
-        - --enable-reconcileWebhookConfiguration=true
+        - --enable-reconcileWebhookConfiguration=false
         - --enable-server=true
         - --deployment-namespace=istio-system
         - --validation-webhook-config-file
@@ -6747,6 +6688,21 @@ metadata:
   labels:
     app: galley
     release: istio
+---
+
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-galley
+  namespace: istio-system
+  labels:
+    app: galley
+    release: istio
+    istio: galley
+  annotations:
+    "deprecation.istio.io": "This file must be manually deleted after Istiod is installed"
+webhooks:
 ---
 
 # Resources for IngressGateways component
@@ -7231,6 +7187,9 @@ metadata:
     app: pilot
     release: istio
 rules:
+  # Remove permissions to reconcile webhook configuration. This address the downgrade case
+  # where istiod will eventually uninstalled. Removing the permissions reduces
+  # the likelihood that istiod will reconcile something it shouldn't.
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
@@ -7533,12 +7492,12 @@ data:
     apiVersion: admissionregistration.k8s.io/v1beta1
     kind: ValidatingWebhookConfiguration
     metadata:
-      name: istio-galley # unchanged for now
+      name: istiod-istio-system
       namespace: istio-system
       labels:
-        app: galley
+        app: istiod
         release: istio
-        istio: galley
+        istio: istiod
     webhooks:
       - name: validation.istio.io
         clientConfig:
@@ -7826,8 +7785,6 @@ spec:
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "false"
-        - name: VALIDATION_WEBHOOK_NAME
-          value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istio-pilot.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY

@@ -17,14 +17,30 @@ package bootstrap
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
+)
+
+var (
+	validationWebhookConfigNameTemplateVar = "${namespace}"
+	// These should be an invalid DNS-1123 label to ensure the user
+	// doesn't specific a valid name that matches out template.
+	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
+
+	validationWebhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_CONFIG_NAME", validationWebhookConfigNameTemplate,
+		"Name of validatingwegbhookconfiguration to patch, if istioctl is not used.")
+
+	deferToDeploymentName = env.RegisterStringVar("DEFER_VALIDATION_TO_DEPLOYMENT", "",
+		"When set, the controller defers reconciling the validatingwebhookconfiguration to the named deployment.")
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
@@ -68,23 +84,37 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
+
+	webhookConfigName := validationWebhookConfigName.Get()
+	if webhookConfigName == validationWebhookConfigNameTemplate {
+		webhookConfigName = strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, args.Namespace)
+	}
+
+	deferTo := deferToDeploymentName.Get()
+	if !labels.IsDNS1123Label(deferTo) {
+		log.Warnf("DEFER_VALIDATION_TO_DEPLOYMENT=%v must be a valid DNS1123 label", deferTo)
+		deferTo = ""
+	}
+
 	o := controller.Options{
-		WatchedNamespace:      "istio-system", // args.Namespace TODO - default on command line?
+		WatchedNamespace:      args.Namespace,
 		CAPath:                defaultCACertPath,
-		WebhookConfigName:     "istio-galley",
+		WebhookConfigName:     webhookConfigName,
 		WebhookConfigPath:     configValidationPath,
 		ServiceName:           "istio-pilot",
 		ClusterRoleName:       "istio-pilot-" + args.Namespace,
-		DeferToDeploymentName: "istio-galley",
+		DeferToDeploymentName: deferTo,
 	}
 	whController, err := controller.New(o, client)
 	if err != nil {
 		return err
 	}
 
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		go whController.Start(stop)
-		return nil
-	})
+	if validationWebhookConfigName.Get() != "" {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			go whController.Start(stop)
+			return nil
+		})
+	}
 	return nil
 }
