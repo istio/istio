@@ -75,9 +75,10 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
-components:
+values:
   telemetry:
-    enabled: true`
+    v2:
+      enabled: false`
 		})).
 		Setup(testsetup).
 		Run()
