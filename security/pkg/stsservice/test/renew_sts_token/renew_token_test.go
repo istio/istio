@@ -30,7 +30,7 @@ import (
 func TestRenewToken(t *testing.T) {
 	// Enable this test when gRPC fix is picked by Istio Proxy
 	// https://github.com/grpc/grpc/pull/21641
-	//t.Skip("https://github.com/istio/istio/issues/20133")
+	t.Skip("https://github.com/istio/istio/issues/20133")
 	// Sets up callback that verifies token on new XDS stream.
 	cb := xdsService.CreateXdsCallback(t)
 	tokenLifeTimeInSec := 2

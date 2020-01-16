@@ -39,7 +39,7 @@ import (
 func TestProxySTS(t *testing.T) {
 	// Enable this test when gRPC fix is picked by Istio Proxy
 	// https://github.com/grpc/grpc/pull/21641
-	//t.Skip("https://github.com/istio/istio/issues/20133")
+	t.Skip("https://github.com/istio/istio/issues/20133")
 	expectedToken := "expected access token"
 	// Sets up callback that verifies token on new XDS stream.
 	cb := xdsService.CreateXdsCallback(t)
