@@ -108,7 +108,7 @@ func buildQuery() (sourceQuery, destinationQuery string) {
 // should be covered by integration test in proxy repo.
 func TestStatsFilter(t *testing.T) {
 	if !usingOperator {
-		// TODO(bianpengyuan): remove this condition when operator is used in all tests. 
+		// TODO(bianpengyuan): remove this condition when operator is used in all tests.
 		// Helm based installation does not have option to install stats filter.
 		t.Skip("Stats filter test only runs with operator.")
 	}
