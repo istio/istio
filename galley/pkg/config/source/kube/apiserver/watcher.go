@@ -88,11 +88,9 @@ func (w *watcher) start() {
 	// Start CRD shared informer and wait for it to exit.
 	go informer.Run(done)
 	// Send the FullSync event after the cache syncs.
-	go func() {
-		if cache.WaitForCacheSync(done, informer.HasSynced) {
-			go w.handler.Handle(event.FullSyncFor(w.schema))
-		}
-	}()
+	if cache.WaitForCacheSync(done, informer.HasSynced) {
+		go w.handler.Handle(event.FullSyncFor(w.schema))
+	}
 }
 
 func (w *watcher) stop() {
