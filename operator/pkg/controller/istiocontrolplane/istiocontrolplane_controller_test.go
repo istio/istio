@@ -60,6 +60,7 @@ var (
 		string(name.PilotComponentName):           healthyVersionStatus,
 		string(name.SidecarInjectorComponentName): healthyVersionStatus,
 		string(name.TelemetryComponentName):       healthyVersionStatus,
+		string(name.PolicyComponentName):          healthyVersionStatus,
 		string(name.CitadelComponentName):         healthyVersionStatus,
 		string(name.GalleyComponentName):          healthyVersionStatus,
 		string(name.IngressComponentName):         healthyVersionStatus,
