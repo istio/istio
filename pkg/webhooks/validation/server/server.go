@@ -264,11 +264,11 @@ func (wh *Webhook) Run(stopCh <-chan struct{}) {
 			keyCertTimerC = nil
 			wh.reloadKeyCert()
 		case <-wh.keyCertWatcher.Events(wh.keyFile):
-			if keyCertTimerC == nil { 
+			if keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)
 			}
 		case <-wh.keyCertWatcher.Events(wh.certFile):
-			if keyCertTimerC == nil { 
+			if keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)
 			}
 		case err := <-wh.keyCertWatcher.Errors(wh.keyFile):
