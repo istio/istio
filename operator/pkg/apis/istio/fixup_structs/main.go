@@ -103,7 +103,7 @@ func main() {
 		case strings.Contains(l, "import ("):
 			tmp = append(tmp, l)
 			for _, incl := range extraIncludes {
-				tmp = append(tmp, "\t\"" + incl + "\"")
+				tmp = append(tmp, "\t\""+incl+"\"")
 			}
 			i++
 
