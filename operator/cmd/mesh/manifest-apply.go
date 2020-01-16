@@ -25,8 +25,8 @@ import (
 )
 
 type manifestApplyArgs struct {
-	// inFilename is the path to the input IstioOperator CR.
-	inFilename string
+	// inFilename is an array of paths to the input IstioOperator CR files.
+	inFilename []string
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
 	// context is the cluster context in the kube config
@@ -46,7 +46,7 @@ type manifestApplyArgs struct {
 }
 
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
-	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
@@ -67,7 +67,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			// Warn users if they use `manifest apply` without any config args.
-			if maArgs.inFilename == "" && len(maArgs.set) == 0 && !maArgs.skipConfirmation {
+			if len(maArgs.inFilename) == 0 && len(maArgs.set) == 0 && !maArgs.skipConfirmation {
 				if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
 					cmd.Print("Cancelled.\n")
 					os.Exit(1)

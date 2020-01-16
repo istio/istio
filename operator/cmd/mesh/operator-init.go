@@ -192,7 +192,7 @@ func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource strin
 		return "", "", nil
 	}
 
-	mergedYAML, err := genProfile(false, filePath, "", "", "", true, l)
+	mergedYAML, err := genProfile(false, []string{filePath}, "", "", "", true, l)
 	if err != nil {
 		return "", "", err
 	}

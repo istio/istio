@@ -9181,11 +9181,13 @@ func chartsIstioControlIstioAutoinjectNotesTxt() (*asset, error) {
 
 var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
-  {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
-  {{- if not .Values.istio_cni.enabled }}
+  {{ if .Values.istio_cni.enabled -}}
+  - name: istio-validation
+  {{ else -}}
   - name: istio-init
+  {{ end -}}
   {{- if contains "/" .Values.global.proxy_init.image }}
     image: "{{ .Values.global.proxy_init.image }}"
   {{- else }}
@@ -9217,6 +9219,10 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - "-k"
     - "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
     {{ end -}}
+    {{ if .Values.istio_cni.enabled -}}
+    - "--run-validation"
+    - "--skip-rule-apply"
+    {{ end -}}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
   {{- if .Values.global.proxy_init.resources }}
     resources:
@@ -9226,20 +9232,27 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- end }}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+      privileged: {{ .Values.global.proxy.privileged }}
       capabilities:
+    {{- if not .Values.istio_cni.enabled }}
         add:
         - NET_ADMIN
         - NET_RAW
+    {{- end }}
         drop:
         - ALL
-      privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: false
+    {{- if not .Values.istio_cni.enabled }}
       runAsGroup: 0
       runAsNonRoot: false
       runAsUser: 0
+    {{- else }}
+      runAsGroup: 1337
+      runAsUser: 1337
+      runAsNonRoot: true
+    {{- end }}
     restartPolicy: Always
-  {{- end }}
-  {{  end -}}
+  {{ end -}}
   {{- if eq .Values.global.proxy.enableCoreDump true }}
   - name: enable-core-dump
     args:
@@ -9267,7 +9280,6 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       runAsNonRoot: false
       runAsUser: 0
   {{ end }}
-  {{- end }}
   containers:
   - name: istio-proxy
   {{- if contains "/" (annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image) }}
@@ -9355,9 +9367,6 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- end }}
   {{- if .Values.global.logAsJson }}
     - --log_as_json
-  {{- end }}
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
-    - --templateFile=/etc/istio/custom-bootstrap/custom_bootstrap.json
   {{- end }}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
@@ -11596,11 +11605,13 @@ var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`# Conf
 
 template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
-  {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
-  {{- if not .Values.istio_cni.enabled }}
+  {{ if .Values.istio_cni.enabled -}}
+  - name: istio-validation
+  {{ else -}}
   - name: istio-init
+  {{ end -}}
   {{- if contains "/" .Values.global.proxy_init.image }}
     image: "{{ .Values.global.proxy_init.image }}"
   {{- else }}
@@ -11632,6 +11643,10 @@ template: |
     - "-k"
     - "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
     {{ end -}}
+    {{ if .Values.istio_cni.enabled -}}
+    - "--run-validation"
+    - "--skip-rule-apply"
+    {{ end -}}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
   {{- if .Values.global.proxy_init.resources }}
     resources:
@@ -11641,20 +11656,27 @@ template: |
   {{- end }}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+      privileged: {{ .Values.global.proxy.privileged }}
       capabilities:
+    {{- if not .Values.istio_cni.enabled }}
         add:
         - NET_ADMIN
         - NET_RAW
+    {{- end }}
         drop:
         - ALL
-      privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: false
+    {{- if not .Values.istio_cni.enabled }}
       runAsGroup: 0
       runAsNonRoot: false
       runAsUser: 0
+    {{- else }}
+      runAsGroup: 1337
+      runAsUser: 1337
+      runAsNonRoot: true
+    {{- end }}
     restartPolicy: Always
-  {{- end }}
-  {{  end -}}
+  {{ end -}}
   {{- if eq .Values.global.proxy.enableCoreDump true }}
   - name: enable-core-dump
     args:
@@ -11682,7 +11704,6 @@ template: |
       runAsNonRoot: false
       runAsUser: 0
   {{ end }}
-  {{- end }}
   containers:
   - name: istio-proxy
   {{- if contains "/" (annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image) }}
@@ -11775,9 +11796,6 @@ template: |
     - --log_as_json
   {{- end }}
     - --controlPlaneBootstrap=false
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
-    - --templateFile=/etc/istio/custom-bootstrap/custom_bootstrap.json
-  {{- end }}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -40974,6 +40992,10 @@ var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   operatorVersionRange: ">=1.4.3,<1.5.0"
   supportedIstioVersions: ">=1.3.3, <1.6"
   recommendedIstioVersions: 1.4.3
+- operatorVersion: 1.4.4
+  operatorVersionRange: ">=1.4.4,<1.5.0"
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.4
 - operatorVersion: 1.5.0
   operatorVersionRange: ">=1.5.0,<1.6.0"
   supportedIstioVersions: ">=1.5.0, <1.6"

@@ -18,14 +18,19 @@ TAG ?= 1.5-dev
 pwd := $(shell pwd)
 
 # make targets
-.PHONY: lint lint-dependencies test_with_coverage mandiff build fmt vfsgen update-charts update-goldens
 
-build: mesh
+# -------------------------- Lint ----------------------------------
+
+.PHONY: lint lint-dependencies test_with_coverage mandiff build fmt vfsgen update-charts update-goldens
 
 lint-dependencies:
 	@! go mod graph | grep k8s.io/kubernetes || echo "depenency on k8s.io/kubernetes not allowed" || exit 2
 
 lint: lint-copyright-banner lint-dependencies lint-go lint-python lint-scripts lint-yaml lint-dockerfiles lint-licenses
+
+fmt: format-go tidy-go
+
+# -------------------------- Tests ---------------------------------
 
 test:
 	@go test -v -race ./...
@@ -34,34 +39,35 @@ test_with_coverage:
 	@go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 	@curl -s https://codecov.io/bash | bash -s -- -c -F aFlag -f coverage.txt
 
-mandiff: update-charts
+mandiff:
 	@scripts/run_mandiff.sh
-
-fmt: format-go tidy-go
-
-gen: operator-proto generate-vfs tidy-go mirror-licenses
 
 gen-check: clean gen check-clean-repo
 
-clean: clean-values clean-vfs clean-charts
+update-goldens:
+	@UPDATE_GOLDENS=true go test -v ./cmd/mesh/...
 
-update-charts:
+e2e:
+	@HUB=$(HUB) TAG=$(TAG) bash -c tests/e2e/e2e.sh
+
+# -------------------------- Gen -----------------------------------
+
+gen: operator-proto vfsgen tidy-go mirror-licenses
+
+vfsgen:
 	@scripts/run_update_charts.sh
 
-clean-charts:
-	@rm -fr data/charts
+# -------------------------- Clean ---------------------------------
 
-generate-vfs: update-charts
-	@go generate ./...
+clean: clean-proto clean-vfs
 
 clean-vfs:
 	@rm -fr pkg/vfs/assets.gen.go
 
-mesh:
-	# First line is for test environment, second is for target. Since these architectures can differ, the workaround
-	# is to build both. TODO: figure out some way to implement this better, e.g. separate test target.
-	go build -o $(GOBIN)/mesh ./cmd/mesh.go
-	STATIC=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(TARGET_OUT)/mesh ./cmd/mesh.go
+clean-proto:
+	@rm -fr $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons)
+
+# -------------------------- Controller ----------------------------
 
 controller:
 	go build -o $(GOBIN)/istio-operator ./cmd/manager
@@ -84,19 +90,13 @@ docker.save: docker
 
 docker.all: docker docker.push
 
-update-goldens:
-	@UPDATE_GOLDENS=true go test -v ./cmd/mesh/...
-
-e2e:
-	@HUB=$(HUB) TAG=$(TAG) bash -c tests/e2e/e2e.sh
-
-########################
+# -------------------------- Proto ---------------------------------
 
 TMPDIR := $(shell mktemp -d)
 
 repo_dir := .
 out_path = ${TMPDIR}
-protoc = protoc -Icommon-protos -I.
+protoc = protoc -I../common-protos -I.
 
 go_plugin_prefix := --go_out=plugins=grpc,
 go_plugin := $(go_plugin_prefix):$(out_path)
@@ -123,8 +123,5 @@ $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons): $(v1alpha1_protos
 	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(v1alpha1_path)/values_types.pb.go
 
 operator-proto: $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons)
-
-clean-values:
-	@rm -fr $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons)
 
 include common/Makefile.common.mk
