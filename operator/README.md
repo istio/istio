@@ -3,7 +3,7 @@
 
 # Istio Operator
 
-The istio/operator repo is part of istio/istio from 1.5 onwards. 
+The istio/operator repo is part of istio/istio from 1.5 onwards.
 You can [contribute](CONTRIBUTING.md) by picking an
 [unassigned open issue](https://github.com/istio/istio/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fenvironments%2Foperator+no%3Aassignee),
 creating a [bug or feature request](BUGS-AND-FEATURE-REQUESTS.md),
@@ -26,7 +26,7 @@ K8s settings like resources, auto scaling, pod disruption budgets and others def
 for Istio core and addon components.
 - The legacy
 [Helm installation API](https://istio.io/docs/reference/config/installation-options/) for backwards
-compatibility. 
+compatibility.
 
 Some parameters will temporarily exist both the component configuration and legacy Helm APIs - for example, K8s
 resources. However, the Istio community recommends using the first API as it is more consistent, is validated,
@@ -62,7 +62,7 @@ The quick start describes how to install and use the operator `mesh` CLI command
 If you're trying to do a local build that bypasses the build container, you'll need to
 to execute the following step one time.
 
-```
+```bash
 GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@6025e8de665b
 ```
 
@@ -103,7 +103,7 @@ Install the controller manifest and example IstioOperator CR:
 
 ```bash
 istioctl operator init
-kubectl apply -f operator/deploy/crds/istio_v1alpha1_istiooperator_cr.yaml 
+kubectl apply -f operator/deploy/crds/istio_v1alpha1_istiooperator_cr.yaml
 ```
 
 or
