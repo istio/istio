@@ -9183,11 +9183,11 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
-{{ if .Values.istio_cni.enabled -}}
+  {{ if .Values.istio_cni.enabled -}}
   - name: istio-validation
-{{ else -}}
+  {{ else -}}
   - name: istio-init
-{{ end -}}
+  {{ end -}}
   {{- if contains "/" .Values.global.proxy_init.image }}
     image: "{{ .Values.global.proxy_init.image }}"
   {{- else }}
@@ -11610,11 +11610,11 @@ template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
-{{ if .Values.istio_cni.enabled -}}
+  {{ if .Values.istio_cni.enabled -}}
   - name: istio-validation
-{{ else -}}
+  {{ else -}}
   - name: istio-init
-{{ end -}}
+  {{ end -}}
   {{- if contains "/" .Values.global.proxy_init.image }}
     image: "{{ .Values.global.proxy_init.image }}"
   {{- else }}
