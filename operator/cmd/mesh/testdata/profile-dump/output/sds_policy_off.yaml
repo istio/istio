@@ -537,7 +537,7 @@ values:
     image: pilot
     ingress:
       ingressClass: istio
-      ingressControllerMode: "OFF"
+      ingressControllerMode: STRICT
       ingressService: istio-ingressgateway
     keepaliveMaxServerConnectionAge: 30m
     meshNetworks:

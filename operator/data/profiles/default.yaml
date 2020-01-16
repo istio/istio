@@ -347,7 +347,7 @@ spec:
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
-        ingressControllerMode: "OFF"
+        ingressControllerMode: "STRICT"
         ingressClass: istio
       policy:
         enabled: false

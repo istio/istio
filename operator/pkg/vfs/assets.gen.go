@@ -14575,7 +14575,7 @@ pilot:
     # DEFAULT: all Ingress resources without annotation or with istio annotation
     # STRICT: only with istio annotation
     # OFF: no ingress or sync.
-    ingressControllerMode: "OFF"
+    ingressControllerMode: "STRICT"
 
     # Value to set on "kubernetes.io/ingress.class" annotations to activate, if mode is STRICT
     # This is required to be different than 'istio' if multiple ingresses are present.
@@ -39847,7 +39847,7 @@ spec:
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
-        ingressControllerMode: "OFF"
+        ingressControllerMode: "STRICT"
         ingressClass: istio
       policy:
         enabled: false
