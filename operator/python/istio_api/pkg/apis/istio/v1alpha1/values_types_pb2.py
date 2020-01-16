@@ -4702,6 +4702,36 @@ _STDIOMIXERADAPTERCONFIG = _descriptor.Descriptor(
 )
 
 
+_STACKDRIVERMIXERADAPTERCONFIG_ENABLEDCONFIG = _descriptor.Descriptor(
+    name='EnabledConfig',
+    full_name='v1alpha1.StackdriverMixerAdapterConfig.EnabledConfig',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='enabled', full_name='v1alpha1.StackdriverMixerAdapterConfig.EnabledConfig.enabled', index=0,
+            number=1, type=11, cpp_type=10, label=1,
+            has_default_value=False, default_value=None,
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=22889,
+    serialized_end=22949,
+)
+
 _STACKDRIVERMIXERADAPTERCONFIG = _descriptor.Descriptor(
     name='StackdriverMixerAdapterConfig',
     full_name='v1alpha1.StackdriverMixerAdapterConfig',
@@ -6040,14 +6070,18 @@ _ADDONINGRESSCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_
 _ADDONINGRESSCONFIG.fields_by_name['annotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _ADDONINGRESSCONFIG.fields_by_name['tls'].message_type = _TYPEMAPSTRINGINTERFACE
 _CNICONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_CNICONFIG.fields_by_name['tag'].message_type = _STRINGORNUMBER
 _CNICONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _CERTMANAGERCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_CERTMANAGERCONFIG.fields_by_name['tag'].message_type = _STRINGORNUMBER
 _CERTMANAGERCONFIG.fields_by_name['nodeSelector'].message_type = _TYPEMAPSTRINGINTERFACE
 _CERTMANAGERCONFIG.fields_by_name['resources'].message_type = _RESOURCES
 _CERTMANAGERCONFIG.fields_by_name['podDnsConfig'].message_type = _TYPEMAPSTRINGINTERFACE
 _CERTMANAGERCONFIG.fields_by_name['podAntiAffinityLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _CERTMANAGERCONFIG.fields_by_name['podAntiAffinityTermLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _CERTMANAGERCONFIG.fields_by_name['tolerations'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_CERTMANAGERCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
+_CERTMANAGERCONFIG.fields_by_name['podLabels'].message_type = _TYPEMAPSTRINGINTERFACE
 _RESOURCES_LIMITSENTRY.containing_type = _RESOURCES
 _RESOURCES_REQUESTSENTRY.containing_type = _RESOURCES
 _RESOURCES.fields_by_name['limits'].message_type = _RESOURCES_LIMITSENTRY
@@ -6079,6 +6113,10 @@ _EGRESSGATEWAYCONFIG.fields_by_name['secretVolumes'].message_type = _SECRETVOLUM
 _EGRESSGATEWAYCONFIG.fields_by_name['serviceAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _EGRESSGATEWAYCONFIG.fields_by_name['zvpn'].message_type = _ZEROVPNCONFIG
 _EGRESSGATEWAYCONFIG.fields_by_name['tolerations'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_EGRESSGATEWAYCONFIG.fields_by_name['rollingMaxSurge'].message_type = _TYPEINTORSTRINGFORPB
+_EGRESSGATEWAYCONFIG.fields_by_name['rollingMaxUnavailable'].message_type = _TYPEINTORSTRINGFORPB
+_EGRESSGATEWAYCONFIG.fields_by_name['configVolumes'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_EGRESSGATEWAYCONFIG.fields_by_name['additionalContainers'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _ENVOYMETRICSCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _ENVOYMETRICSCONFIG.fields_by_name['tlsSettings'].message_type = _TYPEMAPSTRINGINTERFACE
 _ENVOYMETRICSCONFIG.fields_by_name['tcpKeepalive'].message_type = _TYPEMAPSTRINGINTERFACE
@@ -6092,6 +6130,9 @@ _GALLEYCONFIG.fields_by_name['enableAnalysis'].message_type = github_dot_com_dot
 _GALLEYCONFIG.fields_by_name['rollingMaxSurge'].message_type = _TYPEINTORSTRINGFORPB
 _GALLEYCONFIG.fields_by_name['rollingMaxUnavailable'].message_type = _TYPEINTORSTRINGFORPB
 _GALLEYCONFIG.fields_by_name['tolerations'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_GALLEYCONFIG.fields_by_name['enableServiceDiscovery'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_GALLEYCONFIG.fields_by_name['nodeSelector'].message_type = _TYPEMAPSTRINGINTERFACE
+_GALLEYCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _GATEWAYSCONFIG.fields_by_name['istio_egressgateway'].message_type = _EGRESSGATEWAYCONFIG
 _GATEWAYSCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _GATEWAYSCONFIG.fields_by_name['istio_ingressgateway'].message_type = _INGRESSGATEWAYCONFIG
@@ -6103,6 +6144,7 @@ _GLOBALCONFIG.fields_by_name['defaultNodeSelector'].message_type = _TYPEMAPSTRIN
 _GLOBALCONFIG.fields_by_name['defaultPodDisruptionBudget'].message_type = _DEFAULTPODDISRUPTIONBUDGETCONFIG
 _GLOBALCONFIG.fields_by_name['disablePolicyChecks'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _GLOBALCONFIG.fields_by_name['defaultResources'].message_type = _DEFAULTRESOURCESCONFIG
+_GLOBALCONFIG.fields_by_name['defaultTolerations'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _GLOBALCONFIG.fields_by_name['enableHelmTest'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _GLOBALCONFIG.fields_by_name['enableTracing'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _GLOBALCONFIG.fields_by_name['imagePullSecrets'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
@@ -6122,6 +6164,7 @@ _GLOBALCONFIG.fields_by_name['policyCheckFailOpen'].message_type = github_dot_co
 _GLOBALCONFIG.fields_by_name['proxy'].message_type = _PROXYCONFIG
 _GLOBALCONFIG.fields_by_name['proxyInit'].message_type = _PROXYINITCONFIG
 _GLOBALCONFIG.fields_by_name['sds'].message_type = _SDSCONFIG
+_GLOBALCONFIG.fields_by_name['tag'].message_type = _STRINGORNUMBER
 _GLOBALCONFIG.fields_by_name['tracer'].message_type = _TRACERCONFIG
 _GLOBALCONFIG.fields_by_name['useMCP'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _GLOBALCONFIG.fields_by_name['istioRemote'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
@@ -6157,6 +6200,8 @@ _INGRESSGATEWAYCONFIG.fields_by_name['additionalContainers'].message_type = _TYP
 _INGRESSGATEWAYCONFIG.fields_by_name['configVolumes'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _INGRESSGATEWAYCONFIG.fields_by_name['certificates'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _INGRESSGATEWAYCONFIG.fields_by_name['tls'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_INGRESSGATEWAYCONFIG.fields_by_name['telemetry_addon_gateways'].message_type = _TYPEMAPSTRINGINTERFACE
+_INGRESSGATEWAYCONFIG.fields_by_name['hosts'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _INGRESSGATEWAYSDSCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _INGRESSGATEWAYSDSCONFIG.fields_by_name['resources'].message_type = _RESOURCES
 _INGRESSGATEWAYZVPNCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
@@ -6188,6 +6233,13 @@ _MIXERPOLICYCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRIN
 _MIXERPOLICYCONFIG.fields_by_name['adapters'].message_type = _MIXERPOLICYADAPTERSCONFIG
 _MIXERPOLICYCONFIG.fields_by_name['sessionAffinityEnabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _MIXERPOLICYCONFIG.fields_by_name['resources'].message_type = _RESOURCES
+_MIXERPOLICYCONFIG.fields_by_name['rollingMaxSurge'].message_type = _TYPEINTORSTRINGFORPB
+_MIXERPOLICYCONFIG.fields_by_name['rollingMaxUnavailable'].message_type = _TYPEINTORSTRINGFORPB
+_MIXERPOLICYCONFIG.fields_by_name['podAntiAffinityLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_MIXERPOLICYCONFIG.fields_by_name['podAntiAffinityTermLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_MIXERPOLICYCONFIG.fields_by_name['nodeSelector'].message_type = _TYPEMAPSTRINGINTERFACE
+_MIXERPOLICYCONFIG.fields_by_name['env'].message_type = _TYPEMAPSTRINGINTERFACE
+_MIXERPOLICYCONFIG.fields_by_name['tolerations'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _MIXERTELEMETRYCONFIG.fields_by_name['autoscaleEnabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _MIXERTELEMETRYCONFIG.fields_by_name['cpu'].message_type = _CPUTARGETUTILIZATIONCONFIG
 _MIXERTELEMETRYCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
@@ -6210,6 +6262,7 @@ _NODEAGENTCONFIG.fields_by_name['nodeSelector'].message_type = _TYPEMAPSTRINGINT
 _NODEAGENTCONFIG.fields_by_name['tolerations'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _NODEAGENTCONFIG.fields_by_name['podAntiAffinityLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _NODEAGENTCONFIG.fields_by_name['podAntiAffinityTermLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_NODEAGENTCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _OUTBOUNDTRAFFICPOLICYCONFIG.fields_by_name['mode'].enum_type = _OUTBOUNDTRAFFICPOLICYCONFIG_MODE
 _OUTBOUNDTRAFFICPOLICYCONFIG_MODE.containing_type = _OUTBOUNDTRAFFICPOLICYCONFIG
 _PILOTCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
@@ -6236,6 +6289,7 @@ _PILOTCONFIG.fields_by_name['enableProtocolSniffingForOutbound'].message_type = 
 _PILOTCONFIG.fields_by_name['enableProtocolSniffingForInbound'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _PILOTCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _PILOTCONFIG.fields_by_name['configSource'].message_type = _PILOTCONFIGSOURCE
+_PILOTCONFIG.fields_by_name['plugins'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _PILOTINGRESSCONFIG.fields_by_name['ingressControllerMode'].enum_type = _INGRESSCONTROLLERMODE
 _PILOTPOLICYCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _TELEMETRYCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
@@ -6253,6 +6307,7 @@ _TELEMETRYV2STACKDRIVERCONFIG.fields_by_name['topology'].message_type = github_d
 _TELEMETRYV2STACKDRIVERCONFIG.fields_by_name['configOverride'].message_type = _TYPEMAPSTRINGINTERFACE
 _PROMETHEUSCONFIG.fields_by_name['createPrometheusResource'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _PROMETHEUSCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_PROMETHEUSCONFIG.fields_by_name['tag'].message_type = _STRINGORNUMBER
 _PROMETHEUSCONFIG.fields_by_name['nodeSelector'].message_type = _TYPEMAPSTRINGINTERFACE
 _PROMETHEUSCONFIG.fields_by_name['scrapeInterval'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
 _PROMETHEUSCONFIG.fields_by_name['ingress'].message_type = _ADDONINGRESSCONFIG
@@ -6262,6 +6317,8 @@ _PROMETHEUSCONFIG.fields_by_name['tolerations'].message_type = _TYPESLICEOFMAPST
 _PROMETHEUSCONFIG.fields_by_name['podAntiAffinityLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _PROMETHEUSCONFIG.fields_by_name['podAntiAffinityTermLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _PROMETHEUSCONFIG.fields_by_name['resources'].message_type = _RESOURCES
+_PROMETHEUSCONFIG.fields_by_name['datasources'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_PROMETHEUSCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _PROMETHEUSMIXERADAPTERCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _PROMETHEUSMIXERADAPTERCONFIG.fields_by_name['metricsExpiryDuration'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
 _PROMETHEUSSECURITYCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
@@ -6299,6 +6356,11 @@ _SECURITYCONFIG.fields_by_name['nodeSelector'].message_type = _TYPEMAPSTRINGINTE
 _SECURITYCONFIG.fields_by_name['env'].message_type = _TYPEMAPSTRINGINTERFACE
 _SECURITYCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _SECURITYCONFIG.fields_by_name['tolerations'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_SECURITYCONFIG.fields_by_name['resources'].message_type = _RESOURCES
+_SECURITYCONFIG.fields_by_name['rollingMaxSurge'].message_type = _TYPEINTORSTRINGFORPB
+_SECURITYCONFIG.fields_by_name['rollingMaxUnavailable'].message_type = _TYPEINTORSTRINGFORPB
+_SECURITYCONFIG.fields_by_name['podAntiAffinityLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_SECURITYCONFIG.fields_by_name['podAntiAffinityTermLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _SERVICECONFIG.fields_by_name['annotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _SIDECARINJECTORCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _SIDECARINJECTORCONFIG.fields_by_name['enableNamespacesByDefault'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
@@ -6313,18 +6375,27 @@ _SIDECARINJECTORCONFIG.fields_by_name['injectedAnnotations'].message_type = _TYP
 _SIDECARINJECTORCONFIG.fields_by_name['resources'].message_type = _RESOURCES
 _SIDECARINJECTORCONFIG.fields_by_name['objectSelector'].message_type = _TYPEMAPSTRINGINTERFACE
 _SIDECARINJECTORCONFIG.fields_by_name['tolerations'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_SIDECARINJECTORCONFIG.fields_by_name['lifecycle'].message_type = _TYPEMAPSTRINGINTERFACE
+_SIDECARINJECTORCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
+_SIDECARINJECTORCONFIG.fields_by_name['rollingMaxSurge'].message_type = _TYPEINTORSTRINGFORPB
+_SIDECARINJECTORCONFIG.fields_by_name['rollingMaxUnavailable'].message_type = _TYPEINTORSTRINGFORPB
 _STDIOMIXERADAPTERCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _STDIOMIXERADAPTERCONFIG.fields_by_name['outputAsJson'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_STACKDRIVERMIXERADAPTERCONFIG_ENABLEDCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_STACKDRIVERMIXERADAPTERCONFIG_ENABLEDCONFIG.containing_type = _STACKDRIVERMIXERADAPTERCONFIG
 _STACKDRIVERMIXERADAPTERCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _STACKDRIVERMIXERADAPTERCONFIG.fields_by_name['auth'].message_type = _STACKDRIVERAUTHCONFIG
 _STACKDRIVERMIXERADAPTERCONFIG.fields_by_name['tracer'].message_type = _STACKDRIVERTRACERCONFIG
 _STACKDRIVERMIXERADAPTERCONFIG.fields_by_name['contextGraph'].message_type = _STACKDRIVERCONTEXTGRAPH
+_STACKDRIVERMIXERADAPTERCONFIG.fields_by_name['logging'].message_type = _STACKDRIVERMIXERADAPTERCONFIG_ENABLEDCONFIG
+_STACKDRIVERMIXERADAPTERCONFIG.fields_by_name['metrics'].message_type = _STACKDRIVERMIXERADAPTERCONFIG_ENABLEDCONFIG
 _STACKDRIVERAUTHCONFIG.fields_by_name['appCredentials'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _STACKDRIVERTRACERCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _STACKDRIVERCONTEXTGRAPH.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _TRACERCONFIG.fields_by_name['datadog'].message_type = _TRACERDATADOGCONFIG
 _TRACERCONFIG.fields_by_name['lightstep'].message_type = _TRACERLIGHTSTEPCONFIG
 _TRACERCONFIG.fields_by_name['zipkin'].message_type = _TRACERZIPKINCONFIG
+_TRACERCONFIG.fields_by_name['stackdriver'].message_type = _TYPEMAPSTRINGINTERFACE
 _TRACERLIGHTSTEPCONFIG.fields_by_name['secure'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _TRACINGCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _TRACINGCONFIG.fields_by_name['ingress'].message_type = _TRACINGINGRESSCONFIG
@@ -6336,21 +6407,32 @@ _TRACINGCONFIG.fields_by_name['opencensus'].message_type = _TRACINGOPENCENSUSCON
 _TRACINGCONFIG.fields_by_name['podAntiAffinityLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _TRACINGCONFIG.fields_by_name['podAntiAffinityTermLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _TRACINGCONFIG.fields_by_name['tolerations'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_TRACINGOPENCENSUSCONFIG.fields_by_name['tag'].message_type = _STRINGORNUMBER
 _TRACINGOPENCENSUSCONFIG.fields_by_name['exporters'].message_type = _TRACINGOPENCENSUSEXPORTERSCONFIG
 _TRACINGOPENCENSUSCONFIG.fields_by_name['resources'].message_type = _TYPEMAPSTRINGINTERFACE
+_TRACINGOPENCENSUSCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _TRACINGOPENCENSUSEXPORTERSCONFIG.fields_by_name['stackdriver'].message_type = _TYPEMAPSTRINGINTERFACE
 _TRACINGINGRESSCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _TRACINGINGRESSCONFIG.fields_by_name['annotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _TRACINGINGRESSCONFIG.fields_by_name['tls'].message_type = _TYPEMAPSTRINGINTERFACE
+_TRACINGJAEGERCONFIG.fields_by_name['tag'].message_type = _STRINGORNUMBER
 _TRACINGJAEGERCONFIG.fields_by_name['memory'].message_type = _TRACINGJAEGERMEMORYCONFIG
 _TRACINGJAEGERCONFIG.fields_by_name['persist'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_TRACINGJAEGERCONFIG.fields_by_name['resources'].message_type = _TYPEMAPSTRINGINTERFACE
+_TRACINGJAEGERCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
+_TRACINGZIPKINCONFIG.fields_by_name['tag'].message_type = _STRINGORNUMBER
 _TRACINGZIPKINCONFIG.fields_by_name['resources'].message_type = _RESOURCES
 _TRACINGZIPKINCONFIG.fields_by_name['node'].message_type = _TRACINGZIPKINNODECONFIG
+_TRACINGZIPKINCONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTERFACE
 _KIALISECURITYCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _KIALIDASHBOARDCONFIG.fields_by_name['viewOnlyMode'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_KIALIDASHBOARDCONFIG.fields_by_name['auth'].message_type = _TYPEMAPSTRINGINTERFACE
 _KIALIINGRESSCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_KIALIINGRESSCONFIG.fields_by_name['annotations'].message_type = _TYPEMAPSTRINGINTERFACE
+_KIALIINGRESSCONFIG.fields_by_name['tls'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _KIALICONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _KIALICONFIG.fields_by_name['createDemoSecret'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_KIALICONFIG.fields_by_name['tag'].message_type = _STRINGORNUMBER
 _KIALICONFIG.fields_by_name['security'].message_type = _KIALISECURITYCONFIG
 _KIALICONFIG.fields_by_name['dashboard'].message_type = _KIALIDASHBOARDCONFIG
 _KIALICONFIG.fields_by_name['ingress'].message_type = _KIALIINGRESSCONFIG
@@ -6359,6 +6441,7 @@ _KIALICONFIG.fields_by_name['podAnnotations'].message_type = _TYPEMAPSTRINGINTER
 _KIALICONFIG.fields_by_name['podAntiAffinityLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _KIALICONFIG.fields_by_name['podAntiAffinityTermLabelSelector'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
 _KIALICONFIG.fields_by_name['tolerations'].message_type = _TYPESLICEOFMAPSTRINGINTERFACE
+_KIALICONFIG.fields_by_name['resources'].message_type = _RESOURCES
 _VALUES.fields_by_name['certmanager'].message_type = _CERTMANAGERCONFIG
 _VALUES.fields_by_name['cni'].message_type = _CNICONFIG
 _VALUES.fields_by_name['istiocoredns'].message_type = _COREDNSCONFIG
@@ -6376,6 +6459,9 @@ _VALUES.fields_by_name['sidecarInjectorWebhook'].message_type = _SIDECARINJECTOR
 _VALUES.fields_by_name['tracing'].message_type = _TRACINGCONFIG
 _VALUES.fields_by_name['kiali'].message_type = _KIALICONFIG
 _VALUES.fields_by_name['clusterResources'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
+_VALUES.fields_by_name['prometheusOperator'].message_type = _TYPEMAPSTRINGINTERFACE
+_VALUES.fields_by_name['istio_cni'].message_type = _CNICONFIG
+_VALUES.fields_by_name['kustomize'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 _ZEROVPNCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
 DESCRIPTOR.message_types_by_name['AddonIngressConfig'] = _ADDONINGRESSCONFIG
 DESCRIPTOR.message_types_by_name['ArchConfig'] = _ARCHCONFIG
@@ -6461,6 +6547,7 @@ DESCRIPTOR.message_types_by_name['TypeMapStringInterface'] = _TYPEMAPSTRINGINTER
 DESCRIPTOR.message_types_by_name['TypeSliceOfMapStringInterface'] = _TYPESLICEOFMAPSTRINGINTERFACE
 DESCRIPTOR.message_types_by_name['TypeIntOrStringForPB'] = _TYPEINTORSTRINGFORPB
 DESCRIPTOR.message_types_by_name['ZeroVPNConfig'] = _ZEROVPNCONFIG
+DESCRIPTOR.message_types_by_name['StringOrNumber'] = _STRINGORNUMBER
 DESCRIPTOR.enum_types_by_name['mode'] = _MODE
 DESCRIPTOR.enum_types_by_name['ingressControllerMode'] = _INGRESSCONTROLLERMODE
 DESCRIPTOR.enum_types_by_name['accessLogEncoding'] = _ACCESSLOGENCODING
@@ -6909,11 +6996,18 @@ StdioMixerAdapterConfig = _reflection.GeneratedProtocolMessageType('StdioMixerAd
 _sym_db.RegisterMessage(StdioMixerAdapterConfig)
 
 StackdriverMixerAdapterConfig = _reflection.GeneratedProtocolMessageType('StackdriverMixerAdapterConfig', (_message.Message,), {
+
+    'EnabledConfig': _reflection.GeneratedProtocolMessageType('EnabledConfig', (_message.Message,), {
+        'DESCRIPTOR': _STACKDRIVERMIXERADAPTERCONFIG_ENABLEDCONFIG,
+        '__module__': 'pkg.apis.istio.v1alpha1.values_types_pb2'
+        # @@protoc_insertion_point(class_scope:v1alpha1.StackdriverMixerAdapterConfig.EnabledConfig)
+    }),
     'DESCRIPTOR': _STACKDRIVERMIXERADAPTERCONFIG,
     '__module__': 'pkg.apis.istio.v1alpha1.values_types_pb2'
     # @@protoc_insertion_point(class_scope:v1alpha1.StackdriverMixerAdapterConfig)
 })
 _sym_db.RegisterMessage(StackdriverMixerAdapterConfig)
+_sym_db.RegisterMessage(StackdriverMixerAdapterConfig.EnabledConfig)
 
 StackdriverAuthConfig = _reflection.GeneratedProtocolMessageType('StackdriverAuthConfig', (_message.Message,), {
     'DESCRIPTOR': _STACKDRIVERAUTHCONFIG,
@@ -7083,6 +7177,13 @@ ZeroVPNConfig = _reflection.GeneratedProtocolMessageType('ZeroVPNConfig', (_mess
 })
 _sym_db.RegisterMessage(ZeroVPNConfig)
 
+StringOrNumber = _reflection.GeneratedProtocolMessageType('StringOrNumber', (_message.Message,), {
+    'DESCRIPTOR': _STRINGORNUMBER,
+    '__module__': 'pkg.apis.istio.v1alpha1.values_types_pb2'
+    # @@protoc_insertion_point(class_scope:v1alpha1.StringOrNumber)
+})
+_sym_db.RegisterMessage(StringOrNumber)
+
 
 DESCRIPTOR._options = None
 _CNICONFIG.fields_by_name['podAnnotations']._options = None
@@ -7092,6 +7193,8 @@ _CERTMANAGERCONFIG.fields_by_name['resources']._options = None
 _CERTMANAGERCONFIG.fields_by_name['podAntiAffinityLabelSelector']._options = None
 _CERTMANAGERCONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
 _CERTMANAGERCONFIG.fields_by_name['tolerations']._options = None
+_CERTMANAGERCONFIG.fields_by_name['podAnnotations']._options = None
+_CERTMANAGERCONFIG.fields_by_name['podLabels']._options = None
 _RESOURCES_LIMITSENTRY._options = None
 _RESOURCES_REQUESTSENTRY._options = None
 _COREDNSCONFIG.fields_by_name['nodeSelector']._options = None
@@ -7110,6 +7213,8 @@ _EGRESSGATEWAYCONFIG.fields_by_name['podAntiAffinityLabelSelector']._options = N
 _EGRESSGATEWAYCONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
 _EGRESSGATEWAYCONFIG.fields_by_name['resources']._options = None
 _EGRESSGATEWAYCONFIG.fields_by_name['tolerations']._options = None
+_EGRESSGATEWAYCONFIG.fields_by_name['rollingMaxSurge']._options = None
+_EGRESSGATEWAYCONFIG.fields_by_name['rollingMaxUnavailable']._options = None
 _GALLEYCONFIG_MESHENTRY._options = None
 _GALLEYCONFIG.fields_by_name['podAntiAffinityLabelSelector']._options = None
 _GALLEYCONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
@@ -7118,9 +7223,13 @@ _GALLEYCONFIG.fields_by_name['resources']._options = None
 _GALLEYCONFIG.fields_by_name['rollingMaxSurge']._options = None
 _GALLEYCONFIG.fields_by_name['rollingMaxUnavailable']._options = None
 _GALLEYCONFIG.fields_by_name['tolerations']._options = None
+_GALLEYCONFIG.fields_by_name['enableServiceDiscovery']._options = None
+_GALLEYCONFIG.fields_by_name['nodeSelector']._options = None
+_GALLEYCONFIG.fields_by_name['podAnnotations']._options = None
 _GLOBALCONFIG.fields_by_name['defaultNodeSelector']._options = None
 _GLOBALCONFIG.fields_by_name['defaultPodDisruptionBudget']._options = None
 _GLOBALCONFIG.fields_by_name['defaultResources']._options = None
+_GLOBALCONFIG.fields_by_name['defaultTolerations']._options = None
 _GLOBALCONFIG.fields_by_name['priorityClassName']._options = None
 _INGRESSGATEWAYCONFIG.fields_by_name['cpu']._options = None
 _INGRESSGATEWAYCONFIG.fields_by_name['nodeSelector']._options = None
@@ -7137,6 +7246,12 @@ _MIXERPOLICYCONFIG.fields_by_name['cpu']._options = None
 _MIXERPOLICYCONFIG.fields_by_name['podAnnotations']._options = None
 _MIXERPOLICYCONFIG.fields_by_name['replicaCount']._options = None
 _MIXERPOLICYCONFIG.fields_by_name['resources']._options = None
+_MIXERPOLICYCONFIG.fields_by_name['rollingMaxSurge']._options = None
+_MIXERPOLICYCONFIG.fields_by_name['rollingMaxUnavailable']._options = None
+_MIXERPOLICYCONFIG.fields_by_name['podAntiAffinityLabelSelector']._options = None
+_MIXERPOLICYCONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
+_MIXERPOLICYCONFIG.fields_by_name['nodeSelector']._options = None
+_MIXERPOLICYCONFIG.fields_by_name['tolerations']._options = None
 _MIXERTELEMETRYCONFIG.fields_by_name['cpu']._options = None
 _MIXERTELEMETRYCONFIG.fields_by_name['nodeSelector']._options = None
 _MIXERTELEMETRYCONFIG.fields_by_name['podAnnotations']._options = None
@@ -7151,6 +7266,7 @@ _NODEAGENTCONFIG.fields_by_name['nodeSelector']._options = None
 _NODEAGENTCONFIG.fields_by_name['tolerations']._options = None
 _NODEAGENTCONFIG.fields_by_name['podAntiAffinityLabelSelector']._options = None
 _NODEAGENTCONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
+_NODEAGENTCONFIG.fields_by_name['podAnnotations']._options = None
 _PILOTCONFIG.fields_by_name['replicaCount']._options = None
 _PILOTCONFIG.fields_by_name['resources']._options = None
 _PILOTCONFIG.fields_by_name['cpu']._options = None
@@ -7167,6 +7283,9 @@ _PROMETHEUSCONFIG.fields_by_name['tolerations']._options = None
 _PROMETHEUSCONFIG.fields_by_name['podAntiAffinityLabelSelector']._options = None
 _PROMETHEUSCONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
 _PROMETHEUSCONFIG.fields_by_name['resources']._options = None
+_PROMETHEUSCONFIG.fields_by_name['datasources']._options = None
+_PROMETHEUSCONFIG.fields_by_name['podAnnotations']._options = None
+_PROMETHEUSCONFIG.fields_by_name['image']._options = None
 _PROXYCONFIG.fields_by_name['resources']._options = None
 _PROXYINITCONFIG.fields_by_name['resources']._options = None
 _SECURITYCONFIG_DNSCERTSENTRY._options = None
@@ -7174,22 +7293,36 @@ _SECURITYCONFIG.fields_by_name['replicaCount']._options = None
 _SECURITYCONFIG.fields_by_name['nodeSelector']._options = None
 _SECURITYCONFIG.fields_by_name['podAnnotations']._options = None
 _SECURITYCONFIG.fields_by_name['tolerations']._options = None
+_SECURITYCONFIG.fields_by_name['resources']._options = None
+_SECURITYCONFIG.fields_by_name['rollingMaxSurge']._options = None
+_SECURITYCONFIG.fields_by_name['rollingMaxUnavailable']._options = None
+_SECURITYCONFIG.fields_by_name['podAntiAffinityLabelSelector']._options = None
+_SECURITYCONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
 _SIDECARINJECTORCONFIG.fields_by_name['nodeSelector']._options = None
 _SIDECARINJECTORCONFIG.fields_by_name['podAntiAffinityLabelSelector']._options = None
 _SIDECARINJECTORCONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
 _SIDECARINJECTORCONFIG.fields_by_name['replicaCount']._options = None
 _SIDECARINJECTORCONFIG.fields_by_name['resources']._options = None
 _SIDECARINJECTORCONFIG.fields_by_name['tolerations']._options = None
+_SIDECARINJECTORCONFIG.fields_by_name['podAnnotations']._options = None
+_SIDECARINJECTORCONFIG.fields_by_name['rollingMaxSurge']._options = None
+_SIDECARINJECTORCONFIG.fields_by_name['rollingMaxUnavailable']._options = None
 _TRACINGCONFIG.fields_by_name['nodeSelector']._options = None
 _TRACINGCONFIG.fields_by_name['podAntiAffinityLabelSelector']._options = None
 _TRACINGCONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
 _TRACINGCONFIG.fields_by_name['tolerations']._options = None
 _TRACINGOPENCENSUSCONFIG.fields_by_name['resources']._options = None
+_TRACINGOPENCENSUSCONFIG.fields_by_name['podAnnotations']._options = None
+_TRACINGJAEGERCONFIG.fields_by_name['resources']._options = None
+_TRACINGJAEGERCONFIG.fields_by_name['podAnnotations']._options = None
 _TRACINGZIPKINCONFIG.fields_by_name['resources']._options = None
+_TRACINGZIPKINCONFIG.fields_by_name['podAnnotations']._options = None
 _KIALICONFIG.fields_by_name['replicaCount']._options = None
 _KIALICONFIG.fields_by_name['nodeSelector']._options = None
 _KIALICONFIG.fields_by_name['podAnnotations']._options = None
 _KIALICONFIG.fields_by_name['podAntiAffinityLabelSelector']._options = None
 _KIALICONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
 _KIALICONFIG.fields_by_name['tolerations']._options = None
+_KIALICONFIG.fields_by_name['image']._options = None
+_KIALICONFIG.fields_by_name['resources']._options = None
 # @@protoc_insertion_point(module_scope)
