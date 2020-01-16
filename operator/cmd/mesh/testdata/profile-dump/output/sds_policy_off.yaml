@@ -387,7 +387,7 @@ values:
       zipkin:
         address: ""
     trustDomain: cluster.local
-    useMCP: true
+    useMCP: false
   grafana:
     accessMode: ReadWriteMany
     contextPath: /grafana
@@ -550,7 +550,7 @@ values:
     replicaCount: 1
     tolerations: []
     traceSampling: 1
-    useMCP: true
+    useMCP: false
   prometheus:
     contextPath: /prometheus
     enabled: true

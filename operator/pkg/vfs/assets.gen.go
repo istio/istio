@@ -39809,7 +39809,7 @@ spec:
       defaultPodDisruptionBudget:
         enabled: true
       priorityClassName: ""
-      useMCP: true
+      useMCP: false
       trustDomain: "cluster.local"
       outboundTrafficPolicy:
         mode: ALLOW_ANY
@@ -39851,7 +39851,7 @@ spec:
         ingressClass: istio
       policy:
         enabled: false
-      useMCP: true
+      useMCP: false
 
     telemetry:
       enabled: true
