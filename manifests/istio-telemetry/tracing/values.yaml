@@ -35,7 +35,7 @@ tracing:
   jaeger:
     hub: docker.io/jaegertracing
     image: all-in-one
-    tag: "1.14"
+    tag: 1.14
     memory:
       max_traces: 50000
     resources: {}
@@ -49,7 +49,7 @@ tracing:
   zipkin:
     hub: docker.io/openzipkin
     image: zipkin
-    tag: "2.14.2"
+    tag: 2.14.2
     probeStartupDelay: 200
     queryPort: 9411
     resources:
@@ -71,7 +71,7 @@ tracing:
 
   opencensus:
     hub: docker.io/omnition
-    tag: "0.1.9"
+    tag: 0.1.9
     resources:
       limits:
         cpu: 1

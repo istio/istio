@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 90
+number_of_entries: 91
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -145,7 +145,7 @@ No
 </tr>
 <tr id="CNIConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 </td>
 <td>
@@ -304,7 +304,7 @@ No
 </tr>
 <tr id="CertManagerConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Image tag for the CertManager Deployment.</p>
 
@@ -1862,7 +1862,7 @@ No
 </tr>
 <tr id="GlobalConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Specifies the tag for the Istio docker images.</p>
 
@@ -2727,7 +2727,7 @@ No
 </tr>
 <tr id="KialiConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Image tag for kiali deployment.</p>
 
@@ -4743,7 +4743,7 @@ No
 </tr>
 <tr id="PrometheusConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 </td>
 <td>
@@ -6412,6 +6412,11 @@ No
 </tbody>
 </table>
 </section>
+<h2 id="StringOrNumber">StringOrNumber</h2>
+<section>
+<p>GOTYPE: *json.Number</p>
+
+</section>
 <h2 id="TelemetryConfig">TelemetryConfig</h2>
 <section>
 <p>Controls telemetry configuration</p>
@@ -7031,7 +7036,7 @@ No
 </tr>
 <tr id="TracingJaegerConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Image tag for Jaeger tracing deployment.</p>
 
@@ -7178,7 +7183,7 @@ No
 </tr>
 <tr id="TracingOpencensusConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Image tag for Opencensus tracing deployment.</p>
 
@@ -7276,7 +7281,7 @@ No
 </tr>
 <tr id="TracingZipkinConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Image tag for Zipkin tracing deployment.</p>
 

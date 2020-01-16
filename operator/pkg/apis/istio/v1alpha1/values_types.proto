@@ -55,7 +55,7 @@ message CNIConfig {
 
   string hub = 2;
 
-  string tag = 3;
+  StringOrNumber tag = 3;
 
   string image = 4;
 
@@ -93,7 +93,7 @@ message CertManagerConfig {
   string hub = 2;
 
   // Image tag for the CertManager Deployment.
-  string tag = 3;
+  StringOrNumber tag = 3;
 
   // Image name for the CertManager Deployment.
   string image = 4;
@@ -556,7 +556,7 @@ message GlobalConfig {
   SDSConfig sds = 30;
 
   // Specifies the tag for the Istio docker images.
-  string tag = 31;
+  StringOrNumber tag = 31;
 
   // Specifies the namespace for the telemetry component.
   string telemetryNamespace = 32;
@@ -1303,7 +1303,7 @@ message PrometheusConfig {
 
   string hub = 4;
 
-  string tag = 5;
+  StringOrNumber tag = 5;
 
   string retention = 6;
 
@@ -1868,7 +1868,7 @@ message TracingOpencensusConfig {
   string hub = 1;
 
   // Image tag for Opencensus tracing deployment.
-  string tag = 2;
+  StringOrNumber tag = 2;
 
   TracingOpencensusExportersConfig exporters  = 3;
   // K8s resources settings.
@@ -1903,7 +1903,7 @@ message TracingJaegerConfig {
   string hub = 1;
 
   // Image tag for Jaeger tracing deployment.
-  string tag = 2;
+  StringOrNumber tag = 2;
 
   string image = 10;
 
@@ -1941,7 +1941,7 @@ message TracingZipkinConfig {
   string hub = 1;
 
   // Image tag for Zipkin tracing deployment.
-  string tag = 2;
+  StringOrNumber tag = 2;
 
   string image = 9;
 
@@ -2022,7 +2022,7 @@ message KialiConfig {
   string hub = 3;
 
   // Image tag for kiali deployment.
-  string tag = 4;
+  StringOrNumber tag = 4;
 
   // Number of replicas for Kiali.
   uint32 replicaCount = 5 [deprecated=true];
@@ -2145,3 +2145,6 @@ message ZeroVPNConfig {
 
   string suffix = 2;
 }
+
+// GOTYPE: *json.Number
+message StringOrNumber {}

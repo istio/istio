@@ -17,7 +17,6 @@ package validate
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/test/env"
 )
 
 var (
@@ -33,11 +33,7 @@ var (
 )
 
 func init() {
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	repoRootDir = filepath.Join(wd, "../../..")
+	repoRootDir = env.IstioSrc
 }
 
 func TestValidateValues(t *testing.T) {
