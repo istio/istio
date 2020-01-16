@@ -241,6 +241,8 @@ func SimpleDenyPolicy(name string, namespace string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(),
+			Group:     collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Group(),
+			Version:   collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Version(),
 			Name:      name,
 			Namespace: namespace,
 		},
