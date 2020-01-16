@@ -162,6 +162,7 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 	updatedClusterGroups map[string]struct{}) error {
 	pushStart := time.Now()
 	groups := make([]*xdsapi.EndpointGroup, 0, len(updatedClusterGroups))
+	epCount := 0
 
 	// A clusterGroup is combination of Cluster and Endpoint Groups. Because Endpoint Group represent static
 	// data within a service and the data returned to Envoy should be processed based on different Clusters.
@@ -182,6 +183,11 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 		}
 
 		groups = append(groups, g)
+
+		// Count the total endpoints sent within this EGDS response.
+		for _, lep := range l.Endpoints {
+			epCount += len(lep.LbEndpoints)
+		}
 	}
 
 	response := endpointGroupDiscoveryResponse(groups, version, push.Version)
@@ -194,7 +200,7 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 	}
 	egdsPushes.Increment()
 
-	adsLog.Infof("EGDS: PUSH for node:%s groups:%d", con.node.ID, len(groups))
+	adsLog.Infof("EGDS: PUSH for node:%s, groups:%d, endpoints: %d", con.node.ID, len(groups), epCount)
 	return nil
 }
 
@@ -338,10 +344,6 @@ MainLoop:
 	emtpyCount = len(newGroups) - newGroupCount
 
 	adsLog.Debugf("EGDS updatedCount: %d, emptyCount: %d, newGroups: %d", updatedCount, emtpyCount, newGroupCount)
-
-	for k, eps := range g.IstioEndpointGroups {
-		adsLog.Debugf("group details: %s => %d", k, len(eps))
-	}
 
 	g.IstioEndpointGroups = newGroups
 
