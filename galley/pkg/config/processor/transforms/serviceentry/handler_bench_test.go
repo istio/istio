@@ -20,11 +20,11 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -173,7 +173,7 @@ func loadNodesAndPods(handler event.Handler) {
 		nodeName := "node" + strconv.Itoa(i)
 		handler.Handle(event.Event{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Nodes,
+			Source: collections.K8SCoreV1Nodes,
 			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName:   resource.NewFullName("", resource.LocalName(nodeName)),
@@ -194,7 +194,7 @@ func loadNodesAndPods(handler event.Handler) {
 		saIndex = (saIndex + 1) % len(serviceAccounts)
 		handler.Handle(event.Event{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Pods,
+			Source: collections.K8SCoreV1Pods,
 			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName:   resource.NewFullName(namespace, resource.LocalName(podName)),

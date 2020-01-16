@@ -17,7 +17,7 @@ package event
 import (
 	"fmt"
 
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -40,7 +40,7 @@ func (r *emptyRouter) Handle(_ Event) {}
 func (r *emptyRouter) Broadcast(_ Event) {}
 
 type singleRouter struct {
-	source  collection.Name
+	source  collection.Schema
 	handler Handler
 }
 
@@ -48,7 +48,7 @@ var _ Router = &singleRouter{}
 
 // Handle implements Handler
 func (r *singleRouter) Handle(e Event) {
-	if e.Kind == Reset || e.IsSource(r.source) {
+	if e.Kind == Reset || e.IsSource(r.source.Name()) {
 		r.handler.Handle(e)
 	}
 }
@@ -61,16 +61,16 @@ func (r *singleRouter) Broadcast(e Event) {
 
 // Router distributes events to multiple different handlers, based on collection name.
 type router struct {
-	handlers map[collection.Name]Handler
+	routers map[collection.Name]*singleRouter
 }
 
 var _ Router = &router{}
 
 // Handle implements Handler
 func (r *router) Handle(e Event) {
-	h, found := r.handlers[e.Source]
+	h, found := r.routers[e.SourceName()]
 	if found {
-		h.Handle(e)
+		h.handler.Handle(e)
 	} else {
 		scope.Processing.Warna("Router.Handle: No handler for event, dropping: ", e)
 	}
@@ -78,9 +78,9 @@ func (r *router) Handle(e Event) {
 
 // Broadcast implements Router
 func (r *router) Broadcast(e Event) {
-	for d, h := range r.handlers {
-		e = e.WithSource(d)
-		h.Handle(e)
+	for _, h := range r.routers {
+		e = e.WithSource(h.source)
+		h.handler.Handle(e)
 	}
 }
 
@@ -90,7 +90,7 @@ func NewRouter() Router {
 }
 
 // AddToRouter adds the given handler for the given source collection.
-func AddToRouter(r Router, source collection.Name, handler Handler) Router {
+func AddToRouter(r Router, source collection.Schema, handler Handler) Router {
 	if r == nil {
 		return &singleRouter{
 			source:  source,
@@ -113,21 +113,33 @@ func AddToRouter(r Router, source collection.Name, handler Handler) Router {
 			}
 		}
 		s := &router{
-			handlers: make(map[collection.Name]Handler),
+			routers: make(map[collection.Name]*singleRouter),
 		}
-		s.handlers[v.source] = v.handler
-		s.handlers[source] = handler
+		s.routers[v.source.Name()] = &singleRouter{
+			source:  v.source,
+			handler: v.handler,
+		}
+		s.routers[source.Name()] = &singleRouter{
+			source:  source,
+			handler: handler,
+		}
 		return s
 
 	case *router:
 		s := &router{
-			handlers: make(map[collection.Name]Handler),
+			routers: make(map[collection.Name]*singleRouter),
 		}
-		for k, v := range v.handlers {
-			s.handlers[k] = v
+		for name, router := range v.routers {
+			s.routers[name] = router
 		}
-		old := s.handlers[source]
-		s.handlers[source] = CombineHandlers(old, handler)
+		var oldHandler Handler
+		if old := s.routers[source.Name()]; old != nil {
+			oldHandler = old.handler
+		}
+		s.routers[source.Name()] = &singleRouter{
+			source:  source,
+			handler: CombineHandlers(oldHandler, handler),
+		}
 		return s
 
 	default:

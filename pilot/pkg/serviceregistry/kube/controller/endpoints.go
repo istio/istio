@@ -16,22 +16,21 @@ package controller
 
 import (
 	v1 "k8s.io/api/core/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 type endpointsController struct {
-	c        *Controller
-	informer cache.SharedIndexInformer
+	kubeEndpoints
 }
 
 var _ kubeEndpointsController = &endpointsController{}
@@ -39,8 +38,10 @@ var _ kubeEndpointsController = &endpointsController{}
 func newEndpointsController(c *Controller, sharedInformers informers.SharedInformerFactory) *endpointsController {
 	informer := sharedInformers.Core().V1().Endpoints().Informer()
 	out := &endpointsController{
-		c:        c,
-		informer: informer,
+		kubeEndpoints: kubeEndpoints{
+			c:        c,
+			informer: informer,
+		},
 	}
 	out.registerEndpointsHandler()
 	return out
@@ -83,29 +84,22 @@ func (e *endpointsController) registerEndpointsHandler() {
 		})
 }
 
-func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
-	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
-	// TODO we may be able to remove this, endpoints should be in same NS?
-	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
-
-	for _, item := range e.informer.GetStore().List() {
-		ep := *item.(*v1.Endpoints)
-		endpoints := &endpointsForPodInSameNS
-		if ep.Namespace != proxyNamespace {
-			endpoints = &endpointsForPodInDifferentNS
-		}
-
-		*endpoints = append(*endpoints, getProxyServiceInstancesByEndpoint(c, ep, proxy)...)
+func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
+	eps, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).Endpoints(proxy.Metadata.Namespace).List(klabels.Everything())
+	if err != nil {
+		log.Errorf("Get endpoints by index failed: %v", err)
+		return nil
+	}
+	out := make([]*model.ServiceInstance, 0)
+	for _, ep := range eps {
+		instances := e.proxyServiceInstances(c, ep, proxy)
+		out = append(out, instances...)
 	}
 
-	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
-	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
-	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
-	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
-	return append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+	return out
 }
 
-func getProxyServiceInstancesByEndpoint(c *Controller, endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
+func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
 	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
@@ -229,34 +223,8 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 		}
 	}
 
-	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, ep.Name, ep.Namespace)
-
-	// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
-	if features.EnableHeadlessService.Get() {
-		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
-			svc := obj.(*v1.Service)
-			// if the service is headless service, trigger a full push.
-			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{
-					Full:              true,
-					NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
-					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
-				})
-				return nil
-			}
-		}
-	}
-
-	e.c.updateEDS(ep, event)
-
-	return nil
-}
-
-func (e *endpointsController) HasSynced() bool {
-	return e.informer.HasSynced()
-}
-
-func (e *endpointsController) Run(stopCh <-chan struct{}) {
-	e.informer.Run(stopCh)
+	return e.handleEvent(ep.Name, ep.Namespace, event, curr, func(obj interface{}, event model.Event) {
+		ep := obj.(*v1.Endpoints)
+		e.c.updateEDS(ep, event)
+	})
 }

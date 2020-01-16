@@ -17,7 +17,6 @@ package security
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/istioio"
 )
@@ -29,8 +28,7 @@ func TestBookinfo(t *testing.T) {
 		NewTest(t).
 		Run(istioio.NewBuilder("examples__bookinfo").
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/bookinfo.txt"),
-				WorkDir: env.IstioSrc,
+				Input: istioio.Path("scripts/bookinfo.txt"),
 			}).
 			Defer(istioio.Script{
 				Input: istioio.Inline{
@@ -38,7 +36,6 @@ func TestBookinfo(t *testing.T) {
 					Value: `
 kubectl delete -n default -f samples/bookinfo/platform/kube/bookinfo.yaml || true`,
 				},
-				WorkDir: env.IstioSrc,
 			}).
 			Build())
 }

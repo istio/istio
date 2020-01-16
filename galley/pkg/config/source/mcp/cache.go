@@ -19,8 +19,9 @@ import (
 	"sync"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	resource2 "istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/mcp/sink"
 )
@@ -30,7 +31,7 @@ var _ event.Source = &cache{}
 // cache is an in-memory cache for a single collection.
 type cache struct {
 	mu                 sync.RWMutex
-	collection         collection.Name
+	schema             collection.Schema
 	handler            event.Handler
 	resources          map[resource.FullName]*resource.Instance
 	synced             bool
@@ -38,12 +39,12 @@ type cache struct {
 	fullUpdateReceived bool
 }
 
-func newCache(c collection.Name) *cache {
+func newCache(c collection.Schema) *cache {
 	scope.Source.Debuga("  Creating mcp cache for collection: ", c)
 
 	return &cache{
-		collection: c,
-		resources:  make(map[resource.FullName]*resource.Instance),
+		schema:    c,
+		resources: make(map[resource.FullName]*resource.Instance),
 	}
 }
 
@@ -52,7 +53,7 @@ func (c *cache) apply(change *sink.Change) error {
 	defer c.mu.Unlock()
 
 	// Make sure the event is for this collection. This will always be the case in practice.
-	if c.collection.String() != change.Collection {
+	if c.schema.Name().String() != change.Collection {
 		return fmt.Errorf("failed applying change for unexpected collection (%v)", change.Collection)
 	}
 
@@ -70,9 +71,9 @@ func (c *cache) applyFull(change *sink.Change) error {
 
 	// Add/update resources.
 	for _, obj := range change.Objects {
-		e, err := deserializeEntry(obj)
+		e, err := deserializeEntry(obj, c.schema.Resource())
 		if err != nil {
-			return fmt.Errorf("failed parsing entry for collection (%v): %v", c.collection, err)
+			return fmt.Errorf("failed parsing entry for collection (%v): %v", c.schema.Name(), err)
 		}
 
 		// Notify the handler if we've already synced.
@@ -108,9 +109,9 @@ func (c *cache) applyIncremental(change *sink.Change) error {
 
 	// Add/update resources.
 	for _, obj := range change.Objects {
-		e, err := deserializeEntry(obj)
+		e, err := deserializeEntry(obj, c.schema.Resource())
 		if err != nil {
-			return fmt.Errorf("failed parsing entry for collection (%v): %v", c.collection, err)
+			return fmt.Errorf("failed parsing entry for collection (%v): %v", c.schema.Name(), err)
 		}
 
 		// Notify the handler if we've already synced.
@@ -167,7 +168,7 @@ func (c *cache) Stop() {
 // Dispatch an event handler to receive resource events.
 func (c *cache) Dispatch(handler event.Handler) {
 	if scope.Source.DebugEnabled() {
-		scope.Source.Debugf("cache.Dispatch: (collection: %-50v, handler: %T)", c.collection, handler)
+		scope.Source.Debugf("cache.Dispatch: (collection: %-50v, handler: %T)", c.schema.Name(), handler)
 	}
 
 	c.handler = event.CombineHandlers(c.handler, handler)
@@ -183,12 +184,12 @@ func (c *cache) sync() {
 		c.dispatchFor(e, event.Added)
 	}
 
-	c.dispatchEvent(event.FullSyncFor(c.collection))
+	c.dispatchEvent(event.FullSyncFor(c.schema))
 }
 
 func (c *cache) dispatchEvent(e event.Event) {
 	if scope.Source.DebugEnabled() {
-		scope.Source.Debugf(">>> cache.dispatchEvent: (col: %-50s): %v", c.collection, e)
+		scope.Source.Debugf(">>> cache.dispatchEvent: (col: %-50s): %v", c.schema.Name(), e)
 	}
 	if c.handler != nil {
 		c.handler.Handle(e)
@@ -197,15 +198,15 @@ func (c *cache) dispatchEvent(e event.Event) {
 
 func (c *cache) dispatchFor(entry *resource.Instance, kind event.Kind) {
 	e := event.Event{
-		Source:   c.collection,
+		Source:   c.schema,
 		Resource: entry,
 		Kind:     kind,
 	}
 	c.dispatchEvent(e)
 }
 
-func deserializeEntry(obj *sink.Object) (*resource.Instance, error) {
-	metadata, err := resource.DeserializeMetadata(obj.Metadata)
+func deserializeEntry(obj *sink.Object, s resource2.Schema) (*resource.Instance, error) {
+	metadata, err := resource.DeserializeMetadata(obj.Metadata, s)
 	if err != nil {
 		return nil, err
 	}

@@ -414,20 +414,15 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 		requestHeadersToAdd := translateAppendHeaders(in.Headers.GetRequest().GetSet(), false)
 		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.Headers.GetRequest().GetAdd(), true)...)
-		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.AppendRequestHeaders, true)...)
-		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.AppendHeaders, true)...)
 		out.RequestHeadersToAdd = requestHeadersToAdd
 		responseHeadersToAdd := translateAppendHeaders(in.Headers.GetResponse().GetSet(), false)
 		responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.Headers.GetResponse().GetAdd(), true)...)
-		responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.AppendResponseHeaders, true)...)
 		out.ResponseHeadersToAdd = responseHeadersToAdd
 		requestHeadersToRemove := make([]string, 0)
 		requestHeadersToRemove = append(requestHeadersToRemove, in.Headers.GetRequest().GetRemove()...)
-		requestHeadersToRemove = append(requestHeadersToRemove, in.RemoveRequestHeaders...)
 		out.RequestHeadersToRemove = requestHeadersToRemove
 		responseHeadersToRemove := make([]string, 0)
 		responseHeadersToRemove = append(responseHeadersToRemove, in.Headers.GetResponse().GetRemove()...)
-		responseHeadersToRemove = append(responseHeadersToRemove, in.RemoveResponseHeaders...)
 		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
@@ -466,16 +461,12 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 			requestHeadersToAdd := translateAppendHeaders(dst.Headers.GetRequest().GetSet(), false)
 			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.Headers.GetRequest().GetAdd(), true)...)
-			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.AppendRequestHeaders, true)...)
 			responseHeadersToAdd := translateAppendHeaders(dst.Headers.GetResponse().GetSet(), false)
 			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.Headers.GetResponse().GetAdd(), true)...)
-			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.AppendResponseHeaders, true)...)
 			requestHeadersToRemove := make([]string, 0)
 			requestHeadersToRemove = append(requestHeadersToRemove, dst.Headers.GetRequest().GetRemove()...)
-			requestHeadersToRemove = append(requestHeadersToRemove, dst.RemoveRequestHeaders...)
 			responseHeadersToRemove := make([]string, 0)
 			responseHeadersToRemove = append(responseHeadersToRemove, dst.Headers.GetResponse().GetRemove()...)
-			responseHeadersToRemove = append(responseHeadersToRemove, dst.RemoveResponseHeaders...)
 
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
@@ -823,8 +814,6 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 		out.Abort = &xdshttpfault.FaultAbort{}
 		if in.Abort.Percentage != nil {
 			out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
-		} else {
-			out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
 		}
 		switch a := in.Abort.ErrorType.(type) {
 		case *networking.HTTPFaultInjection_Abort_HttpStatus:

@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/strcase"
 )
 
 const (
@@ -75,11 +76,11 @@ const (
 
 	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
 	// endpoint level plantext transport socket configuration
-	EnvoyRawBufferSocketName = "raw_buffer"
+	EnvoyRawBufferSocketName = "envoy.transport_sockets.raw_buffer"
 
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
-	EnvoyTLSSocketName = "tls"
+	EnvoyTLSSocketName = "envoy.transport_sockets.tls"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -292,7 +293,7 @@ func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Por
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
 	if locality == "" {
-		return nil
+		return &core.Locality{}
 	}
 
 	region, zone, subzone := SplitLocality(locality)
@@ -417,7 +418,8 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 				Fields: map[string]*pstruct.Value{
 					"config": {
 						Kind: &pstruct.Value_StringValue{
-							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace, config.Type, config.Name),
+							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace,
+								strcase.CamelCaseToKebabCase(config.Type), config.Name),
 						},
 					},
 				},

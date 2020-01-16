@@ -15,8 +15,8 @@
 package analysis
 
 import (
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -131,24 +131,27 @@ func getDisabledOutputs(disabledInputs collection.Names, xformProviders transfor
 	// 1. Count, for each output, how many xforms feed it
 	outputXformCount := make(map[collection.Name]int)
 	for _, p := range xformProviders {
-		for _, out := range p.Outputs() {
-			outputXformCount[out]++
-		}
+		p.Outputs().ForEach(func(out collection.Schema) (done bool) {
+			outputXformCount[out.Name()]++
+			return
+		})
 	}
 
 	// 2. For each xform, if inputs are disabled decrement each output counter for that xform
 	for _, p := range xformProviders {
 		hasDisabledInput := false
-		for _, in := range p.Inputs() {
-			if _, ok := disabledInputSet[in]; ok {
+		p.Inputs().ForEach(func(in collection.Schema) (done bool) {
+			if _, ok := disabledInputSet[in.Name()]; ok {
 				hasDisabledInput = true
-				break
+				return true
 			}
-		}
+			return
+		})
 		if hasDisabledInput {
-			for _, out := range p.Outputs() {
-				outputXformCount[out]--
-			}
+			p.Outputs().ForEach(func(out collection.Schema) (done bool) {
+				outputXformCount[out.Name()]--
+				return
+			})
 		}
 	}
 

@@ -325,3 +325,23 @@ func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert
 	cmc := configmap.NewController(namespace, client)
 	return cmc.InsertCATLSRootCert(certEncoded)
 }
+
+// GenKeyCert() generates a certificate signed by the CA and
+// returns the certificate chain and the private key.
+func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte, []byte, error) {
+	opts := util.CertOptions{
+		RSAKeySize: 2048,
+	}
+
+	csrPEM, privPEM, err := util.GenCSR(opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	certPEM, err := ca.SignWithCertChain(csrPEM, hostnames, certTTL, false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return certPEM, privPEM, nil
+}

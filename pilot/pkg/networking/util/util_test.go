@@ -141,7 +141,7 @@ func TestConvertLocality(t *testing.T) {
 		{
 			name:     "nil locality",
 			locality: "",
-			want:     nil,
+			want:     &core.Locality{},
 		},
 		{
 			name:     "locality with only region",

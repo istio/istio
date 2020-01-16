@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-ingressgateway
+spec:
+  template:
+    spec:
+      containers:
+        - name: istio-proxy
+          resources:
+            limits:
+              cpu: 500m
+              memory: 100Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-pilot
+spec:
+  template:
+    spec:
+      containers:
+        - name: discovery
+          resources:
+            limits:
+              cpu: 500m
+              memory: 100Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          env:
+          - name: ISTIOD_ADDR
+            value: istio-pilot.istio-micro.svc:15012

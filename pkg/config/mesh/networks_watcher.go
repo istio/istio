@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/davecgh/go-spew/spew"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/filewatcher"
@@ -63,9 +63,9 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 		return nil, fmt.Errorf("failed to read mesh networks configuration from %q: %v", filename, err)
 	}
 
-	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
 	ResolveHostsInNetworksConfig(meshNetworks)
-	log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
+	networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "   ")
+	log.Infof("mesh networks configuration: %s", networksdump)
 
 	w := &networksWatcher{
 		networks: meshNetworks,
@@ -84,9 +84,9 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 
 		w.mutex.Lock()
 		if !reflect.DeepEqual(meshNetworks, w.networks) {
-			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
 			ResolveHostsInNetworksConfig(meshNetworks)
-			log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
+			networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "    ")
+			log.Infof("mesh networks configuration updated to: %s", networksdump)
 
 			// Store the new config.
 			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.networks)), unsafe.Pointer(meshNetworks))

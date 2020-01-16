@@ -142,6 +142,7 @@ type WebhookParameters struct {
 	Port int
 
 	// MonitoringPort is the webhook port, e.g. typically 15014.
+	// Set to -1 to disable monitoring
 	MonitoringPort int
 
 	// HealthCheckInterval configures how frequently the health check
@@ -216,13 +217,15 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 			wh.mu.Unlock()
 		})
 	}
-	mon, err := startMonitor(h, p.MonitoringPort)
 
-	if err != nil {
-		return nil, fmt.Errorf("could not start monitoring server %v", err)
+	if p.MonitoringPort >= 0 {
+		mon, err := startMonitor(h, p.MonitoringPort)
+		if err != nil {
+			return nil, fmt.Errorf("could not start monitoring server %v", err)
+		}
+		wh.mon = mon
 	}
 
-	wh.mon = mon
 	wh.server.Handler = h
 
 	return wh, nil
@@ -237,7 +240,9 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	}()
 	defer wh.watcher.Close()
 	defer wh.server.Close()
-	defer wh.mon.monitoringServer.Close()
+	if wh.mon != nil {
+		defer wh.mon.monitoringServer.Close()
+	}
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
@@ -271,8 +276,8 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.cert = &pair
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
+			log.Debugf("Injector watch update: %+v", event)
 			// use a timer to debounce configuration updates
-			log.Infoa("Injector watch", event.Name)
 			if (event.IsModify() || event.IsCreate()) && timerC == nil {
 				timerC = time.After(watchDebounceDelay)
 			}
@@ -712,7 +717,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return toAdmissionResponse(err)
 	}
 
-	log.Infof("AdmissionResponse: patch=%v\n", string(patchBytes))
+	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
 
 	reviewResponse := v1beta1.AdmissionResponse{
 		Allowed: true,

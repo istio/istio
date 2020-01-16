@@ -244,7 +244,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 		map[host.Name]*model.Service{}, 2)
 	server.ServiceController().AddRegistry(serviceregistry.Simple{
 		ClusterID:        id,
-		ProviderID:       "memAdapter",
+		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: memRegistry,
 		Controller:       &v2.MemServiceController{},
 	})

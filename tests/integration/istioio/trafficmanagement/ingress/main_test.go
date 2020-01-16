@@ -32,8 +32,17 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("trafficmanagement_ingress", m).
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupForSDS)).
 		RequireEnvironment(environment.Kube).
 		Run()
+
+}
+
+func setupForSDS(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.Values["gateways.istio-egressgateway.enabled"] = "false"
+	cfg.Values["gateways.istio-ingressgateway.sds.enabled"] = "true"
 
 }

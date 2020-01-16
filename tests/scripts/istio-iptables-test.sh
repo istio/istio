@@ -107,9 +107,7 @@ for TEST_MODE in "${TEST_MODES[@]}"; do
     compareWithGolden clean "${TEST_MODE}_clean"
     compareWithGolden mode_tproxy "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
     compareWithGolden clean "${TEST_MODE}_clean"
-    export STUB_IP="2001:db8:1::1"
-    compareWithGolden mode_tproxy_and_ipv6 "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 2001:db8::/32 -x 2019:db8::/32 -k eth1,eth2"
-    unset STUB_IP
+    # compareWithGolden mode_tproxy_and_ipv6 "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 2001:db8::/32 -x 2019:db8::/32 -k eth1,eth2"
     compareWithGolden clean "${TEST_MODE}_clean"
     compareWithGolden mode_tproxy_and_wildcard_port "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
     compareWithGolden clean "${TEST_MODE}_clean"

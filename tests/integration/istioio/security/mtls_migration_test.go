@@ -17,7 +17,6 @@ package security
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/istioio"
 )
@@ -30,7 +29,6 @@ func TestMutualTLSMigration(t *testing.T) {
 		NewTest(t).
 		Run(istioio.NewBuilder("tasks__security__mututal_tls_migration").
 			Add(istioio.Script{
-				WorkDir: env.IstioSrc,
 				Input: istioio.Inline{
 					FileName: "create_ns_foo_bar_legacy.sh",
 					Value: `
@@ -55,8 +53,7 @@ $ kubectl apply -f samples/sleep/sleep.yaml -n legacy
 				istioio.MultiPodWait("bar"),
 				istioio.MultiPodWait("legacy")).
 			Add(istioio.Script{
-				Input:   istioio.Path("scripts/mtls_migration.txt"),
-				WorkDir: env.IstioSrc,
+				Input: istioio.Path("scripts/mtls_migration.txt"),
 			}).
 			// Cleanup.
 			Defer(istioio.Script{

@@ -1,0 +1,27 @@
+{{- if .Values.global.enableHelmTest }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: prometheus-test
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: prometheus-test
+    release: {{ .Release.Name }}
+    istio: prometheus
+  annotations:
+    sidecar.istio.io/inject: "false"
+    helm.sh/hook: test-success
+spec:
+{{- if .Values.global.priorityClassName }}
+  priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+  containers:
+    - name: "prometheus-test"
+      image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+      imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+      command: ['sh', '-c', 'for i in 1 2 3; do curl http://prometheus:9090/-/ready && exit 0 || sleep 15; done; exit 1']
+  restartPolicy: Never
+  affinity:
+    {{- include "nodeaffinity" . | indent 4 }}
+    {{- include "podAntiAffinity" . | indent 4 }}
+{{- end }}

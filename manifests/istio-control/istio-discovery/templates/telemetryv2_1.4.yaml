@@ -1,0 +1,233 @@
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: metadata-exchange-1.4
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY # inbound, outbound, and gateway
+        proxy:
+          proxyVersion: '1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              configuration: envoy.wasm.metadata_exchange
+              vm_config:
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.metadata_exchange
+---
+{{- if .Values.telemetry.v2.prometheus.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter-1.4
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stats_outbound
+              configuration: |
+                {
+                  "debug": "false",
+                  "stat_prefix": "istio",
+                }
+              vm_config:
+                vm_id: stats_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stats_inbound
+              configuration: |
+                {
+                  "debug": "false",
+                  "stat_prefix": "istio",
+                }
+              vm_config:
+                vm_id: stats_inbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stats_outbound
+              configuration: |
+                {
+                  "debug": "false",
+                  "stat_prefix": "istio",
+                }
+              vm_config:
+                vm_id: stats_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.stats
+---
+{{- end }}
+{{- if .Values.telemetry.v2.stackdriver.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stackdriver-filter-1.4
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stackdriver_outbound
+              configuration: |
+                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                {{- else }}
+                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 8 }}
+                {{- end }}
+              vm_config:
+                vm_id: stackdriver_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.null.stackdriver
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stackdriver_inbound
+              configuration: |
+                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                {{- else }}
+                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 16 }}
+                {{- end }}
+              vm_config:
+                vm_id: stackdriver_inbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.null.stackdriver
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stackdriver_outbound
+              configuration: |
+                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s", "disable_host_header_fallback": true}
+                {{- else }}
+                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 16 }}
+                {{- end }}
+              vm_config:
+                vm_id: stackdriver_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.null.stackdriver
+---
+{{- end}}
+{{- end}}

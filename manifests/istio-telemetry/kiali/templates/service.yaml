@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiali
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: kiali
+    release: {{ .Release.Name }}
+spec:
+  ports:
+    - name: http-kiali
+      protocol: TCP
+      port: 20001
+  selector:
+    app: kiali

@@ -1,0 +1,60 @@
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    egressGateways:
+    - enabled: false
+      k8s:
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-egressgateway
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+      name: istio-egressgateway
+    ingressGateways:
+    - enabled: true
+      k8s:
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-ingressgateway
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+      name: istio-ingressgateway
+  hub: gcr.io/istio-testing
+  tag: latest

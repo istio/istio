@@ -21,15 +21,24 @@ import (
 
 	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/monitoring"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // Snapshotter is a processor that handles input events and creates snapshotImpl collections.
 type Snapshotter struct {
+	// pendingEvents must be at start of struct to ensure 64bit alignment for atomics on
+	// 32bit architectures. See also: https://golang.org/pkg/sync/atomic/#pkg-note-BUG
+
+	// pendingEvents counts the number of events awaiting publishing.
+	pendingEvents int64
+
+	// lastSnapshotTime records the last time a snapshotImpl was published.
+	lastSnapshotTime atomic.Value
+
 	accumulators   map[collection.Name]*accumulator
 	selector       event.Router
 	xforms         []event.Transformer
@@ -38,12 +47,6 @@ type Snapshotter struct {
 
 	// lastEventTime records the last time an event was received.
 	lastEventTime time.Time
-
-	// pendingEvents counts the number of events awaiting publishing.
-	pendingEvents int64
-
-	// lastSnapshotTime records the last time a snapshotImpl was published.
-	lastSnapshotTime atomic.Value
 }
 
 var _ event.Processor = &Snapshotter{}
@@ -75,7 +78,7 @@ func (a *accumulator) Handle(e event.Event) {
 	switch e.Kind {
 	case event.Added:
 		a.collection.Set(e.Resource)
-		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitoring.RecordStateTypeCount(e.Source.Name().String(), a.collection.Size())
 		monitorEntry(e.Source, e.Resource.Metadata.FullName, true)
 
 	case event.Updated:
@@ -83,7 +86,7 @@ func (a *accumulator) Handle(e event.Event) {
 
 	case event.Deleted:
 		a.collection.Remove(e.Resource.Metadata.FullName)
-		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitoring.RecordStateTypeCount(e.Source.Name().String(), a.collection.Size())
 		monitorEntry(e.Source, e.Resource.Metadata.FullName, false)
 
 	case event.FullSync:
@@ -106,12 +109,16 @@ func (a *accumulator) reset() {
 	a.collection.Clear()
 }
 
-func monitorEntry(col collection.Name, resourceName resource.FullName, added bool) {
+func monitorEntry(col collection.Schema, resourceName resource.FullName, added bool) {
 	value := 1
 	if !added {
 		value = 0
 	}
-	monitoring.RecordDetailedStateType(string(resourceName.Namespace), string(resourceName.Name), col, value)
+	colName := collection.Name("")
+	if col != nil {
+		colName = col.Name()
+	}
+	monitoring.RecordDetailedStateType(string(resourceName.Namespace), string(resourceName.Name), colName, value)
 }
 
 // NewSnapshotter returns a new Snapshotter.
@@ -125,21 +132,23 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) (*Sn
 	}
 
 	for _, xform := range xforms {
-		for _, i := range xform.Inputs() {
+		xform.Inputs().ForEach(func(i collection.Schema) (done bool) {
 			s.selector = event.AddToRouter(s.selector, i, xform)
-		}
+			return
+		})
 
-		for _, o := range xform.Outputs() {
-			a, found := s.accumulators[o]
+		xform.Outputs().ForEach(func(o collection.Schema) (done bool) {
+			a, found := s.accumulators[o.Name()]
 			if !found {
 				a = &accumulator{
 					collection: coll.New(o),
 				}
-				s.accumulators[o] = a
+				s.accumulators[o.Name()] = a
 			}
 			a.reqSyncCount++
 			xform.DispatchFor(o, a)
-		}
+			return
+		})
 	}
 
 	for _, o := range settings {

@@ -20,14 +20,14 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
 func TestApplyUnknownCollection(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewSource(collection.Names{})
+	s := NewSource(collection.SchemasFor())
 	s.Start()
 	defer s.Stop()
 
@@ -40,7 +40,7 @@ func TestApplyUnknownCollection(t *testing.T) {
 func TestApply(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := NewSource(collection.Names{colName})
+	s := NewSource(collection.SchemasFor(testCollection))
 	s.Start()
 	defer s.Stop()
 
@@ -50,9 +50,9 @@ func TestApply(t *testing.T) {
 	}))
 
 	err := s.Apply(&sink.Change{
-		Collection: colName.String(),
+		Collection: testCollection.Name().String(),
 	})
 	g.Expect(err).To(BeNil())
 	g.Expect(len(events)).To(Equal(1))
-	g.Expect(events[0]).To(Equal(event.FullSyncFor(colName)))
+	g.Expect(events[0]).To(Equal(event.FullSyncFor(testCollection)))
 }

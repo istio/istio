@@ -23,10 +23,10 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
 
@@ -35,21 +35,17 @@ func TestAuthPolicy_Input_Output(t *testing.T) {
 
 	xform, _, _ := setup(g, 0)
 
-	g.Expect(xform.Inputs()).To(Equal(collection.Names{
-		metadata.K8SAuthenticationIstioIoV1Alpha1Policies,
-	}))
-	g.Expect(xform.Outputs()).To(Equal(collection.Names{
-		metadata.IstioAuthenticationV1Alpha1Policies,
-	}))
+	fixtures.ExpectEqual(t, xform.Inputs(), collection.NewSchemasBuilder().MustAdd(
+		collections.K8SAuthenticationIstioIoV1Alpha1Policies).Build())
+	fixtures.ExpectEqual(t, xform.Outputs(), collection.NewSchemasBuilder().MustAdd(
+		collections.IstioAuthenticationV1Alpha1Policies).Build())
 
 	xform, _, _ = setup(g, 1)
 
-	g.Expect(xform.Inputs()).To(Equal(collection.Names{
-		metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies,
-	}))
-	g.Expect(xform.Outputs()).To(Equal(collection.Names{
-		metadata.IstioAuthenticationV1Alpha1Meshpolicies,
-	}))
+	fixtures.ExpectEqual(t, xform.Inputs(), collection.NewSchemasBuilder().MustAdd(
+		collections.K8SAuthenticationIstioIoV1Alpha1Meshpolicies).Build())
+	fixtures.ExpectEqual(t, xform.Outputs(), collection.NewSchemasBuilder().MustAdd(
+		collections.IstioAuthenticationV1Alpha1Meshpolicies).Build())
 }
 
 func TestAuthPolicy_AddSync(t *testing.T) {
@@ -61,12 +57,12 @@ func TestAuthPolicy_AddSync(t *testing.T) {
 		acc.Clear()
 		xform.Start()
 
-		src.Handlers.Handle(event.AddFor(xform.Inputs()[0], input()))
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
+		src.Handlers.Handle(event.AddFor(xform.Inputs().All()[0], input()))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
 
 		g.Eventually(acc.Events).Should(ConsistOf(
-			event.AddFor(xform.Outputs()[0], output()),
-			event.FullSyncFor(xform.Outputs()[0]),
+			event.AddFor(xform.Outputs().All()[0], output()),
+			event.FullSyncFor(xform.Outputs().All()[0]),
 		))
 		xform.Stop()
 	}
@@ -79,12 +75,12 @@ func TestAuthPolicy_SyncAdd(t *testing.T) {
 		xform, src, acc := setup(g, i)
 		xform.Start()
 
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
-		src.Handlers.Handle(event.AddFor(xform.Inputs()[0], input()))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
+		src.Handlers.Handle(event.AddFor(xform.Inputs().All()[0], input()))
 
 		g.Eventually(acc.Events).Should(ConsistOf(
-			event.FullSyncFor(xform.Outputs()[0]),
-			event.AddFor(xform.Outputs()[0], output()),
+			event.FullSyncFor(xform.Outputs().All()[0]),
+			event.AddFor(xform.Outputs().All()[0], output()),
 		))
 
 		xform.Stop()
@@ -102,16 +98,16 @@ func TestAuthPolicy_AddUpdateDelete(t *testing.T) {
 
 		xform.Start()
 
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
-		src.Handlers.Handle(event.AddFor(xform.Inputs()[0], input()))
-		src.Handlers.Handle(event.UpdateFor(xform.Inputs()[0], r2))
-		src.Handlers.Handle(event.DeleteForResource(xform.Inputs()[0], r2))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
+		src.Handlers.Handle(event.AddFor(xform.Inputs().All()[0], input()))
+		src.Handlers.Handle(event.UpdateFor(xform.Inputs().All()[0], r2))
+		src.Handlers.Handle(event.DeleteForResource(xform.Inputs().All()[0], r2))
 
 		g.Eventually(acc.Events).Should(ConsistOf(
-			event.FullSyncFor(xform.Outputs()[0]),
-			event.AddFor(xform.Outputs()[0], output()),
-			event.UpdateFor(xform.Outputs()[0], r2),
-			event.DeleteForResource(xform.Outputs()[0], r2),
+			event.FullSyncFor(xform.Outputs().All()[0]),
+			event.AddFor(xform.Outputs().All()[0], output()),
+			event.UpdateFor(xform.Outputs().All()[0], r2),
+			event.DeleteForResource(xform.Outputs().All()[0], r2),
 		))
 		xform.Stop()
 	}
@@ -125,11 +121,11 @@ func TestAuthPolicy_SyncReset(t *testing.T) {
 
 		xform.Start()
 
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
 		src.Handlers.Handle(event.Event{Kind: event.Reset})
 
 		g.Eventually(acc.Events).Should(ConsistOf(
-			event.FullSyncFor(xform.Outputs()[0]),
+			event.FullSyncFor(xform.Outputs().All()[0]),
 			event.Event{Kind: event.Reset},
 		))
 
@@ -145,11 +141,11 @@ func TestAuthPolicy_InvalidEventKind(t *testing.T) {
 
 		xform.Start()
 
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
 		src.Handlers.Handle(event.Event{Kind: 55})
 
 		g.Eventually(acc.Events).Should(ConsistOf(
-			event.FullSyncFor(xform.Outputs()[0]),
+			event.FullSyncFor(xform.Outputs().All()[0]),
 		))
 
 		xform.Stop()
@@ -169,9 +165,9 @@ func TestAuthPolicy_NoListeners(t *testing.T) {
 
 		xform.Start()
 
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
 		src.Handlers.Handle(event.Event{Kind: event.Reset})
-		src.Handlers.Handle(event.AddFor(xform.Inputs()[0], input()))
+		src.Handlers.Handle(event.AddFor(xform.Inputs().All()[0], input()))
 
 		// No crash
 		xform.Stop()
@@ -187,12 +183,12 @@ func TestAuthPolicy_DoubleStart(t *testing.T) {
 		xform.Start()
 		xform.Start()
 
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
-		src.Handlers.Handle(event.AddFor(xform.Inputs()[0], input()))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
+		src.Handlers.Handle(event.AddFor(xform.Inputs().All()[0], input()))
 
 		g.Eventually(acc.Events).Should(ConsistOf(
-			event.AddFor(xform.Outputs()[0], output()),
-			event.FullSyncFor(xform.Outputs()[0]),
+			event.AddFor(xform.Outputs().All()[0], output()),
+			event.FullSyncFor(xform.Outputs().All()[0]),
 		))
 		xform.Stop()
 	}
@@ -206,12 +202,12 @@ func TestAuthPolicy_DoubleStop(t *testing.T) {
 
 		xform.Start()
 
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
-		src.Handlers.Handle(event.AddFor(xform.Inputs()[0], input()))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
+		src.Handlers.Handle(event.AddFor(xform.Inputs().All()[0], input()))
 
 		g.Eventually(acc.Events).Should(ConsistOf(
-			event.AddFor(xform.Outputs()[0], output()),
-			event.FullSyncFor(xform.Outputs()[0]),
+			event.AddFor(xform.Outputs().All()[0], output()),
+			event.FullSyncFor(xform.Outputs().All()[0]),
 		))
 
 		acc.Clear()
@@ -231,12 +227,12 @@ func TestAuthPolicy_StartStopStartStop(t *testing.T) {
 
 		xform.Start()
 
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
-		src.Handlers.Handle(event.AddFor(xform.Inputs()[0], input()))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
+		src.Handlers.Handle(event.AddFor(xform.Inputs().All()[0], input()))
 
 		g.Eventually(acc.Events).Should(ConsistOf(
-			event.AddFor(xform.Outputs()[0], output()),
-			event.FullSyncFor(xform.Outputs()[0]),
+			event.AddFor(xform.Outputs().All()[0], output()),
+			event.FullSyncFor(xform.Outputs().All()[0]),
 		))
 
 		acc.Clear()
@@ -244,12 +240,12 @@ func TestAuthPolicy_StartStopStartStop(t *testing.T) {
 		g.Consistently(acc.Events).Should(BeEmpty())
 
 		xform.Start()
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
-		src.Handlers.Handle(event.AddFor(xform.Inputs()[0], input()))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
+		src.Handlers.Handle(event.AddFor(xform.Inputs().All()[0], input()))
 
 		g.Eventually(acc.Events).Should(ConsistOf(
-			event.AddFor(xform.Outputs()[0], output()),
-			event.FullSyncFor(xform.Outputs()[0]),
+			event.AddFor(xform.Outputs().All()[0], output()),
+			event.FullSyncFor(xform.Outputs().All()[0]),
 		))
 
 		acc.Clear()
@@ -266,8 +262,8 @@ func TestAuthPolicy_InvalidEvent(t *testing.T) {
 
 		xform.Start()
 
-		src.Handlers.Handle(event.FullSyncFor(xform.Outputs()[0])) // Send output events
-		src.Handlers.Handle(event.AddFor(xform.Outputs()[0], input()))
+		src.Handlers.Handle(event.FullSyncFor(xform.Outputs().All()[0])) // Send output events
+		src.Handlers.Handle(event.AddFor(xform.Outputs().All()[0], input()))
 
 		g.Consistently(acc.Events).Should(BeEmpty())
 		xform.Stop()
@@ -286,11 +282,11 @@ func TestAuthPolicy_InvalidProto(t *testing.T) {
 		acc.Clear()
 		xform.Start()
 
-		src.Handlers.Handle(event.AddFor(xform.Inputs()[0], r))
-		src.Handlers.Handle(event.FullSyncFor(xform.Inputs()[0]))
+		src.Handlers.Handle(event.AddFor(xform.Inputs().All()[0], r))
+		src.Handlers.Handle(event.FullSyncFor(xform.Inputs().All()[0]))
 
 		g.Eventually(acc.Events).Should(ConsistOf( // No add event
-			event.FullSyncFor(xform.Outputs()[0]),
+			event.FullSyncFor(xform.Outputs().All()[0]),
 		))
 		xform.Stop()
 	}
@@ -303,7 +299,7 @@ func setup(g *GomegaWithT, i int) (event.Transformer, *fixtures.Source, *fixture
 	src := &fixtures.Source{}
 	acc := &fixtures.Accumulator{}
 	src.Dispatch(xforms[i])
-	xforms[i].DispatchFor(xforms[i].Outputs()[0], acc)
+	xforms[i].DispatchFor(xforms[i].Outputs().All()[0], acc)
 
 	return xforms[i], src, acc
 }

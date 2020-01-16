@@ -23,6 +23,9 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+
 	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -33,8 +36,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/kube"
@@ -69,6 +72,7 @@ var (
 	msgOutputFormat string
 	meshCfgFile     string
 	allNamespaces   bool
+	suppress        []string
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -102,6 +106,13 @@ istioctl analyze a.yaml b.yaml
 # Analyze yaml files without connecting to a live cluster
 istioctl analyze --use-kube=false a.yaml b.yaml
 
+# Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
+istioctl analyze -S "IST0103=Pod mypod.testing"
+
+# Analyze the current live cluster and suppress PodMissingProxy for all pods in namespace 'testing',
+# and suppress MisplacedAnnotation on deployment foobar in namespace default.
+istioctl analyze -S "IST0103=Pod *.testing" -S "IST0107=Deployment foobar.default"
+
 # List available analyzers
 istioctl analyze -L
 `,
@@ -129,7 +140,42 @@ istioctl analyze -L
 			// for file resources that don't have one specified.
 			selectedNamespace := handlers.HandleNamespace(namespace, defaultNamespace)
 
-			var k cfgKube.Interfaces
+			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
+			if allNamespaces {
+				selectedNamespace = ""
+			}
+
+			sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
+				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true)
+
+			// Check for suppressions and add them to our SourceAnalyzer
+			var suppressions []snapshotter.AnalysisSuppression
+			for _, s := range suppress {
+				parts := strings.Split(s, "=")
+				if len(parts) != 2 {
+					return fmt.Errorf("%s is not a valid suppression value. See istioctl analyze --help", s)
+				}
+				// Check to see if the supplied code is valid. If not, emit a
+				// warning but continue.
+				codeIsValid := false
+				for _, at := range msg.All() {
+					if at.Code() == parts[0] {
+						codeIsValid = true
+						break
+					}
+				}
+
+				if !codeIsValid {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Supplied message code '%s' is an unknown message code and will not have any effect.\n", parts[0])
+				}
+				suppressions = append(suppressions, snapshotter.AnalysisSuppression{
+					Code:         parts[0],
+					ResourceName: parts[1],
+				})
+			}
+			sa.SetSuppressions(suppressions)
+
+			// If we're using kube, use that as a base source.
 			if useKube {
 				// Set up the kube client
 				config := kube.BuildClientCmd(kubeconfig, configContext)
@@ -137,20 +183,22 @@ istioctl analyze -L
 				if err != nil {
 					return err
 				}
-				k = cfgKube.NewInterfaces(restConfig)
-			}
-
-			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
-			if allNamespaces {
-				selectedNamespace = ""
-			}
-
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(),
-				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true)
-
-			// If we're using kube, use that as a base source.
-			if k != nil {
+				k := cfgKube.NewInterfaces(restConfig)
 				sa.AddRunningKubeSource(k)
+			}
+
+			// If we explicitly specify mesh config, use it.
+			// This takes precedence over default mesh config or mesh config from a running Kube instance.
+			if meshCfgFile != "" {
+				_ = sa.AddFileKubeMeshConfig(meshCfgFile)
+			}
+
+			// If we're not using kube (files only), add defaults for some resources we expect to be provided by Istio
+			if !useKube {
+				err := sa.AddDefaultResources()
+				if err != nil {
+					return err
+				}
 			}
 
 			// If files are provided, treat them (collectively) as a source.
@@ -160,12 +208,6 @@ istioctl analyze -L
 					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) adding files: %v", err)
 					parseErrors++
 				}
-			}
-
-			// If we explicitly specify mesh config, use it.
-			// This takes precedence over default mesh config or mesh config from a running Kube instance.
-			if meshCfgFile != "" {
-				_ = sa.AddFileKubeMeshConfigSource(meshCfgFile)
 			}
 
 			// Do the analysis
@@ -272,6 +314,10 @@ istioctl analyze -L
 		"Overrides the mesh config values to use for analysis.")
 	analysisCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false,
 		"Analyze all namespaces")
+	analysisCmd.PersistentFlags().StringArrayVarP(&suppress, "suppress", "S", []string{},
+		"Suppress reporting a message code on a specific resource. Values are supplied in the form "+
+			`<code>=<resource> (e.g. '--suppress "IST0102=DestinationRule primary-dr.default"'). Can be repeated. `+
+			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
 	return analysisCmd
 }
 
@@ -320,8 +366,8 @@ func colorSuffix() string {
 
 func renderMessage(m diag.Message) string {
 	origin := ""
-	if m.Origin != nil {
-		origin = " (" + m.Origin.FriendlyName() + ")"
+	if m.Resource != nil {
+		origin = " (" + m.Resource.Origin.FriendlyName() + ")"
 	}
 	return fmt.Sprintf(
 		"%s%v%s [%v]%s %s", colorPrefix(m), m.Type.Level(), colorSuffix(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))

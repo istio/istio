@@ -226,6 +226,14 @@ var (
 			"if headless services have a large number of pods.",
 	)
 
+	EnableEDSForHeadless = env.RegisterBoolVar(
+		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
+		false,
+		"If enabled, for headless service in Kubernetes, pilot will send endpoints over EDS, "+
+			"allowing the sidecar to load balance among pods in the headless service. This feature "+
+			"should be enabled if applications access all services explicitly via a HTTP proxy port in the sidecar.",
+	)
+
 	BlockHTTPonHTTPSPort = env.RegisterBoolVar(
 		"PILOT_BLOCK_HTTP_ON_443",
 		true,
@@ -277,11 +285,10 @@ var (
 	// The 15010 port is used with plain text, 15011 with Spiffee certs - we need a different port for DNS cert.
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
-)
 
-var (
-	// TODO: define all other default ports here, add docs
-
-	// DefaultPortHTTPProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
-	DefaultPortHTTPProxy = 15002
+	// TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
+	// with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
+	// we may change the default value of this option as "citadel".
+	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "kubernetes",
+		"the provider of Pilot DNS certificate.")
 )
