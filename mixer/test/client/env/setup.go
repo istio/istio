@@ -47,6 +47,7 @@ type TestSetup struct {
 	noBackend         bool
 	disableHotRestart bool
 	checkDict         bool
+	silentlyStopProxy bool
 
 	FiltersBeforeMixer string
 
@@ -158,6 +159,11 @@ func (s *TestSetup) SetNoMixer(no bool) {
 	s.noMixer = no
 }
 
+// SilentlyStopProxy ignores errors when stop proxy
+func (s *TestSetup) SilentlyStopProxy(silent bool) {
+	s.silentlyStopProxy = silent
+}
+
 // SetFiltersBeforeMixer sets the configurations of the filters before the Mixer filter
 func (s *TestSetup) SetFiltersBeforeMixer(filters string) {
 	s.FiltersBeforeMixer = filters
@@ -228,7 +234,7 @@ func (s *TestSetup) SetUp() error {
 
 // TearDown shutdown the servers.
 func (s *TestSetup) TearDown() {
-	if err := stopEnvoy(s.envoy); err != nil {
+	if err := stopEnvoy(s.envoy); err != nil && !s.silentlyStopProxy {
 		s.t.Errorf("error quitting envoy: %v", err)
 	}
 	removeEnvoySharedMemory(s.envoy)

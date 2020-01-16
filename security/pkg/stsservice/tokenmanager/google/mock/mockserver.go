@@ -86,6 +86,8 @@ type AuthorizationServer struct {
 	enableDynamicAccessToken    bool // whether generates different token each time
 	numGetFederatedTokenCalls   int
 	numGetAccessTokenCalls      int
+	blockFederatedTokenRequest  bool
+	blockAccessTokenRequest     bool
 }
 
 type Config struct {
@@ -124,9 +126,11 @@ func StartNewServer(t *testing.T, conf Config) (*AuthorizationServer, error) {
 			Name:  fmt.Sprintf("projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum),
 			Scope: []string{"https://www.googleapis.com/auth/cloud-platform"},
 		},
-		accessTokenLife:          3600,
-		accessToken:              token,
-		enableDynamicAccessToken: false,
+		accessTokenLife:            3600,
+		accessToken:                token,
+		enableDynamicAccessToken:   false,
+		blockFederatedTokenRequest: false,
+		blockAccessTokenRequest:    false,
 	}
 	return server, server.Start(conf.Port)
 }
@@ -135,6 +139,18 @@ func (ms *AuthorizationServer) SetGenFedTokenError(err error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 	ms.generateFederatedTokenError = err
+}
+
+func (ms *AuthorizationServer) BlockFederatedTokenRequest(block bool) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.blockFederatedTokenRequest = block
+}
+
+func (ms *AuthorizationServer) BlockAccessTokenRequest(block bool) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.blockAccessTokenRequest = block
 }
 
 func (ms *AuthorizationServer) SetGenAcsTokenError(err error) {
@@ -232,7 +248,12 @@ func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *htt
 	ms.numGetFederatedTokenCalls++
 	want := ms.expectedFederatedTokenRequest
 	fakeErr := ms.generateFederatedTokenError
+	blockRequest := ms.blockFederatedTokenRequest
 	ms.mutex.Unlock()
+
+	if blockRequest {
+		time.Sleep(1 * time.Hour)
+	}
 
 	if req.Header.Get("Content-Type") != "application/json" {
 		ms.t.Errorf("Content-Type header does not match\nwant %s\n got %s",
@@ -276,7 +297,12 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 	if ms.enableDynamicAccessToken {
 		token = token + time.Now().String()
 	}
+	blockRequest := ms.blockAccessTokenRequest
 	ms.mutex.Unlock()
+
+	if blockRequest {
+		time.Sleep(1 * time.Hour)
+	}
 
 	if req.Header.Get("Authorization") != "" {
 		auth := req.Header.Get("Authorization")
