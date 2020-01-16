@@ -207,6 +207,7 @@ type Params struct {
 	Privileged                   bool                   `json:"privileged"`
 	SDSEnabled                   bool                   `json:"sdsEnabled"`
 	PodDNSSearchNamespaces       []string               `json:"podDNSSearchNamespaces"`
+	EnableCni                    bool                   `json:"enablecni"`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
@@ -243,6 +244,7 @@ func (p *Params) intoHelmValues() map[string]string {
 		"global.proxy.excludeInboundPorts":           p.ExcludeInboundPorts,
 		"sidecarInjectorWebhook.rewriteAppHTTPProbe": strconv.FormatBool(p.RewriteAppHTTPProbe),
 		"global.podDNSSearchNamespaces":              getHelmValue(p.PodDNSSearchNamespaces),
+		"istio_cni.enabled":                          strconv.FormatBool(p.EnableCni),
 	}
 	return vals
 }

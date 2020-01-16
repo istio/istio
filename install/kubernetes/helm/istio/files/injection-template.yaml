@@ -1,9 +1,11 @@
 rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
-{{- if or (not .Values.istio_cni.enabled) (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) }}
 initContainers:
 {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-{{- if not .Values.istio_cni.enabled }}
+{{ if .Values.istio_cni.enabled -}}
+- name: istio-validation
+{{ else -}}
 - name: istio-init
+{{ end -}}
 {{- if contains "/" .Values.global.proxy_init.image }}
   image: "{{ .Values.global.proxy_init.image }}"
 {{- else }}
@@ -27,7 +29,7 @@ initContainers:
   - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
   - "-d"
   - "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
-  {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") -}}
+  {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
   - "-o"
   - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
   {{ end -}}
@@ -35,7 +37,11 @@ initContainers:
   - "-k"
   - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
   {{ end -}}
-  imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+  {{ if .Values.istio_cni.enabled -}}
+  - "--run-validation"
+  - "--skip-rule-apply"
+  {{ end -}}
+  imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
 {{- if .Values.global.proxy.init.resources }}
   resources:
     {{ toYaml .Values.global.proxy.init.resources | indent 4 }}
@@ -44,19 +50,26 @@ initContainers:
 {{- end }}
   securityContext:
     allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+    privileged: {{ .Values.global.proxy.privileged }}
     capabilities:
+  {{- if not .Values.istio_cni.enabled }}
       add:
       - NET_ADMIN
       - NET_RAW
+  {{- end }}
       drop:
       - ALL
-    privileged: {{ .Values.global.proxy.privileged }}
     readOnlyRootFilesystem: false
+  {{- if not .Values.istio_cni.enabled }}
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
+  {{- else }}
+    runAsGroup: 1337
+    runAsUser: 1337
+    runAsNonRoot: true
+  {{- end }}
   restartPolicy: Always
-{{- end }}
 {{  end -}}
 {{- if eq (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
 - name: enable-core-dump
@@ -81,7 +94,6 @@ initContainers:
     runAsNonRoot: false
     runAsUser: 0
 {{ end }}
-{{- end }}
 containers:
 - name: istio-proxy
 {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
