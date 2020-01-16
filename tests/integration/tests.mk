@@ -42,8 +42,8 @@ endif
 # Useful to override individual targets, as right now the makefile doesn't easily allow this
 _INTEGRATION_TEST_INSTALL_TYPE =
 ifneq ($(TEST_USE_OPERATOR),)
-    _INTEGRATION_TEST_INSTALL_TYPE = --istio.test.kube.operator
 endif
+_INTEGRATION_TEST_INSTALL_TYPE = --istio.test.kube.operator
 
 # $(INTEGRATION_TEST_KUBECONFIG) specifies the kube config file to be used. If not specified, then
 # ~/.kube/config is used.
