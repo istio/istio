@@ -21,8 +21,8 @@ import (
 )
 
 type profileDumpArgs struct {
-	// inFilename is the path to the input IstioOperator CR.
-	inFilename string
+	// inFilename is an array of paths to the input IstioOperator CR files.
+	inFilename []string
 	// If set, display the translated Helm values rather than IstioOperatorSpec.
 	helmValues bool
 	// configPath sets the root node for the subtree to display the config for.
@@ -30,7 +30,7 @@ type profileDumpArgs struct {
 }
 
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
-	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.configPath, "config-path", "p", "",
 		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree")
 	cmd.PersistentFlags().BoolVarP(&args.helmValues, "helm-values", "", false,
@@ -58,7 +58,7 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *Logger) error {
 	initLogsOrExit(rootArgs)
 
-	if len(args) == 1 && pdArgs.inFilename != "" {
+	if len(args) == 1 && pdArgs.inFilename != nil {
 		return fmt.Errorf("cannot specify both profile name and filename flag")
 	}
 

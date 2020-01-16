@@ -16,7 +16,6 @@ package mesh
 
 import (
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
@@ -33,7 +32,7 @@ import (
 )
 
 // getIOPS creates an IstioOperatorSpec from the following sources, overlaid sequentially:
-// 1. Compiled in base, or optionally base from path pointed to in IOP stored at inFilename.
+// 1. Compiled in base, or optionally base from paths pointing to one or multiple ICP files at inFilename.
 // 2. Profile overlay, if non-default overlay is selected. This also comes either from compiled in or path specified in IOP contained in inFilename.
 // 3. User overlay stored in inFilename.
 // 4. setOverlayYAML, which comes from --set flag passed to manifest command.
@@ -42,7 +41,7 @@ import (
 // ones that are compiled in. If it does, the starting point will be the base and profile YAMLs at that file path.
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
-func genIOPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force bool, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
 	overlayYAML := ""
 	var overlayIOPS *v1alpha1.IstioOperatorSpec
 	set := make(map[string]interface{})
@@ -50,12 +49,12 @@ func genIOPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Log
 	if err != nil {
 		return "", nil, fmt.Errorf("could not Unmarshal overlay Set%s: %s", setOverlayYAML, err)
 	}
-	if inFilename != "" {
-		b, err := ioutil.ReadFile(inFilename)
+	if inFilename != nil {
+		b, err := ReadLayeredYAMLs(inFilename)
 		if err != nil {
 			return "", nil, fmt.Errorf("could not read values from file %s: %s", inFilename, err)
 		}
-		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(string(b), force)
+		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(b, force)
 		if err != nil {
 			return "", nil, err
 		}
@@ -141,7 +140,7 @@ func genIOPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Log
 	return finalYAML, finalIOPS, nil
 }
 
-func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string, force bool, l *Logger) (string, error) {
+func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML, configPath string, force bool, l *Logger) (string, error) {
 	finalYAML, finalIOPS, err := genIOPS(inFilename, profile, setOverlayYAML, "", force, l)
 	if err != nil {
 		return "", err

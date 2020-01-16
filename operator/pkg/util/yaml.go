@@ -151,6 +151,9 @@ func OverlayYAML(base, overlay string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("yamlToJSON error in overlay: %s\n%s", err, oj)
 	}
+	if base == "" {
+		bj = []byte("{}")
+	}
 	if overlay == "" {
 		oj = []byte("{}")
 	}

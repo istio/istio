@@ -1,0 +1,7 @@
+spec:
+  ka: va_override
+  kc:
+    kca: "vca_override"
+  kd:
+    kda: "vda"
+    kdb: true
