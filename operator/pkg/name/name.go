@@ -79,6 +79,21 @@ var (
 	}
 	allComponentNamesMap        = make(map[ComponentName]bool)
 	deprecatedComponentNamesMap = make(map[ComponentName]bool)
+
+	// ComponentNameToHelmComponentPath defines mapping from component name to helm component root path.
+	// TODO: merge this with the componentMaps defined in translateConfig
+	ComponentNameToHelmComponentPath = map[ComponentName]string{
+		PilotComponentName:           "pilot",
+		GalleyComponentName:          "galley",
+		SidecarInjectorComponentName: "sidecarInjectorWebhook",
+		PolicyComponentName:          "mixer.policy",
+		TelemetryComponentName:       "mixer.telemetry",
+		CitadelComponentName:         "security",
+		NodeAgentComponentName:       "nodeagent",
+		IngressComponentName:         "gateways.istio-ingressgateway",
+		EgressComponentName:          "gateways.istio-egressgateway",
+		CNIComponentName:             "cni",
+	}
 )
 
 func init() {
@@ -115,7 +130,20 @@ func (cn ComponentName) IsAddon() bool {
 
 // IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.
 // IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.
+// TODO: remove extra validations when comfort level is high enough.
 func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (bool, error) {
+	// for addon components, enablement is defined in values part.
+	if componentName == AddonComponentName {
+		enabled, _, err := IsComponentEnabledFromValue(string(componentName), controlPlaneSpec.Values)
+		return enabled, err
+	}
+	// for Istio components, check whether override path exist in values part first then ISCP.
+	valuePath := ComponentNameToHelmComponentPath[componentName]
+	enabled, pathExist, err := IsComponentEnabledFromValue(valuePath, controlPlaneSpec.Values)
+	// only return value when path exists
+	if err == nil && pathExist {
+		return enabled, nil
+	}
 	if componentName == IngressComponentName {
 		return len(controlPlaneSpec.Components.IngressGateways) != 0, nil
 	}
@@ -133,7 +161,7 @@ func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1a
 	}
 	componentNode, ok := componentNodeI.(*v1alpha1.BoolValueForPB)
 	if !ok {
-		return false, fmt.Errorf("component %s enabled has bad type %T, expect *v1alpha2.BoolValueForPB", componentName, componentNodeI)
+		return false, fmt.Errorf("component %s enabled has bad type %T, expect *v1alpha1.BoolValueForPB", componentName, componentNodeI)
 	}
 	if componentNode == nil {
 		return false, nil
@@ -143,25 +171,28 @@ func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1a
 
 // IsComponentEnabledFromValue get whether component is enabled in helm value.yaml tree.
 // valuePath points to component path in the values tree.
-func IsComponentEnabledFromValue(valuePath string, valueSpec map[string]interface{}) (bool, error) {
+func IsComponentEnabledFromValue(valuePath string, valueSpec map[string]interface{}) (enabled bool, pathExist bool, err error) {
 	enabledPath := valuePath + ".enabled"
 	enableNodeI, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(enabledPath))
 	if err != nil {
-		return false, fmt.Errorf("error finding component enablement path: %s in helm value.yaml tree", enabledPath)
+		return false, false, fmt.Errorf("error finding component enablement path: %s in helm value.yaml tree", enabledPath)
 	}
 	if !found {
 		// Some components do not specify enablement should be treated as enabled if the root node in the component subtree exists.
 		_, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
-		if found && err == nil {
-			return true, nil
+		if err != nil {
+			return false, false, err
 		}
-		return false, nil
+		if found {
+			return true, false, nil
+		}
+		return false, false, nil
 	}
 	enableNode, ok := enableNodeI.(bool)
 	if !ok {
-		return false, fmt.Errorf("node at valuePath %s has bad type %T, expect bool", enabledPath, enableNodeI)
+		return false, true, fmt.Errorf("node at valuePath %s has bad type %T, expect bool", enabledPath, enableNodeI)
 	}
-	return enableNode, nil
+	return enableNode, true, nil
 }
 
 // NamespaceFromValue gets the namespace value in helm value.yaml tree.
