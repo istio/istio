@@ -1,4 +1,18 @@
 {{ define "validatingwebhookconfiguration.yaml.tpl" }}
+{{- if .Values.global.istiod.enabled }}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-galley
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: galley
+    release: {{ .Release.Name }}
+    istio: galley
+  annotations:
+    "deprecation.istio.io": "This file may need to be be manually deleted after Istiod is installed"
+webhooks:
+{{- else }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -67,5 +81,6 @@ webhooks:
         - templates
     failurePolicy: Fail
     sideEffects: None
+{{- end }}
 {{- end }}
 ---

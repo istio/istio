@@ -36,8 +36,8 @@ import (
 )
 
 var (
-	webhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_NAME", "",
-		"Name of webhook config to patch, if istioctl is not used.")
+	injectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
+		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
 )
 
 const (
@@ -81,7 +81,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 	// Patch cert if a webhook config name is provided.
 	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 	// operator or CI/CD
-	if webhookConfigName.Get() != "" {
+	if injectionWebhookConfigName.Get() != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			if err := patchCertLoop(s.kubeClient, stop); err != nil {
 				return multierror.Prefix(err, "failed to start patch cert loop")
@@ -114,7 +114,7 @@ func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 
 	var retry bool
 	if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-		webhookConfigName.Get(), webhookName, caCertPem); err != nil {
+		injectionWebhookConfigName.Get(), webhookName, caCertPem); err != nil {
 		log.Warna("Error patching Webhook ", err)
 		retry = true
 	}
@@ -125,7 +125,7 @@ func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 		client.AdmissionregistrationV1beta1().RESTClient(),
 		"mutatingwebhookconfigurations",
 		"",
-		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", webhookConfigName.Get())))
+		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", injectionWebhookConfigName.Get())))
 
 	_, controller := cache.NewInformer(
 		watchlist,
@@ -159,14 +159,14 @@ func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 		for {
 			select {
 			case <-delayedRetryC:
-				if retry := doPatch(client, webhookConfigName.Get(), webhookName, caCertPem); retry {
+				if retry := doPatch(client, injectionWebhookConfigName.Get(), webhookName, caCertPem); retry {
 					delayedRetryC = time.After(delayedRetryTime)
 				} else {
 					log.Infof("Retried patch succeeded")
 					delayedRetryC = nil
 				}
 			case <-shouldPatch:
-				if retry := doPatch(client, webhookConfigName.Get(), webhookName, caCertPem); retry {
+				if retry := doPatch(client, injectionWebhookConfigName.Get(), webhookName, caCertPem); retry {
 					if delayedRetryC == nil {
 						delayedRetryC = time.After(delayedRetryTime)
 					}

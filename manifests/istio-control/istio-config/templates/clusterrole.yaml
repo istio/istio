@@ -23,7 +23,7 @@ rules:
     "security.istio.io"]
     resources: ["*/status"]
     verbs: ["update"]
-{{- if not .Values.global.operatorManageWebhooks }}
+{{- if not (or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled) }}
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
     verbs: ["*"]

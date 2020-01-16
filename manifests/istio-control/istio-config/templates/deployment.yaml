@@ -63,7 +63,7 @@ spec:
   {{- else }}
           - --enable-validation=false
   {{- end }}
-  {{- if .Values.global.operatorManageWebhooks }}
+  {{- if or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled  }}
           - --enable-reconcileWebhookConfiguration=false
   {{- else }}
           - --enable-reconcileWebhookConfiguration=true

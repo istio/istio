@@ -2,12 +2,12 @@
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istio-galley # unchanged for now
+  name: istiod-{{ .Release.Namespace }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: galley
+    app: istiod
     release: {{ .Release.Name }}
-    istio: galley
+    istio: istiod
 webhooks:
   - name: validation.istio.io
     clientConfig:
