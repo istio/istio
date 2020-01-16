@@ -29,7 +29,7 @@ import (
 func TestTokenFetchTimeoutOne(t *testing.T) {
 	// Enable this test when gRPC fix is picked by Istio Proxy
 	// https://github.com/grpc/grpc/pull/21641
-	//t.Skip("https://github.com/istio/istio/issues/20133")
+	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
 	setup := stsTest.SetUpTest(t, cb, testID.STSTimeoutTest)
@@ -62,7 +62,7 @@ func TestTokenFetchTimeoutOne(t *testing.T) {
 func TestTokenFetchTimeoutTwo(t *testing.T) {
 	// Enable this test when gRPC fix is picked by Istio Proxy
 	// https://github.com/grpc/grpc/pull/21641
-	//t.Skip("https://github.com/istio/istio/issues/20133")
+	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
 	setup := stsTest.SetUpTest(t, cb, testID.STSTimeoutTest)
