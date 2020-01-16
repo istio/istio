@@ -108,7 +108,7 @@ func buildQuery() (sourceQuery, destinationQuery string) {
 // should be covered by integration test in proxy repo.
 func TestStatsFilter(t *testing.T) {
 	if !usingOperator {
-		// TODO: remove this condition when operator is used in all tests.
+		// TODO(bianpengyuan): remove this condition when operator is used in all tests.
 		t.Log("Stats filter test only runs with operator.")
 		return
 	}
