@@ -9,7 +9,7 @@ global:
   # Istio control plane namespace: This specifies where the Istio control
   # plane was installed earlier.  Modify this if you installed the control
   # plane in a different namespace than istio-system.
-  istioNamespace: istio-system
+  istionamespace: istio-system
 
   proxy:
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
