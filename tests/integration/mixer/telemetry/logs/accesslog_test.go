@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	util "istio.io/istio/tests/integration/mixer"
 )
@@ -71,7 +72,13 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_logs", m).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+components:
+  telemetry:
+    enabled: true`
+		})).
 		Setup(testsetup).
 		Run()
 }
