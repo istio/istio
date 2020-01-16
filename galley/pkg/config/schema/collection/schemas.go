@@ -120,22 +120,11 @@ func (s Schemas) FindByGroupVersionKind(gvk resource.GroupVersionKind) (Schema, 
 	return nil, false
 }
 
-// FindByGroupAndKind searches and returns the first schema with the given group/kind
-func (s Schemas) FindByGroupAndKind(group, kind string) (Schema, bool) {
-	for _, rs := range s.byAddOrder {
-		if rs.Resource().Group() == group && strings.EqualFold(rs.Resource().Kind(), kind) {
-			return rs, true
-		}
-	}
-
-	return nil, false
-}
-
-// MustFind calls FindByGroupAndKind and panics if not found.
-func (s Schemas) MustFindByGroupAndKind(group, kind string) Schema {
-	r, found := s.FindByGroupAndKind(group, kind)
+// MustFind calls FindByGroupVersionKind and panics if not found.
+func (s Schemas) MustFindByGroupVersionKind(gvk resource.GroupVersionKind) Schema {
+	r, found := s.FindByGroupVersionKind(gvk)
 	if !found {
-		panic(fmt.Sprintf("Schemas.MustFindByGroupAndKind: unable to find %s/%s", group, kind))
+		panic(fmt.Sprintf("Schemas.MustFindByGroupVersionKind: unable to find %s", gvk))
 	}
 	return r
 }

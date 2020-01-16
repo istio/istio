@@ -26,6 +26,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
@@ -151,7 +153,8 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 			continue
 		}
 
-		s, exists := collections.Pilot.FindByGroupVersionKind(obj.IstioGroupVersionKind())
+		gvk := obj.GroupVersionKind()
+		s, exists := collections.Pilot.FindByGroupVersionKind(resource.FromKubernetesGVK(&gvk))
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)

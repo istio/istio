@@ -20,6 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/validation"
@@ -258,6 +259,15 @@ func (s *schemaImpl) Equal(o Schema) bool {
 		s.Version() == o.Version() &&
 		s.Proto() == o.Proto() &&
 		s.ProtoPackage() == o.ProtoPackage()
+}
+
+// FromKubernetesGVK converts a Kubernetes GVK to an Istio GVK
+func FromKubernetesGVK(in *schema.GroupVersionKind) GroupVersionKind {
+	return GroupVersionKind{
+		Group:   in.Group,
+		Version: in.Version,
+		Kind:    in.Kind,
+	}
 }
 
 // getProtoMessageType returns the Go lang type of the proto with the specified name.

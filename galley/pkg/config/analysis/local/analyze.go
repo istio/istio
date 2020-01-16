@@ -225,6 +225,7 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 
 		if err = src.ApplyContent(string(i), string(by)); err != nil {
 			errs = multierror.Append(errs, err)
+			src.ApplyContent(string(i), string(by))
 		}
 	}
 
