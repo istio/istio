@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -204,7 +203,6 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	env := ctx.Environment().(*kube.Environment)
 	builder, err := echoboot.NewBuilder(ctx)
 	if err != nil {
 		return
