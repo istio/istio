@@ -9368,9 +9368,6 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
-    - --templateFile=/etc/istio/custom-bootstrap/custom_bootstrap.json
-  {{- end }}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -11799,9 +11796,6 @@ template: |
     - --log_as_json
   {{- end }}
     - --controlPlaneBootstrap=false
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
-    - --templateFile=/etc/istio/custom-bootstrap/custom_bootstrap.json
-  {{- end }}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
