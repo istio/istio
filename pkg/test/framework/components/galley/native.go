@@ -279,8 +279,9 @@ func (c *nativeComponent) restart() error {
 	a.MonitoringPort = 0
 	a.ExcludedResourceKinds = nil
 	a.EnableServiceDiscovery = true
-	a.ValidationArgs.EnableValidation = false
-	a.ValidationArgs.EnableReconcileWebhookConfiguration = false
+	a.EnableValidationServer = false
+	a.EnableValidationController = false
+	a.ValidationWebhookControllerArgs.UnregisterValidationWebhook = false
 
 	// Bind to an arbitrary port.
 	a.APIAddress = "tcp://0.0.0.0:0"

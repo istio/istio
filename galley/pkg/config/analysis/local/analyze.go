@@ -15,11 +15,11 @@
 package local
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -57,7 +57,8 @@ const (
 
 // Pseudo-constants, since golang doesn't support a true const slice/array
 var (
-	requiredPerms = []string{"list", "watch"}
+	requiredPerms     = []string{"list", "watch"}
+	analysisSnapshots = []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry}
 )
 
 // Patch table
@@ -74,6 +75,9 @@ type SourceAnalyzer struct {
 	namespace            resource.Namespace
 	istioNamespace       resource.Namespace
 
+	// List of code and resource suppressions to exclude messages on
+	suppressions []snapshotter.AnalysisSuppression
+
 	// Mesh config for this analyzer. This can come from multiple sources, and the last added version will take precedence.
 	meshCfg *v1alpha1.MeshConfig
 
@@ -83,9 +87,6 @@ type SourceAnalyzer struct {
 
 	// Hook function called when a collection is used in analysis
 	collectionReporter snapshotter.CollectionReporterFn
-
-	// How long to wait for snapshot + analysis to complete before aborting
-	timeout time.Duration
 }
 
 // AnalysisResult represents the returnable results of an analysis execution
@@ -98,7 +99,7 @@ type AnalysisResult struct {
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr snapshotter.CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *SourceAnalyzer {
+	cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
 
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
@@ -125,7 +126,6 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
-		timeout:              timeout,
 	}
 
 	return sa
@@ -156,7 +156,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	}
 
 	var colsInSnapshots collection.Names
-	for _, c := range sa.m.AllCollectionsInSnapshots([]string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry}) {
+	for _, c := range sa.m.AllCollectionsInSnapshots(analysisSnapshots) {
 		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
 	}
 
@@ -164,18 +164,16 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 
-	updater := &snapshotter.InMemoryStatusUpdater{
-		WaitTimeout: sa.timeout,
-	}
-
+	updater := &snapshotter.InMemoryStatusUpdater{}
 	distributorSettings := snapshotter.AnalyzingDistributorSettings{
 		StatusUpdater:      updater,
 		Analyzer:           sa.analyzer,
 		Distributor:        snapshotter.NewInMemoryDistributor(),
-		AnalysisSnapshots:  []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry},
+		AnalysisSnapshots:  analysisSnapshots,
 		TriggerSnapshot:    snapshots.LocalAnalysis,
 		CollectionReporter: sa.collectionReporter,
 		AnalysisNamespaces: namespaces,
+		Suppressions:       sa.suppressions,
 	}
 	distributor := snapshotter.NewAnalyzingDistributor(distributorSettings)
 
@@ -185,23 +183,29 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		Source:             newPrecedenceSource(sa.sources),
 		TransformProviders: sa.transformerProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry},
+		EnabledSnapshots:   analysisSnapshots,
 	}
 	rt, err := processor.Initialize(processorSettings)
 	if err != nil {
 		return result, err
 	}
-
 	rt.Start()
 	defer rt.Stop()
 
 	scope.Analysis.Debugf("Waiting for analysis messages to be available...")
-	if err := updater.WaitForReport(cancel); err != nil {
-		return result, fmt.Errorf("failed to get analysis result: %v", err)
+	if updater.WaitForReport(cancel) {
+		result.Messages = updater.Get()
+		return result, nil
 	}
 
-	result.Messages = updater.Get()
-	return result, nil
+	return result, errors.New("cancelled")
+}
+
+// SetSuppressions will set the list of suppressions for the analyzer. Any
+// resource that matches the provided suppression will not be included in the
+// final message output.
+func (sa *SourceAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSuppression) {
+	sa.suppressions = suppressions
 }
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer

@@ -26,13 +26,17 @@ import (
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
 var (
+	sseCollection = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String()
+	sseKind       = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Kind()
+	sseProto      = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Proto()
+
 	gateway = &networking.Gateway{
 		Servers: []*networking.Server{
 			{
@@ -118,23 +122,6 @@ var (
 		},
 	}
 
-	syntheticServiceEntry2 = &networking.ServiceEntry{
-		Hosts: []string{"example3.com"},
-		Ports: []*networking.Port{
-			{Number: 80, Name: "http-port2", Protocol: "http"},
-			{Number: 8080, Name: "http-alt-port2", Protocol: "http"},
-		},
-		Location:   networking.ServiceEntry_MESH_EXTERNAL,
-		Resolution: networking.ServiceEntry_DNS,
-		Endpoints: []*networking.ServiceEntry_Endpoint{
-			{
-				Address: "2.2.2.2",
-				Ports:   map[string]uint32{"http-port2": 7082, "http-alt-port2": 18082},
-				Labels:  map[string]string{"foo3": "bar3"},
-			},
-		},
-	}
-
 	testControllerOptions = &serviceentry.Options{
 		DomainSuffix: "cluster.local",
 		ConfigLedger: &model.DisabledLedger{},
@@ -147,12 +134,12 @@ func TestIncrementalControllerHasSynced(t *testing.T) {
 	g.Expect(controller.HasSynced()).To(gomega.BeFalse())
 
 	for i, se := range []*networking.ServiceEntry{syntheticServiceEntry0, syntheticServiceEntry1} {
-		message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, se)
+		message := convertToResource(g, sseProto, se)
 
 		change := convertToChange([]proto.Message{message},
 			[]string{fmt.Sprintf("random-namespace/test-synthetic-se-%d", i)},
-			setCollection(schemas.SyntheticServiceEntry.Collection),
-			setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+			setCollection(sseCollection),
+			setTypeURL(sseProto))
 
 		err := controller.Apply(change)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -164,9 +151,9 @@ func TestIncrementalControllerConfigDescriptor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	descriptor := controller.ConfigDescriptor()
-	g.Expect(descriptor.Types()).To(gomega.HaveLen(1))
-	g.Expect(descriptor.Types()).To(gomega.ContainElement(schemas.SyntheticServiceEntry.Type))
+	schemas := controller.Schemas()
+	g.Expect(schemas.Kinds()).To(gomega.HaveLen(1))
+	g.Expect(schemas.Kinds()).To(gomega.ContainElement(sseKind))
 }
 
 func TestIncrementalControllerListInvalidType(t *testing.T) {
@@ -183,7 +170,7 @@ func TestIncrementalControllerListCorrectTypeNoData(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	c, err := controller.List(schemas.SyntheticServiceEntry.Type, "some-phony-name-space")
+	c, err := controller.List(sseKind, "some-phony-name-space")
 	g.Expect(c).To(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 }
@@ -197,25 +184,25 @@ func TestIncrementalControllerListAllNameSpace(t *testing.T) {
 	syntheticServiceEntry2.Endpoints = serviceEntry.Endpoints
 
 	messages := convertToResources(g,
-		schemas.SyntheticServiceEntry.MessageName,
+		sseProto,
 		[]proto.Message{syntheticServiceEntry0, syntheticServiceEntry1, syntheticServiceEntry2})
 
 	message, message2, message3 := messages[0], messages[1], messages[2]
 	change := convertToChange(
 		[]proto.Message{message, message2, message3},
 		[]string{"default/sse-0", "namespace2/sse-1", "namespace3/sse-2"},
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	c, err := controller.List(schemas.SyntheticServiceEntry.Type, "")
+	c, err := controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(3))
 
 	for _, conf := range c {
-		g.Expect(conf.Type).To(gomega.Equal(schemas.SyntheticServiceEntry.Type))
+		g.Expect(conf.Type).To(gomega.Equal(sseKind))
 		switch conf.Name {
 		case "sse-0":
 			g.Expect(conf.Spec).To(gomega.Equal(message))
@@ -239,32 +226,32 @@ func TestIncrementalControllerListSpecificNameSpace(t *testing.T) {
 	syntheticServiceEntry2.Endpoints = serviceEntry.Endpoints
 
 	messages := convertToResources(g,
-		schemas.SyntheticServiceEntry.MessageName,
+		sseProto,
 		[]proto.Message{syntheticServiceEntry0, syntheticServiceEntry1, syntheticServiceEntry2})
 
 	message, message2, message3 := messages[0], messages[1], messages[2]
 	change := convertToChange(
 		[]proto.Message{message, message2, message3},
 		[]string{"default/sse-0", "namespace2/sse-1", "namespace2/sse-2"},
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	c, err := controller.List(schemas.SyntheticServiceEntry.Type, "default")
+	c, err := controller.List(sseKind, "default")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(1))
 	g.Expect(c[0].Name).To(gomega.Equal("sse-0"))
-	g.Expect(c[0].Type).To(gomega.Equal(schemas.SyntheticServiceEntry.Type))
+	g.Expect(c[0].Type).To(gomega.Equal(sseKind))
 	g.Expect(c[0].Namespace).To(gomega.Equal("default"))
 	g.Expect(c[0].Spec).To(gomega.Equal(message))
 
-	c, err = controller.List(schemas.SyntheticServiceEntry.Type, "namespace2")
+	c, err = controller.List(sseKind, "namespace2")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(2))
 	for _, conf := range c {
-		g.Expect(conf.Type).To(gomega.Equal(schemas.SyntheticServiceEntry.Type))
+		g.Expect(conf.Type).To(gomega.Equal(sseKind))
 		g.Expect(conf.Namespace).To(gomega.Equal("namespace2"))
 		switch conf.Name {
 		case "sse-1":
@@ -280,39 +267,40 @@ func TestIncrementalControllerApplyInvalidType(t *testing.T) {
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g,
-		schemas.Gateway.MessageName,
+		collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(),
 		gateway)
 
 	change := convertToChange(
 		[]proto.Message{message},
 		[]string{"some-gateway"},
-		setCollection(schemas.Gateway.Collection),
-		setTypeURL(schemas.Gateway.Type))
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind()))
 
 	err := controller.Apply(change)
 	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(err.Error()).To(gomega.ContainSubstring(fmt.Sprintf("apply: type not supported %s", schemas.Gateway.Collection)))
+	g.Expect(err.Error()).To(gomega.ContainSubstring(fmt.Sprintf("apply: type not supported %s",
+		collections.IstioNetworkingV1Alpha3Gateways.Name().String())))
 }
 
 func TestIncrementalControllerApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	change := convertToChange([]proto.Message{message},
 		[]string{"random-namespace/test-synthetic-se"},
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	c, err := controller.List(schemas.SyntheticServiceEntry.Type, "random-namespace")
+	c, err := controller.List(sseKind, "random-namespace")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(1))
 	g.Expect(c[0].Name).To(gomega.Equal("test-synthetic-se"))
-	g.Expect(c[0].Type).To(gomega.Equal(schemas.SyntheticServiceEntry.Type))
+	g.Expect(c[0].Type).To(gomega.Equal(sseKind))
 	g.Expect(c[0].Spec).To(gomega.Equal(message))
 }
 
@@ -324,31 +312,31 @@ func TestIncrementalControllerApplyMetadataNameWithoutNamespace(t *testing.T) {
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 	change0 := convertToChange([]proto.Message{message0},
 		[]string{"synthetic-se-0"},
 		setIncremental(),
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err := controller.Apply(change0)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	message1 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry1)
+	message1 := convertToResource(g, sseProto, syntheticServiceEntry1)
 	change1 := convertToChange([]proto.Message{message1},
 		[]string{"synthetic-se-1"},
 		setIncremental(),
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err = controller.Apply(change1)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	c, err := controller.List(schemas.SyntheticServiceEntry.Type, "")
+	c, err := controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(2))
 	for _, se := range c {
-		g.Expect(se.Type).To(gomega.Equal(schemas.SyntheticServiceEntry.Type))
+		g.Expect(se.Type).To(gomega.Equal(sseKind))
 		switch se.Name {
 		case "synthetic-se-0":
 			g.Expect(se.Spec).To(gomega.Equal(message0))
@@ -362,34 +350,34 @@ func TestIncrementalControllerApplyChangeNoObjects(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 	change := convertToChange([]proto.Message{message},
 		[]string{"synthetic-se-0"},
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-	c, err := controller.List(schemas.SyntheticServiceEntry.Type, "")
+	c, err := controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(1))
 	g.Expect(c[0].Name).To(gomega.Equal("synthetic-se-0"))
-	g.Expect(c[0].Type).To(gomega.Equal(schemas.SyntheticServiceEntry.Type))
+	g.Expect(c[0].Type).To(gomega.Equal(sseKind))
 	g.Expect(c[0].Spec).To(gomega.Equal(message))
 
 	change = convertToChange([]proto.Message{},
 		[]string{"some-synthetic-se"},
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-	c, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
+	c, err = controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(1))
 	// still expecting the old config
 	g.Expect(c[0].Name).To(gomega.Equal("synthetic-se-0"))
-	g.Expect(c[0].Type).To(gomega.Equal(schemas.SyntheticServiceEntry.Type))
+	g.Expect(c[0].Type).To(gomega.Equal(sseKind))
 	g.Expect(c[0].Spec).To(gomega.Equal(message))
 }
 
@@ -400,18 +388,18 @@ func TestIncrementalControllerApplyInvalidResource(t *testing.T) {
 	se := proto.Clone(syntheticServiceEntry1).(*networking.ServiceEntry)
 	se.Hosts = nil
 
-	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, se)
+	message0 := convertToResource(g, sseProto, se)
 
 	change := convertToChange(
 		[]proto.Message{message0},
 		[]string{"bar-namespace/foo"},
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	entries, err := controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err := controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(0))
 }
@@ -420,12 +408,12 @@ func TestIncrementalControllerApplyInvalidResource_BadTimestamp(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 	change := convertToChange(
 		[]proto.Message{message0},
 		[]string{"bar-namespace/foo"},
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 	change.Objects[0].Metadata.CreateTime = &types.Timestamp{
 		Seconds: -1,
 		Nanos:   -1,
@@ -434,7 +422,7 @@ func TestIncrementalControllerApplyInvalidResource_BadTimestamp(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	entries, err := controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err := controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(0))
 }
@@ -446,17 +434,17 @@ func TestApplyNonIncrementalChange(t *testing.T) {
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	change := convertToChange([]proto.Message{message},
 		[]string{"random-namespace/test-synthetic-se"},
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	entries, err := controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err := controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(1))
 	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se"))
@@ -466,13 +454,13 @@ func TestApplyNonIncrementalChange(t *testing.T) {
 
 	change = convertToChange([]proto.Message{message},
 		[]string{"random-namespace/test-synthetic-se1"},
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err = controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(1))
 	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se1"))
@@ -488,7 +476,7 @@ func TestApplyNonIncrementalAnnotations(t *testing.T) {
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
-	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	steps := []struct {
 		description string
@@ -537,8 +525,8 @@ func TestApplyNonIncrementalAnnotations(t *testing.T) {
 			change := convertToChange([]proto.Message{message},
 				[]string{"random-namespace/test-synthetic-se"},
 				setAnnotations(s.annotations),
-				setCollection(schemas.SyntheticServiceEntry.Collection),
-				setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+				setCollection(sseCollection),
+				setTypeURL(sseProto))
 
 			err := controller.Apply(change)
 			g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -557,7 +545,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	change := convertToChange([]proto.Message{message0},
 		[]string{"random-namespace/test-synthetic-se"},
@@ -565,13 +553,13 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 			annotation.AlphaNetworkingServiceVersion.Name: "1",
 		}),
 		setIncremental(),
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	entries, err := controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err := controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(1))
 	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se"))
@@ -579,20 +567,20 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	update := <-fx.Events
 	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
 
-	message1 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry1)
+	message1 := convertToResource(g, sseProto, syntheticServiceEntry1)
 	change = convertToChange([]proto.Message{message1},
 		[]string{"random-namespace/test-synthetic-se1"},
 		setAnnotations(map[string]string{
 			annotation.AlphaNetworkingServiceVersion.Name: "1",
 		}),
 		setIncremental(),
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err = controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(2))
 
@@ -600,7 +588,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
 
 	for _, se := range entries {
-		g.Expect(se.Type).To(gomega.Equal(schemas.SyntheticServiceEntry.Type))
+		g.Expect(se.Type).To(gomega.Equal(sseKind))
 		switch se.Name {
 		case "test-synthetic-se":
 			g.Expect(se.Spec).To(gomega.Equal(message0))
@@ -617,8 +605,8 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 			annotation.AlphaNetworkingServiceVersion.Name: "1",
 		}),
 		setRemoved([]string{"random-namespace/test-synthetic-se"}),
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -629,7 +617,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	update = <-fx.Events
 	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
 
-	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err = controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(2))
 	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se1"))
@@ -645,15 +633,15 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 			annotation.AlphaNetworkingServiceVersion.Name: "1",
 		}),
 		setRemoved([]string{"random-namespace/test-synthetic-se2"}),
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	update = <-fx.Events
 	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
-	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err = controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(1))
 	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se1"))
@@ -671,18 +659,18 @@ func TestApplyIncrementalChange(t *testing.T) {
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	change := convertToChange([]proto.Message{message0},
 		[]string{"random-namespace/test-synthetic-se"},
 		setIncremental(),
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	entries, err := controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err := controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(1))
 	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se"))
@@ -690,22 +678,22 @@ func TestApplyIncrementalChange(t *testing.T) {
 	update := <-fx.Events
 	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
 
-	message1 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry1)
+	message1 := convertToResource(g, sseProto, syntheticServiceEntry1)
 	change = convertToChange([]proto.Message{message1},
 		[]string{"random-namespace/test-synthetic-se1"},
 		setIncremental(),
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err = controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(2))
 
 	for _, se := range entries {
-		g.Expect(se.Type).To(gomega.Equal(schemas.SyntheticServiceEntry.Type))
+		g.Expect(se.Type).To(gomega.Equal(sseKind))
 		switch se.Name {
 		case "test-synthetic-se":
 			g.Expect(se.Spec).To(gomega.Equal(message0))
@@ -725,18 +713,18 @@ func TestApplyIncrementalChangeEndpiontVersionWithoutServiceVersion(t *testing.T
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	change := convertToChange([]proto.Message{message0},
 		[]string{"random-namespace/test-synthetic-se"},
 		setIncremental(),
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	entries, err := controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err := controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(1))
 	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se"))
@@ -750,14 +738,14 @@ func TestApplyIncrementalChangeEndpiontVersionWithoutServiceVersion(t *testing.T
 			annotation.AlphaNetworkingEndpointsVersion.Name: "1",
 		}),
 		setIncremental(),
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+		setCollection(sseCollection),
+		setTypeURL(sseProto))
 
 	fx.EDSErr <- nil
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
+	entries, err = controller.List(sseKind, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(entries).To(gomega.HaveLen(1))
 	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se"))
@@ -775,7 +763,7 @@ func TestApplyIncrementalChangesAnnotations(t *testing.T) {
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	steps := []struct {
 		description string
@@ -832,8 +820,8 @@ func TestApplyIncrementalChangesAnnotations(t *testing.T) {
 				[]string{"random-namespace/test-synthetic-se"},
 				setIncremental(),
 				setAnnotations(s.annotations),
-				setCollection(schemas.SyntheticServiceEntry.Collection),
-				setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+				setCollection(sseCollection),
+				setTypeURL(sseProto))
 
 			err := controller.Apply(change)
 			g.Expect(err).ToNot(gomega.HaveOccurred())

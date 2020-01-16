@@ -45,6 +45,7 @@ type Collection struct {
 	Group        string `json:"group"`
 	Kind         string `json:"kind"`
 	Disabled     bool   `json:"disabled"`
+	Pilot        bool   `json:"pilot"`
 }
 
 // Snapshot metadata. Describes the snapshots that should be produced.

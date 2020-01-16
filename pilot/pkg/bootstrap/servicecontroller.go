@@ -51,10 +51,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initKubeRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-		case serviceregistry.MCP:
-			if s.sseDiscovery != nil {
-				serviceControllers.AddRegistry(s.sseDiscovery)
-			}
 		case serviceregistry.Consul:
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err

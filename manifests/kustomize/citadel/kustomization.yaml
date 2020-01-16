@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - citadel.gen.yaml
+
+# Must be installed in istio-system to preserve secrets, it is a singleton.
+namespace: istio-system
+
+# Default values for the citadel and injector.
+# Similar with values.yaml - unfortunately we can't merge.
+
+# This ugly list will need to include pairs of istio-galley-service-account.NAMESPACE:istio-galley-service-account.NAMESPACE
+# and istio-sidecar-injector-service-account.NAMESPACE:istio-sidecar-injector-service-account.NAMESPACE for each
+# namespace running an injector or validator.
+#
+# TODO: use kustomize to generate the needed certificates.
+configMapGenerator:
+  - name: citadeldns
+    literals:
+      - CITADEL_DNS=istio-galley-service-account.istio-control:istio-galley.istio-control.svc,istio-sidecar-injector-service-account.istio-control:istio-sidecar-injector.istio-control.svc,istio-galley-service-account.istio-system:istio-galley.istio-system.svc,istio-sidecar-injector-service-account.istio-system:istio-sidecar-injector.istio-system.svc
+
+vars:
+  - name: CITADEL_DNS
+    objref:
+      kind: ConfigMap
+      name: citadeldns
+      apiVersion: v1
+    fieldref:
+      fieldpath: data.CITADEL_DNS

@@ -33,8 +33,7 @@ rules:
 {{- end }}
 - apiGroups: ["extensions","apps"]
   resources: ["deployments"]
-  resourceNames: ["istio-galley"]
-  verbs: ["get"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: [""]
   resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
   verbs: ["get", "list", "watch"]

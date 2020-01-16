@@ -1,0 +1,10 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+spec:
+  egress:
+    - hosts:
+        - ./*
+        - fortio-canary/*
+        - fortio-canary-inject/*

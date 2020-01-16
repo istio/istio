@@ -21,7 +21,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -38,8 +37,11 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/pkg/log"
 )
 
 type message struct {
@@ -191,8 +193,6 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.Deprecated, "VirtualService route-egressgateway"},
-			{msg.Deprecated, "VirtualService tornado"},
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"},
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"}, // Duplicate, because resource has two problems
 			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
@@ -385,13 +385,13 @@ func TestAnalyzers(t *testing.T) {
 	requestedInputsByAnalyzer := make(map[string]map[collection.Name]struct{})
 
 	// For each test case, verify we get the expected messages as output
-	for _, testCase := range testGrid {
-		testCase := testCase // Capture range variable so subtests work correctly
-		t.Run(testCase.name, func(t *testing.T) {
+	for _, tc := range testGrid {
+		tc := tc // Capture range variable so subtests work correctly
+		t.Run(tc.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
 			// Set up a hook to record which collections are accessed by each analyzer
-			analyzerName := testCase.analyzer.Metadata().Name
+			analyzerName := tc.analyzer.Metadata().Name
 			cr := func(col collection.Name) {
 				if _, ok := requestedInputsByAnalyzer[analyzerName]; !ok {
 					requestedInputsByAnalyzer[analyzerName] = make(map[collection.Name]struct{})
@@ -399,46 +399,19 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true, 10*time.Second)
-
-			// If a mesh config file is specified, use it instead of the defaults
-			if testCase.meshConfigFile != "" {
-				err := sa.AddFileKubeMeshConfig(testCase.meshConfigFile)
-				if err != nil {
-					t.Fatalf("Error applying mesh config file %s: %v", testCase.meshConfigFile, err)
-				}
-			}
-
-			// Include default resources
-			err := sa.AddDefaultResources()
+			// Set up Analyzer for this test case
+			sa, err := setupAnalyzerForCase(tc, cr)
 			if err != nil {
-				t.Fatalf("Error adding default resources: %v", err)
+				t.Fatalf("Error setting up analysis for testcase %s: %v", tc.name, err)
 			}
-
-			// Gather test files
-			var files []io.Reader
-			for _, f := range testCase.inputFiles {
-				of, err := os.Open(f)
-				if err != nil {
-					t.Fatalf("Error opening test file: %q", f)
-				}
-				files = append(files, of)
-			}
-
-			// Include resources from test files
-			err = sa.AddReaderKubeSource(files)
-			if err != nil {
-				t.Fatalf("Error setting up file kube source on testcase %s: %v", testCase.name, err)
-			}
-			cancel := make(chan struct{})
 
 			// Run the analysis
-			result, err := sa.Analyze(cancel)
+			result, err := runAnalyzer(sa)
 			if err != nil {
-				t.Fatalf("Error running analysis on testcase %s: %v", testCase.name, err)
+				t.Fatalf("Error running analysis on testcase %s: %v", tc.name, err)
 			}
 
-			g.Expect(extractFields(result.Messages)).To(ConsistOf(testCase.expected), "%v", prettyPrintMessages(result.Messages))
+			g.Expect(extractFields(result.Messages)).To(ConsistOf(tc.expected), "%v", prettyPrintMessages(result.Messages))
 		})
 	}
 
@@ -507,6 +480,56 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 	for _, a := range All() {
 		g.Expect(a.Metadata().Description).ToNot(Equal(""))
 	}
+}
+
+func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*local.SourceAnalyzer, error) {
+	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true)
+
+	// If a mesh config file is specified, use it instead of the defaults
+	if tc.meshConfigFile != "" {
+		err := sa.AddFileKubeMeshConfig(tc.meshConfigFile)
+		if err != nil {
+			return nil, fmt.Errorf("error applying mesh config file %s: %v", tc.meshConfigFile, err)
+		}
+	}
+
+	// Include default resources
+	err := sa.AddDefaultResources()
+	if err != nil {
+		return nil, fmt.Errorf("error adding default resources: %v", err)
+	}
+
+	// Gather test files
+	var files []io.Reader
+	for _, f := range tc.inputFiles {
+		of, err := os.Open(f)
+		if err != nil {
+			return nil, fmt.Errorf("error opening test file: %q", f)
+		}
+		files = append(files, of)
+	}
+
+	// Include resources from test files
+	err = sa.AddReaderKubeSource(files)
+	if err != nil {
+		return nil, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
+	}
+
+	return sa, nil
+}
+
+func runAnalyzer(sa *local.SourceAnalyzer) (local.AnalysisResult, error) {
+	// Default processing log level is too chatty for these tests
+	prevLogLevel := scope.Processing.GetOutputLevel()
+	scope.Processing.SetOutputLevel(log.ErrorLevel)
+	defer scope.Processing.SetOutputLevel(prevLogLevel)
+
+	cancel := make(chan struct{})
+	result, err := sa.Analyze(cancel)
+	if err != nil {
+		return local.AnalysisResult{}, err
+	}
+	return result, err
 }
 
 // Pull just the fields we want to check out of diag.Message

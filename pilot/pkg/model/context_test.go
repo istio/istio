@@ -343,6 +343,18 @@ func TestProxyVersion_Compare(t *testing.T) {
 			args:   args{&model.IstioVersion{Major: 2, Minor: 1, Patch: 1}},
 			want:   -1,
 		},
+		{
+			name:   "ignore minor",
+			fields: fields{Major: 2, Minor: 1, Patch: 11},
+			args:   args{&model.IstioVersion{Major: 2, Minor: -1, Patch: 1}},
+			want:   0,
+		},
+		{
+			name:   "ignore patch",
+			fields: fields{Major: 2, Minor: 1, Patch: 11},
+			args:   args{&model.IstioVersion{Major: 2, Minor: 1, Patch: -1}},
+			want:   0,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -378,6 +390,11 @@ func Test_parseIstioVersion(t *testing.T) {
 			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0},
 		},
 		{
+			name: "dev",
+			args: args{ver: "1.5-alpha.f70faea2aa817eeec0b08f6cc3b5078e5dcf3beb"},
+			want: &model.IstioVersion{Major: 1, Minor: 5, Patch: 0},
+		},
+		{
 			name: "release-major.minor-date",
 			args: args{ver: "release-1.2-123214234"},
 			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0},
@@ -385,6 +402,11 @@ func Test_parseIstioVersion(t *testing.T) {
 		{
 			name: "master-date",
 			args: args{ver: "master-123214234"},
+			want: model.MaxIstioVersion,
+		},
+		{
+			name: "master-sha",
+			args: args{ver: "master-0b94e017f5b6c7c4598a4da42ea9d45eeb099e5f"},
 			want: model.MaxIstioVersion,
 		},
 		{

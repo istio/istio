@@ -68,62 +68,11 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.C
 	vs := r.Message.(*v1alpha3.VirtualService)
 
 	for _, httpRoute := range vs.Http {
-		if httpRoute.WebsocketUpgrade {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewDeprecated(r, ignoredMessage("HTTPRoute.websocket_upgrade")))
-		}
-
-		if len(httpRoute.AppendHeaders) > 0 {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewDeprecated(r, replacedMessage("HTTPRoute.append_headers", "HTTPRoute.headers.request.add")))
-		}
-		if len(httpRoute.AppendRequestHeaders) > 0 {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewDeprecated(r, replacedMessage("HTTPRoute.append_request_headers", "HTTPRoute.headers.request.add")))
-		}
-		if len(httpRoute.RemoveRequestHeaders) > 0 {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewDeprecated(r, replacedMessage("HTTPRoute.remove_request_headers", "HTTPRoute.headers.request.remove")))
-		}
-		if len(httpRoute.AppendResponseHeaders) > 0 {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewDeprecated(r, replacedMessage("HTTPRoute.append_response_headers", "HTTPRoute.headers.response.add")))
-		}
-		if len(httpRoute.RemoveResponseHeaders) > 0 {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewDeprecated(r, replacedMessage("HTTPRoute.remove_response_headers", "HTTPRoute.headers.response.remove")))
-		}
-
-		for _, route := range httpRoute.Route {
-			if len(route.AppendRequestHeaders) > 0 {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewDeprecated(r, replacedMessage("HTTPRoute.Route.append_request_headers", "HTTPRoute.route.headers.request.add")))
-			}
-			if len(route.RemoveRequestHeaders) > 0 {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewDeprecated(r, replacedMessage("HTTPRoute.Route.remove_request_headers", "HTTPRoute.route.headers.request.remove")))
-			}
-			if len(route.AppendResponseHeaders) > 0 {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewDeprecated(r, replacedMessage("HTTPRoute.Route.append_response_headers", "HTTPRoute.route.headers.response.add")))
-			}
-			if len(route.RemoveResponseHeaders) > 0 {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewDeprecated(r, replacedMessage("HTTPRoute.Route.remove_response_headers", "HTTPRoute.route.headers.response.remove")))
-			}
-		}
-
 		if httpRoute.Fault != nil {
 			if httpRoute.Fault.Delay != nil {
 				if httpRoute.Fault.Delay.Percent > 0 {
 					ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 						msg.NewDeprecated(r, replacedMessage("HTTPRoute.fault.delay.percent", "HTTPRoute.fault.delay.percentage")))
-				}
-			}
-			if httpRoute.Fault.Abort != nil {
-				if httpRoute.Fault.Abort.Percent > 0 {
-					ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-						msg.NewDeprecated(r, replacedMessage("HTTPRoute.fault.abort.percent", "HTTPRoute.fault.abort.percentage")))
 				}
 			}
 		}
@@ -155,10 +104,6 @@ func (*FieldAnalyzer) analyzeServiceRoleBinding(r *resource.Instance, ctx analys
 				msg.NewDeprecated(r, uncertainFixMessage("ServiceRoleBinding.subjects.group")))
 		}
 	}
-}
-
-func ignoredMessage(field string) string {
-	return fmt.Sprintf("%s ignored", field)
 }
 
 func replacedMessage(deprecated, replacement string) string {

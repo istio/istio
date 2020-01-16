@@ -2886,6 +2886,9 @@ spec:
   versions:
   - name: v1alpha3
     served: true
+    storage: false
+  - name: v1beta1
+    served: true
     storage: true
 
 ---
@@ -3329,6 +3332,9 @@ spec:
   versions:
   - name: v1alpha3
     served: true
+    storage: false
+  - name: v1beta1
+    served: true
     storage: true
 
 ---
@@ -3474,6 +3480,9 @@ spec:
   versions:
   - name: v1alpha3
     served: true
+    storage: false
+  - name: v1beta1
+    served: true
     storage: true
 
 ---
@@ -3597,6 +3606,9 @@ spec:
   versions:
   - name: v1alpha3
     served: true
+    storage: false
+  - name: v1beta1
+    served: true
     storage: true
 
 ---
@@ -3673,21 +3685,6 @@ spec:
               description: An ordered list of route rules for HTTP traffic.
               items:
                 properties:
-                  appendHeaders:
-                    additionalProperties:
-                      format: string
-                      type: string
-                    type: object
-                  appendRequestHeaders:
-                    additionalProperties:
-                      format: string
-                      type: string
-                    type: object
-                  appendResponseHeaders:
-                    additionalProperties:
-                      format: string
-                      type: string
-                    type: object
                   corsPolicy:
                     description: Cross-Origin Resource Sharing policy (CORS).
                     properties:
@@ -3712,6 +3709,28 @@ spec:
                           format: string
                           type: string
                         type: array
+                      allowOrigins:
+                        description: String patterns that match allowed origins.
+                        items:
+                          oneOf:
+                          - required:
+                            - exact
+                          - required:
+                            - prefix
+                          - required:
+                            - regex
+                          properties:
+                            exact:
+                              format: string
+                              type: string
+                            prefix:
+                              format: string
+                              type: string
+                            regex:
+                              format: string
+                              type: string
+                          type: object
+                        type: array
                       exposeHeaders:
                         items:
                           format: string
@@ -3726,17 +3745,11 @@ spec:
                     properties:
                       abort:
                         oneOf:
-                        - properties:
-                            percent: {}
-                          required:
+                        - required:
                           - httpStatus
-                        - properties:
-                            percent: {}
-                          required:
+                        - required:
                           - grpcStatus
-                        - properties:
-                            percent: {}
-                          required:
+                        - required:
                           - http2Error
                         properties:
                           grpcStatus:
@@ -3748,11 +3761,6 @@ spec:
                           httpStatus:
                             description: HTTP status code to use to abort the Http
                               request.
-                            format: int32
-                            type: integer
-                          percent:
-                            description: Percentage of requests to be aborted with
-                              the error code provided (0-100).
                             format: int32
                             type: integer
                           percentage:
@@ -4035,16 +4043,6 @@ spec:
                         format: string
                         type: string
                     type: object
-                  removeRequestHeaders:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  removeResponseHeaders:
-                    items:
-                      format: string
-                      type: string
-                    type: array
                   retries:
                     description: Retry policy for HTTP requests.
                     properties:
@@ -4077,18 +4075,6 @@ spec:
                       traffic.
                     items:
                       properties:
-                        appendRequestHeaders:
-                          additionalProperties:
-                            format: string
-                            type: string
-                          description: Use of `append_request_headers` is deprecated.
-                          type: object
-                        appendResponseHeaders:
-                          additionalProperties:
-                            format: string
-                            type: string
-                          description: Use of `append_response_headers` is deprecated.
-                          type: object
                         destination:
                           properties:
                             host:
@@ -4147,18 +4133,6 @@ spec:
                                   type: object
                               type: object
                           type: object
-                        removeRequestHeaders:
-                          description: Use of `remove_request_headers` is deprecated.
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                        removeResponseHeaders:
-                          description: Use of `remove_response_header` is deprecated.
-                          items:
-                            format: string
-                            type: string
-                          type: array
                         weight:
                           format: int32
                           type: integer
@@ -4167,9 +4141,6 @@ spec:
                   timeout:
                     description: Timeout for HTTP requests.
                     type: string
-                  websocketUpgrade:
-                    description: Deprecated.
-                    type: boolean
                 type: object
               type: array
             tcp:
@@ -4275,11 +4246,6 @@ spec:
                             format: string
                             type: string
                           type: object
-                        sourceSubnet:
-                          description: IPv4 or IPv6 ip address of source with optional
-                            subnet.
-                          format: string
-                          type: string
                       type: object
                     type: array
                   route:
@@ -4317,6 +4283,9 @@ spec:
       type: object
   versions:
   - name: v1alpha3
+    served: true
+    storage: false
+  - name: v1beta1
     served: true
     storage: true
 
@@ -5298,6 +5267,12 @@ spec:
           description: 'Configuration for access control on workloads. See more details
             at: https://istio.io/docs/reference/config/security/authorization-policy.html'
           properties:
+            action:
+              description: Optional.
+              enum:
+              - ALLOW
+              - DENY
+              type: string
             rules:
               description: Optional.
               items:
@@ -5316,6 +5291,30 @@ spec:
                                 type: string
                               type: array
                             namespaces:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            notIpBlocks:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            notNamespaces:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            notPrincipals:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            notRequestPrincipals:
                               description: Optional.
                               items:
                                 format: string
@@ -5355,6 +5354,30 @@ spec:
                                 format: string
                                 type: string
                               type: array
+                            notHosts:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            notMethods:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            notPaths:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            notPorts:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
                             paths:
                               description: Optional.
                               items:
@@ -5378,8 +5401,14 @@ spec:
                           description: The name of an Istio attribute.
                           format: string
                           type: string
+                        notValues:
+                          description: Optional.
+                          items:
+                            format: string
+                            type: string
+                          type: array
                         values:
-                          description: The allowed values for the attribute.
+                          description: Optional.
                           items:
                             format: string
                             type: string

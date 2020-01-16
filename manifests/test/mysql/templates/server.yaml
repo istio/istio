@@ -1,0 +1,61 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ .Values.Name }}-volumenclaim
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server-{{ .Values.Name }}
+  labels:
+    app: server-{{ .Values.Name }}
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server-{{ .Values.Name }}
+  template:
+    metadata:
+      labels:
+        app: server-{{ .Values.Name }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - image: mysql:5.6
+          name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "root"
+          ports:
+            - containerPort: 3306
+              name: mysql
+          volumeMounts:
+            - name: mysql-persistent-storage
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-persistent-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.Name }}-volumenclaim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server-{{ .Values.Name }}
+  labels:
+    app: server-{{ .Values.Name }}
+    release: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3306
+  selector:
+    app: server-{{ .Values.Name }}

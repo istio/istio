@@ -226,6 +226,14 @@ var (
 			"if headless services have a large number of pods.",
 	)
 
+	EnableEDSForHeadless = env.RegisterBoolVar(
+		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
+		false,
+		"If enabled, for headless service in Kubernetes, pilot will send endpoints over EDS, "+
+			"allowing the sidecar to load balance among pods in the headless service. This feature "+
+			"should be enabled if applications access all services explicitly via a HTTP proxy port in the sidecar.",
+	)
+
 	BlockHTTPonHTTPSPort = env.RegisterBoolVar(
 		"PILOT_BLOCK_HTTP_ON_443",
 		true,
@@ -245,14 +253,6 @@ var (
 		time.Minute*1,
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
-
-	EnableUnsafeRegex = env.RegisterBoolVar(
-		"PILOT_ENABLE_UNSAFE_REGEX",
-		false,
-		"If enabled, pilot will generate Envoy configuration that does not use safe_regex "+
-			"but the older, deprecated regex field. This should only be enabled to support "+
-			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
-	)
 
 	EnableEndpointSliceController = env.RegisterBoolVar(
 		"PILOT_USE_ENDPOINT_SLICE",
@@ -278,17 +278,9 @@ var (
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
-	// SignCertAtK8sCa configures whether signing the control plane certificate at k8s CA.
-	// TODO (lei-tang): the default value of this option is currently set as true to be consistent
-	// with the existing istiod implementation. As some platforms may not have k8s signing APIs,
-	// we may change the default value of this option as false.
-	SignCertAtK8sCa = env.RegisterBoolVar("SIGN_CERT_AT_KUBERNETES_CA", true,
-		"Whether signing the control plane certificate at Kubernetes CA.")
-)
-
-var (
-	// TODO: define all other default ports here, add docs
-
-	// DefaultPortHTTPProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
-	DefaultPortHTTPProxy = 15002
+	// TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
+	// with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
+	// we may change the default value of this option as "citadel".
+	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "kubernetes",
+		"the provider of Pilot DNS certificate.")
 )

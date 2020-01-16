@@ -40,7 +40,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -461,16 +460,12 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 			requestHeadersToAdd := translateAppendHeaders(dst.Headers.GetRequest().GetSet(), false)
 			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.Headers.GetRequest().GetAdd(), true)...)
-			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.AppendRequestHeaders, true)...)
 			responseHeadersToAdd := translateAppendHeaders(dst.Headers.GetResponse().GetSet(), false)
 			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.Headers.GetResponse().GetAdd(), true)...)
-			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.AppendResponseHeaders, true)...)
 			requestHeadersToRemove := make([]string, 0)
 			requestHeadersToRemove = append(requestHeadersToRemove, dst.Headers.GetRequest().GetRemove()...)
-			requestHeadersToRemove = append(requestHeadersToRemove, dst.RemoveRequestHeaders...)
 			responseHeadersToRemove := make([]string, 0)
 			responseHeadersToRemove = append(responseHeadersToRemove, dst.Headers.GetResponse().GetRemove()...)
-			responseHeadersToRemove = append(responseHeadersToRemove, dst.RemoveResponseHeaders...)
 
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
@@ -585,7 +580,7 @@ func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *ro
 		case *networking.StringMatch_Prefix:
 			out.PathSpecifier = &route.RouteMatch_Prefix{Prefix: m.Prefix}
 		case *networking.StringMatch_Regex:
-			if features.EnableUnsafeRegex.Get() || !util.IsIstioVersionGE14(node) {
+			if !util.IsIstioVersionGE14(node) {
 				out.PathSpecifier = &route.RouteMatch_Regex{Regex: m.Regex}
 			} else {
 				out.PathSpecifier = &route.RouteMatch_SafeRegex{
@@ -658,7 +653,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 		// Golang has a slightly different regex grammar
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
-		if features.EnableUnsafeRegex.Get() || !util.IsIstioVersionGE14(node) {
+		if !util.IsIstioVersionGE14(node) {
 			out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
 		} else {
 			out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
@@ -1016,6 +1011,8 @@ func isCatchAllRoute(r *route.Route) bool {
 		catchall = ir.Prefix == "/"
 	case *route.RouteMatch_Regex:
 		catchall = ir.Regex == "*"
+	case *route.RouteMatch_SafeRegex:
+		catchall = ir.SafeRegex.GetRegex() == "*"
 	}
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.

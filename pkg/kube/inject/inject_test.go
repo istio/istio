@@ -258,6 +258,17 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
 		{
+			in:                           "enable-core-dump-annotation.yaml",
+			want:                         "enable-core-dump-annotation.yaml.injected",
+			enableCoreDump:               false,
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
 			in:                           "auth.yaml",
 			want:                         "auth.yaml.injected",
 			enableAuth:                   true,

@@ -75,12 +75,10 @@ func TestCombinedMethods(t *testing.T) {
         Run(istioio.NewBuilder("tasks__security__my_task").
             Add(istioio.Script{
                 Input:         istioio.Path("myscript.sh"),
-                WorkDir:       env.IstioSrc,
             },
             istioio.MultiPodWait("foo"),
             istioio.Script{
                 Input:         istioio.Path("myotherscript.sh"),
-                WorkDir:       env.IstioSrc,
             }).Build())
 }
 ```
@@ -148,7 +146,6 @@ snippets with `istioio.Script`:
 ```golang
 istioio.Script{
     Input:   istioio.Path("myscript.sh"),
-    WorkDir: env.IstioSrc,
 }
 ```
 
@@ -205,7 +202,7 @@ The value of `my_dir` will be the parent directory for your test output. Within
 each test method. Each test method directory will contain a `snippet.txt` that
 was generated for that particular test.
 
-Make sure to have the `HUB` and `TAG` environment variables set to the location of
+Make sure to have the `HUB` and `TAG` [environment variables set](https://github.com/istio/istio/wiki/Preparing-for-Development#setting-up-environment-variables) to the location of
 your Istio Docker images.
 
 You can find the complete list of arguments on [the test framework wiki page](https://github.com/istio/istio/wiki/Istio-Test-Framework).

@@ -1,0 +1,22 @@
+# Per namespace mtls STRICT mode
+# Authentication policy to enable STRICT policy for incoming calls.
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: default
+spec:
+  peers:
+    - mtls: {}
+
+---
+# Corresponding destination rule to configure client side to use mutual TLS when talking to
+# any service (host) in the mesh.
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "default"
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL

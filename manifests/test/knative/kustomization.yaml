@@ -1,0 +1,19 @@
+# Installs ingress and pilot in dedicated namespace
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - istio-ingress.gen.yaml
+
+bases:
+  - ../../kustomize/minimal
+
+patchesStrategicMerge:
+  - allocation.yaml
+
+namespace: istio-micro
+
+commonLabels:
+  release: istio-micro

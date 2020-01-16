@@ -26,11 +26,11 @@ import (
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 // We cannot import `testing` here, as it will bring extra test flags into the binary. Instead, just include the interface here
@@ -75,7 +75,7 @@ func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *
 
 func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.AuthorizationPolicies {
 	t.Helper()
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
 	for _, p := range policies {
 		if _, err := store.Create(*p); err != nil {
 			t.Fatalf("failed to initialize authz policies: %s", err)
@@ -95,7 +95,7 @@ func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.Authorization
 func SimpleClusterRbacConfig() *model.Config {
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.ClusterRbacConfig.Type,
+			Type:      collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(),
 			Name:      "default",
 			Namespace: "default",
 		},
@@ -123,7 +123,7 @@ func SimpleRole(name string, namespace string, service string) *model.Config {
 	}
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.ServiceRole.Type,
+			Type:      collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(),
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -142,7 +142,7 @@ func BindingTag(name string) string {
 func SimpleBinding(name, namespace, role string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.ServiceRoleBinding.Type,
+			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -163,7 +163,7 @@ func SimpleBinding(name, namespace, role string) *model.Config {
 func SimpleBindingWithUser(name, namespace, role, user string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.ServiceRoleBinding.Type,
+			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -218,7 +218,7 @@ func SimpleAuthorizationProto(name string) *authpb.AuthorizationPolicy {
 func SimpleAuthorizationPolicy(name string, namespace string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.AuthorizationPolicy.Type,
+			Type:      collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(),
 			Name:      name,
 			Namespace: namespace,
 		},
