@@ -19,5 +19,5 @@ import (
 )
 
 type Generator interface {
-	Generate(forTCPFilter bool) *http_config.RBAC
+	Generate(forTCPFilter bool) (denyConfig *http_config.RBAC, allowConfig *http_config.RBAC)
 }

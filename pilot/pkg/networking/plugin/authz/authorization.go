@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authz_builder "istio.io/istio/pilot/pkg/security/authz/builder"
+	authzBuilder "istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -80,7 +80,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	// TODO: Get trust domain from MeshConfig instead.
 	// https://github.com/istio/istio/issues/17873
 	trustDomainBundle := trustdomain.NewTrustDomainBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
-	builder := authz_builder.NewBuilder(trustDomainBundle, in.ServiceInstance,
+	builder := authzBuilder.NewBuilder(trustDomainBundle, in.ServiceInstance,
 		in.Node.WorkloadLabels, in.Node.ConfigNamespace, in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
 	if builder == nil {
 		return
@@ -89,35 +89,37 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolTCP:
 		rbacLog.Debugf("building filter for TCP listener protocol")
-		tcpFilter := builder.BuildTCPFilter()
+		tcpFilters := builder.BuildTCPFilters()
 		if in.Node.Type == model.Router {
 			// For gateways, due to TLS termination, a listener marked as TCP could very well
 			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
 			// to decide the type of filter to attach
-			httpFilter := builder.BuildHTTPFilter()
+			httpFilters := builder.BuildHTTPFilters()
 			for cnum := range mutable.FilterChains {
 				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP {
-					if httpFilter != nil {
+					for _, httpFilter := range httpFilters {
 						rbacLog.Debugf("added HTTP filter to gateway filter chain %d", cnum)
 						mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 					}
 				} else {
-					if tcpFilter != nil {
+					for _, tcpFilter := range tcpFilters {
 						rbacLog.Debugf("added TCP filter to gateway filter chain %d", cnum)
 						mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 					}
 				}
 			}
 		} else {
-			for cnum := range mutable.FilterChains {
-				rbacLog.Debugf("added TCP filter to filter chain %d", cnum)
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+			for _, tcpFilter := range tcpFilters {
+				for cnum := range mutable.FilterChains {
+					rbacLog.Debugf("added TCP filter to filter chain %d", cnum)
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+				}
 			}
 		}
 	case plugin.ListenerProtocolHTTP:
 		rbacLog.Debugf("building filter for HTTP listener protocol")
-		filter := builder.BuildHTTPFilter()
-		if filter != nil {
+		filters := builder.BuildHTTPFilters()
+		for _, filter := range filters {
 			for cnum := range mutable.FilterChains {
 				rbacLog.Debugf("added HTTP filter to filter chain %d", cnum)
 				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
@@ -125,18 +127,18 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 		}
 	case plugin.ListenerProtocolAuto:
 		rbacLog.Debugf("building filter for AUTO listener protocol")
-		httpFilter := builder.BuildHTTPFilter()
-		tcpFilter := builder.BuildTCPFilter()
+		httpFilters := builder.BuildHTTPFilters()
+		tcpFilters := builder.BuildTCPFilters()
 
 		for cnum := range mutable.FilterChains {
 			switch mutable.FilterChains[cnum].ListenerProtocol {
 			case plugin.ListenerProtocolTCP:
-				if tcpFilter != nil {
+				for _, tcpFilter := range tcpFilters {
 					rbacLog.Debugf("added TCP filter to filter chain %d", cnum)
 					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 				}
 			case plugin.ListenerProtocolHTTP:
-				if httpFilter != nil {
+				for _, httpFilter := range httpFilters {
 					rbacLog.Debugf("added HTTP filter to filter chain %d", cnum)
 					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 				}

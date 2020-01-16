@@ -424,18 +424,21 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			"version": "v1",
 		},
 	}
+	denyPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	denyPolicy.Action = authpb.AuthorizationPolicy_DENY
 
 	cases := []struct {
 		name           string
 		ns             string
 		workloadLabels map[string]string
 		configs        []Config
-		want           []AuthorizationPolicyConfig
+		wantDeny       []AuthorizationPolicyConfig
+		wantAllow      []AuthorizationPolicyConfig
 	}{
 		{
-			name: "no policies",
-			ns:   "foo",
-			want: nil,
+			name:      "no policies",
+			ns:        "foo",
+			wantAllow: nil,
 		},
 		{
 			name: "no policies in namespace foo",
@@ -444,19 +447,33 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			want: nil,
+			wantAllow: nil,
 		},
 		{
-			name: "one policy",
+			name: "one allow policy",
 			ns:   "bar",
 			configs: []Config{
 				newConfig("authz-1", "bar", policy),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "bar",
 					AuthorizationPolicy: policy,
+				},
+			},
+		},
+		{
+			name: "one deny policy",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("authz-1", "bar", denyPolicy),
+			},
+			wantDeny: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "bar",
+					AuthorizationPolicy: denyPolicy,
 				},
 			},
 		},
@@ -468,7 +485,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "bar",
@@ -476,6 +493,28 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				},
 				{
 					Name:                "authz-2",
+					Namespace:           "bar",
+					AuthorizationPolicy: policy,
+				},
+			},
+		},
+		{
+			name: "mixing allow and deny policies",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("authz-1", "bar", policy),
+				newConfig("authz-2", "bar", denyPolicy),
+			},
+			wantDeny: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-2",
+					Namespace:           "bar",
+					AuthorizationPolicy: denyPolicy,
+				},
+			},
+			wantAllow: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
 					Namespace:           "bar",
 					AuthorizationPolicy: policy,
 				},
@@ -491,7 +530,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "bar",
@@ -510,7 +549,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "bar",
@@ -528,7 +567,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: nil,
+			wantAllow: nil,
 		},
 		{
 			name: "namespace not match",
@@ -540,7 +579,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: nil,
+			wantAllow: nil,
 		},
 		{
 			name: "root namespace",
@@ -548,7 +587,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "istio-config",
@@ -562,7 +601,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "istio-config",
@@ -577,7 +616,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "istio-config", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "istio-config",
@@ -596,10 +635,13 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			got := authzPolicies.ListAuthorizationPolicies(
+			gotDeny, gotAllow := authzPolicies.ListAuthorizationPolicies(
 				tc.ns, []labels.Instance{tc.workloadLabels})
-			if !reflect.DeepEqual(tc.want, got) {
-				t.Errorf("want:%v\n but got: %v\n", tc.want, got)
+			if !reflect.DeepEqual(tc.wantAllow, gotAllow) {
+				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, gotAllow)
+			}
+			if !reflect.DeepEqual(tc.wantDeny, gotDeny) {
+				t.Errorf("wantDeny:%v\n but got: %v\n", tc.wantDeny, gotDeny)
 			}
 		})
 	}

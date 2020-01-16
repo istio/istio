@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
+	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -34,89 +35,96 @@ func TestBuildHTTPFilter(t *testing.T) {
 		name              string
 		trustDomainBundle trustdomain.Bundle
 		policies          *model.AuthorizationPolicies
-		want              *http_config.RBAC
+		wantDeny          *http_config.RBAC
+		wantAllow         *http_config.RBAC
 	}{
 		{
-			name:     "v1beta1 all fields",
-			policies: getPolicies("testdata/v1beta1/all-fields-in.yaml", t),
-			want:     getProto("testdata/v1beta1/all-fields-out.yaml", t),
+			name:      "v1beta1 action",
+			policies:  getPolicies("testdata/v1beta1/action-in.yaml", t),
+			wantDeny:  getProto("testdata/v1beta1/action-deny-out.yaml", t),
+			wantAllow: getProto("testdata/v1beta1/action-allow-out.yaml", t),
 		},
 		{
-			name:     "v1beta1 allow all",
-			policies: getPolicies("testdata/v1beta1/allow-all-in.yaml", t),
-			want:     getProto("testdata/v1beta1/allow-all-out.yaml", t),
+			name:      "v1beta1 all fields",
+			policies:  getPolicies("testdata/v1beta1/all-fields-in.yaml", t),
+			wantAllow: getProto("testdata/v1beta1/all-fields-out.yaml", t),
 		},
 		{
-			name:     "v1beta1 deny all",
-			policies: getPolicies("testdata/v1beta1/deny-all-in.yaml", t),
-			want:     getProto("testdata/v1beta1/deny-all-out.yaml", t),
+			name:      "v1beta1 allow all",
+			policies:  getPolicies("testdata/v1beta1/allow-all-in.yaml", t),
+			wantAllow: getProto("testdata/v1beta1/allow-all-out.yaml", t),
 		},
 		{
-			name:     "v1beta1 multiple policies",
-			policies: getPolicies("testdata/v1beta1/multiple-policies-in.yaml", t),
-			want:     getProto("testdata/v1beta1/multiple-policies-out.yaml", t),
+			name:      "v1beta1 deny all",
+			policies:  getPolicies("testdata/v1beta1/deny-all-in.yaml", t),
+			wantAllow: getProto("testdata/v1beta1/deny-all-out.yaml", t),
 		},
 		{
-			name:     "v1beta1 not override v1alpha1",
-			policies: getPolicies("testdata/v1beta1/not-override-v1alpha1-in.yaml", t),
-			want:     getProto("testdata/v1beta1/not-override-v1alpha1-out.yaml", t),
+			name:      "v1beta1 multiple policies",
+			policies:  getPolicies("testdata/v1beta1/multiple-policies-in.yaml", t),
+			wantAllow: getProto("testdata/v1beta1/multiple-policies-out.yaml", t),
 		},
 		{
-			name:     "v1beta1 override v1alpha1",
-			policies: getPolicies("testdata/v1beta1/override-v1alpha1-in.yaml", t),
-			want:     getProto("testdata/v1beta1/override-v1alpha1-out.yaml", t),
+			name:      "v1beta1 not override v1alpha1",
+			policies:  getPolicies("testdata/v1beta1/not-override-v1alpha1-in.yaml", t),
+			wantAllow: getProto("testdata/v1beta1/not-override-v1alpha1-out.yaml", t),
 		},
 		{
-			name:     "v1beta1 single policy",
-			policies: getPolicies("testdata/v1beta1/single-policy-in.yaml", t),
-			want:     getProto("testdata/v1beta1/single-policy-out.yaml", t),
+			name:      "v1beta1 override v1alpha1",
+			policies:  getPolicies("testdata/v1beta1/override-v1alpha1-in.yaml", t),
+			wantAllow: getProto("testdata/v1beta1/override-v1alpha1-out.yaml", t),
 		},
 		{
-			name:     "v1alpha1 all fields",
-			policies: getPolicies("testdata/v1alpha1/all-fields-in.yaml", t),
-			want:     getProto("testdata/v1alpha1/all-fields-out.yaml", t),
+			name:      "v1beta1 single policy",
+			policies:  getPolicies("testdata/v1beta1/single-policy-in.yaml", t),
+			wantAllow: getProto("testdata/v1beta1/single-policy-out.yaml", t),
+		},
+		{
+			name:      "v1alpha1 all fields",
+			policies:  getPolicies("testdata/v1alpha1/all-fields-in.yaml", t),
+			wantAllow: getProto("testdata/v1alpha1/all-fields-out.yaml", t),
 		},
 		{
 			name:              "v1beta1 one trust domain alias",
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local"}),
 			policies:          getPolicies("testdata/v1beta1/simple-policy-td-aliases-in.yaml", t),
-			want:              getProto("testdata/v1beta1/simple-policy-td-aliases-out.yaml", t),
+			wantAllow:         getProto("testdata/v1beta1/simple-policy-td-aliases-out.yaml", t),
 		},
 		{
 			name:              "v1beta1 multiple trust domain aliases",
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local", "some-td"}),
 			policies:          getPolicies("testdata/v1beta1/simple-policy-multiple-td-aliases-in.yaml", t),
-			want:              getProto("testdata/v1beta1/simple-policy-multiple-td-aliases-out.yaml", t),
+			wantAllow:         getProto("testdata/v1beta1/simple-policy-multiple-td-aliases-out.yaml", t),
 		},
 		{
 			name:              "v1alpha1 one trust domain alias",
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local"}),
 			policies:          getPolicies("testdata/v1alpha1/simple-policy-td-aliases-in.yaml", t),
-			want:              getProto("testdata/v1alpha1/simple-policy-td-aliases-out.yaml", t),
+			wantAllow:         getProto("testdata/v1alpha1/simple-policy-td-aliases-out.yaml", t),
 		},
 		{
 			name:              "v1alpha1 trust domain with * in principal",
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"foobar"}),
 			policies:          getPolicies("testdata/v1alpha1/simple-policy-user-with-wildcard-in.yaml", t),
-			want:              getProto("testdata/v1alpha1/simple-policy-user-with-wildcard-out.yaml", t),
+			wantAllow:         getProto("testdata/v1alpha1/simple-policy-user-with-wildcard-out.yaml", t),
 		},
 		{
 			name:              "v1beta1 trust domain with * in principal",
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"foobar"}),
 			policies:          getPolicies("testdata/v1beta1/simple-policy-principal-with-wildcard-in.yaml", t),
-			want:              getProto("testdata/v1beta1/simple-policy-principal-with-wildcard-out.yaml", t),
+			wantAllow:         getProto("testdata/v1beta1/simple-policy-principal-with-wildcard-out.yaml", t),
 		},
 		{
 			name:              "v1alpha1 trust domain aliases with source.principal",
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("new-td", []string{"old-td", "some-trustdomain"}),
 			policies:          getPolicies("testdata/v1alpha1/td-aliases-source-principal-in.yaml", t),
-			want:              getProto("testdata/v1alpha1/td-aliases-source-principal-out.yaml", t),
+			wantAllow:         getProto("testdata/v1alpha1/td-aliases-source-principal-out.yaml", t),
 		},
 		{
 			name:              "v1beta1 trust domain aliases with source.principal",
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("new-td", []string{"old-td", "some-trustdomain"}),
 			policies:          getPolicies("testdata/v1beta1/td-aliases-source-principal-in.yaml", t),
-			want:              getProto("testdata/v1beta1/td-aliases-source-principal-out.yaml", t),
+			wantAllow:         getProto("testdata/v1beta1/td-aliases-source-principal-out.yaml", t),
 		},
 	}
 
@@ -131,18 +139,12 @@ func TestBuildHTTPFilter(t *testing.T) {
 			if b == nil {
 				t.Fatalf("failed to create builder")
 			}
-			got := b.generator.Generate(false)
-
-			if !reflect.DeepEqual(got, tc.want) {
-				gotYaml, err := protomarshal.ToYAML(got)
-				if err != nil {
-					t.Fatalf("failed to convert to YAML: %v", err)
-				}
-				wantYaml, err := protomarshal.ToYAML(tc.want)
-				if err != nil {
-					t.Fatalf("failed to convert to YAML: %v", err)
-				}
-				t.Errorf("got:\n%s\nwant:\n%s\n", gotYaml, wantYaml)
+			gotDeny, gotAllow := b.generator.Generate(false)
+			if tc.wantDeny != nil {
+				verify(t, gotDeny, tc.wantDeny)
+			}
+			if tc.wantAllow != nil {
+				verify(t, gotAllow, tc.wantAllow)
 			}
 		})
 	}
@@ -177,4 +179,18 @@ func getProto(filename string, t *testing.T) *http_config.RBAC {
 		t.Fatalf("failed to parse YAML: %v", err)
 	}
 	return out
+}
+
+func verify(t *testing.T, got, want proto.Message) {
+	if !reflect.DeepEqual(got, want) {
+		gotYaml, err := protomarshal.ToYAML(got)
+		if err != nil {
+			t.Fatalf("failed to convert to YAML: %v", err)
+		}
+		wantYaml, err := protomarshal.ToYAML(want)
+		if err != nil {
+			t.Fatalf("failed to convert to YAML: %v", err)
+		}
+		t.Errorf("got:\n%s\nwant:\n%s\n", gotYaml, wantYaml)
+	}
 }
