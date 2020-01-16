@@ -1963,10 +1963,13 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 	// setup listener filter timeout for sidecar only
 	if util.IsIstioVersionGE13(opts.proxy) && opts.proxy.Type != model.Router {
-		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
+		// This implies the port is explicitly defined as tls-xxx or https-xxx
+		if !(needTLSInspector && !opts.needHTTPInspector && listener.TrafficDirection == core.TrafficDirection_OUTBOUND) {
+			listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
 
-		if listener.ListenerFiltersTimeout != nil {
-			listener.ContinueOnListenerFiltersTimeout = true
+			if listener.ListenerFiltersTimeout != nil {
+				listener.ContinueOnListenerFiltersTimeout = true
+			}
 		}
 	}
 
