@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	kubeApiAdmission "k8s.io/api/admission/v1beta1"
@@ -236,15 +235,6 @@ func (wh *Webhook) Stop() {
 
 var readyHook = func() {}
 
-func isModify(event fsnotify.Event) bool {
-	if event.Op&fsnotify.Write == fsnotify.Write {
-		return true
-	} else if event.Op&fsnotify.Create == fsnotify.Create {
-		return true
-	}
-	return false
-}
-
 // Run implements the webhook server
 func (wh *Webhook) Run(stopCh <-chan struct{}) {
 
@@ -273,14 +263,10 @@ func (wh *Webhook) Run(stopCh <-chan struct{}) {
 		case <-keyCertTimerC:
 			keyCertTimerC = nil
 			wh.reloadKeyCert()
-		case event, more := <-wh.keyCertWatcher.Events(wh.keyFile):
-			if more && isModify(event) && keyCertTimerC == nil {
-				keyCertTimerC = time.After(watchDebounceDelay)
-			}
-		case event, more := <-wh.keyCertWatcher.Events(wh.certFile):
-			if more && isModify(event) && keyCertTimerC == nil {
-				keyCertTimerC = time.After(watchDebounceDelay)
-			}
+		case <-wh.keyCertWatcher.Events(wh.keyFile):
+			keyCertTimerC = time.After(watchDebounceDelay)
+		case <-wh.keyCertWatcher.Events(wh.certFile):
+			keyCertTimerC = time.After(watchDebounceDelay)
 		case err := <-wh.keyCertWatcher.Errors(wh.keyFile):
 			scope.Errorf("configWatcher error: %v", err)
 		case err := <-wh.keyCertWatcher.Errors(wh.certFile):
