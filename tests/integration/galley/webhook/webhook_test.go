@@ -47,7 +47,7 @@ var (
 	webhookControllerApp = "pilot" // i.e. istiod. Switch to 'galley' and change the setup options for non-istiod tests.
 	deployName           = fmt.Sprintf("istio-%v", webhookControllerApp)
 
-	vwcName    = "istio-galley"
+	vwcName    = "istiod-istio-system"
 	sleepDelay = 10 * time.Second // How long to wait to give the reconcile loop an opportunity to act
 	i          istio.Instance
 )
