@@ -8225,6 +8225,8 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
 {{ else }}
           {{ if .Values.global.sds.enabled }}
           - name: sdsudspath
@@ -8250,6 +8252,8 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+      - name: ingressgatewaysdsudspath
+        emptyDir: {}
 {{- if .Values.global.istiod.enabled }}
       - name: istio-token
         projected:
