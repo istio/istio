@@ -23,6 +23,8 @@ import (
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	"github.com/mitchellh/copystructure"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"github.com/gogo/protobuf/proto"
 
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -91,6 +93,14 @@ type ConfigMeta struct {
 	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
 }
 
+func (c Config) GroupVersionKind() resource.GroupVersionKind {
+	return resource.GroupVersionKind{
+		Group:   c.Group,
+		Version: c.Version,
+		Kind:    c.Type,
+	}
+}
+
 // Config is a configuration unit consisting of the type of configuration, the
 // key identifier that is unique per type, and the content represented as a
 // protobuf message.
@@ -135,11 +145,11 @@ type ConfigStore interface {
 	Schemas() collection.Schemas
 
 	// Get retrieves a configuration element by a type and a key
-	Get(typ, name, namespace string) *Config
+	Get(typ resource.GroupVersionKind, name, namespace string) *Config
 
 	// List returns objects by type and namespace.
 	// Use "" for the namespace to list across namespaces.
-	List(typ, namespace string) ([]Config, error)
+	List(typ resource.GroupVersionKind, namespace string) ([]Config, error)
 
 	// Create adds a new configuration object to the store. If an object with the
 	// same name and namespace for the type already exists, the operation fails
@@ -154,7 +164,7 @@ type ConfigStore interface {
 	Update(config Config) (newRevision string, err error)
 
 	// Delete removes an object from the store by key
-	Delete(typ, name, namespace string) error
+	Delete(typ resource.GroupVersionKind, name, namespace string) error
 
 	Version() string
 
@@ -190,7 +200,7 @@ type ConfigStoreCache interface {
 
 	// RegisterEventHandler adds a handler to receive config update events for a
 	// configuration type
-	RegisterEventHandler(kind string, handler func(Config, Config, Event))
+	RegisterEventHandler(kind resource.GroupVersionKind, handler func(Config, Config, Event))
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
@@ -355,7 +365,7 @@ func MakeIstioStore(store ConfigStore) IstioConfigStore {
 }
 
 func (store *istioConfigStore) ServiceEntries() []Config {
-	serviceEntries, err := store.List(collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(), NamespaceAll)
+	serviceEntries, err := store.List(collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -378,7 +388,7 @@ func sortConfigByCreationTime(configs []Config) {
 }
 
 func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Config {
-	configs, err := store.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(), NamespaceAll)
+	configs, err := store.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -401,7 +411,7 @@ func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Conf
 }
 
 func (store *istioConfigStore) EnvoyFilter(workloadLabels labels.Collection) *Config {
-	configs, err := store.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind(), NamespaceAll)
+	configs, err := store.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -511,14 +521,14 @@ func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]
 // associated with destination service instances.
 func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
 	log.Debugf("QuotaSpecByDestination(%v)", instance)
-	bindings, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().Kind(), NamespaceAll)
+	bindings, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
 		return nil
 	}
 
 	log.Debugf("QuotaSpecByDestination bindings[%d] %v", len(bindings), bindings)
-	specs, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(), NamespaceAll)
+	specs, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecs: %v", err)
 		return nil
@@ -548,7 +558,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 }
 
 func (store *istioConfigStore) ServiceRoles(namespace string) []Config {
-	roles, err := store.List(collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(), namespace)
+	roles, err := store.List(collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(), namespace)
 	if err != nil {
 		log.Errorf("failed to get ServiceRoles in namespace %s: %v", namespace, err)
 		return nil
@@ -558,7 +568,7 @@ func (store *istioConfigStore) ServiceRoles(namespace string) []Config {
 }
 
 func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
-	bindings, err := store.List(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(), namespace)
+	bindings, err := store.List(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(), namespace)
 	if err != nil {
 		log.Errorf("failed to get ServiceRoleBinding in namespace %s: %v", namespace, err)
 		return nil
@@ -568,7 +578,7 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 }
 
 func (store *istioConfigStore) ClusterRbacConfig() *Config {
-	clusterRbacConfig, err := store.List(collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(), "")
+	clusterRbacConfig, err := store.List(collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(), "")
 	if err != nil {
 		log.Errorf("failed to get ClusterRbacConfig: %v", err)
 	}
@@ -581,7 +591,7 @@ func (store *istioConfigStore) ClusterRbacConfig() *Config {
 }
 
 func (store *istioConfigStore) RbacConfig() *Config {
-	rbacConfigs, err := store.List(collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Kind(), "")
+	rbacConfigs, err := store.List(collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(), "")
 	if err != nil {
 		return nil
 	}
@@ -599,7 +609,7 @@ func (store *istioConfigStore) RbacConfig() *Config {
 }
 
 func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {
-	authorizationPolicies, err := store.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(), namespace)
+	authorizationPolicies, err := store.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(), namespace)
 	if err != nil {
 		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
 		return nil

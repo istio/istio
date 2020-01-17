@@ -359,7 +359,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 
 	var err error
 	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
-		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().Kind(), "")
+		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
 			var b []byte
 			b, err = json.MarshalIndent(c, "  ", "  ")

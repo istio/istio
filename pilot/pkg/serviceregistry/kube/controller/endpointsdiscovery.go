@@ -18,6 +18,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
@@ -69,8 +71,8 @@ func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.E
 					Full:              true,
 					NamespacesUpdated: map[string]struct{}{namespace: {}},
 					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigTypesUpdated: map[string]struct{}{
-						collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(): {}},
+					ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{
+						collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 				})
 				return nil
 			}

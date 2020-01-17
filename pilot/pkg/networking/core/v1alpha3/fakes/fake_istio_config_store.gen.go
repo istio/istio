@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
 )
@@ -44,10 +45,10 @@ type IstioConfigStore struct {
 		result1 string
 		result2 error
 	}
-	DeleteStub        func(string, string, string) error
+	DeleteStub        func(resource.GroupVersionKind, string, string) error
 	deleteMutex       sync.RWMutex
 	deleteArgsForCall []struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 		arg3 string
 	}
@@ -79,10 +80,10 @@ type IstioConfigStore struct {
 	gatewaysReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
-	GetStub        func(string, string, string) *model.Config
+	GetStub        func(resource.GroupVersionKind, string, string) *model.Config
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 		arg3 string
 	}
@@ -106,10 +107,10 @@ type IstioConfigStore struct {
 		result1 string
 		result2 error
 	}
-	ListStub        func(string, string) ([]model.Config, error)
+	ListStub        func(resource.GroupVersionKind, string) ([]model.Config, error)
 	listMutex       sync.RWMutex
 	listArgsForCall []struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 	}
 	listReturns struct {
@@ -385,11 +386,11 @@ func (fake *IstioConfigStore) CreateReturnsOnCall(i int, result1 string, result2
 	}{result1, result2}
 }
 
-func (fake *IstioConfigStore) Delete(arg1 string, arg2 string, arg3 string) error {
+func (fake *IstioConfigStore) Delete(arg1 resource.GroupVersionKind, arg2 string, arg3 string) error {
 	fake.deleteMutex.Lock()
 	ret, specificReturn := fake.deleteReturnsOnCall[len(fake.deleteArgsForCall)]
 	fake.deleteArgsForCall = append(fake.deleteArgsForCall, struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 		arg3 string
 	}{arg1, arg2, arg3})
@@ -411,13 +412,13 @@ func (fake *IstioConfigStore) DeleteCallCount() int {
 	return len(fake.deleteArgsForCall)
 }
 
-func (fake *IstioConfigStore) DeleteCalls(stub func(string, string, string) error) {
+func (fake *IstioConfigStore) DeleteCalls(stub func(resource.GroupVersionKind, string, string) error) {
 	fake.deleteMutex.Lock()
 	defer fake.deleteMutex.Unlock()
 	fake.DeleteStub = stub
 }
 
-func (fake *IstioConfigStore) DeleteArgsForCall(i int) (string, string, string) {
+func (fake *IstioConfigStore) DeleteArgsForCall(i int) (resource.GroupVersionKind, string, string) {
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
 	argsForCall := fake.deleteArgsForCall[i]
@@ -567,11 +568,11 @@ func (fake *IstioConfigStore) GatewaysReturnsOnCall(i int, result1 []model.Confi
 	}{result1}
 }
 
-func (fake *IstioConfigStore) Get(arg1 string, arg2 string, arg3 string) *model.Config {
+func (fake *IstioConfigStore) Get(arg1 resource.GroupVersionKind, arg2 string, arg3 string) *model.Config {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 		arg3 string
 	}{arg1, arg2, arg3})
@@ -593,13 +594,13 @@ func (fake *IstioConfigStore) GetCallCount() int {
 	return len(fake.getArgsForCall)
 }
 
-func (fake *IstioConfigStore) GetCalls(stub func(string, string, string) *model.Config) {
+func (fake *IstioConfigStore) GetCalls(stub func(resource.GroupVersionKind, string, string) *model.Config) {
 	fake.getMutex.Lock()
 	defer fake.getMutex.Unlock()
 	fake.GetStub = stub
 }
 
-func (fake *IstioConfigStore) GetArgsForCall(i int) (string, string, string) {
+func (fake *IstioConfigStore) GetArgsForCall(i int) (resource.GroupVersionKind, string, string) {
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
 	argsForCall := fake.getArgsForCall[i]
@@ -693,11 +694,11 @@ func (fake *IstioConfigStore) GetResourceAtVersionReturnsOnCall(i int, result1 s
 	}{result1, result2}
 }
 
-func (fake *IstioConfigStore) List(arg1 string, arg2 string) ([]model.Config, error) {
+func (fake *IstioConfigStore) List(arg1 resource.GroupVersionKind, arg2 string) ([]model.Config, error) {
 	fake.listMutex.Lock()
 	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
 	fake.listArgsForCall = append(fake.listArgsForCall, struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 	}{arg1, arg2})
 	fake.recordInvocation("List", []interface{}{arg1, arg2})
@@ -718,13 +719,13 @@ func (fake *IstioConfigStore) ListCallCount() int {
 	return len(fake.listArgsForCall)
 }
 
-func (fake *IstioConfigStore) ListCalls(stub func(string, string) ([]model.Config, error)) {
+func (fake *IstioConfigStore) ListCalls(stub func(resource.GroupVersionKind, string) ([]model.Config, error)) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = stub
 }
 
-func (fake *IstioConfigStore) ListArgsForCall(i int) (string, string) {
+func (fake *IstioConfigStore) ListArgsForCall(i int) (resource.GroupVersionKind, string) {
 	fake.listMutex.RLock()
 	defer fake.listMutex.RUnlock()
 	argsForCall := fake.listArgsForCall[i]

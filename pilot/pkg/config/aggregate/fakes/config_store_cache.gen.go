@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -22,10 +23,10 @@ type ConfigStoreCache struct {
 		result1 string
 		result2 error
 	}
-	DeleteStub        func(string, string, string) error
+	DeleteStub        func(resource.GroupVersionKind, string, string) error
 	deleteMutex       sync.RWMutex
 	deleteArgsForCall []struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 		arg3 string
 	}
@@ -35,10 +36,10 @@ type ConfigStoreCache struct {
 	deleteReturnsOnCall map[int]struct {
 		result1 error
 	}
-	GetStub        func(string, string, string) *model.Config
+	GetStub        func(resource.GroupVersionKind, string, string) *model.Config
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 		arg3 string
 	}
@@ -72,10 +73,10 @@ type ConfigStoreCache struct {
 	hasSyncedReturnsOnCall map[int]struct {
 		result1 bool
 	}
-	ListStub        func(string, string) ([]model.Config, error)
+	ListStub        func(resource.GroupVersionKind, string) ([]model.Config, error)
 	listMutex       sync.RWMutex
 	listArgsForCall []struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 	}
 	listReturns struct {
@@ -86,10 +87,10 @@ type ConfigStoreCache struct {
 		result1 []model.Config
 		result2 error
 	}
-	RegisterEventHandlerStub        func(string, func(model.Config, model.Config, model.Event))
+	RegisterEventHandlerStub        func(resource.GroupVersionKind, func(model.Config, model.Config, model.Event))
 	registerEventHandlerMutex       sync.RWMutex
 	registerEventHandlerArgsForCall []struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 func(model.Config, model.Config, model.Event)
 	}
 	RunStub        func(<-chan struct{})
@@ -197,11 +198,11 @@ func (fake *ConfigStoreCache) CreateReturnsOnCall(i int, result1 string, result2
 	}{result1, result2}
 }
 
-func (fake *ConfigStoreCache) Delete(arg1 string, arg2 string, arg3 string) error {
+func (fake *ConfigStoreCache) Delete(arg1 resource.GroupVersionKind, arg2 string, arg3 string) error {
 	fake.deleteMutex.Lock()
 	ret, specificReturn := fake.deleteReturnsOnCall[len(fake.deleteArgsForCall)]
 	fake.deleteArgsForCall = append(fake.deleteArgsForCall, struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 		arg3 string
 	}{arg1, arg2, arg3})
@@ -223,13 +224,13 @@ func (fake *ConfigStoreCache) DeleteCallCount() int {
 	return len(fake.deleteArgsForCall)
 }
 
-func (fake *ConfigStoreCache) DeleteCalls(stub func(string, string, string) error) {
+func (fake *ConfigStoreCache) DeleteCalls(stub func(resource.GroupVersionKind, string, string) error) {
 	fake.deleteMutex.Lock()
 	defer fake.deleteMutex.Unlock()
 	fake.DeleteStub = stub
 }
 
-func (fake *ConfigStoreCache) DeleteArgsForCall(i int) (string, string, string) {
+func (fake *ConfigStoreCache) DeleteArgsForCall(i int) (resource.GroupVersionKind, string, string) {
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
 	argsForCall := fake.deleteArgsForCall[i]
@@ -259,11 +260,11 @@ func (fake *ConfigStoreCache) DeleteReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *ConfigStoreCache) Get(arg1 string, arg2 string, arg3 string) *model.Config {
+func (fake *ConfigStoreCache) Get(arg1 resource.GroupVersionKind, arg2 string, arg3 string) *model.Config {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 		arg3 string
 	}{arg1, arg2, arg3})
@@ -285,13 +286,13 @@ func (fake *ConfigStoreCache) GetCallCount() int {
 	return len(fake.getArgsForCall)
 }
 
-func (fake *ConfigStoreCache) GetCalls(stub func(string, string, string) *model.Config) {
+func (fake *ConfigStoreCache) GetCalls(stub func(resource.GroupVersionKind, string, string) *model.Config) {
 	fake.getMutex.Lock()
 	defer fake.getMutex.Unlock()
 	fake.GetStub = stub
 }
 
-func (fake *ConfigStoreCache) GetArgsForCall(i int) (string, string, string) {
+func (fake *ConfigStoreCache) GetArgsForCall(i int) (resource.GroupVersionKind, string, string) {
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
 	argsForCall := fake.getArgsForCall[i]
@@ -437,11 +438,11 @@ func (fake *ConfigStoreCache) HasSyncedReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
-func (fake *ConfigStoreCache) List(arg1 string, arg2 string) ([]model.Config, error) {
+func (fake *ConfigStoreCache) List(arg1 resource.GroupVersionKind, arg2 string) ([]model.Config, error) {
 	fake.listMutex.Lock()
 	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
 	fake.listArgsForCall = append(fake.listArgsForCall, struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 string
 	}{arg1, arg2})
 	fake.recordInvocation("List", []interface{}{arg1, arg2})
@@ -462,13 +463,13 @@ func (fake *ConfigStoreCache) ListCallCount() int {
 	return len(fake.listArgsForCall)
 }
 
-func (fake *ConfigStoreCache) ListCalls(stub func(string, string) ([]model.Config, error)) {
+func (fake *ConfigStoreCache) ListCalls(stub func(resource.GroupVersionKind, string) ([]model.Config, error)) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = stub
 }
 
-func (fake *ConfigStoreCache) ListArgsForCall(i int) (string, string) {
+func (fake *ConfigStoreCache) ListArgsForCall(i int) (resource.GroupVersionKind, string) {
 	fake.listMutex.RLock()
 	defer fake.listMutex.RUnlock()
 	argsForCall := fake.listArgsForCall[i]
@@ -501,10 +502,10 @@ func (fake *ConfigStoreCache) ListReturnsOnCall(i int, result1 []model.Config, r
 	}{result1, result2}
 }
 
-func (fake *ConfigStoreCache) RegisterEventHandler(arg1 string, arg2 func(model.Config, model.Config, model.Event)) {
+func (fake *ConfigStoreCache) RegisterEventHandler(arg1 resource.GroupVersionKind, arg2 func(model.Config, model.Config, model.Event)) {
 	fake.registerEventHandlerMutex.Lock()
 	fake.registerEventHandlerArgsForCall = append(fake.registerEventHandlerArgsForCall, struct {
-		arg1 string
+		arg1 resource.GroupVersionKind
 		arg2 func(model.Config, model.Config, model.Event)
 	}{arg1, arg2})
 	fake.recordInvocation("RegisterEventHandler", []interface{}{arg1, arg2})
@@ -520,13 +521,13 @@ func (fake *ConfigStoreCache) RegisterEventHandlerCallCount() int {
 	return len(fake.registerEventHandlerArgsForCall)
 }
 
-func (fake *ConfigStoreCache) RegisterEventHandlerCalls(stub func(string, func(model.Config, model.Config, model.Event))) {
+func (fake *ConfigStoreCache) RegisterEventHandlerCalls(stub func(resource.GroupVersionKind, func(model.Config, model.Config, model.Event))) {
 	fake.registerEventHandlerMutex.Lock()
 	defer fake.registerEventHandlerMutex.Unlock()
 	fake.RegisterEventHandlerStub = stub
 }
 
-func (fake *ConfigStoreCache) RegisterEventHandlerArgsForCall(i int) (string, func(model.Config, model.Config, model.Event)) {
+func (fake *ConfigStoreCache) RegisterEventHandlerArgsForCall(i int) (resource.GroupVersionKind, func(model.Config, model.Config, model.Event)) {
 	fake.registerEventHandlerMutex.RLock()
 	defer fake.registerEventHandlerMutex.RUnlock()
 	argsForCall := fake.registerEventHandlerArgsForCall[i]

@@ -29,19 +29,11 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-)
-
-var (
-	gatewayGroup          = collections.IstioNetworkingV1Alpha3Gateways.Resource().Group()
-	gatewayVersion        = collections.IstioNetworkingV1Alpha3Gateways.Resource().Version()
-	virtualServiceGroup   = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group()
-	virtualServiceVersion = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version()
 )
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
@@ -121,9 +113,9 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 
 	gatewayConfig := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      gatewayKind,
-			Group:     gatewayGroup,
-			Version:   gatewayVersion,
+			Type:      gatewayGvk.Kind,
+			Group:     gatewayGvk.Group,
+			Version:   gatewayGvk.Version,
 			Name:      ingress.Name + "-" + constants.IstioIngressGatewayName,
 			Namespace: ingressNamespace,
 			Domain:    domainSuffix,
@@ -183,9 +175,9 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 
 		virtualServiceConfig := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      virtualServiceKind,
-				Group:     virtualServiceGroup,
-				Version:   virtualServiceVersion,
+				Type:      virtualServiceGvk.Kind,
+				Group:     virtualServiceGvk.Group,
+				Version:   virtualServiceGvk.Version,
 				Name:      namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
 				Namespace: ingress.Namespace,
 				Domain:    domainSuffix,
