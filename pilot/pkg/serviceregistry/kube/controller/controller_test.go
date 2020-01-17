@@ -542,7 +542,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				t.Fatalf("expected 1 instance, got %v", len(metaServices))
 			}
 			if !reflect.DeepEqual(expected, metaServices[0]) {
-				t.Fatalf("expected instance %#v, got %#v", expected, metaServices[0])
+				t.Fatalf("expected instance %v, got %v", expected, metaServices[0])
 			}
 
 			// Test that we first look up instances by Proxy pod
