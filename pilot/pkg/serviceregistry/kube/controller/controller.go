@@ -698,9 +698,15 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 			continue
 		}
 		// find target port
-		targetPort, err := FindPort(pod, &port)
+		_, err := FindPort(pod, &port)
 		if err != nil {
 			log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
+			continue
+		}
+		// check if this port is valid for service from pod ports.
+		targetPort, err := findPortFromMetadata(port, proxy.Metadata.PodPorts)
+		if err != nil {
+			log.Warnf("failed to find target port for %v: %v", proxy.ID, err)
 			continue
 		}
 
@@ -937,16 +943,16 @@ func (c *Controller) endpointNetwork(endpointIP string) string {
 	return (entries[0].(namedRangerEntry)).name
 }
 
-// Forked from Kubernetes k8s.io/kubernetes/pkg/api/v1/pod and modified with validation for int ports.
-// FindPort locates the container port for the given pod and portName.
-// If the targetPort is a number, just check if a matching port is avaiable in all containers.
-// If the targetPort is a string, look that string up in all named ports in all containers in the target pod.
-// If no match is found, fail.
+// Forked from Kubernetes k8s.io/kubernetes/pkg/api/v1/pod
+// FindPort locates the container port for the given pod and portName.  If the
+// targetPort is a number, use that.  If the targetPort is a string, look that
+// string up in all named ports in all containers in the target pod.  If no
+// match is found, fail.
 func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
-	port := svcPort.TargetPort
-	switch port.Type {
+	portName := svcPort.TargetPort
+	switch portName.Type {
 	case intstr.String:
-		name := port.StrVal
+		name := portName.StrVal
 		for _, container := range pod.Spec.Containers {
 			for _, port := range container.Ports {
 				if port.Name == name && port.Protocol == svcPort.Protocol {
@@ -955,18 +961,7 @@ func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
 			}
 		}
 	case intstr.Int:
-		num := port.IntVal
-		if num > 0 {
-			for _, container := range pod.Spec.Containers {
-				for _, port := range container.Ports {
-					if port.ContainerPort == num {
-						return int(port.ContainerPort), nil
-					}
-				}
-			}
-		} else {
-			return port.IntValue(), nil
-		}
+		return portName.IntValue(), nil
 	}
 
 	return 0, fmt.Errorf("no suitable port for manifest: %s", pod.UID)

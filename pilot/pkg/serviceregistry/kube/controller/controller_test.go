@@ -737,7 +737,7 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 }
 
 func TestGetProxyServiceInstancesWithTargetPortsMatching(t *testing.T) {
-	pod1 := generatePodWithContainerPorts("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{}, []coreV1.ContainerPort{{Name: "test-port", ContainerPort: 7443, Protocol: "http"}})
+	pod1 := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 	testCases := []struct {
 		name        string
 		pods        []*coreV1.Pod
@@ -768,14 +768,6 @@ func TestGetProxyServiceInstancesWithTargetPortsMatching(t *testing.T) {
 			ips:         []string{"128.0.0.1", "192.168.2.6"},
 			ports:       []int32{7443},
 			targetPorts: []intstr.IntOrString{{IntVal: 7443}},
-			wantNum:     2,
-		},
-		{
-			name:        "pod, matching string port",
-			pods:        []*coreV1.Pod{pod1},
-			ips:         []string{"128.0.0.1", "192.168.2.6"},
-			ports:       []int32{7443},
-			targetPorts: []intstr.IntOrString{{Type: intstr.String, StrVal: "test-port"}},
 			wantNum:     2,
 		},
 		{
@@ -1624,37 +1616,6 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 				{
 					Name:  "test",
 					Image: "ununtu",
-				},
-			},
-		},
-		// The cache controller uses this as key, required by our impl.
-		Status: coreV1.PodStatus{
-			PodIP:  ip,
-			HostIP: ip,
-			Phase:  coreV1.PodRunning,
-		},
-	}
-}
-
-func generatePodWithContainerPorts(ip, name, namespace, saName, node string, labels map[string]string, annotations map[string]string, containerPorts []coreV1.ContainerPort) *coreV1.Pod {
-	automount := false
-	return &coreV1.Pod{
-		ObjectMeta: metaV1.ObjectMeta{
-			Name:        name,
-			Labels:      labels,
-			Annotations: annotations,
-			Namespace:   namespace,
-		},
-		Spec: coreV1.PodSpec{
-			ServiceAccountName:           saName,
-			NodeName:                     node,
-			AutomountServiceAccountToken: &automount,
-			// Validation requires this
-			Containers: []coreV1.Container{
-				{
-					Name:  "test",
-					Image: "ununtu",
-					Ports: containerPorts,
 				},
 			},
 		},
