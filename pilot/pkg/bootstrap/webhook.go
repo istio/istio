@@ -21,12 +21,11 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/webhooks/validation/server"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -40,15 +39,6 @@ func (s *Server) getWebhookCertificate(info *tls.ClientHelloInfo) (*tls.Certific
 	s.webhookCertMu.Lock()
 	defer s.webhookCertMu.Unlock()
 	return s.webhookCert, nil
-}
-
-func isModify(event fsnotify.Event) bool {
-	if event.Op&fsnotify.Write == fsnotify.Write {
-		return true
-	} else if event.Op&fsnotify.Create == fsnotify.Create {
-		return true
-	}
-	return false
 }
 
 func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
@@ -98,11 +88,11 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 					s.webhookCert = cert
 					s.webhookCertMu.Unlock()
 				case ev := <-keyCertWatcher.Events(dnsCertFile):
-					if isModify(ev) && keyCertTimerC == nil {
+					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
 				case ev := <-keyCertWatcher.Events(dnsKeyFile):
-					if isModify(ev) && keyCertTimerC == nil {
+					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
 				case <-keyCertWatcher.Errors(dnsCertFile):
