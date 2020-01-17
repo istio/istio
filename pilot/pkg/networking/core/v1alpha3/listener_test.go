@@ -591,6 +591,23 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 				Namespace: "default",
 			},
 		},
+		{
+			CreationTime: tnow,
+			Hostname:     host.Name("test1.com"),
+			Address:      wildcardIP,
+			ClusterVIPs:  make(map[string]string),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "foo",
+					Port:     9090,
+					Protocol: "unknown",
+				},
+			},
+			Resolution: model.Passthrough,
+			Attributes: model.ServiceAttributes{
+				Namespace: "default",
+			},
+		},
 	}
 	testOutboundListenerFilterTimeoutV14(t, services...)
 }
@@ -704,13 +721,19 @@ func testOutboundListenerRouteV14(t *testing.T, services ...*model.Service) {
 func testOutboundListenerFilterTimeoutV14(t *testing.T, services ...*model.Service) {
 	p := &fakePlugin{}
 	listeners := buildOutboundListeners(p, &proxy14, nil, nil, services...)
-	if len(listeners) != 1 {
-		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 	}
 
 	if listeners[0].ContinueOnListenerFiltersTimeout {
 		t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v",
 			listeners[0].ContinueOnListenerFiltersTimeout)
+	}
+
+	if !listeners[1].ContinueOnListenerFiltersTimeout || listeners[1].ListenerFiltersTimeout == nil {
+		t.Fatalf("expected timeout enabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+			listeners[1].ContinueOnListenerFiltersTimeout,
+			listeners[1].ListenerFiltersTimeout)
 	}
 }
 

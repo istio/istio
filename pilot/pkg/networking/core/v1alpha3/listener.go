@@ -1021,6 +1021,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 		tcpListeners = append(tcpListeners, httpProxy)
 	}
 
+	removeListenerFilterTimeout(tcpListeners)
 	return tcpListeners
 }
 
@@ -1960,13 +1961,10 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	if util.IsIstioVersionGE13(opts.proxy) && opts.proxy.Type != model.Router {
-		// This implies the port is explicitly defined as tls-xxx or https-xxx
-		if !(needTLSInspector && !opts.needHTTPInspector && listener.TrafficDirection == core.TrafficDirection_OUTBOUND) {
-			listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
+		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
 
-			if listener.ListenerFiltersTimeout != nil {
-				listener.ContinueOnListenerFiltersTimeout = true
-			}
+		if listener.ListenerFiltersTimeout != nil {
+			listener.ContinueOnListenerFiltersTimeout = true
 		}
 	}
 
@@ -2336,4 +2334,23 @@ func isFallthroughFilterChain(fc *listener.FilterChain) bool {
 		return true
 	}
 	return false
+}
+
+func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
+	for _, l := range listeners {
+		// Remove listener filter timeout for
+		// 	1. outbound listeners AND
+		// 	2. with HTTP inspector
+		hasHttpInspector := false
+		for _, lf := range l.ListenerFilters {
+			if hasHttpInspector = hasHttpInspector || lf.Name == wellknown.HttpInspector; hasHttpInspector {
+				break
+			}
+		}
+
+		if !hasHttpInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
+			l.ListenerFiltersTimeout = nil
+			l.ContinueOnListenerFiltersTimeout = false
+		}
+	}
 }
