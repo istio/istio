@@ -1116,6 +1116,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	if err != nil {
 		return err
 	}
+	log.Errorf("howardjohn: got virtualServices: %v", virtualServices)
 
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy

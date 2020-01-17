@@ -231,6 +231,7 @@ func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) 
 }
 
 func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+	log.Errorf("howardjohn: List! %v", typ)
 	if typ != collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind() &&
 		typ != collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind() {
 		return nil, errUnsupportedOp
