@@ -722,8 +722,8 @@ allChainsLabel:
 	}
 
 	// call plugins
-	listenerOpts.trafficDirection = core.TrafficDirection_INBOUND
 	l := buildListener(listenerOpts)
+	l.TrafficDirection = core.TrafficDirection_INBOUND
 
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
@@ -1055,11 +1055,11 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 				},
 			},
 		}},
-		bindToPort:       true,
-		skipUserFilters:  true,
-		trafficDirection: core.TrafficDirection_OUTBOUND,
+		bindToPort:      true,
+		skipUserFilters: true,
 	}
 	l := buildListener(opts)
+	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
 	// there is no mixer for http_proxy
@@ -1408,9 +1408,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
-	listenerOpts.trafficDirection = core.TrafficDirection_OUTBOUND
 	l := buildListener(listenerOpts)
 	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node, currentListenerEntry)
+	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
@@ -1630,12 +1630,12 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext
 					networkFilters: buildInboundNetworkFilters(push, node, instance),
 				}},
 				// No user filters for the management unless we introduce new listener matches
-				skipUserFilters:  true,
-				proxy:            node,
-				push:             push,
-				trafficDirection: core.TrafficDirection_INBOUND,
+				skipUserFilters: true,
+				proxy:           node,
+				push:            push,
 			}
 			l := buildListener(listenerOpts)
+			l.TrafficDirection = core.TrafficDirection_INBOUND
 			mutable := &plugin.MutableObjects{
 				Listener:     l,
 				FilterChains: []plugin.FilterChain{{}},
@@ -1701,7 +1701,6 @@ type buildListenerOpts struct {
 	bindToPort        bool
 	skipUserFilters   bool
 	needHTTPInspector bool
-	trafficDirection  core.TrafficDirection
 }
 
 func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *httpListenerOpts,
@@ -1953,15 +1952,13 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	listener := &xdsapi.Listener{
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like
-		Name:             fmt.Sprintf("%s_%d", opts.bind, opts.port),
-		Address:          util.BuildAddress(opts.bind, uint32(opts.port)),
-		ListenerFilters:  listenerFilters,
-		FilterChains:     filterChains,
-		DeprecatedV1:     deprecatedV1,
-		TrafficDirection: opts.trafficDirection,
+		Name:            fmt.Sprintf("%s_%d", opts.bind, opts.port),
+		Address:         util.BuildAddress(opts.bind, uint32(opts.port)),
+		ListenerFilters: listenerFilters,
+		FilterChains:    filterChains,
+		DeprecatedV1:    deprecatedV1,
 	}
 
-	// setup listener filter timeout for sidecar only
 	if util.IsIstioVersionGE13(opts.proxy) && opts.proxy.Type != model.Router {
 		// This implies the port is explicitly defined as tls-xxx or https-xxx
 		if !(needTLSInspector && !opts.needHTTPInspector && listener.TrafficDirection == core.TrafficDirection_OUTBOUND) {
