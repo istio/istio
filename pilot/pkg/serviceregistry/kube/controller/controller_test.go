@@ -606,8 +606,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			}
 
 			// 2. pod with `istio-locality` label, ignore node label.
-			p = generatePod("129.0.0.2", "pod3", "nsa", "svcaccount", "node1",
-				map[string]string{"app": "prod-app", "istio-locality": "region.zone"}, nil)
+			p = generatePod("129.0.0.2", "pod3", "nsa", "svcaccount", "node1", map[string]string{"app": "prod-app", "istio-locality": "region.zone"}, nil)
 			addPods(t, controller, p)
 			if err := waitForPod(controller, p.Status.PodIP); err != nil {
 				t.Fatalf("wait for pod err: %v", err)
@@ -725,7 +724,7 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 				if ev == nil {
 					t.Fatal("Timeout creating service")
 				}
-				serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{PodPorts: model.PodPortList{{Name: "test-port", ContainerPort: 8080, Protocol: "grpc"}}}, IPAddresses: c.ips})
+				serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
 				if err != nil {
 					t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
 				}
@@ -737,7 +736,7 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 	}
 }
 
-func TestGetProxyServiceInstancesWithMatchingServicePorts(t *testing.T) {
+func TestGetProxyServiceInstancesWithTargetPortsMatching(t *testing.T) {
 	pod1 := generatePodWithContainerPorts("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{}, []coreV1.ContainerPort{{Name: "test-port", ContainerPort: 7443, Protocol: "http"}})
 	testCases := []struct {
 		name        string
@@ -748,7 +747,7 @@ func TestGetProxyServiceInstancesWithMatchingServicePorts(t *testing.T) {
 		wantNum     int
 	}{
 		{
-			name:        "non matching int port",
+			name:        "pod, non matching int port",
 			pods:        []*coreV1.Pod{pod1},
 			ips:         []string{"128.0.0.1", "192.168.2.6"},
 			ports:       []int32{15001},
@@ -756,15 +755,15 @@ func TestGetProxyServiceInstancesWithMatchingServicePorts(t *testing.T) {
 			wantNum:     0,
 		},
 		{
-			name:        "non matching string port",
+			name:        "pod, non matching string port",
 			pods:        []*coreV1.Pod{pod1},
 			ips:         []string{"128.0.0.1", "192.168.2.6"},
 			ports:       []int32{15001},
-			targetPorts: []intstr.IntOrString{{StrVal: "test-fake"}},
+			targetPorts: []intstr.IntOrString{{Type: intstr.String, StrVal: "test-fake"}},
 			wantNum:     0,
 		},
 		{
-			name:        "matching int port",
+			name:        "pod, matching int port",
 			pods:        []*coreV1.Pod{pod1},
 			ips:         []string{"128.0.0.1", "192.168.2.6"},
 			ports:       []int32{7443},
@@ -772,12 +771,44 @@ func TestGetProxyServiceInstancesWithMatchingServicePorts(t *testing.T) {
 			wantNum:     2,
 		},
 		{
-			name:        "matching string port",
+			name:        "pod, matching string port",
 			pods:        []*coreV1.Pod{pod1},
 			ips:         []string{"128.0.0.1", "192.168.2.6"},
 			ports:       []int32{7443},
 			targetPorts: []intstr.IntOrString{{Type: intstr.String, StrVal: "test-port"}},
 			wantNum:     2,
+		},
+		{
+			name:        "metadata, non matching int port",
+			pods:        []*coreV1.Pod{},
+			ips:         []string{"128.0.0.1", "192.168.2.6"},
+			ports:       []int32{15001},
+			targetPorts: []intstr.IntOrString{{IntVal: 15001}},
+			wantNum:     0,
+		},
+		{
+			name:        "metadata, non matching string port",
+			pods:        []*coreV1.Pod{},
+			ips:         []string{"128.0.0.1", "192.168.2.6"},
+			ports:       []int32{15001},
+			targetPorts: []intstr.IntOrString{{Type: intstr.String, StrVal: "test-fake"}},
+			wantNum:     0,
+		},
+		{
+			name:        "metadata, matching int port",
+			pods:        []*coreV1.Pod{},
+			ips:         []string{"128.0.0.1", "192.168.2.6"},
+			ports:       []int32{7443},
+			targetPorts: []intstr.IntOrString{{IntVal: 7443}},
+			wantNum:     1, // Proxy service instances derived from metadata does not consider multiple IPs.
+		},
+		{
+			name:        "metadta, matching string port",
+			pods:        []*coreV1.Pod{},
+			ips:         []string{"128.0.0.1", "192.168.2.6"},
+			ports:       []int32{7443},
+			targetPorts: []intstr.IntOrString{{Type: intstr.String, StrVal: "test-port"}},
+			wantNum:     1, // Proxy service instances derived from metadata does not consider multiple IPs.
 		},
 	}
 
@@ -804,7 +835,13 @@ func TestGetProxyServiceInstancesWithMatchingServicePorts(t *testing.T) {
 				if ev == nil {
 					t.Fatal("Timeout creating service")
 				}
-				serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{PodPorts: model.PodPortList{{Name: "test-port", ContainerPort: 7443, Protocol: "grpc"}}}, IPAddresses: c.ips})
+				proxy := &model.Proxy{
+					Metadata: &model.NodeMetadata{
+						PodPorts: model.PodPortList{{Name: "test-port", ContainerPort: 7443, Protocol: "http"}}},
+					WorkloadLabels: labels.Collection{labels.Instance{"app": "test-app"}},
+					IPAddresses:    c.ips,
+				}
+				serviceInstances, err := controller.GetProxyServiceInstances(proxy)
 				if err != nil {
 					t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
 				}
@@ -1452,10 +1489,9 @@ func createService(controller *Controller, name, namespace string, annotations m
 	svcPorts := make([]coreV1.ServicePort, 0)
 	for _, p := range ports {
 		svcPorts = append(svcPorts, coreV1.ServicePort{
-			Name:       "tcp-port",
-			Port:       p,
-			Protocol:   "http",
-			TargetPort: intstr.IntOrString{IntVal: p},
+			Name:     "tcp-port",
+			Port:     p,
+			Protocol: "http",
 		})
 	}
 	service := &coreV1.Service{

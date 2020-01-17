@@ -651,7 +651,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	return out, nil
 }
 
-// findPortFromMetadata resolves the TargetPort of a Service Port, by reading the Pod spec.
+// findPortFromMetadata resolves the TargetPort of a Service Port, by reading the Pod Ports from metadata.
 func findPortFromMetadata(svcPort v1.ServicePort, podPorts []model.PodPort) (int, error) {
 	target := svcPort.TargetPort
 
@@ -664,17 +664,16 @@ func findPortFromMetadata(svcPort v1.ServicePort, podPorts []model.PodPort) (int
 			}
 		}
 	case intstr.Int:
-		return target.IntValue(), nil
-		// num := int(target.IntVal)
-		// if num > 0 && len(podPorts) > 0 {
-		// 	for _, port := range podPorts {
-		// 		if port.ContainerPort == num {
-		// 			return num, nil
-		// 		}
-		// 	}
-		// } else {
-		// 	return num, nil
-		// }
+		num := int(target.IntVal)
+		if len(podPorts) > 0 {
+			for _, port := range podPorts {
+				if port.ContainerPort == num {
+					return num, nil
+				}
+			}
+		} else {
+			return num, nil
+		}
 	}
 
 	return 0, fmt.Errorf("no matching port found for %+v", svcPort)
@@ -938,11 +937,11 @@ func (c *Controller) endpointNetwork(endpointIP string) string {
 	return (entries[0].(namedRangerEntry)).name
 }
 
-// Forked from Kubernetes k8s.io/kubernetes/pkg/api/v1/pod
-// FindPort locates the container port for the given pod and portName.  If the
-// targetPort is a number, use that.  If the targetPort is a string, look that
-// string up in all named ports in all containers in the target pod.  If no
-// match is found, fail.
+// Forked from Kubernetes k8s.io/kubernetes/pkg/api/v1/pod and modified with validation for int ports.
+// FindPort locates the container port for the given pod and portName.
+// If the targetPort is a number, just check if a matching port is avaiable in all containers.
+// If the targetPort is a string, look that string up in all named ports in all containers in the target pod.
+// If no match is found, fail.
 func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
 	port := svcPort.TargetPort
 	switch port.Type {
@@ -965,6 +964,8 @@ func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
 					}
 				}
 			}
+		} else {
+			return port.IntValue(), nil
 		}
 	}
 
