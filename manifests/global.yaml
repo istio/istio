@@ -574,6 +574,3 @@ clusterResources: true
 # Version is set as 'version' label and part of the resource names when installing.
 # It is used to support multiple version in same namespace, similar with normal app traffic shift.
 version: ""
-
-certmanager:
-  enabled: false
