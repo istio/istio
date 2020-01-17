@@ -29,6 +29,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/test"
 
 	"istio.io/pkg/log"
@@ -46,6 +47,7 @@ import (
 var (
 	webhookControllerApp = "pilot" // i.e. istiod. Switch to 'galley' and change the setup options for non-istiod tests.
 	deployName           = fmt.Sprintf("istio-%v", webhookControllerApp)
+	clusterRolePrefix    = "istiod"
 
 	vwcName    = "istiod-istio-system"
 	sleepDelay = 10 * time.Second // How long to wait to give the reconcile loop an opportunity to act
@@ -137,7 +139,7 @@ func TestWebhook(t *testing.T) {
 			// Verify that removing clusterrole results in the webhook configuration being removed.
 			ctx.NewSubTest("webhookUninstall").
 				Run(func(t framework.TestContext) {
-					env.DeleteClusterRole(fmt.Sprintf("%v-%v", deployName, istioNs))
+					env.DeleteClusterRole(fmt.Sprintf("%v-%v", clusterRolePrefix, istioNs))
 
 					// Verify webhook config is deleted
 					if err := env.WaitForValidatingWebhookDeletion(vwcName); err != nil {
@@ -248,10 +250,10 @@ func fetchWebhookCertSerialNumbersOrFail(t test.Failer, addr string) []string { 
 	}
 	defer client.CloseIdleConnections()
 
-	url := fmt.Sprintf("https://%v/ready", addr)
+	url := fmt.Sprintf("https://%v/%v", addr, bootstrap.HTTPSWebhookServerReadyPath)
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
-		t.Fatalf("iunvalid request: %v", err)
+		t.Fatalf("invalid request: %v", err)
 	}
 
 	req.Host = fmt.Sprintf("%v.istio-system.svc", deployName)
