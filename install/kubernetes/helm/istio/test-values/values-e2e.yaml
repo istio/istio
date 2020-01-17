@@ -14,8 +14,6 @@ global:
   disablePolicyChecks: false
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY
-  istiod:
-    enabled: true
 
 prometheus:
   scrapeInterval: 5s
