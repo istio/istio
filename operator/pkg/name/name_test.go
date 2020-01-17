@@ -71,45 +71,13 @@ k2: v2
 			name: "path is longer than tree depth, string node",
 			args: args{
 				inputTree: `
-k1: v1
+k1:
+  k2: v1
 `,
-				path: util.Path{"k1", "k2"},
+				path: util.Path{"k1", "k2", "k3"},
 			},
 			want:    "",
 			found:   false,
-			wantErr: false,
-		},
-		{
-			name: "path is longer than tree depth, array node",
-			args: args{
-				inputTree: `
-k1: v1
-`,
-				path: util.Path{"k1", "k2"},
-			},
-			want:    "",
-			found:   false,
-			wantErr: false,
-		},
-		{
-			name: "string in map array tree",
-			args: args{
-				inputTree: `
-a:
-  b:
-  - name: n1
-    value: v1
-  - name: n2
-    list:
-    - v21
-    - v22
-`,
-				path: util.Path{"a", "b", "name"},
-			},
-			want: `
-n1
-`,
-			found:   true,
 			wantErr: false,
 		},
 		{
@@ -129,38 +97,6 @@ a:
 			},
 			want:    ``,
 			found:   false,
-			wantErr: false,
-		},
-		{
-			name: "node in map array tree",
-			args: args{
-				inputTree: `
-a:
-  b:
-    c: val1
-    list1:
-    - i1: val1
-    - i2: val2
-    - i3a: key1
-      i3b:
-        list2:
-        - i1: val1
-        - i2: val2
-        - i3a: key1
-          i3b:
-            i1: va11
-`,
-				path: util.Path{"a", "b", "list1", "i3b"},
-			},
-			want: `
-list2:
-- i1: val1
-- i2: val2
-- i3a: key1
-  i3b:
-    i1: va11
-`,
-			found:   true,
 			wantErr: false,
 		},
 	}

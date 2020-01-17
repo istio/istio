@@ -367,7 +367,7 @@ var (
 			if !nodeAgentSDSEnabled { // Not using citadel agent - this is either Pilot or Istiod.
 
 				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
-				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled)
+				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled, pilotCertProvider)
 
 				if sa.JWTPath != "" {
 					// If user injected a JWT token for SDS - use SDS.

@@ -41,7 +41,7 @@ spec:
             path: /ready
             port: 8080
           initialDelaySeconds: 5
-          periodSeconds: 30
+          periodSeconds: 5
           timeoutSeconds: 5
         resources:
           requests:
@@ -202,6 +202,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
+      pilotCertProvider: kubernetes
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"

@@ -210,7 +210,6 @@ aFKltOc+RAjzDklcUPeG4Y6eMA==
 )
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/17568")
 	testWorkloadAgentGenerateSecret(t, false)
 }
 
@@ -219,7 +218,7 @@ func TestWorkloadAgentGenerateSecretWithPluginProvider(t *testing.T) {
 }
 
 func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1)
 	opt := Options{
 		SecretTTL:        time.Minute,
 		RotationInterval: 300 * time.Microsecond,
@@ -321,7 +320,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 }
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0)
 	opt := Options{
 		SecretTTL:        200 * time.Microsecond,
 		RotationInterval: 200 * time.Microsecond,
@@ -861,7 +860,7 @@ func checkBool(t *testing.T, name string, got bool, want bool) {
 }
 
 func TestSetAlwaysValidTokenFlag(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0)
 	opt := Options{
 		SecretTTL:            200 * time.Microsecond,
 		RotationInterval:     200 * time.Microsecond,

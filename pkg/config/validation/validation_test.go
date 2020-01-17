@@ -16,7 +16,6 @@ package validation
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -2050,10 +2049,9 @@ func TestValidateDestination(t *testing.T) {
 
 func TestValidateHTTPRoute(t *testing.T) {
 	testCases := []struct {
-		name        string
-		route       *networking.HTTPRoute
-		unsaferegex bool
-		valid       bool
+		name  string
+		route *networking.HTTPRoute
+		valid bool
 	}{
 		{name: "empty", route: &networking.HTTPRoute{ // nothing
 		}, valid:                                     false},
@@ -2240,11 +2238,6 @@ func TestValidateHTTPRoute(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		if tc.unsaferegex {
-			_ = os.Setenv("PILOT_ENABLE_UNSAFE_REGEX", "true")
-
-			defer func() { _ = os.Unsetenv("PILOT_ENABLE_UNSAFE_REGEX") }()
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			if err := validateHTTPRoute(tc.route); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
@@ -3262,6 +3255,36 @@ func TestValidateEnvoyFilter(t *testing.T) {
 							Fields: map[string]*types.Value{
 								"lb_policy": {
 									Kind: &types.Value_StringValue{StringValue: "RING_HASH"},
+								},
+							},
+						},
+					},
+				},
+				{
+					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Name: "envoy.tcp_proxy",
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+						Value: &types.Struct{
+							Fields: map[string]*types.Value{
+								"typed_config": {
+									Kind: &types.Value_StructValue{StructValue: &types.Struct{
+										Fields: map[string]*types.Value{
+											"@type": {
+												Kind: &types.Value_StringValue{
+													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
+												},
+											},
+										},
+									}},
 								},
 							},
 						},

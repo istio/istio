@@ -18,6 +18,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
+    
     release: istio
 spec:
   maxReplicas: 5
@@ -280,15 +281,17 @@ metadata:
   namespace: istio-ingress-1-ns
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: istio-ingressgateway
-      release: istio
       istio: ingressgateway
+      
+      release: istio
 ---
 
 
@@ -331,12 +334,15 @@ metadata:
   annotations:
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
   ports:
     -
       name: status-port
@@ -379,6 +385,8 @@ metadata:
   namespace: istio-ingress-1-ns
   labels:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
     release: istio
 ---
 
@@ -407,6 +415,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
+    
     release: istio
 spec:
   maxReplicas: 5
@@ -438,6 +447,7 @@ spec:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
+      
   strategy:
     rollingUpdate:
       maxSurge: 100%
@@ -673,15 +683,17 @@ metadata:
   namespace: istio-ingress-2-ns
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: istio-ingressgateway
-      release: istio
       istio: ingressgateway
+      
+      release: istio
 ---
 
 
@@ -724,12 +736,15 @@ metadata:
   annotations:
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
   ports:
     -
       name: status-port
@@ -772,6 +787,8 @@ metadata:
   namespace: istio-ingress-2-ns
   labels:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
     release: istio
 ---
 

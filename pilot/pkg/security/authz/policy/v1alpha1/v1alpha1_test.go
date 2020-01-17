@@ -273,7 +273,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 				t.Fatal("failed to create generator")
 			}
 
-			got := g.Generate(tc.forTCPFilter)
+			_, got := g.Generate(tc.forTCPFilter)
 			gotStr := spew.Sdump(got)
 
 			if tc.isGlobalPermissiveEnabled {
@@ -287,10 +287,10 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			if len(tc.trustDomainBundle.TrustDomains) > 0 {
 				needToCheckPrincipals = true
 			}
-			if err := policy.Verify(got.GetRules(), tc.wantRules, needToCheckPrincipals); err != nil {
+			if err := policy.Verify(got.GetRules(), tc.wantRules, needToCheckPrincipals, false /* wantDeny */); err != nil {
 				t.Fatalf("%s\n%s", err, gotStr)
 			}
-			if err := policy.Verify(got.GetShadowRules(), tc.wantShadowRules, needToCheckPrincipals); err != nil {
+			if err := policy.Verify(got.GetShadowRules(), tc.wantShadowRules, needToCheckPrincipals, false /* wantDeny */); err != nil {
 				t.Fatalf("%s\n%s", err, gotStr)
 			}
 		})

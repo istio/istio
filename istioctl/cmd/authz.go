@@ -31,7 +31,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/util/pilotadapter"
 	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -248,7 +247,7 @@ func createAuthorizationPoliciesFromFiles(files []string, rootNamespace string) 
 		}
 		configs = append(configs, configFromFile...)
 	}
-	store := model.MakeIstioStore(memory.Make(pilotadapter.ConvertGalleySchemasToPilot(collections.Istio)))
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
 	for _, config := range configs {
 		if _, err := store.Create(config); err != nil {
 			return nil, err

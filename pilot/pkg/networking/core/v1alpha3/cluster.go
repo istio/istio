@@ -179,7 +179,13 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 	}
 	networkView := model.GetNetworkView(proxy)
 
-	for _, service := range push.Services(proxy) {
+	var services []*model.Service
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		services = push.GatewayServices(proxy)
+	} else {
+		services = push.Services(proxy)
+	}
+	for _, service := range services {
 		destRule := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
@@ -191,7 +197,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			lbEndpoints := buildLocalityLbEndpoints(push, networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(proxy, service.Resolution)
+			discoveryType := convertResolution(proxy, service)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
 			defaultCluster := buildDefaultCluster(push, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port, service.MeshExternal)
@@ -321,7 +327,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			lbEndpoints := buildLocalityLbEndpoints(push, networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(proxy, service.Resolution)
+			discoveryType := convertResolution(proxy, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := buildDefaultCluster(push, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal)
@@ -685,8 +691,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	return localCluster
 }
 
-func convertResolution(proxy *model.Proxy, resolution model.Resolution) apiv2.Cluster_DiscoveryType {
-	switch resolution {
+func convertResolution(proxy *model.Proxy, service *model.Service) apiv2.Cluster_DiscoveryType {
+	switch service.Resolution {
 	case model.ClientSideLB:
 		return apiv2.Cluster_EDS
 	case model.DNSLB:
@@ -694,6 +700,10 @@ func convertResolution(proxy *model.Proxy, resolution model.Resolution) apiv2.Cl
 	case model.Passthrough:
 		// Gateways cannot use passthrough clusters. So fallback to EDS
 		if proxy.Type == model.SidecarProxy {
+			if service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) && features.EnableEDSForHeadless.Get() {
+				return apiv2.Cluster_EDS
+			}
+
 			return apiv2.Cluster_ORIGINAL_DST
 		}
 		return apiv2.Cluster_EDS
