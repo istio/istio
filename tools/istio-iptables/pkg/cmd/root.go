@@ -88,7 +88,7 @@ func constructConfig() *config.Config {
 		OutboundIPRangesExclude: viper.GetString(constants.ServiceExcludeCidr),
 		KubevirtInterfaces:      viper.GetString(constants.KubeVirtInterfaces),
 		IptablesProbePort:       uint16(viper.GetUint(constants.IptablesProbePort)),
-		ProbeTimeout:            viper.GetUint64(constants.ProbeTimeout),
+		ProbeTimeout:            viper.GetDuration(constants.ProbeTimeout),
 		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
 		RunValidation:           viper.GetBool(constants.RunValidation),
 	}
@@ -265,7 +265,7 @@ func init() {
 	if err := viper.BindPFlag(constants.ProbeTimeout, rootCmd.Flags().Lookup(constants.ProbeTimeout)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.ProbeTimeout, strconv.FormatUint(constants.DefaultProbeTimeout, 10))
+	viper.SetDefault(constants.ProbeTimeout, constants.DefaultProbeTimeout)
 
 	rootCmd.Flags().Bool(constants.SkipRuleApply, false, "Skip iptables apply")
 	if err := viper.BindPFlag(constants.SkipRuleApply, rootCmd.Flags().Lookup(constants.SkipRuleApply)); err != nil {
