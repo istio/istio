@@ -20,6 +20,7 @@
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
 
 export GO_TOP=${GO_TOP:-$(echo "${GOPATH}" | cut -d ':' -f1)}
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
@@ -172,14 +173,6 @@ ISTIO_ENVOY_MACOS_RELEASE_DIR=${ISTIO_ENVOY_MACOS_RELEASE_DIR:-"${OUT_DIR}/darwi
 ISTIO_ENVOY_MACOS_RELEASE_NAME=${ISTIO_ENVOY_MACOS_RELEASE_NAME:-"envoy-${ISTIO_ENVOY_MACOS_VERSION}"}
 ISTIO_ENVOY_MACOS_RELEASE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH:-"${ISTIO_ENVOY_MACOS_RELEASE_DIR}/${ISTIO_ENVOY_MACOS_RELEASE_NAME}"}
 
-# Variables for WebAssembly Filters
-STATS_FILTER_WASM_URL=${STATS_FILTER_WASM_URL:-$(ISTIO_ENVOY_BASE_URL)/stats-$(ISTIO_ENVOY_VERSION).wasm}
-METADATA_EXCHANGE_FILTER_WASM_URL=${METADATA_EXCHANGE_FILTER_WASM_URL:-$(ISTIO_ENVOY_BASE_URL)/metadata_exchange-$(ISTIO_ENVOY_VERSION).wasm}
-WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}
-if [[ "$LOCAL_OS" == "Darwin" ]]; then
-  WASM_RELEASE_DIR=${ISTIO_ENVOY_MACOS_RELEASE_DIR}
-fi
-
 # Allow override with a local build of Envoy
 USE_LOCAL_PROXY=${USE_LOCAL_PROXY:-0}
 if [[ ${USE_LOCAL_PROXY} == 1 ]] ; then
@@ -231,8 +224,16 @@ else
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
 
-download_wasm_if_necessary "${STATS_FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/stats-filter.wasm
-download_wasm_if_necessary "${METADATA_EXCHANGE_FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/metadata-exchange-filter.wasm
+# Donwload WebAssembly plugin files
+WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}
+if [[ "$LOCAL_OS" == "Darwin" ]]; then
+  WASM_RELEASE_DIR=${ISTIO_ENVOY_MACOS_RELEASE_DIR}
+fi
+for plugin in stats metadata_exchange
+do
+  FILTER_WASM_URL="${ISTIO_ENVOY_BASE_URL}/${plugin}-${ISTIO_ENVOY_VERSION}.wasm"
+  download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/$(echo ${plugin} | sed -e "s/_/-/g")-filter.wasm
+done
 
 # Copy native envoy binary to ISTIO_OUT
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/envoy"
