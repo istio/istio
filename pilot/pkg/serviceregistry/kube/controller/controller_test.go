@@ -542,7 +542,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				t.Fatalf("expected 1 instance, got %v", len(metaServices))
 			}
 			if !reflect.DeepEqual(expected, metaServices[0]) {
-				t.Fatalf("expected instance %v, got %v", expected, metaServices[0])
+				t.Fatalf("expected instance %#v, got %#v", expected, metaServices[0])
 			}
 
 			// Test that we first look up instances by Proxy pod
@@ -725,12 +725,91 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 				if ev == nil {
 					t.Fatal("Timeout creating service")
 				}
-				serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
+				serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{PodPorts: model.PodPortList{{Name: "test-port", ContainerPort: 8080, Protocol: "grpc"}}}, IPAddresses: c.ips})
 				if err != nil {
 					t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
 				}
 				if len(serviceInstances) != c.wantNum {
 					t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %q, want %q", len(serviceInstances), c.wantNum)
+				}
+			})
+		}
+	}
+}
+
+func TestGetProxyServiceInstancesWithMatchingServicePorts(t *testing.T) {
+	pod1 := generatePodWithContainerPorts("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{}, []coreV1.ContainerPort{{Name: "test-port", ContainerPort: 7443, Protocol: "http"}})
+	testCases := []struct {
+		name        string
+		pods        []*coreV1.Pod
+		ips         []string
+		ports       []int32
+		targetPorts []intstr.IntOrString
+		wantNum     int
+	}{
+		{
+			name:        "non matching int port",
+			pods:        []*coreV1.Pod{pod1},
+			ips:         []string{"128.0.0.1", "192.168.2.6"},
+			ports:       []int32{15001},
+			targetPorts: []intstr.IntOrString{{IntVal: 15001}},
+			wantNum:     0,
+		},
+		{
+			name:        "non matching string port",
+			pods:        []*coreV1.Pod{pod1},
+			ips:         []string{"128.0.0.1", "192.168.2.6"},
+			ports:       []int32{15001},
+			targetPorts: []intstr.IntOrString{{StrVal: "test-fake"}},
+			wantNum:     0,
+		},
+		{
+			name:        "matching int port",
+			pods:        []*coreV1.Pod{pod1},
+			ips:         []string{"128.0.0.1", "192.168.2.6"},
+			ports:       []int32{7443},
+			targetPorts: []intstr.IntOrString{{IntVal: 7443}},
+			wantNum:     2,
+		},
+		{
+			name:        "matching string port",
+			pods:        []*coreV1.Pod{pod1},
+			ips:         []string{"128.0.0.1", "192.168.2.6"},
+			ports:       []int32{7443},
+			targetPorts: []intstr.IntOrString{{Type: intstr.String, StrVal: "test-port"}},
+			wantNum:     2,
+		},
+	}
+
+	for _, c := range testCases {
+		for mode, name := range EndpointModeNames {
+			mode := mode
+			t.Run(fmt.Sprintf("%s_%s", c.name, name), func(t *testing.T) {
+				// Setup kube caches
+				controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
+				defer controller.Stop()
+				addPods(t, controller, c.pods...)
+				for _, pod := range c.pods {
+					if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+						t.Fatalf("wait for pod err: %v", err)
+					}
+				}
+
+				createServiceWithTargetPort(controller, "svc1", "nsa",
+					map[string]string{
+						annotation.AlphaKubernetesServiceAccounts.Name: "acct4",
+						annotation.AlphaCanonicalServiceAccounts.Name:  "acctvm2@gserviceaccount2.com"},
+					c.ports, c.targetPorts, map[string]string{"app": "test-app"}, t)
+				ev := fx.Wait("service")
+				if ev == nil {
+					t.Fatal("Timeout creating service")
+				}
+				serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{PodPorts: model.PodPortList{{Name: "test-port", ContainerPort: 7443, Protocol: "grpc"}}}, IPAddresses: c.ips})
+				if err != nil {
+					t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
+				}
+				if len(serviceInstances) != c.wantNum {
+					t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %d, want %d", len(serviceInstances), c.wantNum)
 				}
 			})
 		}
@@ -1335,15 +1414,48 @@ func updateEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 }
 
+func createServiceWithTargetPort(controller *Controller, name, namespace string, annotations map[string]string,
+	ports []int32, targetPorts []intstr.IntOrString, selector map[string]string, t *testing.T) {
+
+	svcPorts := make([]coreV1.ServicePort, 0)
+	for i, p := range ports {
+		svcPorts = append(svcPorts, coreV1.ServicePort{
+			Name:       "tcp-port",
+			Port:       p,
+			Protocol:   "http",
+			TargetPort: targetPorts[i],
+		})
+	}
+	service := &coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotations,
+		},
+		Spec: coreV1.ServiceSpec{
+			ClusterIP: "10.0.0.1", // FIXME: generate?
+			Ports:     svcPorts,
+			Selector:  selector,
+			Type:      coreV1.ServiceTypeClusterIP,
+		},
+	}
+
+	_, err := controller.client.CoreV1().Services(namespace).Create(service)
+	if err != nil {
+		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
+	}
+}
+
 func createService(controller *Controller, name, namespace string, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T) {
 
 	svcPorts := make([]coreV1.ServicePort, 0)
 	for _, p := range ports {
 		svcPorts = append(svcPorts, coreV1.ServicePort{
-			Name:     "tcp-port",
-			Port:     p,
-			Protocol: "http",
+			Name:       "tcp-port",
+			Port:       p,
+			Protocol:   "http",
+			TargetPort: intstr.IntOrString{IntVal: p},
 		})
 	}
 	service := &coreV1.Service{
@@ -1476,6 +1588,37 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 				{
 					Name:  "test",
 					Image: "ununtu",
+				},
+			},
+		},
+		// The cache controller uses this as key, required by our impl.
+		Status: coreV1.PodStatus{
+			PodIP:  ip,
+			HostIP: ip,
+			Phase:  coreV1.PodRunning,
+		},
+	}
+}
+
+func generatePodWithContainerPorts(ip, name, namespace, saName, node string, labels map[string]string, annotations map[string]string, containerPorts []coreV1.ContainerPort) *coreV1.Pod {
+	automount := false
+	return &coreV1.Pod{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:        name,
+			Labels:      labels,
+			Annotations: annotations,
+			Namespace:   namespace,
+		},
+		Spec: coreV1.PodSpec{
+			ServiceAccountName:           saName,
+			NodeName:                     node,
+			AutomountServiceAccountToken: &automount,
+			// Validation requires this
+			Containers: []coreV1.Container{
+				{
+					Name:  "test",
+					Image: "ununtu",
+					Ports: containerPorts,
 				},
 			},
 		},
