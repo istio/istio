@@ -96,6 +96,7 @@
 // charts/istio-control/istio-discovery/templates/deployment.yaml
 // charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml
 // charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml
+// charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml
 // charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml
 // charts/istio-control/istio-discovery/templates/service.yaml
 // charts/istio-control/istio-discovery/templates/serviceaccount.yaml
@@ -9937,8 +9938,7 @@ func chartsIstioControlIstioAutoinjectTemplates_helpersTpl() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
-apiVersion: rbac.authorization.k8s.io/v1
+var _chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-sidecar-injector-{{ .Release.Namespace }}
@@ -9956,7 +9956,6 @@ rules:
   resources: ["mutatingwebhookconfigurations"]
   resourceNames: ["istio-sidecar-injector", "istio-sidecar-injector-{{.Release.Namespace}}"]
   verbs: ["get", "list", "watch", "patch"]
-{{- end }}
 {{- end }}`)
 
 func chartsIstioControlIstioAutoinjectTemplatesClusterroleYamlBytes() ([]byte, error) {
@@ -9974,8 +9973,7 @@ func chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml() (*asset, error)
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
-apiVersion: rbac.authorization.k8s.io/v1
+var _chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-sidecar-injector-admin-role-binding-{{ .Release.Namespace }}
@@ -9991,7 +9989,6 @@ subjects:
   - kind: ServiceAccount
     name: istio-sidecar-injector-service-account
     namespace: {{ .Release.Namespace }}
-{{- end }}
 `)
 
 func chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYamlBytes() ([]byte, error) {
@@ -10009,8 +10006,7 @@ func chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
-apiVersion: v1
+var _chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
   name: injector-mesh
@@ -10129,7 +10125,6 @@ data:
       {{- end }}
     {{- end }}
 ---
-{{- end }}
 `)
 
 func chartsIstioControlIstioAutoinjectTemplatesConfigmapYamlBytes() ([]byte, error) {
@@ -10147,8 +10142,7 @@ func chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
-apiVersion: apps/v1
+var _chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-sidecar-injector
@@ -10287,7 +10281,6 @@ spec:
       tolerations:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
-{{- end }}
 `)
 
 func chartsIstioControlIstioAutoinjectTemplatesDeploymentYamlBytes() ([]byte, error) {
@@ -10322,11 +10315,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-{{- if .Values.global.istiod.enabled }}
-        name: istio-pilot
-{{- else }}
         name: istio-sidecar-injector
-{{- end }}
         namespace: {{ .Release.Namespace }}
         path: "/inject"
 {{- if .Values.sidecarInjectorWebhook.selfSigned }}
@@ -10412,8 +10401,7 @@ func chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml() (*asset, er
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
-{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+var _chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -10430,7 +10418,6 @@ spec:
       app: sidecar-injector
       release: {{ .Release.Name }}
       istio: sidecar-injector
-{{- end }}
 {{- end }}
 `)
 
@@ -10449,8 +10436,7 @@ func chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml() (*asset
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesServiceYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
-apiVersion: v1
+var _chartsIstioControlIstioAutoinjectTemplatesServiceYaml = []byte(`apiVersion: v1
 kind: Service
 metadata:
   name: istio-sidecar-injector
@@ -10465,7 +10451,6 @@ spec:
     targetPort: 9443
   selector:
     istio: sidecar-injector
-{{- end }}
 `)
 
 func chartsIstioControlIstioAutoinjectTemplatesServiceYamlBytes() ([]byte, error) {
@@ -10483,8 +10468,7 @@ func chartsIstioControlIstioAutoinjectTemplatesServiceYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
-apiVersion: v1
+var _chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml = []byte(`apiVersion: v1
 kind: ServiceAccount
 {{- if .Values.global.imagePullSecrets }}
 imagePullSecrets:
@@ -10499,7 +10483,6 @@ metadata:
     app: sidecarInjectorWebhook
     release: {{ .Release.Name }}
     istio: sidecar-injector
-{{- end }}
 `)
 
 func chartsIstioControlIstioAutoinjectTemplatesServiceaccountYamlBytes() ([]byte, error) {
@@ -10517,8 +10500,7 @@ func chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml() (*asset, err
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
-{{- if not .Values.global.omitSidecarInjectorConfigMap }}
+var _chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml = []byte(`{{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10544,7 +10526,6 @@ data:
       "{{ $key }}": "{{ $val }}"
     {{- end }}
 
-{{- end }}
 {{- end }}
 `)
 
@@ -13794,6 +13775,82 @@ func chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml() (*as
 	return a, nil
 }
 
+var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`{{- if not .Values.global.operatorManageWebhooks }}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+{{- if eq .Release.Namespace "istio-system"}}
+  name: istio-sidecar-injector
+{{ else }}
+  name: istio-sidecar-injector-{{ .Release.Namespace }}
+{{- end }}
+  labels:
+    app: sidecar-injector
+    release: {{ .Release.Name }}
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istio-pilot
+        namespace: {{ .Release.Namespace }}
+        path: "/inject"
+      caBundle: ""
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
+      matchExpressions:
+      - key: name
+        operator: NotIn
+        values:
+        - {{ .Release.Namespace }}
+      - key: istio-injection
+        operator: NotIn
+        values:
+        - disabled
+      - key: istio-env
+        operator: DoesNotExist
+{{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
+      matchLabels:
+        istio-injection: enabled
+{{- else }}
+      matchLabels:
+        istio-env: {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
+    objectSelector:
+{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: NotIn
+        values:
+        - "false"
+{{- else }}
+      matchLabels:
+        "sidecar.istio.io/inject": "true"
+{{- end }}
+{{- end }}
+{{- end }}`)
+
+func chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYamlBytes() ([]byte, error) {
+	return _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, nil
+}
+
+func chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml() (*asset, error) {
+	bytes, err := chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
@@ -14718,6 +14775,21 @@ sidecarInjectorWebhook:
   #   container.apparmor.security.beta.kubernetes.io/istio-init: runtime/default
   #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
   injectedAnnotations: {}
+
+  # This enables injection of sidecar in all namespaces,
+  # with the exception of namespaces with "istio-injection:disabled" annotation
+  # Only one environment should have this enabled.
+  enableNamespacesByDefault: false
+
+  # If set, will use the value as injection label. The value must match the 'release' label of the injector,
+  # except when 1.2 istio-injection label is used, which must be set to "enabled".
+  injectLabel: istio-injection
+
+  # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
+  # It is disabled by default since this function will only work after k8s v1.15.
+  objectSelector:
+    enabled: false
+    autoInject: true
 
 galley:
   enabled: false
@@ -39284,7 +39356,7 @@ spec:
 
   # Auto injection feature
     sidecarInjector:
-      enabled: true
+      enabled: false
       k8s:
         replicaCount: 1
         strategy:
@@ -41159,6 +41231,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/deployment.yaml":                          chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml,
 	"charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml":                    chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml,
 	"charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml":           chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml,
+	"charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml":                     chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml,
 	"charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml":                 chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml,
 	"charts/istio-control/istio-discovery/templates/service.yaml":                             chartsIstioControlIstioDiscoveryTemplatesServiceYaml,
 	"charts/istio-control/istio-discovery/templates/serviceaccount.yaml":                      chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml,
@@ -41475,6 +41548,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"deployment.yaml":                          &bintree{chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml, map[string]*bintree{}},
 					"enable-mesh-mtls.yaml":                    &bintree{chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml, map[string]*bintree{}},
 					"istiod-injector-configmap.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml, map[string]*bintree{}},
+					"mutatingwebhook.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml":                 &bintree{chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
 					"service.yaml":                             &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceYaml, map[string]*bintree{}},
 					"serviceaccount.yaml":                      &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml, map[string]*bintree{}},
