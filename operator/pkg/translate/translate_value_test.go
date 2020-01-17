@@ -27,9 +27,6 @@ import (
 )
 
 func TestValueToProto(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/20112")
-	// TODO port to new api
-
 	tests := []struct {
 		desc      string
 		valueYAML string
@@ -317,7 +314,7 @@ trafficManagement:
 `,
 		},
 	}
-	tr, err := NewReverseTranslator(version.NewMinorVersion(1, 4))
+	tr, err := NewReverseTranslator(version.NewMinorVersion(1, 5))
 	if err != nil {
 		t.Fatal("fail to get helm value.yaml translator")
 	}
