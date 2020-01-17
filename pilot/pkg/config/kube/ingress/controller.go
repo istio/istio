@@ -163,7 +163,9 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	for _, f := range c.virtualServiceHandlers {
 		f(model.Config{}, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type: gatewayGvk.Kind,
+				Type:    virtualServiceGvk.Kind,
+				Version: virtualServiceGvk.Version,
+				Group:   virtualServiceGvk.Group,
 			},
 		}, event)
 	}
@@ -173,7 +175,7 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 
 func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func(model.Config, model.Config, model.Event)) {
 	switch kind {
-	case gatewayGvk:
+	case virtualServiceGvk:
 		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
 	}
 }
