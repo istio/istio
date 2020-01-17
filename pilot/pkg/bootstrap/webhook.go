@@ -31,7 +31,7 @@ import (
 
 const (
 	// readiness path for the https server
-	HTTPSWebhookServerReadyPath = "/httpServerReadyHandler"
+	HTTPSWebhookServerReadyPath = "/httpsReady"
 	// debounce file watcher events to minimize noise in logs
 	watchDebounceDelay = 100 * time.Millisecond
 )
