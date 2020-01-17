@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
+	"istio.io/istio/pkg/util/bytesconv"
 
 	"istio.io/istio/pkg/test/echo/common"
 )
@@ -78,7 +79,7 @@ func (c *websocketProtocol) makeRequest(ctx context.Context, req *request) (stri
 		return outBuffer.String(), err
 	}
 
-	for _, line := range strings.Split(string(resp), "\n") {
+	for _, line := range strings.Split(bytesconv.BytesToString(resp), "\n") {
 		if line != "" {
 			outBuffer.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, line))
 		}

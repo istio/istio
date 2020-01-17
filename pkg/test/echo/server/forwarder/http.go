@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/util/bytesconv"
 )
 
 var _ protocol = &httpProtocol{}
@@ -92,7 +93,7 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 		return outBuffer.String(), err
 	}
 
-	for _, line := range strings.Split(string(data), "\n") {
+	for _, line := range strings.Split(bytesconv.BytesToString(data), "\n") {
 		if line != "" {
 			outBuffer.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, line))
 		}

@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/util/bytesconv"
 	"istio.io/pkg/pool"
 )
 
@@ -46,7 +47,7 @@ func Stringify(v interface{}) string {
 		case []byte:
 			return net.IP(vv).String()
 		case time.Time:
-			return string(serializeTime(vv))
+			return bytesconv.BytesToString(serializeTime(vv))
 		case time.Duration:
 			return vv.String()
 		case EmailAddress:
