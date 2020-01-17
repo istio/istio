@@ -100,11 +100,13 @@ rules:
     # required to set ownerRef on istiod clusterrole.
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles/finalizers"]
-    resourceNames: ["istio-galley"]
+    resourceNames:
+    - istiod-control-plane
     verbs: ["update"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles"]
-    resourceNames: ["istio-galley"]
+    resourceNames:
+    - istiod-control-plane
     verbs: ["get"]
 
   # istio configuration
