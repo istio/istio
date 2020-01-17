@@ -237,6 +237,7 @@ spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
+    istio: ingressgateway
   externalTrafficPolicy: Local
   ports:
   - name: foo
