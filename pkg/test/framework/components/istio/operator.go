@@ -165,9 +165,9 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 
 	if !cfg.SkipWaitForValidationWebhook {
 
-		// Wait for Galley & the validation webhook to come online before continuing
-		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
-			err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
+		// Pilot is now hosting the validation webhook. Wait for it to come online before continuing.
+		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-pilot"); err != nil {
+			err = fmt.Errorf("error waiting %s/istio-pilot service endpoints: %v", cfg.SystemNamespace, err)
 			scopes.CI.Info(err.Error())
 			i.Dump()
 			return nil, err
