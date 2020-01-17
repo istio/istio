@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	tkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/webhooks/validation/server"
 )
 
 var (
@@ -217,7 +216,7 @@ func startWebhookPortForwarderOrFail(t test.Failer, env *kube.Environment, ns st
 		return tkube.CheckPodReady(webhookPod)
 	}, retry.Timeout(5*time.Minute))
 
-	forwarder, err := env.Accessor.NewPortForwarder(*webhookPod, 0, uint16(server.DefaultArgs().Port))
+	forwarder, err := env.Accessor.NewPortForwarder(*webhookPod, 0, 15017)
 	if err != nil {
 		t.Fatalf("failed creating port forwarding to the controller: %v", err)
 	}
