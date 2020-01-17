@@ -389,7 +389,7 @@ values:
       zipkin:
         address: ""
     trustDomain: cluster.local
-    useMCP: true
+    useMCP: false
   grafana:
     accessMode: ReadWriteMany
     contextPath: /grafana
@@ -516,7 +516,6 @@ values:
       reportBatchMaxTime: 1s
       sessionAffinityEnabled: false
       tolerations: []
-      useMCP: true
   nodeagent:
     image: node-agent-k8s
   pilot:
@@ -535,7 +534,7 @@ values:
     image: pilot
     ingress:
       ingressClass: istio
-      ingressControllerMode: "OFF"
+      ingressControllerMode: STRICT
       ingressService: istio-ingressgateway
     keepaliveMaxServerConnectionAge: 30m
     meshNetworks:
@@ -548,7 +547,6 @@ values:
     replicaCount: 1
     tolerations: []
     traceSampling: 1
-    useMCP: true
   prometheus:
     contextPath: /prometheus
     enabled: true

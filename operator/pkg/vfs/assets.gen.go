@@ -13174,7 +13174,7 @@ data:
     # TLS settings.
     enableAutoMtls: {{ .Values.global.mtls.auto }}
 
-    {{- if .Values.pilot.useMCP }}
+    {{- if .Values.global.useMCP }}
     configSources:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     - address: localhost:15019
@@ -14575,7 +14575,7 @@ pilot:
     # DEFAULT: all Ingress resources without annotation or with istio annotation
     # STRICT: only with istio annotation
     # OFF: no ingress or sync.
-    ingressControllerMode: "OFF"
+    ingressControllerMode: "STRICT"
 
     # Value to set on "kubernetes.io/ingress.class" annotations to activate, if mode is STRICT
     # This is required to be different than 'istio' if multiple ingresses are present.
@@ -14584,9 +14584,6 @@ pilot:
   policy:
     # Will not define mixerCheckServer and mixerReportServer
     enabled: false
-
-  # Indicate if Galley is enabled to send MCP queries
-  useMCP: true
 
 ## Mixer settings
 mixer:
@@ -33137,7 +33134,7 @@ spec:
 {{- if .Values.global.logAsJson }}
           - --log_as_json
 {{- end }}
-{{- if .Values.mixer.telemetry.useMCP }}
+{{- if .Values.global.useMCP }}
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcp://localhost:15019
     {{- else }}
@@ -33177,7 +33174,7 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
-{{- if .Values.mixer.telemetry.useMCP }}
+{{- if .Values.global.useMCP }}
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
@@ -34454,9 +34451,6 @@ var _chartsIstioTelemetryMixerTelemetryValuesYaml = []byte(`mixer:
     # A positive time value indicates the maximum wait time since the last request will telemetry data
     # be batched before being sent to the mixer server
     reportBatchMaxTime: 1s
-
-    # Indicate if Galley is enabled to send MCP queries
-    useMCP: true
 
     nodeSelector: {}
     tolerations: []
@@ -39809,7 +39803,7 @@ spec:
       defaultPodDisruptionBudget:
         enabled: true
       priorityClassName: ""
-      useMCP: true
+      useMCP: false
       trustDomain: "cluster.local"
       outboundTrafficPolicy:
         mode: ALLOW_ANY
@@ -39847,11 +39841,10 @@ spec:
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
-        ingressControllerMode: "OFF"
+        ingressControllerMode: "STRICT"
         ingressClass: istio
       policy:
         enabled: false
-      useMCP: true
 
     telemetry:
       enabled: true
@@ -39889,7 +39882,6 @@ spec:
           latencyThreshold: 100ms
         reportBatchMaxEntries: 100
         reportBatchMaxTime: 1s
-        useMCP: true
         env:
           GOMAXPROCS: "6"
         nodeSelector: {}

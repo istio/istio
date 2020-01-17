@@ -97,7 +97,7 @@ pilot:
     # DEFAULT: all Ingress resources without annotation or with istio annotation
     # STRICT: only with istio annotation
     # OFF: no ingress or sync.
-    ingressControllerMode: "OFF"
+    ingressControllerMode: "STRICT"
 
     # Value to set on "kubernetes.io/ingress.class" annotations to activate, if mode is STRICT
     # This is required to be different than 'istio' if multiple ingresses are present.
@@ -106,9 +106,6 @@ pilot:
   policy:
     # Will not define mixerCheckServer and mixerReportServer
     enabled: false
-
-  # Indicate if Galley is enabled to send MCP queries
-  useMCP: true
 
 ## Mixer settings
 mixer:

@@ -309,7 +309,7 @@ spec:
       defaultPodDisruptionBudget:
         enabled: true
       priorityClassName: ""
-      useMCP: true
+      useMCP: false
       trustDomain: "cluster.local"
       outboundTrafficPolicy:
         mode: ALLOW_ANY
@@ -347,11 +347,10 @@ spec:
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
-        ingressControllerMode: "OFF"
+        ingressControllerMode: "STRICT"
         ingressClass: istio
       policy:
         enabled: false
-      useMCP: true
 
     telemetry:
       enabled: true
@@ -389,7 +388,6 @@ spec:
           latencyThreshold: 100ms
         reportBatchMaxEntries: 100
         reportBatchMaxTime: 1s
-        useMCP: true
         env:
           GOMAXPROCS: "6"
         nodeSelector: {}
