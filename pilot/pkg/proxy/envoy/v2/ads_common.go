@@ -15,9 +15,9 @@
 package v2
 
 import (
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
@@ -38,11 +38,12 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 Loop:
 	for config := range configs {
 		switch config {
-		case schemas.Gateway.Type:
+		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 			if proxy.Type == model.Router {
 				return true
 			}
-		case schemas.QuotaSpec.Type, schemas.QuotaSpecBinding.Type:
+		case collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
+			collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
 			if proxy.Type == model.SidecarProxy {
 				return true
 			}
@@ -106,39 +107,45 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 	if proxy.Type == model.SidecarProxy {
 		for config := range pushEv.configTypesUpdated {
 			switch config {
-			case schemas.VirtualService.Type:
+			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				out[LDS] = true
 				out[RDS] = true
-			case schemas.Gateway.Type:
+			case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 				// Do not push
-			case schemas.ServiceEntry.Type, schemas.SyntheticServiceEntry.Type:
+			case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
+				collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
-			case schemas.DestinationRule.Type:
+			case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
-			case schemas.EnvoyFilter.Type:
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-				out[RDS] = true
-			case schemas.Sidecar.Type:
+			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
-			case schemas.QuotaSpec.Type, schemas.QuotaSpecBinding.Type:
+			case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
+				out[CDS] = true
+				out[EDS] = true
+				out[LDS] = true
+				out[RDS] = true
+			case collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
+				collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
 				// LDS must be pushed, otherwise RDS is not reloaded
 				out[LDS] = true
 				out[RDS] = true
-			case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+			case collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(),
+				collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
-			case schemas.ServiceRole.Type, schemas.ServiceRoleBinding.Type, schemas.RbacConfig.Type,
-				schemas.ClusterRbacConfig.Type, schemas.AuthorizationPolicy.Type:
+			case collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
+				collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
+				collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
+				collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
+				collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 				out[LDS] = true
 			default:
 				out[CDS] = true
@@ -154,33 +161,40 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 	} else {
 		for config := range pushEv.configTypesUpdated {
 			switch config {
-			case schemas.VirtualService.Type:
+			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				out[LDS] = true
 				out[RDS] = true
-			case schemas.Gateway.Type:
+			case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 				out[LDS] = true
 				out[RDS] = true
-			case schemas.ServiceEntry.Type, schemas.SyntheticServiceEntry.Type:
+			case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
+				collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
-			case schemas.DestinationRule.Type:
+			case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
-			case schemas.EnvoyFilter.Type:
+			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
-			case schemas.Sidecar.Type, schemas.QuotaSpec.Type, schemas.QuotaSpecBinding.Type:
+			case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+				collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
+				collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
 				// do not push for gateway
-			case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+			case collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(),
+				collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
-			case schemas.ServiceRole.Type, schemas.ServiceRoleBinding.Type, schemas.RbacConfig.Type,
-				schemas.ClusterRbacConfig.Type, schemas.AuthorizationPolicy.Type:
+			case collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
+				collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
+				collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
+				collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
+				collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 				out[LDS] = true
 			default:
 				out[CDS] = true

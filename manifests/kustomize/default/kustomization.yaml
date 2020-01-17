@@ -1,0 +1,17 @@
+# Equivalent with istio1.2.x default config, using new installer.
+# All components in istio-system, upgrade/downgrade possible.
+
+# Requires kustomize/cluster to be installed first.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - istio-citadel.gen.yaml
+  - istio-config.gen.yaml
+  - istio-discovery.gen.yaml
+  - istio-autoinject.gen.yaml
+  - istio-ingress.gen.yaml
+  - istio-prometheus.gen.yaml
+  - istio-grafana.gen.yaml
+

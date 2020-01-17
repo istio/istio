@@ -29,9 +29,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"istio.io/istio/pkg/test"
+
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	tkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/webhooks/validation/server"
 )
 
 var (
@@ -61,7 +63,7 @@ func TestWebhook(t *testing.T) {
 
 			// Verify galley re-creates the webhook when it is deleted.
 			ctx.NewSubTest("recreateOnDelete").
-				Run(func(ctx framework.TestContext) {
+				Run(func(t framework.TestContext) {
 					startVersion := getVwcResourceVersion(vwcName, t, env)
 
 					if err := env.DeleteValidatingWebhook(vwcName); err != nil {
@@ -77,7 +79,7 @@ func TestWebhook(t *testing.T) {
 
 			// Verify that scaling up/down doesn't modify webhook configuration
 			ctx.NewSubTest("scaling").
-				Run(func(ctx framework.TestContext) {
+				Run(func(t framework.TestContext) {
 					startGen := getVwcGeneration(vwcName, t, env)
 
 					// Scale up
@@ -110,7 +112,7 @@ func TestWebhook(t *testing.T) {
 
 			// Verify that the webhook's key and cert are reloaded, e.g. on rotation
 			ctx.NewSubTest("key/cert reload").
-				Run(func(ctx framework.TestContext) {
+				Run(func(t framework.TestContext) {
 					addr, done := startGalleyPortForwarderOrFail(t, env, istioNs)
 					defer done()
 
@@ -133,7 +135,7 @@ func TestWebhook(t *testing.T) {
 			// NOTE: Keep this as the last test! It deletes the istio-galley clusterrole. All subsequent kube tests will fail.
 			// Verify that removing galley's clusterrole results in the webhook configuration being removed.
 			ctx.NewSubTest("webhookUninstall").
-				Run(func(ctx framework.TestContext) {
+				Run(func(t framework.TestContext) {
 					// Remove Galley's clusterrole
 					env.DeleteClusterRole(fmt.Sprintf("istio-galley-%v", istioNs))
 
@@ -145,7 +147,7 @@ func TestWebhook(t *testing.T) {
 		})
 }
 
-func scaleDeployment(namespace, deployment string, replicas int, t *testing.T, env *kube.Environment) {
+func scaleDeployment(namespace, deployment string, replicas int, t test.Failer, env *kube.Environment) {
 	if err := env.ScaleDeployment(namespace, deployment, replicas); err != nil {
 		t.Fatalf("Error scaling deployment %s to %d: %v", deployment, replicas, err)
 	}
@@ -172,7 +174,7 @@ func scaleDeployment(namespace, deployment string, replicas int, t *testing.T, e
 	}
 }
 
-func getVwcGeneration(vwcName string, t *testing.T, env *kube.Environment) int64 {
+func getVwcGeneration(vwcName string, t test.Failer, env *kube.Environment) int64 {
 	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
 	if err != nil {
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
@@ -180,7 +182,7 @@ func getVwcGeneration(vwcName string, t *testing.T, env *kube.Environment) int64
 	return vwc.GetGeneration()
 }
 
-func getVwcResourceVersion(vwcName string, t *testing.T, env *kube.Environment) string {
+func getVwcResourceVersion(vwcName string, t test.Failer, env *kube.Environment) string {
 	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
 	if err != nil {
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
@@ -188,7 +190,7 @@ func getVwcResourceVersion(vwcName string, t *testing.T, env *kube.Environment) 
 	return vwc.GetResourceVersion()
 }
 
-func startGalleyPortForwarderOrFail(t *testing.T, env *kube.Environment, ns string) (addr string, done func()) {
+func startGalleyPortForwarderOrFail(t test.Failer, env *kube.Environment, ns string) (addr string, done func()) {
 	t.Helper()
 
 	// ensure only one pod *exists* before we start port forwarding.
@@ -209,7 +211,7 @@ func startGalleyPortForwarderOrFail(t *testing.T, env *kube.Environment, ns stri
 		return tkube.CheckPodReady(galleyPod)
 	}, retry.Timeout(5*time.Minute))
 
-	forwarder, err := env.Accessor.NewPortForwarder(*galleyPod, 0, uint16(validation.DefaultArgs().Port))
+	forwarder, err := env.Accessor.NewPortForwarder(*galleyPod, 0, uint16(server.DefaultArgs().Port))
 	if err != nil {
 		t.Fatalf("failed creating port forwarding to galley: %v", err)
 	}
@@ -221,13 +223,13 @@ func startGalleyPortForwarderOrFail(t *testing.T, env *kube.Environment, ns stri
 
 	done = func() {
 		if err := forwarder.Close(); err != nil {
-			t.Errorf("An error occurred when the port forwarder was closed: %v", err)
+			t.Fatalf("An error occurred when the port forwarder was closed: %v", err)
 		}
 	}
 	return forwarder.Address(), done
 }
 
-func fetchWebhookCertSerialNumbersOrFail(t *testing.T, addr string) []string { // nolint: interfacer
+func fetchWebhookCertSerialNumbersOrFail(t test.Failer, addr string) []string { // nolint: interfacer
 	t.Helper()
 
 	client := &http.Client{

@@ -26,6 +26,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
@@ -69,15 +71,6 @@ Example resource specifications include:
 		constant.AttributeManifestKind: {},
 	}
 
-	// Remove all mixer types from Istio. Mixer types use different validation logic.
-	validIstioSchemas = collections.Istio.Remove(
-		collections.IstioPolicyV1Beta1Rules.Name(),
-		collections.IstioConfigV1Alpha2Adapters.Name(),
-		collections.IstioConfigV1Alpha2Templates.Name(),
-		collections.IstioPolicyV1Beta1Handlers.Name(),
-		collections.IstioPolicyV1Beta1Instances.Name(),
-		collections.IstioPolicyV1Beta1Attributemanifests.Name())
-
 	istioDeploymentLabel = []string{
 		"app",
 		"version",
@@ -100,7 +93,11 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
-	schema, exists := validIstioSchemas.FindByKind(un.GetKind())
+	schema, exists := collections.Pilot.FindByGroupVersionKind(resource.GroupVersionKind{
+		Group:   un.GroupVersionKind().Group,
+		Version: un.GroupVersionKind().Version,
+		Kind:    un.GroupVersionKind().Kind,
+	})
 	if exists {
 		obj, err := convertObjectFromUnstructured(schema, un, "")
 		if err != nil {

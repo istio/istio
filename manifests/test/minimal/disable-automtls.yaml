@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-ingressgateway
+spec:
+  template:
+    spec:
+      containers:
+        - name: istio-proxy
+          env:
+          - name: ISTIO_AUTO_MTLS_ENABLED
+            value: "false"

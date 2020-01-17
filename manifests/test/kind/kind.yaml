@@ -1,0 +1,45 @@
+kind: Cluster
+apiVersion: kind.sigs.k8s.io/v1alpha3
+nodes:
+- role: control-plane
+  extraMounts:
+  - containerPath: TOP
+    hostPath: TOP
+
+- role: worker
+  extraPortMappings:
+  # Setting this prevents running 2 kind containers at the same time.
+  # Unless this is part of the sed substitution.
+  # However it allows testing ingress gateway !
+  - containerPort: 30080
+    hostPort: 30080
+
+kubeadmConfigPatches:
+  - |
+    apiVersion: kubeadm.k8s.io/v1beta2
+    kind: ClusterConfiguration
+    metadata:
+      name: config
+    apiServer:
+      extraArgs:
+        "service-account-issuer": "kubernetes.default.svc"
+        "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+
+#kubeadmConfigPatches:
+#  - |
+#    apiVersion: kubeadm.k8s.io/v1beta1
+#    kind: ClusterConfiguration
+#    metadata:
+#      name: config
+#    networking:
+#      serviceSubnet: 10.0.0.0/16
+
+## patch it further using a JSON 6902 patch
+#kubeadmConfigPatchesJson6902:
+#  - group: kubeadm.k8s.io
+#    version: v1beta1
+#    kind: ClusterConfiguration
+#    patch: |
+#      - op: add
+#        path: /apiServer/certSANs/-
+#        value: my-hostname

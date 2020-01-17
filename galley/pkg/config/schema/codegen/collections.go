@@ -78,6 +78,15 @@ var (
 		{{- end }}
 	{{- end }}
 		Build()
+
+	// Pilot contains only collections used by Pilot.
+	Pilot = collection.NewSchemasBuilder().
+	{{- range .Entries }}
+		{{- if .Collection.Pilot }}
+		MustAdd({{ .Collection.VariableName }}).
+		{{- end}}
+	{{- end }}
+		Build()
 )
 `
 

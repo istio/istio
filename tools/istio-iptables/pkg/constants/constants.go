@@ -14,6 +14,8 @@
 
 package constants
 
+import "time"
+
 // iptables tables
 const (
 	MANGLE = "mangle"
@@ -78,6 +80,10 @@ const (
 	DryRun                    = "dry-run"
 	Clean                     = "clean"
 	RestoreFormat             = "restore-format"
+	SkipRuleApply             = "skip-rule-apply"
+	RunValidation             = "run-validation"
+	IptablesProbePort         = "iptables-probe-port"
+	ProbeTimeout              = "probe-timeout"
 )
 
 const (
@@ -99,4 +105,19 @@ const (
 	IP6TABLESRESTORE = "ip6tables-restore"
 	IP6TABLESSAVE    = "ip6tables-save"
 	IP               = "ip"
+)
+
+// Constants for syscall
+const (
+	// sys/socket.h
+	SoOriginalDst = 80
+)
+
+const (
+	DefaultIptablesProbePort = 15002
+	DefaultProbeTimeout      = 5 * time.Second
+)
+
+const (
+	ValidationErrorCode = 126
 )

@@ -1,0 +1,115 @@
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    egressGateways:
+    - name: istio-egressgateway
+      enabled: true
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+
+    policy:
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
+
+    telemetry:
+      k8s:
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+
+    pilot:
+      k8s:
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: GODEBUG
+            value: gctrace=1
+          - name: PILOT_TRACE_SAMPLING
+            value: "100"
+          - name: CONFIG_NAMESPACE
+            value: istio-config
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
+
+  addonComponents:
+    kiali:
+      enabled: true
+    grafana:
+      enabled: true
+    tracing:
+      enabled: true
+
+
+  values:
+    global:
+      disablePolicyChecks: false
+      proxy:
+        accessLogFile: /dev/stdout
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+
+    pilot:
+      autoscaleEnabled: false
+
+    mixer:
+      adapters:
+        useAdapterCRDs: false
+        kubernetesenv:
+          enabled: true
+        prometheus:
+          enabled: true
+          metricsExpiryDuration: 10m
+        stackdriver:
+          enabled: false
+        stdio:
+          enabled: true
+          outputAsJson: false
+      policy:
+        autoscaleEnabled: false
+      telemetry:
+        autoscaleEnabled: false
+
+    gateways:
+      istio-egressgateway:
+        autoscaleEnabled: false
+      istio-ingressgateway:
+        autoscaleEnabled: false
+
+    grafana:
+      enabled: true
+
+    tracing:
+      enabled: true
+
+    kiali:
+      enabled: true
+      createDemoSecret: true
