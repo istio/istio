@@ -786,7 +786,7 @@ istio.io/api/rbac/v1alpha1
 istio.io/gogo-genproto/googleapis/google/api
 istio.io/gogo-genproto/googleapis/google/rpc
 istio.io/gogo-genproto/opencensus/proto/trace/v1
-# istio.io/operator v0.0.0-20191010003958-b7f3c04cfd0b
+# istio.io/operator v0.0.0-20200116234741-be5a5e3d942c
 istio.io/operator/cmd/mesh
 istio.io/operator/pkg/apis/istio/v1alpha2
 istio.io/operator/pkg/compare
