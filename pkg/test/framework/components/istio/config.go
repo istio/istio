@@ -67,7 +67,7 @@ var (
 		PolicyNamespace:                DefaultSystemNamespace,
 		IngressNamespace:               DefaultSystemNamespace,
 		EgressNamespace:                DefaultSystemNamespace,
-		Operator:                       false,
+		Operator:                       true,
 		DeployIstio:                    true,
 		DeployTimeout:                  0,
 		UndeployTimeout:                0,
