@@ -42,7 +42,7 @@ func NewMockCAClient(mockCertChain1st, mockCertChainRemain []string, failureRate
 	}
 
 	if failureRate > 0 {
-		cl.failureRate = int(1/failureRate)
+		cl.failureRate = int(1 / failureRate)
 	}
 
 	atomic.StoreUint64(&cl.signInvokeCount, 0)
