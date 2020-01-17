@@ -175,6 +175,8 @@ func scaleDeployment(namespace, deployment string, replicas int, t test.Failer, 
 }
 
 func getVwcGeneration(vwcName string, t test.Failer, env *kube.Environment) int64 {
+	t.Helper()
+
 	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
 	if err != nil {
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
@@ -183,6 +185,8 @@ func getVwcGeneration(vwcName string, t test.Failer, env *kube.Environment) int6
 }
 
 func getVwcResourceVersion(vwcName string, t test.Failer, env *kube.Environment) string {
+	t.Helper()
+
 	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
 	if err != nil {
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)

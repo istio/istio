@@ -7187,8 +7187,6 @@ data:
         app: galley
         release: istio
         istio: galley
-      annotations:
-        "deprecation.istio.io": "This file may need to be be manually deleted after Istiod is installed"
     webhooks:
 ---
 
@@ -7899,11 +7897,13 @@ rules:
     # required to set ownerRef on istiod clusterrole.
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles/finalizers"]
-    resourceNames: ["istio-galley"]
+    resourceNames:
+    - istiod-istio-system
     verbs: ["update"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles"]
-    resourceNames: ["istio-galley"]
+    resourceNames:
+    - istiod-istio-system
     verbs: ["get"]
 
   # istio configuration

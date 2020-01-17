@@ -12469,11 +12469,13 @@ rules:
     # required to set ownerRef on istiod clusterrole.
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles/finalizers"]
-    resourceNames: ["istiod-"{{ .Release.Namespace}}]
+    resourceNames:
+    - istiod-{{ .Release.Namespace }}
     verbs: ["update"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles"]
-    resourceNames: ["istiod-"{{ .Release.Namespace }}]
+    resourceNames:
+    - istiod-{{ .Release.Namespace }}
     verbs: ["get"]
 {{- end }}
 
