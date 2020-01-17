@@ -52,12 +52,6 @@ const (
 	// Addon components
 	AddonComponentName ComponentName = "AddonComponents"
 
-	PrometheusComponentName ComponentName = "Prometheus"
-	PrometheusOperatorComponentName ComponentName = "PrometheusOperator"
-	TracingComponentName ComponentName = "Tracing"
-	KialiComponentName ComponentName = "Kiali"
-	GrafanaComponentName ComponentName = "Grafana"
-
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
@@ -149,25 +143,28 @@ func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1a
 
 // IsComponentEnabledFromValue get whether component is enabled in helm value.yaml tree.
 // valuePath points to component path in the values tree.
-func IsComponentEnabledFromValue(valuePath string, valueSpec map[string]interface{}) (bool, error) {
+func IsComponentEnabledFromValue(valuePath string, valueSpec map[string]interface{}) (enabled bool, pathExist bool, err error) {
 	enabledPath := valuePath + ".enabled"
 	enableNodeI, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(enabledPath))
 	if err != nil {
-		return false, fmt.Errorf("error finding component enablement path: %s in helm value.yaml tree", enabledPath)
+		return false, false, fmt.Errorf("error finding component enablement path: %s in helm value.yaml tree", enabledPath)
 	}
 	if !found {
 		// Some components do not specify enablement should be treated as enabled if the root node in the component subtree exists.
 		_, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
-		if found && err == nil {
-			return true, nil
+		if err != nil {
+			return false, false, err
 		}
-		return false, nil
+		if found {
+			return true, true, nil
+		}
+		return false, false, nil
 	}
 	enableNode, ok := enableNodeI.(bool)
 	if !ok {
-		return false, fmt.Errorf("node at valuePath %s has bad type %T, expect bool", enabledPath, enableNodeI)
+		return false, true, fmt.Errorf("node at valuePath %s has bad type %T, expect bool", enabledPath, enableNodeI)
 	}
-	return enableNode, nil
+	return enableNode, true, nil
 }
 
 // NamespaceFromValue gets the namespace value in helm value.yaml tree.
