@@ -2,6 +2,8 @@ apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   addonComponents:
+    certManager:
+      enabled: false
     grafana:
       enabled: false
     kiali:
@@ -11,8 +13,6 @@ spec:
     tracing:
       enabled: false
   components:
-    certManager:
-      enabled: false
     citadel:
       enabled: true
       k8s:

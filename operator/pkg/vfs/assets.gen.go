@@ -40167,7 +40167,6 @@ var _translateconfigTranslateIcpIop15Yaml = []byte(`trafficManagement.components
 policy.components.policy: components.policy
 telemetry.components.telemetry: components.telemetry
 security.components.citadel: components.citadel
-security.components.certManager: components.certManager
 security.components.nodeAgent: components.nodeAgent
 configManagement.components.galley: components.galley
 autoInjection.components.injector: components.sidecarInjector
@@ -40176,6 +40175,7 @@ cni: components.cni
 gateways.components.ingressGateway: components.ingressGateways.[name:istio-ingressgateway]
 gateways.components.egressGateway: components.egressGateways.[name:istio-egressgateway]
 
+security.components.certManager: addonComponents.certManager
 values.grafana.enabled: addonComponents.grafana.enabled
 values.kiali.enabled: addonComponents.kiali.enabled
 values.prometheus.enabled: addonComponents.prometheus.enabled

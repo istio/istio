@@ -54,7 +54,7 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 		if err != nil {
 			return "", nil, fmt.Errorf("could not read values from file %s: %s", inFilename, err)
 		}
-		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(b, force)
+		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(b, force, true, l)
 		if err != nil {
 			return "", nil, err
 		}
@@ -98,7 +98,7 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 		}
 	}
 
-	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force)
+	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force, false, l)
 	if err != nil {
 		return "", nil, err
 	}
@@ -166,14 +166,26 @@ func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML, c
 	return finalYAML, err
 }
 
-func unmarshalAndValidateIOP(crYAML string, force bool) (*v1alpha1.IstioOperatorSpec, string, error) {
+func unmarshalAndValidateIOP(crYAML string, force, dumpTranslation bool, l *Logger) (*v1alpha1.IstioOperatorSpec, string, error) {
 	// TODO: add GVK handling as appropriate.
 	if crYAML == "" {
 		return &v1alpha1.IstioOperatorSpec{}, "", nil
 	}
 	iops, _, err := manifest.ParseK8SYAMLToIstioOperatorSpec(crYAML)
 	if err != nil {
-		return nil, "", fmt.Errorf("could not unmarshal the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)
+		iopYAML, err := translateICPToIOP(crYAML)
+		if err != nil {
+			return nil, "", fmt.Errorf("could not translate ICP to IOP: %s\n\nOriginal YAML:\n%s", err, crYAML)
+		}
+		iops, _, err = manifest.ParseK8SYAMLToIstioOperatorSpec(iopYAML)
+		if err != nil {
+			return nil, "", fmt.Errorf("could not unmarshal the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)
+		}
+		if dumpTranslation {
+			l.logAndPrintf("%s\n\nIstio Operator CR has been upgraded. "+
+				"Your IstioControlPlane CR has been translated into IstioOperator CR above.\n"+
+				"Please keep the new IstioOperator CR for your future install or upgrade.", crYAML)
+		}
 	}
 	if errs := validate.CheckIstioOperatorSpec(iops, false); len(errs) != 0 {
 		if !force {
@@ -185,6 +197,15 @@ func unmarshalAndValidateIOP(crYAML string, force bool) (*v1alpha1.IstioOperator
 		return nil, "", fmt.Errorf("could not marshal: %s", err)
 	}
 	return iops, iopsYAML, nil
+}
+
+func translateICPToIOP(icp string) (string, error) {
+	translateConfigPath := "translateConfig/translate-ICP-IOP-1.5.yaml"
+	translations, err := translate.ReadTranslationsVFS(translateConfigPath)
+	if err != nil {
+		return "", fmt.Errorf("could not read translate config from VFS path: %s, error: %s", translateConfigPath, err)
+	}
+	return translate.TranslateICPToIOP(icp, translations)
 }
 
 func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
