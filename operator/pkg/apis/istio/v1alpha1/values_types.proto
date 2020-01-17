@@ -1549,6 +1549,8 @@ message ProxyConfig {
   string connectTimeout = 30;
 
   google.protobuf.Duration parentShutdownDuration = 32;
+
+  string enableCoreDumpImage = 33 [deprecated=true];
 }
 
 // Specifies which tracer to use.

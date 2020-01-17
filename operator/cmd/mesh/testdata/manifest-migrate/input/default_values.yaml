@@ -489,14 +489,6 @@ global:
     gatewayName: ingressgateway
     enableHttps: false
   proxy:
-    init:
-      resources:
-        limits:
-          cpu: 100m
-          memory: 50Mi
-        requests:
-          cpu: 10m
-          memory: 10Mi
     image: proxyv2
     clusterDomain: "cluster.local"
     resources:
@@ -554,6 +546,13 @@ global:
     tracer: "zipkin"
   proxy_init:
     image: proxy_init
+    resources:
+      limits:
+        cpu: 100m
+        memory: 50Mi
+      requests:
+        cpu: 10m
+        memory: 10Mi
   imagePullPolicy: IfNotPresent
   controlPlaneSecurityEnabled: false
   disablePolicyChecks: true
