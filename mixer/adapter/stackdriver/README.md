@@ -18,15 +18,28 @@ The full Stackdriver adapter template can be found [here](https://github.com/ist
 
 ```yaml
 mixer:
-  stackdriver:
-    enabled: false
 
-  auth:
-    appCredentials: false
-    apiKey: ""
-    serviceAccountPath: ""
+  adapter:
 
-  tracer:
-    enabled: false
-    sampleProbability: 1
+    stackdriver:
+
+      enabled: false
+
+      auth:
+        appCredentials: false
+        apiKey: ""
+        serviceAccountPath: ""
+
+      tracer:
+        enabled: false
+        sampleProbability: 1
+
+      logging:
+        enabled: false
+
+      metrics:
+        enabled: false
+
+      contextGraph:
+        enabled: false
 ```
