@@ -24,9 +24,9 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/monitor"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 var gatewayYAML = `
@@ -70,7 +70,7 @@ func TestFileSnapshotNoFilter(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, nil)
+	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, collection.SchemasFor())
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))
@@ -94,7 +94,7 @@ func TestFileSnapshotWithFilter(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, schema.Set{schemas.VirtualService})
+	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, collection.SchemasFor(collections.IstioNetworkingV1Alpha3Virtualservices))
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))
@@ -116,7 +116,7 @@ func TestFileSnapshotSorting(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, nil)
+	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, collection.SchemasFor())
 
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())

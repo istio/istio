@@ -20,7 +20,7 @@ var (
 			Group:         "apps",
 			Kind:          "Deployment",
 			Plural:        "deployments",
-			Version:       "apps/v1",
+			Version:       "v1",
 			Proto:         "k8s.io.api.apps.v1.Deployment",
 			ProtoPackage:  "k8s.io/api/apps/v1",
 			ClusterScoped: false,
@@ -155,5 +155,9 @@ var (
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Services).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
+		Build()
+
+	// Pilot contains only collections used by Pilot.
+	Pilot = collection.NewSchemasBuilder().
 		Build()
 )

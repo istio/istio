@@ -22,5 +22,5 @@ done
 
 ACTIVE_NAMESPACES=$(kubectl get namespaces --no-headers -l istio-env -o=custom-columns=NAME:.metadata.name)
 for ns in $ACTIVE_NAMESPACES; do
-    kubectl label namespaces ${ns} istio-env-
+    kubectl label namespaces "${ns}" istio-env-
 done

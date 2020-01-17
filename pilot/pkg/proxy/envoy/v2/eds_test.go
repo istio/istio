@@ -52,14 +52,15 @@ const (
 )
 
 func TestEds(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := initLocalPilotTestEnv(t, func(args *bootstrap.PilotArgs) {
+		args.MeshConfig.LocalityLbSetting = &v1alpha3.LocalityLoadBalancerSetting{}
+	})
 	defer tearDown()
 
 	// will be checked in the direct request test
 	addUdsEndpoint(server)
 
 	// enable locality load balancing and add relevant endpoints in order to test
-	server.EnvoyXdsServer.Env.Mesh().LocalityLbSetting = &v1alpha3.LocalityLoadBalancerSetting{}
 	addLocalityEndpoints(server, "locality.cluster.local")
 	addLocalityEndpoints(server, "locality-no-outlier-detection.cluster.local")
 
@@ -67,7 +68,7 @@ func TestEds(t *testing.T) {
 	addTestClientEndpoints(server)
 
 	// Trigger a push to update the contents of the registry to push context and push to connected clients.
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+	fullPush(server)
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
@@ -266,6 +267,12 @@ func TestDeleteService(t *testing.T) {
 		t.Fatalf("Expected service key %s to be deleted in EndpointShardsByService. But is still there %v",
 			"removeservice.com", server.EnvoyXdsServer.EndpointShardsByService)
 	}
+}
+
+func fullPush(server *bootstrap.Server) {
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+	// TODO: See if we can disable debounce completely for tests to avoid sleep.
+	time.Sleep(200 * time.Millisecond) // Wait till push debounce is stable.
 }
 
 func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
@@ -764,7 +771,8 @@ func addEdsCluster(server *bootstrap.Server, hostName string, portName string, a
 			Protocol: protocol.HTTP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
+	fullPush(server)
 }
 
 func updateServiceResolution(server *bootstrap.Server) {
@@ -792,7 +800,8 @@ func updateServiceResolution(server *bootstrap.Server) {
 			Protocol: protocol.HTTP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
+	fullPush(server)
 }
 
 func addOverlappingEndpoints(server *bootstrap.Server) {
@@ -823,7 +832,8 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			Protocol: protocol.TCP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
+	fullPush(server)
 }
 
 // Verify the endpoint debug interface is installed and returns some string.

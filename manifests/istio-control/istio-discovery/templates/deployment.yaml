@@ -111,6 +111,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -206,8 +208,8 @@ spec:
           - --log_as_json
         {{- end }}
           env:
-          - name: SIGN_CERT_AT_KUBERNETES_CA
-            value: "{{ .Values.global.signCertAtKubernetesCa }}"
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
             valueFrom:
               fieldRef:

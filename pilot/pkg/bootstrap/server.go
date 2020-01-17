@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/security/pkg/pki/ca"
 
@@ -54,9 +56,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schemas"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/security/pkg/k8s/chiron"
@@ -119,7 +119,6 @@ type Server struct {
 	secureGRPCServerDNS *grpc.Server
 	mux                 *http.ServeMux
 	kubeRegistry        *kubecontroller.Controller
-	sseDiscovery        *serviceentry.Discovery
 	certController      *chiron.WebhookController
 	ca                  *ca.IstioCA
 
@@ -625,7 +624,7 @@ func (s *Server) initEventHandlers() error {
 		pushReq := &model.PushRequest{
 			Full:               true,
 			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
@@ -641,7 +640,7 @@ func (s *Server) initEventHandlers() error {
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
 			// TODO: extend and set service instance type, so no need re-init push context
-			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 		})
 	}
 	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
@@ -655,12 +654,12 @@ func (s *Server) initEventHandlers() error {
 		configHandler := func(old, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{curr.Type: {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{curr.GroupVersionKind(): {}},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
-		for _, descriptor := range schemas.Istio {
-			s.configController.RegisterEventHandler(descriptor.Type, configHandler)
+		for _, schema := range collections.Pilot.All() {
+			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}
 

@@ -20,35 +20,24 @@ set -u
 set -x
 set -e
 
+OUT_DIR=$(mktemp -d -t istio-charts.XXXXXXXXXX) || { echo "Failed to create temp file"; exit 1; }
+
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOTDIR=$(dirname "${SCRIPTPATH}")
+ROOTDIR="${SCRIPTPATH}/../.."
 
-OPERATOR_DIR="${ROOTDIR}"
-OUT_DIR="${OPERATOR_DIR}/data/charts"
+OPERATOR_DIR="${ROOTDIR}/operator"
+INSTALLER_DIR="${ROOTDIR}/manifests"
 
-if [[ -z "${INSTALLER_DIR:-}" ]]; then
-  # installer dir not specified, clone from github
-  INSTALLER_DIR=$(mktemp -d)
-  SHA="$(cat "${OPERATOR_DIR}"/installer.sha)"
+cp -Rf "${OPERATOR_DIR}"/data/* "${OUT_DIR}/."
 
-  if [[ "$#" -eq 1 ]]; then
-      SHA="${1}"
-  fi
-
-  git clone https://github.com/istio/installer.git "${INSTALLER_DIR}"
-
-  pushd .
-  cd "${INSTALLER_DIR}"
-  git fetch
-  git checkout "${SHA}"
-  popd
-fi
-
-# create charts directory if it doesn't exist.
-mkdir -p "${OUT_DIR}"
+mkdir -p "${OUT_DIR}/charts"
 
 for c in base gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy security
 do
-    cp -Rf "${INSTALLER_DIR}/${c}" "${OUT_DIR}"
+    cp -Rf "${INSTALLER_DIR}/${c}" "${OUT_DIR}/charts"
 done
 
+cd "${OUT_DIR}"
+go-bindata --nocompress --nometadata --pkg vfs -o "${OPERATOR_DIR}/pkg/vfs/assets.gen.go" ./...
+
+rm -Rf "${OUT_DIR}"
