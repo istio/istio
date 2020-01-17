@@ -91,7 +91,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	}
 
 	deferTo := deferToDeploymentName.Get()
-	if !labels.IsDNS1123Label(deferTo) {
+	if deferTo != "" && !labels.IsDNS1123Label(deferTo) {
 		log.Warnf("DEFER_VALIDATION_TO_DEPLOYMENT=%v must be a valid DNS1123 label", deferTo)
 		deferTo = ""
 	}
@@ -102,7 +102,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		WebhookConfigName:     webhookConfigName,
 		WebhookConfigPath:     configValidationPath,
 		ServiceName:           "istio-pilot",
-		ClusterRoleName:       "istio-pilot-" + args.Namespace,
+		ClusterRoleName:       "istiod-" + args.Namespace,
 		DeferToDeploymentName: deferTo,
 	}
 	whController, err := controller.New(o, client)

@@ -9,8 +9,6 @@ metadata:
     app: galley
     release: {{ .Release.Name }}
     istio: galley
-  annotations:
-    "deprecation.istio.io": "This file may need to be be manually deleted after Istiod is installed"
 webhooks:
 {{- else }}
 apiVersion: admissionregistration.k8s.io/v1beta1

@@ -8,7 +8,5 @@ metadata:
     app: istiod
     release: {{ .Release.Name }}
     istio: istiod
-  annotations:
-    "deprecation.istio.io": "This file must be manually deleted after Istiod is uninstalled"
 webhooks:
 {{- end }}
