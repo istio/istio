@@ -11572,8 +11572,6 @@ metadata:
     app: galley
     release: {{ .Release.Name }}
     istio: galley
-  annotations:
-    "deprecation.istio.io": "This file may need to be be manually deleted after Istiod is installed"
 webhooks:
 {{- else }}
 apiVersion: admissionregistration.k8s.io/v1beta1
@@ -12471,11 +12469,11 @@ rules:
     # required to set ownerRef on istiod clusterrole.
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles/finalizers"]
-    resourceNames: ["istio-galley"]
+    resourceNames: ["istiod-"{{ .Release.Namespace}}]
     verbs: ["update"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles"]
-    resourceNames: ["istio-galley"]
+    resourceNames: ["istiod-"{{ .Release.Namespace }}]
     verbs: ["get"]
 {{- end }}
 
@@ -14371,8 +14369,6 @@ metadata:
     app: istiod
     release: {{ .Release.Name }}
     istio: istiod
-  annotations:
-    "deprecation.istio.io": "This file must be manually deleted after Istiod is uninstalled"
 webhooks:
 {{- end }}`)
 
@@ -14405,7 +14401,7 @@ webhooks:
   - name: validation.istio.io
     clientConfig:
       service:
-        name: istio-pilot
+        name: istio-pilot{{ .Values.version }}
         namespace: {{ .Release.Namespace }}
         path: "/validate"
         port: 443
