@@ -24,6 +24,8 @@ import (
 
 	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -347,8 +349,8 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	serviceDiscovery.InstancesByPortReturns(instances, nil)
 
 	configStore := &fakes.IstioConfigStore{
-		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
-			if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind() {
+		ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
+			if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
 				return []model.Config{
 					{ConfigMeta: model.ConfigMeta{
 						Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
@@ -358,7 +360,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 						Spec: destRule,
 					}}, nil
 			}
-			if typ == collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind() && authnPolicy != nil {
+			if typ == collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind() && authnPolicy != nil {
 				// Set the policy name conforming to the authentication rule:
 				// - namespace wide policy (i.e has not target selector) must be name "default"
 				// - service-specific policy can be named anything but 'default'

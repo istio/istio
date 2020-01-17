@@ -31,6 +31,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
@@ -58,8 +60,8 @@ var (
 
 func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
 	return &fakes.IstioConfigStore{
-		ListStub: func(kind, namespace string) (configs []model.Config, e error) {
-			if kind == collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind() {
+		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
+			if kind == collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind() {
 				// to emulate returning multiple envoy filter configs
 				for i, cp := range configPatches {
 					configs = append(configs, model.Config{

@@ -25,6 +25,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	networkingapi "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
@@ -500,7 +502,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		s.ConfigUpdate(&model.PushRequest{
 			Full:               requireFull,
 			NamespacesUpdated:  map[string]struct{}{namespace: {}},
-			ConfigTypesUpdated: map[string]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(): {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 			EdsUpdates:         edsUpdates,
 		})
 	}

@@ -34,6 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
@@ -394,7 +396,8 @@ func (wh *Webhook) admitPilot(request *kubeApiAdmission.AdmissionRequest) *kubeA
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
-	s, exists := wh.schemas.FindByGroupAndKind(obj.GroupVersionKind().Group, obj.Kind)
+	gvk := obj.GroupVersionKind()
+	s, exists := wh.schemas.FindByGroupVersionKind(resource.FromKubernetesGVK(&gvk))
 	if !exists {
 		scope.Infof("unrecognized type %v", obj.Kind)
 		reportValidationFailed(request, reasonUnknownType)
