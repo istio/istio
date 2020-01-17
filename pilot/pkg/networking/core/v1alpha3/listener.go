@@ -2340,7 +2340,7 @@ func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
 	for _, l := range listeners {
 		// Remove listener filter timeout for
 		// 	1. outbound listeners AND
-		// 	2. with HTTP inspector
+		// 	2. without HTTP inspector
 		hasHttpInspector := false
 		for _, lf := range l.ListenerFilters {
 			if hasHttpInspector = hasHttpInspector || lf.Name == wellknown.HttpInspector; hasHttpInspector {
