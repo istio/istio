@@ -83,7 +83,7 @@ spec:
         - --address
         - tcp://0.0.0.0:9091
         - --log_output_level=default:info
-        - --configStoreURL=mcp://istio-galley.istio-system.svc:9901
+        - --configStoreURL=k8s://
         - --configDefaultNamespace=istio-system
         - --useAdapterCRDs=false
         - --useTemplateCRDs=false
@@ -117,9 +117,6 @@ spec:
             cpu: 1000m
             memory: 1G
         volumeMounts:
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
         - mountPath: /sock
           name: uds-socket
         - mountPath: /var/run/secrets/istio.io/telemetry/adapter

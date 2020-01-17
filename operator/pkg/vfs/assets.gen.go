@@ -33174,7 +33174,7 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
-{{- if .Values.mixer.telemetry.useMCP }}
+{{- if .Values.global.useMCP }}
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true

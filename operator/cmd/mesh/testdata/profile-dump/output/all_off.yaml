@@ -516,7 +516,6 @@ values:
       reportBatchMaxTime: 1s
       sessionAffinityEnabled: false
       tolerations: []
-      useMCP: true
   nodeagent:
     image: node-agent-k8s
   pilot:
@@ -548,7 +547,6 @@ values:
     replicaCount: 1
     tolerations: []
     traceSampling: 1
-    useMCP: false
   prometheus:
     contextPath: /prometheus
     enabled: true

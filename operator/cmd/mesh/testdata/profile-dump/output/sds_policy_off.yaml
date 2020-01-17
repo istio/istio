@@ -514,7 +514,6 @@ values:
       reportBatchMaxTime: 1s
       sessionAffinityEnabled: false
       tolerations: []
-      useMCP: true
   nodeagent:
     env:
       CA_ADDR: istio-citadel:8060
@@ -550,7 +549,6 @@ values:
     replicaCount: 1
     tolerations: []
     traceSampling: 1
-    useMCP: false
   prometheus:
     contextPath: /prometheus
     enabled: true
