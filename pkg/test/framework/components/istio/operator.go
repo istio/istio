@@ -64,7 +64,7 @@ func (i *operatorComponent) Close() (err error) {
 		// and MutatingWebhookConfiguration must be cleaned up. Otherwise, next
 		// Istio deployment in the cluster will be impacted, causing flaky test results.
 		// Clean up ValidatingWebhookConfiguration, if any
-		_ = i.environment.DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName)
+		_ = i.environment.DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName(i.settings.SystemNamespace))
 		// Clean up MutatingWebhookConfiguration, if any
 		_ = i.environment.DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
 	}

@@ -8,7 +8,5 @@ metadata:
     app: galley
     release: {{ .Release.Name }}
     istio: galley
-  annotations:
-    "deprecation.istio.io": "This file must be manually deleted after Istiod is installed"
 webhooks:
 {{- end }}

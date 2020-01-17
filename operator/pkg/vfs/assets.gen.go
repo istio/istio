@@ -10939,6 +10939,7 @@ rules:
     "security.istio.io"]
     resources: ["*/status"]
     verbs: ["update"]
+    # Remove galley's permissions to reconcile the validation config when istiod is present.
 {{- if not (or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled) }}
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
@@ -11541,8 +11542,6 @@ metadata:
     app: galley
     release: {{ .Release.Name }}
     istio: galley
-  annotations:
-    "deprecation.istio.io": "This file must be manually deleted after Istiod is installed"
 webhooks:
 {{- end }}`)
 
@@ -12455,8 +12454,9 @@ metadata:
 rules:
 {{- if .Values.global.istiod.enabled }}
   # Remove permissions to reconcile webhook configuration. This address the downgrade case
-  # where istiod will eventually uninstalled. Removing the permissions reduces
+  # where istiod will be uninstalled. Removing the permissions reduces
   # the likelihood that istiod will reconcile something it shouldn't.
+
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
@@ -14390,6 +14390,7 @@ func chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoop
 }
 
 var _chartsIstioControlIstioDiscoveryTemplatesValidationTemplateYamlTpl = []byte(`{{ define "validatingwebhookconfiguration.yaml.tpl" }}
+{{- if .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -14424,6 +14425,18 @@ webhooks:
         - "*"
     failurePolicy: Fail
     sideEffects: None
+{{- else }}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-{{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+    istio: istiod
+webhooks:
+{{- end }}
 ---
 {{ end }}
 `)
