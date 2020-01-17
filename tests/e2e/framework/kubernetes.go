@@ -79,8 +79,8 @@ const (
 	// CRD files that should be installed during testing
 	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
 	//     and contain all CRDs used by Istio during runtime
-	allCRDInstallFile         = "crd-all.gen.yaml"
-	mixerCRDInstallFile       = "crd-mixer.yaml"
+	allCRDInstallFile   = "crd-all.gen.yaml"
+	mixerCRDInstallFile = "crd-mixer.yaml"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
