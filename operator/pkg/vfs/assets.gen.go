@@ -13174,7 +13174,7 @@ data:
     # TLS settings.
     enableAutoMtls: {{ .Values.global.mtls.auto }}
 
-    {{- if .Values.pilot.useMCP }}
+    {{- if .Values.global.useMCP }}
     configSources:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     - address: localhost:15019
@@ -14584,9 +14584,6 @@ pilot:
   policy:
     # Will not define mixerCheckServer and mixerReportServer
     enabled: false
-
-  # Indicate if Galley is enabled to send MCP queries
-  useMCP: true
 
 ## Mixer settings
 mixer:
@@ -33137,7 +33134,7 @@ spec:
 {{- if .Values.global.logAsJson }}
           - --log_as_json
 {{- end }}
-{{- if .Values.mixer.telemetry.useMCP }}
+{{- if .Values.global.useMCP }}
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcp://localhost:15019
     {{- else }}
@@ -34454,9 +34451,6 @@ var _chartsIstioTelemetryMixerTelemetryValuesYaml = []byte(`mixer:
     # A positive time value indicates the maximum wait time since the last request will telemetry data
     # be batched before being sent to the mixer server
     reportBatchMaxTime: 1s
-
-    # Indicate if Galley is enabled to send MCP queries
-    useMCP: true
 
     nodeSelector: {}
     tolerations: []
@@ -39851,7 +39845,6 @@ spec:
         ingressClass: istio
       policy:
         enabled: false
-      useMCP: false
 
     telemetry:
       enabled: true
@@ -39889,7 +39882,6 @@ spec:
           latencyThreshold: 100ms
         reportBatchMaxEntries: 100
         reportBatchMaxTime: 1s
-        useMCP: true
         env:
           GOMAXPROCS: "6"
         nodeSelector: {}
