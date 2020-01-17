@@ -105,6 +105,33 @@ function download_envoy_if_necessary () {
   fi
 }
 
+# Downloads WebAssembly based plugin if it doesn't already exist.
+# Params:
+#   $1: The URL of the WebAssembly file to be downloaded.
+#   $2: The full path of the output file.
+function download_wasm_if_necessary () {
+  download_file_dir="$(dirname "$2")"
+  download_file_name="$(basename "$1")"
+  download_file_path="${download_file_dir}/${download_file_name}"
+  if [[ ! -f "${download_file_path}" ]] ; then
+    # Enter the output directory.
+    mkdir -p "${download_file_dir}"
+    pushd "${download_file_dir}"
+
+    # Download the WebAssembly plugin files to the output directory.
+    echo "Downloading WebAssembly file: ${DOWNLOAD_COMMAND} $1 to ${download_file_path}"
+    if [[ ${DOWNLOAD_COMMAND} == curl* ]]; then
+      time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -o "${download_file_name}"
+    elif [[ ${DOWNLOAD_COMMAND} == wget* ]]; then
+      time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -O "${download_file_name}"
+    fi
+
+    # Copy the webassembly file to the output location
+    cp "${download_file_path}" "$2"
+    popd
+  fi
+}
+
 # Included for support on macOS.
 function realpath () {
   python -c "import os; print(os.path.realpath('$1'))"
@@ -144,6 +171,14 @@ ISTIO_ENVOY_MACOS_RELEASE_URL=${ISTIO_ENVOY_MACOS_RELEASE_URL:-https://github.co
 ISTIO_ENVOY_MACOS_RELEASE_DIR=${ISTIO_ENVOY_MACOS_RELEASE_DIR:-"${OUT_DIR}/darwin_amd64/release"}
 ISTIO_ENVOY_MACOS_RELEASE_NAME=${ISTIO_ENVOY_MACOS_RELEASE_NAME:-"envoy-${ISTIO_ENVOY_MACOS_VERSION}"}
 ISTIO_ENVOY_MACOS_RELEASE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH:-"${ISTIO_ENVOY_MACOS_RELEASE_DIR}/${ISTIO_ENVOY_MACOS_RELEASE_NAME}"}
+
+# Variables for WebAssembly Filters
+STATS_FILTER_WASM_URL=${STATS_FILTER_WASM_URL:-$(ISTIO_ENVOY_BASE_URL)/stats-$(ISTIO_ENVOY_VERSION).wasm}
+METADATA_EXCHANGE_FILTER_WASM_URL=${METADATA_EXCHANGE_FILTER_WASM_URL:-$(ISTIO_ENVOY_BASE_URL)/metadata_exchange-$(ISTIO_ENVOY_VERSION).wasm}
+WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}
+if [[ "$LOCAL_OS" == "Darwin" ]]; then
+  WASM_RELEASE_DIR=${ISTIO_ENVOY_MACOS_RELEASE_DIR}
+fi
 
 # Allow override with a local build of Envoy
 USE_LOCAL_PROXY=${USE_LOCAL_PROXY:-0}
@@ -195,6 +230,9 @@ if [[ "$LOCAL_OS" == "Darwin" ]]; then
 else
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
+
+download_wasm_if_necessary "${STATS_FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/stats-filter.wasm
+download_wasm_if_necessary "${METADATA_EXCHANGE_FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/metadata-exchange-filter.wasm
 
 # Copy native envoy binary to ISTIO_OUT
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/envoy"

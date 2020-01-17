@@ -145,6 +145,10 @@ export ISTIO_ENVOY_MACOS_RELEASE_DIR ?= ${TARGET_OUT}/release
 export ISTIO_ENVOY_MACOS_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_MACOS_VERSION}
 export ISTIO_ENVOY_MACOS_RELEASE_PATH ?= ${ISTIO_ENVOY_MACOS_RELEASE_DIR}/${ISTIO_ENVOY_MACOS_RELEASE_NAME}
 
+# Variable for WebAssembly plugins
+export STATS_FILTER_WASM_URL ?= $(ISTIO_ENVOY_BASE_URL)/stats-$(ISTIO_ENVOY_VERSION).wasm
+export METADATA_EXCHANGE_FILTER_WASM_URL ?= $(ISTIO_ENVOY_BASE_URL)/metadata_exchange-$(ISTIO_ENVOY_VERSION).wasm
+
 # Allow user-override for a local Envoy build.
 export USE_LOCAL_PROXY ?= 0
 ifeq ($(USE_LOCAL_PROXY),1)
@@ -205,7 +209,7 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
 	ISTIO_OUT=$(ISTIO_OUT) ISTIO_BIN=$(ISTIO_BIN) bin/init.sh
 	touch $(ISTIO_OUT)/istio_is_init
 
-# init.sh downloads envoy
+# init.sh downloads envoy and webassembly plugins
 ${ISTIO_OUT}/envoy: init
 ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
