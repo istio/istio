@@ -87,11 +87,11 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 					s.webhookCertMu.Lock()
 					s.webhookCert = cert
 					s.webhookCertMu.Unlock()
-				case ev := <-keyCertWatcher.Events(dnsCertFile):
+				case <-keyCertWatcher.Events(dnsCertFile):
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
-				case ev := <-keyCertWatcher.Events(dnsKeyFile):
+				case <-keyCertWatcher.Events(dnsKeyFile):
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
