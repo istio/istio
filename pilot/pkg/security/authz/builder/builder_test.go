@@ -58,6 +58,8 @@ func simpleGlobalPermissiveMode() *model.Config {
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(),
+			Group:     collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Group(),
+			Version:   collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Version(),
 			Name:      "default",
 			Namespace: "default",
 		},

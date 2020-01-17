@@ -354,7 +354,7 @@ func TestSchemaBasic(t *testing.T) {
 		collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"),
 	})
 
-	g.Expect(s.KubeCollections().All()[0].Resource().CanonicalName()).To(Equal("networking.istio.io/v1alpha3/VirtualService"))
+	g.Expect(s.KubeCollections().All()[0].Resource().GroupVersionKind().String()).To(Equal("networking.istio.io/v1alpha3/VirtualService"))
 }
 
 func TestSchema_DirectTransform_Panic(t *testing.T) {

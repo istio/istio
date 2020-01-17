@@ -25,6 +25,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/ledger"
@@ -88,8 +90,8 @@ func (c *SyntheticServiceEntryController) Schemas() collection.Schemas {
 
 // List returns all the SyntheticServiceEntries that is stored by type and namespace
 // if namespace is empty string it returns config for all the namespaces
-func (c *SyntheticServiceEntryController) List(typ, namespace string) (out []model.Config, err error) {
-	if typ != sse.Resource().Kind() {
+func (c *SyntheticServiceEntryController) List(typ resource.GroupVersionKind, namespace string) (out []model.Config, err error) {
+	if typ != sse.Resource().GroupVersionKind() {
 		return nil, fmt.Errorf("list unknown type %s", typ)
 	}
 
@@ -153,7 +155,7 @@ func (c *SyntheticServiceEntryController) dispatch(config model.Config, event mo
 
 // RegisterEventHandler registers a handler using the type as a key
 // Note: currently it is not called
-func (c *SyntheticServiceEntryController) RegisterEventHandler(_ string, handler func(model.Config, model.Config, model.Event)) {
+func (c *SyntheticServiceEntryController) RegisterEventHandler(_ resource.GroupVersionKind, handler func(model.Config, model.Config, model.Event)) {
 	if c.eventHandler == nil {
 		c.eventHandler = handler
 	}
@@ -177,7 +179,7 @@ func (c *SyntheticServiceEntryController) Run(<-chan struct{}) {
 }
 
 // Get is not implemented
-func (c *SyntheticServiceEntryController) Get(string, string, string) *model.Config {
+func (c *SyntheticServiceEntryController) Get(resource.GroupVersionKind, string, string) *model.Config {
 	log.Warnf("get %s", errUnsupported)
 	return nil
 }
@@ -195,7 +197,7 @@ func (c *SyntheticServiceEntryController) Create(model.Config) (revision string,
 }
 
 // Delete is not implemented
-func (c *SyntheticServiceEntryController) Delete(string, string, string) error {
+func (c *SyntheticServiceEntryController) Delete(resource.GroupVersionKind, string, string) error {
 	log.Warnf("delete %s", errUnsupported)
 	return errUnsupported
 }
@@ -227,7 +229,7 @@ func (c *SyntheticServiceEntryController) removeConfig(configName []string) {
 	if c.XDSUpdater != nil {
 		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:               true,
-			ConfigTypesUpdated: map[string]struct{}{sse.Resource().Kind(): {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{sse.Resource().GroupVersionKind(): {}},
 			NamespacesUpdated:  namespacesUpdated,
 		})
 	}
@@ -260,7 +262,7 @@ func (c *SyntheticServiceEntryController) convertToConfig(obj *sink.Object) (con
 		Spec: obj.Body,
 	}
 
-	s, _ := c.Schemas().FindByKind(sse.Resource().Kind())
+	s, _ := c.Schemas().FindByGroupVersionKind(sse.Resource().GroupVersionKind())
 	if err = s.Resource().ValidateProto(conf.Name, conf.Namespace, conf.Spec); err != nil {
 		log.Warnf("Discarding incoming MCP resource: validation failed (%s/%s): %v", conf.Namespace, conf.Name, err)
 		return nil, err
@@ -308,7 +310,7 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 	if c.XDSUpdater != nil {
 		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:               true,
-			ConfigTypesUpdated: map[string]struct{}{sse.Resource().Kind(): {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{sse.Resource().GroupVersionKind(): {}},
 			NamespacesUpdated:  svcChangeByNamespace,
 		})
 	}
@@ -358,7 +360,7 @@ func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Ob
 		if c.XDSUpdater != nil {
 			c.XDSUpdater.ConfigUpdate(&model.PushRequest{
 				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{sse.Resource().Kind(): {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{sse.Resource().GroupVersionKind(): {}},
 				NamespacesUpdated:  svcChangeByNamespace,
 			})
 		}

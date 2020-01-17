@@ -134,7 +134,7 @@ func (m *Monitor) createConfig(c *model.Config) {
 
 func (m *Monitor) updateConfig(c *model.Config) {
 	// Set the resource version based on the existing config.
-	if prev := m.store.Get(c.Type, c.Name, c.Namespace); prev != nil {
+	if prev := m.store.Get(c.GroupVersionKind(), c.Name, c.Namespace); prev != nil {
 		c.ResourceVersion = prev.ResourceVersion
 	}
 
@@ -144,7 +144,7 @@ func (m *Monitor) updateConfig(c *model.Config) {
 }
 
 func (m *Monitor) deleteConfig(c *model.Config) {
-	if err := m.store.Delete(c.Type, c.Name, c.Namespace); err != nil {
+	if err := m.store.Delete(c.GroupVersionKind(), c.Name, c.Namespace); err != nil {
 		log.Warnf("Failed to delete config (%+v): %v ", *c, err)
 	}
 }

@@ -219,7 +219,7 @@ var (
 				}
 				// fill up revision
 				if config.ResourceVersion == "" {
-					current := configClient.Get(config.Type, config.Name, config.Namespace)
+					current := configClient.Get(config.GroupVersionKind(), config.Name, config.Namespace)
 					if current != nil {
 						config.ResourceVersion = current.ResourceVersion
 					}
@@ -336,18 +336,18 @@ istioctl get virtualservice bookinfo
 			var errs error
 			var configs []model.Config
 			if getByName {
-				config := configClient.Get(schemas.All()[0].Resource().Kind(), args[1], ns)
+				config := configClient.Get(schemas.All()[0].Resource().GroupVersionKind(), args[1], ns)
 				if config != nil {
 					configs = append(configs, *config)
 				}
 			} else {
 				for _, s := range schemas.All() {
-					kind := s.Resource().Kind()
+					kind := s.Resource().GroupVersionKind()
 					typeConfigs, err := configClient.List(kind, ns)
 					if err == nil {
 						configs = append(configs, typeConfigs...)
 					} else {
-						if mustList[kind] {
+						if mustList[kind.Kind] {
 							errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", kind)))
 						}
 					}
@@ -404,7 +404,7 @@ istioctl delete virtualservice bookinfo
 				}
 				ns := handlers.HandleNamespace(namespace, defaultNamespace)
 				for i := 1; i < len(args); i++ {
-					if err := configClient.Delete(typ.Resource().Kind(), args[i], ns); err != nil {
+					if err := configClient.Delete(typ.Resource().GroupVersionKind(), args[i], ns); err != nil {
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
@@ -432,7 +432,7 @@ istioctl delete virtualservice bookinfo
 				}
 
 				// compute key if necessary
-				if err = configClient.Delete(config.Type, config.Name, config.Namespace); err != nil {
+				if err = configClient.Delete(config.GroupVersionKind(), config.Name, config.Namespace); err != nil {
 					errs = multierror.Append(errs, fmt.Errorf("cannot delete %s: %v", config.Key(), err))
 				} else {
 					c.Printf("Deleted config: %v\n", config.Key())
@@ -721,7 +721,7 @@ func printShortGateway(config model.Config, w io.Writer) {
 func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configList []model.Config) {
 	schema := configClient.Schemas()
 	for _, config := range configList {
-		s, exists := schema.FindByKind(config.Type)
+		s, exists := schema.FindByGroupVersionKind(config.GroupVersionKind())
 		if !exists {
 			log.Errorf("Unknown kind %q for %v", config.Type, config.Name)
 			continue

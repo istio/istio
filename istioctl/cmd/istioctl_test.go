@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/schema/collections"
@@ -341,14 +342,14 @@ func (cs sortedConfigStore) Create(config model.Config) (string, error) {
 	return cs.store.Create(config)
 }
 
-func (cs sortedConfigStore) Get(typ, name, namespace string) *model.Config {
+func (cs sortedConfigStore) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
 	return cs.store.Get(typ, name, namespace)
 }
 
 func (cs sortedConfigStore) Update(config model.Config) (string, error) {
 	return cs.store.Update(config)
 }
-func (cs sortedConfigStore) Delete(typ, name, namespace string) error {
+func (cs sortedConfigStore) Delete(typ resource.GroupVersionKind, name, namespace string) error {
 	return cs.store.Delete(typ, name, namespace)
 }
 
@@ -364,7 +365,7 @@ func (cs sortedConfigStore) GetResourceAtVersion(version string, key string) (re
 }
 
 // List() is a facade that always returns cs.store items sorted by name/namespace
-func (cs sortedConfigStore) List(typ, namespace string) ([]model.Config, error) {
+func (cs sortedConfigStore) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	out, err := cs.store.List(typ, namespace)
 	if err != nil {
 		return out, err
