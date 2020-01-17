@@ -21,6 +21,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/galley/pkg/config/schema/resource"
 )
 
 // Schemas contains metadata about configuration resources.
@@ -108,9 +110,9 @@ func (s Schemas) MustFind(collection string) Schema {
 }
 
 // FindByKind searches and returns the first schema with the given kind
-func (s Schemas) FindByKind(kind string) (Schema, bool) {
+func (s Schemas) FindByGroupVersionKind(gvk resource.GroupVersionKind) (Schema, bool) {
 	for _, rs := range s.byAddOrder {
-		if strings.EqualFold(rs.Resource().Kind(), kind) {
+		if rs.Resource().GroupVersionKind() == gvk {
 			return rs, true
 		}
 	}
@@ -118,31 +120,11 @@ func (s Schemas) FindByKind(kind string) (Schema, bool) {
 	return nil, false
 }
 
-// MustFindByKind calls FindByKind and panics if not found.
-func (s Schemas) MustFindByKind(kind string) Schema {
-	r, found := s.FindByKind(kind)
+// MustFind calls FindByGroupVersionKind and panics if not found.
+func (s Schemas) MustFindByGroupVersionKind(gvk resource.GroupVersionKind) Schema {
+	r, found := s.FindByGroupVersionKind(gvk)
 	if !found {
-		panic(fmt.Sprintf("Schemas.MustFindByKind: unable to find %s", kind))
-	}
-	return r
-}
-
-// FindByGroupAndKind searches and returns the first schema with the given group/kind
-func (s Schemas) FindByGroupAndKind(group, kind string) (Schema, bool) {
-	for _, rs := range s.byAddOrder {
-		if rs.Resource().Group() == group && strings.EqualFold(rs.Resource().Kind(), kind) {
-			return rs, true
-		}
-	}
-
-	return nil, false
-}
-
-// MustFind calls FindByGroupAndKind and panics if not found.
-func (s Schemas) MustFindByGroupAndKind(group, kind string) Schema {
-	r, found := s.FindByGroupAndKind(group, kind)
-	if !found {
-		panic(fmt.Sprintf("Schemas.MustFindByGroupAndKind: unable to find %s/%s", group, kind))
+		panic(fmt.Sprintf("Schemas.MustFindByGroupVersionKind: unable to find %s", gvk))
 	}
 	return r
 }

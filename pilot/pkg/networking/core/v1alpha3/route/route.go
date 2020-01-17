@@ -34,7 +34,6 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -63,6 +62,14 @@ const DefaultRouteName = "default"
 // Note that this is different from length of regex.
 // Refer to https://github.com/google/re2/blob/a98fad02c421896bc75d97f49ccd245cdce7dd55/re2/re2.h#L287 for details.
 const maxRegExProgramSize = 1024
+
+var (
+	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+		MaxProgramSize: &wrappers.UInt32Value{
+			Value: uint32(maxRegExProgramSize),
+		},
+	}}
+)
 
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
 // Note: Currently we are not fully utilizing this structure. We could invoke this logic
@@ -385,7 +392,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.Action = action
 	} else {
 		action := &route.RouteAction{
-			Cors:        translateCORSPolicy(in.CorsPolicy, node),
+			Cors:        translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
@@ -630,10 +637,22 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) route.Que
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
-		out.Value = m.Exact
+		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
+			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}},
+		}
 	case *networking.StringMatch_Regex:
-		out.Value = m.Regex
-		out.Regex = proto.BoolTrue
+		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
+			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+						MaxProgramSize: &wrappers.UInt32Value{
+							Value: uint32(maxRegExProgramSize),
+						},
+					}},
+					Regex: m.Regex,
+				},
+			},
+			}}
 	}
 
 	return out
@@ -658,12 +677,8 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 		} else {
 			out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
 				SafeRegexMatch: &matcher.RegexMatcher{
-					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-						MaxProgramSize: &wrappers.UInt32Value{
-							Value: uint32(maxRegExProgramSize),
-						},
-					}},
-					Regex: m.Regex,
+					EngineType: regexEngine,
+					Regex:      m.Regex,
 				},
 			}
 		}
@@ -672,15 +687,52 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 	return out
 }
 
+func stringToExactMatch(in []string) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+	for _, s := range in {
+		res = append(res, &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
+		})
+	}
+	return res
+}
+
+func convertToEnvoyMatch(in []*networking.StringMatch) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+
+	for _, istioMatcher := range in {
+		switch m := istioMatcher.MatchType.(type) {
+		case *networking.StringMatch_Exact:
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{m.Exact}})
+		case *networking.StringMatch_Prefix:
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{m.Prefix}})
+		case *networking.StringMatch_Regex:
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: regexEngine,
+					Regex:      m.Regex,
+				},
+			},
+			})
+		}
+
+	}
+
+	return res
+}
+
 // translateCORSPolicy translates CORS policy
-func translateCORSPolicy(in *networking.CorsPolicy, _ *model.Proxy) *route.CorsPolicy {
+func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
 
 	// CORS filter is enabled by default
-	out := route.CorsPolicy{
-		AllowOrigin: in.AllowOrigin,
+	out := route.CorsPolicy{}
+	if in.AllowOrigin != nil {
+		out.AllowOriginStringMatch = stringToExactMatch(in.AllowOrigin)
+	} else {
+		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins)
 	}
 
 	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{

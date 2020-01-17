@@ -209,6 +209,8 @@ func TestNonServiceConfig(t *testing.T) {
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+			Group:             collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
+			Version:           collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",

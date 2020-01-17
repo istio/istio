@@ -18,15 +18,15 @@ import (
 	"strings"
 	"testing"
 
-	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
-	tcp_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
+	envoyRbacHttpPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
+	envoyRbacTcpPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 
-	istio_rbac "istio.io/api/rbac/v1alpha1"
+	istioRbacPb "istio.io/api/rbac/v1alpha1"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
-	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	authzModel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/host"
@@ -58,12 +58,14 @@ func simpleGlobalPermissiveMode() *model.Config {
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(),
+			Group:     collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Group(),
+			Version:   collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Version(),
 			Name:      "default",
 			Namespace: "default",
 		},
-		Spec: &istio_rbac.RbacConfig{
-			Mode:            istio_rbac.RbacConfig_ON,
-			EnforcementMode: istio_rbac.EnforcementMode_PERMISSIVE,
+		Spec: &istioRbacPb.RbacConfig{
+			Mode:            istioRbacPb.RbacConfig_ON,
+			EnforcementMode: istioRbacPb.EnforcementMode_PERMISSIVE,
 		},
 	}
 	return cfg
@@ -76,7 +78,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 		name                        string
 		policies                    []*model.Config
 		isXDSMarshalingToAnyEnabled bool
-		wantPolicies                []string
+		wantPolicies                [][]string
 	}{
 		{
 			name: "XDSMarshalingToAnyEnabled",
@@ -84,7 +86,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 				policy.SimpleClusterRbacConfig(),
 			},
 			isXDSMarshalingToAnyEnabled: true,
-			wantPolicies:                []string{},
+			wantPolicies:                [][]string{},
 		},
 		{
 			name: "v1alpha1 only",
@@ -93,7 +95,9 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 				policy.SimpleRole("role-1", "a", "bar"),
 				policy.SimpleBinding("binding-1", "a", "role-1"),
 			},
-			wantPolicies: []string{"role-1"},
+			wantPolicies: [][]string{
+				{"role-1"},
+			},
 		},
 		{
 			name: "v1alpha1 without ClusterRbacConfig",
@@ -103,12 +107,23 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 			},
 		},
 		{
-			name: "v1beta1 only",
+			name: "v1beta1 allow policies",
 			policies: []*model.Config{
-				policy.SimpleAuthorizationPolicy("authz-bar", "a"),
-				policy.SimpleAuthorizationPolicy("authz-foo", "a"),
+				policy.SimpleAllowPolicy("authz-bar", "a"),
+				policy.SimpleAllowPolicy("authz-foo", "a"),
 			},
-			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]", "ns[a]-policy[authz-foo]-rule[0]"},
+			wantPolicies: [][]string{
+				{"ns[a]-policy[authz-bar]-rule[0]", "ns[a]-policy[authz-foo]-rule[0]"}},
+		},
+		{
+			name: "v1beta1 deny policies",
+			policies: []*model.Config{
+				policy.SimpleDenyPolicy("authz-bar", "a"),
+				policy.SimpleDenyPolicy("authz-foo", "a"),
+			},
+			wantPolicies: [][]string{
+				{"ns[a]-policy[authz-bar]-rule[0]", "ns[a]-policy[authz-foo]-rule[0]"},
+			},
 		},
 		{
 			name: "v1alpha1 and v1beta1",
@@ -116,9 +131,13 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 				policy.SimpleClusterRbacConfig(),
 				policy.SimpleRole("role-1", "a", "bar"),
 				policy.SimpleBinding("binding-1", "a", "role-1"),
-				policy.SimpleAuthorizationPolicy("authz-bar", "a"),
+				policy.SimpleAllowPolicy("authz-allow-bar", "a"),
+				policy.SimpleDenyPolicy("authz-deny-bar", "a"),
 			},
-			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]"},
+			wantPolicies: [][]string{
+				{"ns[a]-policy[authz-deny-bar]-rule[0]"},
+				{"ns[a]-policy[authz-allow-bar]-rule[0]"},
+			},
 		},
 	}
 
@@ -126,41 +145,46 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 		p := policy.NewAuthzPolicies(tc.policies, t)
 		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
 
-		got := b.BuildHTTPFilter()
+		filters := b.BuildHTTPFilters()
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.wantPolicies == nil {
-				if got != nil {
-					t.Errorf("want empty config but got: %v", got)
+				if len(filters) != 0 {
+					t.Errorf("want empty config but got: %v", filters)
 				}
 			} else {
-				if got.Name != authz_model.RBACHTTPFilterName {
-					t.Errorf("got filter name %q but want %q", got.Name, authz_model.RBACHTTPFilterName)
-				}
-				if tc.isXDSMarshalingToAnyEnabled {
-					if got.GetTypedConfig() == nil {
-						t.Errorf("want typed config when isXDSMarshalingToAnyEnabled is true")
+				for i, got := range filters {
+					if got.Name != authzModel.RBACHTTPFilterName {
+						t.Errorf("got filter name %q but want %q", got.Name, authzModel.RBACHTTPFilterName)
 					}
-				} else {
-					rbacConfig := &http_config.RBAC{}
-
-					// nolint: staticcheck
-					if got.GetConfig() == nil {
-						t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
-					} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
-						t.Errorf("failed to convert struct to message: %s", err)
+					if tc.isXDSMarshalingToAnyEnabled {
+						if got.GetTypedConfig() == nil {
+							t.Errorf("want typed config when isXDSMarshalingToAnyEnabled is true")
+						}
 					} else {
-						if len(tc.wantPolicies) == 0 {
-							if len(rbacConfig.GetRules().GetPolicies()) > 0 {
-								t.Errorf("got rules with policies %v but want no policies", rbacConfig.GetRules().GetPolicies())
-							}
+						if len(tc.wantPolicies) != len(filters) {
+							t.Fatalf("want %d filters but found %d", len(tc.wantPolicies), len(filters))
+						}
+						rbacConfig := &envoyRbacHttpPb.RBAC{}
+
+						// nolint: staticcheck
+						if got.GetConfig() == nil {
+							t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
+						} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
+							t.Errorf("failed to convert struct to message: %s", err)
 						} else {
-							for _, want := range tc.wantPolicies {
-								if _, found := rbacConfig.GetRules().GetPolicies()[want]; !found {
-									t.Errorf("got rules with policies %v but want %v", rbacConfig.GetRules().GetPolicies(), want)
+							if len(tc.wantPolicies[i]) == 0 {
+								if len(rbacConfig.GetRules().GetPolicies()) > 0 {
+									t.Errorf("got rules with policies %v but want no policies", rbacConfig.GetRules().GetPolicies())
 								}
-							}
-							if len(tc.wantPolicies) != len(rbacConfig.GetRules().GetPolicies()) {
-								t.Errorf("got %d policies but want %d", len(rbacConfig.GetRules().GetPolicies()), len(tc.wantPolicies))
+							} else {
+								for _, want := range tc.wantPolicies[i] {
+									if _, found := rbacConfig.GetRules().GetPolicies()[want]; !found {
+										t.Errorf("got rules with policies %v but want %v", rbacConfig.GetRules().GetPolicies(), want)
+									}
+								}
+								if len(tc.wantPolicies[i]) != len(rbacConfig.GetRules().GetPolicies()) {
+									t.Errorf("got %d policies but want %d", len(rbacConfig.GetRules().GetPolicies()), len(tc.wantPolicies[i]))
+								}
 							}
 						}
 					}
@@ -219,9 +243,13 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
 
 		t.Run(tc.name, func(t *testing.T) {
-			got := b.BuildTCPFilter()
-			if got.Name != authz_model.RBACTCPFilterName {
-				t.Errorf("got filter name %q but want %q", got.Name, authz_model.RBACTCPFilterName)
+			filters := b.BuildTCPFilters()
+			if len(filters) != 1 {
+				t.Fatalf("want 1 filter but got %d", len(filters))
+			}
+			got := filters[0]
+			if got.Name != authzModel.RBACTCPFilterName {
+				t.Errorf("got filter name %q but want %q", got.Name, authzModel.RBACTCPFilterName)
 			}
 
 			if tc.isXDSMarshalingToAnyEnabled {
@@ -229,16 +257,16 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 					t.Errorf("want typed config when isXDSMarshalingToAnyEnabled is true")
 				}
 			} else {
-				rbacConfig := &tcp_config.RBAC{}
+				rbacConfig := &envoyRbacTcpPb.RBAC{}
 				// nolint: staticcheck
 				if got.GetConfig() == nil {
 					t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
 				} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
 					t.Errorf("failed to convert struct to message: %s", err)
 				} else {
-					if rbacConfig.StatPrefix != authz_model.RBACTCPFilterStatPrefix {
+					if rbacConfig.StatPrefix != authzModel.RBACTCPFilterStatPrefix {
 						t.Errorf("got filter stat prefix %q but want %q",
-							rbacConfig.StatPrefix, authz_model.RBACTCPFilterStatPrefix)
+							rbacConfig.StatPrefix, authzModel.RBACTCPFilterStatPrefix)
 					}
 
 					if len(rbacConfig.GetRules().GetPolicies()) > 0 != tc.wantRuleWithPolicies {

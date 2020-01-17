@@ -137,7 +137,10 @@ func OverlayTrees(base map[string]interface{}, overlays ...map[string]interface{
 // OverlayYAML patches the overlay tree over the base tree and returns the result. All trees are expressed as YAML
 // strings.
 func OverlayYAML(base, overlay string) (string, error) {
-	if overlay == "" {
+	if strings.TrimSpace(base) == "" {
+		return overlay, nil
+	}
+	if strings.TrimSpace(overlay) == "" {
 		return base, nil
 	}
 	bj, err := yaml2.YAMLToJSON([]byte(base))
@@ -147,6 +150,9 @@ func OverlayYAML(base, overlay string) (string, error) {
 	oj, err := yaml2.YAMLToJSON([]byte(overlay))
 	if err != nil {
 		return "", fmt.Errorf("yamlToJSON error in overlay: %s\n%s", err, oj)
+	}
+	if base == "" {
+		bj = []byte("{}")
 	}
 	if overlay == "" {
 		oj = []byte("{}")

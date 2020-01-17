@@ -1,0 +1,19 @@
+rules:
+  policies:
+    ns[foo]-policy[httpbin-allow]-rule[0]:
+      permissions:
+      - andRules:
+          rules:
+          - any: true
+      principals:
+      - andIds:
+          ids:
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      exact: allow

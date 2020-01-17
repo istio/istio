@@ -123,7 +123,7 @@ spec:
             path: /ready
             port: 8080
           initialDelaySeconds: 5
-          periodSeconds: 30
+          periodSeconds: 5
           timeoutSeconds: 5
         resources:
           requests:
@@ -576,11 +576,13 @@ data:
     
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
-      {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
       {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-      {{- if not .Values.istio_cni.enabled }}
+      {{ if .Values.istio_cni.enabled -}}
+      - name: istio-validation
+      {{ else -}}
       - name: istio-init
+      {{ end -}}
       {{- if contains "/" .Values.global.proxy_init.image }}
         image: "{{ .Values.global.proxy_init.image }}"
       {{- else }}
@@ -612,6 +614,10 @@ data:
         - "-k"
         - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
         {{ end -}}
+        {{ if .Values.istio_cni.enabled -}}
+        - "--run-validation"
+        - "--skip-rule-apply"
+        {{ end -}}
         imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
       {{- if .Values.global.proxy_init.resources }}
         resources:
@@ -621,20 +627,27 @@ data:
       {{- end }}
         securityContext:
           allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+          privileged: {{ .Values.global.proxy.privileged }}
           capabilities:
+        {{- if not .Values.istio_cni.enabled }}
             add:
             - NET_ADMIN
             - NET_RAW
+        {{- end }}
             drop:
             - ALL
-          privileged: {{ .Values.global.proxy.privileged }}
           readOnlyRootFilesystem: false
+        {{- if not .Values.istio_cni.enabled }}
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
+        {{- else }}
+          runAsGroup: 1337
+          runAsUser: 1337
+          runAsNonRoot: true
+        {{- end }}
         restartPolicy: Always
-      {{- end }}
-      {{  end -}}
+      {{ end -}}
       {{- if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
         args:
@@ -662,7 +675,6 @@ data:
           runAsNonRoot: false
           runAsUser: 0
       {{ end }}
-      {{- end }}
       containers:
       - name: istio-proxy
       {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
@@ -755,9 +767,6 @@ data:
         - --log_as_json
       {{- end }}
         - --controlPlaneBootstrap=false
-      {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
-        - --templateFile=/etc/istio/custom-bootstrap/custom_bootstrap.json
-      {{- end }}
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}

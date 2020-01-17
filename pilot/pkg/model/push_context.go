@@ -24,6 +24,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
@@ -212,7 +213,7 @@ type PushRequest struct {
 	// ConfigTypesUpdated contains the types of configs that have changed.
 	// The config types are those defined in pkg/config/schemas
 	// Applicable only when Full is set to true.
-	ConfigTypesUpdated map[string]struct{}
+	ConfigTypesUpdated map[resource.GroupVersionKind]struct{}
 
 	// EdsUpdates keeps track of all service updated since last full push.
 	// Key is the hostname (serviceName).
@@ -280,7 +281,7 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 
 	// Merge the config updates
 	if len(first.ConfigTypesUpdated) > 0 && len(other.ConfigTypesUpdated) > 0 {
-		merged.ConfigTypesUpdated = make(map[string]struct{})
+		merged.ConfigTypesUpdated = make(map[resource.GroupVersionKind]struct{})
 		for update := range first.ConfigTypesUpdated {
 			merged.ConfigTypesUpdated[update] = struct{}{}
 		}
@@ -512,6 +513,65 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
+// GatewayServices returns the set of services which are refered from the proxy gateways.
+func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
+	svcs := ps.Services(proxy)
+	// gateway set.
+	gateways := map[string]bool{}
+	// host set.
+	hostsFromGateways := map[string]struct{}{}
+
+	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+		gateways[gw] = true
+	}
+	log.Debugf("GatewayServices: gateway %v has following gw resources:%v", proxy.ID, gateways)
+
+	for _, vsConfig := range ps.VirtualServices(proxy, gateways) {
+		vs, ok := vsConfig.Spec.(*networking.VirtualService)
+		if !ok { // should never happen
+			log.Errorf("Failed in getting a virtual service: %v", vsConfig.Labels)
+			return svcs
+		}
+
+		for _, h := range vs.Http {
+			for _, r := range h.Route {
+				hostsFromGateways[r.Destination.Host] = struct{}{}
+			}
+			if h.Mirror != nil {
+				hostsFromGateways[h.Mirror.Host] = struct{}{}
+			}
+		}
+
+		for _, h := range vs.Tls {
+			for _, r := range h.Route {
+				hostsFromGateways[r.Destination.Host] = struct{}{}
+			}
+		}
+
+		for _, h := range vs.Tcp {
+			for _, r := range h.Route {
+				hostsFromGateways[r.Destination.Host] = struct{}{}
+			}
+		}
+	}
+
+	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
+
+	gwSvcs := make([]*Service, 0, len(svcs))
+
+	for _, s := range svcs {
+		svcHost := string(s.Hostname)
+
+		if _, ok := hostsFromGateways[svcHost]; ok {
+			gwSvcs = append(gwSvcs, s)
+		}
+	}
+
+	log.Debugf("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
+
+	return gwSvcs
+}
+
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
@@ -560,16 +620,16 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 		rule := cfg.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
-			if gateways[constants.IstioMeshGateway] {
+			if _, ok := gateways[constants.IstioMeshGateway]; ok {
 				out = append(out, cfg)
 			}
 		} else {
 			for _, g := range rule.Gateways {
 				// note: Gateway names do _not_ use wildcard matching, so we do not use Name.Matches here
-				if gateways[resolveGatewayName(g, cfg.ConfigMeta)] {
+				if _, ok := gateways[resolveGatewayName(g, cfg.ConfigMeta)]; ok {
 					out = append(out, cfg)
 					break
-				} else if g == constants.IstioMeshGateway && gateways[g] {
+				} else if _, ok := gateways[g]; ok && g == constants.IstioMeshGateway {
 					// "mesh" gateway cannot be expanded into FQDN
 					out = append(out, cfg)
 					break
@@ -820,28 +880,28 @@ func (ps *PushContext) updateContext(
 
 	for k := range pushReq.ConfigTypesUpdated {
 		switch k {
-		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
-			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Kind():
+		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
+			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind():
 			servicesChanged = true
-		case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind():
+		case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 			destinationRulesChanged = true
-		case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind():
+		case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 			virtualServicesChanged = true
-		case collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind():
+		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 			gatewayChanged = true
-		case collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind():
+		case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
 			sidecarsChanged = true
-		case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind():
+		case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 			envoyFiltersChanged = true
-		case collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
-			collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(),
-			collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(),
-			collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Kind(),
-			collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind():
+		case collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
+			collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
+			collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
+			collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
+			collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 			authzChanged = true
-		case collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
-			collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(),
-			collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind():
+		case collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(),
+			collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(),
+			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
 			authnChanged = true
 		}
 	}
@@ -989,7 +1049,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 	ps.AuthnBetaPolicies = initAuthenticationPolicies(env)
 
 	// Processing alpha policy. This will be removed after beta API released.
-	authNPolicies, err := env.List(collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(), NamespaceAll)
+	authNPolicies, err := env.List(collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1027,7 +1087,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 		}
 	}
 
-	if specs, err := env.List(collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(), NamespaceAll); err == nil {
+	if specs, err := env.List(collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(), NamespaceAll); err == nil {
 		for _, spec := range specs {
 			if spec.Name == constants.DefaultAuthenticationPolicyName {
 				ps.AuthnPolicies.defaultMeshPolicy = spec.Spec.(*authn.Policy)
@@ -1052,7 +1112,7 @@ func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSe
 func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.privateVirtualServicesByNamespace = map[string][]Config{}
 	ps.publicVirtualServices = []Config{}
-	virtualServices, err := env.List(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(), NamespaceAll)
+	virtualServices, err := env.List(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1208,7 +1268,7 @@ func (ps *PushContext) initDefaultExportMaps() {
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
 func (ps *PushContext) initSidecarScopes(env *Environment) error {
-	sidecarConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(), NamespaceAll)
+	sidecarConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1270,7 +1330,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 // Split out of DestinationRule expensive conversions - once per push.
 func (ps *PushContext) initDestinationRules(env *Environment) error {
-	configs, err := env.List(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(), NamespaceAll)
+	configs, err := env.List(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1422,7 +1482,7 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment) error {
-	envoyFilterConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind(), NamespaceAll)
+	envoyFilterConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1496,7 +1556,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 
 // pre computes gateways per namespace
 func (ps *PushContext) initGateways(env *Environment) error {
-	gatewayConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(), NamespaceAll)
+	gatewayConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}

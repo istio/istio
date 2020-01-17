@@ -21,6 +21,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -31,15 +33,15 @@ var errorUnsupported = errors.New("unsupported operation: the config aggregator 
 // unifies their descriptors
 func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
 	union := collection.NewSchemasBuilder()
-	storeTypes := make(map[string][]model.ConfigStore)
+	storeTypes := make(map[resource.GroupVersionKind][]model.ConfigStore)
 	for _, store := range stores {
 		for _, s := range store.Schemas().All() {
-			if len(storeTypes[s.Resource().Kind()]) == 0 {
+			if len(storeTypes[s.Resource().GroupVersionKind()]) == 0 {
 				if err := union.Add(s); err != nil {
 					return nil, err
 				}
 			}
-			storeTypes[s.Resource().Kind()] = append(storeTypes[s.Resource().Kind()], store)
+			storeTypes[s.Resource().GroupVersionKind()] = append(storeTypes[s.Resource().GroupVersionKind()], store)
 		}
 	}
 
@@ -92,7 +94,7 @@ type store struct {
 	schemas collection.Schemas
 
 	// stores is a mapping from config type to a store
-	stores map[string][]model.ConfigStore
+	stores map[resource.GroupVersionKind][]model.ConfigStore
 
 	getVersion func() string
 
@@ -112,7 +114,7 @@ func (cr *store) Version() string {
 }
 
 // Get the first config found in the stores.
-func (cr *store) Get(typ, name, namespace string) *model.Config {
+func (cr *store) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
 	for _, store := range cr.stores[typ] {
 		config := store.Get(typ, name, namespace)
 		if config != nil {
@@ -123,7 +125,7 @@ func (cr *store) Get(typ, name, namespace string) *model.Config {
 }
 
 // List all configs in the stores.
-func (cr *store) List(typ, namespace string) ([]model.Config, error) {
+func (cr *store) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	if len(cr.stores[typ]) == 0 {
 		return nil, fmt.Errorf("missing type %q", typ)
 	}
@@ -149,7 +151,7 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	return configs, errs.ErrorOrNil()
 }
 
-func (cr *store) Delete(_, _, _ string) error {
+func (cr *store) Delete(_ resource.GroupVersionKind, _, _ string) error {
 	return errorUnsupported
 }
 
@@ -175,9 +177,9 @@ func (cr *storeCache) HasSynced() bool {
 	return true
 }
 
-func (cr *storeCache) RegisterEventHandler(kind string, handler func(model.Config, model.Config, model.Event)) {
+func (cr *storeCache) RegisterEventHandler(kind resource.GroupVersionKind, handler func(model.Config, model.Config, model.Event)) {
 	for _, cache := range cr.caches {
-		if _, exists := cache.Schemas().FindByKind(kind); exists {
+		if _, exists := cache.Schemas().FindByGroupVersionKind(kind); exists {
 			cache.RegisterEventHandler(kind, handler)
 		}
 	}

@@ -81,21 +81,21 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 		policy.RbacConfig = rbacConfig.Spec.(*rbacproto.RbacConfig)
 	}
 
-	roles, err := env.List(collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(), NamespaceAll)
+	roles, err := env.List(collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
 	sortConfigByCreationTime(roles)
 	policy.addServiceRoles(roles)
 
-	bindings, err := env.List(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(), NamespaceAll)
+	bindings, err := env.List(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
 	sortConfigByCreationTime(bindings)
 	policy.addServiceRoleBindings(bindings)
 
-	policies, err := env.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(), NamespaceAll)
+	policies, err := env.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
@@ -180,10 +180,11 @@ func (policy *AuthorizationPolicies) ListServiceRoleBindings(ns string) map[stri
 }
 
 // ListAuthorizationPolicies returns the AuthorizationPolicy for the workload in root namespace and the config namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace string,
-	workloadLabels labels.Collection) []AuthorizationPolicyConfig {
+// The first one in the returned tuple is the deny policies and the second one is the allow policies.
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace string, workloadLabels labels.Collection) (
+	denyPolicies []AuthorizationPolicyConfig, allowPolicies []AuthorizationPolicyConfig) {
 	if policy == nil {
-		return nil
+		return
 	}
 
 	var namespaces []string
@@ -195,18 +196,24 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace s
 		namespaces = append(namespaces, configNamespace)
 	}
 
-	var ret []AuthorizationPolicyConfig
 	for _, ns := range namespaces {
 		for _, config := range policy.NamespaceToV1beta1Policies[ns] {
 			spec := config.AuthorizationPolicy
 			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 			if workloadLabels.IsSupersetOf(selector) {
-				ret = append(ret, config)
+				switch config.AuthorizationPolicy.GetAction() {
+				case authpb.AuthorizationPolicy_ALLOW:
+					allowPolicies = append(allowPolicies, config)
+				case authpb.AuthorizationPolicy_DENY:
+					denyPolicies = append(denyPolicies, config)
+				default:
+					log.Errorf("found authorization policy with unsupported action: %s", config.AuthorizationPolicy.GetAction())
+				}
 			}
 		}
 	}
 
-	return ret
+	return
 }
 
 func (policy *AuthorizationPolicies) addServiceRoles(roles []Config) {
