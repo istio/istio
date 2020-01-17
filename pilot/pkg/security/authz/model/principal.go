@@ -30,20 +30,21 @@ import (
 )
 
 type Principal struct {
-	Users             []string // For backward-compatible only.
-	Names             []string
-	NotNames          []string
-	Group             string // For backward-compatible only.
-	Groups            []string
-	NotGroups         []string
-	Namespaces        []string
-	NotNamespaces     []string
-	IPs               []string
-	NotIPs            []string
-	RequestPrincipals []string
-	Properties        []KeyValues
-	AllowAll          bool
-	v1beta1           bool
+	Users                []string // For backward-compatible only.
+	Names                []string
+	NotNames             []string
+	Group                string // For backward-compatible only.
+	Groups               []string
+	NotGroups            []string
+	Namespaces           []string
+	NotNamespaces        []string
+	IPs                  []string
+	NotIPs               []string
+	RequestPrincipals    []string
+	NotRequestPrincipals []string
+	Properties           []KeyValues
+	AllowAll             bool
+	v1beta1              bool
 }
 
 // ValidateForTCP checks if the principal is valid for TCP filter. A principal is not valid for TCP
@@ -56,12 +57,17 @@ func (principal *Principal) ValidateForTCP(forTCP bool) error {
 	if principal.Group != "" {
 		return fmt.Errorf("group(%v)", principal.Groups)
 	}
-
 	if len(principal.Groups) != 0 {
 		return fmt.Errorf("groups(%v)", principal.Groups)
 	}
 	if len(principal.NotGroups) != 0 {
 		return fmt.Errorf("not_groups(%v)", principal.NotGroups)
+	}
+	if len(principal.RequestPrincipals) != 0 {
+		return fmt.Errorf("request_principals(%v)", principal.RequestPrincipals)
+	}
+	if len(principal.NotRequestPrincipals) != 0 {
+		return fmt.Errorf("not_request_principals(%v)", principal.NotRequestPrincipals)
 	}
 
 	for _, p := range principal.Properties {
@@ -108,6 +114,11 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	if len(principal.RequestPrincipals) > 0 {
 		principal := principal.forKeyValues(attrRequestPrincipal, principal.RequestPrincipals, forTCPFilter)
 		pg.append(principal)
+	}
+
+	if len(principal.NotRequestPrincipals) > 0 {
+		principal := principal.forKeyValues(attrRequestPrincipal, principal.NotRequestPrincipals, forTCPFilter)
+		pg.append(principalNot(principal))
 	}
 
 	if principal.Group != "" {
@@ -157,13 +168,14 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 
 		for _, k := range keys {
 			// TODO: Validate attrSrcPrincipal and principal.Names are not used at the same time.
-			newPrincipal := principal.forKeyValues(k, p[k], forTCPFilter)
-			if len(p[k]) == 1 {
-				// FIXME: Temporary hack to avoid changing unit tests during code refactor. Remove once
-				// we finish the code refactor with new unit tests.
-				newPrincipal = principal.forKeyValue(k, p[k][0], forTCPFilter)
+			if len(p[k].Values) > 0 {
+				newPrincipal := principal.forKeyValues(k, p[k].Values, forTCPFilter)
+				pg.append(newPrincipal)
 			}
-			pg.append(newPrincipal)
+			if len(p[k].NotValues) > 0 {
+				newPrincipal := principal.forKeyValues(k, p[k].NotValues, forTCPFilter)
+				pg.append(principalNot(newPrincipal))
+			}
 		}
 	}
 

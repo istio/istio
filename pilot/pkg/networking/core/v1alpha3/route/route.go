@@ -34,7 +34,6 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -638,10 +637,22 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) route.Que
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
-		out.Value = m.Exact
+		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
+			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}},
+		}
 	case *networking.StringMatch_Regex:
-		out.Value = m.Regex
-		out.Regex = proto.BoolTrue
+		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
+			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+						MaxProgramSize: &wrappers.UInt32Value{
+							Value: uint32(maxRegExProgramSize),
+						},
+					}},
+					Regex: m.Regex,
+				},
+			},
+			}}
 	}
 
 	return out

@@ -212,7 +212,7 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 		sort.SliceStable(curIPs, lessLoadBalancerIngress(curIPs))
 
 		if ingressSliceEqual(status, curIPs) {
-			log.Infof("skipping update of Ingress %v/%v (no change)", currIng.Namespace, currIng.Name)
+			log.Debugf("skipping update of Ingress %v/%v (no change)", currIng.Namespace, currIng.Name)
 			return nil
 		}
 

@@ -15,7 +15,9 @@
 package snapshotter
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
@@ -27,6 +29,8 @@ type StatusUpdater interface {
 
 // InMemoryStatusUpdater is an in-memory implementation of StatusUpdater
 type InMemoryStatusUpdater struct {
+	WaitTimeout time.Duration
+
 	mu      sync.RWMutex
 	m       diag.Messages
 	updated bool
@@ -58,13 +62,13 @@ func (u *InMemoryStatusUpdater) Get() diag.Messages {
 	return u.m
 }
 
-// WaitForReport blocks until a report is available. Returns true if a report is available, false if cancelCh was closed.
-func (u *InMemoryStatusUpdater) WaitForReport(cancelCh chan struct{}) bool {
+// WaitForReport blocks until a report is available. Returns nil if a report is available, or an error representing why we couldn't get it.
+func (u *InMemoryStatusUpdater) WaitForReport(cancelCh chan struct{}) error {
 	// Short-circuit to handle the case where Update got called before WaitForReport
 	u.mu.Lock()
 	if u.updated {
 		u.mu.Unlock()
-		return true
+		return nil
 	}
 
 	if u.waitCh == nil {
@@ -75,8 +79,10 @@ func (u *InMemoryStatusUpdater) WaitForReport(cancelCh chan struct{}) bool {
 
 	select {
 	case <-cancelCh:
-		return false
+		return fmt.Errorf("cancelled")
+	case <-time.After(u.WaitTimeout):
+		return fmt.Errorf("timed out after %s", u.WaitTimeout)
 	case <-ch:
-		return true
+		return nil
 	}
 }

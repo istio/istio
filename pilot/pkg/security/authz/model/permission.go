@@ -77,7 +77,7 @@ func (permission *Permission) Match(service *ServiceMetadata) bool {
 			// The constraint is not matched if any of the follow condition is true:
 			// a) the constraint is specified but not found in the ServiceMetadata;
 			// b) the constraint value is not matched to the actual value;
-			if !present || !stringMatch(constraintValue, values) {
+			if !present || !stringMatch(constraintValue, values.Values) {
 				return false
 			}
 		}
@@ -186,8 +186,14 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 			sort.Strings(keys)
 
 			for _, k := range keys {
-				permission := permission.forKeyValues(k, constraint[k])
-				pg.append(permission)
+				if len(constraint[k].Values) > 0 {
+					perm := permission.forKeyValues(k, constraint[k].Values)
+					pg.append(perm)
+				}
+				if len(constraint[k].NotValues) > 0 {
+					perm := permission.forKeyValues(k, constraint[k].NotValues)
+					pg.append(permissionNot(perm))
+				}
 			}
 		}
 	}
