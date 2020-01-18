@@ -12147,6 +12147,8 @@ template: |
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
     {{- end }}
     env:
+    - name: JWT_POLICY
+      value: {{ .Values.global.jwtPolicy }}
     - name: PILOT_CERT_PROVIDER
       value: {{ .Values.global.pilotCertProvider }}
     # Temp, pending PR to make it default or based on the istiodAddr env
@@ -12317,8 +12319,10 @@ template: |
     {{- end }}
     - mountPath: /etc/istio/proxy
       name: istio-envoy
+    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
+    {{- end }}
     - mountPath: /etc/certs/
       name: istio-certs
       readOnly: true
@@ -12342,6 +12346,7 @@ template: |
   - emptyDir:
       medium: Memory
     name: istio-envoy
+  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:
       sources:
@@ -12349,6 +12354,7 @@ template: |
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
+  {{- end }}
   {{- if eq .Values.global.pilotCertProvider "citadel" }}
   - name: citadel-ca-cert
     configMap:
@@ -13524,9 +13530,11 @@ spec:
           - name: config-volume
             mountPath: /etc/istio/config
           {{ if .Values.global.istiod.enabled }}
+          {{ if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
+          {{ end }}
           - name: local-certs
             mountPath: /var/run/secrets/istio-dns
           - name: cacerts
@@ -13571,6 +13579,8 @@ spec:
           - --log_as_json
         {{- end }}
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
@@ -13610,8 +13620,10 @@ spec:
           - name: sds-uds-path
             mountPath: /var/run/sds
             readOnly: true
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
 {{- end }}
       volumes:
@@ -13621,6 +13633,7 @@ spec:
       - emptyDir:
           medium: Memory
         name: local-certs
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -13628,6 +13641,7 @@ spec:
                 audience: {{ .Values.global.sds.token.aud }}
                 expirationSeconds: 43200
                 path: istio-token
+      {{- end }}
       - name: istiod
         configMap:
           name: istiod
@@ -13648,6 +13662,7 @@ spec:
       - hostPath:
           path: /var/run/sds
         name: sds-uds-path
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -13655,6 +13670,7 @@ spec:
               audience: {{ .Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
+      {{- end }}
       {{- end }}
       {{- end }}
 
@@ -15365,6 +15381,7 @@ spec:
       - hostPath:
           path: /var/run/sds
         name: sds-uds-path
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -15372,6 +15389,7 @@ spec:
               audience: {{ .Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
+      {{- end }}
       {{- end }}
       - name: uds-socket
         emptyDir: {}
@@ -15537,8 +15555,10 @@ spec:
         - name: sds-uds-path
           mountPath: /var/run/sds
           readOnly: true
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - name: istio-token
           mountPath: /var/run/secrets/tokens
+        {{- end }}
         {{- end }}
         - name: uds-socket
           mountPath: /sock
@@ -33085,6 +33105,7 @@ spec:
       - hostPath:
           path: /var/run/sds
         name: sds-uds-path
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -33092,6 +33113,7 @@ spec:
               audience: {{ .Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
+      {{- end }}
       {{- end }}
       - name: uds-socket
         emptyDir: {}
@@ -33262,8 +33284,10 @@ spec:
         - name: sds-uds-path
           mountPath: /var/run/sds
           readOnly: true
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - name: istio-token
           mountPath: /var/run/secrets/tokens
+        {{- end }}
         {{- end }}
         - name: uds-socket
           mountPath: /sock
@@ -39701,6 +39725,7 @@ spec:
         gatewayName: ingressgateway
         enableHttps: false
       pilotCertProvider: kubernetes
+      jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"
