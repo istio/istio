@@ -128,7 +128,8 @@ func TestWebhook(t *testing.T) {
 			// Verify that the webhook's key and cert are reloaded, e.g. on rotation
 			ctx.NewSubTest("key/cert reload").
 				Run(func(t framework.TestContext) {
-					if i.Settings().IsIstiodEnabled() {
+					cfg := i.Settings()
+					if cfg.IsIstiodEnabled() {
 						t.Skip("istiod does not support cert rotation")
 					}
 
