@@ -411,7 +411,9 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 					log.Fatal("invalid config - port 15012 missing a root certificate")
 				}
 			} else {
-				log.Fatal("invalid config - the port is not 15010 or 15012")
+				// It is ok for CA endpoint to have a port that is not 15010 or 15012, e.g.,
+				// meshca.googleapis.com:443
+				log.Info("the port is not 15010 or 15012")
 			}
 		}
 
