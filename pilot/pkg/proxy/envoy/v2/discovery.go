@@ -108,6 +108,9 @@ type DiscoveryServer struct {
 
 	// debugHandlers is the list of all the supported debug handlers.
 	debugHandlers map[string]string
+
+	// serverReady indicates caches have been synced up and server is ready to process requests.
+	serverReady bool
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -140,6 +143,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
 		DebugConfigs:            features.DebugConfigs,
+		serverReady:             false,
 		debugHandlers:           map[string]string{},
 	}
 
@@ -152,6 +156,19 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 // Register adds the ADS and EDS handles to the grpc server
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+}
+
+// OnServerReady is called when caches have been synced so that it can process requests.
+func (s *DiscoveryServer) OnServerReady() {
+	s.updateMutex.Lock()
+	s.serverReady = true
+	s.updateMutex.Unlock()
+}
+
+func (s *DiscoveryServer) IsServerReady() bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.serverReady
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
