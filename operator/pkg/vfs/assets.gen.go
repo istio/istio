@@ -39768,7 +39768,7 @@ spec:
       imagePullPolicy: IfNotPresent
       certificates: []
       operatorManageWebhooks: false
-      controlPlaneSecurityEnabled: true
+      controlPlaneSecurityEnabled: false
       disablePolicyChecks: true
       policyCheckFailOpen: false
       enableTracing: true
