@@ -6175,8 +6175,6 @@ metadata:
     release: istio
 ---
 
-# CertManager component is disabled.
-
 # Citadel component is disabled.
 
 # Cni component is disabled.

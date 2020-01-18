@@ -29,7 +29,6 @@ var (
 			name.GalleyComponentName,
 			name.CitadelComponentName,
 			name.NodeAgentComponentName,
-			name.CertManagerComponentName,
 			name.SidecarInjectorComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,

@@ -42,7 +42,6 @@ const (
 	PolicyComponentName          ComponentName = "Policy"
 	TelemetryComponentName       ComponentName = "Telemetry"
 	CitadelComponentName         ComponentName = "Citadel"
-	CertManagerComponentName     ComponentName = "CertManager"
 	NodeAgentComponentName       ComponentName = "NodeAgent"
 	CNIComponentName             ComponentName = "Cni"
 
@@ -67,7 +66,6 @@ var (
 		PolicyComponentName,
 		TelemetryComponentName,
 		CitadelComponentName,
-		CertManagerComponentName,
 		NodeAgentComponentName,
 		CNIComponentName,
 	}
