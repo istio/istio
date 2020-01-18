@@ -267,7 +267,7 @@ values:
       s390x: 2
     certificates: []
     configValidation: true
-    controlPlaneSecurityEnabled: true
+    controlPlaneSecurityEnabled: false
     defaultNodeSelector: {}
     defaultPodDisruptionBudget:
       enabled: true
