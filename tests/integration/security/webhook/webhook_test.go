@@ -56,7 +56,8 @@ func TestWebhookManagement(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			if inst.Settings().IsIstiodEnabled() {
+			cfg := inst.Settings()
+			if cfg.IsIstiodEnabled() {
 				ctx.Skip("TODO(github.com/istio/istio/issues/20289)")
 			}
 
