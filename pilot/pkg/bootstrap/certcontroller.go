@@ -18,13 +18,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/security/pkg/k8s/chiron"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -44,8 +45,8 @@ var (
 	// dnsCertDir is the location to save generated DNS certificates.
 	// TODO: we can probably avoid saving, but will require deeper changes.
 	dnsCertDir  = "./var/run/secrets/istio-dns"
-	dnsKeyFile  = path.Join(dnsCertDir, "key.pem")
-	dnsCertFile = path.Join(dnsCertDir, "cert-chain.pem")
+	dnsKeyFile  = "./" + filepath.Join(dnsCertDir, "key.pem")
+	dnsCertFile = "./" + filepath.Join(dnsCertDir, "cert-chain.pem")
 
 	KubernetesCAProvider = "kubernetes"
 	CitadelCAProvider    = "citadel"
@@ -152,7 +153,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 
 	// Save the certificates to ./var/run/secrets/istio-dns - this is needed since most of the code we currently
 	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
-	if err := os.MkdirAll(dnsCertDir, 0600); err != nil {
+	if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
 		return err
 	}
 	err = ioutil.WriteFile(dnsKeyFile, keyPEM, 0600)

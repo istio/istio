@@ -139,6 +139,13 @@ type Config struct {
 	CustomSidecarInjectorNamespace string
 }
 
+func (c *Config) IsIstiodEnabled() bool {
+	if c.Operator {
+		return c.Values["global.istiod.enabled"] != "false"
+	}
+	return false
+}
+
 // IsMtlsEnabled checks in Values flag and Values file.
 func (c *Config) IsMtlsEnabled() bool {
 	if c.Values["global.mtls.enabled"] == "true" ||

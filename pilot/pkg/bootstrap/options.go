@@ -68,6 +68,7 @@ type ServiceArgs struct {
 type PilotArgs struct {
 	DiscoveryOptions         DiscoveryServiceOptions
 	InjectionOptions         InjectionOptions
+	ValidationOptions        ValidationOptions
 	Namespace                string
 	Mesh                     MeshArgs
 	Config                   ConfigArgs
@@ -88,9 +89,13 @@ type PilotArgs struct {
 // DiscoveryServiceOptions contains options for create a new discovery
 // service instance.
 type DiscoveryServiceOptions struct {
-	// The listening address for HTTP. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// The listening address for HTTP (debug). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	HTTPAddr string
+
+	// The listening addres for HTTPS (webhooks). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	HTTPSAddr string
 
 	// The listening address for GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
@@ -113,8 +118,13 @@ type DiscoveryServiceOptions struct {
 }
 
 type InjectionOptions struct {
+	// Directory of injection related config files.
 	InjectionDirectory string
-	Port               int
+}
+
+type ValidationOptions struct {
+	// Directory of config validation related config files.
+	ValidationDirectory string
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
