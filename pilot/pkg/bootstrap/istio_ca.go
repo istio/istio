@@ -25,11 +25,12 @@ import (
 	"strings"
 	"time"
 
-	oidc "github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -180,7 +181,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopC
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
-		true)
+		true, model.JwtPolicy.Get())
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}

@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -456,7 +458,8 @@ func TestRun(t *testing.T) {
 			// K8s JWT authenticator is added in k8s env.
 			tc.expectedAuthenticatorsLen++
 		}
-		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true)
+		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true,
+			jwt.JWTPolicyThirdPartyJWT)
 		if err == nil {
 			err = server.Run()
 		}
@@ -528,7 +531,7 @@ func TestGetServerCertificate(t *testing.T) {
 	}
 
 	server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
-		"testdomain.com", true)
+		"testdomain.com", true, jwt.JWTPolicyThirdPartyJWT)
 	if err != nil {
 		t.Errorf("Cannot crete server: %v", err)
 	}
