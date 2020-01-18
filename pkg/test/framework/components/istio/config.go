@@ -140,7 +140,10 @@ type Config struct {
 }
 
 func (c *Config) IsIstiodEnabled() bool {
-	return c.Values["global.istiod.enabled"] == "true"
+	if c.Operator {
+		return c.Values["global.istiod.enabled"] != "true"
+	}
+	return false
 }
 
 // IsMtlsEnabled checks in Values flag and Values file.
