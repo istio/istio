@@ -145,6 +145,9 @@ sidecarInjectorWebhook:
   #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
   injectedAnnotations: {}
 
+galley:
+  enabled: false
+
 telemetry:
   enabled: true
   v1:

@@ -99,8 +99,7 @@ type deployment struct {
 
 var (
 	componentDependencies = componentNameToListMap{
-		name.IstioBaseComponentName: {
-			name.PilotComponentName,
+		name.PilotComponentName: {
 			name.PolicyComponentName,
 			name.TelemetryComponentName,
 			name.GalleyComponentName,
@@ -111,6 +110,9 @@ var (
 			name.IngressComponentName,
 			name.EgressComponentName,
 			name.AddonComponentName,
+		},
+		name.IstioBaseComponentName: {
+			name.PilotComponentName,
 		},
 	}
 
@@ -229,6 +231,11 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 			allAppliedObjects = append(allAppliedObjects, appliedObjects...)
 			mu.Unlock()
 
+			if len(componentDependencies[c]) > 0 {
+				if err := WaitForResources(appliedObjects, opts); err != nil {
+					log.Errorf("failed to wait for resource: %v", err)
+				}
+			}
 			// Signal all the components that depend on us.
 			for _, ch := range componentDependencies[c] {
 				log.Infof("unblocking child %s.", ch)
@@ -423,6 +430,10 @@ func defaultObjectOrder() func(o *object.K8sObject) int {
 			return 1
 		case "rbac.authorization.k8s.io/ClusterRoleBinding":
 			return 2
+
+			// Validation webook maybe impact CRs applied later
+		case "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+			return 3
 
 			// Pods might need configmap or secrets - avoid backoff by creating them first
 		case "/ConfigMap", "/Secrets":

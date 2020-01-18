@@ -67,6 +67,12 @@ type Config struct {
 
 	// MeshConfig to use for this instance.
 	MeshConfig string
+
+	// CreateClient determines if a real connection should be established with Galley. This is a workaround
+	// to support Kubernetes environments where Galley is not running.
+	// This field is ignored on native
+	// TODO(https://github.com/istio/istio/issues/20299) remove this field
+	CreateClient bool
 }
 
 // New returns a new instance of echo.

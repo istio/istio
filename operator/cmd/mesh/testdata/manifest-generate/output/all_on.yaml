@@ -8112,7 +8112,7 @@ data:
       - name: validation.istio.io
         clientConfig:
           service:
-            name: istio-pilot
+            name: istiod
             namespace: istio-system
             path: "/validate"
             port: 443
@@ -9012,6 +9012,27 @@ spec:
     name: https-webhook # validation and injection
     targetPort: 15017
   selector:
+    istio: pilot
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+spec:
+  ports:
+    - port: 15012
+      name: https-dns # mTLS with k8s-signed cert
+    - port: 443
+      name: https-webhook # validation and injection
+      targetPort: 15017
+  selector:
+    app: pilot
     istio: pilot
 ---
 
