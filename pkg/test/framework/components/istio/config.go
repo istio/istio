@@ -140,8 +140,10 @@ type Config struct {
 }
 
 func (c *Config) IsIstiodEnabled() bool {
-	// TODO is there a better way to detect that we're running as istiod?
-	return c.Operator
+	if c.Operator {
+		return c.Values["global.istiod.enabled"] != "false"
+}
+	return false
 }
 
 // IsMtlsEnabled checks in Values flag and Values file.
