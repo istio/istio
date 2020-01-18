@@ -201,6 +201,8 @@ template: |
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
     {{- end }}
     env:
+    - name: JWT_POLICY
+      value: {{ .Values.global.jwtPolicy }}
     - name: PILOT_CERT_PROVIDER
       value: {{ .Values.global.pilotCertProvider }}
     # Temp, pending PR to make it default or based on the istiodAddr env
@@ -371,8 +373,10 @@ template: |
     {{- end }}
     - mountPath: /etc/istio/proxy
       name: istio-envoy
+    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
+    {{- end }}
     - mountPath: /etc/certs/
       name: istio-certs
       readOnly: true
@@ -396,6 +400,7 @@ template: |
   - emptyDir:
       medium: Memory
     name: istio-envoy
+  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:
       sources:
@@ -403,6 +408,7 @@ template: |
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
+  {{- end }}
   {{- if eq .Values.global.pilotCertProvider "citadel" }}
   - name: citadel-ca-cert
     configMap:

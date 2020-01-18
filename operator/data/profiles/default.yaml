@@ -54,7 +54,7 @@ spec:
 
   # Policy feature
     policy:
-      enabled: true
+      enabled: false
       k8s:
         hpaSpec:
           maxReplicas: 5
@@ -203,6 +203,7 @@ spec:
         gatewayName: ingressgateway
         enableHttps: false
       pilotCertProvider: kubernetes
+      jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"

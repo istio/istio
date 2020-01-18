@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -123,6 +125,9 @@ type cliOptions struct { // nolint: maligned
 
 	// Whether SDS is enabled on.
 	sdsEnabled bool
+
+	// The policy for validating JWT
+	jwtPolicy string
 }
 
 var (
@@ -296,6 +301,9 @@ func initEnvVars() {
 	enableNamespacesByDefault := env.RegisterBoolVar("CITADEL_ENABLE_NAMESPACES_BY_DEFAULT", true,
 		"Determines whether unlabeled namespaces should be targeted by this Citadel instance").Get()
 	opts.enableNamespacesByDefault = enableNamespacesByDefault
+	jwtPolicy := env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+		"The JWT validation policy. ").Get()
+	opts.jwtPolicy = jwtPolicy
 }
 
 func main() {
@@ -388,7 +396,7 @@ func runCA() {
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
 		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL,
 			opts.signCACerts, hostnames, opts.grpcPort, spiffe.GetTrustDomain(),
-			opts.sdsEnabled)
+			opts.sdsEnabled, opts.jwtPolicy)
 		if startErr != nil {
 			fatalf("Failed to create istio ca server: %v", startErr)
 		}
