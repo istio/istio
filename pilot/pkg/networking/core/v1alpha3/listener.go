@@ -1021,6 +1021,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 		tcpListeners = append(tcpListeners, httpProxy)
 	}
 
+	removeListenerFilterTimeout(tcpListeners)
 	return tcpListeners
 }
 
@@ -2333,4 +2334,24 @@ func isFallthroughFilterChain(fc *listener.FilterChain) bool {
 		return true
 	}
 	return false
+}
+
+func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
+	for _, l := range listeners {
+		// Remove listener filter timeout for
+		// 	1. outbound listeners AND
+		// 	2. without HTTP inspector
+		hasHttpInspector := false
+		for _, lf := range l.ListenerFilters {
+			if lf.Name == wellknown.HttpInspector {
+				hasHttpInspector = true
+				break
+			}
+		}
+
+		if !hasHttpInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
+			l.ListenerFiltersTimeout = nil
+			l.ContinueOnListenerFiltersTimeout = false
+		}
+	}
 }
