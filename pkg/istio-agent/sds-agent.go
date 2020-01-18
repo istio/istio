@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/kube"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -245,7 +246,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	if !isSidecar {
 		serverOptions.EnableIngressGatewaySDS = true
 		// TODO: what is the setting for ingress ?
-		serverOptions.IngressGatewayUDSPath = serverOptions.WorkloadUDSPath + "_ROUTER"
+		serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
 		gatewaySecretCache = newIngressSecretCache(podNamespace)
 	}
 

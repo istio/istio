@@ -6372,6 +6372,8 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
 
           - name: istio-certs
             mountPath: /etc/certs
@@ -6383,6 +6385,8 @@ spec:
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
       volumes:
+      - name: ingressgatewaysdsudspath
+        emptyDir: {}
       - name: istio-token
         projected:
           sources:
