@@ -100,8 +100,6 @@ func NewComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewTelemetryComponent(opts)
 	case name.CitadelComponentName:
 		component = NewCitadelComponent(opts)
-	case name.CertManagerComponentName:
-		component = NewCertManagerComponent(opts)
 	case name.NodeAgentComponentName:
 		component = NewNodeAgentComponent(opts)
 	case name.CNIComponentName:
@@ -241,50 +239,6 @@ func (c *CitadelComponent) ResourceName() string {
 
 // Namespace implements the IstioComponent interface.
 func (c *CitadelComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// CertManagerComponent is the pilot component.
-type CertManagerComponent struct {
-	*CommonComponentFields
-}
-
-// NewCertManagerComponent creates a new PilotComponent and returns a pointer to it.
-func NewCertManagerComponent(opts *Options) *CertManagerComponent {
-	cn := name.CertManagerComponentName
-	return &CertManagerComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *CertManagerComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *CertManagerComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *CertManagerComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *CertManagerComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *CertManagerComponent) Namespace() string {
 	return c.CommonComponentFields.Namespace
 }
 
