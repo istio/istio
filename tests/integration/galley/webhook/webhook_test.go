@@ -29,6 +29,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/test"
 
 	"istio.io/pkg/log"
@@ -40,16 +41,30 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	tkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/webhooks/validation/server"
 )
 
 var (
-	vwcName    = "istio-galley"
-	deployName = "istio-galley"
-	sleepDelay = 10 * time.Second // How long to wait to give the reconcile loop an opportunity to act
+	webhookControllerApp string
+	deployName           string
+	clusterRolePrefix    string
+	vwcName              string
+	sleepDelay           = 10 * time.Second // How long to wait to give the reconcile loop an opportunity to act
+	i                    istio.Instance
 )
 
-var i istio.Instance
+func setup(cfg *istio.Config) {
+	if cfg.IsIstiodEnabled() {
+		webhookControllerApp = "pilot" // i.e. istiod. Switch to 'galley' and change the setup options for non-istiod tests.
+		deployName = fmt.Sprintf("istio-%v", webhookControllerApp)
+		clusterRolePrefix = "istiod"
+		vwcName = "istiod-istio-system"
+	} else {
+		webhookControllerApp = "galley"
+		deployName = fmt.Sprintf("istio-%v", webhookControllerApp)
+		clusterRolePrefix = "istio-galley"
+		vwcName = "istio-galley"
+	}
+}
 
 // Using subtests to enforce ordering
 func TestWebhook(t *testing.T) {
@@ -61,7 +76,7 @@ func TestWebhook(t *testing.T) {
 
 			istioNs := i.Settings().IstioNamespace
 
-			// Verify galley re-creates the webhook when it is deleted.
+			// Verify the controller re-creates the webhook when it is deleted.
 			ctx.NewSubTest("recreateOnDelete").
 				Run(func(t framework.TestContext) {
 					startVersion := getVwcResourceVersion(vwcName, t, env)
@@ -113,14 +128,19 @@ func TestWebhook(t *testing.T) {
 			// Verify that the webhook's key and cert are reloaded, e.g. on rotation
 			ctx.NewSubTest("key/cert reload").
 				Run(func(t framework.TestContext) {
-					addr, done := startGalleyPortForwarderOrFail(t, env, istioNs)
+					cfg := i.Settings()
+					if cfg.IsIstiodEnabled() {
+						t.Skip("istiod does not support cert rotation")
+					}
+
+					addr, done := startWebhookPortForwarderOrFail(t, env, istioNs)
 					defer done()
 
 					startingSN := fetchWebhookCertSerialNumbersOrFail(t, addr)
 
 					log.Infof("Initial cert serial numbers: %v", startingSN)
 
-					_ = env.DeleteSecret(istioNs, "istio.istio-galley-service-account")
+					_ = env.DeleteSecret(istioNs, fmt.Sprintf("istio.%v-service-account", deployName))
 
 					retry.UntilSuccessOrFail(t, func() error {
 						updated := fetchWebhookCertSerialNumbersOrFail(t, addr)
@@ -132,12 +152,11 @@ func TestWebhook(t *testing.T) {
 					}, retry.Timeout(5*time.Minute))
 				})
 
-			// NOTE: Keep this as the last test! It deletes the istio-galley clusterrole. All subsequent kube tests will fail.
-			// Verify that removing galley's clusterrole results in the webhook configuration being removed.
+			// NOTE: Keep this as the last test! It deletes the webhook's clusterrole. All subsequent kube tests will fail.
+			// Verify that removing clusterrole results in the webhook configuration being removed.
 			ctx.NewSubTest("webhookUninstall").
 				Run(func(t framework.TestContext) {
-					// Remove Galley's clusterrole
-					env.DeleteClusterRole(fmt.Sprintf("istio-galley-%v", istioNs))
+					env.DeleteClusterRole(fmt.Sprintf("%v-%v", clusterRolePrefix, istioNs))
 
 					// Verify webhook config is deleted
 					if err := env.WaitForValidatingWebhookDeletion(vwcName); err != nil {
@@ -157,7 +176,7 @@ func scaleDeployment(namespace, deployment string, replicas int, t test.Failer, 
 
 	// verify no pods are still terminating
 	if replicas == 0 {
-		fetchFunc := env.Accessor.NewSinglePodFetch(namespace, "app=galley")
+		fetchFunc := env.Accessor.NewSinglePodFetch(namespace, fmt.Sprintf("app=%v", webhookControllerApp))
 		retry.UntilSuccessOrFail(t, func() error {
 			pods, err := fetchFunc()
 			if err != nil {
@@ -170,11 +189,13 @@ func scaleDeployment(namespace, deployment string, replicas int, t test.Failer, 
 				return fmt.Errorf("%v pods remaining", len(pods))
 			}
 			return nil
-		}, retry.Timeout(5*time.Minute)) // galley
+		}, retry.Timeout(5*time.Minute))
 	}
 }
 
 func getVwcGeneration(vwcName string, t test.Failer, env *kube.Environment) int64 {
+	t.Helper()
+
 	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
 	if err != nil {
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
@@ -183,6 +204,8 @@ func getVwcGeneration(vwcName string, t test.Failer, env *kube.Environment) int6
 }
 
 func getVwcResourceVersion(vwcName string, t test.Failer, env *kube.Environment) string {
+	t.Helper()
+
 	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
 	if err != nil {
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
@@ -190,15 +213,15 @@ func getVwcResourceVersion(vwcName string, t test.Failer, env *kube.Environment)
 	return vwc.GetResourceVersion()
 }
 
-func startGalleyPortForwarderOrFail(t test.Failer, env *kube.Environment, ns string) (addr string, done func()) {
+func startWebhookPortForwarderOrFail(t test.Failer, env *kube.Environment, ns string) (addr string, done func()) {
 	t.Helper()
 
 	// ensure only one pod *exists* before we start port forwarding.
 	scaleDeployment(ns, deployName, 0, t, env)
 	scaleDeployment(ns, deployName, 1, t, env)
 
-	var galleyPod *v1.Pod
-	fetchFunc := env.Accessor.NewSinglePodFetch(ns, "app=galley")
+	var webhookPod *v1.Pod
+	fetchFunc := env.Accessor.NewSinglePodFetch(ns, fmt.Sprintf("app=%v", webhookControllerApp))
 	retry.UntilSuccessOrFail(t, func() error {
 		pods, err := fetchFunc()
 		if err != nil {
@@ -207,13 +230,13 @@ func startGalleyPortForwarderOrFail(t test.Failer, env *kube.Environment, ns str
 		if len(pods) != 1 {
 			return fmt.Errorf("%v pods found, waiting for only one", len(pods))
 		}
-		galleyPod = &pods[0]
-		return tkube.CheckPodReady(galleyPod)
+		webhookPod = &pods[0]
+		return tkube.CheckPodReady(webhookPod)
 	}, retry.Timeout(5*time.Minute))
 
-	forwarder, err := env.Accessor.NewPortForwarder(*galleyPod, 0, uint16(server.DefaultArgs().Port))
+	forwarder, err := env.Accessor.NewPortForwarder(*webhookPod, 0, 15017)
 	if err != nil {
-		t.Fatalf("failed creating port forwarding to galley: %v", err)
+		t.Fatalf("failed creating port forwarding to the controller: %v", err)
 	}
 
 	if err := forwarder.Start(); err != nil {
@@ -244,13 +267,13 @@ func fetchWebhookCertSerialNumbersOrFail(t test.Failer, addr string) []string { 
 	}
 	defer client.CloseIdleConnections()
 
-	url := fmt.Sprintf("https://%v/ready", addr)
+	url := fmt.Sprintf("https://%v/%v", addr, bootstrap.HTTPSWebhookServerReadyPath)
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
-		t.Fatalf("iunvalid request: %v", err)
+		t.Fatalf("invalid request: %v", err)
 	}
 
-	req.Host = "istio-galley.istio-system.svc"
+	req.Host = fmt.Sprintf("%v.istio-system.svc", deployName)
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("webhook request failed: %v", err)
@@ -273,6 +296,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("webhook_test", m).
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&i, setup)).
 		Run()
 }
