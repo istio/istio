@@ -28,8 +28,7 @@ import (
 )
 
 var (
-	inst          istio.Instance
-	usingOperator bool
+	inst istio.Instance
 )
 
 // This test requires `--istio.test.env=kube` because it tests istioctl managing k8s webhook configurations.
@@ -50,7 +49,6 @@ func setupConfig(cfg *istio.Config) {
 	// Helm values from install/kubernetes/helm/istio/test-values/values-istio-dns-cert.yaml
 	cfg.ValuesFile = "test-values/values-istio-dns-cert.yaml"
 	cfg.Values["global.operatorManageWebhooks"] = "true"
-	usingOperator = cfg.Operator
 }
 
 // TestWebhookManagement tests "istioctl experimental post-install webhook" command.
@@ -58,9 +56,8 @@ func TestWebhookManagement(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			if usingOperator {
-				// istiod is enabled by default with the operator
-				ctx.Skip("TODO(github.com/istio/istio/issues/20289")
+			if inst.Settings().IsIstiodEnabled() {
+				ctx.Skip("TODO(github.com/istio/istio/issues/20289)")
 			}
 
 			// Test that webhook configurations are enabled through istioctl successfully.
