@@ -41340,7 +41340,7 @@ var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   recommendedIstioVersions: 1.4.4
 - operatorVersion: 1.5.0
   operatorVersionRange: ">=1.5.0,<1.6.0"
-  supportedIstioVersions: ">=1.5.0, <1.6"
+  supportedIstioVersions: ">=1.4.0, <1.6"
   recommendedIstioVersions: 1.5.0
 `)
 
