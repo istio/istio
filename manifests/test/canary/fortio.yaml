@@ -51,7 +51,7 @@ kind: DestinationRule
 metadata:
   name: fortio
 spec:
-  host:  fortio
+  host: fortio
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL

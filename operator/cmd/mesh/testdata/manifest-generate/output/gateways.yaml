@@ -18,6 +18,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
+    
     release: istio
 spec:
   maxReplicas: 5
@@ -218,6 +219,8 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
+        - mountPath: /var/run/ingress_gateway
+          name: ingressgatewaysdsudspath
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
@@ -229,6 +232,8 @@ spec:
           readOnly: true
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
+      - emptyDir: {}
+        name: ingressgatewaysdsudspath
       - name: istio-token
         projected:
           sources:
@@ -280,15 +285,17 @@ metadata:
   namespace: istio-ingress-1-ns
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: istio-ingressgateway
-      release: istio
       istio: ingressgateway
+      
+      release: istio
 ---
 
 
@@ -331,12 +338,15 @@ metadata:
   annotations:
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
   ports:
     -
       name: status-port
@@ -379,6 +389,8 @@ metadata:
   namespace: istio-ingress-1-ns
   labels:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
     release: istio
 ---
 
@@ -407,6 +419,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
+    
     release: istio
 spec:
   maxReplicas: 5
@@ -438,6 +451,7 @@ spec:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
+      
   strategy:
     rollingUpdate:
       maxSurge: 100%
@@ -579,6 +593,8 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
 
           - name: istio-certs
             mountPath: /etc/certs
@@ -590,6 +606,8 @@ spec:
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
       volumes:
+      - name: ingressgatewaysdsudspath
+        emptyDir: {}
       - name: istio-token
         projected:
           sources:
@@ -673,15 +691,17 @@ metadata:
   namespace: istio-ingress-2-ns
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: istio-ingressgateway
-      release: istio
       istio: ingressgateway
+      
+      release: istio
 ---
 
 
@@ -724,12 +744,15 @@ metadata:
   annotations:
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
   ports:
     -
       name: status-port
@@ -772,6 +795,8 @@ metadata:
   namespace: istio-ingress-2-ns
   labels:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
     release: istio
 ---
 

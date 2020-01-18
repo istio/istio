@@ -35,6 +35,8 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -572,6 +574,46 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
 }
 
+func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
+	services := []*model.Service{
+		{
+			CreationTime: tnow,
+			Hostname:     host.Name("test.com"),
+			Address:      wildcardIP,
+			ClusterVIPs:  make(map[string]string),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "https",
+					Port:     8080,
+					Protocol: protocol.HTTPS,
+				},
+			},
+			Resolution: model.Passthrough,
+			Attributes: model.ServiceAttributes{
+				Namespace: "default",
+			},
+		},
+		{
+			CreationTime: tnow,
+			Hostname:     host.Name("test1.com"),
+			Address:      wildcardIP,
+			ClusterVIPs:  make(map[string]string),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "foo",
+					Port:     9090,
+					Protocol: "unknown",
+				},
+			},
+			Resolution: model.Passthrough,
+			Attributes: model.ServiceAttributes{
+				Namespace: "default",
+			},
+		},
+	}
+	testOutboundListenerFilterTimeoutV14(t, services...)
+}
+
 func TestGetActualWildcardAndLocalHost(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -678,6 +720,25 @@ func testOutboundListenerRouteV14(t *testing.T, services ...*model.Service) {
 	}
 }
 
+func testOutboundListenerFilterTimeoutV14(t *testing.T, services ...*model.Service) {
+	p := &fakePlugin{}
+	listeners := buildOutboundListeners(p, &proxy14, nil, nil, services...)
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	}
+
+	if listeners[0].ContinueOnListenerFiltersTimeout {
+		t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v",
+			listeners[0].ContinueOnListenerFiltersTimeout)
+	}
+
+	if !listeners[1].ContinueOnListenerFiltersTimeout || listeners[1].ListenerFiltersTimeout == nil {
+		t.Fatalf("expected timeout enabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+			listeners[1].ContinueOnListenerFiltersTimeout,
+			listeners[1].ListenerFiltersTimeout)
+	}
+}
+
 func testOutboundListenerConflictV14(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	oldestService := getOldestService(services...)
@@ -714,6 +775,12 @@ func testOutboundListenerConflictV14(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
 		}
 
+		if !listeners[0].ContinueOnListenerFiltersTimeout || listeners[0].ListenerFiltersTimeout == nil {
+			t.Fatalf("exptected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+				listeners[0].ContinueOnListenerFiltersTimeout,
+				listeners[0].ListenerFiltersTimeout)
+		}
+
 		f := listeners[0].FilterChains[2].Filters[0]
 		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 		rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
@@ -739,6 +806,12 @@ func testOutboundListenerConflictV14(t *testing.T, services ...*model.Service) {
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
 			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
+		}
+
+		if !listeners[0].ContinueOnListenerFiltersTimeout || listeners[0].ListenerFiltersTimeout == nil {
+			t.Fatalf("exptected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+				listeners[0].ContinueOnListenerFiltersTimeout,
+				listeners[0].ListenerFiltersTimeout)
 		}
 	}
 }
@@ -1753,15 +1826,15 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		},
 	}
 	configStore := &fakes.IstioConfigStore{
-		ListStub: func(kind, namespace string) (configs []model.Config, e error) {
+		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
 			switch kind {
-			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind():
+			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				result := make([]model.Config, len(virtualServices))
 				for i := range virtualServices {
 					result[i] = *virtualServices[i]
 				}
 				return result, nil
-			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind():
+			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 				return []model.Config{envoyFilter}, nil
 			default:
 				return nil, nil

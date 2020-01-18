@@ -72,7 +72,7 @@ func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
 		rootNamespace:          env.Mesh().GetRootNamespace(),
 	}
 
-	if configs, err := env.List(collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind(), NamespaceAll); err == nil {
+	if configs, err := env.List(collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
 		sortConfigByCreationTime(configs)
 		policy.addRequestAuthentication(configs)
 	}

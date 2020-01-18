@@ -1021,20 +1021,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 		tcpListeners = append(tcpListeners, httpProxy)
 	}
 
+	removeListenerFilterTimeout(tcpListeners)
 	return tcpListeners
 }
 
 func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	push *model.PushContext) *xdsapi.Listener {
 	httpProxyPort := push.Mesh.ProxyHttpPort
-	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 	if httpProxyPort == 0 {
-		// make sure http proxy is enabled for 'none' interception.
-		if noneMode {
-			httpProxyPort = int32(features.DefaultPortHTTPProxy)
-		} else {
-			return nil
-		}
+		return nil
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
@@ -2339,4 +2334,24 @@ func isFallthroughFilterChain(fc *listener.FilterChain) bool {
 		return true
 	}
 	return false
+}
+
+func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
+	for _, l := range listeners {
+		// Remove listener filter timeout for
+		// 	1. outbound listeners AND
+		// 	2. without HTTP inspector
+		hasHttpInspector := false
+		for _, lf := range l.ListenerFilters {
+			if lf.Name == wellknown.HttpInspector {
+				hasHttpInspector = true
+				break
+			}
+		}
+
+		if !hasHttpInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
+			l.ListenerFiltersTimeout = nil
+			l.ContinueOnListenerFiltersTimeout = false
+		}
+	}
 }

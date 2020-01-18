@@ -22,6 +22,8 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
@@ -950,11 +952,11 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 
 	configStore := &fakes.IstioConfigStore{}
 	configStore.GatewaysReturns(gateways)
-	configStore.ListStub = func(kind, namespace string) (configs []pilot_model.Config, e error) {
+	configStore.ListStub = func(kind resource.GroupVersionKind, namespace string) (configs []pilot_model.Config, e error) {
 		switch kind {
-		case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind():
+		case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 			return virtualServices, nil
-		case collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind():
+		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 			return gateways, nil
 		default:
 			return nil, nil

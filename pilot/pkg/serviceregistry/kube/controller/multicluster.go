@@ -20,6 +20,8 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
@@ -131,7 +133,7 @@ func (m *Multicluster) updateHandler() {
 	if m.XDSUpdater != nil {
 		req := &model.PushRequest{
 			Full:               true,
-			ConfigTypesUpdated: map[string]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(): {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 		}
 		m.XDSUpdater.ConfigUpdate(req)
 	}

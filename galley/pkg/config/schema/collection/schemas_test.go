@@ -143,7 +143,7 @@ func TestSchemas_MustFind_Panic(t *testing.T) {
 	_ = schemas.MustFind("zoo")
 }
 
-func TestSchema_FindByGroupAndKind(t *testing.T) {
+func TestSchema_FindByGroupVersionKind(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	s := collection.Builder{
@@ -154,20 +154,29 @@ func TestSchema_FindByGroupAndKind(t *testing.T) {
 			Group:        "mygroup",
 			Kind:         "Empty",
 			Plural:       "empties",
+			Version:      "v1",
 		}.MustBuild(),
 	}.MustBuild()
 
 	schemas := collection.SchemasFor(s)
 
-	s2, found := schemas.FindByGroupAndKind("mygroup", "Empty")
+	s2, found := schemas.FindByGroupVersionKind(resource.GroupVersionKind{
+		Group:   "mygroup",
+		Version: "v1",
+		Kind:    "Empty",
+	})
 	g.Expect(found).To(BeTrue())
 	g.Expect(s2).To(Equal(s))
 
-	_, found = schemas.FindByGroupAndKind("bad", "bad")
+	_, found = schemas.FindByGroupVersionKind(resource.GroupVersionKind{
+		Group:   "fake",
+		Version: "v1",
+		Kind:    "Empty",
+	})
 	g.Expect(found).To(BeFalse())
 }
 
-func TestSchema_MustFindByGroupAndKind(t *testing.T) {
+func TestSchema_MustFindByGroupVersionKind(t *testing.T) {
 	g := NewGomegaWithT(t)
 	b := collection.NewSchemasBuilder()
 
@@ -179,17 +188,22 @@ func TestSchema_MustFindByGroupAndKind(t *testing.T) {
 			Group:        "mygroup",
 			Kind:         "Empty",
 			Plural:       "empties",
+			Version:      "v1",
 		}.MustBuild(),
 	}.MustBuild()
 
 	b.MustAdd(s)
 	schemas := b.Build()
 
-	s2 := schemas.MustFindByGroupAndKind("mygroup", "Empty")
-	g.Expect(s2).To(Equal(s))
+	got := schemas.MustFindByGroupVersionKind(resource.GroupVersionKind{
+		Group:   "mygroup",
+		Version: "v1",
+		Kind:    "Empty",
+	})
+	g.Expect(s).To(Equal(got))
 }
 
-func TestSchema_MustFindByGroupAndKind_Panic(t *testing.T) {
+func TestSchema_MustFindByGroupVersionKind_Panic(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	defer func() {
@@ -198,41 +212,11 @@ func TestSchema_MustFindByGroupAndKind_Panic(t *testing.T) {
 	}()
 
 	schemas := collection.NewSchemasBuilder().Build()
-	_ = schemas.MustFindByGroupAndKind("mygroup", "Empty")
-}
-
-func TestSchema_MustFindByKind(t *testing.T) {
-	g := NewGomegaWithT(t)
-	b := collection.NewSchemasBuilder()
-
-	s := collection.Builder{
-		Name: "foo",
-		Resource: resource.Builder{
-			ProtoPackage: "github.com/gogo/protobuf/types",
-			Proto:        "google.protobuf.Empty",
-			Group:        "mygroup",
-			Kind:         "Empty",
-			Plural:       "empties",
-		}.MustBuild(),
-	}.MustBuild()
-
-	b.MustAdd(s)
-	schemas := b.Build()
-
-	s2 := schemas.MustFindByKind("Empty")
-	g.Expect(s2).To(Equal(s))
-}
-
-func TestSchema_MustFindByKind_Panic(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	defer func() {
-		r := recover()
-		g.Expect(r).NotTo(BeNil())
-	}()
-
-	schemas := collection.NewSchemasBuilder().Build()
-	_ = schemas.MustFindByKind("Empty")
+	_ = schemas.MustFindByGroupVersionKind(resource.GroupVersionKind{
+		Group:   "mygroup",
+		Version: "v1",
+		Kind:    "Empty",
+	})
 }
 
 func TestSchemas_CollectionNames(t *testing.T) {

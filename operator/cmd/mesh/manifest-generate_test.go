@@ -144,18 +144,26 @@ func TestManifestGenerateTelemetry(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateGateway(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "ingressgateway_k8s_settings",
+			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
+		},
+	})
+}
+
 func TestManifestGenerateOrdered(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
 	t.Run("stable_manifest", func(t *testing.T) {
-		t.Skip("https://github.com/istio/istio/issues/20115")
-		inPath := filepath.Join(testDataDir, "input", "all_on.yaml")
-		got1, err := runManifestGenerate(inPath, "")
+		inPath := filepath.Join(testDataDir, "input/all_on.yaml")
+		got1, err := runManifestGenerate([]string{inPath}, "")
 		if err != nil {
 			t.Fatal(err)
 		}
-		got2, err := runManifestGenerate(inPath, "")
+		got2, err := runManifestGenerate([]string{inPath}, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -163,6 +171,28 @@ func TestManifestGenerateOrdered(t *testing.T) {
 		if got1 != got2 {
 			fmt.Printf("%s", util.YAMLDiff(got1, got2))
 			t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
+		}
+	})
+}
+
+func TestMultiICPSFiles(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	t.Run("multi-ICPS files", func(t *testing.T) {
+		inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
+		inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
+		got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		outPath := filepath.Join(testDataDir, "output/telemetry_override_values.yaml")
+
+		want, err := readFile(outPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if got != want {
+			t.Errorf("`manifest generate` got = %v, want %v", got, want)
 		}
 	})
 }
@@ -178,7 +208,7 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := NewLogger(true, os.Stdout, os.Stderr)
-	_, iops, err := genIOPS("", "default", "", "", true, l)
+	_, iops, err := genIOPS(nil, "default", "", "", true, l)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,11 +224,12 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
 			outPath := filepath.Join(testDataDir, "output", tt.desc+".yaml")
 
-			if tt.noInput {
-				inPath = ""
+			var filenames []string
+			if !tt.noInput {
+				filenames = []string{inPath}
 			}
 
-			got, err := runManifestGenerate(inPath, tt.flags)
+			got, err := runManifestGenerate(filenames, tt.flags)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -244,12 +275,12 @@ func runTestGroup(t *testing.T, tests testGroup) {
 	}
 }
 
-// runManifestGenerate runs the manifest generate command. If path is set, passes the given path as a -f flag,
+// runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestGenerate(path, flags string) (string, error) {
+func runManifestGenerate(filenames []string, flags string) (string, error) {
 	args := "manifest generate"
-	if path != "" {
-		args += " -f " + path
+	for _, f := range filenames {
+		args += " -f " + f
 	}
 	if flags != "" {
 		args += " " + flags

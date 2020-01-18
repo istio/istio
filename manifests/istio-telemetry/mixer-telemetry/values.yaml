@@ -83,9 +83,6 @@ mixer:
     # be batched before being sent to the mixer server
     reportBatchMaxTime: 1s
 
-    # Indicate if Galley is enabled to send MCP queries
-    useMCP: true
-
     nodeSelector: {}
     tolerations: []
     podAnnotations: {}

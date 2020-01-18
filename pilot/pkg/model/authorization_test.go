@@ -23,6 +23,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
@@ -39,6 +41,8 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	roleCfg := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Serviceroles.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Serviceroles.Resource().Group(),
 			Name:      "test-role-1",
 			Namespace: testNS,
 		},
@@ -49,6 +53,8 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	bindingCfg := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
 			Name:      "test-binding-1",
 			Namespace: testNS,
 		},
@@ -60,6 +66,8 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	invalidateBindingCfg := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
 			Name:      "test-binding-1",
 			Namespace: testNS,
 		},
@@ -424,18 +432,21 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			"version": "v1",
 		},
 	}
+	denyPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	denyPolicy.Action = authpb.AuthorizationPolicy_DENY
 
 	cases := []struct {
 		name           string
 		ns             string
 		workloadLabels map[string]string
 		configs        []Config
-		want           []AuthorizationPolicyConfig
+		wantDeny       []AuthorizationPolicyConfig
+		wantAllow      []AuthorizationPolicyConfig
 	}{
 		{
-			name: "no policies",
-			ns:   "foo",
-			want: nil,
+			name:      "no policies",
+			ns:        "foo",
+			wantAllow: nil,
 		},
 		{
 			name: "no policies in namespace foo",
@@ -444,19 +455,33 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			want: nil,
+			wantAllow: nil,
 		},
 		{
-			name: "one policy",
+			name: "one allow policy",
 			ns:   "bar",
 			configs: []Config{
 				newConfig("authz-1", "bar", policy),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "bar",
 					AuthorizationPolicy: policy,
+				},
+			},
+		},
+		{
+			name: "one deny policy",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("authz-1", "bar", denyPolicy),
+			},
+			wantDeny: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "bar",
+					AuthorizationPolicy: denyPolicy,
 				},
 			},
 		},
@@ -468,7 +493,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "bar",
@@ -476,6 +501,28 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				},
 				{
 					Name:                "authz-2",
+					Namespace:           "bar",
+					AuthorizationPolicy: policy,
+				},
+			},
+		},
+		{
+			name: "mixing allow and deny policies",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("authz-1", "bar", policy),
+				newConfig("authz-2", "bar", denyPolicy),
+			},
+			wantDeny: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-2",
+					Namespace:           "bar",
+					AuthorizationPolicy: denyPolicy,
+				},
+			},
+			wantAllow: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
 					Namespace:           "bar",
 					AuthorizationPolicy: policy,
 				},
@@ -491,7 +538,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "bar",
@@ -510,7 +557,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "bar",
@@ -528,7 +575,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: nil,
+			wantAllow: nil,
 		},
 		{
 			name: "namespace not match",
@@ -540,7 +587,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: nil,
+			wantAllow: nil,
 		},
 		{
 			name: "root namespace",
@@ -548,7 +595,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "istio-config",
@@ -562,7 +609,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "istio-config",
@@ -577,7 +624,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "istio-config", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			want: []AuthorizationPolicyConfig{
+			wantAllow: []AuthorizationPolicyConfig{
 				{
 					Name:                "authz-1",
 					Namespace:           "istio-config",
@@ -596,10 +643,13 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			got := authzPolicies.ListAuthorizationPolicies(
+			gotDeny, gotAllow := authzPolicies.ListAuthorizationPolicies(
 				tc.ns, []labels.Instance{tc.workloadLabels})
-			if !reflect.DeepEqual(tc.want, got) {
-				t.Errorf("want:%v\n but got: %v\n", tc.want, got)
+			if !reflect.DeepEqual(tc.wantAllow, gotAllow) {
+				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, gotAllow)
+			}
+			if !reflect.DeepEqual(tc.wantDeny, gotDeny) {
+				t.Errorf("wantDeny:%v\n but got: %v\n", tc.wantDeny, gotDeny)
 			}
 		})
 	}
@@ -780,21 +830,31 @@ func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *Authorizat
 }
 
 func newConfig(name, ns string, spec proto.Message) Config {
-	var kind string
+	var kind, version, group string
 
 	switch spec.(type) {
 	case *rbacproto.RbacConfig:
 		kind = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind()
+		version = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Version()
+		group = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Group()
 	case *rbacproto.ServiceRole:
 		kind = collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind()
+		version = collections.IstioRbacV1Alpha1Serviceroles.Resource().Version()
+		group = collections.IstioRbacV1Alpha1Serviceroles.Resource().Group()
 	case *rbacproto.ServiceRoleBinding:
 		kind = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind()
+		version = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version()
+		group = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group()
 	case *authpb.AuthorizationPolicy:
 		kind = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind()
+		version = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Version()
+		group = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Group()
 	}
 	return Config{
 		ConfigMeta: ConfigMeta{
 			Type:      kind,
+			Version:   version,
+			Group:     group,
 			Name:      name,
 			Namespace: ns,
 		},
@@ -804,7 +864,7 @@ func newConfig(name, ns string, spec proto.Message) Config {
 
 type authzFakeStore struct {
 	data []struct {
-		typ string
+		typ resource.GroupVersionKind
 		ns  string
 		cfg Config
 	}
@@ -812,11 +872,11 @@ type authzFakeStore struct {
 
 func (fs *authzFakeStore) add(config Config) {
 	fs.data = append(fs.data, struct {
-		typ string
+		typ resource.GroupVersionKind
 		ns  string
 		cfg Config
 	}{
-		typ: config.Type,
+		typ: config.GroupVersionKind(),
 		ns:  config.Namespace,
 		cfg: config,
 	})
@@ -826,11 +886,11 @@ func (fs *authzFakeStore) Schemas() collection.Schemas {
 	return collection.SchemasFor()
 }
 
-func (fs *authzFakeStore) Get(_, _, _ string) *Config {
+func (fs *authzFakeStore) Get(_ resource.GroupVersionKind, _, _ string) *Config {
 	return nil
 }
 
-func (fs *authzFakeStore) List(typ, namespace string) ([]Config, error) {
+func (fs *authzFakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
 	var configs []Config
 	for _, data := range fs.data {
 		if data.typ == typ {
@@ -843,7 +903,7 @@ func (fs *authzFakeStore) List(typ, namespace string) ([]Config, error) {
 	return configs, nil
 }
 
-func (fs *authzFakeStore) Delete(_, _, _ string) error {
+func (fs *authzFakeStore) Delete(_ resource.GroupVersionKind, _, _ string) error {
 	return fmt.Errorf("not implemented")
 }
 func (fs *authzFakeStore) Create(Config) (string, error) {

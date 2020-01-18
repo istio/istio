@@ -53,6 +53,9 @@ var (
 	// For larger clusters it can increase memory use and GC - useful for small tests.
 	DebugConfigs = env.RegisterBoolVar("PILOT_DEBUG_ADSZ_CONFIG", false, "").Get()
 
+	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
+	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false, "").Get()
+
 	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
 		100*time.Millisecond,
@@ -254,14 +257,6 @@ var (
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
-	EnableUnsafeRegex = env.RegisterBoolVar(
-		"PILOT_ENABLE_UNSAFE_REGEX",
-		false,
-		"If enabled, pilot will generate Envoy configuration that does not use safe_regex "+
-			"but the older, deprecated regex field. This should only be enabled to support "+
-			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
-	)
-
 	EnableEndpointSliceController = env.RegisterBoolVar(
 		"PILOT_USE_ENDPOINT_SLICE",
 		false,
@@ -291,11 +286,4 @@ var (
 	// we may change the default value of this option as "citadel".
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "kubernetes",
 		"the provider of Pilot DNS certificate.")
-)
-
-var (
-	// TODO: define all other default ports here, add docs
-
-	// DefaultPortHTTPProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
-	DefaultPortHTTPProxy = 15002
 )

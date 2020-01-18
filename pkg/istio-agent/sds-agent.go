@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/kube"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -245,7 +246,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	if !isSidecar {
 		serverOptions.EnableIngressGatewaySDS = true
 		// TODO: what is the setting for ingress ?
-		serverOptions.IngressGatewayUDSPath = serverOptions.WorkloadUDSPath + "_ROUTER"
+		serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
 		gatewaySecretCache = newIngressSecretCache(podNamespace)
 	}
 
@@ -354,6 +355,8 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				log.Info("istiod uses self-issued certificate")
 				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, bootstrap.CACertNamespaceConfigMapDataName)); err != nil {
 					certReadErr = true
+				} else {
+					log.Infof("the CA cert of istiod is: %v", string(rootCert))
 				}
 			} else if serverOptions.PilotCertProvider == "kubernetes" {
 				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
@@ -386,6 +389,8 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 					log.Info("istiod uses self-issued certificate")
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, bootstrap.CACertNamespaceConfigMapDataName)); err != nil {
 						certReadErr = true
+					} else {
+						log.Infof("the CA cert of istiod is: %v", string(rootCert))
 					}
 				} else if serverOptions.PilotCertProvider == "kubernetes" {
 					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)

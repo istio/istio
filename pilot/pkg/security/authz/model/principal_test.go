@@ -42,11 +42,25 @@ func TestPrincipal_ValidateForTCP(t *testing.T) {
 			},
 		},
 		{
+			name: "principal with requestPrincipal",
+			principal: &Principal{
+				RequestPrincipals: []string{"request-principal"},
+			},
+		},
+		{
+			name: "principal with notRequestPrincipal",
+			principal: &Principal{
+				NotRequestPrincipals: []string{"not-request-principal"},
+			},
+		},
+		{
 			name: "principal with unsupported property",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrRequestPresenter: []string{"ns"},
+						attrRequestPresenter: Values{
+							Values: []string{"ns"},
+						},
 					},
 				},
 			},
@@ -57,10 +71,14 @@ func TestPrincipal_ValidateForTCP(t *testing.T) {
 				Users: []string{"user"},
 				Properties: []KeyValues{
 					{
-						attrSrcNamespace: []string{"ns"},
+						attrSrcNamespace: Values{
+							Values: []string{"ns"},
+						},
 					},
 					{
-						attrSrcPrincipal: []string{"p"},
+						attrSrcPrincipal: Values{
+							Values: []string{"p"},
+						},
 					},
 				},
 			},
@@ -202,6 +220,32 @@ func TestPrincipal_Generate(t *testing.T) {
                       exact: id-2`,
 		},
 		{
+			name: "principal with notRequestPrincipal",
+			principal: &Principal{
+				NotRequestPrincipals: []string{"id-1", "id-2"},
+			},
+			wantYAML: `
+        andIds:
+          ids:
+          - notId:
+              orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: id-1
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: id-2`,
+		},
+		{
 			name: "principal with group",
 			principal: &Principal{
 				Group: "group-1",
@@ -277,6 +321,32 @@ func TestPrincipal_Generate(t *testing.T) {
                       regex: .*/ns/ns-2/.*`,
 		},
 		{
+			name: "principal with notNamespaces",
+			principal: &Principal{
+				NotNamespaces: []string{"ns-1", "ns-2"},
+			},
+			wantYAML: `
+         andIds:
+           ids:
+           - notId:
+               orIds:
+                 ids:
+                 - metadata:
+                     filter: istio_authn
+                     path:
+                     - key: source.principal
+                     value:
+                       stringMatch:
+                         regex: .*/ns/ns-1/.*
+                 - metadata:
+                     filter: istio_authn
+                     path:
+                     - key: source.principal
+                     value:
+                       stringMatch:
+                         regex: .*/ns/ns-2/.*`,
+		},
+		{
 			name: "principal with ips",
 			principal: &Principal{
 				IPs: []string{"1.2.3.4", "5.6.7.8"},
@@ -316,7 +386,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcIP: []string{"1.2.3.4", "5.6.7.8"},
+						attrSrcIP: Values{
+							Values: []string{"1.2.3.4", "5.6.7.8"},
+						},
 					},
 				},
 			},
@@ -337,7 +409,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcNamespace: []string{"ns-1", "ns-2"},
+						attrSrcNamespace: Values{
+							Values: []string{"ns-1", "ns-2"},
+						},
 					},
 				},
 			},
@@ -366,7 +440,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcNamespace: []string{"ns-1", "ns-2"},
+						attrSrcNamespace: Values{
+							Values: []string{"ns-1", "ns-2"},
+						},
 					},
 				},
 			},
@@ -388,7 +464,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcPrincipal: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						attrSrcPrincipal: Values{
+							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						},
 					},
 				},
 			},
@@ -419,7 +497,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcPrincipal: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						attrSrcPrincipal: Values{
+							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						},
 					},
 				},
 				v1beta1: true,
@@ -463,7 +543,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcPrincipal: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						attrSrcPrincipal: Values{
+							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						},
 					},
 				},
 			},
@@ -487,7 +569,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcPrincipal: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						attrSrcPrincipal: Values{
+							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						},
 					},
 				},
 				v1beta1: true,
@@ -516,7 +600,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrRequestPrincipal: []string{"id-1", "id-2"},
+						attrRequestPrincipal: Values{
+							Values: []string{"id-1", "id-2"},
+						},
 					},
 				},
 			},
@@ -545,7 +631,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrRequestAudiences: []string{"aud-1", "aud-2"},
+						attrRequestAudiences: Values{
+							Values: []string{"aud-1", "aud-2"},
+						},
 					},
 				},
 			},
@@ -574,7 +662,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrRequestPresenter: []string{"pre-1", "pre-2"},
+						attrRequestPresenter: Values{
+							Values: []string{"pre-1", "pre-2"},
+						},
 					},
 				},
 			},
@@ -603,7 +693,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcUser: []string{"user-1", "user-2"},
+						attrSrcUser: Values{
+							Values: []string{"user-1", "user-2"},
+						},
 					},
 				},
 			},
@@ -632,8 +724,12 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-id"):  []string{"id-1", "id-2"},
-						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-tag"): []string{"tag-1", "tag-2"},
+						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-id"): Values{
+							Values: []string{"id-1", "id-2"},
+						},
+						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-tag"): Values{
+							Values: []string{"tag-1", "tag-2"},
+						},
 					},
 				},
 			},
@@ -662,8 +758,12 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						fmt.Sprintf("%s[%s]", attrRequestClaims, "claim-1"): []string{"v-1", "v-2"},
-						fmt.Sprintf("%s[%s]", attrRequestClaims, "claim-2"): []string{"v-3", "v-4"},
+						fmt.Sprintf("%s[%s]", attrRequestClaims, "claim-1"): Values{
+							Values: []string{"v-1", "v-2"},
+						},
+						fmt.Sprintf("%s[%s]", attrRequestClaims, "claim-2"): Values{
+							Values: []string{"v-3", "v-4"},
+						},
 					},
 				},
 			},
@@ -720,7 +820,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						"custom": []string{"v1", "v2"},
+						"custom": Values{
+							Values: []string{"v1", "v2"},
+						},
 					},
 				},
 			},
@@ -749,7 +851,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						"custom": []string{"v1", "v2"},
+						"custom": Values{
+							Values: []string{"v1", "v2"},
+						},
 					},
 				},
 			},
@@ -775,37 +879,108 @@ func TestPrincipal_Generate(t *testing.T) {
                       exact: v2`,
 		},
 		{
-			name: "principal with invalid property",
+			name: "principal with notValues",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcIP:        []string{"x.y.z"},
-						attrSrcNamespace: []string{"ns"},
+						attrSrcIP: Values{
+							NotValues: []string{"10.0.0.1", "10.0.0.2"},
+						},
 					},
 				},
 			},
 			wantYAML: `
         andIds:
           ids:
-          - metadata:
-              filter: istio_authn
-              path:
-              - key: source.principal
-              value:
-                stringMatch:
-                  regex: .*/ns/ns/.*`,
+          - notId:
+              orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 10.0.0.1
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 10.0.0.2
+                    prefixLen: 32`,
+		},
+		{
+			name: "principal with values and notValues",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						attrSrcIP: Values{
+							Values:    []string{"1.2.3.4", "5.6.7.8"},
+							NotValues: []string{"10.0.0.1", "10.0.0.2"},
+						},
+					},
+				},
+			},
+			wantYAML: `
+        andIds:
+          ids:
+          - orIds:
+              ids:
+              - sourceIp:
+                  addressPrefix: 1.2.3.4
+                  prefixLen: 32
+              - sourceIp:
+                  addressPrefix: 5.6.7.8
+                  prefixLen: 32
+          - notId:
+              orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 10.0.0.1
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 10.0.0.2
+                    prefixLen: 32`,
+		},
+		{
+			name: "principal with invalid property",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						attrSrcIP: Values{
+							Values: []string{"x.y.z"},
+						},
+						attrSrcNamespace: Values{
+							Values: []string{"ns"},
+						},
+					},
+				},
+			},
+			wantYAML: `
+        andIds:
+          ids:
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      regex: .*/ns/ns/.*`,
 		},
 		{
 			name: "principal with multiple properties",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcIP:        []string{"1.2.3.4", "5.6.7.8"},
-						attrSrcNamespace: []string{"ns-1", "ns-2"},
+						attrSrcIP: Values{
+							Values: []string{"1.2.3.4", "5.6.7.8"},
+						},
+						attrSrcNamespace: Values{
+							Values: []string{"ns-1", "ns-2"},
+						},
 					},
 					{
-						attrSrcPrincipal:     []string{"id-1", "id-2"},
-						attrRequestAudiences: []string{"aud-1", "aud-2"},
+						attrSrcPrincipal: Values{
+							Values: []string{"id-1", "id-2"},
+						},
+						attrRequestAudiences: Values{
+							Values: []string{"aud-1", "aud-2"},
+						},
 					},
 				},
 			},
