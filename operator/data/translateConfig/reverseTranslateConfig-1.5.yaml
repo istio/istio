@@ -13,8 +13,3 @@ kubernetesPatternMapping:
   "{{.ValueComponentName}}.rollingMaxSurge":       "Components.{{.ComponentName}}.K8s.Strategy"
   "{{.ValueComponentName}}.rollingMaxUnavailable": "Components.{{.ComponentName}}.K8s.Strategy"
   "{{.ValueComponentName}}.serviceAnnotations":    "Components.{{.ComponentName}}.K8s.ServiceAnnotations"
-NamespaceMapping:
-  "global.istioNamespace":     "Components.Citadel.Namespace"
-  "global.telemetryNamespace": "Components.Telemetry.Namespace"
-  "global.policyNamespace":    "Components.Policy.Namespace"
-  "global.configNamespace":    "Components.ConfigManagement.Namespace"

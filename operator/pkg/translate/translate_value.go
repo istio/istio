@@ -38,10 +38,10 @@ type ReverseTranslator struct {
 	KubernetesPatternMapping map[string]string `yaml:"kubernetesPatternMapping,omitempty"`
 	// KubernetesMapping defines actual k8s mappings generated from KubernetesPatternMapping before each translation.
 	KubernetesMapping map[string]*Translation `yaml:"kubernetesMapping,omitempty"`
+	// GatewayKubernetesMapping defines actual k8s mappings for gateway components generated from KubernetesPatternMapping before each translation.
+	GatewayKubernetesMapping map[string]*Translation `yaml:"GatewayKubernetesMapping,omitempty"`
 	// ValuesToFeatureComponentName defines mapping from value path to feature and component name in API paths.
 	ValuesToComponentName map[string]name.ComponentName `yaml:"valuesToComponentName,omitempty"`
-	// NamespaceMapping maps namespace defined in value.yaml to that in API spec. Not every components have namespace defined in value.yaml tree.
-	NamespaceMapping map[string][]string `yaml:"namespaceMapping,omitempty"`
 }
 
 var (
@@ -62,6 +62,12 @@ var (
 		name.IstioOperatorComponentName:      true,
 		name.IstioOperatorCustomResourceName: true,
 		name.CNIComponentName:                true,
+		name.CertManagerComponentName:        true,
+	}
+
+	gatewayPathMapping = map[string]string {
+		"gateways.istio-ingressgateway": "Components.IngressGateways",
+		"gateways.istio-egressgateway":  "Components.EgressGateways",
 	}
 )
 
@@ -79,8 +85,9 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 	}
 
 	for cn, cm := range ts.ComponentMaps {
-		if !skipTranslate[cn] {
-			if cn.IsCoreComponent() || cn.IsGateway() {
+		// we use dedicated translateGateway for gateway instead
+		if !skipTranslate[cn] || cn.IsGateway() {
+			if cn.IsCoreComponent() {
 				t.ValuesToComponentName[cm.ToHelmValuesTreeRoot] = cn
 			} else {
 				t.ValuesToComponentName[cm.ToHelmValuesTreeRoot] = name.AddonComponentName + "." + cn
@@ -116,6 +123,27 @@ func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) err
 	}
 
 	t.KubernetesMapping = outputMapping
+
+	gwOutputMapping := make(map[string]*Translation)
+	for valKey, componentName := range gatewayPathMapping {
+		cnEnabled, _, err := name.IsComponentEnabledFromValue(valKey, valueTree)
+		if err != nil {
+			return err
+		}
+		if !cnEnabled {
+			log.Infof("Component:%s disabled, skip k8s mapping", componentName)
+			continue
+		}
+		for K8SValKey, outPathTmpl := range t.KubernetesPatternMapping {
+			newKey, err := renderComponentName(K8SValKey, valKey)
+			if err != nil {
+				return err
+			}
+			newP := util.PathFromString(outPathTmpl)
+			gwOutputMapping [newKey] = &Translation{newP[len(newP)-2:].String(), nil}
+		}
+	}
+	t.GatewayKubernetesMapping = gwOutputMapping
 	return nil
 }
 
@@ -185,9 +213,17 @@ func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSp
 	if err != nil {
 		return fmt.Errorf("error when initiating k8s mapping: %v", err)
 	}
-	err = t.translateK8sTree(valueTree, cpSpecTree)
+	err = t.translateK8sTree(valueTree, cpSpecTree, t.KubernetesMapping)
 	if err != nil {
 		return fmt.Errorf("error when translating value.yaml tree with kubernetes mapping: %v", err)
+	}
+
+	// translate for gateway
+	for vp, iop := range gatewayPathMapping {
+		err = t.translateGateway(valueTree, cpSpecTree, vp, iop)
+		if err != nil {
+			return fmt.Errorf("error when translating %s from value.yaml tree: %v", vp, err.Error())
+		}
 	}
 
 	// translate remaining untranslated paths into component values
@@ -227,20 +263,36 @@ func (t *ReverseTranslator) setEnablementFromValue(valueSpec map[string]interfac
 			delete(t.ValuesToComponentName, cnv)
 		}
 	}
-	// TODO: decide whether this part is required or not
-	//  set namespace
-	for vp, nsList := range t.NamespaceMapping {
-		namespace, err := name.NamespaceFromValue(vp, valueSpec)
+
+	return nil
+}
+
+// translateGateway handles translation for gateways specific configuration
+func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, root map[string]interface{}, inPath string, outPath string) error {
+	enabled, pathExist, err := name.IsComponentEnabledFromValue(inPath, valueSpec)
+	if err != nil {
+		return err
+	}
+	if !pathExist {
+		return nil
+	}
+	gwSpecs := make([]map[string]interface{}, 1)
+	gwSpec := make(map[string]interface{})
+	gwSpecs[0] = gwSpec
+	gwSpec["enabled"] = enabled
+	gwSpec["name"] = util.ToYAMLPath(inPath)[1]
+	outCP := util.ToYAMLPath(outPath)
+
+	if enabled {
+		err = t.translateK8sTree(valueSpec, gwSpec, t.GatewayKubernetesMapping)
 		if err != nil {
 			return err
 		}
-		for _, ns := range nsList {
-			if err := tpath.WriteNode(root, util.ToYAMLPath(ns), namespace); err != nil {
-				return err
-			}
-		}
 	}
-
+	err = tpath.WriteNode(root, outCP, gwSpecs)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -370,8 +422,8 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 
 // translateK8sTree is internal method for translating K8s configurations from value.yaml tree.
 func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
-	cpSpecTree map[string]interface{}) error {
-	for inPath, v := range t.KubernetesMapping {
+	cpSpecTree map[string]interface{}, mapping map[string]*Translation) error {
+	for inPath, v := range mapping {
 		log.Infof("Checking for k8s path %s in helm Value.yaml tree", inPath)
 		m, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
 		if err != nil {

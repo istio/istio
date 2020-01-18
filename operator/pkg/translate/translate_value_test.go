@@ -49,12 +49,6 @@ pilot:
   replicaCount: 1
   nodeSelector:
     beta.kubernetes.io/os: linux
-  tolerations:
-  - key: dedicated
-    operator: Exists
-    effect: NoSchedule
-  - key: CriticalAddonsOnly
-    operator: Exists
   autoscaleEnabled: true
   autoscaleMax: 3
   autoscaleMin: 1
@@ -92,28 +86,17 @@ mixer:
 			want: `
 hub: docker.io/istio
 tag: 1.2.3
-defaultNamespace: istio-system
-configManagement:
- components:
+meshConfig: 
+   rootNamespace: istio-system
+components:
    galley:
      enabled: false
- enabled: false
-telemetry:
- components:
-   namespace: istio-telemetry
    telemetry:
      enabled: false
- enabled: false
-policy:
- components:
-   namespace: istio-policy
    policy:
      enabled: true
      k8s:
        replicaCount: 1
- enabled: true
-trafficManagement:
- components:
    pilot:
      enabled: true
      k8s:
@@ -149,7 +132,6 @@ trafficManagement:
          rollingUpdate:
            maxSurge: 100%
            maxUnavailable: 25%
- enabled: true
 values:
   global:
     controlPlaneSecurityEnabled: false
@@ -157,6 +139,8 @@ values:
       enabled: false
     proxy:
       readinessInitialDelaySeconds: 2
+    policyNamespace: istio-policy
+    telemetryNamespace: istio-telemetry
   pilot:
     image: pilot
     traceSampling: 1
@@ -210,60 +194,41 @@ sidecarInjectorWebhook:
 			want: `
 hub: docker.io/istio
 tag: 1.2.3
-defaultNamespace: istio-system
-telemetry:
-  components:
-    namespace: istio-telemetry
-    telemetry:
-      enabled: true
-  enabled: true
-policy:
-  components:
-    namespace: istio-policy
-    policy:
-      enabled: true
-  enabled: true
-configManagement:
-  components:
-    galley:
-      enabled: true
-  enabled: true 
-security:
-  components:
-    certManager:
-      enabled: true
-    nodeAgent:
-      enabled: true
-  enabled: true
-coreDNS:
- components:
-   coreDNS:
-     enabled: true
- enabled: true
-trafficManagement:
-   components:
-     pilot:
-       enabled: true
-   enabled: true
-autoInjection:
-  components:
-    injector:
-      enabled: true
-  enabled: true
-gateways:
-  components:
-    ingressGateway:
-      enabled: true
-      k8s:
-        resources:
-          requests:
-            cpu: 1000m
-            memory: 1G
-        strategy:
-          rollingUpdate:
-            maxSurge: 4
-            maxUnavailable: 1
-  enabled: true
+meshConfig: 
+  rootNamespace: istio-system
+components:
+  telemetry:
+    enabled: true
+  policy:
+    enabled: true
+  galley:
+    enabled: true
+  nodeAgent:
+    enabled: true
+  pilot:
+    enabled: true
+  sidecarInjector:
+    enabled: true
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: true
+    k8s:
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      strategy:
+        rollingUpdate:
+          maxSurge: 4
+          maxUnavailable: 1
+values:
+  global:
+    policyNamespace: istio-policy
+    telemetryNamespace: istio-telemetry
+  certmanager:
+    enabled: true
+  istiocoredns:
+    enabled: true
 `,
 		},
 		{
@@ -288,41 +253,33 @@ mixer:
 			want: `
 hub: docker.io/istio
 tag: 1.2.3
-defaultNamespace: istio-system
-telemetry:
- components:
-   namespace: istio-telemetry
+components:
    telemetry:
      enabled: false
- enabled: false
-policy:
- components:
-   namespace: istio-policy
    policy:
      enabled: true
- enabled: true
-configManagement:
- components:
    galley:
      enabled: false
- enabled: false
-trafficManagement:
- components:
    pilot:
      enabled: true
- enabled: true
+meshConfig:
+  rootNamespace: istio-system
+values:
+  global:
+    telemetryNamespace: istio-telemetry
+    policyNamespace: istio-policy
 `,
 		},
 	}
 	tr, err := NewReverseTranslator(version.NewMinorVersion(1, 5))
 	if err != nil {
-		t.Fatal("fail to get helm value.yaml translator")
+		t.Fatalf("fail to get helm value.yaml translator: %v", err)
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			valueStruct := v1alpha1.Values{}
-			err := util.UnmarshalValuesWithJSONPB(tt.valueYAML, &valueStruct, false)
+			err = util.UnmarshalValuesWithJSONPB(tt.valueYAML, &valueStruct, false)
 			if err != nil {
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}

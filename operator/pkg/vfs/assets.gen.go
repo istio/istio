@@ -40284,8 +40284,7 @@ var _translateconfigReversetranslateconfig15Yaml = []byte(`kubernetesPatternMapp
   "{{.ValueComponentName}}.resources":             "Components.{{.ComponentName}}.K8s.Resources"
   "{{.ValueComponentName}}.rollingMaxSurge":       "Components.{{.ComponentName}}.K8s.Strategy"
   "{{.ValueComponentName}}.rollingMaxUnavailable": "Components.{{.ComponentName}}.K8s.Strategy"
-  "{{.ValueComponentName}}.serviceAnnotations":    "Components.{{.ComponentName}}.K8s.ServiceAnnotations"
-`)
+  "{{.ValueComponentName}}.serviceAnnotations":    "Components.{{.ComponentName}}.K8s.ServiceAnnotations"`)
 
 func translateconfigReversetranslateconfig15YamlBytes() ([]byte, error) {
 	return _translateconfigReversetranslateconfig15Yaml, nil
@@ -40815,7 +40814,7 @@ var _translateconfigTranslateconfig15Yaml = []byte(`apiMapping:
     outPath: "global.tag"
   K8SDefaults:
     outPath: "global.resources"
-  MechConfig.rootNamespace:
+  MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":

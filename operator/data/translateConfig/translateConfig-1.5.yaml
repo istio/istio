@@ -5,7 +5,7 @@ apiMapping:
     outPath: "global.tag"
   K8SDefaults:
     outPath: "global.resources"
-  MechConfig.rootNamespace:
+  MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
