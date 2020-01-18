@@ -44,14 +44,27 @@ import (
 )
 
 var (
-	webhookControllerApp = "pilot" // i.e. istiod. Switch to 'galley' and change the setup options for non-istiod tests.
-	deployName           = fmt.Sprintf("istio-%v", webhookControllerApp)
-	clusterRolePrefix    = "istiod"
-
-	vwcName    = "istiod-istio-system"
-	sleepDelay = 10 * time.Second // How long to wait to give the reconcile loop an opportunity to act
-	i          istio.Instance
+	webhookControllerApp string
+	deployName           string
+	clusterRolePrefix    string
+	vwcName              string
+	sleepDelay           = 10 * time.Second // How long to wait to give the reconcile loop an opportunity to act
+	i                    istio.Instance
 )
+
+func setup(cfg *istio.Config) {
+	if cfg.IsIstiodEnabled() {
+		webhookControllerApp = "pilot" // i.e. istiod. Switch to 'galley' and change the setup options for non-istiod tests.
+		deployName = fmt.Sprintf("istio-%v", webhookControllerApp)
+		clusterRolePrefix = "istiod"
+		vwcName = "istiod-istio-system"
+	} else {
+		webhookControllerApp = "galley"
+		deployName = fmt.Sprintf("istio-%v", webhookControllerApp)
+		clusterRolePrefix = "istio-galley"
+		vwcName = "istio-galley"
+	}
+}
 
 // Using subtests to enforce ordering
 func TestWebhook(t *testing.T) {
@@ -115,7 +128,10 @@ func TestWebhook(t *testing.T) {
 			// Verify that the webhook's key and cert are reloaded, e.g. on rotation
 			ctx.NewSubTest("key/cert reload").
 				Run(func(t framework.TestContext) {
-					t.Skip("istiod does not support cert rotation")
+					if i.Settings().IsIstiodEnabled() {
+						t.Skip("istiod does not support cert rotation")
+					}
+
 					addr, done := startWebhookPortForwarderOrFail(t, env, istioNs)
 					defer done()
 
@@ -279,6 +295,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("webhook_test", m).
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&i, setup)).
 		Run()
 }
