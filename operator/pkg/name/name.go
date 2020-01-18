@@ -55,6 +55,11 @@ const (
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
+
+	// Component names used in old versions
+	InjectorComponentName       ComponentName = "Injector"
+	IngressGatewayComponentName ComponentName = "IngressGateway"
+	EgressGatewayComponentName  ComponentName = "EgressGateway"
 )
 
 var (
@@ -69,12 +74,19 @@ var (
 		NodeAgentComponentName,
 		CNIComponentName,
 	}
-	allComponentNamesMap = make(map[ComponentName]bool)
+	DeprecatedNames = []ComponentName{
+		InjectorComponentName,
+	}
+	allComponentNamesMap        = make(map[ComponentName]bool)
+	deprecatedComponentNamesMap = make(map[ComponentName]bool)
 )
 
 func init() {
 	for _, n := range AllCoreComponentNames {
 		allComponentNamesMap[n] = true
+	}
+	for _, n := range DeprecatedNames {
+		deprecatedComponentNamesMap[n] = true
 	}
 }
 
@@ -84,6 +96,11 @@ type ManifestMap map[ComponentName][]string
 // IsCoreComponent reports whether cn is a core component.
 func (cn ComponentName) IsCoreComponent() bool {
 	return allComponentNamesMap[cn]
+}
+
+// IsDeprecatedName reports whether cn is a deprecated component.
+func (cn ComponentName) IsDeprecatedName() bool {
+	return deprecatedComponentNamesMap[cn]
 }
 
 // IsGateway reports whether cn is a gateway component.
