@@ -142,7 +142,7 @@ type Config struct {
 func (c *Config) IsIstiodEnabled() bool {
 	if c.Operator {
 		return c.Values["global.istiod.enabled"] != "false"
-}
+	}
 	return false
 }
 
