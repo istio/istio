@@ -28,10 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/schema/resource"
-	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/security/pkg/pki/ca"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
