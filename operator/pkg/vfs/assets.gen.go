@@ -12896,7 +12896,11 @@ data:
 
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
+    {{- if .Values.mixer.policy.enabled }}
     disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
+    {{- else }}
+    disablePolicyChecks: true
+    {{- end }}
 
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
@@ -38902,7 +38906,7 @@ spec:
 
   # Policy feature
     policy:
-      enabled: true
+      enabled: false
       k8s:
         hpaSpec:
           maxReplicas: 5
@@ -39568,6 +39572,7 @@ spec:
             memory: 40Mi
 
     policy:
+      enabled: true
       k8s:
         resources:
           requests:
