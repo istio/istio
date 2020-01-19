@@ -274,8 +274,8 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	}
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
-	log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 	go func() {
+		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
 			log.Warna(err)
 		}
@@ -290,8 +290,8 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	s.EnvoyXdsServer.OnServerReady()
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
-	log.Infof("starting Http service at %s", s.HTTPListener.Addr())
 	go func() {
+		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
 		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
 			log.Warna(err)
 		}
