@@ -7022,9 +7022,7 @@ rules:
     "security.istio.io"]
     resources: ["*/status"]
     verbs: ["update"]
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["validatingwebhookconfigurations"]
-    verbs: ["*"]
+    # Remove galley's permissions to reconcile the validation config when istiod is present.
   - apiGroups: ["extensions","apps"]
     resources: ["deployments"]
     resourceNames: ["istio-galley"]
@@ -7090,71 +7088,13 @@ data:
     apiVersion: admissionregistration.k8s.io/v1beta1
     kind: ValidatingWebhookConfiguration
     metadata:
-      name: istio-galley-istio-system
+      name: istio-galley
       namespace: istio-system
       labels:
         app: galley
         release: istio
         istio: galley
     webhooks:
-      - name: pilot.validation.istio.io
-        clientConfig:
-          service:
-            name: istio-galley
-            namespace: istio-system
-            path: "/admitpilot"
-          caBundle: ""
-        rules:
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - config.istio.io
-            apiVersions:
-            - v1alpha2
-            resources:
-            - httpapispecs
-            - httpapispecbindings
-            - quotaspecs
-            - quotaspecbindings
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - rbac.istio.io
-            - security.istio.io
-            - authentication.istio.io
-            - networking.istio.io
-            apiVersions:
-            - "*"
-            resources:
-            - "*"
-        failurePolicy: Fail
-        sideEffects: None
-      - name: mixer.validation.istio.io
-        clientConfig:
-          service:
-            name: istio-galley
-            namespace: istio-system
-            path: "/admitmixer"
-          caBundle: ""
-        rules:
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - config.istio.io
-            apiVersions:
-            - v1alpha2
-            resources:
-            - rules
-            - attributemanifests
-            - adapters
-            - handlers
-            - instances
-            - templates
-        failurePolicy: Fail
-        sideEffects: None
 ---
 
 
@@ -7231,7 +7171,7 @@ spec:
         - --readinessProbeInterval=1s
         - --insecure=true
         - --enable-validation=true
-        - --enable-reconcileWebhookConfiguration=true
+        - --enable-reconcileWebhookConfiguration=false
         - --enable-server=true
         - --deployment-namespace=istio-system
         - --validation-webhook-config-file
@@ -7345,6 +7285,19 @@ metadata:
   labels:
     app: galley
     release: istio
+---
+
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-galley
+  namespace: istio-system
+  labels:
+    app: galley
+    release: istio
+    istio: galley
+webhooks:
 ---
 
 # Resources for IngressGateways component
@@ -7793,30 +7746,21 @@ metadata:
     app: pilot
     release: istio
 rules:
-- apiGroups: ["config.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["rbac.istio.io"]
-  resources: ["*"]
+- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
   verbs: ["get", "watch", "list"]
-- apiGroups: ["security.istio.io"]
   resources: ["*"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["authentication.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
-  verbs: ["*"]
+  verbs: ["get", "watch", "list"]
 - apiGroups: ["extensions"]
-  resources: ["ingresses", "ingresses/status"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses/status"]
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["configmaps"]
-  verbs: ["create", "get", "list", "watch", "update"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
@@ -7843,56 +7787,58 @@ metadata:
     app: pilot
     release: istio
 rules:
-  # Injector management - future plan is to be managed by operator.
-  # Only needed if injection/validation are enabled
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["validatingwebhookconfigurations"]
-    verbs: ["*"]
+  # Remove permissions to reconcile webhook configuration. This address the downgrade case
+  # where istiod will be uninstalled. Removing the permissions reduces
+  # the likelihood that istiod will reconcile something it shouldn't.
+
+  # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "patch"]
 
-  # Config reading - get/list/watch for istio resources
-  # Note that pilot used to have all verbs - if we need write we'll add it explicitly
-  - apiGroups: ["config.istio.io"]
+  # configuration validation webhook controller
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    verbs: ["*"]
+    # required to set ownerRef on istiod clusterrole.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles/finalizers"]
+    resourceNames:
+    - istiod-istio-system
+    verbs: ["update"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    resourceNames:
+    - istiod-istio-system
+    verbs: ["get"]
+
+  # istio configuration
+  - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+    verbs: ["get", "watch", "list"]
     resources: ["*"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["networking.istio.io"]
-    resources: ["*"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["authentication.istio.io"]
-    resources: ["*"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["rbac.istio.io"]
-    resources: ["*"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["security.istio.io"]
-    resources: ["*"]
+
+  # auto-detect installed CRD definitions
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]
 
-  # Reading endpoints, deployments, services, nodes - for discovery
-  # and routing
+  # discovery and routing
   - apiGroups: ["extensions","apps"]
     resources: ["deployments"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses", "ingresses/status"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
     verbs: ["get", "list", "watch"]
 
-  # Specific for galley
-  # TODO: better document why/how
+  # ingress controller
   - apiGroups: ["extensions"]
-    resources: ["deployments/finalizers"]
-    resourceNames: ["istio-galley"]
-    verbs: ["update"]
-
-  # Pilot has code to auto-register CRDs. We must remove it.
-  # TODO: remove
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["ingresses/status"]
     verbs: ["*"]
 
   # Pilot, injector - not clear why cluster wide.
@@ -7900,7 +7846,6 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
-
 
   # Istiod and bootstrap.
   - apiGroups: ["certificates.k8s.io"]
@@ -8135,6 +8080,52 @@ data:
                             route:
                               cluster: out.galley.15019
                               timeout: 0.000s
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-validation
+  namespace: istio-system
+  labels:
+    release: istio
+data:
+  config: |-    
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    kind: ValidatingWebhookConfiguration
+    metadata:
+      name: istiod-istio-system
+      namespace: istio-system
+      labels:
+        app: istiod
+        release: istio
+        istio: istiod
+    webhooks:
+      - name: validation.istio.io
+        clientConfig:
+          service:
+            name: istio-pilot
+            namespace: istio-system
+            path: "/validate"
+            port: 443
+          caBundle: ""
+        rules:
+          - operations:
+            - CREATE
+            - UPDATE
+            apiGroups:
+            - config.istio.io
+            - rbac.istio.io
+            - security.istio.io
+            - authentication.istio.io
+            - networking.istio.io
+            apiVersions:
+            - "*"
+            resources:
+            - "*"
+        failurePolicy: Fail
+        sideEffects: None
 ---
 
 
@@ -8401,8 +8392,6 @@ spec:
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "false"
-        - name: WEBHOOK
-          value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istio-pilot.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
@@ -8417,6 +8406,7 @@ spec:
         ports:
         - containerPort: 8080
         - containerPort: 15010
+        - containerPort: 15017
         readinessProbe:
           httpGet:
             path: /ready
@@ -8445,6 +8435,9 @@ spec:
         - mountPath: /var/lib/istio/local
           name: istiod
           readOnly: true
+        - mountPath: /var/lib/istio/validation
+          name: validation
+          readOnly: true
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -8471,6 +8464,10 @@ spec:
           name: istio-sidecar-injector
           optional: true
         name: inject
+      - configMap:
+          name: istio-validation
+          optional: true
+        name: validation
       - configMap:
           name: istio
         name: config-volume
@@ -9005,7 +9002,7 @@ spec:
   - port: 15014
     name: http-monitoring
   - port: 443
-    name: https-inject
+    name: https-webhook # validation and injection
     targetPort: 15017
   selector:
     istio: pilot

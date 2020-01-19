@@ -350,9 +350,9 @@ func runCA() {
 	if err != nil {
 		fatalf("Could not create k8s clientset: %v", err)
 	}
-	ca := createCA(cs.CoreV1())
 
 	stopCh := make(chan struct{})
+	ca := createCA(cs.CoreV1(), stopCh)
 	if !opts.serverOnly {
 		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
 		// For workloads in K8s, we apply the configured workload cert TTL.
@@ -408,7 +408,7 @@ func runCA() {
 		}
 	}
 
-	monitorErrCh := make(chan error)
+	monitorErrCh := make(chan error, 10)
 	// Start the monitoring server.
 	if opts.monitoringPort > 0 {
 		monitor, mErr := monitoring.NewMonitor(opts.monitoringPort, opts.enableProfiling)
@@ -422,7 +422,7 @@ func runCA() {
 
 	log.Info("Citadel has started")
 
-	rotatorErrCh := make(chan error)
+	rotatorErrCh := make(chan error, 10)
 	// Start CA client if the upstream CA address is specified.
 	if len(opts.cAClientConfig.CAAddress) != 0 {
 		config := &opts.cAClientConfig
@@ -445,18 +445,22 @@ func runCA() {
 		defer rotator.Stop()
 	}
 
+	// Capture termination and close the stop channel
+	go pkgcmd.WaitSignal(stopCh)
+
 	// Blocking until receives error.
-	for {
-		select {
-		case err := <-monitorErrCh:
-			fatalf("Monitoring server error: %v", err)
-		case err := <-rotatorErrCh:
-			fatalf("Key cert bundle rotator error: %v", err)
-		}
+	select {
+	case <-stopCh:
+		log.Infof("Stopping CA server, termination signal received")
+		return
+	case err := <-monitorErrCh:
+		fatalf("Monitoring server error: %v", err)
+	case err := <-rotatorErrCh:
+		fatalf("Key cert bundle rotator error: %v", err)
 	}
 }
 
-func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
+func createCA(client corev1.CoreV1Interface, stopCh chan struct{}) *ca.IstioCA {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
@@ -508,12 +512,8 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			livenessProbeChecker.Run()
 		}
 	}
-	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
-	// self-signed CA.
-	rootCertRotatorChan = make(chan struct{})
 	// Start root cert rotator in a separate goroutine.
-	istioCA.Run(rootCertRotatorChan)
-	go pkgcmd.WaitSignal(rootCertRotatorChan)
+	istioCA.Run(stopCh)
 
 	return istioCA
 }
