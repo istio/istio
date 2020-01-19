@@ -19,7 +19,6 @@ import (
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
-
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
@@ -50,13 +49,24 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 		return "", nil, fmt.Errorf("could not Unmarshal overlay Set%s: %s", setOverlayYAML, err)
 	}
 	if inFilename != nil {
-		b, err := ReadLayeredYAMLs(inFilename)
+		inputYaml, err := ReadLayeredYAMLs(inFilename)
 		if err != nil {
 			return "", nil, fmt.Errorf("could not read values from file %s: %s", inFilename, err)
 		}
-		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(b, force, true, l)
+		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(inputYaml, force, l)
 		if err != nil {
-			return "", nil, err
+			iopYAML, translateErr := translate.TranslateICPToIOPVer(inputYaml, binversion.OperatorBinaryVersion)
+			if translateErr != nil {
+				return "", nil, fmt.Errorf("could not unmarshal yaml or translate it to IOP: %s, %s\n\nOriginal YAML:\n%s",
+					err, translateErr, inputYaml)
+			}
+			l.logAndPrintf("%s\n\nIstio Operator CR has been upgraded. "+
+					"Your IstioControlPlane CR has been translated into IstioOperator CR above.\n"+
+					"Please keep the new IstioOperator CR for your future install or upgrade.", inputYaml)
+			overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(iopYAML, force, l)
+			if err != nil {
+				return "", nil, err
+			}
 		}
 		profile = overlayIOPS.Profile
 	}
@@ -98,9 +108,17 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 		}
 	}
 
-	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force, false, l)
+	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force, l)
 	if err != nil {
-		return "", nil, err
+		baseIopYAML, translateErr := translate.TranslateICPToIOPVer(baseCRYAML, binversion.OperatorBinaryVersion)
+		if translateErr != nil {
+			return "", nil, fmt.Errorf("could not unmarshal or translate base yaml into IOP with profile %s at version %s: %s, %s",
+				profile, binversion.OperatorBinaryVersion, err, translateErr)
+		}
+		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(baseIopYAML, force, l)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
@@ -166,26 +184,14 @@ func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML, c
 	return finalYAML, err
 }
 
-func unmarshalAndValidateIOP(crYAML string, force, dumpTranslation bool, l *Logger) (*v1alpha1.IstioOperatorSpec, string, error) {
+func unmarshalAndValidateIOP(crYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, string, error) {
 	// TODO: add GVK handling as appropriate.
 	if crYAML == "" {
 		return &v1alpha1.IstioOperatorSpec{}, "", nil
 	}
 	iops, _, err := manifest.ParseK8SYAMLToIstioOperatorSpec(crYAML)
 	if err != nil {
-		iopYAML, err := translate.TranslateICPToIOPVer(crYAML, binversion.OperatorBinaryVersion)
-		if err != nil {
-			return nil, "", fmt.Errorf("could not translate ICP to IOP: %s\n\nOriginal YAML:\n%s", err, crYAML)
-		}
-		iops, _, err = manifest.ParseK8SYAMLToIstioOperatorSpec(iopYAML)
-		if err != nil {
-			return nil, "", fmt.Errorf("could not unmarshal the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)
-		}
-		if dumpTranslation {
-			l.logAndPrintf("%s\n\nIstio Operator CR has been upgraded. "+
-				"Your IstioControlPlane CR has been translated into IstioOperator CR above.\n"+
-				"Please keep the new IstioOperator CR for your future install or upgrade.", crYAML)
-		}
+		return nil, "", fmt.Errorf("could not unmarshal the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)
 	}
 	if errs := validate.CheckIstioOperatorSpec(iops, false); len(errs) != 0 {
 		if !force {
