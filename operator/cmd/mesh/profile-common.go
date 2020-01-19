@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
+
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
@@ -61,8 +62,8 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 					err, translateErr, inputYaml)
 			}
 			l.logAndPrintf("%s\n\nIstio Operator CR has been upgraded. "+
-					"Your IstioControlPlane CR has been translated into IstioOperator CR above.\n"+
-					"Please keep the new IstioOperator CR for your future install or upgrade.", inputYaml)
+				"Your IstioControlPlane CR has been translated into IstioOperator CR above.\n"+
+				"Please keep the new IstioOperator CR for your future install or upgrade.", inputYaml)
 			overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(iopYAML, force, l)
 			if err != nil {
 				return "", nil, err

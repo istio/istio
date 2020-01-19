@@ -64,7 +64,7 @@ func ReadICPtoIOPTranslations(filePath string) (map[string]string, error) {
 // TranslateICPToIOPVer takes an IstioControlPlane YAML string and the target version as input,
 // then translates it into an IstioOperator YAML string.
 func TranslateICPToIOPVer(icp string, ver version.Version) (string, error) {
-	translateConfigPath := filepath.Join(TranslateConfigFolder, ICPToIOPConfigPrefix + ver.MinorVersion.String() + ".yaml")
+	translateConfigPath := filepath.Join(TranslateConfigFolder, ICPToIOPConfigPrefix+ver.MinorVersion.String()+".yaml")
 	translations, err := ReadTranslationsVFS(translateConfigPath)
 	if err != nil {
 		return "", fmt.Errorf("could not read translate config from VFS path: %s, error: %s", translateConfigPath, err)
