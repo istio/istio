@@ -275,6 +275,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
 	go func() {
+		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
 			log.Warna(err)
 		}
@@ -283,11 +284,14 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	if !s.waitForCacheSync(stop) {
 		return fmt.Errorf("failed to sync cache")
 	}
-	log.Infof("starting discovery service at http=%s grpc=%s", s.HTTPListener.Addr(),
-		s.GRPCListener.Addr())
 
-	// At this point we are ready ready
+	// Notify Server readiness to Discovery Server, so that it can start accepting connections.
+	log.Infof("All caches have been synced up, notifying discovery server")
+	s.EnvoyXdsServer.OnServerReady()
+
+	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
+		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
 		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
 			log.Warna(err)
 		}
@@ -406,7 +410,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 					// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 					// on a listener
 					err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
-					msg := fmt.Sprintf("Stoppped listening on %s", secureGrpcListener.Addr().String())
+					msg := fmt.Sprintf("Stopped listening on %s", secureGrpcListener.Addr().String())
 					select {
 					case <-stop:
 						log.Info(msg)
@@ -591,7 +595,7 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 			// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 			// on a listener
 			err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
-			msg := fmt.Sprintf("Stoppped listening on %s %v", dnsGrpc, err)
+			msg := fmt.Sprintf("Stopped listening on %s %v", dnsGrpc, err)
 			select {
 			case <-stop:
 				log.Info(msg)
