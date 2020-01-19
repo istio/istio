@@ -51,7 +51,7 @@ var (
 	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
 	MaxRecvMsgSize = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXRECVMSGSIZE",
-		4 * 1024 * 1024,
+		4*1024*1024,
 		"Sets the max receive buffer size of gRPC stream in bytes.",
 	).Get()
 
