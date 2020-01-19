@@ -173,7 +173,6 @@ if [[ ${USE_LOCAL_PROXY} == 1 ]] ; then
 fi
 
 mkdir -p "${ISTIO_OUT}"
-mkdir -p "${ISTIO_BIN}"
 
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
@@ -199,9 +198,3 @@ fi
 # Copy native envoy binary to ISTIO_OUT
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/envoy"
 cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/envoy"
-
-# TODO(nmittler): Remove once tests no longer use the envoy binary directly.
-# circleCI expects this in the bin directory
-# Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
-echo "Copying ${ISTIO_OUT}/envoy to ${ISTIO_BIN}/envoy"
-cp -f "${ISTIO_OUT}/envoy" "${ISTIO_BIN}/envoy"
