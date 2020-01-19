@@ -200,8 +200,6 @@ fi
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/envoy"
 cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/envoy"
 
-# TODO(nmittler): Remove once tests no longer use the envoy binary directly.
-# circleCI expects this in the bin directory
 # Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
-echo "Copying ${ISTIO_OUT}/envoy to ${ISTIO_BIN}/envoy"
-cp -f "${ISTIO_OUT}/envoy" "${ISTIO_BIN}/envoy"
+echo "Copying ${ISTIO_OUT}/envoy to ${ISTIO_BLOB}/envoy"
+cp -f "${ISTIO_OUT}/envoy" "${ISTIO_BLOB}/envoy"

@@ -54,13 +54,15 @@ endif
 
 export TARGET_OUT ?= $(shell pwd)/out/$(TARGET_OS)_$(TARGET_ARCH)
 export TARGET_OUT_LINUX ?= $(shell pwd)/out/linux_amd64
+export TARGET_OUT_BLOB ?= $(TARGET_OUT)
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
 export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
 export TARGET_OUT_LINUX = /work/out/linux_amd64
+export TARGET_OUT_BLOB = /blob
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:master-2019-12-15T16-17-48
+IMG ?= sdake/build-tools:master-2020-01-19T11-54-08
 UID = $(shell id -u)
 GID = `grep docker /etc/group | cut -f3 -d:`
 PWD = $(shell pwd)
@@ -107,6 +109,7 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
 	-e TARGET_OS="$(TARGET_OS)" \
 	-e TARGET_OUT="$(TARGET_OUT)" \
 	-e TARGET_OUT_LINUX="$(TARGET_OUT_LINUX)" \
+	-e TARGET_OUT_BLOB="$(TARGET_OUT_BLOB)" \
 	-e USER="${USER}" \
 	$(ENV_VARS) \
 	-v /etc/passwd:/etc/passwd:ro \
@@ -115,6 +118,7 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
 	--mount type=bind,source="$(PWD)",destination="/work" \
 	--mount type=volume,source=go,destination="/go" \
 	--mount type=volume,source=gocache,destination="/gocache" \
+	--mount type=volume,source=istio-blob,destination="/blob" \
 	$(CONDITIONAL_HOST_MOUNTS) \
 	-w /work $(IMG)
 

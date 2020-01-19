@@ -48,6 +48,10 @@ var (
 	// nolint: golint, stylecheck
 	ISTIO_OUT Variable = "ISTIO_OUT"
 
+	// ISTIO_BLOB environment variable
+	// nolint: golint, stylecheck
+	ISTIO_BLOB Variable = "ISTIO_BLOB"
+
 	// REPO_ROOT environment variable
 	// nolint: golint, stylecheck
 	REPO_ROOT Variable = "REPO_ROOT"
@@ -81,6 +85,9 @@ var (
 
 	// IstioOut is the location of the output directory ($TOP/out)
 	IstioOut = verifyFile(ISTIO_OUT, ISTIO_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
+
+	// IstioBLob is the location of any BLOBs used by Istio
+	IstioBlob = verifyFile(ISTIO_BLOB, ISTIO_BLOB.ValueOrDefaultFunc(getDefaultIstioBlob))
 
 	// TODO: Some of these values are overlapping. We should re-align them.
 
@@ -124,6 +131,10 @@ func getDefaultIstioBin() string {
 
 func getDefaultIstioOut() string {
 	return fmt.Sprintf("%s/out/%s_%s", build.Default.GOPATH, runtime.GOOS, runtime.GOARCH)
+}
+
+func getDefaultIstioBlob() string {
+	return fmt.Sprintf("%s/out/%s_%s/istio_blob", build.Default.GOPATH, runtime.GOOS, runtime.GOARCH)
 }
 
 func verifyFile(v Variable, f string) string {
