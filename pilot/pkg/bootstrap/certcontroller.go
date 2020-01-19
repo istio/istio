@@ -136,6 +136,12 @@ func (s *Server) initDNSCerts(hostname string) error {
 		names = append(names, "istio-pilot.istio-system.svc")
 	}
 
+	// Save the certificates to ./var/run/secrets/istio-dns - this is needed since most of the code we currently
+	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
+	if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
+		return err
+	}
+
 	var certChain, keyPEM []byte
 	var err error
 	if features.PilotCertProvider.Get() == KubernetesCAProvider {
@@ -195,11 +201,6 @@ func (s *Server) initDNSCerts(hostname string) error {
 		return err
 	}
 
-	// Save the certificates to ./var/run/secrets/istio-dns - this is needed since most of the code we currently
-	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
-	if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
-		return err
-	}
 	err = ioutil.WriteFile(dnsKeyFile, keyPEM, 0600)
 	if err != nil {
 		return err
