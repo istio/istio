@@ -17846,14 +17846,14 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "galley_validation_cert_key_updates{job=\"galley\"}",
+          "expr": "galley_validation_cert_key_updates{}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Key Updates",
           "refId": "A"
         },
         {
-          "expr": "galley_validation_cert_key_update_errors{job=\"galley\"}",
+          "expr": "galley_validation_cert_key_update_errors{}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Key Update Errors: {{ error }}",
@@ -17938,14 +17938,14 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(galley_validation_passed{job=\"galley\"}) by (group, version, resource)",
+          "expr": "sum(galley_validation_passed{}) by (group, version, resource)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Passed: {{ group }}/{{ version }}/{{resource}}",
           "refId": "A"
         },
         {
-          "expr": "sum(galley_validation_failed{job=\"galley\"}) by (group, version, resource, reason)",
+          "expr": "sum(galley_validation_failed{}) by (group, version, resource, reason)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Failed: {{ group }}/{{ version }}/{{resource}} ({{ reason}})",
@@ -18030,7 +18030,7 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(galley_validation_http_error{job=\"galley\"}) by (status)",
+          "expr": "sum(galley_validation_http_error{}) by (status)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ status }}",
