@@ -712,7 +712,8 @@ func (s *Server) initEventHandlers() error {
 		}
 		for _, schema := range collections.Pilot.All() {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
-			if schema == collections.IstioNetworkingV1Alpha3Serviceentries {
+			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
+				Resource().GroupVersionKind() {
 				continue
 			}
 
