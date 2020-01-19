@@ -98,7 +98,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 
 	o := controller.Options{
 		WatchedNamespace:      args.Namespace,
-		CAPath:                defaultCACertPath,
+		CAPath:                s.caBundlePath,
 		WebhookConfigName:     webhookConfigName,
 		WebhookConfigPath:     configValidationPath,
 		ServiceName:           "istio-pilot",
