@@ -280,12 +280,12 @@ func (c *controller) sync(collection string) {
 }
 
 func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
-	dispatch := func(model model.Config, event model.Event) {}
+	dispatch := func(prev model.Config, model model.Config, event model.Event) {}
 	if handlers, ok := c.eventHandlers[collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()]; ok {
-		dispatch = func(config model.Config, event model.Event) {
+		dispatch = func(prev model.Config, config model.Config, event model.Event) {
 			log.Debugf("MCP event dispatch: key=%v event=%v", config.Key(), event.String())
 			for _, handler := range handlers {
-				handler(model.Config{}, config, event)
+				handler(prev, config, event)
 			}
 		}
 	}
@@ -296,13 +296,13 @@ func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 			if prevByNamespace, ok := prevStore[namespace]; ok {
 				if prevConfig, ok := prevByNamespace[name]; ok {
 					if config.ResourceVersion != prevConfig.ResourceVersion {
-						dispatch(*config, model.EventUpdate)
+						dispatch(*prevConfig, *config, model.EventUpdate)
 					}
 				} else {
-					dispatch(*config, model.EventAdd)
+					dispatch(model.Config{}, *config, model.EventAdd)
 				}
 			} else {
-				dispatch(*config, model.EventAdd)
+				dispatch(model.Config{}, *config, model.EventAdd)
 			}
 		}
 	}
@@ -311,7 +311,7 @@ func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 	for namespace, prevByName := range prevStore {
 		for name, prevConfig := range prevByName {
 			if _, ok := currentStore[namespace][name]; !ok {
-				dispatch(*prevConfig, model.EventDelete)
+				dispatch(model.Config{}, *prevConfig, model.EventDelete)
 			}
 		}
 	}

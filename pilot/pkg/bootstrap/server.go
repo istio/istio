@@ -631,10 +631,12 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
 	maxStreams := features.MaxConcurrentStreams
+	maxRecvMsgSize := features.MaxRecvMsgSize
 
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
+		grpc.MaxRecvMsgSize(maxRecvMsgSize),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:                  options.Time,
 			Timeout:               options.Timeout,
@@ -713,6 +715,12 @@ func (s *Server) initEventHandlers() error {
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
 		for _, schema := range collections.Pilot.All() {
+			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
+			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
+				Resource().GroupVersionKind() {
+				continue
+			}
+
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}

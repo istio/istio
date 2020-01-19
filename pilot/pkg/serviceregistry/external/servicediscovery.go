@@ -117,6 +117,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 									ServiceAccount:  instance.Endpoint.ServiceAccount,
 									Network:         instance.Endpoint.Network,
 									Locality:        instance.Endpoint.Locality,
+									LbWeight:        instance.Endpoint.LbWeight,
 									Attributes: model.ServiceAttributes{
 										Name:      instance.Service.Attributes.Name,
 										Namespace: instance.Service.Attributes.Namespace,
