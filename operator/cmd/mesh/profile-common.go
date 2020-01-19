@@ -27,8 +27,8 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
-	version2 "istio.io/istio/operator/version"
-	"istio.io/pkg/version"
+	binversion "istio.io/istio/operator/version"
+	pkgversion "istio.io/pkg/version"
 )
 
 // getIOPS creates an IstioOperatorSpec from the following sources, overlaid sequentially:
@@ -105,8 +105,8 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 
 	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
 	// override from variables that are set during release build time.
-	hub := version.DockerInfo.Hub
-	tag := version.DockerInfo.Tag
+	hub := pkgversion.DockerInfo.Hub
+	tag := pkgversion.DockerInfo.Tag
 	if hub != "unknown" && tag != "unknown" {
 		buildHubTagOverlayYAML, err := helm.GenerateHubTagOverlay(hub, tag)
 		if err != nil {
@@ -146,7 +146,7 @@ func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML, c
 		return "", err
 	}
 
-	t, err := translate.NewTranslator(version2.OperatorBinaryVersion.MinorVersion)
+	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
 	if err != nil {
 		return "", err
 	}
@@ -173,7 +173,7 @@ func unmarshalAndValidateIOP(crYAML string, force, dumpTranslation bool, l *Logg
 	}
 	iops, _, err := manifest.ParseK8SYAMLToIstioOperatorSpec(crYAML)
 	if err != nil {
-		iopYAML, err := translateICPToIOP(crYAML)
+		iopYAML, err := translate.TranslateICPToIOPVer(crYAML, binversion.OperatorBinaryVersion)
 		if err != nil {
 			return nil, "", fmt.Errorf("could not translate ICP to IOP: %s\n\nOriginal YAML:\n%s", err, crYAML)
 		}
@@ -197,15 +197,6 @@ func unmarshalAndValidateIOP(crYAML string, force, dumpTranslation bool, l *Logg
 		return nil, "", fmt.Errorf("could not marshal: %s", err)
 	}
 	return iops, iopsYAML, nil
-}
-
-func translateICPToIOP(icp string) (string, error) {
-	translateConfigPath := "translateConfig/translate-ICP-IOP-1.5.yaml"
-	translations, err := translate.ReadTranslationsVFS(translateConfigPath)
-	if err != nil {
-		return "", fmt.Errorf("could not read translate config from VFS path: %s, error: %s", translateConfigPath, err)
-	}
-	return translate.TranslateICPToIOP(icp, translations)
 }
 
 func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
