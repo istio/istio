@@ -6567,6 +6567,10 @@ spec:
         resources:
           requests:
             cpu: 10m
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
       serviceAccountName: istio-citadel-service-account
 
 ---
@@ -7338,6 +7342,10 @@ spec:
         resources:
           requests:
             cpu: 100m
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/config
           name: config
@@ -7388,6 +7396,8 @@ spec:
           readOnly: true
         - mountPath: /var/lib/istio/galley/envoy
           name: envoy-config
+      securityContext:
+        fsGroup: 1337
       serviceAccountName: istio-galley-service-account
       volumes:
       - name: istio-certs
@@ -8531,6 +8541,10 @@ spec:
           requests:
             cpu: 500m
             memory: 2048Mi
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
@@ -10284,6 +10298,10 @@ spec:
         resources:
           requests:
             cpu: 10m
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /sock
           name: uds-socket
@@ -10338,6 +10356,8 @@ spec:
           readOnly: true
         - mountPath: /sock
           name: uds-socket
+      securityContext:
+        fsGroup: 1337
       serviceAccountName: istio-policy-service-account
       volumes:
       - name: istio-certs
@@ -10608,6 +10628,10 @@ spec:
         resources:
           requests:
             cpu: 10m
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
@@ -10618,6 +10642,8 @@ spec:
         - mountPath: /etc/istio/inject
           name: inject-config
           readOnly: true
+      securityContext:
+        fsGroup: 1337
       serviceAccountName: istio-sidecar-injector-service-account
       volumes:
       - configMap:
@@ -12505,6 +12531,10 @@ spec:
           requests:
             cpu: 1000m
             memory: 1G
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /sock
           name: uds-socket
@@ -12561,6 +12591,8 @@ spec:
           readOnly: true
         - mountPath: /sock
           name: uds-socket
+      securityContext:
+        fsGroup: 1337
       serviceAccountName: istio-mixer-service-account
       volumes:
       - name: istio-certs
