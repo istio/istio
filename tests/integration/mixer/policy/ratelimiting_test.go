@@ -257,6 +257,9 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
+values:
+  global:
+    disablePolicyChecks: false
 components:
   policy:
     enabled: true`
