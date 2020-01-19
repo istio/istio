@@ -52,7 +52,7 @@ var (
 	MaxRecvMsgSize = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXRECVMSGSIZE",
 		4 * 1024 * 1024,
-		"Sets the max receive buffer size in bytes.",
+		"Sets the max receive buffer size of gRPC stream in bytes.",
 	).Get()
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
