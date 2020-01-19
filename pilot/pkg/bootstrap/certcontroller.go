@@ -157,7 +157,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 			const internalSelfSignedRootPath = "./var/run/secrets/self-signed-root.pem"
 
 			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
-			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0700); err != nil {
 				return err
 			}
 
@@ -171,7 +171,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
 							if !bytes.Equal(rootCert, newRootCert) {
 								rootCert = newRootCert
-								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0700); err != nil {
 									log.Errorf("Failed to update local copy of self-signed root: %v", err)
 								} else {
 									log.Info("Updtaed local copy of self-signed root")
