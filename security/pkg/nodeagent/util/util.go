@@ -23,8 +23,8 @@ import (
 	"go.opencensus.io/stats/view"
 )
 
-// parseCertAndGetExpiryTimestamp parses certificate and returns cert expire time, or return error
-// if fails to parse certificate.
+// ParseCertAndGetExpiryTimestamp parses the first certificate in certByte and returns cert expire
+// time, or return error if fails to parse certificate.
 func ParseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
 	block, _ := pem.Decode(certByte)
 	if block == nil {
