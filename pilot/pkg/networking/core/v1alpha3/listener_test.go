@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/galley/pkg/config/schema/resource"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
@@ -612,6 +613,51 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 		},
 	}
 	testOutboundListenerFilterTimeoutV14(t, services...)
+}
+
+func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "sidecar-with-http-proxy",
+			Namespace: "default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"default/*"},
+					Port: &networking.Port{
+						Number:   15080,
+						Protocol: "HTTP_PROXY",
+						Name:     "15080",
+					},
+					Bind:        "127.0.0.1",
+					CaptureMode: v1alpha3.CaptureMode_NONE,
+				},
+			},
+		},
+	}
+	services := []*model.Service{buildService("httpbin.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second))}
+
+	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
+
+	if expected := 1; len(listeners) != expected {
+		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+	}
+	l := findListenerByPort(listeners, 15080)
+	if l == nil {
+		t.Fatalf("expected listener on port %d, but not found", 15080)
+	}
+	if len(l.FilterChains) != 1 {
+		t.Fatalf("expectd %d filter chains, found %d", 1, len(l.FilterChains))
+	} else {
+		if !isHTTPFilterChain(l.FilterChains[0]) {
+			t.Fatalf("expected http filter chain, found %s", l.FilterChains[1].Filters[0].Name)
+		}
+		if len(l.ListenerFilters) > 0 {
+			t.Fatalf("expected %d listener filter, found %d", 0, len(l.ListenerFilters))
+		}
+	}
 }
 
 func TestGetActualWildcardAndLocalHost(t *testing.T) {
