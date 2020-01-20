@@ -266,8 +266,8 @@ func TestPushEdsWithEgds(t *testing.T) {
 
 	// And we should receive 28 group changes(because we got 7 clusters for a single service here.)
 	egdsUpdatedLen := len(adscConn.GetEgdsUpdated())
-	if egdsUpdatedLen != 28 {
-		t.Errorf("wrong EGDS updated groups received. Expect: 28, Got: %d", egdsUpdatedLen)
+	if egdsUpdatedLen != 7 {
+		t.Errorf("wrong EGDS updated groups received. Expect: 7, Got: %d", egdsUpdatedLen)
 	}
 }
 

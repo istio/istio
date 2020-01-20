@@ -75,21 +75,6 @@ func (g *EndpointGroups) getEndpoints(groupName string) []*model.IstioEndpoint {
 	return nil
 }
 
-// ExtractEndpointGroupKeys extracts the keys within the group name string
-// the key can be the form of "[hostname]-[namespace]-[clusterID]-[groupID]"
-func ExtractEndpointGroupKeys(groupName string) (string, string, string, string) {
-	if groupName == "" {
-		return "", "", "", ""
-	}
-
-	keys := strings.Split(groupName, "|")
-	if len(keys) != 4 {
-		return "", "", "", ""
-	}
-
-	return keys[0], keys[1], keys[2], keys[3]
-}
-
 // ExtractClusterGroupKeys the keys from proxy requested resource names. It can be
 // the format "clusterName@groupName"
 func ExtractClusterGroupKeys(clusterGroupName string) (string, string) {
@@ -169,11 +154,9 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 	// The concept of cluster group is used to represent such key of data.
 	for _, clusterGroup := range con.ClusterGroups {
 		clusterName, groupName := ExtractClusterGroupKeys(clusterGroup)
-		if updatedClusterGroups != nil {
-			if !isNeedUpdate(updatedClusterGroups, clusterName, groupName) {
-				// ClusterGroup was not updated, skip recomputing. This happens in an incremental EGDS push.
-				continue
-			}
+		if !isNeedUpdate(updatedClusterGroups, clusterName, groupName) {
+			// ClusterGroup was not updated, skip recomputing. This happens in an incremental EGDS push.
+			continue
 		}
 
 		l := s.generateEndpoints(clusterName, groupName, con.node, push)
