@@ -53,11 +53,11 @@ func (s Set) Validate() error {
 	clusterMessages := make(map[string]bool)
 
 	for _, v := range s {
-		if !labels.IsDNS1123Label(v.Type) {
-			errs = multierror.Append(errs, fmt.Errorf("invalid type: %q", v.Type))
+		if ok, err := labels.IsDNS1123Label(v.Type); !ok {
+			errs = multierror.Append(errs, fmt.Errorf("invalid type: %q, reason: %v", v.Type, err))
 		}
-		if !labels.IsDNS1123Label(v.Plural) {
-			errs = multierror.Append(errs, fmt.Errorf("invalid plural: %q", v.Type))
+		if ok, err := labels.IsDNS1123Label(v.Plural); !ok {
+			errs = multierror.Append(errs, fmt.Errorf("invalid plural: %q, reason: %v", v.Type, err))
 		}
 		if proto.MessageType(v.MessageName) == nil {
 			errs = multierror.Append(errs, fmt.Errorf("cannot discover proto message type: %q", v.MessageName))

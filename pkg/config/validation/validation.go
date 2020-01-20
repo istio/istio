@@ -29,7 +29,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -133,8 +132,8 @@ func ValidateWildcardDomain(domain string) error {
 	}
 	// We only allow wildcards in the first label; split off the first label (parts[0]) from the rest of the host (parts[1])
 	parts := strings.SplitN(domain, ".", 2)
-	if !labels.IsWildcardDNS1123Label(parts[0]) {
-		return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, parts[0])
+	if ok, err := labels.IsWildcardDNS1123Label(parts[0]); !ok || err != nil {
+		return fmt.Errorf("domain name %q invalid (label %q invalid, reason: %v)", domain, parts[0], err)
 	} else if len(parts) > 1 {
 		return validateDNS1123Labels(parts[1])
 	}
@@ -163,8 +162,8 @@ func validateDNS1123Labels(domain string) error {
 		if i == len(parts)-1 && label == "" {
 			return nil
 		}
-		if !labels.IsDNS1123Label(label) {
-			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, label)
+		if ok, err := labels.IsDNS1123Label(label); !ok {
+			return fmt.Errorf("domain name %q invalid (label %q invalid, reason: %v)", domain, label, err)
 		}
 	}
 	return nil
@@ -184,13 +183,13 @@ func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
 			errs = multierror.Append(errs, errors.New("domain is not valid when service is provided"))
 		}
 	} else if svc.Name != "" {
-		if !labels.IsDNS1123Label(svc.Name) {
-			errs = multierror.Append(errs, fmt.Errorf("name %q must be a valid label", svc.Name))
+		if ok, err := labels.IsDNS1123Label(svc.Name); !ok {
+			errs = multierror.Append(errs, fmt.Errorf("name %q must be a valid label, reason: %v", svc.Name, err))
 		}
 	}
 
-	if svc.Namespace != "" && !labels.IsDNS1123Label(svc.Namespace) {
-		errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", svc.Namespace))
+	if ok, err := labels.IsDNS1123Label(svc.Namespace); svc.Namespace != "" && !ok {
+		errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label, reason: %v", svc.Namespace, err))
 	}
 
 	if svc.Domain != "" {
@@ -285,8 +284,8 @@ func ValidateUnixAddress(addr string) error {
 // ValidateGateway checks gateway specifications
 func ValidateGateway(name, _ string, msg proto.Message) (errs error) {
 	// Gateway name must conform to the DNS label format (no dots)
-	if !labels.IsDNS1123Label(name) {
-		errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q", name))
+	if ok, err := labels.IsDNS1123Label(name); !ok {
+		errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q, reason: %v", name, err))
 	}
 	value, ok := msg.(*networking.Gateway)
 	if !ok {
@@ -616,15 +615,15 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 	if !isGateway {
 		// namespace can be * or . or ~ or a valid DNS label in sidecars
 		if parts[0] != "*" && parts[0] != "." && parts[0] != "~" {
-			if !labels.IsDNS1123Label(parts[0]) {
-				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in sidecar", parts[0]))
+			if ok, err := labels.IsDNS1123Label(parts[0]); !ok {
+				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in sidecar, reason: %v", parts[0], err))
 			}
 		}
 	} else {
 		// namespace can be * or . or a valid DNS label in gateways
 		if parts[0] != "*" && parts[0] != "." {
-			if !labels.IsDNS1123Label(parts[0]) {
-				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway", parts[0]))
+			if ok, err := labels.IsDNS1123Label(parts[0]); !ok {
+				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway, reason: %v", parts[0], err))
 			}
 		}
 	}
@@ -1332,8 +1331,8 @@ func ValidateHTTPAPISpecBinding(_, _ string, msg proto.Message) error {
 		if spec.Name == "" {
 			errs = multierror.Append(errs, errors.New("name is mandatory for HTTPAPISpecReference"))
 		}
-		if spec.Namespace != "" && !labels.IsDNS1123Label(spec.Namespace) {
-			errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", spec.Namespace))
+		if ok, err := labels.IsDNS1123Label(spec.Namespace); spec.Namespace != "" && !ok {
+			errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label, reason: %v", spec.Namespace, err))
 		}
 	}
 	return errs
@@ -1412,8 +1411,8 @@ func ValidateQuotaSpecBinding(_, _ string, msg proto.Message) error {
 		if spec.Name == "" {
 			errs = multierror.Append(errs, errors.New("name is mandatory for QuotaSpecReference"))
 		}
-		if spec.Namespace != "" && !labels.IsDNS1123Label(spec.Namespace) {
-			errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", spec.Namespace))
+		if ok, err := labels.IsDNS1123Label(spec.Namespace); spec.Namespace != "" && !ok {
+			errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label, reason: %v", spec.Namespace, err))
 		}
 	}
 	return errs
@@ -1743,8 +1742,8 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 	}
 
 	// AuthN policy target (host)name must be a shortname
-	if !labels.IsDNS1123Label(target.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
+	if ok, errLabel := labels.IsDNS1123Label(target.Name); !ok {
+		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label, reason: %v", target.Name, errLabel))
 	}
 
 	for _, port := range target.Ports {
@@ -2023,12 +2022,12 @@ func validateGatewayNames(gatewayNames []string) (errs error) {
 		}
 
 		// namespace and name must be DNS labels
-		if !labels.IsDNS1123Label(parts[0]) {
-			errs = appendErrors(errs, fmt.Errorf("invalid value for namespace: %q", parts[0]))
+		if ok, err := labels.IsDNS1123Label(parts[0]); !ok {
+			errs = appendErrors(errs, fmt.Errorf("invalid value for namespace: %q, reason: %v", parts[0], err))
 		}
 
-		if !labels.IsDNS1123Label(parts[1]) {
-			errs = appendErrors(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
+		if ok, err := labels.IsDNS1123Label(parts[1]); !ok {
+			errs = appendErrors(errs, fmt.Errorf("invalid value for gateway name: %q, reason: %v", parts[1], err))
 		}
 	}
 	return
@@ -2242,8 +2241,8 @@ func validateSubsetName(name string) error {
 	if len(name) == 0 {
 		return fmt.Errorf("subset name cannot be empty")
 	}
-	if !labels.IsDNS1123Label(name) {
-		return fmt.Errorf("subset name is invalid: %s", name)
+	if ok, err := labels.IsDNS1123Label(name); !ok {
+		return fmt.Errorf("subset name is invalid: %s, reason: %v", name, err)
 	}
 	return nil
 }
@@ -2481,8 +2480,8 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 }
 
 func validatePortName(name string) error {
-	if !labels.IsDNS1123Label(name) {
-		return fmt.Errorf("invalid port name: %s", name)
+	if ok, err := labels.IsDNS1123Label(name); !ok {
+		return fmt.Errorf("invalid port name: %s, reason: %v", name, err)
 	}
 	return nil
 }

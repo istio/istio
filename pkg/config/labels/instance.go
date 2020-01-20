@@ -92,14 +92,20 @@ func (i Instance) Validate() error {
 
 // IsDNS1123Label tests for a string that conforms to the definition of a label in
 // DNS (RFC 1123).
-func IsDNS1123Label(value string) bool {
-	return len(value) <= DNS1123LabelMaxLength && dns1123LabelRegexp.MatchString(value)
+func IsDNS1123Label(value string) (bool, error) {
+	if len(value) <= DNS1123LabelMaxLength && dns1123LabelRegexp.MatchString(value) {
+		return true, nil
+	}
+	return false, fmt.Errorf("dns label length is > %d by rfc 1123 or had invalid character", DNS1123LabelMaxLength)
 }
 
 // IsWildcardDNS1123Label tests for a string that conforms to the definition of a label in DNS (RFC 1123), but allows
 // the wildcard label (`*`), and typical labels with a leading astrisk instead of alphabetic character (e.g. "*-foo")
-func IsWildcardDNS1123Label(value string) bool {
-	return len(value) <= DNS1123LabelMaxLength && wildcardPrefixRegexp.MatchString(value)
+func IsWildcardDNS1123Label(value string) (bool, error) {
+	if len(value) <= DNS1123LabelMaxLength && wildcardPrefixRegexp.MatchString(value) {
+		return true, nil
+	}
+	return false, fmt.Errorf("wildcard prefix dns label length is > %d by rfc 1123 or had invalid character", DNS1123LabelMaxLength)
 }
 
 // validateTagKey checks that a string is valid as a Kubernetes label name.

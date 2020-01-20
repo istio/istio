@@ -38,8 +38,8 @@ func (s *Service) Validate() error {
 	}
 	parts := strings.Split(string(s.Hostname), ".")
 	for _, part := range parts {
-		if !labels.IsDNS1123Label(part) {
-			errs = multierror.Append(errs, fmt.Errorf("invalid hostname part: %q", part))
+		if ok, err := labels.IsDNS1123Label(part); !ok {
+			errs = multierror.Append(errs, fmt.Errorf("invalid hostname part: %q, reason: %v", part, err))
 		}
 	}
 
@@ -55,8 +55,8 @@ func (s *Service) Validate() error {
 				errs = multierror.Append(errs,
 					fmt.Errorf("empty port names are not allowed for services with multiple ports"))
 			}
-		} else if !labels.IsDNS1123Label(port.Name) {
-			errs = multierror.Append(errs, fmt.Errorf("invalid name: %q", port.Name))
+		} else if ok, err := labels.IsDNS1123Label(port.Name); !ok {
+			errs = multierror.Append(errs, fmt.Errorf("invalid name: %q, reason: %v", port.Name, err))
 		}
 		if err := validation.ValidatePort(port.Port); err != nil {
 			errs = multierror.Append(errs,
