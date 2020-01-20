@@ -1149,7 +1149,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	} else {
 		if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto &&
 			util.IsProtocolSniffingEnabledForOutbound(node) && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
-			rdsName = pluginParams.Service.Hostname + ":" + strconv.Itoa(pluginParams.Port.Port)
+			rdsName = string(pluginParams.Service.Hostname) + ":" + strconv.Itoa(pluginParams.Port.Port)
 		} else {
 			rdsName = strconv.Itoa(pluginParams.Port.Port)
 		}
