@@ -165,6 +165,13 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 	opts.Prune = pointer.BoolPtr(false)
 	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), *opts)
 
+	if opts.Wait {
+		err := manifest.WaitForResources(objs, opts)
+		if err != nil {
+			out.Err = err
+		}
+	}
+
 	success := true
 	if out.Err != nil {
 		cs := fmt.Sprintf("Component %s install returned the following errors:", componentName)

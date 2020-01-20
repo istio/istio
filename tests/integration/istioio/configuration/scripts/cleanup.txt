@@ -1,4 +1,6 @@
-# Copyright 2019 Istio Authors
+#!/usr/bin/env bash
+
+# Copyright 2020 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,5 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# this repo is not on the container plan by default
-BUILD_WITH_CONTAINER ?= 0
+set -e
+set -u
+set -o pipefail
+
+# $snippet cleanup.sh syntax="bash"
+$ kubectl -n istio-io-health delete policies default
+$ kubectl -n istio-io-health delete destinationrules default
+$ kubectl delete ns istio-io-health
+$ kubectl delete ns health-global
+$ kubectl delete ns health-annotate
+$ kubectl delete ns health-sepport
+# $endsnippet
