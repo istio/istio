@@ -843,7 +843,7 @@ func (ps *PushContext) Refresh(env *Environment) error {
 		return nil
 	}
 	// Refresh the context by initializing every thing again.
-	return ps.createNewContext()
+	return ps.createNewContext(env)
 }
 
 func (ps *PushContext) createNewContext(env *Environment) error {
