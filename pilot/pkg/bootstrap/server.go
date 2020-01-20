@@ -292,9 +292,10 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		return fmt.Errorf("failed to sync cache")
 	}
 
-	// Refresh the global push context so that the Envoys connecting will have the correct context.
-	log.Infof("All caches have been synced up, reloading the global push context")
-	s.environment.PushContext.Refresh(s.environment)
+	// Trigger a push, so that the global push context is updated with the new config and Pilot's local Envoy
+	// also is updated with new config.
+	log.Infof("All caches have been synced up, triggering a push")
+	s.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {

@@ -833,19 +833,6 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	return nil
 }
 
-// Refresh context reloads the context by reinitializing every thing if it is initialized once.
-// If it has not been initialized atleast once, it does nothing.
-func (ps *PushContext) Refresh(env *Environment) error {
-	ps.Mutex.Lock()
-	defer ps.Mutex.Unlock()
-	// If it is not initialized, nothing to refresh - just return.
-	if !ps.initDone {
-		return nil
-	}
-	// Refresh the context by initializing every thing again.
-	return ps.createNewContext(env)
-}
-
 func (ps *PushContext) createNewContext(env *Environment) error {
 	if err := ps.initServiceRegistry(env); err != nil {
 		return err
