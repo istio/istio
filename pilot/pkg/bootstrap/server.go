@@ -123,6 +123,8 @@ type Server struct {
 	kubeRegistry        *kubecontroller.Controller
 	certController      *chiron.WebhookController
 	ca                  *ca.IstioCA
+	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
+	caBundlePath string
 
 	ConfigStores []model.ConfigStoreCache
 
@@ -204,7 +206,12 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// CA signing certificate must be created first.
 	if s.EnableCA() {
-		s.ca = s.createCA(s.kubeClient.CoreV1(), caOpts)
+		var err error
+		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)
+		if err != nil {
+			return nil, fmt.Errorf("EnableCA: %v", err)
+		}
+
 	}
 
 	// initDNSListener() must be called after the createCA()

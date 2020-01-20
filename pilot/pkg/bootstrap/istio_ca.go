@@ -30,14 +30,15 @@ import (
 	"google.golang.org/grpc/metadata"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -340,7 +341,7 @@ func (j jwtAuthenticator) AuthenticatorType() string {
 	return authenticate.IDTokenAuthenticatorType
 }
 
-func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
+func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.IstioCA, error) {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
@@ -376,7 +377,7 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.Is
 			opts.Namespace, -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
-			log.Fatalf("Failed to create a self-signed Citadel (error: %v)", err)
+			return nil, fmt.Errorf("failed to create a self-signed Citadel: %v", err)
 		}
 	} else {
 		log.Info("Use local CA certificate")
@@ -386,17 +387,18 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.Is
 		signingCertFile := path.Join(localCertDir.Get(), "ca-cert.pem")
 		//
 		certChainFile := path.Join(localCertDir.Get(), "cert-chain.pem")
+		s.caBundlePath = certChainFile
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
 			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), opts.Namespace, client)
 		if err != nil {
-			log.Fatalf("Failed to create an Citadel (error: %v)", err)
+			return nil, fmt.Errorf("failed to create an Citadel: %v", err)
 		}
 	}
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
-		log.Errorf("Failed to create an Citadel (error: %v)", err)
+		return nil, fmt.Errorf("failed to create an Citadel: %v", err)
 	}
 
 	// TODO: provide an endpoint returning all the roots. SDS can only pull a single root in current impl.
@@ -408,5 +410,5 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.Is
 	// Start root cert rotator in a separate goroutine.
 	istioCA.Run(rootCertRotatorChan)
 
-	return istioCA
+	return istioCA, nil
 }

@@ -83,7 +83,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 	// operator or CI/CD
 	if injectionWebhookConfigName.Get() != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
-			if err := patchCertLoop(s.kubeClient, stop); err != nil {
+			if err := s.patchCertLoop(s.kubeClient, stop); err != nil {
 				return multierror.Prefix(err, "failed to start patch cert loop")
 			}
 			return nil
@@ -103,12 +103,12 @@ const delayedRetryTime = time.Second
 // - pass the existing k8s client
 // - use the K8S root instead of citadel root CA
 // - removed the watcher - the k8s CA is already mounted at startup, no more delay waiting for it
-func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
+func (s *Server) patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 
 	// K8S own CA
-	caCertPem, err := ioutil.ReadFile(defaultCACertPath)
+	caCertPem, err := ioutil.ReadFile(s.caBundlePath)
 	if err != nil {
-		log.Warna("Skipping webhook patch, missing CA path ", defaultCACertPath)
+		log.Warna("Skipping webhook patch, missing CA path ", s.caBundlePath)
 		return err
 	}
 
