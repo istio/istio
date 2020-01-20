@@ -292,9 +292,9 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		return fmt.Errorf("failed to sync cache")
 	}
 
-	// Notify Server readiness to Discovery Server, so that it can start accepting connections.
-	log.Infof("All caches have been synced up, notifying discovery server")
-	s.EnvoyXdsServer.OnServerReady()
+	// Refresh the global push context so that the Envoys connecting will have the correct context.
+	log.Infof("All caches have been synced up, reloading the global push context")
+	s.environment.PushContext.Refresh(s.environment)
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
