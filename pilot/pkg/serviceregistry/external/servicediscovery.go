@@ -361,7 +361,7 @@ func servicesChanged(os []*model.Service, ns []*model.Service) bool {
 	}
 	for host, service := range oldservicehosts {
 		if !reflect.DeepEqual(service, newservicehosts[host]) {
-			return true
+		return true
 		}
 	}
 	return false

@@ -177,6 +177,10 @@ func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, 
 		}
 
 		l := s.generateEndpoints(clusterName, groupName, con.node, push)
+		if l == nil {
+			continue
+		}
+
 		g := &xdsapi.EndpointGroup{
 			Name:      MakeClusterGroupKey(clusterName, groupName),
 			Endpoints: l.Endpoints,
@@ -231,7 +235,7 @@ func (s *DiscoveryServer) generateEgdsForCluster(clusterName string, proxy *mode
 	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 	push.Mutex.Unlock()
 	if svc == nil {
-		// Shouldn't happen here - unable to genereate EGDS data.
+		// Can't find group data - unable to genereate EGDS data
 		adsLog.Warnf("EGDS: missing data for cluster %s", clusterName)
 		return nil
 	}
@@ -293,7 +297,10 @@ func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct
 	}
 
 	currentMax := int(g.GroupSize * g.GroupCount)
-	if len(newEps) > currentMax*2 || len(newEps) < currentMax/2 || len(prevEps) <= 0 {
+	// If "g.GroupCount == 1", this means this is not startup and of course the group can't reduce any more.
+	if (len(newEps) > currentMax*2 || len(newEps) < currentMax/2 || len(prevEps) <= 0) && (g.GroupCount != 1) {
+		adsLog.Debugf("Reshard triggered, curMax: %d, newEndpoints count: %d, current group count: %d",
+			currentMax, len(newEps), g.GroupCount)
 		return g.reshard()
 	}
 
@@ -371,9 +378,6 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 	// Increase the version
 	g.VersionInfo++
 
-	// Changed EGDS resource names.
-	names := make(map[string]struct{})
-
 	// Total number of group slices.
 	g.GroupCount = uint32(math.Ceil(float64(len(eps)) / float64(g.GroupSize)))
 
@@ -381,9 +385,6 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 	for ix := uint32(0); ix < g.GroupCount; ix++ {
 		key := fmt.Sprintf("%s|%d-%d", g.NamePrefix, ix, g.VersionInfo)
 		g.IstioEndpointGroups[key] = make([]*model.IstioEndpoint, 0, g.GroupSize)
-
-		// Add changed group keys
-		names[key] = struct{}{}
 	}
 
 	for _, ep := range eps {
@@ -397,5 +398,7 @@ func (g *EndpointGroups) reshard() map[string]struct{} {
 		}
 	}
 
-	return names
+	// Reshard event must return nil changed groups to indicate a EDS re-push event
+	// in order to update the group names in Proxy memory
+	return nil
 }

@@ -372,8 +372,8 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 // Update clusters for an incremental EDS push, and initiate the push.
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, req *model.PushRequest) {
-	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-		version, req.EdsUpdates, adsClientCount())
+	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v Groups:%v ConnectedEndpoints:%d",
+		version, req.EdsUpdates, req.EgdsUpdates, adsClientCount())
 	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
@@ -411,6 +411,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint) error {
+
 	inboundEDSUpdates.Increment()
 	s.edsUpdate(clusterID, serviceName, namespace, istioEndpoints, false)
 	return nil
@@ -504,8 +505,14 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	egdsUpdates := egdsGroup.accept(istioEndpoints)
 
 	groupBuildTime := time.Since(t0)
-	adsLog.Infof("endpoints for service(%s) updated, endpoint count: %d, egds upadted/total: %d/%d, time: %s",
-		serviceName, len(istioEndpoints), len(egdsUpdates), egdsGroup.GroupCount, groupBuildTime)
+
+	if egdsUpdates != nil {
+		adsLog.Debugf("endpoints for service(%s) updated, endpoint count: %d, egds upadted/total: %d/%d, time: %s",
+			serviceName, len(istioEndpoints), len(egdsUpdates), egdsGroup.GroupCount, groupBuildTime)
+	} else {
+		adsLog.Debugf("endpoints for service(%s) updated, endpoint count: %d, egds resharded, total: %d, time: %s",
+			serviceName, len(istioEndpoints), egdsGroup.GroupCount, groupBuildTime)
+	}
 
 	ep.mutex.Unlock()
 
@@ -686,8 +693,8 @@ func (s *DiscoveryServer) loadAssignmentFailback(clusterName string, groupName s
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
 	}
 
-	// Shouldn't happen here - unable to genereate EGDS data
-	adsLog.Errorf("EGDS: missing data for cluster %s, group %s", clusterName, groupName)
+	// Can't find group data, this can be true if Proxy connected before endpoints fully updated
+	adsLog.Debugf("EGDS: missing data for cluster %s, group %s", clusterName, groupName)
 	return nil
 }
 

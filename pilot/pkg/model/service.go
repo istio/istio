@@ -24,9 +24,9 @@ package model
 
 import (
 	"bytes"
-	"reflect"
 	"fmt"
 	"hash/fnv"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -727,11 +727,11 @@ func (ep *IstioEndpoint) HashUint32(affinity uint32) uint32 {
 				}
 
 				// From the IP higher bits to lower bits
-				num = num << (8*(3 - ix))
+				num = num << (8 * (3 - ix))
 
 				total += num
 			}
-			
+
 			if err == nil {
 				slot := int(total / int(affinity))
 				addr = fmt.Sprintf("%d", slot)
@@ -739,12 +739,12 @@ func (ep *IstioEndpoint) HashUint32(affinity uint32) uint32 {
 		}
 	}
 
-	log.Debugf("remap addr %s => %s, affinity=%d, total=%d", ep.Address, addr, affinity, total)
-
 	h := fnv.New32a()
-	h.Write([]byte(fmt.Sprintf("%s-%s-%s-%d-%s-%s", addr, ep.Network, ep.Locality, len(ep.Labels), ep.Attributes.Name, ep.Family)))
+	h.Write([]byte(fmt.Sprintf("%s-%s-%s-%s-%s", addr, ep.Network, ep.Locality, ep.Attributes.Name, ep.Family)))
 
 	sum := h.Sum32()
+
+	log.Debugf("remap addr %s => %s, affinity=%d, total=%d, sum=%d", ep.Address, addr, affinity, total, sum)
 
 	return sum
 }
