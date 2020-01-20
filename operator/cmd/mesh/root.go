@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	SetFlagHelpStr = `Can be used to override a path in the IstioOperator API spec, e.g. to choose a profile
+	SetFlagHelpStr = `Override an IstioOperator value, e.g. to choose a profile
 (--set profile=demo), enable or disable components (--set policy.enabled=true), or override Istio 
 settings(--set values.global.mtls.enabled=true).  See documentation for more info: 
 https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb/#IstioControlPlaneSpec`
