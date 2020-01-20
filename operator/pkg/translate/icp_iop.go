@@ -19,9 +19,10 @@ import (
 	"io/ioutil"
 
 	"gopkg.in/yaml.v2"
-
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/version"
+	"istio.io/istio/operator/pkg/vfs"
 )
 
 const (
@@ -29,10 +30,24 @@ const (
 apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 `
+	iCPIOPTranslationsFilename = "translate-ICP-IOP-"
 )
 
-// ReadTranslations reads a file at filePath with key:value pairs in the format expected by TranslateICPToIOP.
-func ReadTranslations(filePath string) (map[string]string, error) {
+// ICPtoIOPTranslations returns the translations for the given binary version.
+func ICPtoIOPTranslations(ver version.Version) (map[string]string, error) {
+	b, err := vfs.ReadFile("translateConfig/" + iCPIOPTranslationsFilename + ver.MinorVersion.String() + ".yaml")
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string)
+	if err := yaml.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ReadICPtoIOPTranslations reads a file at filePath with key:value pairs in the format expected by TranslateICPToIOP.
+func ReadICPtoIOPTranslations(filePath string) (map[string]string, error) {
 	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err

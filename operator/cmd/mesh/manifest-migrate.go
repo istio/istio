@@ -22,12 +22,13 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
-
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	binversion "istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -47,8 +48,8 @@ func addManifestMigrateFlags(cmd *cobra.Command, args *manifestMigrateArgs) {
 func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate [<filepath>]",
-		Short: "Migrates a file containing Helm values to IstioOperator format",
-		Long:  "The migrate subcommand migrates a configuration from Helm values format to IstioOperator format.",
+		Short: "Migrates a file containing Helm values or IstioControlPlane to IstioOperator format",
+		Long:  "The migrate subcommand migrates a configuration from Helm values or IstioControlPlane format to IstioOperator format.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return fmt.Errorf("migrate accepts optional single filepath")
@@ -86,6 +87,23 @@ func migrateFromFiles(rootArgs *rootArgs, args []string, l *Logger) error {
 
 // translateFunc translates the input values and output the result
 func translateFunc(values []byte, l *Logger) error {
+	// First, try to translate from IstioControlPlane format.
+	icp := &icpv1alpha2.IstioControlPlane{}
+	if err := util.UnmarshalWithJSONPB(string(values), icp); err == nil {
+		log.Info("Input file has IstioControlPlane format.")
+		translations, err := translate.ICPtoIOPTranslations(binversion.OperatorBinaryVersion)
+		if err != nil {
+			return err
+		}
+		out, err := translate.TranslateICPToIOP(string(values), translations)
+		if err != nil {
+			return err
+		}
+		l.logAndPrint(out)
+		return nil
+	}
+
+	// Not IstioControlPlane, try Helm values.yaml.
 	ts, err := translate.NewReverseTranslator(binversion.OperatorBinaryVersion.MinorVersion)
 	if err != nil {
 		return fmt.Errorf("error creating values.yaml translator: %s", err)
