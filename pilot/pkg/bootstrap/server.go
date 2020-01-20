@@ -357,13 +357,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.environment.AddMeshHandler(func() {
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.BootstrapUpdate},
+			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
 	s.environment.AddNetworksHandler(func() {
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.BootstrapUpdate},
+			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
 

@@ -246,8 +246,8 @@ const (
 	ServiceUpdate TriggerReason = "service"
 	// Describes a push triggered by a change to an individual proxy (such as label change)
 	ProxyUpdate TriggerReason = "proxy"
-	// Describes a push triggered by a change to bootstrap config, such as mesh config
-	BootstrapUpdate TriggerReason = "bootstrap"
+	// Describes a push triggered by a change to global config, such as mesh config
+	GlobalUpdate TriggerReason = "global"
 	// Describes a push triggered by an unknown reason
 	UnknownTrigger TriggerReason = "unknown"
 	// Describes a push triggered for debugging
