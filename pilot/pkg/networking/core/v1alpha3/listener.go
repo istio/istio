@@ -1306,13 +1306,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	conflictType := NoConflict
 
+	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if pluginParams.Port.Protocol == protocol.HTTP_PROXY {
 		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
-			&listenerOpts, pluginParams, listenerMap, actualWildcard); ret {
+			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
+			return
+		} else {
 			listenerOpts.filterChainOpts = opts
 		}
 	} else {
-
 		switch pluginParams.ListenerProtocol {
 		case plugin.ListenerProtocolHTTP:
 			if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
