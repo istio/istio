@@ -7925,6 +7925,8 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
 {{- if .Values.global.istiod.enabled }}
           - name: "ISTIO_META_USER_SDS"
             value: "true"
@@ -8010,6 +8012,10 @@ spec:
           - name: SDS_ENABLED
             value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
+{{- if eq .Values.global.pilotCertProvider "citadel" }}
+          - mountPath: /etc/istio/citadel-ca-cert
+            name: citadel-ca-cert
+{{- end }}
 {{- if .Values.global.istiod.enabled }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
@@ -8041,6 +8047,11 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+{{- if eq .Values.global.pilotCertProvider "citadel" }}
+      - name: citadel-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+{{- end }}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
 {{- if .Values.global.istiod.enabled }}
@@ -39224,7 +39235,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
-      pilotCertProvider: kubernetes
+      pilotCertProvider: citadel
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2

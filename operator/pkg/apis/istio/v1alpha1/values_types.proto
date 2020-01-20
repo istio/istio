@@ -592,9 +592,6 @@ message GlobalConfig {
 
   // Configure the Pilot certificate provider.
   // Currently, two providers are supported: "kubernetes" and "citadel".
-  // TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
-  // with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
-  // we may change the default value of this option as "citadel".
   string pilotCertProvider = 56;
 
   // Configure the policy for validating JWT.

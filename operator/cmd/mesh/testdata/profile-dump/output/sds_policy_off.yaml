@@ -305,7 +305,7 @@ values:
     operatorManageWebhooks: false
     outboundTrafficPolicy:
       mode: ALLOW_ANY
-    pilotCertProvider: kubernetes
+    pilotCertProvider: citadel
     policyCheckFailOpen: false
     priorityClassName: ""
     proxy:

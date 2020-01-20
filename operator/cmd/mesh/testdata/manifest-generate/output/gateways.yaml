@@ -121,6 +121,8 @@ spec:
         - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
+        - name: PILOT_CERT_PROVIDER
+          value: citadel
         - name: ISTIO_META_USER_SDS
           value: "true"
         - name: CA_ADDR
@@ -214,6 +216,8 @@ spec:
             cpu: 111m
             memory: 222Mi
         volumeMounts:
+        - mountPath: /etc/istio/citadel-ca-cert
+          name: citadel-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
@@ -230,6 +234,9 @@ spec:
           readOnly: true
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
+      - configMap:
+          name: istio-ca-root-cert
+        name: citadel-ca-cert
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token
@@ -529,6 +536,8 @@ spec:
               memory: 128Mi
             
           env:
+          - name: PILOT_CERT_PROVIDER
+            value: citadel
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
@@ -588,6 +597,8 @@ spec:
           - name: SDS_ENABLED
             value: "false"
           volumeMounts:
+          - mountPath: /etc/istio/citadel-ca-cert
+            name: citadel-ca-cert
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
@@ -604,6 +615,9 @@ spec:
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
       volumes:
+      - name: citadel-ca-cert
+        configMap:
+          name: istio-ca-root-cert
       - name: ingressgatewaysdsudspath
         emptyDir: {}
       - name: istio-token

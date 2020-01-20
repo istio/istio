@@ -202,7 +202,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
-      pilotCertProvider: kubernetes
+      pilotCertProvider: citadel
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
