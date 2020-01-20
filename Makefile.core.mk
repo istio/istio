@@ -322,7 +322,10 @@ lint-go-split:
 	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
 
-lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
+lint-helm-global:
+	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
+
+lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
@@ -335,7 +338,10 @@ go-gen:
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
-gen: go-gen mirror-licenses format update-crds
+gen-charts:
+	@operator/scripts/run_update_charts.sh
+
+gen: go-gen mirror-licenses format update-crds gen-charts
 
 gen-check: gen check-clean-repo
 
@@ -599,7 +605,7 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-one-namespace-trust-domain.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \
-                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml 
+                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools

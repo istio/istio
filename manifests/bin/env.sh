@@ -40,8 +40,9 @@
 
 
 # Allow setting some common per user env.
-if [ -f $HOME/.istio.rc ]; then
-    source $HOME/.istio.rc
+if [ -f "$HOME"/.istio.rc ]; then
+    # shellcheck disable=SC1090
+    source "$HOME"/.istio.rc
 fi
 
 if [ "$TOP" == "" ]; then
@@ -69,7 +70,7 @@ function klog() {
     local container=${3}
     shift; shift; shift
 
-    kubectl --namespace=$ns logs $(kubectl --namespace=$ns get -l $label pod -o=jsonpath='{.items[0].metadata.name}') $container $*
+    kubectl --namespace="$ns" logs "$(kubectl --namespace="$ns" get -l "$label" pod -o=jsonpath='{.items[0].metadata.name}')" "$container" "$*"
 }
 
 # Kubernetes exec wrapper
@@ -82,7 +83,7 @@ function kexec() {
     local container=$3
     shift; shift; shift
 
-    kubectl --namespace=$ns exec -it $(kubectl --namespace=$ns get -l $label pod -o=jsonpath='{.items[0].metadata.name}') -c $container -- $*
+    kubectl --namespace="$ns" exec -it "$(kubectl --namespace="$ns" get -l "$label" pod -o=jsonpath='{.items[0].metadata.name}')" -c "$container" -- "$*"
 }
 
 # Forward port - Namespace, label, PortLocal, PortRemote
@@ -96,49 +97,49 @@ function kfwd() {
 
     local N=$NS-$L
     if [[ -f ${LOG_DIR:-/tmp}/fwd-$N.pid ]] ; then
-        kill -9 $(cat ${LOG_DIR:-/tmp}/fwd-$N.pid)
+        kill -9 "$(cat "${LOG_DIR:-/tmp}"/fwd-"$N".pid)"
     fi
-    kubectl --namespace=$NS port-forward $(kubectl --namespace=$NS get -l $L pod -o=jsonpath='{.items[0].metadata.name}') $PL:$PR &
-    echo $! > ${LOG_DIR:-/tmp}/fwd-$N.pid
+    kubectl --namespace="$NS" port-forward "$(kubectl --namespace="$NS" get -l "$L" pod -o=jsonpath='{.items[0].metadata.name}')" "$PL":"$PR" &
+    echo $! > "${LOG_DIR:-/tmp}"/fwd-"$N".pid
 }
 
 function logs-gateway() {
     istioctl proxy-status -i istio-system
-    klog istio-system app=ingressgateway istio-proxy $*
+    klog istio-system app=ingressgateway istio-proxy "$*"
 }
 
 function exec-gateway() {
-    kexec istio-system app=ingressgateway istio-proxy  $*
+    kexec istio-system app=ingressgateway istio-proxy  "$*"
 }
 function logs-ingress() {
     istioctl proxy-status -i istio-system
-    klog istio-system app=ingressgateway istio-proxy $*
+    klog istio-system app=ingressgateway istio-proxy "$*"
 }
 function exec-ingress() {
-    kexec istio-system app=ingressgateway istio-proxy  $*
+    kexec istio-system app=ingressgateway istio-proxy  "$*"
 }
 
 function logs-inject() {
-    klog istio-system istio=sidecar-injector sidecar-injector-webhook $*
+    klog istio-system istio=sidecar-injector sidecar-injector-webhook "$*"
 }
 
 function logs-pilot() {
-    klog istio-system istio=pilot discovery  $*
+    klog istio-system istio=pilot discovery  "$*"
 }
 
 function logs-fortio() {
-    klog fortio11 app=fortiotls istio-proxy $*
+    klog fortio11 app=fortiotls istio-proxy "$*"
 }
 
 function exec-fortio11-cli-proxy() {
     # curl -v  -k  --key /etc/certs/key.pem --cert /etc/certs/cert-chain.pem https://fortiotls:8080
-    kexec fortio11 app=cli-fortio-tls istio-proxy $*
+    kexec fortio11 app=cli-fortio-tls istio-proxy "$*"
 }
 
 function iop_test_apps() {
-    iop none none ${BASE}/test/none $*
+    iop none none "${BASE}"/test/none "$*"
     kubectl create ns httpbin
-    kubectl -n httpbin apply -f ${BASE}/test/k8s/httpbin.yaml
+    kubectl -n httpbin apply -f "${BASE}"/test/k8s/httpbin.yaml
 }
 
 # Prepare GKE for Lego DNS. You must have a domain, $DNS_PROJECT
@@ -148,12 +149,12 @@ function getCertLegoInit() {
 
  gcloud iam service-accounts create dnsmaster
 
- gcloud projects add-iam-policy-binding $GCP_PROJECT  \
+ gcloud projects add-iam-policy-binding "$GCP_PROJECT"  \
    --member "serviceAccount:dnsmaster@${GCP_PROJECT}.iam.gserviceaccount.com" \
    --role roles/dns.admin
 
- gcloud iam service-accounts keys create $HOME/.ssh/dnsmaster.json \
-    --iam-account dnsmaster@${GCP_PROJECT}.iam.gserviceaccount.com
+ gcloud iam service-accounts keys create "$HOME"/.ssh/dnsmaster.json \
+    --iam-account dnsmaster@"${GCP_PROJECT}".iam.gserviceaccount.com
 
 }
 
@@ -171,8 +172,8 @@ function getCertLego() {
  --dns="gcloud"     \
  --path="${HOME}/.lego"  run
 
- kubectl create -n ${NAMESPACE:-istio-ingress} secret tls istio-ingressgateway-certs --key ${HOME}/.lego/certificates/_.${DOMAIN}.key \
-    --cert ${HOME}/.lego/certificates/_.${DOMAIN}.crt
+ kubectl create -n "${NAMESPACE:-istio-ingress}" secret tls istio-ingressgateway-certs --key "${HOME}"/.lego/certificates/_."${DOMAIN}".key \
+    --cert "${HOME}"/.lego/certificates/_."${DOMAIN}".crt
 
 }
 
@@ -189,21 +190,21 @@ function testCreateDNS() {
 
     local sub=${2:-$ns}
 
-    IP=$(kubectl get -n $ns service ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    IP=$(kubectl get -n "$ns" service ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     echo "Gateway IP: $IP"
 
 
-    gcloud dns --project=$GCP_DNS_PROJECT record-sets transaction start --zone=$DNS_ZONE
+    gcloud dns --project="$GCP_DNS_PROJECT" record-sets transaction start --zone="$DNS_ZONE"
 
-    gcloud dns --project=$GCP_DNS_PROJECT record-sets transaction add \
-        $IP --name=ingress-${ns}.${DOMAIN}. \
-        --ttl=300 --type=A --zone=$DNS_ZONE
+    gcloud dns --project="$GCP_DNS_PROJECT" record-sets transaction add \
+        "$IP" --name=ingress-"${ns}"."${DOMAIN}". \
+        --ttl=300 --type=A --zone="$DNS_ZONE"
 
-    gcloud dns --project=$GCP_DNS_PROJECT record-sets transaction add \
-        ingress-${ns}.${DOMAIN}. --name="*.${sub}.${DOMAIN}." \
-        --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project="$GCP_DNS_PROJECT" record-sets transaction add \
+        ingress-"${ns}"."${DOMAIN}". --name="*.${sub}.${DOMAIN}." \
+        --ttl=300 --type=CNAME --zone="$DNS_ZONE"
 
-    gcloud dns --project=$GCP_DNS_PROJECT record-sets transaction execute --zone=$DNS_ZONE
+    gcloud dns --project="$GCP_DNS_PROJECT" record-sets transaction execute --zone="$DNS_ZONE"
 }
 
 
@@ -212,7 +213,7 @@ function istio-restart() {
     local L=${1:-app=pilot}
     local NS=${2:-istio-system}
 
-    kubectl --namespace=$NS delete po -l $L
+    kubectl --namespace="$NS" delete po -l "$L"
 }
 
 
@@ -221,24 +222,24 @@ function localPilot() {
     PID=${LOG_DIR:-/tmp}/pilot.pid
 
     if [[ -f  $PID ]] ; then
-        kill -9 $(cat ${PID})
+        kill -9 "$(cat "${PID}")"
     fi
-    ${TOP}/out/linux_amd64/release/pilot-discovery discovery \
-        --kubeconfig $KUBECONFIG \
+    "${TOP}"/out/linux_amd64/release/pilot-discovery discovery \
+        --kubeconfig "$KUBECONFIG" \
         --meshConfig test/simple/mesh.yaml \
         --networksConfig test/simple/meshNetworks.yaml &
 
-    echo $! > ${PID}
+    echo $! > "${PID}"
 }
 
 # For testing the config of sidecar
 function localSidecar() {
     BINDIR=${TOP}/out/linux_amd64/release
-    ${BINDIR}/pilot-agent proxy sidecar \
+    "${BINDIR}"/pilot-agent proxy sidecar \
         --domain simple-micro.svc.cluster.local \
-        --configPath ${TOP}/out \
-        --binaryPath ${BINDIR}/envoy \
-        --templateFile ${TOP}/src/istio.io/istio/tools/packaging/common/envoy_bootstrap_v2.json \
+        --configPath "${TOP}"/out \
+        --binaryPath "${BINDIR}"/envoy \
+        --templateFile "${TOP}"/src/istio.io/istio/tools/packaging/common/envoy_bootstrap_v2.json \
         --serviceCluster echosrv.simple-micro \
         --drainDuration 45s --parentShutdownDuration 1m0s \
         --discoveryAddress localhost:15010 \
@@ -259,9 +260,9 @@ function getCerts() {
     local NS=${1:-default}
     local SA=${2:-default}
 
-    kubectl get secret istio.$SA -n $NS -o "jsonpath={.data['key\.pem']}" | base64 -d > /etc/certs/key.pem
-    kubectl get secret istio.$SA -n $NS -o "jsonpath={.data['cert-chain\.pem']}" | base64 -d > /etc/certs/cert-chain.pem
-    kubectl get secret istio.$SA -n $NS -o "jsonpath={.data['root-cert\.pem']}" | base64 -d > /etc/certs/root-cert.pem
+    kubectl get secret istio."$SA" -n "$NS" -o "jsonpath={.data['key\.pem']}" | base64 -d > /etc/certs/key.pem
+    kubectl get secret istio."$SA" -n "$NS" -o "jsonpath={.data['cert-chain\.pem']}" | base64 -d > /etc/certs/cert-chain.pem
+    kubectl get secret istio."$SA" -n "$NS" -o "jsonpath={.data['root-cert\.pem']}" | base64 -d > /etc/certs/root-cert.pem
 }
 
 # For debugging, get the istio CA. Can be used with openssl or other tools to generate certs.
@@ -293,6 +294,6 @@ function istio_cfg() {
     shift
 
 
-    istioctl -i $env proxy-config $cmd $(istioctl -i $env proxy-status | grep $dep | cut -d' ' -f 1) $*
+    istioctl -i "$env" proxy-config "$cmd" "$(istioctl -i "$env" proxy-status | grep "$dep" | cut -d' ' -f 1)" "$*"
 }
 

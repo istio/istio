@@ -155,7 +155,7 @@ func validateType(kind string) error {
 	// Remove any dashes.
 	kind = strings.ReplaceAll(kind, "-", "")
 
-	for _, s := range collections.Istio.All() {
+	for _, s := range collections.Pilot.All() {
 		if strings.EqualFold(kind, s.Resource().Kind()) {
 			targetSchema = s
 			return nil

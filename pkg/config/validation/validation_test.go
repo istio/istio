@@ -16,7 +16,6 @@ package validation
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -2050,10 +2049,9 @@ func TestValidateDestination(t *testing.T) {
 
 func TestValidateHTTPRoute(t *testing.T) {
 	testCases := []struct {
-		name        string
-		route       *networking.HTTPRoute
-		unsaferegex bool
-		valid       bool
+		name  string
+		route *networking.HTTPRoute
+		valid bool
 	}{
 		{name: "empty", route: &networking.HTTPRoute{ // nothing
 		}, valid:                                     false},
@@ -2240,11 +2238,6 @@ func TestValidateHTTPRoute(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		if tc.unsaferegex {
-			_ = os.Setenv("PILOT_ENABLE_UNSAFE_REGEX", "true")
-
-			defer func() { _ = os.Unsetenv("PILOT_ENABLE_UNSAFE_REGEX") }()
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			if err := validateHTTPRoute(tc.route); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
@@ -3975,6 +3968,20 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "allow-rules-nil",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: true,
+		},
+		{
+			name: "deny-rules-nil",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+			},
+			valid: false,
+		},
+		{
 			name: "selector-empty-value",
 			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
@@ -4152,6 +4159,38 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 						When: []*security_beta.Condition{
 							{
 								Key: "source.principal",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "condition-value-invalid",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						When: []*security_beta.Condition{
+							{
+								Key:    "source.ip",
+								Values: []string{"a.b.c.d"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "condition-notValue-invalid",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						When: []*security_beta.Condition{
+							{
+								Key:       "source.ip",
+								NotValues: []string{"a.b.c.d"},
 							},
 						},
 					},

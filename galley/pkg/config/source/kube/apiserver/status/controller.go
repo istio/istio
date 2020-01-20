@@ -78,7 +78,7 @@ func (c *ControllerImpl) Start(p *rt.Provider, resources []collection.Schema) {
 
 		iface, err := p.GetDynamicResourceInterface(r.Resource())
 		if err != nil {
-			scope.Source.Errorf("Unable to create a dynamic resource interface for resource %v", r.Resource().CanonicalName())
+			scope.Source.Errorf("Unable to create a dynamic resource interface for resource %v", r.Resource().GroupVersionKind())
 		}
 		ifaces[r.Name()] = iface
 	}

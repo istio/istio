@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	kubeApiAdmission "k8s.io/api/admission/v1beta1"
@@ -35,11 +34,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/util/pilotadapter"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/config/constants"
@@ -141,7 +142,7 @@ type Webhook struct {
 
 // Reload the server's cert/key for TLS from file and save it for later use by the https server.
 func (wh *Webhook) reloadKeyCert() {
-	pair, err := reloadKeyCert(wh.certFile, wh.keyFile)
+	pair, err := ReloadCertkey(wh.certFile, wh.keyFile)
 	if err != nil {
 		return
 	}
@@ -152,7 +153,7 @@ func (wh *Webhook) reloadKeyCert() {
 }
 
 // Reload the server's cert/key for TLS from file.
-func reloadKeyCert(certFile, keyFile string) (*tls.Certificate, error) {
+func ReloadCertkey(certFile, keyFile string) (*tls.Certificate, error) {
 	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		reportValidationCertKeyUpdateError(err)
@@ -188,11 +189,14 @@ func New(p Options) (*Webhook, error) {
 			validator: p.MixerValidator,
 		}
 
+		p.Mux.HandleFunc("/validate", wh.serveValidate)
+		// old handlers retained backwards compatibility during upgrades
 		p.Mux.HandleFunc("/admitpilot", wh.serveAdmitPilot)
 		p.Mux.HandleFunc("/admitmixer", wh.serveAdmitMixer)
+
 		return wh, nil
 	}
-	pair, err := reloadKeyCert(p.CertFile, p.KeyFile)
+	pair, err := ReloadCertkey(p.CertFile, p.KeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -222,9 +226,11 @@ func New(p Options) (*Webhook, error) {
 	// mtls disabled because apiserver webhook cert usage is still TBD.
 	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
 	h := http.NewServeMux()
+	h.HandleFunc(HTTPSHandlerReadyPath, wh.serveReady)
+	h.HandleFunc("/validate", wh.serveValidate)
+	// old handlers retained backwards compatibility during upgrades
 	h.HandleFunc("/admitpilot", wh.serveAdmitPilot)
 	h.HandleFunc("/admitmixer", wh.serveAdmitMixer)
-	h.HandleFunc(HTTPSHandlerReadyPath, wh.serveReady)
 	wh.server.Handler = h
 
 	return wh, nil
@@ -236,15 +242,6 @@ func (wh *Webhook) Stop() {
 }
 
 var readyHook = func() {}
-
-func isModify(event fsnotify.Event) bool {
-	if event.Op&fsnotify.Write == fsnotify.Write {
-		return true
-	} else if event.Op&fsnotify.Create == fsnotify.Create {
-		return true
-	}
-	return false
-}
 
 // Run implements the webhook server
 func (wh *Webhook) Run(stopCh <-chan struct{}) {
@@ -274,12 +271,12 @@ func (wh *Webhook) Run(stopCh <-chan struct{}) {
 		case <-keyCertTimerC:
 			keyCertTimerC = nil
 			wh.reloadKeyCert()
-		case event, more := <-wh.keyCertWatcher.Events(wh.keyFile):
-			if more && isModify(event) && keyCertTimerC == nil {
+		case <-wh.keyCertWatcher.Events(wh.keyFile):
+			if keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)
 			}
-		case event, more := <-wh.keyCertWatcher.Events(wh.certFile):
-			if more && isModify(event) && keyCertTimerC == nil {
+		case <-wh.keyCertWatcher.Events(wh.certFile):
+			if keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)
 			}
 		case err := <-wh.keyCertWatcher.Errors(wh.keyFile):
@@ -365,6 +362,24 @@ func (wh *Webhook) serveAdmitMixer(w http.ResponseWriter, r *http.Request) {
 	serve(w, r, wh.admitMixer)
 }
 
+func (wh *Webhook) serveValidate(w http.ResponseWriter, r *http.Request) {
+	serve(w, r, wh.validate)
+}
+
+func (wh *Webhook) validate(request *kubeApiAdmission.AdmissionRequest) *kubeApiAdmission.AdmissionResponse {
+	switch request.Kind.Kind {
+	case collections.IstioPolicyV1Beta1Rules.Resource().Kind(),
+		collections.IstioPolicyV1Beta1Attributemanifests.Resource().Kind(),
+		collections.IstioConfigV1Alpha2Adapters.Resource().Kind(),
+		collections.IstioPolicyV1Beta1Handlers.Resource().Kind(),
+		collections.IstioPolicyV1Beta1Instances.Resource().Kind(),
+		collections.IstioConfigV1Alpha2Templates.Resource().Kind():
+		return wh.admitMixer(request)
+	default:
+		return wh.admitPilot(request)
+	}
+}
+
 func (wh *Webhook) admitPilot(request *kubeApiAdmission.AdmissionRequest) *kubeApiAdmission.AdmissionResponse {
 	switch request.Operation {
 	case kubeApiAdmission.Create, kubeApiAdmission.Update:
@@ -381,14 +396,15 @@ func (wh *Webhook) admitPilot(request *kubeApiAdmission.AdmissionRequest) *kubeA
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
-	s, exists := wh.schemas.FindByGroupAndKind(obj.GroupVersionKind().Group, obj.Kind)
+	gvk := obj.GroupVersionKind()
+	s, exists := wh.schemas.FindByGroupVersionKind(resource.FromKubernetesGVK(&gvk))
 	if !exists {
 		scope.Infof("unrecognized type %v", obj.Kind)
 		reportValidationFailed(request, reasonUnknownType)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
 	}
 
-	out, err := pilotadapter.ConvertObjectToConfig(s, &obj, wh.domainSuffix)
+	out, err := crd.ConvertObject(s, &obj, wh.domainSuffix)
 	if err != nil {
 		scope.Infof("error decoding configuration: %v", err)
 		reportValidationFailed(request, reasonCRDConversionError)

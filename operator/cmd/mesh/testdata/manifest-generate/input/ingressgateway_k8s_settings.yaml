@@ -1,0 +1,27 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    pilot:
+      enabled: false
+    policy:
+      enabled: false
+    citadel:
+      enabled: false
+    galley:
+      enabled: false
+    sidecarInjector:
+      enabled: false
+    ingressGateways:
+    - namespace: istio-system
+      name: istio-ingressgateway
+      enabled: true
+      k8s:
+        service:
+          externalTrafficPolicy: Local
+          ports:
+          - name: foo
+            port: 1234
+            targetPort: 1234
+    telemetry:
+      enabled: false

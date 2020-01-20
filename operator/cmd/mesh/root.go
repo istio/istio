@@ -29,7 +29,8 @@ Overrides the corresponding path value in the selected profile or passed through
 customization file`
 	skipConfirmationFlagHelpStr = `skipConfirmation determines whether the user is prompted for confirmation. 
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
-	filenameFlagHelpStr = `Path to file containing IstioOperator CustomResource`
+	filenameFlagHelpStr = `Path to file containing IstioOperator CustomResource
+This flag can be specified multiple times to overlay multiple files. Multiple files are overlaid in left to right order.`
 )
 
 type rootArgs struct {

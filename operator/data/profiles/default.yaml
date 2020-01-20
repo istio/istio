@@ -41,7 +41,7 @@ spec:
             path: /ready
             port: 8080
           initialDelaySeconds: 5
-          periodSeconds: 30
+          periodSeconds: 5
           timeoutSeconds: 5
         resources:
           requests:
@@ -54,7 +54,7 @@ spec:
 
   # Policy feature
     policy:
-      enabled: true
+      enabled: false
       k8s:
         hpaSpec:
           maxReplicas: 5
@@ -202,6 +202,8 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
+      pilotCertProvider: citadel
+      jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"
@@ -269,7 +271,7 @@ spec:
       imagePullPolicy: IfNotPresent
       certificates: []
       operatorManageWebhooks: false
-      controlPlaneSecurityEnabled: true
+      controlPlaneSecurityEnabled: false
       disablePolicyChecks: true
       policyCheckFailOpen: false
       enableTracing: true
@@ -308,7 +310,7 @@ spec:
       defaultPodDisruptionBudget:
         enabled: true
       priorityClassName: ""
-      useMCP: true
+      useMCP: false
       trustDomain: "cluster.local"
       outboundTrafficPolicy:
         mode: ALLOW_ANY
@@ -346,11 +348,10 @@ spec:
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
-        ingressControllerMode: "OFF"
+        ingressControllerMode: "STRICT"
         ingressClass: istio
       policy:
         enabled: false
-      useMCP: true
 
     telemetry:
       enabled: true
@@ -388,7 +389,6 @@ spec:
           latencyThreshold: 100ms
         reportBatchMaxEntries: 100
         reportBatchMaxTime: 1s
-        useMCP: true
         env:
           GOMAXPROCS: "6"
         nodeSelector: {}

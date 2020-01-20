@@ -27,7 +27,7 @@ type Config struct {
 	Cfg       bookInfoConfig
 }
 
-// DeployOrFail returns a new instance of deployed BookInfo or fails test
+// Deploy returns a new instance of deployed BookInfo
 func Deploy(ctx resource.Context, cfg Config) (i deployment.Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 

@@ -27,6 +27,8 @@ import (
 	"regexp"
 	"strconv"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/kylelemons/godebug/pretty"
 
 	"istio.io/istio/operator/pkg/util"
@@ -177,11 +179,60 @@ func WriteNode(root interface{}, path util.Path, value interface{}) error {
 	if err != nil {
 		return err
 	}
-	return WritePathContext(pc, value)
+	return WritePathContext(pc, value, false)
+}
+
+// MergeNode merges value to the tree in root at the given path, creating any required missing internal nodes in path.
+func MergeNode(root interface{}, path util.Path, value interface{}) error {
+	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
+	if err != nil {
+		return err
+	}
+	return WritePathContext(pc, value, true)
+}
+
+// mergeConditional returns a merge of newVal and originalVal if merge is true, otherwise it returns newVal.
+func mergeConditional(newVal, originalVal interface{}, merge bool) (interface{}, error) {
+	if !merge || util.IsValueNilOrDefault(originalVal) {
+		return newVal, nil
+	}
+	newS, err := yaml.Marshal(newVal)
+	if err != nil {
+		return nil, err
+	}
+	if util.IsYAMLEmpty(string(newS)) {
+		return originalVal, nil
+	}
+	originalS, err := yaml.Marshal(originalVal)
+	if err != nil {
+		return nil, err
+	}
+	if util.IsYAMLEmpty(string(originalS)) {
+		return newVal, nil
+	}
+
+	mergedS, err := util.OverlayYAML(string(originalS), string(newS))
+	if err != nil {
+		return nil, err
+	}
+	if util.IsMap(originalVal) {
+		// For JSON compatibility
+		out := make(map[string]interface{})
+		if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
+			return nil, err
+		}
+		return out, nil
+	}
+	// For scalars and slices, copy the type
+	out := originalVal
+	if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // WritePathContext writes the given value to the Node in the given PathContext.
-func WritePathContext(nc *PathContext, value interface{}) error {
+func WritePathContext(nc *PathContext, value interface{}, merge bool) error {
 	scope.Debugf("WritePathContext PathContext=%s, value=%v", nc, value)
 
 	switch {
@@ -192,7 +243,7 @@ func WritePathContext(nc *PathContext, value interface{}) error {
 			if err := util.DeleteFromSlicePtr(nc.Parent.Node, nc.Parent.KeyToChild.(int)); err != nil {
 				return err
 			}
-			// FIXME
+			// FIXME: assumes parent is a map, will not work if it is a slice.
 			if isMapOrInterface(nc.Parent.Parent.Node) {
 				if err := util.InsertIntoMap(nc.Parent.Parent.Node, nc.Parent.Parent.KeyToChild, nc.Parent.Node); err != nil {
 					return err
@@ -208,16 +259,28 @@ func WritePathContext(nc *PathContext, value interface{}) error {
 
 			} else {
 				scope.Debugf("update index %d\n", idx)
-				if err := util.UpdateSlicePtr(nc.Parent.Node, idx, value); err != nil {
+				merged, err := mergeConditional(value, nc.Node, merge)
+				if err != nil {
 					return err
 				}
+				return util.UpdateSlicePtr(nc.Parent.Node, idx, merged)
 			}
 		default:
 			scope.Debug("leaf update")
 			if isMapOrInterface(nc.Parent.Node) {
-				if err := util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, value); err != nil {
+				if isSliceOrPtrInterface(nc.Node) {
+					if isMapOrInterface(nc.Parent.Node) {
+						if err := util.AppendToSlicePtr(nc.Node, value); err != nil {
+							return err
+						}
+						return util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, nc.Node)
+					}
+				}
+				merged, err := mergeConditional(value, nc.Node, merge)
+				if err != nil {
 					return err
 				}
+				return util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, merged)
 			}
 		}
 	}
@@ -250,6 +313,15 @@ func GetNodeByPath(treeNode interface{}, path util.Path) (interface{}, bool) {
 		return nil, false
 	}
 	switch nt := treeNode.(type) {
+	case map[interface{}]interface{}:
+		val := nt[path[0]]
+		if val == nil {
+			return nil, false
+		}
+		if len(path) == 1 {
+			return val, true
+		}
+		return GetNodeByPath(val, path[1:])
 	case map[string]interface{}:
 		val := nt[path[0]]
 		if val == nil {
@@ -260,13 +332,15 @@ func GetNodeByPath(treeNode interface{}, path util.Path) (interface{}, bool) {
 		}
 		return GetNodeByPath(val, path[1:])
 	case []interface{}:
-		for _, nn := range nt {
-			np, found := GetNodeByPath(nn, path)
-			if found {
-				return np, true
-			}
+		idx, err := strconv.Atoi(path[0])
+		if err != nil {
+			return nil, false
 		}
-		return nil, false
+		if idx >= len(nt) {
+			return nil, false
+		}
+		val := nt[idx]
+		return GetNodeByPath(val, path[1:])
 	default:
 		return nil, false
 	}

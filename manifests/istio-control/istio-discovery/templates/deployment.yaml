@@ -98,6 +98,7 @@ spec:
           ports:
           - containerPort: 8080
           - containerPort: 15010
+          - containerPort: 15017
           readinessProbe:
             httpGet:
               path: /ready
@@ -111,6 +112,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -142,8 +145,6 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
 {{- if .Values.global.istiod.enabled }}
-          - name: WEBHOOK
-            value: istio-sidecar-injector
           - name: ISTIOD_ADDR
             value: istio-pilot.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
@@ -159,9 +160,11 @@ spec:
           - name: config-volume
             mountPath: /etc/istio/config
           {{ if .Values.global.istiod.enabled }}
+          {{ if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
+          {{ end }}
           - name: local-certs
             mountPath: /var/run/secrets/istio-dns
           - name: cacerts
@@ -172,6 +175,9 @@ spec:
             readOnly: true
           - name: istiod
             mountPath: /var/lib/istio/local
+            readOnly: true
+          - name: validation
+            mountPath: /var/lib/istio/validation
             readOnly: true
           {{ end }}
 {{- if .Values.global.controlPlaneSecurityEnabled }}
@@ -206,6 +212,8 @@ spec:
           - --log_as_json
         {{- end }}
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
@@ -245,8 +253,10 @@ spec:
           - name: sds-uds-path
             mountPath: /var/run/sds
             readOnly: true
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
 {{- end }}
       volumes:
@@ -256,6 +266,7 @@ spec:
       - emptyDir:
           medium: Memory
         name: local-certs
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -263,6 +274,7 @@ spec:
                 audience: {{ .Values.global.sds.token.aud }}
                 expirationSeconds: 43200
                 path: istio-token
+      {{- end }}
       - name: istiod
         configMap:
           name: istiod
@@ -277,12 +289,17 @@ spec:
         configMap:
           name: istio-sidecar-injector
           optional: true
+      - name: validation
+        configMap:
+          name: istio-validation
+          optional: true
 
       {{ else }}
       {{- if .Values.global.sds.enabled }}
       - hostPath:
           path: /var/run/sds
         name: sds-uds-path
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -290,6 +307,7 @@ spec:
               audience: {{ .Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
+      {{- end }}
       {{- end }}
       {{- end }}
 

@@ -137,6 +137,10 @@ var (
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
 		Build()
+
+	// Pilot contains only collections used by Pilot.
+	Pilot = collection.NewSchemasBuilder().
+		Build()
 )
 `,
 		},

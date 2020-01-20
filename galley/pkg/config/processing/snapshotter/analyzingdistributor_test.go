@@ -386,6 +386,95 @@ func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
 	g.Expect(updaterMessages[0].Resource).To(Equal(r3))
 }
 
+func TestAnalyzeSuppressesMessagesWhenResourceIsAnnotated(t *testing.T) {
+	// AnalyzerMock always throws IST0001.
+	tests := map[string]struct {
+		annotations  map[string]string
+		wantSuppress bool
+	}{
+		"basic match": {
+			annotations: map[string]string{
+				"galley.istio.io/analyze-suppress": "IST0001",
+			},
+			wantSuppress: true,
+		},
+		"non-matching code": {
+			annotations: map[string]string{
+				"galley.istio.io/analyze-suppress": "IST0234",
+			},
+			wantSuppress: false,
+		},
+		"code matches inside list of codes": {
+			annotations: map[string]string{
+				"galley.istio.io/analyze-suppress": "IST123,IST0101,IST0001,BEEF1",
+			},
+			wantSuppress: true,
+		},
+		"invalid suppression format does not suppress": {
+			annotations: map[string]string{
+				"galley.istio.io/analyze-suppress": ",,some text, in here1!,",
+			},
+			wantSuppress: false,
+		},
+		"wrong annotation does not suppress": {
+			annotations: map[string]string{
+				"galley.istio.io/plz-suppress": "IST0001",
+			},
+			wantSuppress: false,
+		},
+		"wildcard matches": {
+			annotations: map[string]string{
+				"galley.istio.io/analyze-suppress": "*",
+			},
+			wantSuppress: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			u := &updaterMock{}
+			r := &resource.Instance{
+				Metadata: resource.Metadata{
+					Annotations: tc.annotations,
+				},
+				Origin: &rt.Origin{
+					Collection: basicmeta.K8SCollection1.Name(),
+					Kind:       "foobar",
+					FullName:   resource.NewFullName("includedNamespace", "r1"),
+				},
+			}
+			a := &analyzerMock{
+				collectionToAccess: basicmeta.K8SCollection1.Name(),
+				resourcesToReport:  []*resource.Instance{r},
+			}
+			d := NewInMemoryDistributor()
+			settings := AnalyzingDistributorSettings{
+				StatusUpdater:      u,
+				Analyzer:           analysis.Combine("testCombined", a),
+				Distributor:        d,
+				AnalysisSnapshots:  []string{snapshots.Default},
+				TriggerSnapshot:    snapshots.Default,
+				CollectionReporter: nil,
+				AnalysisNamespaces: []resource.Namespace{"includedNamespace"},
+			}
+			ad := NewAnalyzingDistributor(settings)
+			sDefault := getTestSnapshot()
+
+			ad.Distribute(snapshots.Default, sDefault)
+
+			g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sDefault))
+			if tc.wantSuppress {
+				g.Expect(u.messages).To(HaveLen(0))
+			} else {
+				g.Expect(u.messages).To(HaveLen(1))
+				g.Expect(u.messages[0].Resource).To(Equal(r))
+			}
+		})
+	}
+
+}
+
 func getTestSnapshot(schemas ...collection.Schema) *Snapshot {
 	c := make([]*coll.Instance, 0)
 	for _, s := range schemas {

@@ -29,10 +29,6 @@ import (
 	binversion "istio.io/istio/operator/version"
 )
 
-const (
-	versionsMapURL = "https://raw.githubusercontent.com/istio/operator/master/data/versions.yaml"
-)
-
 type manifestVersionsArgs struct {
 	// versionsURI is a URI pointing to a YAML formatted versions mapping.
 	versionsURI string
@@ -40,7 +36,7 @@ type manifestVersionsArgs struct {
 
 func addManifestVersionsFlags(cmd *cobra.Command, mvArgs *manifestVersionsArgs) {
 	cmd.PersistentFlags().StringVarP(&mvArgs.versionsURI, "versionsURI", "u",
-		versionsMapURL, "URI for operator versions to Istio versions map")
+		"", "URI for operator versions to Istio versions map")
 }
 
 func manifestVersionsCmd(rootArgs *rootArgs, versionsArgs *manifestVersionsArgs) *cobra.Command {
@@ -124,6 +120,9 @@ func getVersionCompatibleMap(versionsURI string, binVersion *goversion.Version,
 }
 
 func loadCompatibleMapFile(versionsURI string, l *Logger) ([]byte, error) {
+	if versionsURI == "" {
+		return vfs.ReadFile("versions.yaml")
+	}
 	var err error
 	if util.IsHTTPURL(versionsURI) {
 		if b, err := httprequest.Get(versionsURI); err == nil {

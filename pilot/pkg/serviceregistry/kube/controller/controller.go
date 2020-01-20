@@ -848,13 +848,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		}
 	}
 
-	if log.InfoEnabled() {
-		var addresses []string
-		for _, iep := range endpoints {
-			addresses = append(addresses, iep.Address)
-		}
-		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
-	}
+	log.Infof("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
 }

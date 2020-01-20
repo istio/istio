@@ -101,7 +101,11 @@ data:
 
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
+    {{- if .Values.mixer.policy.enabled }}
     disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
+    {{- else }}
+    disablePolicyChecks: true
+    {{- end }}
 
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
@@ -175,7 +179,7 @@ data:
     # TLS settings.
     enableAutoMtls: {{ .Values.global.mtls.auto }}
 
-    {{- if .Values.pilot.useMCP }}
+    {{- if .Values.global.useMCP }}
     configSources:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     - address: localhost:15019

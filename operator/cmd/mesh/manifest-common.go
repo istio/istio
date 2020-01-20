@@ -43,7 +43,7 @@ var (
 	}
 )
 
-func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRun bool, verbose bool,
+func genApplyManifests(setOverlay []string, inFilename []string, force bool, dryRun bool, verbose bool,
 	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
 	overlayFromSet, err := MakeTreeFromSetList(setOverlay, force, l)
 	if err != nil {
@@ -62,6 +62,12 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 		Kubeconfig:  kubeConfigPath,
 		Context:     context,
 	}
+
+	for _, cn := range name.DeprecatedNames {
+		DeprecatedComponentManifest := fmt.Sprintf("# %s component has been deprecated.\n", cn)
+		manifests[cn] = append(manifests[cn], DeprecatedComponentManifest)
+	}
+
 	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, opts)
 	if err != nil {
 		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
@@ -106,7 +112,7 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 }
 
 // GenManifests generate manifest from input file and setOverLay
-func GenManifests(inFilename string, setOverlayYAML string, force bool, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
+func GenManifests(inFilename []string, setOverlayYAML string, force bool, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
 	mergedYAML, err := genProfile(false, inFilename, "", setOverlayYAML, "", force, l)
 	if err != nil {
 		return nil, nil, err

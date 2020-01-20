@@ -23,8 +23,8 @@ import (
 )
 
 func TestManifestMigrate(t *testing.T) {
-    t.Skip("https://github.com/istio/istio/issues/20112")
-    // TODO implement for 1.5
+	t.Skip("https://github.com/istio/istio/issues/20112")
+	// TODO implement for 1.5
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-migrate")
 	tests := []struct {
 		desc string

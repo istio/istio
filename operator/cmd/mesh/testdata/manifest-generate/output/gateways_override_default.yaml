@@ -422,8 +422,6 @@ metadata:
 
 # Base component is disabled.
 
-# CertManager component is disabled.
-
 # Citadel component is disabled.
 
 # Cni component is disabled.
@@ -440,6 +438,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
+    
     release: istio
 spec:
   maxReplicas: 5
@@ -544,6 +543,8 @@ spec:
         - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
+        - name: PILOT_CERT_PROVIDER
+          value: citadel
         - name: ISTIO_META_USER_SDS
           value: "true"
         - name: CA_ADDR
@@ -639,9 +640,13 @@ spec:
             cpu: 111m
             memory: 222Mi
         volumeMounts:
+        - mountPath: /etc/istio/citadel-ca-cert
+          name: citadel-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
+        - mountPath: /var/run/ingress_gateway
+          name: ingressgatewaysdsudspath
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
@@ -653,6 +658,11 @@ spec:
           readOnly: true
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
+      - configMap:
+          name: istio-ca-root-cert
+        name: citadel-ca-cert
+      - emptyDir: {}
+        name: ingressgatewaysdsudspath
       - name: istio-token
         projected:
           sources:
@@ -704,15 +714,17 @@ metadata:
   namespace: istio-ingress-ns
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: istio-ingressgateway
-      release: istio
       istio: ingressgateway
+      
+      release: istio
 ---
 
 
@@ -755,12 +767,15 @@ metadata:
   annotations:
   labels:
     app: istio-ingressgateway
-    release: istio
     istio: ingressgateway
+    
+    release: istio
 spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
   ports:
     -
       name: status-port
@@ -803,6 +818,8 @@ metadata:
   namespace: istio-ingress-ns
   labels:
     app: istio-ingressgateway
+    istio: ingressgateway
+    
     release: istio
 ---
 
