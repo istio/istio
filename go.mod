@@ -16,10 +16,11 @@ require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
 	fortio.org/fortio v1.3.1
+	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/Masterminds/semver v1.4.2
 	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
-	github.com/Microsoft/go-winio v0.4.12 // indirect
+	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/SAP/go-hdb v0.14.1 // indirect
 	github.com/SermoDigital/jose v0.9.1 // indirect
@@ -35,9 +36,10 @@ require (
 	github.com/cenkalti/backoff v2.0.0+incompatible
 	github.com/census-instrumentation/opencensus-proto v0.2.1
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
+	github.com/circonus-labs/circonusllhist v0.1.4 // indirect
 	github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
-	github.com/containerd/containerd v1.3.0 // indirect
+	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc // indirect
 	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-oidc v2.1.0+incompatible
@@ -66,11 +68,13 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-logr/zapr v0.1.1 // indirect
+	github.com/go-openapi/spec v0.19.5 // indirect
+	github.com/go-openapi/swag v0.19.6 // indirect
 	github.com/go-redis/redis v6.10.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
-	github.com/gogo/protobuf v1.3.0
+	github.com/gogo/protobuf v1.3.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/protobuf v1.3.2
@@ -90,28 +94,31 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20171214222146-0e7658f8ee99
-	github.com/hashicorp/consul v1.3.0
+	github.com/hashicorp/consul v1.3.1
+	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-hclog v0.9.0 // indirect
 	github.com/hashicorp/go-memdb v1.0.1 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/hashicorp/go-plugin v1.0.0 // indirect
+	github.com/hashicorp/go-retryablehttp v0.5.4 // indirect
 	github.com/hashicorp/go-rootcerts v0.0.0-20160503143440-6bb64b370b90 // indirect
-	github.com/hashicorp/go-uuid v1.0.1 // indirect
+	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/go-version v1.2.0
-	github.com/hashicorp/memberlist v0.1.3 // indirect
-	github.com/hashicorp/serf v0.8.1 // indirect
-	github.com/hashicorp/vault v0.10.0
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/hashicorp/serf v0.8.5 // indirect
+	github.com/hashicorp/vault v0.10.4
 	github.com/howeyc/fsnotify v0.9.0
-	github.com/huandu/xstrings v1.2.0 // indirect
-	github.com/imdario/mergo v0.3.7 // indirect
+	github.com/huandu/xstrings v1.2.1 // indirect
+	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jefferai/jsonx v1.0.0 // indirect
+	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 // indirect
 	github.com/kr/pretty v0.1.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v0.9.0
 	github.com/lib/pq v1.2.0 // indirect
-	github.com/mattn/go-isatty v0.0.10
+	github.com/mattn/go-isatty v0.0.11
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -120,7 +127,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/nwaples/rardecode v1.0.0 // indirect
-	github.com/onsi/gomega v1.7.0
+	github.com/onsi/gomega v1.7.1
 	github.com/open-policy-agent/opa v0.8.2
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.1.1 // indirect
@@ -138,10 +145,12 @@ require (
 	github.com/prometheus/client_golang v1.1.0
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.6.0
-	github.com/prometheus/prom2json v1.2.1
+	github.com/prometheus/procfs v0.0.8 // indirect
+	github.com/prometheus/prom2json v1.2.2
 	github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db
 	github.com/satori/go.uuid v1.2.0
 	github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317 // indirect
+	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
@@ -159,7 +168,6 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	golang.org/x/sys v0.0.0-20191010194322-b09406accb47 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	golang.org/x/tools v0.0.0-20190920225731-5eefd052ad72
 	google.golang.org/api v0.8.0
@@ -169,7 +177,7 @@ require (
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
 	gopkg.in/ory-am/dockertest.v3 v3.3.4 // indirect
 	gopkg.in/square/go-jose.v2 v2.3.1
-	gopkg.in/yaml.v2 v2.2.4
+	gopkg.in/yaml.v2 v2.2.7
 	istio.io/api v0.0.0-20200117194847-776c2d7b730b
 	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
 	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca
