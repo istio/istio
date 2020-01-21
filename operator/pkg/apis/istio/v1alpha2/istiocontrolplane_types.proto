@@ -27,7 +27,7 @@ import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 // TODO: for some reason the below fails proto compilation in this repo.
 // https://github.com/istio/istio/issues/16899
 // package istio.operator.v1alpha2;
-// option go_package="istio.io/operator/pkg/apis/istio/v1alpha2";
+// option go_package="istio.io/istio/operator/pkg/apis/istio/v1alpha2";
 
 // IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
 // Running the operator with an empty user defined InstallSpec results in an control plane with default values, using the

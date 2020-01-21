@@ -25,8 +25,8 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
-	"istio.io/operator/pkg/object"
-	"istio.io/operator/pkg/util"
+	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/util"
 )
 
 func TestDeepCopy(t *testing.T) {
