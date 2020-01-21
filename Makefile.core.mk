@@ -215,7 +215,7 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
 	ISTIO_OUT=$(ISTIO_OUT) ISTIO_BIN=$(ISTIO_BIN) bin/init.sh
 	touch $(ISTIO_OUT)/istio_is_init
 
-# init.sh downloads envoy
+# init.sh downloads envoy and webassembly plugins
 ${ISTIO_OUT}/envoy: init
 ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
