@@ -433,6 +433,9 @@ func TestApplyNonIncrementalChange(t *testing.T) {
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 
 	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 
@@ -476,6 +479,9 @@ func TestApplyNonIncrementalAnnotations(t *testing.T) {
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	steps := []struct {
@@ -544,6 +550,9 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 
 	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 
@@ -658,6 +667,9 @@ func TestApplyIncrementalChange(t *testing.T) {
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 
 	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 
@@ -712,6 +724,9 @@ func TestApplyIncrementalChangeEndpiontVersionWithoutServiceVersion(t *testing.T
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 
 	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 
@@ -751,6 +766,7 @@ func TestApplyIncrementalChangeEndpiontVersionWithoutServiceVersion(t *testing.T
 	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se"))
 
 	update = <-fx.Events
+	t.Logf("len() %d", len(fx.Events))
 	g.Expect(update).To(gomega.Equal("EDSUpdate"))
 
 }
@@ -762,7 +778,9 @@ func TestApplyIncrementalChangesAnnotations(t *testing.T) {
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
-
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	steps := []struct {

@@ -222,7 +222,13 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_metrics", m).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+components:
+  policy:
+    enabled: true`
+		})).
 		Setup(testsetup).
 		Run()
 }

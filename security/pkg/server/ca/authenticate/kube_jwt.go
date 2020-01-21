@@ -30,17 +30,18 @@ const (
 )
 
 type tokenReviewClient interface {
-	ValidateK8sJwt(targetJWT string) ([]string, error)
+	ValidateK8sJwt(targetJWT, jwtPolicy string) ([]string, error)
 }
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
 type KubeJWTAuthenticator struct {
 	client      tokenReviewClient
 	trustDomain string
+	jwtPolicy   string
 }
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
-func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain string) (*KubeJWTAuthenticator, error) {
+func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain, jwtPolicy string) (*KubeJWTAuthenticator, error) {
 	// Read the CA certificate of the k8s apiserver
 	caCert, err := ioutil.ReadFile(caCertPath)
 	if err != nil {
@@ -53,6 +54,7 @@ func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain s
 	return &KubeJWTAuthenticator{
 		client:      tokenreview.NewK8sSvcAcctAuthn(k8sAPIServerURL, caCert, string(reviewerJWT)),
 		trustDomain: trustDomain,
+		jwtPolicy:   jwtPolicy,
 	}, nil
 }
 
@@ -67,7 +69,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	if err != nil {
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
-	id, err := a.client.ValidateK8sJwt(targetJWT)
+	id, err := a.client.ValidateK8sJwt(targetJWT, a.jwtPolicy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate the JWT: %v", err)
 	}

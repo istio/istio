@@ -46,6 +46,7 @@ spec:
       - hostPath:
           path: /var/run/sds
         name: sds-uds-path
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -53,6 +54,7 @@ spec:
               audience: {{ .Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
+      {{- end }}
       {{- end }}
       - name: uds-socket
         emptyDir: {}
@@ -218,8 +220,10 @@ spec:
         - name: sds-uds-path
           mountPath: /var/run/sds
           readOnly: true
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - name: istio-token
           mountPath: /var/run/secrets/tokens
+        {{- end }}
         {{- end }}
         - name: uds-socket
           mountPath: /sock
