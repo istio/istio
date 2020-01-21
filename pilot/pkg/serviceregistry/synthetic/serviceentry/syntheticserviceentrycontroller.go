@@ -225,14 +225,6 @@ func (c *SyntheticServiceEntryController) removeConfig(configName []string) {
 			namespacesUpdated[namespace] = struct{}{}
 		}
 	}
-
-	if c.XDSUpdater != nil {
-		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:               true,
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{sse.Resource().GroupVersionKind(): {}},
-			NamespacesUpdated:  namespacesUpdated,
-		})
-	}
 }
 
 func (c *SyntheticServiceEntryController) convertToConfig(obj *sink.Object) (conf *model.Config, err error) {
@@ -302,19 +294,6 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 	c.configStore = configs
 	c.configStoreMu.Unlock()
 
-	// TODO: Service change is not triggering full update in the e-e-pilot test. Even endpoint change is not
-	// functioning correctly. Currently it is working because on edsUpdate if we set endpoints to 0, we remove
-	// the service from EndpointShardsByService and subsequent eds updates trigger a full push. That is being
-	// fixed in https://github.com/istio/istio/pull/18574. Need to fix this issue and re-enable conditional
-	// full push. For now, any configupdate triggers a full push much like service entries.
-	if c.XDSUpdater != nil {
-		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:               true,
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{sse.Resource().GroupVersionKind(): {}},
-			NamespacesUpdated:  svcChangeByNamespace,
-		})
-	}
-
 }
 
 func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Object) {
@@ -354,15 +333,6 @@ func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Ob
 			if err := c.edsUpdate(conf); err != nil {
 				log.Warnf("edsUpdate: %v", err)
 			}
-		}
-	}
-	if len(svcChangeByNamespace) != 0 {
-		if c.XDSUpdater != nil {
-			c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:               true,
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{sse.Resource().GroupVersionKind(): {}},
-				NamespacesUpdated:  svcChangeByNamespace,
-			})
 		}
 	}
 }
