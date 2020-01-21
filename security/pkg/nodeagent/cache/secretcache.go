@@ -77,8 +77,8 @@ const (
 	// The well-known path for an existing key file
 	existingKeyFile = "./etc/certs/key.pem"
 
-	// The well-known path for an existing root certificate file
-	existingRootCertFile = "./etc/certs/root-cert.pem"
+	// ExistingRootCertFile is the well-known path for an existing root certificate file
+	ExistingRootCertFile = "./etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
@@ -115,6 +115,9 @@ type Options struct {
 
 	// set this flag to true if skip validate format for certificate chain returned from CA.
 	SkipValidateCert bool
+
+	// Whether to generate PKCS#8 private keys.
+	Pkcs8Keys bool
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -224,9 +227,9 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	// the files under the well known path.
 	sdsFromFile := false
 	var err error
-	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(existingRootCertFile) {
+	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(ExistingRootCertFile) {
 		sdsFromFile = true
-		ns, err = sc.generateRootCertFromExistingFile(existingRootCertFile, token, connKey)
+		ns, err = sc.generateRootCertFromExistingFile(ExistingRootCertFile, token, connKey)
 	} else if connKey.ResourceName == WorkloadKeyCertResourceName &&
 		sc.keyCertificateExist(existingCertChainFile, existingKeyFile) {
 		sdsFromFile = true
@@ -718,6 +721,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	options := util.CertOptions{
 		Host:       csrHostName,
 		RSAKeySize: keySize,
+		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 	}
 
 	// Generate the cert/key, send CSR to CA.

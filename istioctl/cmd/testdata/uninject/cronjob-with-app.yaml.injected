@@ -80,8 +80,14 @@ spec:
                 cpu: 10m
                 memory: 30Mi
             securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
               privileged: false
               readOnlyRootFilesystem: true
+              runAsGroup: 1337
+              runAsNonRoot: true
               runAsUser: 1337
             volumeMounts:
             - mountPath: /etc/istio/proxy
@@ -110,9 +116,18 @@ spec:
             name: istio-init
             resources: {}
             securityContext:
+              allowPrivilegeEscalation: false
               capabilities:
                 add:
                 - NET_ADMIN
+                - NET_RAW
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: false
+              runAsGroup: 0
+              runAsNonRoot: false
+              runAsUser: 0
           restartPolicy: OnFailure
           volumes:
           - emptyDir:

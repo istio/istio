@@ -22,7 +22,7 @@ import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/testdatasets/validation"
 	"istio.io/istio/pkg/test/util/yml"
 
@@ -165,8 +165,8 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 
 			recognized := make(map[string]struct{})
 
-			for _, r := range metadata.MustGet().KubeSource().Resources() {
-				s := strings.Join([]string{r.Group, r.Version, r.Kind}, "/")
+			for _, r := range schema.MustGet().KubeCollections().All() {
+				s := strings.Join([]string{r.Resource().Group(), r.Resource().Version(), r.Resource().Kind()}, "/")
 				recognized[s] = struct{}{}
 			}
 

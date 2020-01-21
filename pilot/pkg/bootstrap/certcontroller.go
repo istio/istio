@@ -15,15 +15,19 @@
 package bootstrap
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
-	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/security/pkg/k8s/chiron"
 )
 
 const (
@@ -43,8 +47,11 @@ var (
 	// dnsCertDir is the location to save generated DNS certificates.
 	// TODO: we can probably avoid saving, but will require deeper changes.
 	dnsCertDir  = "./var/run/secrets/istio-dns"
-	dnsKeyFile  = path.Join(dnsCertDir, "key.pem")
-	dnsCertFile = path.Join(dnsCertDir, "cert-chain.pem")
+	dnsKeyFile  = "./" + filepath.Join(dnsCertDir, "key.pem")
+	dnsCertFile = "./" + filepath.Join(dnsCertDir, "cert-chain.pem")
+
+	KubernetesCAProvider = "kubernetes"
+	CitadelCAProvider    = "citadel"
 )
 
 // CertController can create certificates signed by K8S server.
@@ -54,7 +61,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 
 	meshConfig := s.environment.Mesh()
 	if meshConfig.GetCertificates() == nil || len(meshConfig.GetCertificates()) == 0 {
-		log.Info("nil certificate config")
+		log.Info("No certificates specified, skipping DNS certificate controller")
 		return nil
 	}
 
@@ -92,7 +99,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	return nil
 }
 
-// initDNSCerts will create the certificates to be used by Istiod GRPC server and webhooks, signed by K8S server.
+// initDNSCerts will create the certificates to be used by Istiod GRPC server and webhooks.
 // If the certificate creation fails - for example no support in K8S - returns an error.
 // Will use the mesh.yaml DiscoveryAddress to find the default expected address of the control plane,
 // with an environment variable allowing override.
@@ -129,18 +136,70 @@ func (s *Server) initDNSCerts(hostname string) error {
 		names = append(names, "istio-pilot.istio-system.svc")
 	}
 
-	log.Infoa("Generating K8S-signed cert for ", names)
+	var certChain, keyPEM []byte
+	var err error
+	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+		log.Infof("Generating K8S-signed cert for %v", names)
+		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
+			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
 
-	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
-	certChain, keyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
-		strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
+		s.caBundlePath = defaultCACertPath
+	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
+		log.Infof("Generating Citadel-signed cert for %v", names)
+		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
+
+		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		if _, err := os.Stat(signingKeyFile); err != nil {
+			// When Citadel is configured to use self-signed certs, keep a local copy so other
+			// components can load it via file (e.g. webhook config controller).
+			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
+				return err
+			}
+			// We have direct access to the self-signed
+			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
+
+			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+				return err
+			}
+
+			s.addStartFunc(func(stop <-chan struct{}) error {
+				go func() {
+					for {
+						select {
+						case <-stop:
+							return
+						case <-time.After(namespaceResyncPeriod):
+							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+							if !bytes.Equal(rootCert, newRootCert) {
+								rootCert = newRootCert
+								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+									log.Errorf("Failed to update local copy of self-signed root: %v", err)
+								} else {
+									log.Info("Updtaed local copy of self-signed root")
+								}
+							}
+						}
+					}
+				}()
+				return nil
+			})
+			s.caBundlePath = internalSelfSignedRootPath
+		} else {
+			s.caBundlePath = path.Join(localCertDir.Get(), "cert-chain.pem")
+		}
+
+	} else {
+		log.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
+		err = fmt.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
+	}
 	if err != nil {
 		return err
 	}
 
 	// Save the certificates to ./var/run/secrets/istio-dns - this is needed since most of the code we currently
 	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
-	if err := os.MkdirAll(dnsCertDir, 0600); err != nil {
+	if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
 		return err
 	}
 	err = ioutil.WriteFile(dnsKeyFile, keyPEM, 0600)

@@ -17,6 +17,7 @@ package memory_test
 import (
 	"testing"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/test/mock"
 )
@@ -27,20 +28,20 @@ const (
 )
 
 func TestControllerEvents(t *testing.T) {
-	store := memory.Make(mock.Types)
+	store := memory.Make(collections.Mocks)
 	ctl := memory.NewController(store)
 	// Note that the operations must go through the controller since the store does not trigger back events
 	mock.CheckCacheEvents(ctl, ctl, TestNamespace, 5, t)
 }
 
 func TestControllerCacheFreshness(t *testing.T) {
-	store := memory.Make(mock.Types)
+	store := memory.Make(collections.Mocks)
 	ctl := memory.NewController(store)
 	mock.CheckCacheFreshness(ctl, TestNamespace, t)
 }
 
 func TestControllerClientSync(t *testing.T) {
-	store := memory.Make(mock.Types)
+	store := memory.Make(collections.Mocks)
 	ctl := memory.NewController(store)
 	mock.CheckCacheSync(store, ctl, TestNamespace, 5, t)
 }

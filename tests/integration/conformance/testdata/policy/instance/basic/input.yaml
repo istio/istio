@@ -4,4 +4,3 @@ metadata:
   name: idynlistentry1
 spec:
   template: listentry
-  params:

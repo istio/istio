@@ -17,20 +17,22 @@ package model
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -66,21 +68,21 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:               push0,
 				Start:              t0,
 				NamespacesUpdated:  map[string]struct{}{"ns1": {}},
-				ConfigTypesUpdated: map[string]struct{}{"cfg1": {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg1"}: {}},
 			},
 			&PushRequest{
 				Full:               false,
 				Push:               push1,
 				Start:              t1,
 				NamespacesUpdated:  map[string]struct{}{"ns2": {}},
-				ConfigTypesUpdated: map[string]struct{}{"cfg2": {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg2"}: {}},
 			},
 			PushRequest{
 				Full:               true,
 				Push:               push1,
 				Start:              t0,
 				NamespacesUpdated:  map[string]struct{}{"ns1": {}, "ns2": {}},
-				ConfigTypesUpdated: map[string]struct{}{"cfg1": {}, "cfg2": {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg1"}: {}, resource.GroupVersionKind{Kind: "cfg2"}: {}},
 			},
 		},
 		{
@@ -116,7 +118,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigTypesUpdated: nil},
-			&PushRequest{Full: true, ConfigTypesUpdated: map[string]struct{}{"cfg2": {}}},
+			&PushRequest{Full: true, ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg2"}: {}}},
 			PushRequest{Full: true, ConfigTypesUpdated: nil},
 		},
 	}
@@ -195,10 +197,10 @@ func TestAuthNPolicies(t *testing.T) {
 	for key, value := range authNPolicies {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
-				Type:      schemas.AuthenticationPolicy.Type,
+				Type:      collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
+				Group:     collections.IstioAuthenticationV1Alpha1Policies.Resource().Group(),
+				Version:   collections.IstioAuthenticationV1Alpha1Policies.Resource().Version(),
 				Name:      key,
-				Group:     "authentication",
-				Version:   "v1alpha2",
 				Domain:    "cluster.local",
 				Namespace: testNamespace,
 			},
@@ -221,10 +223,10 @@ func TestAuthNPolicies(t *testing.T) {
 	}
 	globalCfg := Config{
 		ConfigMeta: ConfigMeta{
-			Type:    schemas.AuthenticationMeshPolicy.Type,
+			Type:    collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(),
+			Group:   collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Group(),
+			Version: collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Version(),
 			Name:    constants.DefaultAuthenticationPolicyName,
-			Group:   "authentication",
-			Version: "v1alpha2",
 			Domain:  "cluster.local",
 		},
 		Spec: globalPolicy,
@@ -371,8 +373,6 @@ func TestJwtAuthNPolicy(t *testing.T) {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
 				Name:      key,
-				Group:     "authentication",
-				Version:   "v1alpha2",
 				Domain:    "cluster.local",
 				Namespace: "default",
 			},
@@ -380,10 +380,14 @@ func TestJwtAuthNPolicy(t *testing.T) {
 		}
 		if key == constants.DefaultAuthenticationPolicyName {
 			// Cluster-scoped policy
-			cfg.ConfigMeta.Type = schemas.AuthenticationMeshPolicy.Type
+			cfg.ConfigMeta.Type = collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind()
+			cfg.ConfigMeta.Version = collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Version()
+			cfg.ConfigMeta.Group = collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Group()
 			cfg.ConfigMeta.Namespace = NamespaceAll
 		} else {
-			cfg.ConfigMeta.Type = schemas.AuthenticationPolicy.Type
+			cfg.ConfigMeta.Type = collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind()
+			cfg.ConfigMeta.Version = collections.IstioAuthenticationV1Alpha1Policies.Resource().Version()
+			cfg.ConfigMeta.Group = collections.IstioAuthenticationV1Alpha1Policies.Resource().Group()
 		}
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Error(err)
@@ -426,6 +430,7 @@ func TestJwtAuthNPolicy(t *testing.T) {
 			Attributes: ServiceAttributes{Namespace: c.namespace},
 		}
 
+		// nolint: staticcheck
 		if got, _ := ps.AuthenticationPolicyForWorkload(service, &c.port); got.GetOrigins()[0].GetJwt().GetJwksUri() != c.expectedJwksURI {
 			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%v: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, c.expectedJwksURI)
 		}
@@ -433,10 +438,37 @@ func TestJwtAuthNPolicy(t *testing.T) {
 }
 
 func TestEnvoyFilters(t *testing.T) {
+	proxyVersionRegex := regexp.MustCompile(`1\.4.*`)
 	envoyFilters := []*EnvoyFilterWrapper{
 		{
 			workloadSelector: map[string]string{"app": "v1"},
-			Patches:          nil,
+			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
+				networking.EnvoyFilter_LISTENER: {
+					{
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{
+								ProxyVersion: "1\\.4.*",
+							},
+						},
+						ProxyVersionRegex: proxyVersionRegex,
+					},
+				},
+			},
+		},
+		{
+			workloadSelector: map[string]string{"app": "v1"},
+			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
+				networking.EnvoyFilter_CLUSTER: {
+					{
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{
+								ProxyVersion: `1\\.4.*`,
+							},
+						},
+						ProxyVersionRegex: proxyVersionRegex,
+					},
+				},
+			},
 		},
 	}
 
@@ -451,43 +483,82 @@ func TestEnvoyFilters(t *testing.T) {
 	}
 
 	cases := []struct {
-		name     string
-		proxy    *Proxy
-		expected int
+		name                    string
+		proxy                   *Proxy
+		expectedListenerPatches int
+		expectedClusterPatches  int
 	}{
 		{
-			name:     "proxy matches two envoyfilters",
-			proxy:    &Proxy{ConfigNamespace: "test-ns", WorkloadLabels: labels.Collection{{"app": "v1"}}},
-			expected: 2,
+			name: "proxy matches two envoyfilters",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "test-ns",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
+			expectedListenerPatches: 2,
+			expectedClusterPatches:  2,
 		},
 		{
-			name:     "proxy in root namespace matches an envoyfilter",
-			proxy:    &Proxy{ConfigNamespace: "istio-system", WorkloadLabels: labels.Collection{{"app": "v1"}}},
-			expected: 1,
+			name: "proxy in root namespace matches an envoyfilter",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "istio-system",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
+			expectedListenerPatches: 1,
+			expectedClusterPatches:  1,
 		},
 
 		{
-			name:     "proxy matches no envoyfilter",
-			proxy:    &Proxy{ConfigNamespace: "test-ns", WorkloadLabels: labels.Collection{{"app": "v2"}}},
-			expected: 0,
+			name: "proxy matches no envoyfilter",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "test-ns",
+				WorkloadLabels:  labels.Collection{{"app": "v2"}},
+			},
+			expectedListenerPatches: 0,
+			expectedClusterPatches:  0,
 		},
 
 		{
-			name:     "proxy matches envoyfilter in root ns",
-			proxy:    &Proxy{ConfigNamespace: "test-n2", WorkloadLabels: labels.Collection{{"app": "v1"}}},
-			expected: 1,
+			name: "proxy matches envoyfilter in root ns",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "test-n2",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
+			expectedListenerPatches: 1,
+			expectedClusterPatches:  1,
+		},
+		{
+			name: "proxy version matches no envoyfilters",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.3.0"},
+				ConfigNamespace: "test-ns",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
+			expectedListenerPatches: 0,
+			expectedClusterPatches:  0,
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			filters := push.EnvoyFilters(tt.proxy)
-			if len(filters) != tt.expected {
-				t.Errorf("Expect %d envoy filters, but got %d", len(filters), tt.expected)
+			filter := push.EnvoyFilters(tt.proxy)
+			if filter == nil {
+				if tt.expectedClusterPatches != 0 || tt.expectedListenerPatches != 0 {
+					t.Errorf("Got no envoy filter")
+				}
+				return
+			}
+			if len(filter.Patches[networking.EnvoyFilter_CLUSTER]) != tt.expectedClusterPatches {
+				t.Errorf("Expect %d envoy filter cluster patches, but got %d", tt.expectedClusterPatches, len(filter.Patches[networking.EnvoyFilter_CLUSTER]))
+			}
+			if len(filter.Patches[networking.EnvoyFilter_LISTENER]) != tt.expectedListenerPatches {
+				t.Errorf("Expect %d envoy filter listener patches, but got %d", tt.expectedListenerPatches, len(filter.Patches[networking.EnvoyFilter_LISTENER]))
 			}
 		})
 	}
-
 }
 
 func TestSidecarScope(t *testing.T) {
@@ -520,9 +591,9 @@ func TestSidecarScope(t *testing.T) {
 	}
 	configWithWorkloadSelector := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      schemas.Sidecar.Type,
-			Group:     schemas.Sidecar.Group,
-			Version:   schemas.Sidecar.Version,
+			Type:      collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(),
+			Group:     collections.IstioNetworkingV1Alpha3Sidecars.Resource().Group(),
+			Version:   collections.IstioNetworkingV1Alpha3Sidecars.Resource().Version(),
 			Name:      "foo",
 			Namespace: "default",
 		},
@@ -530,9 +601,9 @@ func TestSidecarScope(t *testing.T) {
 	}
 	rootConfig := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      schemas.Sidecar.Type,
-			Group:     schemas.Sidecar.Group,
-			Version:   schemas.Sidecar.Version,
+			Type:      collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(),
+			Group:     collections.IstioNetworkingV1Alpha3Sidecars.Resource().Group(),
+			Version:   collections.IstioNetworkingV1Alpha3Sidecars.Resource().Version(),
 			Name:      "global",
 			Namespace: "istio-system",
 		},
@@ -588,25 +659,25 @@ func scopeToSidecar(scope *SidecarScope) string {
 }
 
 type fakeStore struct {
-	store map[string]map[string][]Config
+	store map[resource.GroupVersionKind]map[string][]Config
 }
 
 func newFakeStore() *fakeStore {
 	f := fakeStore{
-		store: make(map[string]map[string][]Config),
+		store: make(map[resource.GroupVersionKind]map[string][]Config),
 	}
 	return &f
 }
 
 var _ ConfigStore = (*fakeStore)(nil)
 
-func (*fakeStore) ConfigDescriptor() schema.Set {
-	return schemas.Istio
+func (*fakeStore) Schemas() collection.Schemas {
+	return collections.Pilot
 }
 
-func (*fakeStore) Get(typ, name, namespace string) *Config { return nil }
+func (*fakeStore) Get(typ resource.GroupVersionKind, name, namespace string) *Config { return nil }
 
-func (s *fakeStore) List(typ, namespace string) ([]Config, error) {
+func (s *fakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
 	nsConfigs := s.store[typ]
 	if nsConfigs == nil {
 		return nil, nil
@@ -622,18 +693,18 @@ func (s *fakeStore) List(typ, namespace string) ([]Config, error) {
 }
 
 func (s *fakeStore) Create(config Config) (revision string, err error) {
-	configs := s.store[config.Type]
+	configs := s.store[config.GroupVersionKind()]
 	if configs == nil {
 		configs = make(map[string][]Config)
 	}
 	configs[config.Namespace] = append(configs[config.Namespace], config)
-	s.store[config.Type] = configs
+	s.store[config.GroupVersionKind()] = configs
 	return "", nil
 }
 
 func (*fakeStore) Update(config Config) (newRevision string, err error) { return "", nil }
 
-func (*fakeStore) Delete(typ, name, namespace string) error { return nil }
+func (*fakeStore) Delete(typ resource.GroupVersionKind, name, namespace string) error { return nil }
 
 func (*fakeStore) Version() string {
 	return "not implemented"

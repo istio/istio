@@ -22,9 +22,15 @@ import (
 	"testing"
 	"time"
 
+	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	apiv2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -32,8 +38,10 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -44,7 +52,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 type ConfigType int
@@ -342,18 +349,18 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	serviceDiscovery.InstancesByPortReturns(instances, nil)
 
 	configStore := &fakes.IstioConfigStore{
-		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
-			if typ == schemas.DestinationRule.Type {
+		ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
+			if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
 				return []model.Config{
 					{ConfigMeta: model.ConfigMeta{
-						Type:    schemas.DestinationRule.Type,
-						Version: schemas.DestinationRule.Version,
+						Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+						Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
 						Name:    "acme",
 					},
 						Spec: destRule,
 					}}, nil
 			}
-			if typ == schemas.AuthenticationPolicy.Type && authnPolicy != nil {
+			if typ == collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind() && authnPolicy != nil {
 				// Set the policy name conforming to the authentication rule:
 				// - namespace wide policy (i.e has not target selector) must be name "default"
 				// - service-specific policy can be named anything but 'default'
@@ -363,8 +370,8 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				}
 				return []model.Config{
 					{ConfigMeta: model.ConfigMeta{
-						Type:      schemas.AuthenticationPolicy.Type,
-						Version:   schemas.AuthenticationPolicy.Version,
+						Type:      collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
+						Version:   collections.IstioAuthenticationV1Alpha1Policies.Resource().Version(),
 						Name:      policyName,
 						Namespace: TestServiceNamespace,
 					},
@@ -503,7 +510,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
-	g.Expect(cluster.TlsContext.GetSni()).To(Equal("foo.com"))
+	g.Expect(getTLSContext(t, cluster).GetSni()).To(Equal("foo.com"))
 
 	clusters, err = buildSniTestClustersForSidecar("")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -512,7 +519,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
-	g.Expect(cluster.TlsContext.GetSni()).To(Equal("outbound_.8080_.foobar_.foo.example.org"))
+	g.Expect(getTLSContext(t, cluster).GetSni()).To(Equal("outbound_.8080_.foobar_.foo.example.org"))
 }
 
 func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T) {
@@ -567,15 +574,15 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	for _, c := range clusters {
 		if strings.Contains(c.Name, "outbound") {
 			actualOutboundClusterCount++
-			tlsContext := c.TlsContext.CommonTlsContext
+			tlsContext := getTLSContext(t, c)
 			g.Expect(tlsContext).NotTo(BeNil())
 
-			tlsCerts := tlsContext.TlsCertificates
+			tlsCerts := tlsContext.CommonTlsContext.TlsCertificates
 			g.Expect(tlsCerts).To(HaveLen(1))
 
 			g.Expect(tlsCerts[0].PrivateKey.GetFilename()).To(Equal(expectedClientKeyPath))
 			g.Expect(tlsCerts[0].CertificateChain.GetFilename()).To(Equal(expectedClientCertPath))
-			g.Expect(tlsContext.GetValidationContext().TrustedCa.GetFilename()).To(Equal(expectedRootCertPath))
+			g.Expect(tlsContext.CommonTlsContext.GetValidationContext().TrustedCa.GetFilename()).To(Equal(expectedRootCertPath))
 		}
 	}
 	g.Expect(actualOutboundClusterCount).To(Equal(expectedOutboundClusterCount))
@@ -970,6 +977,101 @@ func TestDisablePanicThresholdAsDefault(t *testing.T) {
 	}
 }
 
+func TestApplyOutlierDetection(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tests := []struct {
+		name string
+		cfg  *networking.OutlierDetection
+		o    *apiv2_cluster.OutlierDetection
+	}{
+		{
+			"No outlier detection is set",
+			&networking.OutlierDetection{},
+			&apiv2_cluster.OutlierDetection{},
+		},
+		{
+			"Deprecated consecutive errors is set",
+			&networking.OutlierDetection{
+				ConsecutiveErrors: 3,
+			},
+			&apiv2_cluster.OutlierDetection{
+				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 0},
+				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
+				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		{
+			"Consecutive gateway and 5xx errors are set",
+			&networking.OutlierDetection{
+				Consecutive_5XxErrors:    &types.UInt32Value{Value: 4},
+				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 3},
+			},
+			&apiv2_cluster.OutlierDetection{
+				Consecutive_5Xx:                    &wrappers.UInt32Value{Value: 4},
+				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 100},
+				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
+				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		{
+			"Only consecutive gateway is set",
+			&networking.OutlierDetection{
+				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 3},
+			},
+			&apiv2_cluster.OutlierDetection{
+				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
+				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		{
+			"Only consecutive 5xx is set",
+			&networking.OutlierDetection{
+				Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+			},
+			&apiv2_cluster.OutlierDetection{
+				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 3},
+				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		{
+			"Consecutive gateway is set to 0",
+			&networking.OutlierDetection{
+				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 0},
+			},
+			&apiv2_cluster.OutlierDetection{
+				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 0},
+				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 0},
+			},
+		},
+		{
+			"Consecutive 5xx is set to 0",
+			&networking.OutlierDetection{
+				Consecutive_5XxErrors: &types.UInt32Value{Value: 0},
+			},
+			&apiv2_cluster.OutlierDetection{
+				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 0},
+				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+				&core.Locality{}, testMesh,
+				&networking.DestinationRule{
+					Host: "*.example.org",
+					TrafficPolicy: &networking.TrafficPolicy{
+						OutlierDetection: tt.cfg,
+					},
+				})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(clusters[0].OutlierDetection).To(Equal(tt.o))
+		})
+	}
+}
+
 func TestStatNamePattern(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -1338,6 +1440,55 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 }
 
+func TestFindServiceInstanceForIngressListener(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     7443,
+		Protocol: protocol.HTTP,
+	}
+	service := &model.Service{
+		Hostname:    host.Name("*.example.org"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.ClientSideLB,
+	}
+
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 7443,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     30,
+			},
+		},
+	}
+
+	ingress := &networking.IstioIngressListener{
+		CaptureMode:     v1alpha3.CaptureMode_NONE,
+		DefaultEndpoint: "127.0.0.1:7020",
+		Port: &v1alpha3.Port{
+			Number:   7443,
+			Name:     "grpc-core",
+			Protocol: "GRPC",
+		},
+	}
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
+	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
+		t.Fatal("Expected to return a valid instance, but got nil/default instance")
+	}
+	if instance == instances[0] {
+		t.Fatal("Expected to return a copy of instance, but got the same instance")
+	}
+	if !reflect.DeepEqual(instance, instances[0]) {
+		t.Fatal("Expected returned copy of instance to be equal, but they are different")
+	}
+}
+
 func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -1405,7 +1556,6 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) 
 		nil, // authnPolicy
 		&model.IstioVersion{Major: 1, Minor: 2})
 
-	fmt.Printf("%+v\n", clusters[0])
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
 	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
@@ -1426,7 +1576,6 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 
 	for _, cluster := range clusters {
 		if cluster.Name != "BlackHoleCluster" {
-			fmt.Println(cluster.CircuitBreakers)
 			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 		}
@@ -1475,7 +1624,6 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
-		fmt.Println(cluster.CircuitBreakers)
 		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 	}
@@ -1839,7 +1987,7 @@ func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
 
 	// mTLS is disabled by authN policy so autoMTLS does not kick in. No cluster should have TLS context.
 	for _, cluster := range clusters {
-		g.Expect(cluster.TlsContext).To(BeNil())
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -1885,16 +2033,17 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	g.Expect(clusters[0].TlsContext).To(BeNil())
+	// TlsContext is nil because we use socket match instead
+	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
 	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
-	g.Expect(clusters[1].TlsContext).To(BeNil())
+	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
 
 	// Sanity check: make sure TLS is not accidentally added to other clusters.
 	for i := 2; i < len(clusters); i++ {
 		cluster := clusters[i]
-		g.Expect(cluster.TlsContext).To(BeNil())
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -1939,7 +2088,7 @@ func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
 
 	// Service is external, use the TLS settings specified in DR.
 	for _, cluster := range clusters {
-		g.Expect(cluster.TlsContext).To(BeNil())
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -1987,16 +2136,17 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	g.Expect(clusters[0].TlsContext).To(BeNil())
+	// TlsContext is nil because we use socket match instead
+	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
 	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, authn policy disable mTLS, so it should not have TLS context.
-	g.Expect(clusters[1].TlsContext).To(BeNil())
+	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
 
 	// Sanity check: make sure TLS is not accidentally added to other clusters.
 	for i := 2; i < len(clusters); i++ {
 		cluster := clusters[i]
-		g.Expect(cluster.TlsContext).To(BeNil())
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -2046,4 +2196,19 @@ func TestApplyLoadBalancer(t *testing.T) {
 		})
 	}
 
+}
+
+// Helper function to extract TLS context from a cluster
+func getTLSContext(t *testing.T, c *apiv2.Cluster) *envoy_api_v2_auth.UpstreamTlsContext {
+	t.Helper()
+	if c.TransportSocket == nil {
+		return nil
+	}
+	tlsContext := &envoy_api_v2_auth.UpstreamTlsContext{}
+	err := ptypes.UnmarshalAny(c.TransportSocket.GetTypedConfig(), tlsContext)
+
+	if err != nil {
+		t.Fatalf("Failed to unmarshall tls context: %v", err)
+	}
+	return tlsContext
 }

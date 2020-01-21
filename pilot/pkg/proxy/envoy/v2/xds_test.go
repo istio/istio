@@ -23,7 +23,6 @@ import (
 	"net/url"
 	"sync"
 	"testing"
-	"time"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -132,13 +131,14 @@ func gatewayID(ip string) string { //nolint: unparam
 //
 // The server will have a set of pre-defined instances and services, and read CRDs from the
 // common tests/testdata directory.
-func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
+func initLocalPilotTestEnv(t *testing.T, additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, util.TearDownFunc) {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
-	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+	additionalArgs = append(additionalArgs, func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 	})
+	server, tearDown := util.EnsureTestServer(additionalArgs...)
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
@@ -298,11 +298,12 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 
-	// Update cache
+	// Trigger a push, to initiate push context with contents of registry.
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
-	// TODO: channel to notify when the push is finished and to notify individual updates, for
-	// debug and for the canary.
-	time.Sleep(2 * time.Second)
+
+	// Add a dummy client connection to validate that push is triggered.
+	dummyClient := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer dummyClient.Close()
 
 	return server, tearDown
 }

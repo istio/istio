@@ -750,7 +750,6 @@ func convertTLSMatchToL4Match(tlsMatch *networking.TLSMatchAttributes) *networki
 	return &networking.L4MatchAttributes{
 		DestinationSubnets: tlsMatch.DestinationSubnets,
 		Port:               tlsMatch.Port,
-		SourceSubnet:       tlsMatch.SourceSubnet,
 		SourceLabels:       tlsMatch.SourceLabels,
 		Gateways:           tlsMatch.Gateways,
 	}

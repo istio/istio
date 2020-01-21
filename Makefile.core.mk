@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 VERSION ?= 1.5-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.5-dev.0
+BASE_VERSION ?= 1.5-dev.1
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -86,6 +86,15 @@ export ISTIO_BIN=$(GOBIN)
 
 export ISTIO_OUT:=$(TARGET_OUT)
 export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
+
+# LOCAL_OUT should include architecture where we are currently running versus the desired.
+# This is used when we need to run a build artifact.
+ifeq ($(IN_BUILD_CONTAINER),1)
+  LOCAL_OUT := $(ISTIO_OUT_LINUX)
+else
+  LOCAL_OUT := $(ISTIO_OUT)
+endif
+
 export HELM=helm
 export ARTIFACTS ?= $(ISTIO_OUT)
 export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
@@ -197,6 +206,7 @@ default: init build test
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${TARGET_OUT}/logs
+	mkdir -p ${TARGET_OUT}/release
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -205,7 +215,7 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
 	ISTIO_OUT=$(ISTIO_OUT) ISTIO_BIN=$(ISTIO_BIN) bin/init.sh
 	touch $(ISTIO_OUT)/istio_is_init
 
-# init.sh downloads envoy
+# init.sh downloads envoy and webassembly plugins
 ${ISTIO_OUT}/envoy: init
 ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
@@ -259,7 +269,8 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
   ./tools/istio-iptables \
-  ./tools/istio-clean-iptables
+  ./tools/istio-clean-iptables \
+  ./operator/cmd/manager
 
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
@@ -321,7 +332,10 @@ lint-go-split:
 	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
 
-lint: lint-go-split lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
+lint-helm-global:
+	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
+
+lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
@@ -334,7 +348,10 @@ go-gen:
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
-gen: go-gen mirror-licenses format update-crds
+gen-charts:
+	@operator/scripts/run_update_charts.sh
+
+gen: go-gen mirror-licenses format update-crds gen-charts
 
 gen-check: gen check-clean-repo
 
@@ -358,11 +375,11 @@ ${ISTIO_OUT}/release/istioctl-win.exe: depend
 
 # generate the istioctl completion files
 ${ISTIO_OUT}/release/istioctl.bash: istioctl
-	${ISTIO_OUT}/istioctl collateral --bash && \
+	${LOCAL_OUT}/istioctl collateral --bash && \
 	mv istioctl.bash ${ISTIO_OUT}/release/istioctl.bash
 
 ${ISTIO_OUT}/release/_istioctl: istioctl
-	${ISTIO_OUT}/istioctl collateral --zsh && \
+	${LOCAL_OUT}/istioctl collateral --zsh && \
 	mv _istioctl ${ISTIO_OUT}/release/_istioctl
 
 .PHONY: binaries-test
@@ -399,7 +416,7 @@ with_junit_report: | $(JUNIT_REPORT)
 
 # Run coverage tests
 ifeq ($(WHAT),)
-       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
+       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test operator-test
 else
        TEST_OBJ = selected-pkg-test
 endif
@@ -417,6 +434,10 @@ pilot-test:
 .PHONY: istioctl-test
 istioctl-test:
 	go test ${T} ./istioctl/...
+
+.PHONY: operator-test
+operator-test:
+	go test ${T} ./operator/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
@@ -437,8 +458,8 @@ security-test:
 common-test: build
 	go test ${T} ./pkg/...
 	go test ${T} ./tests/common/...
+	go test ${T} ./tools/istio-iptables/...
 	# Execute bash shell unit tests scripts
-	./tests/scripts/scripts_test.sh
 	./tests/scripts/istio-iptables-test.sh
 
 .PHONY: selected-pkg-test
@@ -488,7 +509,7 @@ common-coverage:
 
 .PHONY: racetest
 
-RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
+RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest operator-racetest
 racetest: $(JUNIT_REPORT)
 	$(MAKE) -e -f Makefile.core.mk --keep-going $(RACE_TESTS) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
@@ -500,6 +521,10 @@ pilot-racetest:
 .PHONY: istioctl-racetest
 istioctl-racetest:
 	RACE_TEST=true go test ${T} -race ./istioctl/...
+
+.PHONY: operator-racetest
+operator-racetest:
+	RACE_TEST=true go test ${T} -race ./operator/...
 
 .PHONY: mixer-racetest
 mixer-racetest:
@@ -590,7 +615,7 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-one-namespace-trust-domain.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \
-                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml 
+                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools

@@ -17,7 +17,7 @@ package event
 import (
 	"sync/atomic"
 
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -33,19 +33,20 @@ type Transformer interface {
 	Processor
 
 	// DispatchFor registers the given handler for a particular output collection.
-	DispatchFor(c collection.Name, h Handler)
+	DispatchFor(c collection.Schema, h Handler)
 
 	// Inputs for this transformer
-	Inputs() collection.Names
+	Inputs() collection.Schemas
 
 	// Outputs for this transformer
-	Outputs() collection.Names
+	Outputs() collection.Schemas
 }
 
 // FnTransform is a base type for handling common Transformer operations.
 type FnTransform struct {
-	in       collection.Names
-	out      collection.Names
+	in       collection.Schemas
+	inNames  collection.Names
+	out      collection.Schemas
 	selector Router
 	startFn  func()
 	stopFn   func()
@@ -53,13 +54,15 @@ type FnTransform struct {
 	syncCtr  int32
 }
 
+var _ Transformer = &FnTransform{}
+
 // Inputs partially implements Transformer
-func (t *FnTransform) Inputs() collection.Names {
+func (t *FnTransform) Inputs() collection.Schemas {
 	return t.in
 }
 
 // Outputs partially implements Transformer
-func (t *FnTransform) Outputs() collection.Names {
+func (t *FnTransform) Outputs() collection.Schemas {
 	return t.out
 }
 
@@ -70,7 +73,7 @@ func (t *FnTransform) Start() {
 		t.selector = NewRouter()
 	}
 
-	atomic.StoreInt32(&t.syncCtr, int32(len(t.in)))
+	atomic.StoreInt32(&t.syncCtr, int32(len(t.inNames)))
 
 	if t.startFn != nil {
 		t.startFn()
@@ -86,7 +89,7 @@ func (t *FnTransform) Stop() {
 }
 
 // DispatchFor implements Transformer
-func (t *FnTransform) DispatchFor(c collection.Name, h Handler) {
+func (t *FnTransform) DispatchFor(c collection.Schema, h Handler) {
 	scope.Processing.Debugf("FnTransform.DispatchFor: %v => %T", c, h)
 	t.selector = AddToRouter(t.selector, c, h)
 }
@@ -98,7 +101,7 @@ func (t *FnTransform) Handle(e Event) {
 		return
 	}
 
-	if !e.IsSourceAny(t.in...) {
+	if !e.IsSourceAny(t.inNames...) {
 		scope.Processing.Warnf("Event with unexpected source received: %v", e)
 		return
 	}
@@ -122,9 +125,10 @@ func (t *FnTransform) Handle(e Event) {
 }
 
 // NewFnTransform returns a Transformer based on the given start, stop and input event handler functions.
-func NewFnTransform(inputs, outputs collection.Names, startFn, stopFn func(), fn func(e Event, handler Handler)) *FnTransform {
+func NewFnTransform(inputs, outputs collection.Schemas, startFn, stopFn func(), fn func(e Event, handler Handler)) *FnTransform {
 	return &FnTransform{
 		in:       inputs,
+		inNames:  inputs.CollectionNames(),
 		out:      outputs,
 		startFn:  startFn,
 		stopFn:   stopFn,

@@ -76,13 +76,13 @@
           {{- else }}
           - --trace_zipkin_url=http://zipkin.{{ $.Release.Namespace }}:9411/api/v1/spans
           {{- end }}
-        {{- if .Values.env }}
         env:
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        {{- if .Values.env }}
         {{- range $key, $val := .Values.env }}
         - name: {{ $key }}
           value: "{{ $val }}"

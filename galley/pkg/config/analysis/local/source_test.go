@@ -19,8 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/galley/pkg/config/testing/data"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
 
@@ -29,7 +29,7 @@ func TestBasicSingleSource(t *testing.T) {
 
 	s1 := &fixtures.Source{}
 
-	psi := precedenceSourceInput{src: s1, cols: collection.Names{data.Collection1}}
+	psi := precedenceSourceInput{src: s1, cols: collection.Names{basicmeta.K8SCollection1.Name()}}
 	ps := newPrecedenceSource([]precedenceSourceInput{psi})
 
 	h := &fixtures.Accumulator{}
@@ -52,8 +52,8 @@ func TestWaitAndCombineFullSync(t *testing.T) {
 	s1 := &fixtures.Source{}
 	s2 := &fixtures.Source{}
 
-	psi1 := precedenceSourceInput{src: s1, cols: collection.Names{data.Collection1, data.Collection2}}
-	psi2 := precedenceSourceInput{src: s2, cols: collection.Names{data.Collection1}}
+	psi1 := precedenceSourceInput{src: s1, cols: collection.Names{basicmeta.K8SCollection1.Name(), basicmeta.Collection2.Name()}}
+	psi2 := precedenceSourceInput{src: s2, cols: collection.Names{basicmeta.K8SCollection1.Name()}}
 
 	ps := newPrecedenceSource([]precedenceSourceInput{psi1, psi2})
 
@@ -74,7 +74,7 @@ func TestWaitAndCombineFullSync(t *testing.T) {
 
 	// Collection2 is only in one source, so we shouldn't wait for an event from both sources
 	e2 := createTestEvent(t, event.FullSync, nil)
-	e2.Source = data.Collection2
+	e2.Source = basicmeta.Collection2
 
 	s1.Handle(e2)
 	g.Expect(h.Events()).To(Equal([]event.Event{e1, e2}))
@@ -87,9 +87,9 @@ func TestPrecedence(t *testing.T) {
 	s2 := &fixtures.Source{}
 	s3 := &fixtures.Source{}
 
-	psi1 := precedenceSourceInput{src: s1, cols: collection.Names{data.Collection1}}
-	psi2 := precedenceSourceInput{src: s2, cols: collection.Names{data.Collection1}}
-	psi3 := precedenceSourceInput{src: s3, cols: collection.Names{data.Collection1}}
+	psi1 := precedenceSourceInput{src: s1, cols: collection.Names{basicmeta.K8SCollection1.Name()}}
+	psi2 := precedenceSourceInput{src: s2, cols: collection.Names{basicmeta.K8SCollection1.Name()}}
+	psi3 := precedenceSourceInput{src: s3, cols: collection.Names{basicmeta.K8SCollection1.Name()}}
 
 	ps := newPrecedenceSource([]precedenceSourceInput{psi1, psi2, psi3})
 

@@ -142,6 +142,7 @@ type WebhookParameters struct {
 	Port int
 
 	// MonitoringPort is the webhook port, e.g. typically 15014.
+	// Set to -1 to disable monitoring
 	MonitoringPort int
 
 	// HealthCheckInterval configures how frequently the health check
@@ -154,6 +155,9 @@ type WebhookParameters struct {
 	HealthCheckFile string
 
 	Env *model.Environment
+
+	// Use an existing mux instead of creating our own.
+	Mux *http.ServeMux
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -186,9 +190,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	wh := &Webhook{
-		server: &http.Server{
-			Addr: fmt.Sprintf(":%v", p.Port),
-		},
 		Config:                 sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
@@ -204,10 +205,21 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		cert:                   &pair,
 		env:                    p.Env,
 	}
-	// mtls disabled because apiserver webhook cert usage is still TBD.
-	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
-	h := http.NewServeMux()
-	h.HandleFunc("/inject", wh.serveInject)
+
+	var mux *http.ServeMux
+	if p.Mux != nil {
+		p.Mux.HandleFunc("/inject", wh.serveInject)
+		mux = p.Mux
+	} else {
+		wh.server = &http.Server{
+			Addr: fmt.Sprintf(":%v", p.Port),
+			// mtls disabled because apiserver webhook cert usage is still TBD.
+			TLSConfig: &tls.Config{GetCertificate: wh.getCert},
+		}
+		mux = http.NewServeMux()
+		mux.HandleFunc("/inject", wh.serveInject)
+		wh.server.Handler = mux
+	}
 
 	if p.Env != nil {
 		p.Env.Watcher.AddMeshHandler(func() {
@@ -216,28 +228,33 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 			wh.mu.Unlock()
 		})
 	}
-	mon, err := startMonitor(h, p.MonitoringPort)
 
-	if err != nil {
-		return nil, fmt.Errorf("could not start monitoring server %v", err)
+	if p.MonitoringPort >= 0 {
+		mon, err := startMonitor(mux, p.MonitoringPort)
+		if err != nil {
+			return nil, fmt.Errorf("could not start monitoring server %v", err)
+		}
+		wh.mon = mon
 	}
-
-	wh.mon = mon
-	wh.server.Handler = h
 
 	return wh, nil
 }
 
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
-	go func() {
-		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
-		}
-	}()
+	if wh.server != nil {
+		go func() {
+			if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
+			}
+		}()
+		defer wh.server.Close()
+	}
 	defer wh.watcher.Close()
-	defer wh.server.Close()
-	defer wh.mon.monitoringServer.Close()
+
+	if wh.mon != nil {
+		defer wh.mon.monitoringServer.Close()
+	}
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
@@ -271,8 +288,8 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.cert = &pair
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
+			log.Debugf("Injector watch update: %+v", event)
 			// use a timer to debounce configuration updates
-			log.Infoa("Injector watch", event.Name)
 			if (event.IsModify() || event.IsCreate()) && timerC == nil {
 				timerC = time.After(watchDebounceDelay)
 			}
@@ -712,7 +729,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return toAdmissionResponse(err)
 	}
 
-	log.Infof("AdmissionResponse: patch=%v\n", string(patchBytes))
+	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
 
 	reviewResponse := v1beta1.AdmissionResponse{
 		Allowed: true,

@@ -14,6 +14,8 @@
 
 package constants
 
+import "time"
+
 // iptables tables
 const (
 	MANGLE = "mangle"
@@ -78,10 +80,44 @@ const (
 	DryRun                    = "dry-run"
 	Clean                     = "clean"
 	RestoreFormat             = "restore-format"
+	SkipRuleApply             = "skip-rule-apply"
+	RunValidation             = "run-validation"
+	IptablesProbePort         = "iptables-probe-port"
+	ProbeTimeout              = "probe-timeout"
+)
+
+const (
+	DefaultProxyUID = "1337"
+)
+
+// Constants used in environment variables
+const (
+	DisableRedirectionOnLocalLoopback = "DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK"
+	EnvoyUser                         = "ENVOY_USER"
 )
 
 // Constants for iptables commands
 const (
+	IPTABLES         = "iptables"
 	IPTABLESRESTORE  = "iptables-restore"
+	IPTABLESSAVE     = "iptables-save"
+	IP6TABLES        = "ip6tables"
 	IP6TABLESRESTORE = "ip6tables-restore"
+	IP6TABLESSAVE    = "ip6tables-save"
+	IP               = "ip"
+)
+
+// Constants for syscall
+const (
+	// sys/socket.h
+	SoOriginalDst = 80
+)
+
+const (
+	DefaultIptablesProbePort = 15002
+	DefaultProbeTimeout      = 5 * time.Second
+)
+
+const (
+	ValidationErrorCode = 126
 )

@@ -16,23 +16,24 @@ package serviceentry
 
 import (
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	xformer "istio.io/istio/galley/pkg/config/processing/transformer"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 // GetProviders creates transformer providers for Synthetic Service entries
 func GetProviders() xformer.Providers {
-	inputs := collection.Names{
-		metadata.K8SCoreV1Endpoints,
-		metadata.K8SCoreV1Nodes,
-		metadata.K8SCoreV1Pods,
-		metadata.K8SCoreV1Services,
-	}
-	outputs := collection.Names{
-		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
-	}
+	inputs := collection.NewSchemasBuilder().
+		MustAdd(collections.K8SCoreV1Endpoints).
+		MustAdd(collections.K8SCoreV1Nodes).
+		MustAdd(collections.K8SCoreV1Pods).
+		MustAdd(collections.K8SCoreV1Services).
+		Build()
+
+	outputs := collection.NewSchemasBuilder().
+		MustAdd(collections.IstioNetworkingV1Alpha3SyntheticServiceentries).
+		Build()
 
 	createFn := func(o processing.ProcessorOptions) event.Transformer {
 		return &serviceEntryTransformer{

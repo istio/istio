@@ -17,30 +17,41 @@ package event
 import (
 	"fmt"
 
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
+
+var _ fmt.Stringer = Event{}
 
 // Event represents a change that occurred against a resource in the source config system.
 type Event struct {
 	Kind Kind
 
-	// The collection that this event is emanating from.
-	Source collection.Name
+	// Source collection that this event is emanating from.
+	Source collection.Schema
 
 	// A single entry, in case the event is Added, Updated or Deleted.
 	Resource *resource.Instance
 }
 
+// SourceName is a utility method that returns the name of the source. If nil, returns "".
+func (e *Event) SourceName() collection.Name {
+	if e.Source != nil {
+		return e.Source.Name()
+	}
+	return ""
+}
+
 // IsSource checks whether the event has the appropriate source and returns false if it does not.
 func (e *Event) IsSource(s collection.Name) bool {
-	return e.Source == s
+	return e.SourceName() == s
 }
 
 // IsSourceAny checks whether the event has the appropriate source and returns false if it does not.
 func (e *Event) IsSourceAny(names ...collection.Name) bool {
+	name := e.SourceName()
 	for _, n := range names {
-		if n == e.Source {
+		if n == name {
 			return true
 		}
 	}
@@ -49,7 +60,7 @@ func (e *Event) IsSourceAny(names ...collection.Name) bool {
 }
 
 // WithSource returns a new event with the source changed to the given collection.Name, if the event.Kind != Reset.
-func (e *Event) WithSource(s collection.Name) Event {
+func (e *Event) WithSource(s collection.Schema) Event {
 	if e.Kind == Reset {
 		return *e
 	}
@@ -76,36 +87,36 @@ func (e *Event) Clone() Event {
 func (e Event) String() string {
 	switch e.Kind {
 	case Added, Updated, Deleted:
-		return fmt.Sprintf("[Event](%s: %v/%v)", e.Kind.String(), e.Source, e.Resource.Metadata.FullName)
+		return fmt.Sprintf("[Event](%s: %v/%v)", e.Kind.String(), e.SourceName(), e.Resource.Metadata.FullName)
 	case FullSync:
-		return fmt.Sprintf("[Event](%s: %v)", e.Kind.String(), e.Source)
+		return fmt.Sprintf("[Event](%s: %v)", e.Kind.String(), e.SourceName())
 	default:
 		return fmt.Sprintf("[Event](%s)", e.Kind.String())
 	}
 }
 
 // FullSyncFor creates a FullSync event for the given source.
-func FullSyncFor(source collection.Name) Event {
+func FullSyncFor(source collection.Schema) Event {
 	return Event{Kind: FullSync, Source: source}
 }
 
 // AddFor creates an Add event for the given source and entry.
-func AddFor(source collection.Name, r *resource.Instance) Event {
+func AddFor(source collection.Schema, r *resource.Instance) Event {
 	return Event{Kind: Added, Source: source, Resource: r}
 }
 
 // UpdateFor creates an Update event for the given source and entry.
-func UpdateFor(source collection.Name, r *resource.Instance) Event {
+func UpdateFor(source collection.Schema, r *resource.Instance) Event {
 	return Event{Kind: Updated, Source: source, Resource: r}
 }
 
 // DeleteForResource creates a Deleted event for the given source and entry.
-func DeleteForResource(source collection.Name, r *resource.Instance) Event {
+func DeleteForResource(source collection.Schema, r *resource.Instance) Event {
 	return Event{Kind: Deleted, Source: source, Resource: r}
 }
 
 // DeleteFor creates a Delete event for the given source and name.
-func DeleteFor(source collection.Name, name resource.FullName, v resource.Version) Event {
+func DeleteFor(source collection.Schema, name resource.FullName, v resource.Version) Event {
 	return DeleteForResource(source, &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName: name,

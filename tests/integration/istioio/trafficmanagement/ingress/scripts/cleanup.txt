@@ -31,9 +31,6 @@ $ rm -rf httpbin.example.com helloworld-v1.example.com mtls-go-example \
 httpbin.new.example.com
 # $endsnippet
 
-# $snippet delete_ingressgatway_yaml syntax="bash"
-$ rm -f {{ .yamlDir }}/istio-ingressgateway.yaml
-# $endsnippet
 {{- end -}}
 
 # $snippet delete_services syntax="bash"

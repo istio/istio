@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"regexp"
+	"strings"
 	"testing"
 	"text/template"
 	"time"
@@ -64,7 +64,7 @@ spec:
   endpoints:
   {{ if ne .NonExistantService "" }}
   - address: {{.NonExistantService}}
-    locality: {{.NonExistantServiceLocality}}
+    locality: "{{.NonExistantServiceLocality}}"
   {{ end }}
   - address: {{.ServiceBAddress}}
     locality: {{.ServiceBLocality}}
@@ -87,7 +87,9 @@ spec:
       attempts: 3
       perTryTimeout: 1s
       retryOn: gateway-error,connect-failure,refused-stream
----
+`
+
+	failoverYaml = `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -108,11 +110,57 @@ spec:
       baseEjectionTime: 3m
       maxEjectionPercent: 100
 `
+	distributeYaml = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: {{.Name}}-destination
+  namespace: {{.Namespace}}
+spec:
+  host: {{.Host}}
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+      localityLbSetting:
+        distribute:
+        - from: region
+          to:
+            notregion: 80
+            region: 20
+    outlierDetection:
+      consecutiveErrors: 100
+      interval: 1s
+      baseEjectionTime: 3m
+      maxEjectionPercent: 100
+`
+	disabledYaml = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: {{.Name}}-destination
+  namespace: {{.Namespace}}
+spec:
+  host: {{.Host}}
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+      localityLbSetting:
+        enabled: false
+    outlierDetection:
+      consecutiveErrors: 100
+      interval: 1s
+      baseEjectionTime: 3m
+      maxEjectionPercent: 100
+`
 )
 
 var (
-	bHostnameMatcher   = regexp.MustCompile("^b-.*$")
 	deploymentTemplate *template.Template
+	failoverTemplate   *template.Template
+	distributeTemplate *template.Template
+	disabledTemplate   *template.Template
+
+	expectAllTrafficToB = map[string]int{"b": sendCount}
 
 	ist istio.Instance
 	p   pilot.Instance
@@ -123,6 +171,18 @@ var (
 func init() {
 	var err error
 	deploymentTemplate, err = template.New("localityTemplate").Parse(deploymentYAML)
+	if err != nil {
+		panic(err)
+	}
+	failoverTemplate, err = template.New("localityTemplate").Parse(failoverYaml)
+	if err != nil {
+		panic(err)
+	}
+	distributeTemplate, err = template.New("localityTemplate").Parse(distributeYaml)
+	if err != nil {
+		panic(err)
+	}
+	disabledTemplate, err = template.New("localityTemplate").Parse(disabledYaml)
 	if err != nil {
 		panic(err)
 	}
@@ -177,10 +237,15 @@ type serviceConfig struct {
 	NonExistantServiceLocality string
 }
 
-func deploy(t test.Failer, ns namespace.Instance, se serviceConfig, from echo.Instance) {
+func deploy(t test.Failer, ns namespace.Instance, se serviceConfig, from echo.Instance, tmpl *template.Template) {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := deploymentTemplate.Execute(&buf, se); err != nil {
+		t.Fatal(err)
+	}
+	g.ApplyConfigOrFail(t, ns, buf.String())
+	buf.Reset()
+	if err := tmpl.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
 	g.ApplyConfigOrFail(t, ns, buf.String())
@@ -222,7 +287,7 @@ func WaitUntilRoute(c echo.Instance, dest string) error {
 	return nil
 }
 
-func sendTraffic(from echo.Instance, host string) error {
+func sendTraffic(from echo.Instance, host string, expected map[string]int) error {
 	headers := http.Header{}
 	headers.Add("Host", host)
 	// This is a hack to remain infrastructure agnostic when running these tests
@@ -239,10 +304,30 @@ func sendTraffic(from echo.Instance, host string) error {
 	if len(resp) != sendCount {
 		return fmt.Errorf("%s->%s expected %d responses, received %d", from.Config().Service, host, sendCount, len(resp))
 	}
-	for i, r := range resp {
-		if match := bHostnameMatcher.FindString(r.Hostname); len(match) == 0 {
-			return fmt.Errorf("%s->%s request[%d] made to unexpected service: %s", from.Config().Service, host, i, r.Hostname)
+	got := map[string]int{}
+	for _, r := range resp {
+		// Hostname will take form of svc-v1-random. We want to extract just 'svc'
+		parts := strings.SplitN(r.Hostname, "-", 2)
+		if len(parts) < 2 {
+			return fmt.Errorf("unexpected hostname: %v", r)
+		}
+		gotHost := parts[0]
+		got[gotHost]++
+	}
+	for svc, reqs := range got {
+		expect := expected[svc]
+		if !almostEquals(reqs, expect, 5) {
+			return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
 		}
 	}
 	return nil
+}
+
+func almostEquals(a, b, precision int) bool {
+	upper := a + precision
+	lower := a - precision
+	if b < lower || b > upper {
+		return false
+	}
+	return true
 }

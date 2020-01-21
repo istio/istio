@@ -96,7 +96,7 @@ func TestStatusUpdate(t *testing.T) {
 			getStatusFn := func() string {
 				u, err := env.GetUnstructured(gvr, ns.Name(), name)
 				if err != nil {
-					t.Errorf("Couldn't get status for resource %v", name)
+					t.Fatalf("Couldn't get status for resource %v", name)
 				}
 				return fmt.Sprintf("%v", u.Object["status"])
 			}

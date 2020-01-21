@@ -17,9 +17,11 @@ package istioio
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework"
@@ -99,6 +101,19 @@ func (b *Builder) Build() func(ctx framework.TestContext) {
 			TestContext: ctx,
 			snippetFile: snippetFile,
 			snippetMap:  make(map[string]string),
+		}
+
+		// create a symbolic link to samples/, for easy access
+		samplesSymlink := path.Join(ctx.WorkDir(), "samples")
+		if _, err := os.Stat(samplesSymlink); os.IsNotExist(err) {
+			err = os.Symlink(path.Join(env.IstioSrc, "samples"), samplesSymlink)
+			if err != nil {
+				scopes.CI.Warnf("Could not create symlink to samples/ directory at %s", samplesSymlink)
+			} else {
+				defer func() {
+					_ = os.Remove(samplesSymlink)
+				}()
+			}
 		}
 
 		// Run cleanup functions at the end.

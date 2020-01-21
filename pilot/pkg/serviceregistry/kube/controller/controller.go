@@ -137,6 +137,15 @@ const (
 	// does deduping. Simply doing both won't work for now, since not all Kubernetes components support EndpointSlice.
 )
 
+var EndpointModeNames = map[EndpointMode]string{
+	EndpointsOnly:     "EndpointsOnly",
+	EndpointSliceOnly: "EndpointSliceOnly",
+}
+
+func (m EndpointMode) String() string {
+	return EndpointModeNames[m]
+}
+
 var _ serviceregistry.Instance = &Controller{}
 
 // Controller is a collection of synchronized resource watchers
@@ -158,6 +167,7 @@ type Controller struct {
 
 	serviceHandlers []func(*model.Service, model.Event)
 
+	// This is only used for test
 	stop chan struct{}
 
 	sync.RWMutex
@@ -189,6 +199,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		servicesMap:                make(map[host.Name]*model.Service),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		networksWatcher:            options.NetworksWatcher,
+		metrics:                    options.Metrics,
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -372,7 +383,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 // Stop the controller. Mostly for tests, to simplify the code (defer c.Stop())
 func (c *Controller) Stop() {
 	if c.stop != nil {
-		c.stop <- struct{}{}
+		close(c.stop)
 	}
 }
 
@@ -522,7 +533,6 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
-	proxyNamespace := ""
 	if len(proxy.IPAddresses) > 0 {
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
@@ -536,10 +546,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			if proxy.Metadata.Network != c.endpointNetwork(proxyIP) {
 				return out, nil
 			}
-
-			proxyNamespace = pod.Namespace
-			// 1. find proxy service by label selector, if not any, there may exist headless service
-			// failover to 3
+			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
+			// failover to 2
 			svcLister := listerv1.NewServiceLister(c.services.GetIndexer())
 			if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
 				for _, svc := range services {
@@ -547,23 +555,21 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				}
 				return out, nil
 			}
-
+			// 2. Headless service without selector
+			out = c.endpoints.GetProxyServiceInstances(c, proxy)
+		} else {
+			var err error
+			// 3. The pod is not present when this is called
+			// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
+			// metadata already. Because of this, we can still get most of the information we need.
+			// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
+			// attempt to read the real pod.
+			out, err = c.getProxyServiceInstancesFromMetadata(proxy)
+			if err != nil {
+				log.Warnf("getProxyServiceInstancesFromMetadata failed: %v", err)
+			}
 		}
-
-		// 2. The pod is not present when this is called
-		// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
-		// metadata already. Because of this, we can still get most of the information we need.
-		// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
-		// attempt to read the real pod.
-		instances, err := c.getProxyServiceInstancesFromMetadata(proxy)
-		if err == nil {
-			return instances, nil
-		}
-
-		// 3. Headless service
-		out = c.endpoints.GetProxyServiceInstances(c, proxy, proxyNamespace)
 	}
-
 	if len(out) == 0 {
 		if c.metrics != nil {
 			c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy, "")
@@ -842,13 +848,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		}
 	}
 
-	if log.InfoEnabled() {
-		var addresses []string
-		for _, iep := range endpoints {
-			addresses = append(addresses, iep.Address)
-		}
-		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
-	}
+	log.Infof("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
 }

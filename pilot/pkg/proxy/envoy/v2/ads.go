@@ -28,6 +28,8 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -106,10 +108,6 @@ type XdsConnection struct {
 	LDSWatch bool
 	// CDSWatch is set if the remote server is watching Clusters
 	CDSWatch bool
-
-	// added will be true if at least one discovery request was received, and the connection
-	// is added to the map of active.
-	added bool
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -120,7 +118,7 @@ type XdsEvent struct {
 
 	namespacesUpdated map[string]struct{}
 
-	configTypesUpdated map[string]struct{}
+	configTypesUpdated map[resource.GroupVersionKind]struct{}
 
 	// Push context to use for the push.
 	push *model.PushContext
@@ -146,12 +144,29 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	}
 }
 
+// isExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
+// things are operating normally. This is basically capturing when the client disconnects.
+func isExpectedGRPCError(err error) bool {
+	if err == io.EOF {
+		return true
+	}
+
+	s := status.Convert(err)
+	if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
+		return true
+	}
+	if s.Code() == codes.Unavailable && s.Message() == "client disconnected" {
+		return true
+	}
+	return false
+}
+
 func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			if status.Code(err) == codes.Canceled || err == io.EOF {
+			if isExpectedGRPCError(err) {
 				con.mu.RLock()
 				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				con.mu.RUnlock()
@@ -218,20 +233,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 			// This should be only set for the first request. Guard with ID check regardless.
 			if discReq.Node != nil && discReq.Node.Id != "" {
-				err = s.initConnectionNode(discReq.Node, con)
-				if err != nil {
+				if cancel, err := s.initConnection(discReq.Node, con); err != nil {
 					return err
+				} else if cancel != nil {
+					defer cancel()
 				}
-			}
-
-			con.mu.Lock()
-			if !con.added {
-				con.added = true
-				con.mu.Unlock()
-				s.addCon(con.ConID, con)
-				defer s.removeCon(con.ConID, con)
-			} else {
-				con.mu.Unlock()
 			}
 
 			switch discReq.TypeUrl {
@@ -410,63 +416,61 @@ func listEqualUnordered(a []string, b []string) bool {
 	return true
 }
 
-// update the node associated with the connection, after receiving a a packet from envoy.
-func (s *DiscoveryServer) initConnectionNode(node *core.Node, con *XdsConnection) error {
+// update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
+// to the tracking map.
+func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (func(), error) {
 	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
-	if con.node != nil {
-		con.mu.RUnlock()
-		return nil // only need to init the node on first request in the stream
-	}
+	initialized := con.node != nil
 	con.mu.RUnlock()
 
-	if node == nil || node.Id == "" {
-		return errors.New("missing node id")
+	if initialized {
+		return nil, nil // only need to init the node on first request in the stream
 	}
+
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	nt, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
+	proxy, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// Update the config namespace associated with this proxy
-	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
+	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
-	if err := nt.SetServiceInstances(s.Env); err != nil {
-		return err
+	if err := proxy.SetServiceInstances(s.Env); err != nil {
+		return nil, err
 	}
 
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality. So its enough to look at the first instance
-	if len(nt.ServiceInstances) > 0 {
-		nt.Locality = util.ConvertLocality(nt.ServiceInstances[0].GetLocality())
+	if len(proxy.ServiceInstances) > 0 {
+		proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].GetLocality())
 	}
 
 	// If there is no locality in the registry then use the one sent as part of the discovery request.
 	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 	// can still help provide some client-side Envoy context when load balancing based on location.
-	if util.IsLocalityEmpty(nt.Locality) {
-		nt.Locality = node.Locality
+	if util.IsLocalityEmpty(proxy.Locality) {
+		proxy.Locality = node.Locality
 	}
 
-	if err := nt.SetWorkloadLabels(s.Env); err != nil {
-		return err
+	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
+		return nil, err
 	}
 
 	// Set the sidecarScope and merged gateways associated with this proxy
-	nt.SetSidecarScope(s.globalPushContext())
-	nt.SetGatewaysForProxy(s.globalPushContext())
+	proxy.SetSidecarScope(s.globalPushContext())
+	proxy.SetGatewaysForProxy(s.globalPushContext())
 
+	// First request so initialize connection id and start tracking it.
 	con.mu.Lock()
-	con.node = nt
-	if con.ConID == "" {
-		// first request
-		con.ConID = connectionID(node.Id)
-	}
+	con.node = proxy
+	con.ConID = connectionID(node.Id)
+	s.addCon(con.ConID, con)
 	con.mu.Unlock()
 
-	return nil
+	return func() { s.removeCon(con.ConID, con) }, nil
 }
 
 // DeltaAggregatedResources is not implemented.
@@ -559,11 +563,9 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 }
 
 func adsClientCount() int {
-	var n int
 	adsClientsMutex.RLock()
-	n = len(adsClients)
-	adsClientsMutex.RUnlock()
-	return n
+	defer adsClientsMutex.RUnlock()
+	return len(adsClients)
 }
 
 func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
@@ -700,7 +702,6 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	xdsClients.Record(float64(len(adsClients)))
 	if con.node != nil {
 		node := con.node
-
 		delete(adsSidecarIDConnectionsMap[node.ID], conID)
 		if len(adsSidecarIDConnectionsMap[node.ID]) == 0 {
 			delete(adsSidecarIDConnectionsMap, node.ID)

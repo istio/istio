@@ -19,16 +19,14 @@ import (
 	"strings"
 	"testing"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"istio.io/istio/pkg/config/schemas"
-
-	//"istio.io/istio/pilot/pkg/config/kube/crd"
 	appsv1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 var (
@@ -117,8 +115,8 @@ var (
 	cannedDynamicConfig = []runtime.Object{
 		&unstructured.Unstructured{
 			Object: map[string]interface{}{
-				"apiVersion": "networking.istio.io/" + schemas.ServiceEntry.Version,
-				"kind":       schemas.ServiceEntry.VariableName,
+				"apiVersion": "networking.istio.io/" + collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
+				"kind":       collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
 				"metadata": map[string]interface{}{
 					"namespace": "default",
 					"name":      "mesh-expansion-vmtest",

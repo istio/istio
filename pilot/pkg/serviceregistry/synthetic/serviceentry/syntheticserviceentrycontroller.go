@@ -17,6 +17,7 @@ package serviceentry
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -24,23 +25,28 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
 var (
-	errUnsupported      = errors.New("this operation is not supported by mcp controller")
-	endpointKey         = annotation.AlphaNetworkingEndpointsVersion.Name
-	serviceKey          = annotation.AlphaNetworkingServiceVersion.Name
-	notReadyEndpointkey = annotation.AlphaNetworkingNotReadyEndpoints.Name
+	errUnsupported = errors.New("this operation is not supported by mcp controller")
+	endpointKey    = annotation.AlphaNetworkingEndpointsVersion.Name
+	serviceKey     = annotation.AlphaNetworkingServiceVersion.Name
+	sse            = collections.IstioNetworkingV1Alpha3SyntheticServiceentries
+	schemas        = collection.SchemasFor(sse)
 )
+
+// TODO(nmittler): This should be moved to pilot/pkg/config
 
 // Controller is a combined interface for ConfigStoreCache
 // and MCP Updater
@@ -76,16 +82,16 @@ func NewSyntheticServiceEntryController(options *Options) Controller {
 	}
 }
 
-// ConfigDescriptor returns all the ConfigDescriptors that this
+// Schemas returns all the ConfigDescriptors that this
 // controller is responsible for
-func (c *SyntheticServiceEntryController) ConfigDescriptor() schema.Set {
-	return schema.Set{schemas.SyntheticServiceEntry}
+func (c *SyntheticServiceEntryController) Schemas() collection.Schemas {
+	return schemas
 }
 
 // List returns all the SyntheticServiceEntries that is stored by type and namespace
 // if namespace is empty string it returns config for all the namespaces
-func (c *SyntheticServiceEntryController) List(typ, namespace string) (out []model.Config, err error) {
-	if typ != schemas.SyntheticServiceEntry.Type {
+func (c *SyntheticServiceEntryController) List(typ resource.GroupVersionKind, namespace string) (out []model.Config, err error) {
+	if typ != sse.Resource().GroupVersionKind() {
 		return nil, fmt.Errorf("list unknown type %s", typ)
 	}
 
@@ -99,38 +105,37 @@ func (c *SyntheticServiceEntryController) List(typ, namespace string) (out []mod
 				out = append(out, *config)
 			}
 		}
-		return out, nil
+	} else {
+		byNamespace := c.configStore[namespace]
+		for _, config := range byNamespace {
+			out = append(out, *config)
+		}
 	}
 
-	byNamespace, ok := c.configStore[namespace]
-	if !ok {
-		return nil, nil
-	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
 
-	for _, config := range byNamespace {
-		out = append(out, *config)
-	}
 	return out, nil
 }
 
 // Apply receives changes from MCP server and creates the
 // corresponding config
 func (c *SyntheticServiceEntryController) Apply(change *sink.Change) error {
-	if change.Collection != schemas.SyntheticServiceEntry.Collection {
+	if change.Collection != sse.Name().String() {
 		return fmt.Errorf("apply: type not supported %s", change.Collection)
 	}
 
 	defer atomic.AddUint32(&c.synced, 1)
-
-	if len(change.Objects) == 0 {
-		return nil
-	}
 
 	if change.Incremental {
 		// removed first
 		c.removeConfig(change.Removed)
 		c.incrementalUpdate(change.Objects)
 	} else {
+		if len(change.Objects) == 0 {
+			return nil
+		}
 		c.configStoreUpdate(change.Objects)
 	}
 
@@ -149,8 +154,8 @@ func (c *SyntheticServiceEntryController) dispatch(config model.Config, event mo
 }
 
 // RegisterEventHandler registers a handler using the type as a key
-func (c *SyntheticServiceEntryController) RegisterEventHandler(_ string, handler func(model.Config, model.Config, model.Event)) {
-	// TODO: investigate why it is called more than one
+// Note: currently it is not called
+func (c *SyntheticServiceEntryController) RegisterEventHandler(_ resource.GroupVersionKind, handler func(model.Config, model.Config, model.Event)) {
 	if c.eventHandler == nil {
 		c.eventHandler = handler
 	}
@@ -174,7 +179,7 @@ func (c *SyntheticServiceEntryController) Run(<-chan struct{}) {
 }
 
 // Get is not implemented
-func (c *SyntheticServiceEntryController) Get(string, string, string) *model.Config {
+func (c *SyntheticServiceEntryController) Get(resource.GroupVersionKind, string, string) *model.Config {
 	log.Warnf("get %s", errUnsupported)
 	return nil
 }
@@ -192,7 +197,7 @@ func (c *SyntheticServiceEntryController) Create(model.Config) (revision string,
 }
 
 // Delete is not implemented
-func (c *SyntheticServiceEntryController) Delete(string, string, string) error {
+func (c *SyntheticServiceEntryController) Delete(resource.GroupVersionKind, string, string) error {
 	log.Warnf("delete %s", errUnsupported)
 	return errUnsupported
 }
@@ -201,6 +206,8 @@ func (c *SyntheticServiceEntryController) removeConfig(configName []string) {
 	if len(configName) == 0 {
 		return
 	}
+
+	namespacesUpdated := map[string]struct{}{}
 	c.configStoreMu.Lock()
 	defer c.configStoreMu.Unlock()
 
@@ -215,6 +222,7 @@ func (c *SyntheticServiceEntryController) removeConfig(configName []string) {
 			if len(byNamespace) == 0 {
 				delete(byNamespace, namespace)
 			}
+			namespacesUpdated[namespace] = struct{}{}
 		}
 	}
 }
@@ -232,9 +240,9 @@ func (c *SyntheticServiceEntryController) convertToConfig(obj *sink.Object) (con
 
 	conf = &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schemas.SyntheticServiceEntry.Type,
-			Group:             schemas.SyntheticServiceEntry.Group,
-			Version:           schemas.SyntheticServiceEntry.Version,
+			Type:              sse.Resource().Kind(),
+			Group:             sse.Resource().Group(),
+			Version:           sse.Resource().Version(),
 			Name:              name,
 			Namespace:         namespace,
 			ResourceVersion:   obj.Metadata.Version,
@@ -246,8 +254,8 @@ func (c *SyntheticServiceEntryController) convertToConfig(obj *sink.Object) (con
 		Spec: obj.Body,
 	}
 
-	s, _ := c.ConfigDescriptor().GetByType(schemas.SyntheticServiceEntry.Type)
-	if err = s.Validate(conf.Name, conf.Namespace, conf.Spec); err != nil {
+	s, _ := c.Schemas().FindByGroupVersionKind(sse.Resource().GroupVersionKind())
+	if err = s.Resource().ValidateProto(conf.Name, conf.Namespace, conf.Spec); err != nil {
 		log.Warnf("Discarding incoming MCP resource: validation failed (%s/%s): %v", conf.Namespace, conf.Name, err)
 		return nil, err
 	}
@@ -286,23 +294,9 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 	c.configStore = configs
 	c.configStoreMu.Unlock()
 
-	// TODO: Service change is not triggering full update in the e-e-pilot test. Even endpoint change is not
-	// functioning correctly. Currently it is working because on edsUpdate if we set endpoints to 0, we remove
-	// the service from EndpointShardsByService and subsequent eds updates trigger a full push. That is being
-	// fixed in https://github.com/istio/istio/pull/18574. Need to fix this issue and re-enable conditional
-	// full push. For now, any configupdate triggers a full push much like service entries.
-	if c.XDSUpdater != nil {
-		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:               true,
-			ConfigTypesUpdated: map[string]struct{}{schemas.SyntheticServiceEntry.Type: {}},
-			NamespacesUpdated:  svcChangeByNamespace,
-		})
-	}
-
 }
 
 func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Object) {
-	svcChangeByNamespace := make(map[string]struct{})
 	for _, obj := range resources {
 		conf, err := c.convertToConfig(obj)
 		if err != nil {
@@ -312,24 +306,26 @@ func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Ob
 		// should we check resource version??
 		svcChanged := c.isFullUpdateRequired(conf)
 		var oldEpVersion string
+		var event model.Event
 		c.configStoreMu.Lock()
 		namedConf, ok := c.configStore[conf.Namespace]
 		if ok {
+			event = model.EventUpdate
 			if namedConf[conf.Name] != nil {
 				oldEpVersion = version(namedConf[conf.Name].Annotations, endpointKey)
 			}
 			namedConf[conf.Name] = conf
-			c.dispatch(*conf, model.EventUpdate)
+			// c.dispatch(*conf, model.EventUpdate)
 		} else {
+			event = model.EventAdd
 			c.configStore[conf.Namespace] = map[string]*model.Config{
 				conf.Name: conf,
 			}
-			c.dispatch(*conf, model.EventAdd)
 		}
 		c.configStoreMu.Unlock()
 
 		if svcChanged {
-			svcChangeByNamespace[conf.Namespace] = struct{}{}
+			c.dispatch(*conf, event)
 			continue
 		}
 
@@ -338,15 +334,6 @@ func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Ob
 			if err := c.edsUpdate(conf); err != nil {
 				log.Warnf("edsUpdate: %v", err)
 			}
-		}
-	}
-	if len(svcChangeByNamespace) != 0 {
-		if c.XDSUpdater != nil {
-			c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{schemas.SyntheticServiceEntry.Type: {}},
-				NamespacesUpdated:  svcChangeByNamespace,
-			})
 		}
 	}
 }

@@ -17,6 +17,7 @@ package locality
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -101,13 +102,13 @@ func TestFailover(t *testing.T) {
 						ServiceCLocality:           "notcloseregion/zone/subzone",
 						NonExistantService:         "nonexistantservice",
 						NonExistantServiceLocality: "region/zone/subzone",
-					}, a)
+					}, a, failoverTemplate)
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
 					if err := retry.UntilSuccess(func() error {
-						return sendTraffic(a, fakeHostname)
-					}); err != nil {
+						return sendTraffic(a, fakeHostname, expectAllTrafficToB)
+					}, retry.Delay(time.Second*5)); err != nil {
 						ctx.Fatal(err)
 					}
 				})
@@ -139,13 +140,13 @@ func TestFailover(t *testing.T) {
 						ServiceCLocality:           "notcloseregion/zone/subzone",
 						NonExistantService:         "10.10.10.10",
 						NonExistantServiceLocality: "region/zone/subzone",
-					}, a)
+					}, a, failoverTemplate)
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
 					if err := retry.UntilSuccess(func() error {
-						return sendTraffic(a, fakeHostname)
-					}); err != nil {
+						return sendTraffic(a, fakeHostname, expectAllTrafficToB)
+					}, retry.Delay(time.Second*5)); err != nil {
 						ctx.Fatal(err)
 					}
 				})

@@ -33,15 +33,17 @@ require (
 	github.com/cenkalti/backoff v2.0.0+incompatible
 	github.com/census-instrumentation/opencensus-proto v0.2.1
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
-	github.com/cncf/udpa/go v0.0.0-20191127193423-5f054cc4b1a0
+	github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containerd/containerd v1.3.0 // indirect
 	github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc // indirect
+	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/d4l3k/messagediff v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dchest/siphash v1.1.0 // indirect
 	github.com/denisenkom/go-mssqldb v0.0.0-20190423183735-731ef375ac02 // indirect
+	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
@@ -50,13 +52,14 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
-	github.com/envoyproxy/go-control-plane v0.9.1
+	github.com/envoyproxy/go-control-plane v0.9.2
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fluent/fluent-logger-golang v1.3.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0
+	github.com/go-logr/logr v0.1.0
 	github.com/go-redis/redis v6.10.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
@@ -87,15 +90,19 @@ require (
 	github.com/hashicorp/go-plugin v1.0.0 // indirect
 	github.com/hashicorp/go-rootcerts v0.0.0-20160503143440-6bb64b370b90 // indirect
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
+	github.com/hashicorp/go-version v1.2.0
 	github.com/hashicorp/memberlist v0.1.3 // indirect
 	github.com/hashicorp/serf v0.8.1 // indirect
 	github.com/hashicorp/vault v0.10.0
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/jefferai/jsonx v1.0.0 // indirect
 	github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 // indirect
+	github.com/kr/pretty v0.1.0
+	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v0.9.0
 	github.com/lib/pq v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.10
+	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
@@ -121,7 +128,7 @@ require (
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.6.0
 	github.com/prometheus/prom2json v1.2.1
-	github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db // indirect
+	github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db
 	github.com/satori/go.uuid v1.2.0
 	github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317 // indirect
 	github.com/spf13/cobra v0.0.5
@@ -155,12 +162,15 @@ require (
 	istio.io/gogo-genproto v0.0.0-20191212213402-78a529a42cd8
 	istio.io/operator v0.0.0-20191223222718-4f86f733e5bc
 	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca
-	k8s.io/api v0.17.0
-	k8s.io/apiextensions-apiserver v0.17.0
-	k8s.io/apimachinery v0.17.0
-	k8s.io/cli-runtime v0.17.0
-	k8s.io/client-go v0.17.0
+	k8s.io/api v0.17.1
+	k8s.io/apiextensions-apiserver v0.17.1
+	k8s.io/apimachinery v0.17.1
+	k8s.io/cli-runtime v0.17.1
+	k8s.io/client-go v0.17.1
 	k8s.io/helm v2.14.3+incompatible
+	k8s.io/kubectl v0.17.1
+	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
+	sigs.k8s.io/controller-runtime v0.4.0
 	sigs.k8s.io/yaml v1.1.0
 )
 

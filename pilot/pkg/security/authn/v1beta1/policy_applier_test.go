@@ -110,8 +110,21 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Requires: &envoy_jwt.JwtRequirement{
-										RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-											AllowMissingOrFailed: &empty.Empty{},
+										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+											RequiresAny: &envoy_jwt.JwtRequirementOrList{
+												Requirements: []*envoy_jwt.JwtRequirement{
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+															ProviderName: "origins-0",
+														},
+													},
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+															AllowMissingOrFailed: &empty.Empty{},
+														},
+													},
+												},
+											},
 										},
 									},
 								},
@@ -139,7 +152,7 @@ func TestJwtFilter(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.foo.com",
 								JwksUri: jwksURI,
@@ -161,8 +174,21 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Requires: &envoy_jwt.JwtRequirement{
-										RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-											AllowMissingOrFailed: &empty.Empty{},
+										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+											RequiresAny: &envoy_jwt.JwtRequirementOrList{
+												Requirements: []*envoy_jwt.JwtRequirement{
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+															ProviderName: "origins-0",
+														},
+													},
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
+														},
+													},
+												},
+											},
 										},
 									},
 								},
@@ -190,7 +216,7 @@ func TestJwtFilter(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.foo.com",
 								JwksUri: jwksURI,
@@ -203,7 +229,7 @@ func TestJwtFilter(t *testing.T) {
 				},
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer: "https://secret.bar.com",
 								Jwks:   "jwks-inline-data",
@@ -225,8 +251,65 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Requires: &envoy_jwt.JwtRequirement{
-										RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-											AllowMissingOrFailed: &empty.Empty{},
+										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+											RequiresAny: &envoy_jwt.JwtRequirementOrList{
+												Requirements: []*envoy_jwt.JwtRequirement{
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+															ProviderName: "origins-0",
+														},
+													},
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+															ProviderName: "origins-1",
+														},
+													},
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
+															RequiresAll: &envoy_jwt.JwtRequirementAndList{
+																Requirements: []*envoy_jwt.JwtRequirement{
+																	{
+																		RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+																			RequiresAny: &envoy_jwt.JwtRequirementOrList{
+																				Requirements: []*envoy_jwt.JwtRequirement{
+																					{
+																						RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																							ProviderName: "origins-0",
+																						},
+																					},
+																					{
+																						RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																							AllowMissing: &empty.Empty{},
+																						},
+																					},
+																				},
+																			},
+																		},
+																	},
+																	{
+																		RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+																			RequiresAny: &envoy_jwt.JwtRequirementOrList{
+																				Requirements: []*envoy_jwt.JwtRequirement{
+																					{
+																						RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																							ProviderName: "origins-1",
+																						},
+																					},
+																					{
+																						RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																							AllowMissing: &empty.Empty{},
+																						},
+																					},
+																				},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
 										},
 									},
 								},
@@ -266,7 +349,7 @@ func TestJwtFilter(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer: "https://secret.foo.com",
 								Jwks:   "inline-jwks-data",
@@ -288,8 +371,21 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Requires: &envoy_jwt.JwtRequirement{
-										RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-											AllowMissingOrFailed: &empty.Empty{},
+										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+											RequiresAny: &envoy_jwt.JwtRequirementOrList{
+												Requirements: []*envoy_jwt.JwtRequirement{
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+															ProviderName: "origins-0",
+														},
+													},
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
+														},
+													},
+												},
+											},
 										},
 									},
 								},
@@ -317,7 +413,7 @@ func TestJwtFilter(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.foo.com",
 								JwksUri: "http://site.not.exist",
@@ -339,8 +435,21 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Requires: &envoy_jwt.JwtRequirement{
-										RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-											AllowMissingOrFailed: &empty.Empty{},
+										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+											RequiresAny: &envoy_jwt.JwtRequirementOrList{
+												Requirements: []*envoy_jwt.JwtRequirement{
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+															ProviderName: "origins-0",
+														},
+													},
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
+														},
+													},
+												},
+											},
 										},
 									},
 								},
@@ -357,6 +466,138 @@ func TestJwtFilter(t *testing.T) {
 									},
 									Forward:           false,
 									PayloadInMetadata: "https://secret.foo.com",
+								},
+							},
+						}),
+				},
+			},
+		},
+		{
+			name: "Forward original token",
+			in: []*model.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:               "https://secret.foo.com",
+								JwksUri:              jwksURI,
+								ForwardOriginalToken: true,
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Requires: &envoy_jwt.JwtRequirement{
+										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+											RequiresAny: &envoy_jwt.JwtRequirementOrList{
+												Requirements: []*envoy_jwt.JwtRequirement{
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+															ProviderName: "origins-0",
+														},
+													},
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "https://secret.foo.com",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+										LocalJwks: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: test.JwtPubKey1,
+											},
+										},
+									},
+									Forward:           true,
+									PayloadInMetadata: "https://secret.foo.com",
+								},
+							},
+						}),
+				},
+			},
+		},
+		{
+			name: "Output payload",
+			in: []*model.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:                "https://secret.foo.com",
+								JwksUri:               jwksURI,
+								ForwardOriginalToken:  true,
+								OutputPayloadToHeader: "x-foo",
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Requires: &envoy_jwt.JwtRequirement{
+										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+											RequiresAny: &envoy_jwt.JwtRequirementOrList{
+												Requirements: []*envoy_jwt.JwtRequirement{
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+															ProviderName: "origins-0",
+														},
+													},
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "https://secret.foo.com",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+										LocalJwks: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: test.JwtPubKey1,
+											},
+										},
+									},
+									Forward:              true,
+									ForwardPayloadHeader: "x-foo",
+									PayloadInMetadata:    "https://secret.foo.com",
 								},
 							},
 						}),
@@ -384,17 +625,17 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		in       []*v1beta1.JWT
+		in       []*v1beta1.JWTRule
 		expected *envoy_jwt.JwtAuthentication
 	}{
 		{
 			name:     "No rule",
-			in:       []*v1beta1.JWT{},
+			in:       []*v1beta1.JWTRule{},
 			expected: nil,
 		},
 		{
 			name: "Single JWT rule",
-			in: []*v1beta1.JWT{
+			in: []*v1beta1.JWTRule{
 				{
 					Issuer:  "https://secret.foo.com",
 					JwksUri: jwksURI,
@@ -409,8 +650,21 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 							},
 						},
 						Requires: &envoy_jwt.JwtRequirement{
-							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-								AllowMissingOrFailed: &empty.Empty{},
+							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+								RequiresAny: &envoy_jwt.JwtRequirementOrList{
+									Requirements: []*envoy_jwt.JwtRequirement{
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+												ProviderName: "origins-0",
+											},
+										},
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+												AllowMissing: &empty.Empty{},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -433,7 +687,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 		},
 		{
 			name: "Multiple JWT rule",
-			in: []*v1beta1.JWT{
+			in: []*v1beta1.JWTRule{
 				{
 					Issuer:  "https://secret.foo.com",
 					JwksUri: jwksURI,
@@ -452,8 +706,65 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 							},
 						},
 						Requires: &envoy_jwt.JwtRequirement{
-							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-								AllowMissingOrFailed: &empty.Empty{},
+							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+								RequiresAny: &envoy_jwt.JwtRequirementOrList{
+									Requirements: []*envoy_jwt.JwtRequirement{
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+												ProviderName: "origins-0",
+											},
+										},
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+												ProviderName: "origins-1",
+											},
+										},
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
+												RequiresAll: &envoy_jwt.JwtRequirementAndList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+																RequiresAny: &envoy_jwt.JwtRequirementOrList{
+																	Requirements: []*envoy_jwt.JwtRequirement{
+																		{
+																			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																				ProviderName: "origins-0",
+																			},
+																		},
+																		{
+																			RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																				AllowMissing: &empty.Empty{},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+																RequiresAny: &envoy_jwt.JwtRequirementOrList{
+																	Requirements: []*envoy_jwt.JwtRequirement{
+																		{
+																			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																				ProviderName: "origins-1",
+																			},
+																		},
+																		{
+																			RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																				AllowMissing: &empty.Empty{},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -488,7 +799,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 		},
 		{
 			name: "Empty Jwks URI",
-			in: []*v1beta1.JWT{
+			in: []*v1beta1.JWTRule{
 				{
 					Issuer: "https://secret.foo.com",
 				},
@@ -502,8 +813,21 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 							},
 						},
 						Requires: &envoy_jwt.JwtRequirement{
-							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-								AllowMissingOrFailed: &empty.Empty{},
+							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+								RequiresAny: &envoy_jwt.JwtRequirementOrList{
+									Requirements: []*envoy_jwt.JwtRequirement{
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+												ProviderName: "origins-0",
+											},
+										},
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+												AllowMissing: &empty.Empty{},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -526,7 +850,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 		},
 		{
 			name: "Unreachable Jwks URI",
-			in: []*v1beta1.JWT{
+			in: []*v1beta1.JWTRule{
 				{
 					Issuer:  "https://secret.foo.com",
 					JwksUri: "http://site.not.exist",
@@ -541,8 +865,21 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 							},
 						},
 						Requires: &envoy_jwt.JwtRequirement{
-							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-								AllowMissingOrFailed: &empty.Empty{},
+							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+								RequiresAny: &envoy_jwt.JwtRequirementOrList{
+									Requirements: []*envoy_jwt.JwtRequirement{
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+												ProviderName: "origins-0",
+											},
+										},
+										{
+											RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+												AllowMissing: &empty.Empty{},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -655,7 +992,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.foo.com",
 								JwksUri: jwksURI,
@@ -696,7 +1033,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.bar.com",
 								JwksUri: jwksURI,
@@ -709,7 +1046,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 				},
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer: "https://secret.foo.com",
 								Jwks:   "jwks-inline-data",
@@ -755,7 +1092,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			in: []*model.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "https://secret.foo.com",
 								JwksUri: jwksURI,
@@ -768,7 +1105,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 				},
 				{
 					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWT{
+						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer: "https://secret.bar.com",
 								Jwks:   "jwks-inline-data",

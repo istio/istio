@@ -29,9 +29,9 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration
@@ -108,9 +108,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "ratings",
 				Namespace: "bookinfo",
-				Type:      schemas.DestinationRule.Type,
-				Group:     schemas.DestinationRule.Group,
-				Version:   schemas.DestinationRule.Version,
+				Type:      collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
 			},
 			Spec: &networking.DestinationRule{
 				Host: "ratings",
@@ -133,9 +133,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "bookinfo",
 				Namespace: "default",
-				Type:      schemas.VirtualService.Type,
-				Group:     schemas.VirtualService.Group,
-				Version:   schemas.VirtualService.Version,
+				Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
 			},
 			Spec: &networking.VirtualService{
 				Hosts:    []string{"*"},

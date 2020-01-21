@@ -80,10 +80,10 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// 7071 (inbound), 2001 (service - also as http proxy), 15002 (http-proxy), 18010 (fortio), 15006 (virtual inbound)
-		// We do not get mixer on 9091 or 15004 because there are no services defined in istio-system namespace
+		// 7071 (inbound), 2001 (service - also as http proxy), 18010 (fortio), 15006 (virtual inbound)
+		// We do not get mixer on 9091 because there are no services defined in istio-system namespace
 		// in the none.yaml setup
-		if len(ldsr.GetHTTPListeners()) != 5 {
+		if len(ldsr.GetHTTPListeners()) != 4 {
 			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
 			// for the service (the http proxy is already covering this)
 			t.Error("HTTP listeners, expecting 4 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())

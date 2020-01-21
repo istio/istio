@@ -15,7 +15,17 @@
 package controller
 
 import (
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -27,5 +37,49 @@ type kubeEndpointsController interface {
 	Run(stopCh <-chan struct{})
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 		labelsList labels.Collection) ([]*model.ServiceInstance, error)
-	GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance
+	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
+}
+
+// kubeEndpoints abstracts the common behavior across endpoint and endpoint slices.
+type kubeEndpoints struct {
+	c        *Controller
+	informer cache.SharedIndexInformer
+}
+
+// updateEdsFunc is called to send eds updates for endpoints/endpointslice.
+type updateEdsFunc func(obj interface{}, event model.Event)
+
+func (e *kubeEndpoints) HasSynced() bool {
+	return e.informer.HasSynced()
+}
+
+func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
+	e.informer.Run(stopCh)
+}
+
+// handleEvent processes the event.
+func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.Event, ep interface{}, fn updateEdsFunc) error {
+	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, name, namespace)
+
+	// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
+	if features.EnableHeadlessService.Get() {
+		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(name, namespace)); obj != nil {
+			svc := obj.(*v1.Service)
+			// if the service is headless service, trigger a full push.
+			if svc.Spec.ClusterIP == v1.ClusterIPNone {
+				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{
+					Full:              true,
+					NamespacesUpdated: map[string]struct{}{namespace: {}},
+					// TODO: extend and set service instance type, so no need to re-init push context
+					ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{
+						collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
+				})
+				return nil
+			}
+		}
+	}
+
+	fn(ep, event)
+
+	return nil
 }
