@@ -297,7 +297,6 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 }
 
 func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Object) {
-	svcChangeByNamespace := make(map[string]struct{})
 	for _, obj := range resources {
 		conf, err := c.convertToConfig(obj)
 		if err != nil {
@@ -307,24 +306,26 @@ func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Ob
 		// should we check resource version??
 		svcChanged := c.isFullUpdateRequired(conf)
 		var oldEpVersion string
+		var event model.Event
 		c.configStoreMu.Lock()
 		namedConf, ok := c.configStore[conf.Namespace]
 		if ok {
+			event = model.EventUpdate
 			if namedConf[conf.Name] != nil {
 				oldEpVersion = version(namedConf[conf.Name].Annotations, endpointKey)
 			}
 			namedConf[conf.Name] = conf
-			c.dispatch(*conf, model.EventUpdate)
+			// c.dispatch(*conf, model.EventUpdate)
 		} else {
+			event = model.EventAdd
 			c.configStore[conf.Namespace] = map[string]*model.Config{
 				conf.Name: conf,
 			}
-			c.dispatch(*conf, model.EventAdd)
 		}
 		c.configStoreMu.Unlock()
 
 		if svcChanged {
-			svcChangeByNamespace[conf.Namespace] = struct{}{}
+			c.dispatch(*conf, event)
 			continue
 		}
 
