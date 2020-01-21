@@ -47,6 +47,20 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		o.Namespace = ns
 		out.components = append(out.components, component.NewComponent(c, &o))
 	}
+	for _, cn := range name.AllAddonComponentNames {
+		o := *opts
+		ns, err := name.Namespace(cn, installSpec)
+		if err != nil {
+			return nil, err
+		}
+		o.Namespace = ns
+		rn := ""
+		// Resource names are included in the translations.
+		if cm := translator.ComponentMap(string(cn)); cm != nil {
+			rn = cm.ResourceName
+		}
+		out.components = append(out.components, component.NewAddonComponent(cn, rn, &o))
+	}
 	for idx, c := range installSpec.Components.IngressGateways {
 		if c.Enabled == nil || !c.Enabled.Value {
 			continue
@@ -62,20 +76,6 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		o := *opts
 		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
 		out.components = append(out.components, component.NewEgressComponent(c.Name, idx, &o))
-	}
-	for _, cn := range name.AllAddonComponentNames {
-		c := installSpec.AddonComponents[util.ToYAMLPathString(string(cn))]
-		if c == nil || c.Enabled == nil || !c.Enabled.Value {
-			continue
-		}
-		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
-		rn := ""
-		// Resource names are included in the translations.
-		if cm := translator.ComponentMap(string(cn)); cm != nil {
-			rn = cm.ResourceName
-		}
-		out.components = append(out.components, component.NewAddonComponent(cn, rn, &o))
 	}
 	return out, nil
 }
