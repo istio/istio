@@ -14,6 +14,8 @@
 
 package constants
 
+import "time"
+
 // iptables tables
 const (
 	MANGLE = "mangle"
@@ -81,6 +83,7 @@ const (
 	SkipRuleApply             = "skip-rule-apply"
 	RunValidation             = "run-validation"
 	IptablesProbePort         = "iptables-probe-port"
+	ProbeTimeout              = "probe-timeout"
 )
 
 const (
@@ -112,6 +115,7 @@ const (
 
 const (
 	DefaultIptablesProbePort = 15002
+	DefaultProbeTimeout      = 5 * time.Second
 )
 
 const (

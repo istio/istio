@@ -84,7 +84,7 @@ components:
           path: /ready
           port: 8080
         initialDelaySeconds: 5
-        periodSeconds: 30
+        periodSeconds: 5
         timeoutSeconds: 5
       resources:
         requests:
@@ -267,7 +267,7 @@ values:
       s390x: 2
     certificates: []
     configValidation: true
-    controlPlaneSecurityEnabled: true
+    controlPlaneSecurityEnabled: false
     defaultNodeSelector: {}
     defaultPodDisruptionBudget:
       enabled: true
@@ -281,6 +281,7 @@ values:
     imagePullSecrets: []
     istiod:
       enabled: true
+    jwtPolicy: third-party-jwt
     k8sIngress:
       enableHttps: false
       enabled: false
@@ -306,6 +307,7 @@ values:
     operatorManageWebhooks: false
     outboundTrafficPolicy:
       mode: ALLOW_ANY
+    pilotCertProvider: citadel
     policyCheckFailOpen: false
     priorityClassName: ""
     proxy:
@@ -388,7 +390,7 @@ values:
       zipkin:
         address: ""
     trustDomain: cluster.local
-    useMCP: true
+    useMCP: false
   grafana:
     accessMode: ReadWriteMany
     contextPath: /grafana
@@ -515,7 +517,6 @@ values:
       reportBatchMaxTime: 1s
       sessionAffinityEnabled: false
       tolerations: []
-      useMCP: true
   nodeagent:
     image: node-agent-k8s
   pilot:
@@ -534,7 +535,7 @@ values:
     image: pilot
     ingress:
       ingressClass: istio
-      ingressControllerMode: "OFF"
+      ingressControllerMode: STRICT
       ingressService: istio-ingressgateway
     keepaliveMaxServerConnectionAge: 30m
     meshNetworks:
@@ -547,7 +548,6 @@ values:
     replicaCount: 1
     tolerations: []
     traceSampling: 1
-    useMCP: true
   prometheus:
     contextPath: /prometheus
     enabled: true
@@ -587,6 +587,14 @@ values:
     enabled: true
     v2:
       enabled: false
+      prometheus:
+        enabled: true
+      stackdriver:
+        configOverride: {}
+        enabled: false
+        logging: false
+        monitoring: false
+        topology: false
   tracing:
     enabled: false
     ingress:

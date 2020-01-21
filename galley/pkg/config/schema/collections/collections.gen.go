@@ -1175,4 +1175,26 @@ var (
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
 		Build()
+
+	// Pilot contains only collections used by Pilot.
+	Pilot = collection.NewSchemasBuilder().
+		MustAdd(IstioAuthenticationV1Alpha1Meshpolicies).
+		MustAdd(IstioAuthenticationV1Alpha1Policies).
+		MustAdd(IstioConfigV1Alpha2Httpapispecbindings).
+		MustAdd(IstioConfigV1Alpha2Httpapispecs).
+		MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
+		MustAdd(IstioMixerV1ConfigClientQuotaspecs).
+		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
+		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
+		MustAdd(IstioNetworkingV1Alpha3Gateways).
+		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
+		MustAdd(IstioNetworkingV1Alpha3Sidecars).
+		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
+		MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
+		MustAdd(IstioRbacV1Alpha1Rbacconfigs).
+		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
+		MustAdd(IstioRbacV1Alpha1Serviceroles).
+		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
+		MustAdd(IstioSecurityV1Beta1Requestauthentications).
+		Build()
 )

@@ -35,10 +35,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/adsc"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 	mcptest "istio.io/istio/pkg/mcp/testing"
@@ -129,17 +129,18 @@ func runSnapshot(mcpServer *mcptest.Server, quit chan struct{}, t *testing.T) {
 		case <-configInterval.C:
 			v++
 			version := strconv.Itoa(v)
-			for _, m := range schemas.Istio {
-				if m.MessageName == schemas.ServiceEntry.MessageName {
-					b.Set(schemas.ServiceEntry.Collection, version, generateServiceEntries(t))
-				} else if m.MessageName == schemas.Gateway.MessageName {
+			for _, m := range collections.Pilot.All() {
+				switch m.Name() {
+				case collections.IstioNetworkingV1Alpha3Serviceentries.Name():
+					b.Set(m.Name().String(), version, generateServiceEntries(t))
+				case collections.IstioNetworkingV1Alpha3Gateways.Name():
 					gw, err := generateGateway()
 					if err != nil {
 						t.Log(err)
 					}
-					b.Set(schemas.Gateway.Collection, version, gw)
-				} else {
-					b.Set(m.Collection, version, []*mcp.Resource{})
+					b.Set(m.Name().String(), version, gw)
+				default:
+					b.Set(m.Name().String(), version, []*mcp.Resource{})
 				}
 			}
 
@@ -193,11 +194,12 @@ func adsConnectAndWait(n int, pilotAddr string, t *testing.T) (adscs []*adsc.ADS
 }
 
 func runMcpServer() (*mcptest.Server, error) {
-	collections := make([]string, len(schemas.Istio))
-	for i, m := range schemas.Istio {
-		collections[i] = m.Collection
+	all := collections.Pilot.All()
+	names := make([]string, 0, len(all))
+	for _, m := range all {
+		names = append(names, m.Name().String())
 	}
-	return mcptest.NewServer(0, source.CollectionOptionsFromSlice(collections))
+	return mcptest.NewServer(0, source.CollectionOptionsFromSlice(names))
 }
 
 func initLocalPilotTestEnv(t *testing.T, mcpPort int, grpcAddr, debugAddr string) util.TearDownFunc {

@@ -559,10 +559,13 @@ global:
 
   # Configure the Pilot certificate provider.
   # Currently, two providers are supported: "kubernetes" and "citadel".
-  # TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
-  # with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
-  # we may change the default value of this option as "citadel".
-  pilotCertProvider: "kubernetes"
+  # As some platforms may not have k8s signing APIs,
+  # set Citadel as the default provider for Pilot certificate.
+  pilotCertProvider: "citadel"
+
+  # Configure the policy for validating JWT.
+  # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
+  jwtPolicy: "third-party-jwt"
 
 # Internal setting - used when generating helm templates for kustomize.
 # clusterResources controls the inclusion of cluster-wide resources when generating the charts/installing.
@@ -574,6 +577,3 @@ clusterResources: true
 # Version is set as 'version' label and part of the resource names when installing.
 # It is used to support multiple version in same namespace, similar with normal app traffic shift.
 version: ""
-
-certmanager:
-  enabled: false

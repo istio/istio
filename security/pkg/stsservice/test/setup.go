@@ -50,6 +50,7 @@ const (
 type Env struct {
 	ProxySetUp        *proxyEnv.TestSetup
 	AuthServer        *tokenBackend.AuthorizationServer
+
 	stsServer         *stsServer.Server
 	xDSServer         *grpc.Server
 	xDSCb             *xdsService.XDSCallbacks
@@ -132,6 +133,7 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16) *Env {
 		t.Fatalf("failed to start a auth backend: %v", err)
 	}
 	env.AuthServer = backend
+
 	// Set up STS server
 	stsServer, err := setUpSTS(int(proxySetUp.Ports().ServerProxyPort), backend.URL)
 	if err != nil {

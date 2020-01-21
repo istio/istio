@@ -1,0 +1,10 @@
+kind: kkk
+spec:
+  ka: va_override
+  kb:
+    enabled: true
+  kc:
+    kca: "vca_override"
+  kd:
+    kda: "vda"
+    kdb: true

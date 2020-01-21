@@ -180,6 +180,25 @@ func TestAllNamespaces(t *testing.T) {
 		})
 }
 
+func TestTimeout(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			// We should time out immediately.
+			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
+			g.Expect(err.Error()).To(ContainSubstring("timed out"))
+		})
+}
+
 // Verify the output contains messages of the expected type, in order, followed by boilerplate lines
 func expectMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
 	t.Helper()

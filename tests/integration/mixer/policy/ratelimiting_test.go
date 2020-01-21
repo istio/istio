@@ -253,8 +253,17 @@ func deleteConfigOrFail(t *testing.T, config string, g galley.Instance, ctx reso
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_policy_ratelimit", m).
+		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  global:
+    disablePolicyChecks: false
+components:
+  policy:
+    enabled: true`
+		})).
 		Setup(testsetup).
 		Run()
 }

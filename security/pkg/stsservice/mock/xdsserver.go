@@ -142,6 +142,7 @@ func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS b
 type XDSCallbacks struct {
 	numStream         int
 	numTokenReceived  int
+
 	callbackError     bool
 	lastReceivedToken string
 	mutex             sync.RWMutex

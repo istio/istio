@@ -16,6 +16,8 @@ package validate
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"testing"
 
 	"github.com/ghodss/yaml"
@@ -23,7 +25,16 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/test/env"
 )
+
+var (
+	repoRootDir string
+)
+
+func init() {
+	repoRootDir = env.IstioSrc
+}
 
 func TestValidateValues(t *testing.T) {
 	tests := []struct {
@@ -159,7 +170,7 @@ cni:
 
 func TestValidateValuesFromProfile(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/20112")
-    // TODO port to new api
+	// TODO port to new api
 	tests := []struct {
 		desc     string
 		profile  string
@@ -195,6 +206,34 @@ func TestValidateValuesFromProfile(t *testing.T) {
 		})
 	}
 }
+func TestValidateValuesFromValuesYAMLs(t *testing.T) {
+	valuesYAML := ""
+	var allFiles []string
+	manifestDir := filepath.Join(repoRootDir, "manifests")
+	for _, sd := range []string{"base", "gateways", "istio-cni", "istiocoredns", "istio-telemetry", "istio-control", "istio-policy", "security"} {
+		dir := filepath.Join(manifestDir, sd)
+		files, err := util.FindFiles(dir, yamlFileFilter)
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		allFiles = append(allFiles, files...)
+	}
+	allFiles = append(allFiles, filepath.Join(manifestDir, "global.yaml"))
+	for _, f := range allFiles {
+		b, err := ioutil.ReadFile(f)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		valuesYAML, err = util.OverlayYAML(valuesYAML, string(b))
+		valuesTree := make(map[string]interface{})
+		if err := yaml.Unmarshal([]byte(valuesYAML), &valuesTree); err != nil {
+			t.Fatal(err.Error())
+		}
+		if err := CheckValues(valuesTree); err != nil {
+			t.Fatalf("file %s failed validation with: %s", f, err)
+		}
+	}
+}
 
 func makeErrors(estr []string) util.Errors {
 	var errs util.Errors
@@ -202,4 +241,8 @@ func makeErrors(estr []string) util.Errors {
 		errs = util.AppendErr(errs, fmt.Errorf("%s", s))
 	}
 	return errs
+}
+
+func yamlFileFilter(path string) bool {
+	return filepath.Base(path) == "values.yaml"
 }

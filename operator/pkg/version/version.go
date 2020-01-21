@@ -16,10 +16,16 @@ package version
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	goversion "github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	// releasePrefix is the prefix we used in http://gcr.io/istio-release for releases
+	releasePrefix = "release-"
 )
 
 // CompatibilityMapping is a mapping from an Istio operator version and the corresponding recommended and
@@ -133,6 +139,22 @@ func IsVersionString(path string) bool {
 	}
 	vs := Version{}
 	return yaml.Unmarshal([]byte(path), &vs) == nil
+}
+
+// TagToVersionString converts an istio container tag into a version string
+func TagToVersionString(path string) (string, error) {
+	path = strings.TrimPrefix(path, releasePrefix)
+	ver, err := goversion.NewSemver(path)
+	if err != nil {
+		return "", err
+	}
+	segments := ver.Segments()
+	fmtParts := make([]string, len(segments))
+	for i, s := range segments {
+		str := strconv.Itoa(s)
+		fmtParts[i] = str
+	}
+	return strings.Join(fmtParts, "."), nil
 }
 
 // MajorVersion represents a major version.

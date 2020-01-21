@@ -17,6 +17,8 @@ package mixer
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -28,6 +30,12 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("mixer_test", m).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+components:
+  policy:
+    enabled: true`
+		})).
 		Run()
 }

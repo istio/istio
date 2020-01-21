@@ -179,7 +179,13 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 	}
 	networkView := model.GetNetworkView(proxy)
 
-	for _, service := range push.Services(proxy) {
+	var services []*model.Service
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		services = push.GatewayServices(proxy)
+	} else {
+		services = push.Services(proxy)
+	}
+	for _, service := range services {
 		destRule := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {

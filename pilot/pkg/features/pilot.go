@@ -48,10 +48,20 @@ var (
 		"Limits the number of concurrent pushes allowed. On larger machines this can be increased for faster pushes",
 	).Get()
 
+	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
+	MaxRecvMsgSize = env.RegisterIntVar(
+		"ISTIO_GPRC_MAXRECVMSGSIZE",
+		4*1024*1024,
+		"Sets the max receive buffer size of gRPC stream in bytes.",
+	).Get()
+
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
 	// For larger clusters it can increase memory use and GC - useful for small tests.
 	DebugConfigs = env.RegisterBoolVar("PILOT_DEBUG_ADSZ_CONFIG", false, "").Get()
+
+	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
+	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false, "").Get()
 
 	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
@@ -254,14 +264,6 @@ var (
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
-	EnableUnsafeRegex = env.RegisterBoolVar(
-		"PILOT_ENABLE_UNSAFE_REGEX",
-		false,
-		"If enabled, pilot will generate Envoy configuration that does not use safe_regex "+
-			"but the older, deprecated regex field. This should only be enabled to support "+
-			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
-	)
-
 	EnableEndpointSliceController = env.RegisterBoolVar(
 		"PILOT_USE_ENDPOINT_SLICE",
 		false,
@@ -286,16 +288,6 @@ var (
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
-	// TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
-	// with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
-	// we may change the default value of this option as "citadel".
-	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "kubernetes",
+	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
 		"the provider of Pilot DNS certificate.")
-)
-
-var (
-	// TODO: define all other default ports here, add docs
-
-	// DefaultPortHTTPProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
-	DefaultPortHTTPProxy = 15002
 )

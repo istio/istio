@@ -33,6 +33,7 @@ import (
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -164,15 +165,11 @@ func (rr reconcileRequest) String() string {
 	return rr.description
 }
 
-func filterWatchedObject(in interface{}, name string) (skip bool, key string) {
-	obj, err := meta.Accessor(in)
-	if err != nil {
+func filterWatchedObject(obj kubeApiMeta.Object, name string) (skip bool, key string) {
+	if name != "" && obj.GetName() != name {
 		return true, ""
 	}
-	if obj.GetName() != name {
-		return true, ""
-	}
-	key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(in)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		return true, ""
 	}
@@ -181,7 +178,11 @@ func filterWatchedObject(in interface{}, name string) (skip bool, key string) {
 
 func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name string) *cache.ResourceEventHandlerFuncs {
 	return &cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+		AddFunc: func(curr interface{}) {
+			obj, err := meta.Accessor(curr)
+			if err != nil {
+				return
+			}
 			skip, key := filterWatchedObject(obj, name)
 			scope.Debugf("HandlerAdd: key=%v skip=%v", key, skip)
 			if skip {
@@ -191,27 +192,40 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 			queue.Add(req)
 		},
 		UpdateFunc: func(prev, curr interface{}) {
-			skip, key := filterWatchedObject(curr, name)
+			currObj, err := meta.Accessor(curr)
+			if err != nil {
+				return
+			}
+			prevObj, err := meta.Accessor(prev)
+			if err != nil {
+				return
+			}
+			if currObj.GetResourceVersion() == prevObj.GetResourceVersion() {
+				return
+			}
+			skip, key := filterWatchedObject(currObj, name)
 			scope.Debugf("HandlerUpdate: key=%v skip=%v", key, skip)
 			if skip {
 				return
 			}
-			if !reflect.DeepEqual(prev, curr) {
-				req := &reconcileRequest{fmt.Sprintf("update event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
-				queue.Add(req)
-			}
+			req := &reconcileRequest{fmt.Sprintf("update event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key)}
+			queue.Add(req)
 		},
-		DeleteFunc: func(obj interface{}) {
-			if _, ok := obj.(kubeApiMeta.Object); !ok {
+		DeleteFunc: func(curr interface{}) {
+			if _, ok := curr.(kubeApiMeta.Object); !ok {
 				// If the object doesn't have Metadata, assume it is a tombstone object
 				// of type DeletedFinalStateUnknown
-				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 				if !ok {
 					return
 				}
-				obj = tombstone.Obj
+				curr = tombstone.Obj
 			}
-			skip, key := filterWatchedObject(obj, name)
+			currObj, err := meta.Accessor(curr)
+			if err != nil {
+				return
+			}
+			skip, key := filterWatchedObject(currObj, name)
 			scope.Debugf("HandlerDelete: key=%v skip=%v", key, skip)
 			if skip {
 				return
@@ -227,6 +241,7 @@ var (
 	configGVK     = kubeApiAdmission.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiAdmission.ValidatingWebhookConfiguration{}).Name())
 	endpointGVK   = kubeApiCore.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiCore.Endpoints{}).Name())
 	deploymentGVK = kubeApiApp.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiApp.Deployment{}).Name())
+	podGVK        = kubeApiCore.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiCore.Pod{}).Name())
 )
 
 func findClusterRoleOwnerRefs(client kubernetes.Interface, clusterRoleName string) []kubeApiMeta.OwnerReference {
@@ -238,9 +253,9 @@ func findClusterRoleOwnerRefs(client kubernetes.Interface, clusterRoleName strin
 
 	clusterRole, err := client.RbacV1().ClusterRoles().Get(clusterRoleName, kubeApiMeta.GetOptions{})
 	if err != nil {
-		scope.Warnf("Could not find clusterrole: %s to set ownerRef. "+
+		scope.Warnf("Could not find clusterrole %q to set ownerRef: (%v). "+
 			"The webhook configuration must be deleted manually.",
-			clusterRoleName)
+			clusterRoleName, err)
 		return nil
 	}
 
@@ -291,9 +306,12 @@ func newController(
 	endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
 
 	if o.DeferToDeploymentName != "" {
-		log.Infof("Deferring reconciliation to controller %v when present", o.DeferToDeploymentName)
+		log.Infof("Deferring reconciliation when %v deployment is present", o.DeferToDeploymentName)
 		deploymentInformer := c.sharedInformers.Apps().V1().Deployments().Informer()
 		deploymentInformer.AddEventHandler(makeHandler(c.queue, deploymentGVK, o.DeferToDeploymentName))
+
+		podInformer := c.sharedInformers.Core().V1().Pods().Informer()
+		podInformer.AddEventHandler(makeHandler(c.queue, podGVK, ""))
 	}
 
 	return c, nil
@@ -382,7 +400,7 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 			return err
 		}
 		if !ready {
-			scope.Infof("Endpoint not ready: %v", reason)
+			scope.Infof("Endpoint %v is not ready: %v", c.o.ServiceName, reason)
 			return nil
 		}
 		c.endpointReadyOnce = true
@@ -442,6 +460,18 @@ func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string
 	return false, "no subset addresses ready"
 }
 
+func (c *Controller) galleyPodsRunning() (running bool, err error) {
+	selector := kubeLabels.SelectorFromSet(map[string]string{"istio": "galley"})
+	pods, err := c.sharedInformers.Core().V1().Pods().Lister().List(selector)
+	if err != nil {
+		return true, err
+	}
+	if len(pods) > 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (c *Controller) isGalleyDeploymentRunning() (running bool, err error) {
 	galley, err := c.sharedInformers.Apps().V1().
 		Deployments().Lister().Deployments(c.o.WatchedNamespace).Get(c.o.DeferToDeploymentName)
@@ -449,15 +479,17 @@ func (c *Controller) isGalleyDeploymentRunning() (running bool, err error) {
 	// galley does/doesn't exist
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
-			return false, nil
+			// double-check that no galley pods are still terminating.
+			return c.galleyPodsRunning()
 		}
 		return false, err
 	}
 
 	// galley is scaled down to zero replicas. This is useful for debugging
 	// to force the istiod controller to run.
-	if galley.Spec.Replicas == nil || *galley.Spec.Replicas == 0 {
-		return false, nil
+	if (galley.Spec.Replicas == nil || *galley.Spec.Replicas == 0) && galley.Status.ReadyReplicas == 0 {
+		// double-check that no galley pods are still terminating.
+		return c.galleyPodsRunning()
 	}
 
 	return true, nil
@@ -483,7 +515,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(desired *kubeApiAdmiss
 		created, err := c.client.AdmissionregistrationV1beta1().
 			ValidatingWebhookConfigurations().Create(desired)
 		if err != nil {
-			scope.Errorf("Failed to create validatingwebhookconfiguration %v: %v",
+			scope.Warnf("Failed to create validatingwebhookconfiguration %v: %v",
 				c.o.WebhookConfigName, err)
 			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
 			return err
@@ -498,6 +530,8 @@ func (c *Controller) updateValidatingWebhookConfiguration(desired *kubeApiAdmiss
 	updated.Webhooks = desired.Webhooks
 	updated.OwnerReferences = desired.OwnerReferences
 
+	//if diff := cmp.Diff(updated, current); diff != "" {
+	// log.Infof("validatingwebhookconfiguration changed\n%v", diff)
 	if !reflect.DeepEqual(updated, current) {
 		latest, err := c.client.AdmissionregistrationV1beta1().
 			ValidatingWebhookConfigurations().Update(updated)

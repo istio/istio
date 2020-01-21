@@ -81,7 +81,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
-	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for all Istio resources to be ready."+
+	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for the Istio operator to be ready."+
 		" The --wait flag must be set for this flag to apply")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
 		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
@@ -134,7 +134,8 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,
 		Verbose:     args.verbose,
-		WaitTimeout: 1 * time.Minute,
+		Wait:        oiArgs.wait,
+		WaitTimeout: oiArgs.readinessTimeout,
 		Kubeconfig:  oiArgs.kubeConfigPath,
 		Context:     oiArgs.context,
 	}
@@ -164,6 +165,13 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 	opts.Prune = pointer.BoolPtr(false)
 	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), *opts)
 
+	if opts.Wait {
+		err := manifest.WaitForResources(objs, opts)
+		if err != nil {
+			out.Err = err
+		}
+	}
+
 	success := true
 	if out.Err != nil {
 		cs := fmt.Sprintf("Component %s install returned the following errors:", componentName)
@@ -192,7 +200,7 @@ func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource strin
 		return "", "", nil
 	}
 
-	mergedYAML, err := genProfile(false, filePath, "", "", "", true, l)
+	mergedYAML, err := genProfile(false, []string{filePath}, "", "", "", true, l)
 	if err != nil {
 		return "", "", err
 	}

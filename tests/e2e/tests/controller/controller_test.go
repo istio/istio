@@ -23,13 +23,14 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/resource"
+	crd2 "istio.io/istio/pilot/pkg/config/kube/crd"
 	crd "istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/model"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 // Package controller tests the pilot controller using a k8s cluster or standalone apiserver.
@@ -43,7 +44,7 @@ const (
 	resync = 1 * time.Second
 )
 
-func makeClient(desc schema.Set) (*crd.Client, error) {
+func makeClient(desc collection.Schemas) (*crd.Client, error) {
 	cl, err := crd.NewClient("", "", desc, "", &model.DisabledLedger{})
 	if err != nil {
 		return nil, err
@@ -109,8 +110,7 @@ func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	desc := append(schemas.Istio, mock.Types...)
-	cl, err := makeClient(desc)
+	cl, err := makeClient(crd2.SupportedSchemas)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -152,14 +152,16 @@ func istioConfig(t *testing.T, client model.ConfigStore, ns string) {
 }
 
 func TestUnknownConfig(t *testing.T) {
-	desc := schema.Set{schema.Instance{
-		Type:        "unknown-config",
-		Plural:      "unknown-configs",
-		Group:       "test",
-		Version:     "v1",
-		MessageName: "test.MockConfig",
-		Validate:    nil,
-	}}
+	desc := collection.SchemasFor(collection.Builder{
+		Name: "unknown",
+		Resource: resource.Builder{
+			Kind:    "UnknownConfig",
+			Plural:  "UnknownConfigs",
+			Group:   "test",
+			Version: "v1",
+			Proto:   "test.MockConfig",
+		}.MustBuild(),
+	}.MustBuild())
 	_, err := makeClient(desc)
 	if err == nil {
 		t.Fatalf("expect client to fail with unknown types")

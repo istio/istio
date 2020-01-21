@@ -71,9 +71,28 @@ func StringBoolMapToSlice(m map[string]bool) []string {
 // ReadFilesWithFilter reads files from path, for a directory it recursively reads files and filters the results
 // for single file it directly reads the file. It returns a concatenated output of all matching files' content.
 func ReadFilesWithFilter(path string, filter FileFilter) (string, error) {
-	fi, err := os.Stat(path)
+	fileList, err := FindFiles(path, filter)
 	if err != nil {
 		return "", err
+	}
+	var sb strings.Builder
+	for _, file := range fileList {
+		a, err := ioutil.ReadFile(file)
+		if err != nil {
+			return "", err
+		}
+		if _, err := sb.WriteString(string(a) + "\n"); err != nil {
+			return "", err
+		}
+	}
+	return sb.String(), nil
+}
+
+// FindFiles reads files from path, and returns the file names that match the filter.
+func FindFiles(path string, filter FileFilter) ([]string, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, err
 	}
 	var fileList []string
 	if fi.IsDir() {
@@ -88,22 +107,12 @@ func ReadFilesWithFilter(path string, filter FileFilter) (string, error) {
 			return nil
 		})
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	} else {
 		fileList = append(fileList, path)
 	}
-	var sb strings.Builder
-	for _, file := range fileList {
-		a, err := ioutil.ReadFile(file)
-		if err != nil {
-			return "", err
-		}
-		if _, err := sb.WriteString(string(a) + "\n"); err != nil {
-			return "", err
-		}
-	}
-	return sb.String(), nil
+	return fileList, nil
 }
 
 // ParseValue parses string into a value

@@ -23,6 +23,7 @@ import (
 	"net/http/pprof"
 	"sort"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube/inject"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -116,7 +117,6 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	}
 
 	mux.HandleFunc("/debug", s.Debug)
-	mux.HandleFunc("/ready", s.ready)
 
 	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
 	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
@@ -355,18 +355,26 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	_, _ = fmt.Fprintf(w, "\n[\n")
-	for _, typ := range s.Env.IstioConfigStore.ConfigDescriptor() {
-		cfg, _ := s.Env.IstioConfigStore.List(typ.Type, "")
+
+	var err error
+	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
+		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
-			b, err := json.MarshalIndent(c, "  ", "  ")
+			var b []byte
+			b, err = json.MarshalIndent(c, "  ", "  ")
 			if err != nil {
-				return
+				// We're done.
+				return true
 			}
 			_, _ = w.Write(b)
 			_, _ = fmt.Fprint(w, ",\n")
 		}
+		return false
+	})
+
+	if err == nil {
+		_, _ = fmt.Fprint(w, "\n{}]")
 	}
-	_, _ = fmt.Fprint(w, "\n{}]")
 }
 
 // collectTLSSettingsForPort returns TLSSettings for the given port, key by subset name (the service-level settings
@@ -726,10 +734,6 @@ func writeAllADS(w io.Writer) {
 		_, _ = fmt.Fprint(w, "]}\n")
 	}
 	_, _ = fmt.Fprint(w, "]\n")
-}
-
-func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
-	w.WriteHeader(200)
 }
 
 // lists all the supported debug endpoints.
