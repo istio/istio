@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -40,13 +39,6 @@ import (
 	binversion "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-)
-
-var (
-	// objectCache holds the latest copy of each object applied by the controller, keyed by its Hash() function.
-	// Must be locked since ProcessManifest can be run concurrently.
-	objectCache   = make(map[string]*object.K8sObject)
-	objectCacheMu sync.RWMutex
 )
 
 func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, error) {
@@ -189,17 +181,15 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 	}
 
 	var objects object.K8sObjects
-	objectCacheMu.RLock()
 	for _, obj := range allObjects {
 		oh := obj.Hash()
-		if co, ok := objectCache[oh]; ok && obj.Equal(co) {
+		if co, ok := h.objectCache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
 			log.Infof("Object %s is unchanged, skip update.", oh)
 			continue
 		}
 		objects = append(objects, obj)
 	}
-	objectCacheMu.RUnlock()
 
 	for _, obj := range objects {
 		err = h.ProcessObject(manifest.Name, obj.UnstructuredObject())
@@ -209,9 +199,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		}
 		log.Infof("Adding object %s to cache.", obj.Hash())
 		// Update the cache with the latest object.
-		objectCacheMu.Lock()
-		objectCache[obj.Hash()] = obj
-		objectCacheMu.Unlock()
+		h.objectCache[obj.Hash()] = obj
 	}
 	return len(objects), utilerrors.NewAggregate(errs)
 }

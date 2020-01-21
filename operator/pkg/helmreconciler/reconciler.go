@@ -36,6 +36,8 @@ type HelmReconciler struct {
 	customizer         RenderingCustomizer
 	instance           *iop.IstioOperator
 	needUpdateAndPrune bool
+	// objectCache holds the latest copy of each object applied by the controller, keyed by its Hash() function.
+	objectCache map[string]*object.K8sObject
 }
 
 // Factory is a factory for creating HelmReconciler objects using the specified CustomizerFactory.
@@ -57,7 +59,13 @@ func (f *Factory) New(instance *iop.IstioOperator, client client.Client) (*HelmR
 	if err != nil {
 		return nil, err
 	}
-	reconciler := &HelmReconciler{client: client, customizer: wrappedcustomizer, instance: instance, needUpdateAndPrune: true}
+	reconciler := &HelmReconciler{
+		client:             client,
+		customizer:         wrappedcustomizer,
+		instance:           instance,
+		needUpdateAndPrune: true,
+		objectCache:        make(map[string]*object.K8sObject),
+	}
 	wrappedcustomizer.RegisterReconciler(reconciler)
 	return reconciler, nil
 }
