@@ -24,9 +24,9 @@ import (
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
 
-// TestRenewToken verifies when proxy reconnect XDS server and sends token on
+// TestRenewToken verifies when proxy reconnect XDS server and sends token over
 // the new stream, if the original token is expired, gRPC library will call
-// STS server and returns cached token to proxy.
+// STS server and returns new token to proxy.
 func TestRenewToken(t *testing.T) {
 	// Enable this test when gRPC fix is picked by Istio Proxy
 	// https://github.com/grpc/grpc/pull/21641

@@ -24,7 +24,7 @@ import (
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
 
-// TestCachedToken verifies when proxy reconnects XDS server and sends token on
+// TestCachedToken verifies when proxy reconnects XDS server and sends token over
 // the stream, if the original token is not expired, gRPC library does not call
 // STS server and provides cached token to proxy.
 func TestCachedToken(t *testing.T) {
