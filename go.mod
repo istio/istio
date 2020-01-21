@@ -17,7 +17,7 @@ require (
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
 	fortio.org/fortio v1.3.1
 	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
-	github.com/DataDog/datadog-go v2.2.0+incompatible
+	github.com/DataDog/datadog-go v3.2.0+incompatible
 	github.com/Masterminds/semver v1.4.2
 	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
@@ -27,7 +27,6 @@ require (
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9
 	github.com/aokoli/goutils v1.0.1 // indirect
-	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/aws/aws-sdk-go v1.16.36
 	github.com/bitly/go-hostpool v0.0.0-20171023180738-a3a6125de932 // indirect
@@ -60,25 +59,25 @@ require (
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
 	github.com/envoyproxy/go-control-plane v0.9.2
 	github.com/evanphx/json-patch v4.5.0+incompatible
-	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fluent/fluent-logger-golang v1.3.0
 	github.com/frankban/quicktest v1.4.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0
+	github.com/go-ldap/ldap v3.0.3+incompatible // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/go-openapi/spec v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.6 // indirect
 	github.com/go-redis/redis v6.10.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
+	github.com/go-test/deep v1.0.5 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/protobuf v1.3.2
-	github.com/golang/snappy v0.0.1 // indirect
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/cel-go v0.2.0
 	github.com/google/go-cmp v0.3.1
@@ -95,19 +94,14 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20171214222146-0e7658f8ee99
 	github.com/hashicorp/consul v1.3.1
-	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
-	github.com/hashicorp/go-hclog v0.9.0 // indirect
 	github.com/hashicorp/go-memdb v1.0.1 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/go-multierror v1.0.0
-	github.com/hashicorp/go-plugin v1.0.0 // indirect
-	github.com/hashicorp/go-retryablehttp v0.5.4 // indirect
-	github.com/hashicorp/go-rootcerts v0.0.0-20160503143440-6bb64b370b90 // indirect
-	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/go-version v1.2.0
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
-	github.com/hashicorp/vault v0.10.4
+	github.com/hashicorp/vault v0.10.4 // indirect
+	github.com/hashicorp/vault-plugin-secrets-kv v0.5.3 // indirect
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/huandu/xstrings v1.2.1 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
@@ -122,7 +116,6 @@ require (
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
@@ -147,7 +140,7 @@ require (
 	github.com/prometheus/common v0.6.0
 	github.com/prometheus/procfs v0.0.8 // indirect
 	github.com/prometheus/prom2json v1.2.2
-	github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db
+	github.com/ryanuber/go-glob v1.0.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
