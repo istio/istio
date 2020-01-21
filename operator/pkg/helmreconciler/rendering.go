@@ -43,11 +43,13 @@ import (
 )
 
 var (
-	// objectCache holds the latest copy of each object applied by the controller, keyed by its Hash() function.
-	// This cache must be global since there's no persistent context related to a CR.
-	// Must be locked since ProcessManifest can be run concurrently.
-	objectCache   = make(map[string]*object.K8sObject)
-	objectCacheMu sync.RWMutex
+	// objectCaches holds the latest copy of each object applied by the controller, keyed by the IstioOperator CR name
+	// and the object Hash() function.
+	objectCaches = make(map[string]map[string]*object.K8sObject)
+	// objectCacheMu protects each cache corresponding to CR name.
+	objectCacheMu = make(map[string]*sync.RWMutex)
+	// objectCachesMu protects both objectCaches first level access and objectCacheMu.
+	objectCachesMu sync.RWMutex
 )
 
 func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, error) {
@@ -189,20 +191,48 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		return 0, err
 	}
 
-	var objects object.K8sObjects
-	objectCacheMu.RLock()
+	name := h.instance.Name
+
+	objectCachesMu.Lock()
+
+	if objectCacheMu[name] == nil {
+		objectCacheMu[name] = &sync.RWMutex{}
+	}
+
+	// Ensure that for a given CR name only one control loop uses the per-name cache at any time.
+	mu := objectCacheMu[name]
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Create and/or get the cache corresponding to the CR name we're processing. Per name partitioning is required to
+	// prune the cache to remove any objects not in the manifest generated for a given CR.
+	if objectCaches[name] == nil {
+		objectCaches[name] = make(map[string]*object.K8sObject)
+	}
+	objectCache := objectCaches[name]
+
+	objectCachesMu.Unlock()
+
+	// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR name and no
+	// other controller is allowed to work on at the same time.
+
+	var changedObjects object.K8sObjects
+	allObjectsMap := make(map[string]bool)
+
+	// Check which objects in the manifest have changed from those in the cache.
 	for _, obj := range allObjects {
 		oh := obj.Hash()
+		allObjectsMap[oh] = true
 		if co, ok := objectCache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
 			log.Infof("Object %s is unchanged, skip update.", oh)
 			continue
 		}
-		objects = append(objects, obj)
+		changedObjects = append(changedObjects, obj)
 	}
-	objectCacheMu.RUnlock()
 
-	for _, obj := range objects {
+	// For each changed object, write it to the API server.
+	for _, obj := range changedObjects {
 		err = h.ProcessObject(manifest.Name, obj.UnstructuredObject())
 		if err != nil {
 			errs = append(errs, err)
@@ -210,13 +240,25 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		}
 		log.Infof("Adding object %s to cache.", obj.Hash())
 		// Update the cache with the latest object.
-		objectCacheMu.Lock()
 		objectCache[obj.Hash()] = obj
-		objectCacheMu.Unlock()
 	}
-	return len(objects), utilerrors.NewAggregate(errs)
+
+	// Prune anything not in the manifest out of the cache.
+	var removeKeys []string
+	for k := range objectCache {
+		if !allObjectsMap[k] {
+			removeKeys = append(removeKeys, k)
+		}
+	}
+	for _, k := range removeKeys {
+		delete(objectCache, k)
+	}
+
+	return len(changedObjects), utilerrors.NewAggregate(errs)
 }
 
+// ProcessObject creates or updates an object in the API server depending on whether it already exists.
+// It mutates obj.
 func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstructured) error {
 	if obj.GetKind() == "List" {
 		allErrors := []error{}
