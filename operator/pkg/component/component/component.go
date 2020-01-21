@@ -860,11 +860,7 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 	}
 
 	if !e {
-		if c.componentName.IsCoreComponent() {
-			return disabledYAMLStr(c.componentName), nil
-		} else {
-			return "", nil
-		}
+		return disabledYAMLStr(c.componentName), nil
 	}
 
 	mergedYAML, err := c.Translator.TranslateHelmValues(c.InstallSpec, c.componentName)
