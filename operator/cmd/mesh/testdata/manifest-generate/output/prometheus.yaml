@@ -1,4 +1,24 @@
-# Resources for Addon component
+# Base component is disabled.
+
+# Citadel component is disabled.
+
+# Cni component is disabled.
+
+# CoreDNS component is disabled.
+
+# Galley component is disabled.
+
+# Grafana component is disabled.
+
+# Kiali component is disabled.
+
+# NodeAgent component is disabled.
+
+# Pilot component is disabled.
+
+# Policy component is disabled.
+
+# Resources for Prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -420,21 +440,9 @@ metadata:
     release: istio
 ---
 
-# Base component is disabled.
-
-# Citadel component is disabled.
-
-# Cni component is disabled.
-
-# Galley component is disabled.
-
-# NodeAgent component is disabled.
-
-# Pilot component is disabled.
-
-# Policy component is disabled.
-
 # SidecarInjector component is disabled.
 
 # Telemetry component is disabled.
+
+# Tracing component is disabled.
 

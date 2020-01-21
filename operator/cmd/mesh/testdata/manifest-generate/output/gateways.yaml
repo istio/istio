@@ -4,7 +4,11 @@
 
 # Cni component is disabled.
 
+# CoreDNS component is disabled.
+
 # Galley component is disabled.
+
+# Grafana component is disabled.
 
 # Resources for IngressGateways component
 
@@ -830,13 +834,19 @@ spec:
         - "*/*"
 ---
 
+# Kiali component is disabled.
+
 # NodeAgent component is disabled.
 
 # Pilot component is disabled.
 
 # Policy component is disabled.
 
+# Prometheus component is disabled.
+
 # SidecarInjector component is disabled.
 
 # Telemetry component is disabled.
+
+# Tracing component is disabled.
 
