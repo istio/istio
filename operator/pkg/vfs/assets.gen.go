@@ -39390,7 +39390,14 @@ spec:
       enabled: true
       v2:
         enabled: false
-
+        prometheus:
+          enabled: true
+        stackdriver:
+          enabled: false
+          logging: false
+          monitoring: false
+          topology: false
+          configOverride: {}
     mixer:
       adapters:
         stdio:
