@@ -111,7 +111,11 @@ var (
 			name.CNIComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
-			name.AddonComponentName,
+			name.PrometheusComponentName,
+			name.GrafanaComponentName,
+			name.KialiComponentName,
+			name.TracingComponentName,
+			name.CoreDNSComponentName,
 		},
 		name.IstioBaseComponentName: {
 			name.PilotComponentName,

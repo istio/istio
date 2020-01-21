@@ -49,15 +49,14 @@ const (
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
 
-	// Addon root component
-	AddonComponentName ComponentName = "AddonComponents"
-
-	// Legacy addon components
+	// Addon components
 	PrometheusComponentName ComponentName = "Prometheus"
 	KialiComponentName      ComponentName = "Kiali"
 	GrafanaComponentName    ComponentName = "Grafana"
-	TracingComponentName    ComponentName = "Tracing"
-	CoreDNSComponentName    ComponentName = "Istiocoredns"
+	// TODO (dgn): this is inconsistent with the other components. I think we should
+	//             change to separate components per impl -> Jaeger, Zipkin, etc.
+	TracingComponentName ComponentName = "Tracing"
+	CoreDNSComponentName ComponentName = "CoreDNS"
 
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
@@ -80,6 +79,13 @@ var (
 		CitadelComponentName,
 		NodeAgentComponentName,
 		CNIComponentName,
+	}
+	AllAddonComponentNames = []ComponentName{
+		PrometheusComponentName,
+		KialiComponentName,
+		GrafanaComponentName,
+		TracingComponentName,
+		CoreDNSComponentName,
 	}
 	DeprecatedNames = []ComponentName{
 		InjectorComponentName,
@@ -146,11 +152,6 @@ func (cn ComponentName) IsGateway() bool {
 	return cn == IngressComponentName || cn == EgressComponentName
 }
 
-// IsAddon reports whether cn is an addon component.
-func (cn ComponentName) IsAddon() bool {
-	return cn == AddonComponentName
-}
-
 // IsLegacyAddonComponent reports whether cn is an legacy addonComponent name.
 func (cn ComponentName) IsLegacyAddonComponent() bool {
 	return LegacyAddonComponentNamesMap[cn]
@@ -173,16 +174,14 @@ func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1a
 	if componentName == EgressComponentName {
 		return len(controlPlaneSpec.Components.EgressGateways) != 0, nil
 	}
-	if componentName == AddonComponentName {
-		for _, ac := range controlPlaneSpec.AddonComponents {
-			if ac.Enabled != nil && ac.Enabled.Value {
-				return true, nil
-			}
-		}
-		return false, nil
+	var componentPath string
+	if componentName.IsCoreComponent() {
+		componentPath = "Components." + string(componentName) + ".Enabled"
+	} else {
+		componentPath = "AddonComponents." + util.ToYAMLPathString(string(componentName)) + ".Enabled"
 	}
 
-	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Enabled")
+	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, componentPath)
 	if err != nil {
 		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for component=%s: %s",
 			componentName, err)

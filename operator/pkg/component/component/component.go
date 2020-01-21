@@ -72,8 +72,6 @@ type IstioComponent interface {
 type CommonComponentFields struct {
 	*Options
 	componentName name.ComponentName
-	// addonName is the name of the addon component.
-	addonName string
 	// resourceName is the name of all resources for this component.
 	resourceName string
 	// index is the index of the component (only used for components with multiple instances like gateways).
@@ -106,6 +104,26 @@ func NewComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewCNIComponent(opts)
 	default:
 		panic("Unknown component componentName: " + string(cn))
+	}
+	return component
+}
+
+// NewAddonComponent creates a new IstioComponent with the given componentName and options.
+func NewAddonComponent(cn name.ComponentName, resourceName string, opts *Options) IstioComponent {
+	var component IstioComponent
+	switch cn {
+	case name.PrometheusComponentName:
+		component = NewPrometheusComponent(resourceName, opts)
+	case name.GrafanaComponentName:
+		component = NewGrafanaComponent(resourceName, opts)
+	case name.KialiComponentName:
+		component = NewKialiComponent(resourceName, opts)
+	case name.TracingComponentName:
+		component = NewTracingComponent(resourceName, opts)
+	case name.CoreDNSComponentName:
+		component = NewCoreDNSComponent(resourceName, opts)
+	default:
+		panic("Unknown addonComponent componentName: " + string(cn))
 	}
 	return component
 }
@@ -600,30 +618,29 @@ func (c *EgressComponent) Namespace() string {
 	return c.CommonComponentFields.Namespace
 }
 
-// AddonComponent is an external component.
-type AddonComponent struct {
+// PrometheusComponent is an external component.
+type PrometheusComponent struct {
 	*CommonComponentFields
 }
 
-// NewAddonComponent creates a new IngressComponent and returns a pointer to it.
-func NewAddonComponent(addonName, resourceName string, opts *Options) *AddonComponent {
-	return &AddonComponent{
+// NewPrometheusComponent creates a new PrometheusComponent and returns a pointer to it.
+func NewPrometheusComponent(resourceName string, opts *Options) *PrometheusComponent {
+	return &PrometheusComponent{
 		&CommonComponentFields{
 			Options:       opts,
-			componentName: name.AddonComponentName,
+			componentName: name.PrometheusComponentName,
 			resourceName:  resourceName,
-			addonName:     addonName,
 		},
 	}
 }
 
 // Run implements the IstioComponent interface.
-func (c *AddonComponent) Run() error {
+func (c *PrometheusComponent) Run() error {
 	return runComponent(c.CommonComponentFields)
 }
 
 // RenderManifest implements the IstioComponent interface.
-func (c *AddonComponent) RenderManifest() (string, error) {
+func (c *PrometheusComponent) RenderManifest() (string, error) {
 	if !c.started {
 		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
 	}
@@ -631,17 +648,193 @@ func (c *AddonComponent) RenderManifest() (string, error) {
 }
 
 // ComponentName implements the IstioComponent interface.
-func (c *AddonComponent) ComponentName() name.ComponentName {
+func (c *PrometheusComponent) ComponentName() name.ComponentName {
 	return c.CommonComponentFields.componentName
 }
 
 // ResourceName implements the IstioComponent interface.
-func (c *AddonComponent) ResourceName() string {
+func (c *PrometheusComponent) ResourceName() string {
 	return c.CommonComponentFields.resourceName
 }
 
 // Namespace implements the IstioComponent interface.
-func (c *AddonComponent) Namespace() string {
+func (c *PrometheusComponent) Namespace() string {
+	return c.CommonComponentFields.Namespace
+}
+
+// KialiComponent is an external component.
+type KialiComponent struct {
+	*CommonComponentFields
+}
+
+// NewKialiComponent creates a new KialiComponent and returns a pointer to it.
+func NewKialiComponent(resourceName string, opts *Options) *KialiComponent {
+	return &KialiComponent{
+		&CommonComponentFields{
+			Options:       opts,
+			componentName: name.KialiComponentName,
+			resourceName:  resourceName,
+		},
+	}
+}
+
+// Run implements the IstioComponent interface.
+func (c *KialiComponent) Run() error {
+	return runComponent(c.CommonComponentFields)
+}
+
+// RenderManifest implements the IstioComponent interface.
+func (c *KialiComponent) RenderManifest() (string, error) {
+	if !c.started {
+		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
+	}
+	return renderManifest(c.CommonComponentFields)
+}
+
+// ComponentName implements the IstioComponent interface.
+func (c *KialiComponent) ComponentName() name.ComponentName {
+	return c.CommonComponentFields.componentName
+}
+
+// ResourceName implements the IstioComponent interface.
+func (c *KialiComponent) ResourceName() string {
+	return c.CommonComponentFields.resourceName
+}
+
+// Namespace implements the IstioComponent interface.
+func (c *KialiComponent) Namespace() string {
+	return c.CommonComponentFields.Namespace
+}
+
+// GrafanaComponent is an external component.
+type GrafanaComponent struct {
+	*CommonComponentFields
+}
+
+// NewGrafanaComponent creates a new GrafanaComponent and returns a pointer to it.
+func NewGrafanaComponent(resourceName string, opts *Options) *GrafanaComponent {
+	return &GrafanaComponent{
+		&CommonComponentFields{
+			Options:       opts,
+			componentName: name.GrafanaComponentName,
+			resourceName:  resourceName,
+		},
+	}
+}
+
+// Run implements the IstioComponent interface.
+func (c *GrafanaComponent) Run() error {
+	return runComponent(c.CommonComponentFields)
+}
+
+// RenderManifest implements the IstioComponent interface.
+func (c *GrafanaComponent) RenderManifest() (string, error) {
+	if !c.started {
+		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
+	}
+	return renderManifest(c.CommonComponentFields)
+}
+
+// ComponentName implements the IstioComponent interface.
+func (c *GrafanaComponent) ComponentName() name.ComponentName {
+	return c.CommonComponentFields.componentName
+}
+
+// ResourceName implements the IstioComponent interface.
+func (c *GrafanaComponent) ResourceName() string {
+	return c.CommonComponentFields.resourceName
+}
+
+// Namespace implements the IstioComponent interface.
+func (c *GrafanaComponent) Namespace() string {
+	return c.CommonComponentFields.Namespace
+}
+
+// TracingComponent is an external component.
+type TracingComponent struct {
+	*CommonComponentFields
+}
+
+// NewTracingComponent creates a new TracingComponent and returns a pointer to it.
+func NewTracingComponent(resourceName string, opts *Options) *TracingComponent {
+	return &TracingComponent{
+		&CommonComponentFields{
+			Options:       opts,
+			componentName: name.TracingComponentName,
+			resourceName:  resourceName,
+		},
+	}
+}
+
+// Run implements the IstioComponent interface.
+func (c *TracingComponent) Run() error {
+	return runComponent(c.CommonComponentFields)
+}
+
+// RenderManifest implements the IstioComponent interface.
+func (c *TracingComponent) RenderManifest() (string, error) {
+	if !c.started {
+		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
+	}
+	return renderManifest(c.CommonComponentFields)
+}
+
+// ComponentName implements the IstioComponent interface.
+func (c *TracingComponent) ComponentName() name.ComponentName {
+	return c.CommonComponentFields.componentName
+}
+
+// ResourceName implements the IstioComponent interface.
+func (c *TracingComponent) ResourceName() string {
+	return c.CommonComponentFields.resourceName
+}
+
+// Namespace implements the IstioComponent interface.
+func (c *TracingComponent) Namespace() string {
+	return c.CommonComponentFields.Namespace
+}
+
+// CoreDNSComponent is an external component.
+type CoreDNSComponent struct {
+	*CommonComponentFields
+}
+
+// NewCoreDNSComponent creates a new CoreDNSComponent and returns a pointer to it.
+func NewCoreDNSComponent(resourceName string, opts *Options) *CoreDNSComponent {
+	return &CoreDNSComponent{
+		&CommonComponentFields{
+			Options:       opts,
+			componentName: name.CoreDNSComponentName,
+			resourceName:  resourceName,
+		},
+	}
+}
+
+// Run implements the IstioComponent interface.
+func (c *CoreDNSComponent) Run() error {
+	return runComponent(c.CommonComponentFields)
+}
+
+// RenderManifest implements the IstioComponent interface.
+func (c *CoreDNSComponent) RenderManifest() (string, error) {
+	if !c.started {
+		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
+	}
+	return renderManifest(c.CommonComponentFields)
+}
+
+// ComponentName implements the IstioComponent interface.
+func (c *CoreDNSComponent) ComponentName() name.ComponentName {
+	return c.CommonComponentFields.componentName
+}
+
+// ResourceName implements the IstioComponent interface.
+func (c *CoreDNSComponent) ResourceName() string {
+	return c.CommonComponentFields.resourceName
+}
+
+// Namespace implements the IstioComponent interface.
+func (c *CoreDNSComponent) Namespace() string {
 	return c.CommonComponentFields.Namespace
 }
 
@@ -661,13 +854,16 @@ func runComponent(c *CommonComponentFields) error {
 
 // renderManifest renders the manifest for the component defined by c and returns the resulting string.
 func renderManifest(c *CommonComponentFields) (string, error) {
-	if c.componentName.IsCoreComponent() {
-		e, err := c.Translator.IsComponentEnabled(c.componentName, c.InstallSpec)
-		if err != nil {
-			return "", err
-		}
-		if !e {
+	e, err := c.Translator.IsComponentEnabled(c.componentName, c.InstallSpec)
+	if err != nil {
+		return "", err
+	}
+
+	if !e {
+		if c.componentName.IsCoreComponent() {
 			return disabledYAMLStr(c.componentName), nil
+		} else {
+			return "", nil
 		}
 	}
 
@@ -731,10 +927,6 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error) {
 	iop := c.InstallSpec
 	cns := string(c.componentName)
-	if c.componentName.IsAddon() {
-		// For addons, distinguish the chart path using the addon name.
-		cns = c.addonName
-	}
 	helmSubdir := addonsChartDirName + "/" + cns
 	if cm := c.Translator.ComponentMap(cns); cm != nil {
 		helmSubdir = cm.HelmSubdir
