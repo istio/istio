@@ -53,10 +53,8 @@ const (
 	PrometheusComponentName ComponentName = "Prometheus"
 	KialiComponentName      ComponentName = "Kiali"
 	GrafanaComponentName    ComponentName = "Grafana"
-	// TODO (dgn): this is inconsistent with the other components. I think we should
-	//             change to separate components per impl -> Jaeger, Zipkin, etc.
-	TracingComponentName ComponentName = "Tracing"
-	CoreDNSComponentName ComponentName = "CoreDNS"
+	TracingComponentName    ComponentName = "Tracing"
+	CoreDNSComponentName    ComponentName = "CoreDNS"
 
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
