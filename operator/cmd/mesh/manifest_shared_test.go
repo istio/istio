@@ -22,6 +22,11 @@ import (
 	"strings"
 )
 
+// Golden output files add a lot of noise to pull requests. Use a unique suffix so
+// we can hide them by default. This should match one of the `linuguist-generated=true`
+// lines in istio.io/istio/.gitattributes.
+const goldenFileOutputSuffix = ".golden.yaml"
+
 var (
 	repoRootDir string
 	testDataDir string

@@ -184,7 +184,7 @@ func TestMultiICPSFiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		outPath := filepath.Join(testDataDir, "output/telemetry_override_values.yaml")
+		outPath := filepath.Join(testDataDir, "output/telemetry_override_values"+goldenFileOutputSuffix)
 
 		want, err := readFile(outPath)
 		if err != nil {
@@ -222,7 +222,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
-			outPath := filepath.Join(testDataDir, "output", tt.desc+".yaml")
+			outPath := filepath.Join(testDataDir, "output", tt.desc+goldenFileOutputSuffix)
 
 			var filenames []string
 			if !tt.noInput {
