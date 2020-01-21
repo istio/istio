@@ -54,7 +54,7 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 		if err != nil {
 			return "", nil, fmt.Errorf("could not read values from file %s: %s", inFilename, err)
 		}
-		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(inputYaml, force, l)
+		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(inputYaml, force)
 		if err != nil {
 			iopYAML, translateErr := translate.TranslateICPToIOPVer(inputYaml, binversion.OperatorBinaryVersion)
 			if translateErr != nil {
@@ -64,7 +64,7 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 			l.logAndPrintf("%s\n\nIstio Operator CR has been upgraded. "+
 				"Your IstioControlPlane CR has been translated into IstioOperator CR above.\n"+
 				"Please keep the new IstioOperator CR for your future install or upgrade.", inputYaml)
-			overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(iopYAML, force, l)
+			overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(iopYAML, force)
 			if err != nil {
 				return "", nil, err
 			}
@@ -109,14 +109,14 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 		}
 	}
 
-	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force, l)
+	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force)
 	if err != nil {
 		baseIopYAML, translateErr := translate.TranslateICPToIOPVer(baseCRYAML, binversion.OperatorBinaryVersion)
 		if translateErr != nil {
 			return "", nil, fmt.Errorf("could not unmarshal or translate base yaml into IOP with profile %s at version %s: %s, %s",
 				profile, binversion.OperatorBinaryVersion, err, translateErr)
 		}
-		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(baseIopYAML, force, l)
+		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(baseIopYAML, force)
 		if err != nil {
 			return "", nil, err
 		}
@@ -185,7 +185,7 @@ func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML, c
 	return finalYAML, err
 }
 
-func unmarshalAndValidateIOP(crYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, string, error) {
+func unmarshalAndValidateIOP(crYAML string, force bool) (*v1alpha1.IstioOperatorSpec, string, error) {
 	// TODO: add GVK handling as appropriate.
 	if crYAML == "" {
 		return &v1alpha1.IstioOperatorSpec{}, "", nil
