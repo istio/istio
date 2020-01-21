@@ -9643,16 +9643,21 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
         add:
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
         - NET_ADMIN
+        {{- end }}
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        - NET_BIND_SERVICE
+        {{- end }}
         {{- end }}
         drop:
         - ALL
       privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
-      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -12100,9 +12105,14 @@ template: |
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
         add:
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
         - NET_ADMIN
+        {{- end }}
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        - NET_BIND_SERVICE
+        {{- end }}
         {{- end }}
         drop:
         - ALL
@@ -12110,7 +12120,7 @@ template: |
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
       fsGroup: 1337
-      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
