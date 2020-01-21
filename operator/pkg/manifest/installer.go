@@ -231,6 +231,8 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 			allAppliedObjects = append(allAppliedObjects, appliedObjects...)
 			mu.Unlock()
 
+			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
+			// For example, for the validation webhook to become ready, so we should wait for it always.
 			if len(componentDependencies[c]) > 0 {
 				if err := WaitForResources(appliedObjects, opts); err != nil {
 					log.Errorf("failed to wait for resource: %v", err)
