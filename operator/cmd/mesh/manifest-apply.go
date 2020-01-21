@@ -63,7 +63,11 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Use:   "apply",
 		Short: "Generates and applies an Istio install manifest.",
 		Long:  "The apply subcommand generates an Istio install manifest and applies it to a cluster.",
-		Args:  cobra.ExactArgs(0),
+		Example: "istioctl manifest apply  # installs the default profile on the current Kubernetes cluster context\n" +
+			"istioctl manifest apply --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true\n" +
+			"istioctl manifest apply --set profile=demo\n" +
+			"istioctl manifest apply --set installPackagePath=~/istio-releases/istio-1.4.3/install/kubernetes/operator/charts",
+		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			// Warn users if they use `manifest apply` without any config args.
