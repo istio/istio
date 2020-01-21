@@ -773,14 +773,14 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
-		errs = appendErrors(errs, validatePortName(port.Name))
+		errs = appendErrors(errs, ValidatePortName(port.Name))
 	}
 
 	// Handle Unix domain sockets
 	if port.Number == 0 {
 		// require bind to be a unix domain socket
 		errs = appendErrors(errs,
-			validateProtocol(port.Protocol))
+			ValidateProtocol(port.Protocol))
 
 		if !strings.HasPrefix(bind, UnixAddressPrefix) {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: ports with 0 value must have a unix domain socket bind address"))
@@ -793,7 +793,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 		}
 	} else {
 		errs = appendErrors(errs,
-			validateProtocol(port.Protocol),
+			ValidateProtocol(port.Protocol),
 			ValidatePort(int(port.Number)))
 
 		if len(bind) != 0 {
@@ -808,11 +808,11 @@ func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs
 
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
-		errs = appendErrors(errs, validatePortName(port.Name))
+		errs = appendErrors(errs, ValidatePortName(port.Name))
 	}
 
 	errs = appendErrors(errs,
-		validateProtocol(port.Protocol),
+		ValidateProtocol(port.Protocol),
 		ValidatePort(int(port.Number)))
 
 	if len(bind) != 0 {
@@ -2568,7 +2568,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 						errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 					}
 					errs = appendErrors(errs,
-						validatePortName(name),
+						ValidatePortName(name),
 						ValidatePort(int(port)))
 				}
 			}
@@ -2601,8 +2601,8 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 
 		for _, port := range serviceEntry.Ports {
 			errs = appendErrors(errs,
-				validatePortName(port.Name),
-				validateProtocol(port.Protocol),
+				ValidatePortName(port.Name),
+				ValidateProtocol(port.Protocol),
 				ValidatePort(int(port.Number)))
 		}
 
@@ -2610,14 +2610,14 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		return
 	})
 
-func validatePortName(name string) error {
+func ValidatePortName(name string) error {
 	if !labels.IsDNS1123Label(name) {
 		return fmt.Errorf("invalid port name: %s", name)
 	}
 	return nil
 }
 
-func validateProtocol(protocolStr string) error {
+func ValidateProtocol(protocolStr string) error {
 	// Empty string is used for protocol sniffing.
 	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
 		return fmt.Errorf("unsupported protocol: %s", protocolStr)
