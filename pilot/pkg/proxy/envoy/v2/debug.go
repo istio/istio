@@ -117,7 +117,6 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	}
 
 	mux.HandleFunc("/debug", s.Debug)
-	mux.HandleFunc("/ready", s.ready)
 
 	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
 	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
@@ -359,7 +358,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 
 	var err error
 	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
-		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().Kind(), "")
+		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
 			var b []byte
 			b, err = json.MarshalIndent(c, "  ", "  ")
@@ -735,10 +734,6 @@ func writeAllADS(w io.Writer) {
 		_, _ = fmt.Fprint(w, "]}\n")
 	}
 	_, _ = fmt.Fprint(w, "]\n")
-}
-
-func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
-	w.WriteHeader(200)
 }
 
 // lists all the supported debug endpoints.

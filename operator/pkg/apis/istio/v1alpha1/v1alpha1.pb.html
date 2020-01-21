@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 89
+number_of_entries: 91
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -145,7 +145,7 @@ No
 </tr>
 <tr id="CNIConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 </td>
 <td>
@@ -304,7 +304,7 @@ No
 </tr>
 <tr id="CertManagerConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Image tag for the CertManager Deployment.</p>
 
@@ -416,6 +416,24 @@ No
 <tr id="CertManagerConfig-tolerations" class="deprecated ">
 <td><code>tolerations</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CertManagerConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CertManagerConfig-podLabels" class="deprecated ">
+<td><code>podLabels</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -794,6 +812,24 @@ No
 No
 </td>
 </tr>
+<tr id="EgressGatewayConfig-configVolumes">
+<td><code>configVolumes</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EgressGatewayConfig-additionalContainers">
+<td><code>additionalContainers</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="EgressGatewayConfig-cpu" class="deprecated ">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
@@ -893,6 +929,28 @@ No
 <td><code>tolerations</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EgressGatewayConfig-rollingMaxSurge" class="deprecated ">
+<td><code>rollingMaxSurge</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+<p>K8s rolling update strategy</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EgressGatewayConfig-rollingMaxUnavailable" class="deprecated ">
+<td><code>rollingMaxUnavailable</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+<p>K8s rolling update strategy</p>
+
 </td>
 <td>
 No
@@ -1231,6 +1289,37 @@ No
 <tr id="GalleyConfig-tolerations" class="deprecated ">
 <td><code>tolerations</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GalleyConfig-enableServiceDiscovery" class="deprecated ">
+<td><code>enableServiceDiscovery</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GalleyConfig-nodeSelector" class="deprecated ">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GalleyConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -1773,7 +1862,7 @@ No
 </tr>
 <tr id="GlobalConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Specifies the tag for the Istio docker images.</p>
 
@@ -1929,6 +2018,18 @@ we may change the default value of this option as &ldquo;citadel&rdquo;.</p>
 No
 </td>
 </tr>
+<tr id="GlobalConfig-jwtPolicy">
+<td><code>jwtPolicy</code></td>
+<td><code>string</code></td>
+<td>
+<p>Configure the policy for validating JWT.
+Currently, two options are supported: &ldquo;third-party-jwt&rdquo; and &ldquo;first-party-jwt&rdquo;.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="GlobalConfig-defaultNodeSelector" class="deprecated ">
 <td><code>defaultNodeSelector</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -1961,6 +2062,15 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-defaultTolerations" class="deprecated ">
+<td><code>defaultTolerations</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
 </td>
 <td>
 No
@@ -2322,6 +2432,33 @@ No
 No
 </td>
 </tr>
+<tr id="IngressGatewayConfig-telemetry_addon_gateways">
+<td><code>telemetryAddonGateways</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="IngressGatewayConfig-hosts">
+<td><code>hosts</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="IngressGatewayConfig-telemetry_domain_name">
+<td><code>telemetryDomainName</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="IngressGatewayConfig-cpu" class="deprecated ">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
@@ -2602,7 +2739,7 @@ No
 </tr>
 <tr id="KialiConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Image tag for kiali deployment.</p>
 
@@ -2745,6 +2882,28 @@ No
 No
 </td>
 </tr>
+<tr id="KialiConfig-image" class="deprecated ">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-resources" class="deprecated ">
+<td><code>resources</code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -2814,6 +2973,15 @@ No
 No
 </td>
 </tr>
+<tr id="KialiDashboardConfig-auth">
+<td><code>auth</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -2840,7 +3008,7 @@ No
 </tr>
 <tr id="KialiIngressConfig-annotations">
 <td><code>annotations</code></td>
-<td><code>string</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -2849,7 +3017,7 @@ No
 </tr>
 <tr id="KialiIngressConfig-tls">
 <td><code>tls</code></td>
-<td><code>string</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -3317,6 +3485,22 @@ No
 No
 </td>
 </tr>
+<tr id="MixerPolicyConfig-env">
+<td><code>env</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Environment variables passed to the Mixer container.</p>
+
+<p>Examples:
+env:
+  ENV<em>VAR</em>1: value1
+  ENV<em>VAR</em>2: value2</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="MixerPolicyConfig-cpu" class="deprecated ">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
@@ -3362,6 +3546,68 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyConfig-rollingMaxSurge" class="deprecated ">
+<td><code>rollingMaxSurge</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+<p>K8s rolling update strategy</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyConfig-rollingMaxUnavailable" class="deprecated ">
+<td><code>rollingMaxUnavailable</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+<p>K8s rolling update strategy</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyConfig-podAntiAffinityLabelSelector" class="deprecated ">
+<td><code>podAntiAffinityLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
+<td><code>podAntiAffinityTermLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyConfig-nodeSelector" class="deprecated ">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyConfig-tolerations" class="deprecated ">
+<td><code>tolerations</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
 </td>
 <td>
 No
@@ -3826,6 +4072,19 @@ No
 No
 </td>
 </tr>
+<tr id="NodeAgentConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -4144,6 +4403,24 @@ can be configured for a single control plane.</p>
 No
 </td>
 </tr>
+<tr id="PilotConfig-jwksResolverExtraRootCA">
+<td><code>jwksResolverExtraRootCA</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PilotConfig-plugins">
+<td><code>plugins</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="PilotConfig-replicaCount" class="deprecated ">
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
@@ -4282,7 +4559,7 @@ sources.</p>
 <tbody>
 <tr id="PilotConfigSource-subscribedResources">
 <td><code>subscribedResources</code></td>
-<td><code>string</code></td>
+<td><code>string[]</code></td>
 <td>
 <p>Describes the source of configuration, if nothing is specified default is MCP.</p>
 
@@ -4478,7 +4755,7 @@ No
 </tr>
 <tr id="PrometheusConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 </td>
 <td>
@@ -4594,6 +4871,37 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PrometheusConfig-datasources" class="deprecated ">
+<td><code>datasources</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PrometheusConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PrometheusConfig-image" class="deprecated ">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No
@@ -5526,6 +5834,59 @@ No
 No
 </td>
 </tr>
+<tr id="SecurityConfig-resources" class="deprecated ">
+<td><code>resources</code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SecurityConfig-rollingMaxSurge" class="deprecated ">
+<td><code>rollingMaxSurge</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+<p>K8s rolling update strategy</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SecurityConfig-rollingMaxUnavailable" class="deprecated ">
+<td><code>rollingMaxUnavailable</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+<p>K8s rolling update strategy</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SecurityConfig-podAntiAffinityLabelSelector" class="deprecated ">
+<td><code>podAntiAffinityLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SecurityConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
+<td><code>podAntiAffinityTermLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -5715,6 +6076,15 @@ No
 No
 </td>
 </tr>
+<tr id="SidecarInjectorConfig-lifecycle">
+<td><code>lifecycle</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="SidecarInjectorConfig-nodeSelector" class="deprecated ">
 <td><code>nodeSelector</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -5778,6 +6148,41 @@ No
 <td><code>tolerations</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-rollingMaxSurge" class="deprecated ">
+<td><code>rollingMaxSurge</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+<p>K8s rolling update strategy</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-rollingMaxUnavailable" class="deprecated ">
+<td><code>rollingMaxUnavailable</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+<p>K8s rolling update strategy</p>
+
 </td>
 <td>
 No
@@ -5902,6 +6307,48 @@ No
 No
 </td>
 </tr>
+<tr id="StackdriverMixerAdapterConfig-logging">
+<td><code>logging</code></td>
+<td><code><a href="#StackdriverMixerAdapterConfig-EnabledConfig">EnabledConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="StackdriverMixerAdapterConfig-metrics">
+<td><code>metrics</code></td>
+<td><code><a href="#StackdriverMixerAdapterConfig-EnabledConfig">EnabledConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="StackdriverMixerAdapterConfig-EnabledConfig">StackdriverMixerAdapterConfig.EnabledConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="StackdriverMixerAdapterConfig-EnabledConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -5976,6 +6423,11 @@ No
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="StringOrNumber">StringOrNumber</h2>
+<section>
+<p>GOTYPE: *json.Number</p>
+
 </section>
 <h2 id="TelemetryConfig">TelemetryConfig</h2>
 <section>
@@ -6233,6 +6685,15 @@ No
 <td>
 <p>Configuration for the zipkin tracing service.</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracerConfig-stackdriver">
+<td><code>stackdriver</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
 </td>
 <td>
 No
@@ -6587,10 +7048,19 @@ No
 </tr>
 <tr id="TracingJaegerConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Image tag for Jaeger tracing deployment.</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingJaegerConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No
@@ -6638,6 +7108,32 @@ No
 <td><code>accessMode</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingJaegerConfig-resources" class="deprecated ">
+<td><code>resources</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingJaegerConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
 </td>
 <td>
 No
@@ -6699,7 +7195,7 @@ No
 </tr>
 <tr id="TracingOpencensusConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Image tag for Opencensus tracing deployment.</p>
 
@@ -6724,6 +7220,19 @@ No
 <p>K8s resources settings.</p>
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingOpencensusConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
 
 </td>
 <td>
@@ -6784,10 +7293,19 @@ No
 </tr>
 <tr id="TracingZipkinConfig-tag">
 <td><code>tag</code></td>
-<td><code>string</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 <p>Image tag for Zipkin tracing deployment.</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingZipkinConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No
@@ -6857,6 +7375,19 @@ No
 <p>K8s resources settings.</p>
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingZipkinConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
 
 </td>
 <td>
@@ -7078,6 +7609,35 @@ No
 </tr>
 <tr id="Values-clusterResources">
 <td><code>clusterResources</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-prometheusOperator">
+<td><code>prometheusOperator</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>TODO: populate these.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-istio_cni">
+<td><code>istioCni</code></td>
+<td><code><a href="#CNIConfig">CNIConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-kustomize">
+<td><code>kustomize</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 </td>

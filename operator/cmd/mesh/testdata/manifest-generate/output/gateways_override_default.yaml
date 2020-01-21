@@ -422,8 +422,6 @@ metadata:
 
 # Base component is disabled.
 
-# CertManager component is disabled.
-
 # Citadel component is disabled.
 
 # Cni component is disabled.
@@ -545,6 +543,8 @@ spec:
         - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
+        - name: PILOT_CERT_PROVIDER
+          value: citadel
         - name: ISTIO_META_USER_SDS
           value: "true"
         - name: CA_ADDR
@@ -640,9 +640,13 @@ spec:
             cpu: 111m
             memory: 222Mi
         volumeMounts:
+        - mountPath: /etc/istio/citadel-ca-cert
+          name: citadel-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
+        - mountPath: /var/run/ingress_gateway
+          name: ingressgatewaysdsudspath
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
@@ -654,6 +658,11 @@ spec:
           readOnly: true
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
+      - configMap:
+          name: istio-ca-root-cert
+        name: citadel-ca-cert
+      - emptyDir: {}
+        name: ingressgatewaysdsudspath
       - name: istio-token
         projected:
           sources:

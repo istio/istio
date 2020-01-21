@@ -42,6 +42,7 @@ spec:
       - hostPath:
           path: /var/run/sds
         name: sds-uds-path
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -49,6 +50,7 @@ spec:
               audience: {{ .Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
+      {{- end }}
       {{- end }}
       - name: uds-socket
         emptyDir: {}
@@ -95,7 +97,7 @@ spec:
 {{- if .Values.global.logAsJson }}
           - --log_as_json
 {{- end }}
-{{- if .Values.mixer.telemetry.useMCP }}
+{{- if .Values.global.useMCP }}
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcp://localhost:15019
     {{- else }}
@@ -135,7 +137,7 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
-{{- if .Values.mixer.telemetry.useMCP }}
+{{- if .Values.global.useMCP }}
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
@@ -219,8 +221,10 @@ spec:
         - name: sds-uds-path
           mountPath: /var/run/sds
           readOnly: true
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - name: istio-token
           mountPath: /var/run/secrets/tokens
+        {{- end }}
         {{- end }}
         - name: uds-socket
           mountPath: /sock

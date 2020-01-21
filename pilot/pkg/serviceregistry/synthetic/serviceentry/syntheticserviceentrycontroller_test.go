@@ -34,7 +34,7 @@ import (
 
 var (
 	sseCollection = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String()
-	sseKind       = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Kind()
+	sseKind       = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind()
 	sseProto      = collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Proto()
 
 	gateway = &networking.Gateway{
@@ -153,17 +153,17 @@ func TestIncrementalControllerConfigDescriptor(t *testing.T) {
 
 	schemas := controller.Schemas()
 	g.Expect(schemas.Kinds()).To(gomega.HaveLen(1))
-	g.Expect(schemas.Kinds()).To(gomega.ContainElement(sseKind))
+	g.Expect(schemas.Kinds()).To(gomega.ContainElement(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().Kind()))
 }
 
 func TestIncrementalControllerListInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
-	c, err := controller.List("gateway", "some-phony-name-space")
+	c, err := controller.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(), "some-phony-name-space")
 	g.Expect(c).To(gomega.BeNil())
 	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(err.Error()).To(gomega.ContainSubstring("list unknown type gateway"))
+	g.Expect(err.Error()).To(gomega.ContainSubstring("list unknown type networking.istio.io/v1alpha3/Gateway"))
 }
 
 func TestIncrementalControllerListCorrectTypeNoData(t *testing.T) {
@@ -202,7 +202,7 @@ func TestIncrementalControllerListAllNameSpace(t *testing.T) {
 	g.Expect(len(c)).To(gomega.Equal(3))
 
 	for _, conf := range c {
-		g.Expect(conf.Type).To(gomega.Equal(sseKind))
+		g.Expect(conf.GroupVersionKind()).To(gomega.Equal(sseKind))
 		switch conf.Name {
 		case "sse-0":
 			g.Expect(conf.Spec).To(gomega.Equal(message))
@@ -243,7 +243,7 @@ func TestIncrementalControllerListSpecificNameSpace(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(1))
 	g.Expect(c[0].Name).To(gomega.Equal("sse-0"))
-	g.Expect(c[0].Type).To(gomega.Equal(sseKind))
+	g.Expect(c[0].GroupVersionKind()).To(gomega.Equal(sseKind))
 	g.Expect(c[0].Namespace).To(gomega.Equal("default"))
 	g.Expect(c[0].Spec).To(gomega.Equal(message))
 
@@ -251,7 +251,7 @@ func TestIncrementalControllerListSpecificNameSpace(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(2))
 	for _, conf := range c {
-		g.Expect(conf.Type).To(gomega.Equal(sseKind))
+		g.Expect(conf.GroupVersionKind()).To(gomega.Equal(sseKind))
 		g.Expect(conf.Namespace).To(gomega.Equal("namespace2"))
 		switch conf.Name {
 		case "sse-1":
@@ -300,7 +300,7 @@ func TestIncrementalControllerApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(1))
 	g.Expect(c[0].Name).To(gomega.Equal("test-synthetic-se"))
-	g.Expect(c[0].Type).To(gomega.Equal(sseKind))
+	g.Expect(c[0].GroupVersionKind()).To(gomega.Equal(sseKind))
 	g.Expect(c[0].Spec).To(gomega.Equal(message))
 }
 
@@ -336,7 +336,7 @@ func TestIncrementalControllerApplyMetadataNameWithoutNamespace(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(2))
 	for _, se := range c {
-		g.Expect(se.Type).To(gomega.Equal(sseKind))
+		g.Expect(se.GroupVersionKind()).To(gomega.Equal(sseKind))
 		switch se.Name {
 		case "synthetic-se-0":
 			g.Expect(se.Spec).To(gomega.Equal(message0))
@@ -362,7 +362,7 @@ func TestIncrementalControllerApplyChangeNoObjects(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(1))
 	g.Expect(c[0].Name).To(gomega.Equal("synthetic-se-0"))
-	g.Expect(c[0].Type).To(gomega.Equal(sseKind))
+	g.Expect(c[0].GroupVersionKind()).To(gomega.Equal(sseKind))
 	g.Expect(c[0].Spec).To(gomega.Equal(message))
 
 	change = convertToChange([]proto.Message{},
@@ -377,7 +377,7 @@ func TestIncrementalControllerApplyChangeNoObjects(t *testing.T) {
 	g.Expect(len(c)).To(gomega.Equal(1))
 	// still expecting the old config
 	g.Expect(c[0].Name).To(gomega.Equal("synthetic-se-0"))
-	g.Expect(c[0].Type).To(gomega.Equal(sseKind))
+	g.Expect(c[0].GroupVersionKind()).To(gomega.Equal(sseKind))
 	g.Expect(c[0].Spec).To(gomega.Equal(message))
 }
 
@@ -433,6 +433,9 @@ func TestApplyNonIncrementalChange(t *testing.T) {
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 
 	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 
@@ -476,6 +479,9 @@ func TestApplyNonIncrementalAnnotations(t *testing.T) {
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	steps := []struct {
@@ -544,6 +550,9 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 
 	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 
@@ -588,7 +597,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
 
 	for _, se := range entries {
-		g.Expect(se.Type).To(gomega.Equal(sseKind))
+		g.Expect(se.GroupVersionKind()).To(gomega.Equal(sseKind))
 		switch se.Name {
 		case "test-synthetic-se":
 			g.Expect(se.Spec).To(gomega.Equal(message0))
@@ -658,6 +667,9 @@ func TestApplyIncrementalChange(t *testing.T) {
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 
 	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 
@@ -693,7 +705,7 @@ func TestApplyIncrementalChange(t *testing.T) {
 	g.Expect(entries).To(gomega.HaveLen(2))
 
 	for _, se := range entries {
-		g.Expect(se.Type).To(gomega.Equal(sseKind))
+		g.Expect(se.GroupVersionKind()).To(gomega.Equal(sseKind))
 		switch se.Name {
 		case "test-synthetic-se":
 			g.Expect(se.Spec).To(gomega.Equal(message0))
@@ -712,6 +724,9 @@ func TestApplyIncrementalChangeEndpiontVersionWithoutServiceVersion(t *testing.T
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 
 	message0 := convertToResource(g, sseProto, syntheticServiceEntry0)
 
@@ -751,6 +766,7 @@ func TestApplyIncrementalChangeEndpiontVersionWithoutServiceVersion(t *testing.T
 	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se"))
 
 	update = <-fx.Events
+	t.Logf("len() %d", len(fx.Events))
 	g.Expect(update).To(gomega.Equal("EDSUpdate"))
 
 }
@@ -762,7 +778,9 @@ func TestApplyIncrementalChangesAnnotations(t *testing.T) {
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
 	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
-
+	controller.RegisterEventHandler(sseKind, func(model.Config, model.Config, model.Event) {
+		fx.ConfigUpdate(nil)
+	})
 	message := convertToResource(g, sseProto, syntheticServiceEntry0)
 
 	steps := []struct {

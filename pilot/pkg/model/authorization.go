@@ -81,21 +81,21 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 		policy.RbacConfig = rbacConfig.Spec.(*rbacproto.RbacConfig)
 	}
 
-	roles, err := env.List(collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(), NamespaceAll)
+	roles, err := env.List(collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
 	sortConfigByCreationTime(roles)
 	policy.addServiceRoles(roles)
 
-	bindings, err := env.List(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(), NamespaceAll)
+	bindings, err := env.List(collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
 	sortConfigByCreationTime(bindings)
 	policy.addServiceRoleBindings(bindings)
 
-	policies, err := env.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(), NamespaceAll)
+	policies, err := env.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}

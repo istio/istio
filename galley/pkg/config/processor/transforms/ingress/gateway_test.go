@@ -19,6 +19,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing"
@@ -30,8 +32,11 @@ import (
 )
 
 var (
-	ingressAdapter = rt.DefaultProvider().GetAdapter(schema.MustGet().KubeCollections().MustFindByGroupAndKind(
-		"extensions", "Ingress").Resource())
+	ingressAdapter = rt.DefaultProvider().GetAdapter(schema.MustGet().KubeCollections().MustFindByGroupVersionKind(resource.GroupVersionKind{
+		Group:   "extensions",
+		Version: "v1beta1",
+		Kind:    "Ingress",
+	}).Resource())
 )
 
 func TestGateway_Input_Output(t *testing.T) {

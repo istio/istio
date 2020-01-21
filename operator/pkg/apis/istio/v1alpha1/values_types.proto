@@ -55,7 +55,7 @@ message CNIConfig {
 
   string hub = 2;
 
-  string tag = 3;
+  StringOrNumber tag = 3;
 
   string image = 4;
 
@@ -93,7 +93,7 @@ message CertManagerConfig {
   string hub = 2;
 
   // Image tag for the CertManager Deployment.
-  string tag = 3;
+  StringOrNumber tag = 3;
 
   // Image name for the CertManager Deployment.
   string image = 4;
@@ -122,6 +122,10 @@ message CertManagerConfig {
   TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13 [deprecated=true];
 
   TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
+
+  TypeMapStringInterface podAnnotations = 15 [deprecated=true];
+
+  TypeMapStringInterface podLabels = 16 [deprecated=true];
 }
 
 // Mirrors Resources for unmarshaling.
@@ -277,6 +281,16 @@ message EgressGatewayConfig {
   ZeroVPNConfig zvpn = 19;
 
   TypeSliceOfMapStringInterface tolerations = 20 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxSurge = 21 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxUnavailable = 22 [deprecated=true];
+
+  TypeSliceOfMapStringInterface configVolumes = 23;
+
+  TypeSliceOfMapStringInterface additionalContainers = 24;
 }
 
 // EnvoyMetricsConfig is a set of configuration options for Envoy metrics.
@@ -334,6 +348,15 @@ message GalleyConfig {
   TypeIntOrStringForPB rollingMaxUnavailable = 10 [deprecated=true];
 
   TypeSliceOfMapStringInterface tolerations = 11 [deprecated=true];
+
+  google.protobuf.BoolValue enableServiceDiscovery = 12 [deprecated=true];
+
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+  TypeMapStringInterface nodeSelector = 13 [deprecated=true];
+
+  TypeMapStringInterface podAnnotations = 14 [deprecated=true];
 }
 
 // GatewayLabelsConfig is a set of Configuration for gateway labels.
@@ -392,6 +415,8 @@ message GlobalConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   DefaultResourcesConfig defaultResources = 9 [deprecated=true];
+
+  TypeSliceOfMapStringInterface defaultTolerations = 55 [deprecated=true];
 
   // Controls whether the helm test templates are enabled.
   google.protobuf.BoolValue enableHelmTest = 10;
@@ -531,7 +556,7 @@ message GlobalConfig {
   SDSConfig sds = 30;
 
   // Specifies the tag for the Istio docker images.
-  string tag = 31;
+  StringOrNumber tag = 31;
 
   // Specifies the namespace for the telemetry component.
   string telemetryNamespace = 32;
@@ -567,12 +592,13 @@ message GlobalConfig {
 
   // Configure the Pilot certificate provider.
   // Currently, two providers are supported: "kubernetes" and "citadel".
-  // TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
-  // with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
-  // we may change the default value of this option as "citadel".
-  string pilotCertProvider = 55;
+  string pilotCertProvider = 56;
 
-  // The next available key is 56
+  // Configure the policy for validating JWT.
+  // Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
+  string jwtPolicy = 57;
+
+  // The next available key is 58
 }
 
 
@@ -701,6 +727,12 @@ message IngressGatewayConfig {
   google.protobuf.BoolValue certificates = 39;
 
   google.protobuf.BoolValue tls = 40;
+
+  TypeMapStringInterface telemetry_addon_gateways = 41;
+
+  TypeSliceOfMapStringInterface hosts = 42;
+
+  string telemetry_domain_name = 43;
 }
 
 // Secret Discovery Service (SDS) Configuration for ingress gateway.
@@ -872,6 +904,31 @@ message MixerPolicyConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   Resources resources = 11 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxSurge = 12 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxUnavailable = 13 [deprecated=true];
+
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 14 [deprecated=true];
+
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 15 [deprecated=true];
+
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+  TypeMapStringInterface nodeSelector = 16 [deprecated=true];
+
+  // Environment variables passed to the Mixer container.
+  //
+  // Examples:
+  // env:
+  //   ENV_VAR_1: value1
+  //   ENV_VAR_2: value2
+  TypeMapStringInterface env = 17;
+
+  TypeSliceOfMapStringInterface tolerations = 18 [deprecated=true];
 }
 
 // Configuration for Mixer Telemetry.
@@ -987,6 +1044,11 @@ message NodeAgentConfig {
   TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 6 [deprecated=true];
 
   TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 7 [deprecated=true];
+
+  // K8s annotations for pods.
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  TypeMapStringInterface podAnnotations = 8 [deprecated=true];
 }
 
 // OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
@@ -1126,6 +1188,10 @@ message PilotConfig {
   // rules, and other Istio configuration artifacts. Multiple data sources
   // can be configured for a single control plane.
   PilotConfigSource configSource = 31;
+
+  string jwksResolverExtraRootCA = 32;
+
+  TypeSliceOfMapStringInterface plugins = 33;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -1210,7 +1276,7 @@ message TelemetryV2StackDriverConfig {
 // sources.
 message PilotConfigSource {
   // Describes the source of configuration, if nothing is specified default is MCP.
-  string subscribedResources = 1;
+  repeated string subscribedResources = 1;
 }
 
 // Configuration for a port.
@@ -1238,7 +1304,7 @@ message PrometheusConfig {
 
   string hub = 4;
 
-  string tag = 5;
+  StringOrNumber tag = 5;
 
   string retention = 6;
 
@@ -1265,6 +1331,15 @@ message PrometheusConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   Resources resources = 16 [deprecated=true];
+
+  TypeSliceOfMapStringInterface datasources = 17 [deprecated=true];
+
+  // K8s annotations for pods.
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  TypeMapStringInterface podAnnotations = 18 [deprecated=true];
+
+  string image = 19 [deprecated=true];
 }
 
 // Configuration for Prometheus adapter in mixer.
@@ -1557,6 +1632,21 @@ message SecurityConfig {
   string workloadCertTtl = 13;
 
   TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
+
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+  Resources resources = 15 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxSurge = 16 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxUnavailable = 17 [deprecated=true];
+
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 18 [deprecated=true];
+
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 19 [deprecated=true];
 }
 
 // ServiceConfig is described in istio.io documentation.
@@ -1632,6 +1722,19 @@ message SidecarInjectorConfig {
   TypeMapStringInterface objectSelector = 21;
 
   TypeSliceOfMapStringInterface tolerations = 22 [deprecated=true];
+
+  TypeMapStringInterface lifecycle = 23;
+
+  // K8s annotations for pods.
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  TypeMapStringInterface podAnnotations = 24 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxSurge = 25 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxUnavailable = 26 [deprecated=true];
 }
 
 // Configuration for stdio adapter in mixer, recommended for debug usage only.
@@ -1652,6 +1755,14 @@ message StackdriverMixerAdapterConfig {
   StackdriverTracerConfig tracer = 3;
 
   StackdriverContextGraph contextGraph = 4;
+
+  message EnabledConfig {
+    google.protobuf.BoolValue enabled = 1;
+  }
+
+  EnabledConfig logging = 5;
+
+  EnabledConfig metrics = 6;
 }
 
 message StackdriverAuthConfig {
@@ -1682,6 +1793,8 @@ message TracerConfig {
 
   // Configuration for the zipkin tracing service.
   TracerZipkinConfig zipkin = 3;
+
+  TypeMapStringInterface stackdriver = 4;
 }
 
 // Configuration for the datadog tracing service.
@@ -1756,7 +1869,7 @@ message TracingOpencensusConfig {
   string hub = 1;
 
   // Image tag for Opencensus tracing deployment.
-  string tag = 2;
+  StringOrNumber tag = 2;
 
   TracingOpencensusExportersConfig exporters  = 3;
   // K8s resources settings.
@@ -1764,6 +1877,10 @@ message TracingOpencensusConfig {
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   TypeMapStringInterface resources = 5 [deprecated=true];
 
+  // K8s annotations for pods.
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  TypeMapStringInterface podAnnotations = 6 [deprecated=true];
 }
 
 message TracingOpencensusExportersConfig {
@@ -1787,7 +1904,9 @@ message TracingJaegerConfig {
   string hub = 1;
 
   // Image tag for Jaeger tracing deployment.
-  string tag = 2;
+  StringOrNumber tag = 2;
+
+  string image = 10;
 
   // Configures Jaeger in-memory storage setting.
   TracingJaegerMemoryConfig memory = 3;
@@ -1799,6 +1918,16 @@ message TracingJaegerConfig {
   string storageClassName = 6;
 
   string accessMode = 7;
+
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+  TypeMapStringInterface resources = 8 [deprecated=true];
+
+  // K8s annotations for pods.
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  TypeMapStringInterface podAnnotations = 9 [deprecated=true];
 }
 
 // Configuration for Jaeger in-memory storage setting.
@@ -1813,7 +1942,9 @@ message TracingZipkinConfig {
   string hub = 1;
 
   // Image tag for Zipkin tracing deployment.
-  string tag = 2;
+  StringOrNumber tag = 2;
+
+  string image = 9;
 
   // InitialDelaySeconds of livenessProbe for Zipkin deployment
   uint32 probeStartupDelay = 3;
@@ -1836,6 +1967,11 @@ message TracingZipkinConfig {
 
   // Configures GC values of JAVA_OPTS for Zipkin deployment
   TracingZipkinNodeConfig node = 8;
+
+  // K8s annotations for pods.
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  TypeMapStringInterface podAnnotations = 10 [deprecated=true];
 }
 
 // Configuration for GC values of JAVA_OPTS for Zipkin deployment
@@ -1864,14 +2000,16 @@ message KialiDashboardConfig {
   string grafanaURL = 5;
 
   string jaegerURL = 6;
+
+  TypeMapStringInterface auth = 7;
 }
 
 message KialiIngressConfig {
   google.protobuf.BoolValue enabled = 1;
 
-  string annotations = 2;
+  TypeMapStringInterface annotations = 2;
 
-  string tls = 3;
+  TypeSliceOfMapStringInterface tls = 3;
 
   repeated string hosts = 4;
 }
@@ -1885,7 +2023,7 @@ message KialiConfig {
   string hub = 3;
 
   // Image tag for kiali deployment.
-  string tag = 4;
+  StringOrNumber tag = 4;
 
   // Number of replicas for Kiali.
   uint32 replicaCount = 5 [deprecated=true];
@@ -1938,6 +2076,13 @@ message KialiConfig {
   TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13 [deprecated=true];
 
   TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
+
+  string image = 16 [deprecated=true];
+
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+  Resources resources = 17 [deprecated=true];
 }
 
 message Values {
@@ -1977,6 +2122,12 @@ message Values {
   string version = 16;
 
   google.protobuf.BoolValue clusterResources = 17;
+
+  // TODO: populate these.
+  TypeMapStringInterface prometheusOperator = 18;
+  CNIConfig istio_cni = 19;
+
+  google.protobuf.BoolValue kustomize = 20;
 }
 
 // GOTYPE: map[string]interface{}
@@ -1995,3 +2146,6 @@ message ZeroVPNConfig {
 
   string suffix = 2;
 }
+
+// GOTYPE: *json.Number
+message StringOrNumber {}

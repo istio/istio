@@ -25,16 +25,12 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
-
-	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/security/pkg/pki/ca"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -47,6 +43,8 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -58,7 +56,9 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 var (
@@ -110,16 +110,21 @@ type Server struct {
 	kubeClient          kubernetes.Interface
 	startFuncs          []startFunc
 	multicluster        *kubecontroller.Multicluster
-	httpServer          *http.Server
+	httpServer          *http.Server // debug
+	httpsServer         *http.Server // webhooks
+	httpsReadyClient    *http.Client
 	grpcServer          *grpc.Server
 	secureHTTPServer    *http.Server
 	secureGRPCServer    *grpc.Server
 	secureHTTPServerDNS *http.Server
 	secureGRPCServerDNS *grpc.Server
-	mux                 *http.ServeMux
+	mux                 *http.ServeMux // debug
+	httpsMux            *http.ServeMux // webhooks
 	kubeRegistry        *kubecontroller.Controller
 	certController      *chiron.WebhookController
 	ca                  *ca.IstioCA
+	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
+	caBundlePath string
 
 	ConfigStores []model.ConfigStoreCache
 
@@ -133,8 +138,11 @@ type Server struct {
 	// for test
 	forceStop bool
 
-	// webhook is the injection webhook, or nil if injection disabled
-	webhook *inject.Webhook
+	// nil if injection disabled
+	injectionWebhook *inject.Webhook
+
+	webhookCertMu sync.Mutex
+	webhookCert   *tls.Certificate
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -198,7 +206,12 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// CA signing certificate must be created first.
 	if s.EnableCA() {
-		s.ca = s.createCA(s.kubeClient.CoreV1(), caOpts)
+		var err error
+		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)
+		if err != nil {
+			return nil, fmt.Errorf("EnableCA: %v", err)
+		}
+
 	}
 
 	// initDNSListener() must be called after the createCA()
@@ -207,10 +220,21 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
 	}
 
+	// common https server for webhooks (e.g. injection, validation)
+	if err := s.initHTTPSWebhookServer(args); err != nil {
+		return nil, fmt.Errorf("injectionWebhook server: %v", err)
+	}
+
 	// Will run the sidecar injector in pilot.
 	// Only operates if /var/lib/istio/inject exists
 	if err := s.initSidecarInjector(args); err != nil {
 		return nil, fmt.Errorf("sidecar injector: %v", err)
+	}
+
+	// Will run the config validater in pilot.
+	// Only operates if /var/lib/istio/validation exists
+	if err := s.initConfigValidation(args); err != nil {
+		return nil, fmt.Errorf("config validation: %v", err)
 	}
 
 	// Run the SDS signing server.
@@ -258,6 +282,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
 	go func() {
+		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
 			log.Warna(err)
 		}
@@ -266,15 +291,27 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	if !s.waitForCacheSync(stop) {
 		return fmt.Errorf("failed to sync cache")
 	}
-	log.Infof("starting discovery service at http=%s grpc=%s", s.HTTPListener.Addr(),
-		s.GRPCListener.Addr())
 
-	// At this point we are ready
+	// Trigger a push, so that the global push context is updated with the new config and Pilot's local Envoy
+	// also is updated with new config.
+	log.Infof("All caches have been synced up, triggering a push")
+	s.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
+	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
+		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
 		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
 			log.Warna(err)
 		}
 	}()
+
+	if s.httpsServer != nil {
+		go func() {
+			if err := s.httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Warna(err)
+			}
+		}()
+	}
 
 	s.cleanupOnStop(stop)
 
@@ -294,9 +331,28 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	return nil
 }
 
+// A single container can't have two readiness probes. Piggyback the https server readiness
+// onto the http server readiness check. The "http" portion of the readiness check is satisfied
+// by the fact we've started listening on this handler and everything has already initialized.
+func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) {
+	if features.IstiodService.Get() != "" {
+		if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
+			log.Warnf("https webhook server not ready: %v", status)
+			w.WriteHeader(status)
+			return
+		}
+	}
+
+	// TODO check readiness of other secure gRPC and HTTP servers.
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.mux = http.NewServeMux()
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, s.webhook)
+	s.mux.HandleFunc("/ready", s.httpServerReadyHandler)
+
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, s.injectionWebhook)
 
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
@@ -362,7 +418,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 					// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 					// on a listener
 					err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
-					msg := fmt.Sprintf("Stoppped listening on %s", secureGrpcListener.Addr().String())
+					msg := fmt.Sprintf("Stopped listening on %s", secureGrpcListener.Addr().String())
 					select {
 					case <-stop:
 						log.Info(msg)
@@ -399,13 +455,20 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 		if s.forceStop {
 			s.grpcServer.Stop()
 			_ = s.httpServer.Close()
+			if features.IstiodService.Get() != "" {
+				_ = s.httpsServer.Close()
+			}
 		} else {
 			s.grpcServer.GracefulStop()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			err := s.httpServer.Shutdown(ctx)
-			if err != nil {
+			if err := s.httpServer.Shutdown(ctx); err != nil {
 				log.Warna(err)
+			}
+			if features.IstiodService.Get() != "" {
+				if err := s.httpsServer.Shutdown(ctx); err != nil {
+					log.Warna(err)
+				}
 			}
 		}
 	}()
@@ -540,7 +603,7 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 			// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 			// on a listener
 			err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
-			msg := fmt.Sprintf("Stoppped listening on %s %v", dnsGrpc, err)
+			msg := fmt.Sprintf("Stopped listening on %s %v", dnsGrpc, err)
 			select {
 			case <-stop:
 				log.Info(msg)
@@ -576,10 +639,12 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
 	maxStreams := features.MaxConcurrentStreams
+	maxRecvMsgSize := features.MaxRecvMsgSize
 
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
+		grpc.MaxRecvMsgSize(maxRecvMsgSize),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:                  options.Time,
 			Timeout:               options.Timeout,
@@ -623,7 +688,7 @@ func (s *Server) initEventHandlers() error {
 		pushReq := &model.PushRequest{
 			Full:               true,
 			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigTypesUpdated: map[string]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(): {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
@@ -639,7 +704,7 @@ func (s *Server) initEventHandlers() error {
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
 			// TODO: extend and set service instance type, so no need re-init push context
-			ConfigTypesUpdated: map[string]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(): {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 		})
 	}
 	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
@@ -653,12 +718,18 @@ func (s *Server) initEventHandlers() error {
 		configHandler := func(old, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{curr.Type: {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{curr.GroupVersionKind(): {}},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
 		for _, schema := range collections.Pilot.All() {
-			s.configController.RegisterEventHandler(schema.Resource().Kind(), configHandler)
+			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
+			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
+				Resource().GroupVersionKind() {
+				continue
+			}
+
+			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}
 

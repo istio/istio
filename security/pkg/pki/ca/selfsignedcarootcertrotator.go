@@ -81,11 +81,17 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 }
 
 // Run refreshes root certs and updates config map accordingly.
-func (rotator *SelfSignedCARootCertRotator) Run(rootCertRotatorChan chan struct{}) {
+func (rotator *SelfSignedCARootCertRotator) Run(stopCh chan struct{}) {
 	if rotator.config.enableJitter {
 		rootCertRotatorLog.Infof("Jitter is enabled, wait %s before "+
 			"starting root cert rotator.", rotator.backOffTime.String())
-		time.Sleep(rotator.backOffTime)
+		select {
+		case <-time.After(rotator.backOffTime):
+			rootCertRotatorLog.Infof("Jitter complete, start rotator.")
+		case <-stopCh:
+			rootCertRotatorLog.Info("Received stop signal, so stop the root cert rotator.")
+			return
+		}
 	}
 	ticker := time.NewTicker(rotator.config.CheckInterval)
 	for {
@@ -93,7 +99,7 @@ func (rotator *SelfSignedCARootCertRotator) Run(rootCertRotatorChan chan struct{
 		case <-ticker.C:
 			rootCertRotatorLog.Info("Check and rotate root cert.")
 			rotator.checkAndRotateRootCert()
-		case _, ok := <-rootCertRotatorChan:
+		case _, ok := <-stopCh:
 			if !ok {
 				rootCertRotatorLog.Info("Received stop signal, so stop the root cert rotator.")
 				if ticker != nil {

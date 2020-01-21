@@ -181,7 +181,7 @@ func TestCanonicalName(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
-			g.Expect(c.s.CanonicalName()).To(Equal(c.expected))
+			g.Expect(c.s.GroupVersionKind().String()).To(Equal(c.expected))
 		})
 	}
 }

@@ -1,0 +1,15 @@
+{{- if .Values.global.istiod.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-validation
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+data:
+{{- if .Values.global.configValidation }}
+  config: |-
+    {{- include "validatingwebhookconfiguration.yaml.tpl" . | indent 4}}
+{{- end}}
+---
+{{- end }}

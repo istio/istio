@@ -1911,7 +1911,7 @@ func TestValidatePortName(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validatePortName(tc.name); (err == nil) != tc.valid {
+			if err := ValidatePortName(tc.name); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -3968,6 +3968,20 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "allow-rules-nil",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: true,
+		},
+		{
+			name: "deny-rules-nil",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+			},
+			valid: false,
+		},
+		{
 			name: "selector-empty-value",
 			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
@@ -4145,6 +4159,38 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 						When: []*security_beta.Condition{
 							{
 								Key: "source.principal",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "condition-value-invalid",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						When: []*security_beta.Condition{
+							{
+								Key:    "source.ip",
+								Values: []string{"a.b.c.d"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "condition-notValue-invalid",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						When: []*security_beta.Condition{
+							{
+								Key:       "source.ip",
+								NotValues: []string{"a.b.c.d"},
 							},
 						},
 					},

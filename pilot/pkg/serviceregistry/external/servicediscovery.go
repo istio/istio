@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/schema/collections"
@@ -32,7 +33,7 @@ import (
 // merge with aggregate (caching, events), and possibly merge both into the
 // config directory, for a single top-level cache and event system.
 
-var serviceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind()
+var serviceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
 
@@ -96,7 +97,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 					pushReq := &model.PushRequest{
 						Full:               true,
 						NamespacesUpdated:  map[string]struct{}{curr.Namespace: {}},
-						ConfigTypesUpdated: map[string]struct{}{serviceEntryKind: {}},
+						ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{serviceEntryKind: {}},
 					}
 					c.XdsUpdater.ConfigUpdate(pushReq)
 				} else {
@@ -116,6 +117,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 									ServiceAccount:  instance.Endpoint.ServiceAccount,
 									Network:         instance.Endpoint.Network,
 									Locality:        instance.Endpoint.Locality,
+									LbWeight:        instance.Endpoint.LbWeight,
 									Attributes: model.ServiceAttributes{
 										Name:      instance.Service.Attributes.Name,
 										Namespace: instance.Service.Attributes.Namespace,

@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
@@ -73,6 +74,7 @@ var (
 	meshCfgFile     string
 	allNamespaces   bool
 	suppress        []string
+	analysisTimeout time.Duration
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -146,7 +148,7 @@ istioctl analyze -L
 			}
 
 			sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
-				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true)
+				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 
 			// Check for suppressions and add them to our SourceAnalyzer
 			var suppressions []snapshotter.AnalysisSuppression
@@ -212,6 +214,7 @@ istioctl analyze -L
 
 			// Do the analysis
 			result, err := sa.Analyze(cancel)
+
 			if err != nil {
 				return err
 			}
@@ -318,6 +321,8 @@ istioctl analyze -L
 		"Suppress reporting a message code on a specific resource. Values are supplied in the form "+
 			`<code>=<resource> (e.g. '--suppress "IST0102=DestinationRule primary-dr.default"'). Can be repeated. `+
 			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
+	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
+		"the duration to wait before failing")
 	return analysisCmd
 }
 

@@ -43,7 +43,9 @@ var (
 		// TODO replace with mesh config?
 		InjectionOptions: bootstrap.InjectionOptions{
 			InjectionDirectory: "./var/lib/istio/inject",
-			Port:               15017,
+		},
+		ValidationOptions: bootstrap.ValidationOptions{
+			ValidationDirectory: "./var/lib/istio/validation",
 		},
 
 		MCPMaxMessageSize:        1024 * 1024 * 4, // default grpc maximum message size
@@ -71,6 +73,9 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
+
+			// fill in missing defaults
+			serverArgs.Default()
 
 			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain, hasKubeRegistry()))
 
@@ -151,6 +156,8 @@ func init() {
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPAddr, "httpAddr", ":8080",
 		"Discovery service HTTP address")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPSAddr, "httpsAddr", ":15017",
+		"Injection and validation service HTTPS address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.GrpcAddr, "grpcAddr", ":15010",
 		"Discovery service grpc address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", ":15012",
