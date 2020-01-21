@@ -31,9 +31,9 @@ import (
 // function prunes all resources.
 func (h *HelmReconciler) Prune(excluded map[string]bool, all bool) error {
 	allErrors := []error{}
-	namespacedResources, _ := h.customizer.PruningDetails().GetResourceTypes()
+	namespacedResources, clusterResources := h.customizer.PruningDetails().GetResourceTypes()
 	targetNamespace := h.customizer.Input().GetTargetNamespace()
-	err := h.PruneUnlistedResources(namespacedResources, excluded, all, targetNamespace)
+	err := h.PruneUnlistedResources(append(namespacedResources, clusterResources...), excluded, all, targetNamespace)
 	if err != nil {
 		allErrors = append(allErrors, err)
 	}
