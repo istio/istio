@@ -130,11 +130,11 @@ func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1a
 	}
 	var componentPath string
 	if componentName.IsCoreComponent() {
-		componentPath = "Components."+ string(componentName)+".Enabled"
+		componentPath = "Components." + string(componentName) + ".Enabled"
 	} else {
-		componentPath = "AddonComponents."+util.ToYAMLPathString(string(componentName))+".Enabled"
+		componentPath = "AddonComponents." + util.ToYAMLPathString(string(componentName)) + ".Enabled"
 	}
-	
+
 	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, componentPath)
 	if err != nil {
 		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for component=%s: %s",
@@ -218,9 +218,9 @@ func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOper
 
 	var componentPath string
 	if componentName.IsCoreComponent() {
-		componentPath = "Components."+ string(componentName)+".Namespace"
+		componentPath = "Components." + string(componentName) + ".Namespace"
 	} else {
-		componentPath = "AddonComponents."+util.ToYAMLPathString(string(componentName))+".Namespace"
+		componentPath = "AddonComponents." + util.ToYAMLPathString(string(componentName)) + ".Namespace"
 	}
 
 	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, componentPath)
