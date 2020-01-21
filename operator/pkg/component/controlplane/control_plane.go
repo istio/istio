@@ -38,28 +38,18 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		InstallSpec: installSpec,
 		Translator:  translator,
 	}
-	for _, c := range name.AllCoreComponentNames {
+	for _, c := range append(name.AllCoreComponentNames, name.AllAddonComponentNames...) {
 		o := *opts
 		ns, err := name.Namespace(c, installSpec)
 		if err != nil {
 			return nil, err
 		}
 		o.Namespace = ns
-		out.components = append(out.components, component.NewComponent(c, &o))
-	}
-	for _, cn := range name.AllAddonComponentNames {
-		o := *opts
-		ns, err := name.Namespace(cn, installSpec)
-		if err != nil {
-			return nil, err
-		}
-		o.Namespace = ns
-		rn := ""
-		// Resource names are included in the translations.
-		if cm := translator.ComponentMap(string(cn)); cm != nil {
+		var rn string
+		if cm := translator.ComponentMap(string(c)); cm != nil {
 			rn = cm.ResourceName
 		}
-		out.components = append(out.components, component.NewAddonComponent(cn, rn, &o))
+		out.components = append(out.components, component.NewComponent(c, rn, &o))
 	}
 	for idx, c := range installSpec.Components.IngressGateways {
 		if c.Enabled == nil || !c.Enabled.Value {
