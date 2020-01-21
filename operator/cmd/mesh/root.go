@@ -26,7 +26,7 @@ import (
 const (
 	SetFlagHelpStr = `Override an IstioOperator value, e.g. to choose a profile
 (--set profile=demo), enable or disable components (--set policy.enabled=true), or override Istio 
-settings(--set values.global.mtls.enabled=true).  See documentation for more info: 
+settings (--set values.global.mtls.enabled=true). See documentation for more info: 
 https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb/#IstioControlPlaneSpec`
 	skipConfirmationFlagHelpStr = `skipConfirmation determines whether the user is prompted for confirmation. 
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
