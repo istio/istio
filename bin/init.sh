@@ -232,6 +232,7 @@ for plugin in stats metadata_exchange
 do
   FILTER_WASM_URL="${ISTIO_ENVOY_BASE_URL}/${plugin}-${ISTIO_ENVOY_VERSION}.wasm"
   download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.wasm
+  cp -f "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.wasm "${ISTIO_OUT}"/"${plugin//_/-}"-filter.wasm
 done
 
 # Copy native envoy binary to ISTIO_OUT
