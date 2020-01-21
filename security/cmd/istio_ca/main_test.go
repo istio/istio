@@ -87,8 +87,8 @@ func Test_createCA(t *testing.T) {
 				workloadCertTTL:    time.Hour * 24,
 				maxWorkloadCertTTL: time.Hour * 24 * 7,
 			},
+			wantTrustDomain: "cluster.local",
 			wantCert:        certPem,
-			wantTrustDomain: "my.domain.com",
 		},
 		{
 			name: "Given a client with a custom TrustDomain specified (not self-signed)",
