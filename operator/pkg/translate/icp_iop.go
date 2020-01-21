@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 
 	"gopkg.in/yaml.v2"
+
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
