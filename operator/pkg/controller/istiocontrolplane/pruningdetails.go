@@ -15,12 +15,9 @@
 package istiocontrolplane
 
 import (
-	"strconv"
-
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/util"
 )
@@ -35,9 +32,6 @@ const (
 	OwnerKindKey = MetadataNamespace + "/owner-kind"
 	// OwnerGroupKey represents the group of the owner to which the resource relates
 	OwnerGroupKey = MetadataNamespace + "/owner-group"
-
-	// OwnerGenerationKey represents the generation to which the resource was last reconciled
-	OwnerGenerationKey = MetadataNamespace + "/owner-generation"
 )
 
 var (
@@ -128,15 +122,11 @@ var (
 // NewPruningDetails creates a new PruningDetails object specific to the instance.
 func NewIstioPruningDetails(instance *v1alpha1.IstioOperator) helmreconciler.PruningDetails {
 	name := instance.GetName()
-	generation := strconv.FormatInt(instance.GetGeneration(), 10)
 	return &helmreconciler.SimplePruningDetails{
 		OwnerLabels: map[string]string{
 			OwnerNameKey:  name,
 			OwnerGroupKey: util.IstioOperatorGVK.Group,
 			OwnerKindKey:  util.IstioOperatorGVK.Kind,
-		},
-		OwnerAnnotations: map[string]string{
-			OwnerGenerationKey: generation,
 		},
 		NamespacedResources:    namespacedResources,
 		NonNamespacedResources: nonNamespacedResources,
