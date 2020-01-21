@@ -539,7 +539,7 @@ func TestRequestAuthentication(t *testing.T) {
 					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
-					Name: "accepted by weaker requirement",
+					Name: "verify policies are combined",
 					Request: connection.Checker{
 						From: b,
 						Options: echo.CallOptions{
