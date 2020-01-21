@@ -28,13 +28,14 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 var GlobalTime = time.Now()
 var httpNone = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
+		Group:             serviceEntryKind.Group,
+		Version:           serviceEntryKind.Version,
 		Name:              "httpNone",
 		Namespace:         "httpNone",
 		Domain:            "svc.cluster.local",
@@ -53,7 +54,9 @@ var httpNone = &model.Config{
 
 var tcpNone = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
+		Group:             serviceEntryKind.Group,
+		Version:           serviceEntryKind.Version,
 		Name:              "tcpNone",
 		Namespace:         "tcpNone",
 		CreationTimestamp: GlobalTime,
@@ -71,7 +74,9 @@ var tcpNone = &model.Config{
 
 var httpStatic = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
+		Group:             serviceEntryKind.Group,
+		Version:           serviceEntryKind.Version,
 		Name:              "httpStatic",
 		Namespace:         "httpStatic",
 		CreationTimestamp: GlobalTime,
@@ -106,7 +111,9 @@ var httpStatic = &model.Config{
 
 var httpDNSnoEndpoints = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
+		Group:             serviceEntryKind.Group,
+		Version:           serviceEntryKind.Version,
 		Name:              "httpDNSnoEndpoints",
 		Namespace:         "httpDNSnoEndpoints",
 		CreationTimestamp: GlobalTime,
@@ -125,7 +132,9 @@ var httpDNSnoEndpoints = &model.Config{
 
 var httpDNS = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
+		Group:             serviceEntryKind.Group,
+		Version:           serviceEntryKind.Version,
 		Name:              "httpDNS",
 		Namespace:         "httpDNS",
 		CreationTimestamp: GlobalTime,
@@ -160,7 +169,7 @@ var httpDNS = &model.Config{
 
 var tcpDNS = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
 		Name:              "tcpDNS",
 		Namespace:         "tcpDNS",
 		CreationTimestamp: GlobalTime,
@@ -188,7 +197,9 @@ var tcpDNS = &model.Config{
 
 var tcpStatic = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
+		Group:             serviceEntryKind.Group,
+		Version:           serviceEntryKind.Version,
 		Name:              "tcpStatic",
 		Namespace:         "tcpStatic",
 		CreationTimestamp: GlobalTime,
@@ -217,7 +228,7 @@ var tcpStatic = &model.Config{
 
 var httpNoneInternal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
 		Name:              "httpNoneInternal",
 		Namespace:         "httpNoneInternal",
 		CreationTimestamp: GlobalTime,
@@ -236,7 +247,7 @@ var httpNoneInternal = &model.Config{
 
 var tcpNoneInternal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
 		Name:              "tcpNoneInternal",
 		Namespace:         "tcpNoneInternal",
 		CreationTimestamp: GlobalTime,
@@ -255,7 +266,7 @@ var tcpNoneInternal = &model.Config{
 
 var multiAddrInternal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
 		Name:              "multiAddrInternal",
 		Namespace:         "multiAddrInternal",
 		CreationTimestamp: GlobalTime,
@@ -274,7 +285,7 @@ var multiAddrInternal = &model.Config{
 
 var udsLocal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              schemas.ServiceEntry.Type,
+		Type:              serviceEntryKind.Kind,
 		Name:              "udsLocal",
 		Namespace:         "udsLocal",
 		CreationTimestamp: GlobalTime,
@@ -311,7 +322,7 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 		MeshExternal: external,
 		Resolution:   resolution,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.MCP),
+			ServiceRegistry: serviceregistry.External,
 			Name:            string(hostname),
 			Namespace:       configNamespace,
 		},
@@ -358,18 +369,23 @@ func makeInstance(cfg *model.Config, address string, port int,
 	}
 	return &model.ServiceInstance{
 		Service: svc,
-		Endpoint: model.NetworkEndpoint{
-			Family:  family,
-			Address: address,
-			Port:    port,
-			ServicePort: &model.Port{
-				Name:     svcPort.Name,
-				Port:     int(svcPort.Number),
-				Protocol: protocol.Parse(svcPort.Protocol),
+		Endpoint: &model.IstioEndpoint{
+			Family:          family,
+			Address:         address,
+			EndpointPort:    uint32(port),
+			ServicePortName: svcPort.Name,
+			Labels:          svcLabels,
+			TLSMode:         tlsMode,
+			Attributes: model.ServiceAttributes{
+				Name:      svc.Attributes.Name,
+				Namespace: svc.Attributes.Namespace,
 			},
 		},
-		Labels:  svcLabels,
-		TLSMode: tlsMode,
+		ServicePort: &model.Port{
+			Name:     svcPort.Name,
+			Port:     int(svcPort.Number),
+			Protocol: protocol.Parse(svcPort.Protocol),
+		},
 	}
 }
 

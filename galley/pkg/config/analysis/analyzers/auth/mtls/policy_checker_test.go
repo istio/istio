@@ -30,7 +30,7 @@ import (
 
 func TestMTLSPolicyChecker_singleResource(t *testing.T) {
 	type PolicyResource struct {
-		namespace string
+		namespace resource.Namespace
 		policy    string
 	}
 
@@ -261,8 +261,10 @@ peers:
 				if err != nil {
 					t.Fatalf("expected: %v, got error when parsing yaml: %v", tc.want, err)
 				}
-				r := resource.Entry{Metadata: resource.Metadata{Name: resource.NewName("", "default")}}
-				pc.AddMeshPolicy(&r, meshpb)
+				r := resource.Instance{Metadata: resource.Metadata{FullName: resource.NewFullName("", "default")}}
+				if err := pc.AddMeshPolicy(&r, meshpb); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			if tc.policy.policy != "" {
@@ -270,7 +272,7 @@ peers:
 				if err != nil {
 					t.Fatalf("expected: %v, got error when parsing yaml: %v", tc.want, err)
 				}
-				r := resource.Entry{Metadata: resource.Metadata{Name: resource.NewName(tc.policy.namespace, "somePolicy")}}
+				r := resource.Instance{Metadata: resource.Metadata{FullName: resource.NewFullName(tc.policy.namespace, "somePolicy")}}
 				err = pc.AddPolicy(&r, pb)
 				if err != nil {
 					t.Fatalf("expected: %v, got error when adding policy: %v", tc.want, err)
@@ -291,7 +293,7 @@ peers:
 
 func TestMTLSPolicyChecker_multipleResources(t *testing.T) {
 	type PolicyResource struct {
-		namespace string
+		namespace resource.Namespace
 		policy    string
 	}
 
@@ -403,8 +405,10 @@ peers:
 			if err != nil {
 				t.Fatalf("expected: %v, got error when parsing yaml: %v", tc.want, err)
 			}
-			r := resource.Entry{Metadata: resource.Metadata{Name: resource.NewName("", "default")}}
-			pc.AddMeshPolicy(&r, meshpb)
+			r := resource.Instance{Metadata: resource.Metadata{FullName: resource.NewFullName("", "default")}}
+			if err := pc.AddMeshPolicy(&r, meshpb); err != nil {
+				t.Fatal(err)
+			}
 
 			// Add in all other policies
 			for _, p := range tc.policies {
@@ -412,7 +416,7 @@ peers:
 				if err != nil {
 					t.Fatalf("expected: %v, got error when parsing yaml: %v", tc.want, err)
 				}
-				r := resource.Entry{Metadata: resource.Metadata{Name: resource.NewName(p.namespace, "somePolicy")}}
+				r := resource.Instance{Metadata: resource.Metadata{FullName: resource.NewFullName(p.namespace, "somePolicy")}}
 				err = pc.AddPolicy(&r, pb)
 				if err != nil {
 					t.Fatalf("expected: %v, got error when adding policy: %v", tc.want, err)

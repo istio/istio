@@ -31,6 +31,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
+	stsserver "istio.io/istio/security/pkg/stsservice/server"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/collateral"
@@ -55,18 +58,24 @@ import (
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
-const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
+const (
+	trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
+	localHostIPv4      = "127.0.0.1"
+	localHostIPv6      = "[::1]"
+)
 
 // TODO: Move most of this to pkg.
 
 var (
-	role          = &model.Proxy{}
-	proxyIP       string
-	registryID    serviceregistry.ProviderID
-	trustDomain   string
-	pilotIdentity string
-	mixerIdentity string
-	statusPort    uint16
+	role               = &model.Proxy{}
+	proxyIP            string
+	registryID         serviceregistry.ProviderID
+	trustDomain        string
+	pilotIdentity      string
+	mixerIdentity      string
+	statusPort         uint16
+	stsPort            int
+	tokenManagerPlugin string
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -120,6 +129,8 @@ var (
 		"number of attributes for stackdriver")
 	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
 		"max number of message events for stackdriver")
+	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
+		"the provider of Pilot DNS certificate.").Get()
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -210,6 +221,7 @@ var (
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
+			proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
 			proxyConfig.ServiceCluster = serviceCluster
@@ -349,10 +361,10 @@ var (
 			sdsUDSPath := sdsUdsPathVar.Get()
 			nodeAgentSDSEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUDSPath, trustworthyJWTPath)
 
-			if !nodeAgentSDSEnabled && role.Type == model.SidecarProxy { // Not using citadel agent - this is either Pilot or Istiod.
+			if !nodeAgentSDSEnabled { // Not using citadel agent - this is either Pilot or Istiod.
 
 				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
-				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled)
+				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled, pilotCertProvider)
 
 				if sa.JWTPath != "" {
 					// If user injected a JWT token for SDS - use SDS.
@@ -458,9 +470,9 @@ var (
 			ctx, cancel := context.WithCancel(context.Background())
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
-				localHostAddr := "127.0.0.1"
+				localHostAddr := localHostIPv4
 				if proxyIPv6 {
-					localHostAddr = "[::1]"
+					localHostAddr = localHostIPv6
 				}
 				prober := kubeAppProberNameVar.Get()
 				statusServer, err := status.NewServer(status.Config{
@@ -475,6 +487,27 @@ var (
 					return err
 				}
 				go waitForCompletion(ctx, statusServer.Run)
+			}
+
+			// If security token service (STS) port is not zero, start STS server and
+			// listen on STS port for STS requests. For STS, see
+			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
+			if stsPort > 0 {
+				localHostAddr := localHostIPv4
+				if proxyIPv6 {
+					localHostAddr = localHostIPv6
+				}
+				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
+					tokenmanager.Config{TrustDomain: trustDomain})
+				stsServer, err := stsserver.NewServer(stsserver.Config{
+					LocalHostAddr: localHostAddr,
+					LocalPort:     stsPort,
+				}, tokenManager)
+				if err != nil {
+					cancel()
+					return err
+				}
+				defer stsServer.Stop()
 			}
 
 			log.Infof("PilotSAN %#v", pilotSAN)
@@ -496,6 +529,7 @@ var (
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
+				PilotCertProvider:   pilotCertProvider,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
@@ -664,8 +698,8 @@ func appendTLSCerts(rs *meshconfig.RemoteService) {
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registryID), "serviceregistry",
 		string(serviceregistry.Kubernetes),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s}",
-			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.MCP, serviceregistry.Mock))
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
+			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.Mock))
 	proxyCmd.PersistentFlags().StringVar(&proxyIP, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
@@ -681,7 +715,10 @@ func init() {
 
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
-
+	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
+		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
+	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", "",
+		"Token provider specific plugin name.")
 	// Flags for proxy configuration
 	values := mesh.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,

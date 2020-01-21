@@ -56,11 +56,11 @@ func (a *Accumulator) EventsWithoutOrigins() []event.Event {
 	copy(events, a.events)
 
 	for i := 0; i < len(events); i++ {
-		e := events[i].Entry
+		e := events[i].Resource
 		if e != nil {
 			e.Origin = nil
 		}
-		events[i].Entry = e
+		events[i].Resource = e
 	}
 	return events
 }

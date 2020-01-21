@@ -32,14 +32,14 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -53,21 +53,21 @@ const (
 	clusterIP = "10.0.0.10"
 	pod1IP    = "10.0.0.1"
 	pod2IP    = "10.0.0.2"
-	namespace = "fakeNamespace"
+	namespace = resource.Namespace("fakeNamespace")
 	nodeName  = "node1"
 	region    = "region1"
 	zone      = "zone1"
 )
 
 var (
-	serviceName = resource.NewName(namespace, "svc1")
+	serviceName = resource.NewFullName(namespace, "svc1")
 	createTime  = time.Now()
 
-	nodeCollection         = metadata.K8SCoreV1Nodes
-	podCollection          = metadata.K8SCoreV1Pods
-	serviceCollection      = metadata.K8SCoreV1Services
-	endpointsCollection    = metadata.K8SCoreV1Endpoints
-	serviceEntryCollection = metadata.IstioNetworkingV1Alpha3SyntheticServiceentries
+	nodeCollection         = collections.K8SCoreV1Nodes
+	podCollection          = collections.K8SCoreV1Pods
+	serviceCollection      = collections.K8SCoreV1Services
+	endpointsCollection    = collections.K8SCoreV1Endpoints
+	serviceEntryCollection = collections.IstioNetworkingV1Alpha3SyntheticServiceentries
 	serviceAnnotations     = resource.StringMap{
 		"ak1": "av1",
 	}
@@ -84,11 +84,11 @@ func TestInvalidCollectionShouldNotPanic(t *testing.T) {
 	defer rt.Stop()
 	src.Handlers.Handle(event.Event{
 		Kind:   event.Added,
-		Source: metadata.IstioNetworkingV1Alpha3Gateways,
-		Entry: &resource.Entry{
+		Source: collections.IstioNetworkingV1Alpha3Gateways,
+		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
-				Name:    resource.NewName("ns", "svc1"),
-				Version: resource.Version("123"),
+				FullName: resource.NewFullName("ns", "svc1"),
+				Version:  "123",
 			},
 		},
 	})
@@ -96,25 +96,25 @@ func TestInvalidCollectionShouldNotPanic(t *testing.T) {
 
 func TestLifecycle(t *testing.T) {
 	expectedVersion := 0
-	var service *resource.Entry
-	var endpoints *resource.Entry
+	var service *resource.Instance
+	var endpoints *resource.Instance
 
 	stages := []stage{
 		{
 			name:  "NodeSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Nodes),
+			event: event.FullSyncFor(collections.K8SCoreV1Nodes),
 		},
 		{
 			name:  "PodSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Pods),
+			event: event.FullSyncFor(collections.K8SCoreV1Pods),
 		},
 		{
 			name:  "ServiceSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Services),
+			event: event.FullSyncFor(collections.K8SCoreV1Services),
 		},
 		{
 			name:  "EndpointSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+			event: event.FullSyncFor(collections.K8SCoreV1Endpoints),
 			validator: func(ctx pipelineContext) {
 				expectNotifications(ctx.t, ctx.acc, 1)
 			},
@@ -122,9 +122,9 @@ func TestLifecycle(t *testing.T) {
 		{
 			name: "AddNode",
 			event: event.Event{
-				Kind:   event.Added,
-				Source: nodeCollection,
-				Entry:  nodeEntry(),
+				Kind:     event.Added,
+				Source:   nodeCollection,
+				Resource: nodeEntry(),
 			},
 			validator: func(ctx pipelineContext) {
 				expectNotifications(ctx.t, ctx.acc, 0)
@@ -133,9 +133,9 @@ func TestLifecycle(t *testing.T) {
 		{
 			name: "AddPod1",
 			event: event.Event{
-				Kind:   event.Added,
-				Source: podCollection,
-				Entry:  podEntry(resource.NewName(namespace, "pod1"), pod1IP, "sa1"),
+				Kind:     event.Added,
+				Source:   podCollection,
+				Resource: podEntry(resource.NewFullName(namespace, "pod1"), pod1IP, "sa1"),
 			},
 			validator: func(ctx pipelineContext) {
 				expectNotifications(ctx.t, ctx.acc, 0)
@@ -144,9 +144,9 @@ func TestLifecycle(t *testing.T) {
 		{
 			name: "AddPod2",
 			event: event.Event{
-				Kind:   event.Added,
-				Source: podCollection,
-				Entry:  podEntry(resource.NewName(namespace, "pod2"), pod2IP, "sa2"),
+				Kind:     event.Added,
+				Source:   podCollection,
+				Resource: podEntry(resource.NewFullName(namespace, "pod2"), pod2IP, "sa2"),
 			},
 			validator: func(ctx pipelineContext) {
 				expectNotifications(ctx.t, ctx.acc, 0)
@@ -155,9 +155,9 @@ func TestLifecycle(t *testing.T) {
 		{
 			name: "AddService",
 			event: event.Event{
-				Kind:   event.Added,
-				Source: serviceCollection,
-				Entry:  entryForService(serviceName, createTime, "v1"),
+				Kind:     event.Added,
+				Source:   serviceCollection,
+				Resource: entryForService(serviceName, createTime, "v1"),
 			},
 			validator: func(ctx pipelineContext) {
 				service = entryForService(serviceName, createTime, "v1")
@@ -181,9 +181,9 @@ func TestLifecycle(t *testing.T) {
 		{
 			name: "UpdateService",
 			event: event.Event{
-				Kind:   event.Updated,
-				Source: serviceCollection,
-				Entry:  entryForService(serviceName, createTime, "v2"),
+				Kind:     event.Updated,
+				Source:   serviceCollection,
+				Resource: entryForService(serviceName, createTime, "v2"),
 			},
 			validator: func(ctx pipelineContext) {
 				service = entryForService(serviceName, createTime, "v2")
@@ -209,7 +209,7 @@ func TestLifecycle(t *testing.T) {
 			event: event.Event{
 				Kind:   event.Added,
 				Source: endpointsCollection,
-				Entry: newEndpointsEntryBuilder().
+				Resource: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
 					Version("v1").
@@ -251,7 +251,7 @@ func TestLifecycle(t *testing.T) {
 			event: event.Event{
 				Kind:   event.Updated,
 				Source: endpointsCollection,
-				Entry: newEndpointsEntryBuilder().
+				Resource: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
 					Version("v2").
@@ -291,7 +291,7 @@ func TestLifecycle(t *testing.T) {
 			event: event.Event{
 				Kind:   event.Updated,
 				Source: endpointsCollection,
-				Entry: newEndpointsEntryBuilder().
+				Resource: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
 					Version("v3").
@@ -334,7 +334,7 @@ func TestLifecycle(t *testing.T) {
 			event: event.Event{
 				Kind:   event.Deleted,
 				Source: endpointsCollection,
-				Entry: newEndpointsEntryBuilder().
+				Resource: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
 					Version("v3").
@@ -362,9 +362,9 @@ func TestLifecycle(t *testing.T) {
 		{
 			name: "DeleteService",
 			event: event.Event{
-				Kind:   event.Deleted,
-				Source: serviceCollection,
-				Entry:  entryForService(serviceName, createTime, "v2"),
+				Kind:     event.Deleted,
+				Source:   serviceCollection,
+				Resource: entryForService(serviceName, createTime, "v2"),
 			},
 			validator: func(ctx pipelineContext) {
 				expectNotifications(ctx.t, ctx.acc, 1)
@@ -382,19 +382,19 @@ func TestAddOrder(t *testing.T) {
 	initialStages := []stage{
 		{
 			name:  "NodeSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Nodes),
+			event: event.FullSyncFor(collections.K8SCoreV1Nodes),
 		},
 		{
 			name:  "PodSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Pods),
+			event: event.FullSyncFor(collections.K8SCoreV1Pods),
 		},
 		{
 			name:  "ServiceSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Services),
+			event: event.FullSyncFor(collections.K8SCoreV1Services),
 		},
 		{
 			name:  "EndpointSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+			event: event.FullSyncFor(collections.K8SCoreV1Endpoints),
 		},
 	}
 
@@ -402,25 +402,25 @@ func TestAddOrder(t *testing.T) {
 		{
 			name: "Node",
 			event: event.Event{
-				Kind:   event.Added,
-				Source: nodeCollection,
-				Entry:  nodeEntry(),
+				Kind:     event.Added,
+				Source:   nodeCollection,
+				Resource: nodeEntry(),
 			},
 		},
 		{
 			name: "Pod",
 			event: event.Event{
-				Kind:   event.Added,
-				Source: podCollection,
-				Entry:  podEntry(resource.NewName(namespace, "pod1"), pod1IP, "sa1"),
+				Kind:     event.Added,
+				Source:   podCollection,
+				Resource: podEntry(resource.NewFullName(namespace, "pod1"), pod1IP, "sa1"),
 			},
 		},
 		{
 			name: "Service",
 			event: event.Event{
-				Kind:   event.Added,
-				Source: serviceCollection,
-				Entry:  entryForService(serviceName, createTime, "v1"),
+				Kind:     event.Added,
+				Source:   serviceCollection,
+				Resource: entryForService(serviceName, createTime, "v1"),
 			},
 		},
 		{
@@ -428,7 +428,7 @@ func TestAddOrder(t *testing.T) {
 			event: event.Event{
 				Kind:   event.Added,
 				Source: endpointsCollection,
-				Entry: newEndpointsEntryBuilder().
+				Resource: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
 					Version("v1").
@@ -445,15 +445,15 @@ func TestAddOrder(t *testing.T) {
 
 		var resolution networking.ServiceEntry_Resolution
 		t.Run(p.name(), func(t *testing.T) {
-			var service *resource.Entry
-			var endpoints *resource.Entry
+			var service *resource.Instance
+			var endpoints *resource.Instance
 			hasPod := false
 			hasNode := false
 			expectedVersion := 0
 
 			p.run(t, func(ctx pipelineContext) {
 				// Determine whether or not an update is expected.
-				entry := ctx.s.event.Entry
+				entry := ctx.s.event.Resource
 				updateExpected := false
 				switch ctx.s.name {
 				case "Service":
@@ -511,17 +511,17 @@ func TestDeleteOrder(t *testing.T) {
 		{
 			name: "Node",
 			event: event.Event{
-				Kind:   event.Deleted,
-				Source: nodeCollection,
-				Entry:  nodeEntry(),
+				Kind:     event.Deleted,
+				Source:   nodeCollection,
+				Resource: nodeEntry(),
 			},
 		},
 		{
 			name: "Pod",
 			event: event.Event{
-				Kind:   event.Deleted,
-				Source: podCollection,
-				Entry:  podEntry(resource.NewName(namespace, "pod1"), pod1IP, "sa1"),
+				Kind:     event.Deleted,
+				Source:   podCollection,
+				Resource: podEntry(resource.NewFullName(namespace, "pod1"), pod1IP, "sa1"),
 			},
 		},
 		{
@@ -529,7 +529,7 @@ func TestDeleteOrder(t *testing.T) {
 			event: event.Event{
 				Kind:   event.Deleted,
 				Source: endpointsCollection,
-				Entry: newEndpointsEntryBuilder().
+				Resource: newEndpointsEntryBuilder().
 					ServiceName(serviceName).
 					CreateTime(createTime).
 					Version("v1").
@@ -540,9 +540,9 @@ func TestDeleteOrder(t *testing.T) {
 		{
 			name: "Service",
 			event: event.Event{
-				Kind:   event.Deleted,
-				Source: serviceCollection,
-				Entry:  entryForService(serviceName, createTime, "v1"),
+				Kind:     event.Deleted,
+				Source:   serviceCollection,
+				Resource: entryForService(serviceName, createTime, "v1"),
 			},
 		},
 	}
@@ -557,19 +557,19 @@ func TestDeleteOrder(t *testing.T) {
 	syncStages := []stage{
 		{
 			name:  "NodeSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Nodes),
+			event: event.FullSyncFor(collections.K8SCoreV1Nodes),
 		},
 		{
 			name:  "PodSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Pods),
+			event: event.FullSyncFor(collections.K8SCoreV1Pods),
 		},
 		{
 			name:  "ServiceSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Services),
+			event: event.FullSyncFor(collections.K8SCoreV1Services),
 		},
 		{
 			name:  "EndpointSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+			event: event.FullSyncFor(collections.K8SCoreV1Endpoints),
 			validator: func(ctx pipelineContext) {
 				expectNotifications(ctx.t, ctx.acc, 1)
 			},
@@ -678,10 +678,10 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 	defer rt.Stop()
 
 	syncEvents := []event.Event{
-		event.FullSyncFor(metadata.K8SCoreV1Nodes),
-		event.FullSyncFor(metadata.K8SCoreV1Pods),
-		event.FullSyncFor(metadata.K8SCoreV1Services),
-		event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+		event.FullSyncFor(collections.K8SCoreV1Nodes),
+		event.FullSyncFor(collections.K8SCoreV1Pods),
+		event.FullSyncFor(collections.K8SCoreV1Services),
+		event.FullSyncFor(collections.K8SCoreV1Endpoints),
 	}
 
 	for _, e := range syncEvents {
@@ -692,23 +692,23 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 	expectedVersion := 0
 	t.Run("AddNode", func(t *testing.T) {
 		src.Handlers.Handle(event.Event{
-			Kind:   event.Added,
-			Source: nodeCollection,
-			Entry:  nodeEntry(),
+			Kind:     event.Added,
+			Source:   nodeCollection,
+			Resource: nodeEntry(),
 		})
 		expectNotifications(t, acc, 0)
 	})
 
 	t.Run("AddPod", func(t *testing.T) {
 		src.Handlers.Handle(event.Event{
-			Kind:   event.Added,
-			Source: podCollection,
-			Entry:  podEntry(resource.NewName(namespace, "pod1"), pod1IP, "sa1"),
+			Kind:     event.Added,
+			Source:   podCollection,
+			Resource: podEntry(resource.NewFullName(namespace, "pod1"), pod1IP, "sa1"),
 		})
 		expectNotifications(t, acc, 0)
 	})
 
-	var endpoints *resource.Entry
+	var endpoints *resource.Instance
 	t.Run("AddEndpoints", func(t *testing.T) {
 		endpoints = newEndpointsEntryBuilder().
 			ServiceName(serviceName).
@@ -717,9 +717,9 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 			IPs(pod1IP).
 			Build()
 		src.Handlers.Handle(event.Event{
-			Kind:   event.Added,
-			Source: endpointsCollection,
-			Entry:  endpoints,
+			Kind:     event.Added,
+			Source:   endpointsCollection,
+			Resource: endpoints,
 		})
 		expectNotifications(t, acc, 0)
 		expectEmptySnapshot(t, dst, expectedVersion)
@@ -728,9 +728,9 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 	t.Run("AddService", func(t *testing.T) {
 		service := entryForService(serviceName, createTime, "v1")
 		src.Handlers.Handle(event.Event{
-			Kind:   event.Added,
-			Source: serviceCollection,
-			Entry:  service,
+			Kind:     event.Added,
+			Source:   serviceCollection,
+			Resource: service,
 		})
 		expectNotifications(t, acc, 1)
 		expectedVersion++
@@ -758,7 +758,7 @@ func TestAddEndpointsWithUnknownEventKindShouldNotPanic(t *testing.T) {
 
 	src.Handlers.Handle(event.Event{
 		Kind: event.None,
-		Entry: newEndpointsEntryBuilder().
+		Resource: newEndpointsEntryBuilder().
 			ServiceName(serviceName).
 			CreateTime(createTime).
 			Version("v1").
@@ -781,11 +781,11 @@ func newHandler() (*processing.Runtime, *fixtures.Source, *snapshotter.InMemoryD
 		Source:       event.CombineSources(src, meshSrc),
 		ProcessorProvider: func(o processing.ProcessorOptions) event.Processor {
 			xforms := serviceentry.GetProviders().Create(o)
-			xforms[0].DispatchFor(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, a)
+			xforms[0].DispatchFor(collections.IstioNetworkingV1Alpha3SyntheticServiceentries, a)
 			settings := []snapshotter.SnapshotOptions{
 				{
 					Group:       "syntheticServiceEntry",
-					Collections: []collection.Name{metadata.IstioNetworkingV1Alpha3SyntheticServiceentries},
+					Collections: []collection.Name{collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name()},
 					Strategy:    strategy.NewImmediate(),
 					Distributor: dst,
 				},
@@ -800,28 +800,27 @@ func newHandler() (*processing.Runtime, *fixtures.Source, *snapshotter.InMemoryD
 	return p, src, dst, a
 }
 
-func nodeEntry() *resource.Entry {
-	return &resource.Entry{
+func nodeEntry() *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("", nodeName),
-			Version: resource.Version("v1"),
-			Labels:  localityLabels(region, zone),
+			FullName: resource.NewFullName("", nodeName),
+			Version:  "v1",
+			Labels:   localityLabels(region, zone),
 		},
-		Item: &coreV1.NodeSpec{},
+		Message: &coreV1.NodeSpec{},
 	}
 }
 
-func podEntry(podName resource.Name, ip, saName string) *resource.Entry {
-	ns, name := podName.InterpretAsNamespaceAndName()
-	return &resource.Entry{
+func podEntry(podName resource.FullName, ip, saName string) *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    podName,
-			Version: resource.Version("v1"),
+			FullName: podName,
+			Version:  "v1",
 		},
-		Item: &coreV1.Pod{
+		Message: &coreV1.Pod{
 			ObjectMeta: metaV1.ObjectMeta{
-				Name:      name,
-				Namespace: ns,
+				Name:      podName.Name.String(),
+				Namespace: podName.Namespace.String(),
 				Labels:    podLabels,
 			},
 			Spec: coreV1.PodSpec{
@@ -836,16 +835,16 @@ func podEntry(podName resource.Name, ip, saName string) *resource.Entry {
 	}
 }
 
-func entryForService(serviceName resource.Name, createTime time.Time, version string) *resource.Entry {
-	return &resource.Entry{
+func entryForService(serviceName resource.FullName, createTime time.Time, version string) *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:        serviceName,
+			FullName:    serviceName,
 			Version:     resource.Version(version),
 			CreateTime:  createTime,
 			Annotations: serviceAnnotations,
 			Labels:      serviceLabels,
 		},
-		Item: &coreV1.ServiceSpec{
+		Message: &coreV1.ServiceSpec{
 			ClusterIP: clusterIP,
 			Ports: []coreV1.ServicePort{
 				{
@@ -859,7 +858,7 @@ func entryForService(serviceName resource.Name, createTime time.Time, version st
 }
 
 type endpointsEntryBuilder struct {
-	serviceName resource.Name
+	serviceName resource.FullName
 	createTime  time.Time
 	version     string
 	ips         []string
@@ -870,7 +869,7 @@ func newEndpointsEntryBuilder() *endpointsEntryBuilder {
 	return &endpointsEntryBuilder{}
 }
 
-func (b *endpointsEntryBuilder) ServiceName(serviceName resource.Name) *endpointsEntryBuilder {
+func (b *endpointsEntryBuilder) ServiceName(serviceName resource.FullName) *endpointsEntryBuilder {
 	b.serviceName = serviceName
 	return b
 }
@@ -895,14 +894,12 @@ func (b *endpointsEntryBuilder) NotReadyIPs(ips ...string) *endpointsEntryBuilde
 	return b
 }
 
-func (b *endpointsEntryBuilder) Build() *resource.Entry {
-	ns, n := b.serviceName.InterpretAsNamespaceAndName()
-
+func (b *endpointsEntryBuilder) Build() *resource.Instance {
 	eps := &coreV1.Endpoints{
 		ObjectMeta: metaV1.ObjectMeta{
 			CreationTimestamp: metaV1.Time{Time: b.createTime},
-			Name:              n,
-			Namespace:         ns,
+			Name:              b.serviceName.Name.String(),
+			Namespace:         b.serviceName.Namespace.String(),
 		},
 		Subsets: []coreV1.EndpointSubset{
 			{
@@ -929,14 +926,14 @@ func (b *endpointsEntryBuilder) Build() *resource.Entry {
 		})
 	}
 
-	return &resource.Entry{
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:        b.serviceName,
+			FullName:    b.serviceName,
 			Version:     resource.Version(b.version),
 			CreateTime:  b.createTime,
 			Annotations: serviceAnnotations,
 		},
-		Item: eps,
+		Message: eps,
 	}
 }
 
@@ -956,8 +953,8 @@ func localityLabels(region, zone string) resource.StringMap {
 }
 
 type metadataBuilder struct {
-	service     *resource.Entry
-	endpoints   *resource.Entry
+	service     *resource.Instance
+	endpoints   *resource.Instance
 	notReadyIPs []string
 
 	version    int
@@ -965,7 +962,7 @@ type metadataBuilder struct {
 	labels     map[string]string
 }
 
-func newMetadataBuilder(service *resource.Entry, endpoints *resource.Entry) *metadataBuilder {
+func newMetadataBuilder(service *resource.Instance, endpoints *resource.Instance) *metadataBuilder {
 	return &metadataBuilder{
 		service:   service,
 		endpoints: endpoints,
@@ -1017,7 +1014,7 @@ func (b *metadataBuilder) Build() *mcp.Metadata {
 }
 
 type serviceEntryBuilder struct {
-	serviceName     resource.Name
+	serviceName     resource.FullName
 	region          string
 	zone            string
 	ips             []string
@@ -1030,7 +1027,7 @@ func newServiceEntryBuilder() *serviceEntryBuilder {
 	return &serviceEntryBuilder{}
 }
 
-func (b *serviceEntryBuilder) ServiceName(serviceName resource.Name) *serviceEntryBuilder {
+func (b *serviceEntryBuilder) ServiceName(serviceName resource.FullName) *serviceEntryBuilder {
 	b.serviceName = serviceName
 	return b
 }
@@ -1066,9 +1063,8 @@ func (b *serviceEntryBuilder) Resolution(res networking.ServiceEntry_Resolution)
 }
 
 func (b *serviceEntryBuilder) Build() *networking.ServiceEntry {
-	ns, n := b.serviceName.InterpretAsNamespaceAndName()
 	entry := &networking.ServiceEntry{
-		Hosts:      []string{host(ns, n)},
+		Hosts:      []string{host(b.serviceName.Namespace.String(), b.serviceName.Name.String())},
 		Addresses:  []string{clusterIP},
 		Resolution: b.resolution,
 		Location:   networking.ServiceEntry_MESH_INTERNAL,
@@ -1079,7 +1075,7 @@ func (b *serviceEntryBuilder) Build() *networking.ServiceEntry {
 				Protocol: string(protocol.HTTP),
 			},
 		},
-		SubjectAltNames: expectedSubjectAltNames(ns, b.serviceAccounts),
+		SubjectAltNames: expectedSubjectAltNames(b.serviceName.Namespace, b.serviceAccounts),
 	}
 
 	for _, ip := range b.ips {
@@ -1260,12 +1256,12 @@ func expectResource(
 	expectedVersionStr := fmt.Sprintf("istio/networking/v1alpha3/synthetic/serviceentries/%d", expectedVersion)
 	g.Eventually(func() string {
 		sn := dst.GetSnapshot("syntheticServiceEntry")
-		return sn.Version(serviceEntryCollection.String())
+		return sn.Version(serviceEntryCollection.Name().String())
 	}).Should(Equal(expectedVersionStr))
 
 	sn := dst.GetSnapshot("syntheticServiceEntry")
 	// Extract out the resource.
-	rs := sn.Resources(serviceEntryCollection.String())
+	rs := sn.Resources(serviceEntryCollection.Name().String())
 	if len(rs) != 1 {
 		t.Fatalf("expected snapshot resource count %d to equal %d", len(rs), 1)
 	}
@@ -1293,19 +1289,19 @@ func expectEmptySnapshot(t *testing.T, dst *snapshotter.InMemoryDistributor, exp
 	expectedVersionStr := fmt.Sprintf("istio/networking/v1alpha3/synthetic/serviceentries/%d", expectedVersion)
 	g.Eventually(func() string {
 		sn := dst.GetSnapshot("syntheticServiceEntry")
-		return sn.Version(serviceEntryCollection.String())
+		return sn.Version(serviceEntryCollection.Name().String())
 	}).Should(Equal(expectedVersionStr))
 
 	sn := dst.GetSnapshot("syntheticServiceEntry")
 
 	// Verify there are no resources in the snapshot.
-	rs := sn.Resources(serviceEntryCollection.String())
+	rs := sn.Resources(serviceEntryCollection.Name().String())
 	if len(rs) != 0 {
 		t.Fatalf("expected snapshot resource count %d to equal %d", len(rs), 0)
 	}
 }
 
-func expectedSubjectAltNames(ns string, serviceAccountNames []string) []string {
+func expectedSubjectAltNames(ns resource.Namespace, serviceAccountNames []string) []string {
 	if serviceAccountNames == nil {
 		return nil
 	}
@@ -1316,6 +1312,6 @@ func expectedSubjectAltNames(ns string, serviceAccountNames []string) []string {
 	return out
 }
 
-func expectedSubjectAltName(ns, serviceAccountName string) string {
+func expectedSubjectAltName(ns resource.Namespace, serviceAccountName string) string {
 	return fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, serviceAccountName)
 }

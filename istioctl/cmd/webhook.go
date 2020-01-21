@@ -220,7 +220,7 @@ istioctl experimental post-install webhook enable --validation --webhook-secret 
 		"The file path of the injection webhook configuration.")
 	flags.StringVar(&opts.validatingWebhookServiceName, "validation-service", "istio-galley",
 		"The service name of the validation webhook to manage.")
-	flags.StringVar(&opts.mutatingWebhookServiceName, "injection-service", "istio-sidecar-injector",
+	flags.StringVar(&opts.mutatingWebhookServiceName, "injection-service", "istio-pilot",
 		"The service name of the injection webhook to manage.")
 	flags.StringVar(&opts.webhookSecretName, "webhook-secret", "",
 		"The name of an existing Kubernetes secret of a webhook. istioctl will verify that the "+

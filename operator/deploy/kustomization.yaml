@@ -1,0 +1,11 @@
+---
+namespace: istio-operator
+resources:
+- crds/istio_v1alpha1_istiooperator_crd.yaml
+- namespace.yaml
+- clusterrole.yaml
+- clusterrole_binding.yaml
+- service_account.yaml
+- operator.yaml
+- service.yaml
+...

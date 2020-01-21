@@ -76,8 +76,11 @@ func TestListenerBuilder(t *testing.T) {
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
+			},
+			ServicePort: s.Ports[0],
 		}
 	}
 	proxy := getDefaultProxy()
@@ -120,8 +123,11 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
+			},
+			ServicePort: s.Ports[0],
 		}
 	}
 	proxy := getDefaultProxy()
@@ -166,8 +172,11 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
+			},
+			ServicePort: s.Ports[0],
 		}
 	}
 

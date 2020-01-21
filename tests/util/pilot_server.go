@@ -25,7 +25,6 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
@@ -93,11 +92,6 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
 		},
-		Service: bootstrap.ServiceArgs{
-			// Using the Mock service registry, which provides the hello and world services.
-			Registries: []string{
-				string(serviceregistry.Mock)},
-		},
 		MeshConfig:        &meshConfig,
 		MCPMaxMessageSize: 1024 * 1024 * 4,
 		KeepaliveOptions:  keepalive.DefaultOption(),
@@ -115,7 +109,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 
 	// Create and setup the controller.
-	s, err := bootstrap.NewServer(args)
+	s, err := bootstrap.NewServer(&args)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -127,14 +121,14 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 
 	// Extract the port from the network address.
-	_, port, err := net.SplitHostPort(s.HTTPListeningAddr.String())
+	_, port, err := net.SplitHostPort(s.HTTPListener.Addr().String())
 	if err != nil {
 		return nil, nil, err
 	}
 	httpURL := "http://localhost:" + port
 	MockPilotHTTPPort, _ = strconv.Atoi(port)
 
-	_, port, err = net.SplitHostPort(s.GRPCListeningAddr.String())
+	_, port, err = net.SplitHostPort(s.GRPCListener.Addr().String())
 	if err != nil {
 		return nil, nil, err
 	}

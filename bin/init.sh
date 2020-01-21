@@ -17,8 +17,6 @@
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
-ROOTDIR=$(cd "$(dirname "$0")"/..; pwd)
-
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -207,5 +205,3 @@ cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/envoy"
 # Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
 echo "Copying ${ISTIO_OUT}/envoy to ${ISTIO_BIN}/envoy"
 cp -f "${ISTIO_OUT}/envoy" "${ISTIO_BIN}/envoy"
-
-"${ROOTDIR}/bin/init_helm.sh"

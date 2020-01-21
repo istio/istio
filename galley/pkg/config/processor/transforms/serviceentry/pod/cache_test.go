@@ -24,9 +24,9 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 const (
@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	fullName = resource.NewName(namespace, podName)
+	fullName = resource.NewFullName(namespace, podName)
 
 	labels = map[string]string{
 		"l1": "v1",
@@ -60,17 +60,17 @@ func TestPodLifecycle(t *testing.T) {
 
 	// Add the node.
 	h.Handle(event.Event{
-		Kind:   event.Added,
-		Source: metadata.K8SCoreV1Nodes,
-		Entry:  nodeEntry(region, zone),
+		Kind:     event.Added,
+		Source:   collections.K8SCoreV1Nodes,
+		Resource: nodeEntry(region, zone),
 	})
 
 	t.Run("Add", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 		h.Handle(event.Event{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
 				Phase(coreV1.PodPending).
@@ -96,8 +96,8 @@ func TestPodLifecycle(t *testing.T) {
 		g := NewGomegaWithT(t)
 		h.Handle(event.Event{
 			Kind:   event.Updated,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
 				Phase(coreV1.PodRunning).
@@ -128,8 +128,8 @@ func TestPodLifecycle(t *testing.T) {
 		}
 		h.Handle(event.Event{
 			Kind:   event.Updated,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
 				Phase(coreV1.PodRunning).
@@ -155,8 +155,8 @@ func TestPodLifecycle(t *testing.T) {
 		g := NewGomegaWithT(t)
 		h.Handle(event.Event{
 			Kind:   event.Deleted,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
 				Phase(coreV1.PodRunning).
@@ -184,14 +184,14 @@ func TestNodeLifecycle(t *testing.T) {
 
 	applyEvents(l, h, []event.Event{
 		{
-			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Nodes,
-			Entry:  nodeEntry(region, zone),
+			Kind:     event.Added,
+			Source:   collections.K8SCoreV1Nodes,
+			Resource: nodeEntry(region, zone),
 		},
 		{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
 				Phase(coreV1.PodPending).
@@ -199,9 +199,9 @@ func TestNodeLifecycle(t *testing.T) {
 				ServiceAccountName(serviceAccountName).Build(),
 		},
 		{
-			Kind:   event.Deleted,
-			Source: metadata.K8SCoreV1Nodes,
-			Entry:  nodeEntry(region, zone),
+			Kind:     event.Deleted,
+			Source:   collections.K8SCoreV1Nodes,
+			Resource: nodeEntry(region, zone),
 		},
 	})
 
@@ -227,8 +227,8 @@ func TestNodeAddedAfterPod(t *testing.T) {
 	applyEvents(l, h, []event.Event{
 		{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
 				Phase(coreV1.PodPending).
@@ -236,9 +236,9 @@ func TestNodeAddedAfterPod(t *testing.T) {
 				ServiceAccountName(serviceAccountName).Build(),
 		},
 		{
-			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Nodes,
-			Entry:  nodeEntry(region, zone),
+			Kind:     event.Added,
+			Source:   collections.K8SCoreV1Nodes,
+			Resource: nodeEntry(region, zone),
 		},
 	})
 
@@ -263,14 +263,14 @@ func TestNodeWithOnlyRegion(t *testing.T) {
 
 	applyEvents(l, h, []event.Event{
 		{
-			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Nodes,
-			Entry:  nodeEntry(region, ""),
+			Kind:     event.Added,
+			Source:   collections.K8SCoreV1Nodes,
+			Resource: nodeEntry(region, ""),
 		},
 		{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Phase(coreV1.PodPending).
 				NodeName(nodeName).
@@ -298,14 +298,14 @@ func TestNodeWithNoLocality(t *testing.T) {
 
 	applyEvents(l, h, []event.Event{
 		{
-			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Nodes,
-			Entry:  nodeEntry("", ""),
+			Kind:     event.Added,
+			Source:   collections.K8SCoreV1Nodes,
+			Resource: nodeEntry("", ""),
 		},
 		{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Phase(coreV1.PodPending).
 				NodeName(nodeName).
@@ -332,13 +332,13 @@ func TestNoNamespaceAndNoServiceAccount(t *testing.T) {
 	g := NewGomegaWithT(t)
 	h.Handle(event.Event{
 		Kind:   event.Added,
-		Source: metadata.K8SCoreV1Pods,
-		Entry: &resource.Entry{
+		Source: collections.K8SCoreV1Pods,
+		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
-				Name:    fullName,
-				Version: resource.Version("v1"),
+				FullName: fullName,
+				Version:  "v1",
 			},
-			Item: &coreV1.Pod{
+			Message: &coreV1.Pod{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name:      podName,
 					Namespace: "",
@@ -371,13 +371,13 @@ func TestWrongCollectionShouldNotPanic(t *testing.T) {
 
 	h.Handle(event.Event{
 		Kind:   event.Added,
-		Source: metadata.K8SCoreV1Services,
-		Entry: &resource.Entry{
+		Source: collections.K8SCoreV1Services,
+		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
-				Name:    resource.NewName("ns", "myservice"),
-				Version: resource.Version("v1"),
+				FullName: resource.NewFullName("ns", "myservice"),
+				Version:  "v1",
 			},
-			Item: &coreV1.Service{},
+			Message: &coreV1.Service{},
 		},
 	})
 	l.assertNone(t)
@@ -392,8 +392,8 @@ func TestInvalidPodPhase(t *testing.T) {
 			g := NewGomegaWithT(t)
 			h.Handle(event.Event{
 				Kind:   event.Added,
-				Source: metadata.K8SCoreV1Services,
-				Entry: newPodEntryBuilder().
+				Source: collections.K8SCoreV1Services,
+				Resource: newPodEntryBuilder().
 					IP(ip).
 					Labels(labels).
 					Phase(phase).
@@ -415,8 +415,8 @@ func TestUpdateWithInvalidPhaseShouldDelete(t *testing.T) {
 	applyEvents(l, h, []event.Event{
 		{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
 				Phase(coreV1.PodPending).
@@ -425,8 +425,8 @@ func TestUpdateWithInvalidPhaseShouldDelete(t *testing.T) {
 		},
 		{
 			Kind:   event.Updated,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
 				Phase(coreV1.PodUnknown).
@@ -455,8 +455,8 @@ func TestDeleteWithNoItemShouldUseFullName(t *testing.T) {
 	applyEvents(l, h, []event.Event{
 		{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: newPodEntryBuilder().
+			Source: collections.K8SCoreV1Pods,
+			Resource: newPodEntryBuilder().
 				IP(ip).
 				Labels(labels).
 				Phase(coreV1.PodPending).
@@ -465,11 +465,11 @@ func TestDeleteWithNoItemShouldUseFullName(t *testing.T) {
 		},
 		{
 			Kind:   event.Deleted,
-			Source: metadata.K8SCoreV1Pods,
-			Entry: &resource.Entry{
+			Source: collections.K8SCoreV1Pods,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name:    fullName,
-					Version: resource.Version("v1"),
+					FullName: fullName,
+					Version:  "v1",
 				},
 			},
 		},
@@ -483,11 +483,11 @@ func TestDeleteNotFoundShouldNotPanic(t *testing.T) {
 	l := &listener{}
 	_, h := pod.NewCache(l.asListener())
 
-	// Delete it, but with a nil Item to force a lookup by fullName.
+	// Delete it, but with a nil Message to force a lookup by fullName.
 	h.Handle(event.Event{
 		Kind:   event.Deleted,
-		Source: metadata.K8SCoreV1Services,
-		Entry: newPodEntryBuilder().
+		Source: collections.K8SCoreV1Services,
+		Resource: newPodEntryBuilder().
 			IP(ip).
 			Labels(labels).
 			Phase(coreV1.PodPending).
@@ -500,13 +500,13 @@ func TestDeleteNotFoundWithMissingItemShouldNotPanic(t *testing.T) {
 	l := &listener{}
 	_, h := pod.NewCache(l.asListener())
 
-	// Delete it, but with a nil Item to force a lookup by fullName.
+	// Delete it, but with a nil Message to force a lookup by fullName.
 	h.Handle(event.Event{
 		Kind:   event.Deleted,
-		Source: metadata.K8SCoreV1Pods,
-		Entry: &resource.Entry{
+		Source: collections.K8SCoreV1Pods,
+		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
-				Name: fullName,
+				FullName: fullName,
 			},
 		},
 	})
@@ -518,17 +518,17 @@ func TestPodWithNoIPShouldBeIgnored(t *testing.T) {
 
 	h.Handle(event.Event{
 		Kind:   event.Added,
-		Source: metadata.K8SCoreV1Pods,
-		Entry: newPodEntryBuilder().
+		Source: collections.K8SCoreV1Pods,
+		Resource: newPodEntryBuilder().
 			Phase(coreV1.PodPending).Build(),
 	})
 	l.assertNone(t)
 }
 
 func applyEvents(l *listener, h event.Handler, events []event.Event) {
-	for _, event := range events {
+	for _, e := range events {
 		l.reset()
-		h.Handle(event)
+		h.Handle(e)
 	}
 }
 
@@ -569,12 +569,12 @@ func (b *podEntryBuilder) Phase(phase coreV1.PodPhase) *podEntryBuilder {
 	return b
 }
 
-func (b *podEntryBuilder) Build() *resource.Entry {
-	return &resource.Entry{
+func (b *podEntryBuilder) Build() *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name: fullName,
+			FullName: fullName,
 		},
-		Item: &coreV1.Pod{
+		Message: &coreV1.Pod{
 			ObjectMeta: metaV1.ObjectMeta{
 				Name:      podName,
 				Namespace: namespace,
@@ -592,7 +592,7 @@ func (b *podEntryBuilder) Build() *resource.Entry {
 	}
 }
 
-func nodeEntry(region, zone string) *resource.Entry {
+func nodeEntry(region, zone string) *resource.Instance {
 	labels := make(resource.StringMap)
 	if region != "" {
 		labels[pod.LabelZoneRegion] = region
@@ -600,10 +600,10 @@ func nodeEntry(region, zone string) *resource.Entry {
 	if zone != "" {
 		labels[pod.LabelZoneFailureDomain] = zone
 	}
-	return &resource.Entry{
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:   resource.NewName("", nodeName),
-			Labels: labels,
+			FullName: resource.NewFullName("", nodeName),
+			Labels:   labels,
 		},
 	}
 }

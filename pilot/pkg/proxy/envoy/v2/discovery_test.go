@@ -17,7 +17,6 @@ package v2
 import (
 	"context"
 	"fmt"
-	"os"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -29,7 +28,6 @@ import (
 
 	"istio.io/istio/pkg/test/util/retry"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -170,17 +168,10 @@ func TestDebounce(t *testing.T) {
 	// This test tests the timeout and debouncing of config updates
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
-	DebounceAfter = time.Millisecond * 50
-	DebounceMax = DebounceAfter * 2
-	syncPushTime := 2 * DebounceMax
-	if err := os.Setenv(features.EnableEDSDebounce.Name, "false"); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := os.Unsetenv(features.EnableEDSDebounce.Name); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	debounceAfter = time.Millisecond * 50
+	debounceMax = debounceAfter * 2
+	syncPushTime := 2 * debounceMax
+	enableEDSDebounce = false
 
 	tests := []struct {
 		name string
@@ -233,13 +224,13 @@ func TestDebounce(t *testing.T) {
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				// Send many requests within debounce window
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(DebounceAfter / 2)
+				time.Sleep(debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(DebounceAfter / 2)
+				time.Sleep(debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(DebounceAfter / 2)
+				time.Sleep(debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(DebounceAfter / 2)
+				time.Sleep(debounceAfter / 2)
 				expect(0, 1)
 			},
 		},
@@ -247,7 +238,7 @@ func TestDebounce(t *testing.T) {
 			name: "Should push synchronously after debounce",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(DebounceAfter + 10*time.Millisecond)
+				time.Sleep(debounceAfter + 10*time.Millisecond)
 				updateCh <- &model.PushRequest{Full: true}
 				expect(0, 2)
 			},
@@ -303,7 +294,7 @@ func TestDebounce(t *testing.T) {
 						}
 						return nil
 					}
-				}, retry.Timeout(DebounceAfter*8), retry.Delay(DebounceAfter/2))
+				}, retry.Timeout(debounceAfter*8), retry.Delay(debounceAfter/2))
 				if err != nil {
 					t.Error(err)
 				}

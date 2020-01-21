@@ -38,16 +38,16 @@ const (
 	// DefaultSystemNamespace default value for SystemNamespace
 	DefaultSystemNamespace = "istio-system"
 
-	// ValuesMcpFile for Istio Helm deployment.
-	E2EValuesFile = "test-values/values-e2e.yaml"
+	// E2EValuesFile for default settings for Istio Helm deployment.
+	// This modifies a few values to help tests, like prometheus scrape interval
+	// In general, specific settings should be added to tests, not here
+	E2EValuesFile = "test-values/values-integ.yaml"
 
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300
 
-	// TODO(https://github.com/istio/istio/issues/12606): This timeout is insanely large, but Prow seems to take a lot of time
-	//  pulling images.
 	// DefaultCIDeployTimeout for Istio
-	DefaultCIDeployTimeout = time.Minute * 20
+	DefaultCIDeployTimeout = time.Minute * 10
 
 	// DefaultUndeployTimeout for Istio.
 	DefaultUndeployTimeout = time.Second * 300
@@ -139,6 +139,13 @@ type Config struct {
 	CustomSidecarInjectorNamespace string
 }
 
+func (c *Config) IsIstiodEnabled() bool {
+	if c.Operator {
+		return c.Values["global.istiod.enabled"] != "false"
+	}
+	return false
+}
+
 // IsMtlsEnabled checks in Values flag and Values file.
 func (c *Config) IsMtlsEnabled() bool {
 	if c.Values["global.mtls.enabled"] == "true" ||
@@ -170,29 +177,33 @@ func (c *Config) IsMtlsEnabled() bool {
 	return true
 }
 
-func (c *Config) IstioControlPlane() string {
-	data := c.ControlPlaneValues
-	if c.ValuesFile != "" {
-		var err error
-		data, err = file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
+func (c *Config) IstioOperator() string {
+	data := ""
+	if c.ControlPlaneValues != "" {
+		data = Indent(c.ControlPlaneValues, "  ")
+	} else if c.ValuesFile != "" {
+		valfile, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
 		if err != nil {
 			return ""
 		}
+		data = fmt.Sprintf(`
+  values:
+%s`, Indent(valfile, "    "))
 	}
+
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return ""
 	}
 
 	return fmt.Sprintf(`
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
   hub: %s
   tag: %s
-  values:
 %s
-`, s.Hub, s.Tag, Indent(data, "    "))
+`, s.Hub, s.Tag, data)
 }
 
 // indents a block of text with an indent string

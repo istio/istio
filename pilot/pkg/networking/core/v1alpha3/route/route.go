@@ -34,13 +34,11 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -64,6 +62,14 @@ const DefaultRouteName = "default"
 // Note that this is different from length of regex.
 // Refer to https://github.com/google/re2/blob/a98fad02c421896bc75d97f49ccd245cdce7dd55/re2/re2.h#L287 for details.
 const maxRegExProgramSize = 1024
+
+var (
+	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+		MaxProgramSize: &wrappers.UInt32Value{
+			Value: uint32(maxRegExProgramSize),
+		},
+	}}
+)
 
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
 // Note: Currently we are not fully utilizing this structure. We could invoke this logic
@@ -266,22 +272,27 @@ func BuildHTTPRoutesForVirtualService(
 	}
 
 	out := make([]*route.Route, 0, len(vs.Http))
-allroutes:
+
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 				out = append(out, r)
 			}
-			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
+			// We have a rule with catch all match prefix: /. Other rules are of no use.
+			break
 		} else {
+			if match := catchAllMatch(http); match != nil {
+				// We have a catch all match block in the route, check if it is valid - A catch all match block is not valid
+				// (translateRoute returns nil), if source or port match fails.
+				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+					// We have a valid catch all route. No point building other routes, with match conditions.
+					out = append(out, r)
+					break
+				}
+			}
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 					out = append(out, r)
-					rType, _ := getEnvoyRouteTypeAndVal(r)
-					if rType == envoyCatchAll {
-						// We have a catch all route. No point building other routes, with match conditions
-						break allroutes
-					}
 				}
 			}
 		}
@@ -335,7 +346,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out := &route.Route{
-		Match:    translateRouteMatch(match),
+		Match:    translateRouteMatch(match, node),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
@@ -381,7 +392,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.Action = action
 	} else {
 		action := &route.RouteAction{
-			Cors:        translateCORSPolicy(in.CorsPolicy, node),
+			Cors:        translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
@@ -409,20 +420,15 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 		requestHeadersToAdd := translateAppendHeaders(in.Headers.GetRequest().GetSet(), false)
 		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.Headers.GetRequest().GetAdd(), true)...)
-		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.AppendRequestHeaders, true)...)
-		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.AppendHeaders, true)...)
 		out.RequestHeadersToAdd = requestHeadersToAdd
 		responseHeadersToAdd := translateAppendHeaders(in.Headers.GetResponse().GetSet(), false)
 		responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.Headers.GetResponse().GetAdd(), true)...)
-		responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.AppendResponseHeaders, true)...)
 		out.ResponseHeadersToAdd = responseHeadersToAdd
 		requestHeadersToRemove := make([]string, 0)
 		requestHeadersToRemove = append(requestHeadersToRemove, in.Headers.GetRequest().GetRemove()...)
-		requestHeadersToRemove = append(requestHeadersToRemove, in.RemoveRequestHeaders...)
 		out.RequestHeadersToRemove = requestHeadersToRemove
 		responseHeadersToRemove := make([]string, 0)
 		responseHeadersToRemove = append(responseHeadersToRemove, in.Headers.GetResponse().GetRemove()...)
-		responseHeadersToRemove = append(responseHeadersToRemove, in.RemoveResponseHeaders...)
 		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
@@ -461,16 +467,12 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 			requestHeadersToAdd := translateAppendHeaders(dst.Headers.GetRequest().GetSet(), false)
 			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.Headers.GetRequest().GetAdd(), true)...)
-			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.AppendRequestHeaders, true)...)
 			responseHeadersToAdd := translateAppendHeaders(dst.Headers.GetResponse().GetSet(), false)
 			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.Headers.GetResponse().GetAdd(), true)...)
-			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.AppendResponseHeaders, true)...)
 			requestHeadersToRemove := make([]string, 0)
 			requestHeadersToRemove = append(requestHeadersToRemove, dst.Headers.GetRequest().GetRemove()...)
-			requestHeadersToRemove = append(requestHeadersToRemove, dst.RemoveRequestHeaders...)
 			responseHeadersToRemove := make([]string, 0)
 			responseHeadersToRemove = append(responseHeadersToRemove, dst.Headers.GetResponse().GetRemove()...)
-			responseHeadersToRemove = append(responseHeadersToRemove, dst.RemoveResponseHeaders...)
 
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
@@ -516,11 +518,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(in.Fault))
-		} else {
-			out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
-		}
+		out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
 	return out
@@ -566,14 +564,14 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.
 }
 
 // translateRouteMatch translates match condition
-func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
+func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
 	}
 
 	for name, stringMatch := range in.Headers {
-		matcher := translateHeaderMatch(name, stringMatch)
+		matcher := translateHeaderMatch(name, stringMatch, node)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
@@ -589,7 +587,7 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 		case *networking.StringMatch_Prefix:
 			out.PathSpecifier = &route.RouteMatch_Prefix{Prefix: m.Prefix}
 		case *networking.StringMatch_Regex:
-			if features.EnableUnsafeRegex.Get() {
+			if !util.IsIstioVersionGE14(node) {
 				out.PathSpecifier = &route.RouteMatch_Regex{Regex: m.Regex}
 			} else {
 				out.PathSpecifier = &route.RouteMatch_SafeRegex{
@@ -609,17 +607,17 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out.CaseSensitive = &wrappers.BoolValue{Value: !in.IgnoreUriCase}
 
 	if in.Method != nil {
-		matcher := translateHeaderMatch(HeaderMethod, in.Method)
+		matcher := translateHeaderMatch(HeaderMethod, in.Method, node)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
 	if in.Authority != nil {
-		matcher := translateHeaderMatch(HeaderAuthority, in.Authority)
+		matcher := translateHeaderMatch(HeaderAuthority, in.Authority, node)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
 	if in.Scheme != nil {
-		matcher := translateHeaderMatch(HeaderScheme, in.Scheme)
+		matcher := translateHeaderMatch(HeaderScheme, in.Scheme, node)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
@@ -639,17 +637,29 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) route.Que
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
-		out.Value = m.Exact
+		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
+			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}},
+		}
 	case *networking.StringMatch_Regex:
-		out.Value = m.Regex
-		out.Regex = proto.BoolTrue
+		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
+			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+						MaxProgramSize: &wrappers.UInt32Value{
+							Value: uint32(maxRegExProgramSize),
+						},
+					}},
+					Regex: m.Regex,
+				},
+			},
+			}}
 	}
 
 	return out
 }
 
 // translateHeaderMatch translates to HeaderMatcher
-func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderMatcher {
+func translateHeaderMatch(name string, in *networking.StringMatch, node *model.Proxy) route.HeaderMatcher {
 	out := route.HeaderMatcher{
 		Name: name,
 	}
@@ -662,17 +672,13 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 		// Golang has a slightly different regex grammar
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
-		if features.EnableUnsafeRegex.Get() {
+		if !util.IsIstioVersionGE14(node) {
 			out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
 		} else {
 			out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
 				SafeRegexMatch: &matcher.RegexMatcher{
-					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-						MaxProgramSize: &wrappers.UInt32Value{
-							Value: uint32(maxRegExProgramSize),
-						},
-					}},
-					Regex: m.Regex,
+					EngineType: regexEngine,
+					Regex:      m.Regex,
 				},
 			}
 		}
@@ -681,15 +687,52 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 	return out
 }
 
+func stringToExactMatch(in []string) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+	for _, s := range in {
+		res = append(res, &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
+		})
+	}
+	return res
+}
+
+func convertToEnvoyMatch(in []*networking.StringMatch) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+
+	for _, istioMatcher := range in {
+		switch m := istioMatcher.MatchType.(type) {
+		case *networking.StringMatch_Exact:
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{m.Exact}})
+		case *networking.StringMatch_Prefix:
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{m.Prefix}})
+		case *networking.StringMatch_Regex:
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: regexEngine,
+					Regex:      m.Regex,
+				},
+			},
+			})
+		}
+
+	}
+
+	return res
+}
+
 // translateCORSPolicy translates CORS policy
-func translateCORSPolicy(in *networking.CorsPolicy, _ *model.Proxy) *route.CorsPolicy {
+func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
 
 	// CORS filter is enabled by default
-	out := route.CorsPolicy{
-		AllowOrigin: in.AllowOrigin,
+	out := route.CorsPolicy{}
+	if in.AllowOrigin != nil {
+		out.AllowOriginStringMatch = stringToExactMatch(in.AllowOrigin)
+	} else {
+		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins)
 	}
 
 	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
@@ -746,7 +789,7 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 	notimeout := ptypes.DurationProto(0 * time.Second)
 
 	val := &route.Route{
-		Match: translateRouteMatch(nil),
+		Match: translateRouteMatch(nil, node),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
@@ -822,8 +865,6 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 		out.Abort = &xdshttpfault.FaultAbort{}
 		if in.Abort.Percentage != nil {
 			out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
-		} else {
-			out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
 		}
 		switch a := in.Abort.ErrorType.(type) {
 		case *networking.HTTPFaultInjection_Abort_HttpStatus:
@@ -959,43 +1000,30 @@ func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.H
 	return consistentHashToHashPolicy(consistentHash)
 }
 
-type envoyRouteType int
-
-const (
-	envoyPath envoyRouteType = iota
-	envoyPrefix
-	envoyRegex
-	envoyCatchAll
-)
-
-// nolint: unparam
-func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
-	var iType envoyRouteType
-	var iVal string
-
-	switch iR := r.Match.PathSpecifier.(type) {
-	case *route.RouteMatch_Path:
-		iVal = iR.Path
-		iType = envoyPath
-	case *route.RouteMatch_Prefix:
-		iVal = iR.Prefix
-		iType = envoyPrefix
-	case *route.RouteMatch_Regex:
-		iVal = iR.Regex
-		iType = envoyRegex
-	case *route.RouteMatch_SafeRegex:
-		iVal = iR.SafeRegex.Regex
-		iType = envoyRegex
-	}
-
-	// A route is catch all if and only if it has no header/query param match
-	// and has a prefix / or regex *.
-	if (iVal == "/" && iType == envoyPrefix) || (iVal == "*" && iType == envoyRegex) {
-		if len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 {
-			iType = envoyCatchAll
+// catchAllMatch returns a catch all match block if available in the route, otherwise returns nil.
+func catchAllMatch(http *networking.HTTPRoute) *networking.HTTPMatchRequest {
+	for _, match := range http.Match {
+		if isCatchAllMatch(match) {
+			return match
 		}
 	}
-	return iType, iVal
+	return nil
+}
+
+// isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise false.
+func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
+	catchall := false
+	if m.Uri != nil {
+		switch m := m.Uri.MatchType.(type) {
+		case *networking.StringMatch_Prefix:
+			catchall = m.Prefix == "/"
+		case *networking.StringMatch_Regex:
+			catchall = m.Regex == "*"
+		}
+	}
+	// A Match is catch all if and only if it has no header/query param match
+	// and URI has a prefix / or regex *.
+	return catchall && len(m.Headers) == 0 && len(m.QueryParams) == 0
 }
 
 // CombineVHostRoutes semi concatenates two Vhost's routes into a single route set.
@@ -1008,25 +1036,37 @@ func CombineVHostRoutes(first []*route.Route, second []*route.Route) []*route.Ro
 	catchAllRoutes := make([]*route.Route, 0)
 
 	for _, f := range first {
-		rType, _ := getEnvoyRouteTypeAndVal(f)
-		switch rType {
-		case envoyCatchAll:
+		if isCatchAllRoute(f) {
 			catchAllRoutes = append(catchAllRoutes, f)
-		default:
+		} else {
 			allroutes = append(allroutes, f)
 		}
 	}
 
 	for _, s := range second {
-		rType, _ := getEnvoyRouteTypeAndVal(s)
-		switch rType {
-		case envoyCatchAll:
+		if isCatchAllRoute(s) {
 			catchAllRoutes = append(catchAllRoutes, s)
-		default:
+		} else {
 			allroutes = append(allroutes, s)
 		}
 	}
 
 	allroutes = append(allroutes, catchAllRoutes...)
 	return allroutes
+}
+
+// isCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
+func isCatchAllRoute(r *route.Route) bool {
+	catchall := false
+	switch ir := r.Match.PathSpecifier.(type) {
+	case *route.RouteMatch_Prefix:
+		catchall = ir.Prefix == "/"
+	case *route.RouteMatch_Regex:
+		catchall = ir.Regex == "*"
+	case *route.RouteMatch_SafeRegex:
+		catchall = ir.SafeRegex.GetRegex() == "*"
+	}
+	// A Match is catch all if and only if it has no header/query param match
+	// and URI has a prefix / or regex *.
+	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0
 }

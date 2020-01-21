@@ -25,20 +25,12 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
-
-	"istio.io/pkg/env"
-
-	"k8s.io/client-go/rest"
-
-	"istio.io/istio/galley/pkg/server"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/hashicorp/go-multierror"
 	prom "github.com/prometheus/client_golang/prometheus"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -46,27 +38,27 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	kubelib "istio.io/istio/pkg/kube"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	"istio.io/istio/pilot/pkg/config/clusterregistry"
-	"istio.io/istio/pilot/pkg/config/coredatamodel"
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schemas"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
+	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 var (
@@ -106,76 +98,57 @@ type startFunc func(stop <-chan struct{}) error
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
-	HTTPListeningAddr       net.Addr
-	GRPCListeningAddr       net.Addr
 	SecureGRPCListeningAddr net.Addr
 	MonitorListeningAddr    net.Addr
 
 	// TODO(nmittler): Consider alternatives to exposing these directly
 	EnvoyXdsServer *envoyv2.DiscoveryServer
 
-	// Using Clientset because client is shared with other components - galley and few others expects Clientset.
-	// TODO: change everywhere to use Interface
-	kubeClientset         *kubernetes.Clientset
-	clusterID             string
-	environment           *model.Environment
-	configController      model.ConfigStoreCache
-	kubeClient            kubernetes.Interface
-	startFuncs            []startFunc
-	multicluster          *clusterregistry.Multicluster
-	httpServer            *http.Server
-	grpcServer            *grpc.Server
-	secureHTTPServer      *http.Server
-	secureGRPCServer      *grpc.Server
-	secureHTTPServerDNS   *http.Server
-	secureGRPCServerDNS   *grpc.Server
-	mux                   *http.ServeMux
-	kubeRegistry          *kubecontroller.Controller
-	mcpDiscovery          *coredatamodel.MCPDiscovery
-	discoveryOptions      *coredatamodel.DiscoveryOptions
-	incrementalMcpOptions *coredatamodel.Options
-	mcpOptions            *coredatamodel.Options
-	certController        *chiron.WebhookController
-	kubeRestConfig        *rest.Config
+	clusterID           string
+	environment         *model.Environment
+	configController    model.ConfigStoreCache
+	kubeClient          kubernetes.Interface
+	startFuncs          []startFunc
+	multicluster        *kubecontroller.Multicluster
+	httpServer          *http.Server // debug
+	httpsServer         *http.Server // webhooks
+	httpsReadyClient    *http.Client
+	grpcServer          *grpc.Server
+	secureHTTPServer    *http.Server
+	secureGRPCServer    *grpc.Server
+	secureHTTPServerDNS *http.Server
+	secureGRPCServerDNS *grpc.Server
+	mux                 *http.ServeMux // debug
+	httpsMux            *http.ServeMux // webhooks
+	kubeRegistry        *kubecontroller.Controller
+	certController      *chiron.WebhookController
+	ca                  *ca.IstioCA
+	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
+	caBundlePath string
 
 	ConfigStores []model.ConfigStoreCache
 
-	Args              *PilotArgs
 	serviceEntryStore *external.ServiceEntryStore
 
-	RootCA []byte
-	Galley *server.Server
+	HTTPListener net.Listener
+	GRPCListener net.Listener
 
-	HTTPListener       net.Listener
-	SecureGrpcListener net.Listener
+	basePort int
 
-	basePort     int
-	grpcListener net.Listener
+	// for test
+	forceStop bool
+
+	// nil if injection disabled
+	injectionWebhook *inject.Webhook
+
+	webhookCertMu sync.Mutex
+	webhookCert   *tls.Certificate
 }
 
-var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
-
 // NewServer creates a new Server instance based on the provided arguments.
-func NewServer(args PilotArgs) (*Server, error) {
-	// If the namespace isn't set, try looking it up from the environment.
-	if args.Namespace == "" {
-		args.Namespace = podNamespaceVar.Get()
-	}
-
-	if args.KeepaliveOptions == nil {
-		args.KeepaliveOptions = istiokeepalive.DefaultOption()
-	}
-	if args.Config.ClusterRegistriesNamespace == "" {
-		if args.Namespace != "" {
-			args.Config.ClusterRegistriesNamespace = args.Namespace
-		} else {
-			args.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
-		}
-	}
-	if args.BasePort == 0 {
-		args.BasePort = 15000
-	}
-
+func NewServer(args *PilotArgs) (*Server, error) {
+	// TODO(hzxuzhonghu): move out of NewServer
+	args.Default()
 	e := &model.Environment{
 		ServiceDiscovery: aggregate.NewController(),
 		PushContext:      model.NewPushContext(),
@@ -183,10 +156,10 @@ func NewServer(args PilotArgs) (*Server, error) {
 
 	s := &Server{
 		basePort:       args.BasePort,
-		Args:           &args,
 		clusterID:      getClusterID(args),
 		environment:    e,
 		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
+		forceStop:      args.ForceStop,
 	}
 
 	log.Infof("Primary Cluster name: %s", s.clusterID)
@@ -194,47 +167,85 @@ func NewServer(args PilotArgs) (*Server, error) {
 	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.
-	if err := s.initKubeClient(&args); err != nil {
+	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("kube client: %v", err)
 	}
 	fileWatcher := filewatcher.NewWatcher()
-	if err := s.initMeshConfiguration(&args, fileWatcher); err != nil {
+	if err := s.initMeshConfiguration(args, fileWatcher); err != nil {
 		return nil, fmt.Errorf("mesh: %v", err)
 	}
-	s.initMeshNetworks(&args, fileWatcher)
+	s.initMeshNetworks(args, fileWatcher)
 	// Certificate controller is created before MCP
 	// controller in case MCP server pod waits to mount a certificate
 	// to be provisioned by the certificate controller.
-	if err := s.initCertController(&args); err != nil {
+	if err := s.initCertController(args); err != nil {
 		return nil, fmt.Errorf("certificate controller: %v", err)
 	}
-	if err := s.initConfigController(&args); err != nil {
+	if err := s.initConfigController(args); err != nil {
 		return nil, fmt.Errorf("config controller: %v", err)
 	}
-	if err := s.initServiceControllers(&args); err != nil {
+	if err := s.initServiceControllers(args); err != nil {
 		return nil, fmt.Errorf("service controllers: %v", err)
 	}
-	if err := s.initDiscoveryService(&args); err != nil {
+	if err := s.initDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("discovery service: %v", err)
 	}
 	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
 		return nil, fmt.Errorf("monitor: %v", err)
 	}
-	if err := s.initClusterRegistries(&args); err != nil {
+	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
-	if err := s.initDNSListener(); err != nil {
+	// Options based on the current 'defaults' in istio.
+	// If adjustments are needed - env or mesh.config ( if of general interest ).
+	caOpts := &CAOptions{
+		TrustDomain: s.environment.Mesh().TrustDomain,
+		Namespace:   args.Namespace,
+	}
+
+	// CA signing certificate must be created first.
+	if s.EnableCA() {
+		var err error
+		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)
+		if err != nil {
+			return nil, fmt.Errorf("EnableCA: %v", err)
+		}
+
+	}
+
+	// initDNSListener() must be called after the createCA()
+	// because initDNSListener() may use a Citadel generated cert.
+	if err := s.initDNSListener(args); err != nil {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
+	}
+
+	// common https server for webhooks (e.g. injection, validation)
+	if err := s.initHTTPSWebhookServer(args); err != nil {
+		return nil, fmt.Errorf("injectionWebhook server: %v", err)
 	}
 
 	// Will run the sidecar injector in pilot.
 	// Only operates if /var/lib/istio/inject exists
-	if err := s.initSidecarInjector(&args); err != nil {
+	if err := s.initSidecarInjector(args); err != nil {
 		return nil, fmt.Errorf("sidecar injector: %v", err)
 	}
 
-	s.initSDSCA()
+	// Will run the config validater in pilot.
+	// Only operates if /var/lib/istio/validation exists
+	if err := s.initConfigValidation(args); err != nil {
+		return nil, fmt.Errorf("config validation: %v", err)
+	}
+
+	// Run the SDS signing server.
+	// RunCA() must be called after createCA() and initDNSListener()
+	// because it depends on the following conditions:
+	// 1) CA certificate has been created.
+	// 2) grpc server has been generated.
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+		return nil
+	})
 
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
@@ -244,7 +255,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 	return s, nil
 }
 
-func getClusterID(args PilotArgs) string {
+func getClusterID(args *PilotArgs) string {
 	clusterID := args.Config.ControllerOptions.ClusterID
 	if clusterID == "" {
 		for _, registry := range args.Service.Registries {
@@ -271,7 +282,8 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
 	go func() {
-		if err := s.grpcServer.Serve(s.grpcListener); err != nil {
+		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
+		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
 			log.Warna(err)
 		}
 	}()
@@ -279,15 +291,27 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	if !s.waitForCacheSync(stop) {
 		return fmt.Errorf("failed to sync cache")
 	}
-	log.Infof("starting discovery service at http=%s grpc=%s", s.HTTPListener.Addr(),
-		s.grpcListener.Addr())
 
-	// At this point we are ready
+	// Trigger a push, so that the global push context is updated with the new config and Pilot's local Envoy
+	// also is updated with new config.
+	log.Infof("All caches have been synced up, triggering a push")
+	s.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
+	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
+		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
 		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
 			log.Warna(err)
 		}
 	}()
+
+	if s.httpsServer != nil {
+		go func() {
+			if err := s.httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Warna(err)
+			}
+		}()
+	}
 
 	s.cleanupOnStop(stop)
 
@@ -297,30 +321,38 @@ func (s *Server) Start(stop <-chan struct{}) error {
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.Service.Registries) {
-		// We will also need the rest config - where the public key of k8s is stored - use the new method.
-		kc := args.Config.KubeConfig
-		kcfg, kuberr := kubelib.BuildClientConfig(kc, "")
-		if kuberr != nil {
-			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
+		var err error
+		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "")
+		if err != nil {
+			return fmt.Errorf("failed creating kube client: %v", err)
 		}
-		client, kuberr := kubernetes.NewForConfig(kcfg)
-		if kuberr != nil {
-			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
-		}
-		s.kubeClient = client
-		s.kubeClientset = client
-		s.kubeRestConfig = kcfg
-	} else {
-		s.kubeClient = nil
-		s.kubeClientset = nil
 	}
 
 	return nil
 }
 
+// A single container can't have two readiness probes. Piggyback the https server readiness
+// onto the http server readiness check. The "http" portion of the readiness check is satisfied
+// by the fact we've started listening on this handler and everything has already initialized.
+func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) {
+	if features.IstiodService.Get() != "" {
+		if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
+			log.Warnf("https webhook server not ready: %v", status)
+			w.WriteHeader(status)
+			return
+		}
+	}
+
+	// TODO check readiness of other secure gRPC and HTTP servers.
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.mux = http.NewServeMux()
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling)
+	s.mux.HandleFunc("/ready", s.httpServerReadyHandler)
+
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, s.injectionWebhook)
 
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
@@ -352,7 +384,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.HTTPListeningAddr = listener.Addr()
 	s.HTTPListener = listener
 
 	// create grpc listener
@@ -360,8 +391,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.GRPCListeningAddr = grpcListener.Addr()
-	s.grpcListener = grpcListener
+	s.GRPCListener = grpcListener
 
 	// run grpc server using the Citadel secrets. New installer uses a sidecar for this.
 	// Will be deprecated once Istiod mode is stable.
@@ -388,7 +418,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 					// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 					// on a listener
 					err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
-					msg := fmt.Sprintf("Stoppped listening on %s", secureGrpcListener.Addr().String())
+					msg := fmt.Sprintf("Stopped listening on %s", secureGrpcListener.Addr().String())
 					select {
 					case <-stop:
 						log.Info(msg)
@@ -421,16 +451,25 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		model.JwtKeyResolver.Close()
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err := s.httpServer.Shutdown(ctx)
-		if err != nil {
-			log.Warna(err)
-		}
-		if s.Args.ForceStop {
+
+		if s.forceStop {
 			s.grpcServer.Stop()
+			_ = s.httpServer.Close()
+			if features.IstiodService.Get() != "" {
+				_ = s.httpsServer.Close()
+			}
 		} else {
 			s.grpcServer.GracefulStop()
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := s.httpServer.Shutdown(ctx); err != nil {
+				log.Warna(err)
+			}
+			if features.IstiodService.Get() != "" {
+				if err := s.httpsServer.Shutdown(ctx); err != nil {
+					log.Warna(err)
+				}
+			}
 		}
 	}()
 }
@@ -501,8 +540,8 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 }
 
 // initialize secureGRPCServer - using K8S DNS certs
-func (s *Server) initSecureGrpcServerDNS(addr string) error {
-	certDir := DNSCertDir
+func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.Options) error {
+	certDir := dnsCertDir
 
 	key := path.Join(certDir, constants.KeyFilename)
 	cert := path.Join(certDir, constants.CertChainFilename)
@@ -519,7 +558,7 @@ func (s *Server) initSecureGrpcServerDNS(addr string) error {
 		return err
 	}
 
-	opts := s.grpcServerOptions(s.Args.KeepaliveOptions)
+	opts := s.grpcServerOptions(keepalive)
 	opts = append(opts, grpc.Creds(tlsCreds))
 	s.secureGRPCServerDNS = grpc.NewServer(opts...)
 	s.EnvoyXdsServer.Register(s.secureGRPCServerDNS)
@@ -546,15 +585,7 @@ func (s *Server) initSecureGrpcServerDNS(addr string) error {
 	}
 
 	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect
-	_, portS, err := net.SplitHostPort(addr)
-	if err != nil {
-		return err
-	}
-	port, err := strconv.Atoi(portS)
-	if err != nil {
-		return err
-	}
-	dnsGrpc := fmt.Sprintf(":%d", port)
+	dnsGrpc := fmt.Sprintf(":%s", port)
 
 	// create secure grpc listener
 	secureGrpcListener, err := net.Listen("tcp", dnsGrpc)
@@ -572,18 +603,26 @@ func (s *Server) initSecureGrpcServerDNS(addr string) error {
 			// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 			// on a listener
 			err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
-			msg := fmt.Sprintf("Stoppped listening on %s %v", dnsGrpc, err)
+			msg := fmt.Sprintf("Stopped listening on %s %v", dnsGrpc, err)
+			select {
+			case <-stop:
+				log.Info(msg)
+			default:
+				panic(fmt.Sprintf("%s due to error: %v", msg, err))
+			}
+		}()
+
+		go func() {
 			<-stop
-			log.Info(msg)
-			if s.Args.ForceStop {
+			if s.forceStop {
 				s.secureGRPCServerDNS.Stop()
+				_ = s.secureHTTPServerDNS.Close()
 			} else {
 				s.secureGRPCServerDNS.GracefulStop()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_ = s.secureHTTPServerDNS.Shutdown(ctx)
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			_ = s.secureHTTPServerDNS.Shutdown(ctx)
-			s.secureGRPCServerDNS.Stop()
 		}()
 		return nil
 	})
@@ -600,10 +639,12 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
 	maxStreams := features.MaxConcurrentStreams
+	maxRecvMsgSize := features.MaxRecvMsgSize
 
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
+		grpc.MaxRecvMsgSize(maxRecvMsgSize),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:                  options.Time,
 			Timeout:               options.Timeout,
@@ -647,7 +688,7 @@ func (s *Server) initEventHandlers() error {
 		pushReq := &model.PushRequest{
 			Full:               true,
 			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
@@ -663,7 +704,7 @@ func (s *Server) initEventHandlers() error {
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
 			// TODO: extend and set service instance type, so no need re-init push context
-			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 		})
 	}
 	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
@@ -677,12 +718,18 @@ func (s *Server) initEventHandlers() error {
 		configHandler := func(old, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{curr.Type: {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{curr.GroupVersionKind(): {}},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
-		for _, descriptor := range schemas.Istio {
-			s.configController.RegisterEventHandler(descriptor.Type, configHandler)
+		for _, schema := range collections.Pilot.All() {
+			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
+			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
+				Resource().GroupVersionKind() {
+				continue
+			}
+
+			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}
 
@@ -690,60 +737,34 @@ func (s *Server) initEventHandlers() error {
 }
 
 // add a GRPC listener using DNS-based certificates. Will be used for Galley, injection and CA signing.
-func (s *Server) initDNSListener() error {
-	if features.IstiodService.Get() == "" || s.kubeClient == nil {
+func (s *Server) initDNSListener(args *PilotArgs) error {
+	istiodAddr := features.IstiodService.Get()
+	if istiodAddr == "" || s.kubeClient == nil {
 		// Feature disabled
 		return nil
 	}
-	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
+
+	// validate
+	host, port, err := net.SplitHostPort(istiodAddr)
+	if err != nil {
+		return fmt.Errorf("invalid ISTIOD_ADDR(%s): %v", istiodAddr, err)
+	}
+	if _, err := strconv.Atoi(port); err != nil {
+		return fmt.Errorf("invalid ISTIOD_ADDR(%s): %v", istiodAddr, err)
+	}
+
+	// Create DNS certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	err := s.initDNSCerts(features.IstiodService.Get())
+	err = s.initDNSCerts(host)
 	if err != nil {
 		return err
 	}
+
 	// run secure grpc server for Istiod - using DNS-based certs from K8S
-	err = s.initSecureGrpcServerDNS(features.IstiodService.Get())
+	err = s.initSecureGrpcServerDNS(port, args.KeepaliveOptions)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// init the SDS signing server
-func (s *Server) initSDSCA() {
-	// Options based on the current 'defaults' in istio.
-	// If adjustments are needed - env or mesh.config ( if of general interest ).
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.RunCA(s.secureGRPCServerDNS, s.kubeClient, &CAOptions{
-			TrustDomain: s.environment.Mesh().TrustDomain,
-		})
-		return nil
-	})
-}
-
-func grpcDial(ctx context.Context, cancel context.CancelFunc,
-	configSource *meshconfig.ConfigSource, args *PilotArgs) (conn *grpc.ClientConn, err error) {
-	securityOption, err := mcpSecurityOptions(ctx, cancel, configSource)
-	if err != nil {
-		return nil, err
-	}
-
-	keepaliveOption := grpc.WithKeepaliveParams(keepalive.ClientParameters{
-		Time:    args.KeepaliveOptions.Time,
-		Timeout: args.KeepaliveOptions.Timeout,
-	})
-
-	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(args.MCPInitialWindowSize))
-	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(args.MCPInitialConnWindowSize))
-	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
-
-	return grpc.DialContext(
-		ctx,
-		configSource.Address,
-		securityOption,
-		msgSizeOption,
-		keepaliveOption,
-		initialWindowSizeOption,
-		initialConnWindowSizeOption)
 }

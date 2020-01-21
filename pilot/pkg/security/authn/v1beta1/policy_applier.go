@@ -45,14 +45,14 @@ type v1beta1PolicyApplier struct {
 	// TODO: add mTLS configs.
 
 	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
-	processedJwtRules []*v1beta1.JWT
+	processedJwtRules []*v1beta1.JWTRule
 
 	alphaApplier authn.PolicyApplier
 }
 
 func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
-		log.Debugf("RequestAuthentication (beta policy) not found, fallback to alpha if available")
+		log.Debugf("JwtFilter: RequestAuthentication (beta policy) not found, fallback to alpha if available")
 		return a.alphaApplier.JwtFilter(isXDSMarshalingToAnyEnabled)
 	}
 
@@ -73,7 +73,7 @@ func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http
 }
 
 // All explaining code link can be removed before merging.
-func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.FilterConfig {
+func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWTRule) *authn_filter.FilterConfig {
 	p := authn_alpha.Policy{
 		// Targets are not used in the authn filter.
 		// Origin will be optional since we don't reject req.
@@ -113,6 +113,10 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 // ensure Authn Filter won't reject the request, but still transform the attributes, e.g. request.auth.principal.
 // proxyType does not matter here, exists only for legacy reason.
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+	if len(a.processedJwtRules) == 0 {
+		log.Debugf("AuthnFilter: RequestAuthentication (beta policy) not found, fallback to alpha if available")
+		return a.alphaApplier.AuthNFilter(proxyType, isXDSMarshalingToAnyEnabled)
+	}
 	out := &http_conn.HttpFilter{
 		Name: authn_model.AuthnFilterName,
 	}
@@ -129,14 +133,12 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
-	// TODO(diemtvu) implement this.
-	log.Errorf("InboundFilterChain is not yet implemented")
-	return nil
+	return a.alphaApplier.InboundFilterChain(sdsUdsPath, meta)
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
 func NewPolicyApplier(jwtPolicies []*model.Config, policy *authn_alpha_api.Policy) authn.PolicyApplier {
-	processedJwtRules := []*v1beta1.JWT{}
+	processedJwtRules := []*v1beta1.JWTRule{}
 
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
 	// https://github.com/istio/istio/issues/19245
@@ -159,18 +161,32 @@ func NewPolicyApplier(jwtPolicies []*model.Config, policy *authn_alpha_api.Polic
 	}
 }
 
-func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWT) *envoy_jwt.JwtAuthentication {
+// convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.
+// Each rule is expected corresponding to one JWT issuer (provider).
+// The behavior of the filter should reject all requests with invalid token. On the other hand,
+// if no token provided, the request is allowed.
+func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthentication {
 	if len(jwtRules) == 0 {
 		return nil
 	}
+
 	providers := map[string]*envoy_jwt.JwtProvider{}
+	// Each element of innerAndList is the requirement for each provider, in the form of
+	// {provider OR `allow_missing`}
+	// This list will be ANDed (if have more than one provider) for the final requirement.
+	innerAndList := []*envoy_jwt.JwtRequirement{}
+
+	// This is an (or) list for all providers. This will be OR with the innerAndList above so
+	// it can pass the requirement in the case that providers share the same location.
+	outterOrList := []*envoy_jwt.JwtRequirement{}
+
 	for i, jwtRule := range jwtRules {
-		// TODO(diemtvu): set forward based on input spec after https://github.com/istio/api/pull/1172
 		provider := &envoy_jwt.JwtProvider{
-			Issuer:            jwtRule.Issuer,
-			Audiences:         jwtRule.Audiences,
-			Forward:           false,
-			PayloadInMetadata: jwtRule.Issuer,
+			Issuer:               jwtRule.Issuer,
+			Audiences:            jwtRule.Audiences,
+			Forward:              jwtRule.ForwardOriginalToken,
+			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
+			PayloadInMetadata:    jwtRule.Issuer,
 		}
 
 		for _, location := range jwtRule.FromHeaders {
@@ -199,7 +215,60 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWT) *envoy_jwt.JwtAuthenticati
 
 		name := fmt.Sprintf("origins-%d", i)
 		providers[name] = provider
+		innerAndList = append(innerAndList, &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+				RequiresAny: &envoy_jwt.JwtRequirementOrList{
+					Requirements: []*envoy_jwt.JwtRequirement{
+						{
+							RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+								ProviderName: name,
+							},
+						},
+						{
+							RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+								AllowMissing: &empty.Empty{},
+							},
+						},
+					},
+				},
+			},
+		})
+		outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+				ProviderName: name,
+			},
+		})
 	}
+
+	// If there is only one provider, simply use an OR of {provider, `allow_missing`}.
+	if len(innerAndList) == 1 {
+		return &envoy_jwt.JwtAuthentication{
+			Rules: []*envoy_jwt.RequirementRule{
+				{
+					Match: &route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{
+							Prefix: "/",
+						},
+					},
+					Requires: innerAndList[0],
+				},
+			},
+			Providers: providers,
+		}
+	}
+
+	// If there are more than one provider, filter should OR of
+	// {P1, P2 .., AND of {OR{P1, allow_missing}, OR{P2, allow_missing} ...}}
+	// where the innerAnd enforce a token, if provided, must be valid, and the
+	// outter OR aids the case where providers share the same location (as
+	// it will always fail with the innerAND).
+	outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
+		RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
+			RequiresAll: &envoy_jwt.JwtRequirementAndList{
+				Requirements: innerAndList,
+			},
+		},
+	})
 
 	return &envoy_jwt.JwtAuthentication{
 		Rules: []*envoy_jwt.RequirementRule{
@@ -210,9 +279,10 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWT) *envoy_jwt.JwtAuthenticati
 					},
 				},
 				Requires: &envoy_jwt.JwtRequirement{
-					// TODO(diemvu): change to AllowMissing requirement.
-					RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-						AllowMissingOrFailed: &empty.Empty{},
+					RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+						RequiresAny: &envoy_jwt.JwtRequirementOrList{
+							Requirements: outterOrList,
+						},
 					},
 				},
 			},

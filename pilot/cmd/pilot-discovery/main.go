@@ -43,7 +43,9 @@ var (
 		// TODO replace with mesh config?
 		InjectionOptions: bootstrap.InjectionOptions{
 			InjectionDirectory: "./var/lib/istio/inject",
-			Port:               15017,
+		},
+		ValidationOptions: bootstrap.ValidationOptions{
+			ValidationDirectory: "./var/lib/istio/validation",
 		},
 
 		MCPMaxMessageSize:        1024 * 1024 * 4, // default grpc maximum message size
@@ -72,13 +74,16 @@ var (
 				return err
 			}
 
+			// fill in missing defaults
+			serverArgs.Default()
+
 			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain, hasKubeRegistry()))
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
 
 			// Create the server for the discovery service.
-			discoveryServer, err := bootstrap.NewServer(serverArgs)
+			discoveryServer, err := bootstrap.NewServer(&serverArgs)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
@@ -107,8 +112,8 @@ func hasKubeRegistry() bool {
 func init() {
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(serviceregistry.Kubernetes)},
-		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s})",
-			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.MCP, serviceregistry.Mock))
+		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
+			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.Mock))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
 		"Namespace for ConfigMap which stores clusters configs")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
@@ -151,6 +156,8 @@ func init() {
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPAddr, "httpAddr", ":8080",
 		"Discovery service HTTP address")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPSAddr, "httpsAddr", ":15017",
+		"Injection and validation service HTTPS address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.GrpcAddr, "grpcAddr", ":15010",
 		"Discovery service grpc address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", ":15012",

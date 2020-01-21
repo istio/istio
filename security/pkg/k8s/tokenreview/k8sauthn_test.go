@@ -24,6 +24,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/jwt"
+
 	k8sauth "k8s.io/api/authentication/v1"
 )
 
@@ -118,7 +120,7 @@ func TestOnMockAPIServer(t *testing.T) {
 		authn := NewK8sSvcAcctAuthn(s.httpServer.URL+"/"+tc.cliConfig.reviewPath, tc.cliConfig.tlsCert,
 			tc.cliConfig.reviewerToken)
 
-		_, err := authn.ValidateK8sJwt(tc.cliConfig.jwt)
+		_, err := authn.ValidateK8sJwt(tc.cliConfig.jwt, jwt.JWTPolicyThirdPartyJWT)
 
 		if err != nil {
 			t.Logf("Error: %v", err.Error())

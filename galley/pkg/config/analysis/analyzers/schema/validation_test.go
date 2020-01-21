@@ -23,11 +23,13 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/analysis/testing/fixtures"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	resource2 "istio.io/istio/galley/pkg/config/schema/resource"
 )
 
 func TestCorrectArgs(t *testing.T) {
@@ -35,23 +37,20 @@ func TestCorrectArgs(t *testing.T) {
 
 	m1 := &v1alpha3.VirtualService{}
 
-	testSchema := schema.Instance{
-		Collection: metadata.IstioNetworkingV1Alpha3Virtualservices.String(),
-		Validate: func(name, ns string, msg proto.Message) (errs error) {
-			g.Expect(name).To(Equal("name"))
-			g.Expect(ns).To(Equal("ns"))
-			g.Expect(msg).To(Equal(m1))
-
-			return nil
-		},
-	}
+	testSchema := schemaWithValidateFn(func(name, ns string, msg proto.Message) (errs error) {
+		g.Expect(name).To(Equal("name"))
+		g.Expect(ns).To(Equal("ns"))
+		g.Expect(msg).To(Equal(m1))
+		return nil
+	})
 	ctx := &fixtures.Context{
-		Entries: []*resource.Entry{
+		Resources: []*resource.Instance{
 			{
-				Item: &v1alpha3.VirtualService{},
+				Message: &v1alpha3.VirtualService{},
 				Metadata: resource.Metadata{
-					Name: resource.NewName("ns", "name"),
+					FullName: resource.NewFullName("ns", "name"),
 				},
+				Origin: fakeOrigin{},
 			},
 		},
 	}
@@ -60,27 +59,24 @@ func TestCorrectArgs(t *testing.T) {
 }
 
 func TestSchemaValidationWrapper(t *testing.T) {
-	testCol := metadata.IstioNetworkingV1Alpha3Virtualservices
+	testCol := collections.IstioNetworkingV1Alpha3Virtualservices.Name()
 
 	m1 := &v1alpha3.VirtualService{}
 	m2 := &v1alpha3.VirtualService{}
 	m3 := &v1alpha3.VirtualService{}
 
-	testSchema := schema.Instance{
-		Collection: testCol.String(),
-		Validate: func(_, _ string, msg proto.Message) (errs error) {
-			if msg == m1 {
-				return nil
-			}
-			if msg == m2 {
-				return fmt.Errorf("")
-			}
-			if msg == m3 {
-				return multierror.Append(fmt.Errorf(""), fmt.Errorf(""))
-			}
+	testSchema := schemaWithValidateFn(func(_, _ string, msg proto.Message) (errs error) {
+		if msg == m1 {
 			return nil
-		},
-	}
+		}
+		if msg == m2 {
+			return fmt.Errorf("")
+		}
+		if msg == m3 {
+			return multierror.Append(fmt.Errorf(""), fmt.Errorf(""))
+		}
+		return nil
+	})
 
 	a := ValidationAnalyzer{s: testSchema}
 
@@ -92,9 +88,9 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	t.Run("NoErrors", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 		ctx := &fixtures.Context{
-			Entries: []*resource.Entry{
+			Resources: []*resource.Instance{
 				{
-					Item: m1,
+					Message: m1,
 				},
 			},
 		}
@@ -106,9 +102,10 @@ func TestSchemaValidationWrapper(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		ctx := &fixtures.Context{
-			Entries: []*resource.Entry{
+			Resources: []*resource.Instance{
 				{
-					Item: m2,
+					Message: m2,
+					Origin:  fakeOrigin{},
 				},
 			},
 		}
@@ -120,9 +117,10 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	t.Run("MultiError", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 		ctx := &fixtures.Context{
-			Entries: []*resource.Entry{
+			Resources: []*resource.Instance{
 				{
-					Item: m3,
+					Message: m3,
+					Origin:  fakeOrigin{},
 				},
 			},
 		}
@@ -132,3 +130,25 @@ func TestSchemaValidationWrapper(t *testing.T) {
 		g.Expect(ctx.Reports[1].Type).To(Equal(msg.SchemaValidationError))
 	})
 }
+
+func schemaWithValidateFn(validateFn func(string, string, proto.Message) error) collection.Schema {
+	original := collections.IstioNetworkingV1Alpha3Virtualservices
+	return collection.Builder{
+		Name: original.Name().String(),
+		Resource: resource2.Builder{
+			ClusterScoped: original.Resource().IsClusterScoped(),
+			Kind:          original.Resource().Kind(),
+			Plural:        original.Resource().Plural(),
+			Group:         original.Resource().Group(),
+			Version:       original.Resource().Version(),
+			Proto:         original.Resource().Proto(),
+			ProtoPackage:  original.Resource().ProtoPackage(),
+			ValidateProto: validateFn,
+		}.MustBuild(),
+	}.MustBuild()
+}
+
+type fakeOrigin struct{}
+
+func (fakeOrigin) FriendlyName() string          { return "myFriendlyName" }
+func (fakeOrigin) Namespace() resource.Namespace { return "myNamespace" }

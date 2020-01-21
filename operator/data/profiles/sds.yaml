@@ -1,0 +1,23 @@
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    nodeAgent:
+      enabled: true
+  values:
+    global:
+      controlPlaneSecurityEnabled: true
+      mtls:
+        enabled: true
+      sds:
+        enabled: true
+        udsPath: "unix:/var/run/sds/uds_path"
+        token:
+          aud: "istio-ca"
+    nodeagent:
+      image: node-agent-k8s
+      env:
+        CA_PROVIDER: "Citadel"
+        CA_ADDR: "istio-citadel:8060"
+        VALID_TOKEN: true
+

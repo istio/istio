@@ -25,7 +25,7 @@ docker: docker.all
 
 DOCKER_TARGETS ?= docker.pilot docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
 	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s \
-	docker.istioctl
+	docker.istioctl docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -51,7 +51,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
-                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables istioctl
+                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables istioctl manager
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
@@ -75,7 +75,7 @@ DOCKER_FILES_FROM_ISTIO_BIN:=kubectl
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
-docker.sidecar_injector: BUILD_PRE=; chmod 755 sidecar-injector
+docker.sidecar_injector: BUILD_PRE=&& chmod 755 sidecar-injector
 docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
 docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
@@ -94,7 +94,7 @@ else
 endif
 
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=; chmod 755 envoy pilot-agent
+docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent istio-iptables
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
@@ -120,7 +120,7 @@ docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
 docker.proxytproxy: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
 
-docker.pilot: BUILD_PRE=; chmod 755 pilot-discovery cacert.pem
+docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery cacert.pem
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
@@ -128,6 +128,7 @@ docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
 # Test application
+docker.app: BUILD_PRE=&& chmod 755 server client
 docker.app: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app: pkg/test/echo/docker/Dockerfile.app
 docker.app: $(ISTIO_OUT_LINUX)/client
@@ -164,7 +165,7 @@ docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
 	$(DOCKER_RULE)
 
 docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.kubectl: docker/Dockerfile$$(suffix $$@)
+docker.kubectl: docker/Dockerfile.kubectl
 	$(DOCKER_RULE)
 
 docker.istioctl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
@@ -172,9 +173,14 @@ docker.istioctl: istioctl/docker/Dockerfile.istioctl
 docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
 	$(DOCKER_RULE)
 
+docker.operator: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.operator: operator/docker/Dockerfile.operator
+docker.operator: $(ISTIO_OUT_LINUX)/manager
+	$(DOCKER_RULE)
+
 # mixer docker images
 
-docker.mixer: BUILD_PRE=; chmod 755 mixs
+docker.mixer: BUILD_PRE=&& chmod 755 mixs
 docker.mixer: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.mixer: mixer/docker/Dockerfile.mixer
 docker.mixer: $(ISTIO_DOCKER)/mixs
@@ -197,14 +203,17 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 # We then override the docker rule and "build" all of these, where building just copies the dependencies
 # We then generate a "bake" file, which defines all of the docker files in the repo
 # Finally, we call `docker buildx bake` to generate the images.
-dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@; cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
+dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@ && cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
 dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
 	HUB=$(HUB) \
 		TAG=$(TAG) \
+		PROXY_REPO_SHA=$(PROXY_REPO_SHA) \
+		VERSION=$(VERSION) \
 		DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
 		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
 		BASE_VERSION=$(BASE_VERSION) \
+		DOCKERX_PUSH=$(DOCKERX_PUSH) \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
 
@@ -213,7 +222,7 @@ dockerx.%:
 	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
 
 # galley docker images
-docker.galley: BUILD_PRE=; chmod 755 galley
+docker.galley: BUILD_PRE=&& chmod 755 galley
 docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.galley: galley/docker/Dockerfile.galley
 docker.galley: $(ISTIO_DOCKER)/galley
@@ -221,7 +230,7 @@ docker.galley: $(ISTIO_DOCKER)/galley
 
 # security docker images
 
-docker.citadel: BUILD_PRE=; chmod 755 istio_ca
+docker.citadel: BUILD_PRE=&& chmod 755 istio_ca
 docker.citadel: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.citadel: security/docker/Dockerfile.citadel
 docker.citadel: $(ISTIO_DOCKER)/istio_ca
@@ -269,7 +278,7 @@ docker.base: docker/Dockerfile.base
 DOCKER_BUILD_VARIANTS ?= default
 DOCKER_ALL_VARIANTS ?= default distroless
 DEFAULT_DISTRIBUTION=default
-DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE); docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
+DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE) && docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.
@@ -281,31 +290,33 @@ docker.all: $(DOCKER_TARGETS)
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
 DOCKER_TAR_TARGETS:=
-$(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
+$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
          $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time ( \
 		     docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
              gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar \
 			   ); \
 		  )))
 
-tar.docker.app: docker.app | $(ISTIO_DOCKER_TAR)
-	time ( docker save -o ${ISTIO_DOCKER_TAR}/app.tar $(HUB)/app:$(TAG) && \
-             gzip ${ISTIO_DOCKER_TAR}/app.tar )
-
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
-docker.save: $(DOCKER_TAR_TARGETS)
+dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
+	$(foreach TGT,$(DOCKER_TARGETS), \
+	$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time ( \
+		 docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
+		 gzip -f ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar \
+		   ); \
+	 ))
+
+#docker.save: $(DOCKER_TAR_TARGETS) # Legacy target when used with old docker versions
+docker.save: dockerx.save
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
-$(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval push.$(TGT): | $(TGT) ; \
+$(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
 	time (set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%-$(DEFAULT_DISTRIBUTION)}; done)))
-
-push.docker.app: docker.app
-	time (docker push $(HUB)/app:$(TAG))
 
 define run_vulnerability_scanning
         $(eval RESULTS_DIR := vulnerability_scan_results)
@@ -320,27 +331,19 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 # Will build and push docker images.
 docker.push: $(DOCKER_PUSH_TARGETS)
 
+# Build and push docker images using dockerx
+dockerx.push: dockerx
+	$(foreach TGT,$(DOCKER_TARGETS), time ( \
+		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-$(DEFAULT_DISTRIBUTION)}; done); \
+	)
+
+# Build and push docker images using dockerx. Pushing is done inline as an optimization
+# This is not done in the dockerx.push target because it requires using the docker-container driver.
+# See https://github.com/docker/buildx#working-with-builder-instances for info to set this up
+dockerx.pushx: DOCKERX_PUSH=true
+dockerx.pushx: dockerx
+	@:
+
 # Scan images for security vulnerabilities using the ImageScanner tool
 docker.scan_images: $(DOCKER_PUSH_TARGETS)
 	$(foreach TGT,$(DOCKER_TARGETS),$(call run_vulnerability_scanning,$(subst docker.,,$(TGT)),$(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
-
-# Base image for 'debug' containers.
-# You can run it first to use local changes (or guarantee it is built from scratch)
-docker.basedebug:
-	docker build -t istionightly/base_debug -f docker/Dockerfile.xenial_debug docker/
-
-# Run this target to generate images based on Bionic Ubuntu
-# This must be run as a first step, before the 'docker' step.
-docker.basedebug_bionic:
-	docker build -t istionightly/base_debug_bionic -f docker/Dockerfile.bionic_debug docker/
-	docker tag istionightly/base_debug_bionic istionightly/base_debug
-
-# Run this target to generate images based on Debian Slim
-# This must be run as a first step, before the 'docker' step.
-docker.basedebug_deb:
-	docker build -t istionightly/base_debug_deb -f docker/Dockerfile.deb_debug docker/
-	docker tag istionightly/base_debug_deb istionightly/base_debug
-
-# Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
-docker.push.basedebug: docker.basedebug
-	docker push istionightly/base_debug:latest

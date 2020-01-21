@@ -31,8 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/labels"
-
 	"istio.io/pkg/log"
 )
 
@@ -46,7 +44,7 @@ import (
 // filter chain (which is the http connection manager) with the updated object.
 func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 	httpConnectionManagers []*http_conn.HttpConnectionManager) error { //nolint: unparam
-	filterCRD := getUserFiltersForWorkload(in.Push, in.Node.WorkloadLabels)
+	filterCRD := in.Push.EnvoyFilters(in.Node)
 	if filterCRD == nil {
 		return nil
 	}
@@ -56,7 +54,7 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 		log.Warnf("Failed to parse IP Address from plugin listener")
 	}
 
-	for _, f := range filterCRD.Filters {
+	for _, f := range filterCRD.DeprecatedFilters {
 		if !deprecatedListenerMatch(in, listenerIPAddress, f.ListenerMatch) {
 			continue
 		}
@@ -113,16 +111,6 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 				deprecatedInsertNetworkFilter(listener.Name, listener.FilterChains[cnum], f)
 			}
 		}
-	}
-	return nil
-}
-
-// NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
-// is undefined.
-func getUserFiltersForWorkload(push *model.PushContext, labels labels.Collection) *networking.EnvoyFilter {
-	f := push.EnvoyFilter(labels)
-	if f != nil {
-		return f.Spec.(*networking.EnvoyFilter)
 	}
 	return nil
 }

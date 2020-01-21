@@ -38,8 +38,10 @@ import (
 	coordinationv1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	discoveryv1alpha1 "k8s.io/client-go/kubernetes/typed/discovery/v1alpha1"
+	discoveryv1beta1 "k8s.io/client-go/kubernetes/typed/discovery/v1beta1"
 	eventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	flowcontrolv1alpha1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1"
 	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
 	networkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	nodev1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
@@ -60,9 +62,10 @@ import (
 var _ kubernetes.Interface = &kubeInterface{}
 
 type kubeInterface struct {
-	core       corev1.CoreV1Interface
-	extensions extensionsv1beta1.ExtensionsV1beta1Interface
-	appsv1     appsv1.AppsV1Interface
+	core            corev1.CoreV1Interface
+	extensions      extensionsv1beta1.ExtensionsV1beta1Interface
+	appsv1          appsv1.AppsV1Interface
+	authorizationv1 authorizationv1.AuthorizationV1Interface
 }
 
 // newKubeInterface returns a lightweight fake that implements kubernetes.Interface. Only implements a portion of the
@@ -86,6 +89,10 @@ func newKubeInterface() kubernetes.Interface {
 
 		appsv1: &appsv1Impl{
 			apps: newAppsInterface(),
+		},
+
+		authorizationv1: &authorizationv1Impl{
+			selfSubjectAccessReviews: newSelfSubjectAccessReviewInterface(),
 		},
 	}
 }
@@ -147,7 +154,7 @@ func (c *kubeInterface) AuthenticationV1beta1() authenticationv1beta1.Authentica
 }
 
 func (c *kubeInterface) AuthorizationV1() authorizationv1.AuthorizationV1Interface {
-	panic("not implemented")
+	return c.authorizationv1
 }
 
 func (c *kubeInterface) AuthorizationV1beta1() authorizationv1beta1.AuthorizationV1beta1Interface {
@@ -182,12 +189,20 @@ func (c *kubeInterface) DiscoveryV1alpha1() discoveryv1alpha1.DiscoveryV1alpha1I
 	panic("not implemented")
 }
 
+func (c *kubeInterface) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface {
+	panic("not implemented")
+}
+
 func (c *kubeInterface) EventsV1beta1() eventsv1beta1.EventsV1beta1Interface {
 	panic("not implemented")
 }
 
 func (c *kubeInterface) ExtensionsV1beta1() extensionsv1beta1.ExtensionsV1beta1Interface {
 	return c.extensions
+}
+
+func (c *kubeInterface) FlowcontrolV1alpha1() flowcontrolv1alpha1.FlowcontrolV1alpha1Interface {
+	panic("not implemented")
 }
 
 func (c *kubeInterface) NetworkingV1() networkingv1.NetworkingV1Interface {

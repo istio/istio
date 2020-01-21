@@ -17,7 +17,7 @@ package groups
 import (
 	mcp "istio.io/api/mcp/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
@@ -37,7 +37,7 @@ var _ snapshot.GroupIndexFn = IndexFunction
 // snapshot is used.
 func IndexFunction(collection string, _ *mcp.SinkNode) string {
 	switch collection {
-	case metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String():
+	case collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String():
 		return SyntheticServiceEntry
 	default:
 		return Default

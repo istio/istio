@@ -17,6 +17,10 @@ package bootstrap
 import (
 	"time"
 
+	"istio.io/pkg/env"
+
+	"istio.io/istio/pkg/config/constants"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -64,6 +68,7 @@ type ServiceArgs struct {
 type PilotArgs struct {
 	DiscoveryOptions         DiscoveryServiceOptions
 	InjectionOptions         InjectionOptions
+	ValidationOptions        ValidationOptions
 	Namespace                string
 	Mesh                     MeshArgs
 	Config                   ConfigArgs
@@ -84,9 +89,13 @@ type PilotArgs struct {
 // DiscoveryServiceOptions contains options for create a new discovery
 // service instance.
 type DiscoveryServiceOptions struct {
-	// The listening address for HTTP. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// The listening address for HTTP (debug). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	HTTPAddr string
+
+	// The listening addres for HTTPS (webhooks). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	HTTPSAddr string
 
 	// The listening address for GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
@@ -109,6 +118,35 @@ type DiscoveryServiceOptions struct {
 }
 
 type InjectionOptions struct {
+	// Directory of injection related config files.
 	InjectionDirectory string
-	Port               int
+}
+
+type ValidationOptions struct {
+	// Directory of config validation related config files.
+	ValidationDirectory string
+}
+
+var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+
+// Apply default value to PilotArgs
+func (p *PilotArgs) Default() {
+	// If the namespace isn't set, try looking it up from the environment.
+	if p.Namespace == "" {
+		p.Namespace = podNamespaceVar.Get()
+	}
+
+	if p.KeepaliveOptions == nil {
+		p.KeepaliveOptions = istiokeepalive.DefaultOption()
+	}
+	if p.Config.ClusterRegistriesNamespace == "" {
+		if p.Namespace != "" {
+			p.Config.ClusterRegistriesNamespace = p.Namespace
+		} else {
+			p.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
+		}
+	}
+	if p.BasePort == 0 {
+		p.BasePort = 15000
+	}
 }

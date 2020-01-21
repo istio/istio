@@ -16,11 +16,14 @@ package resource
 
 import (
 	"time"
+
+	"istio.io/istio/galley/pkg/config/schema/resource"
 )
 
 // Metadata about a resource.
 type Metadata struct {
-	Name        Name
+	Schema      resource.Schema
+	FullName    FullName
 	CreateTime  time.Time
 	Version     Version
 	Labels      StringMap

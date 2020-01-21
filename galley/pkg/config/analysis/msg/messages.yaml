@@ -45,12 +45,8 @@ messages:
     code: IST0103
     level: Warning
     description: "A pod is missing the Istio proxy."
-    template: "The pod is missing its Istio proxy. Run 'kubectl delete pod %s -n %s' to restart it"
+    template: "The pod is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload."
     args:
-      - name: pod
-        type: string
-      - name: namespace
-        type: string
 
   - name: "GatewayPortNotOnWorkload"
     code: IST0104
@@ -208,4 +204,17 @@ messages:
     template: "No service associated with this deployment. Service mesh deployments must be associated with a service."
     args:
       - name: deployment
+        type: string
+
+  - name: "PortNameIsNotUnderNamingConvention"
+    code: IST0118
+    level: Info
+    description: "Port name is not under naming convention. Protocol detection is applied to the port."
+    template: "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port."
+    args:
+      - name: portName
+        type: string
+      - name: port
+        type: int
+      - name: targetPort
         type: string

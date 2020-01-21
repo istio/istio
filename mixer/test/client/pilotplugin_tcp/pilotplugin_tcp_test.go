@@ -285,7 +285,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 	}
 	clientListener.FilterChains[0].Filters = append(clientMutable.FilterChains[0].TCP, clientListener.FilterChains[0].Filters...)
 
-	return cache.Snapshot{
-		Listeners: cache.NewResources(string(node), []cache.Resource{clientListener, serverListener}),
-	}
+	snapshot := cache.Snapshot{}
+	snapshot.Resources[cache.Listener] = cache.NewResources(string(node), []cache.Resource{clientListener, serverListener})
+	return snapshot
 }
