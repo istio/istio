@@ -1,200 +1,242 @@
-apiVersion: operator.istio.io/v1alpha1
-kind: IstioOperator
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
 spec:
   hub: gcr.io/istio-testing
   tag: latest
-  meshConfig:
-    rootNamespace: istio-system
+  defaultNamespace: istio-system
+
+  # Base contains all CRDs, namespaces etc.
+  base:
+    enabled: true
+    components:
+      base:
+        enabled: true
 
   # Traffic management feature
-  components:
-    base:
-      enabled: true
-    pilot:
-      enabled: true
-      k8s:
-        env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-pilot
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
+  trafficManagement:
+    enabled: true
+    components:
+      pilot:
+        enabled: true
+        k8s:
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+          hpaSpec:
+            maxReplicas: 5
+            minReplicas: 1
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-pilot
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 80
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2048Mi
+          strategy:
+            rollingUpdate:
+              maxSurge: "100%"
+              maxUnavailable: "25%"
 
   # Policy feature
-    policy:
-      enabled: false
-      k8s:
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-policy
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
-        env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
+  policy:
+    enabled: true
+    components:
+      policy:
+        enabled: true
+        k8s:
+          hpaSpec:
+            maxReplicas: 5
+            minReplicas: 1
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-policy
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 80
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+          strategy:
+            rollingUpdate:
+              maxSurge: "100%"
+              maxUnavailable: "25%"
 
-   # Telemetry feature
-    telemetry:
-      enabled: true
-      k8s:
-        env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: GOMAXPROCS
-            value: "6"
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-telemetry
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
-        replicaCount: 1
-        resources:
-          requests:
-            cpu: 1000m
-            memory: 1G
-          limits:
-            cpu: 4800m
-            memory: 4G
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
+  # Telemetry feature
+  telemetry:
+    enabled: true
+    components:
+      telemetry:
+        enabled: true
+        k8s:
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: GOMAXPROCS
+              value: "6"
+          hpaSpec:
+            maxReplicas: 5
+            minReplicas: 1
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-telemetry
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 80
+          replicaCount: 1
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 1G
+            limits:
+              cpu: 4800m
+              memory: 4G
+          strategy:
+            rollingUpdate:
+              maxSurge: "100%"
+              maxUnavailable: "25%"
 
   # Security feature
-    citadel:
-      enabled: true
-      k8s:
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
-    nodeAgent:
-      enabled: false
+  security:
+    enabled: true
+    components:
+      citadel:
+        enabled: true
+        k8s:
+          strategy:
+            rollingUpdate:
+              maxSurge: "100%"
+              maxUnavailable: "25%"
+      certManager:
+        enabled: false
+      nodeAgent:
+        enabled: false
 
   # Config management feature
-    galley:
-      enabled: true
-      k8s:
-        replicaCount: 1
-        resources:
-          requests:
-            cpu: 100m
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
+  configManagement:
+    enabled: true
+    components:
+      galley:
+        enabled: true
+        k8s:
+          replicaCount: 1
+          resources:
+            requests:
+              cpu: 100m
+          strategy:
+            rollingUpdate:
+              maxSurge: "100%"
+              maxUnavailable: "25%"
 
   # Auto injection feature
-    sidecarInjector:
-      enabled: true
-      k8s:
-        replicaCount: 1
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
+  autoInjection:
+    enabled: true
+    components:
+      injector:
+        enabled: true
+        k8s:
+          replicaCount: 1
+          strategy:
+            rollingUpdate:
+              maxSurge: "100%"
+              maxUnavailable: "25%"
 
   # Istio Gateway feature
-    ingressGateways:
-    - name: istio-ingressgateway
-      enabled: true
-      k8s:
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-ingressgateway
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
+  gateways:
+    enabled: true
+    components:
+      ingressGateway:
+        enabled: true
+        k8s:
+          hpaSpec:
+            maxReplicas: 5
+            minReplicas: 1
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-ingressgateway
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
+          strategy:
+            rollingUpdate:
+              maxSurge: "100%"
+              maxUnavailable: "25%"
 
-    egressGateways:
-
-    # Istio CNI feature
-    cni:
-      enabled: false
-
-  addonComponents:
-    prometheus:
-      enabled: true
+      egressGateway:
+        enabled: false
+        k8s:
+          hpaSpec:
+            maxReplicas: 5
+            minReplicas: 1
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-egressgateway
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
+          strategy:
+            rollingUpdate:
+              maxSurge: "100%"
+              maxUnavailable: "25%"
+  # Istio CNI feature
+  cni:
+    enabled: false
 
   # Global values passed through to helm global.yaml.
   values:
     global:
-      istiod:
-        enabled: true
       logging:
         level: "default:info"
       logAsJson: false
@@ -202,8 +244,6 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
-      pilotCertProvider: citadel
-      jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"
@@ -271,7 +311,7 @@ spec:
       imagePullPolicy: IfNotPresent
       certificates: []
       operatorManageWebhooks: false
-      controlPlaneSecurityEnabled: false
+      controlPlaneSecurityEnabled: true
       disablePolicyChecks: true
       policyCheckFailOpen: false
       enableTracing: true
@@ -310,7 +350,7 @@ spec:
       defaultPodDisruptionBudget:
         enabled: true
       priorityClassName: ""
-      useMCP: false
+      useMCP: true
       trustDomain: "cluster.local"
       outboundTrafficPolicy:
         mode: ALLOW_ANY
@@ -348,23 +388,17 @@ spec:
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
-        ingressControllerMode: "STRICT"
+        ingressControllerMode: "OFF"
         ingressClass: istio
       policy:
         enabled: false
+      useMCP: true
 
     telemetry:
       enabled: true
       v2:
         enabled: false
-        prometheus:
-          enabled: true
-        stackdriver:
-          enabled: false
-          logging: false
-          monitoring: false
-          topology: false
-          configOverride: {}
+
     mixer:
       adapters:
         stdio:
@@ -396,6 +430,7 @@ spec:
           latencyThreshold: 100ms
         reportBatchMaxEntries: 100
         reportBatchMaxTime: 1s
+        useMCP: true
         env:
           GOMAXPROCS: "6"
         nodeSelector: {}
@@ -422,6 +457,11 @@ spec:
       enableNamespacesByDefault: true
       dnsCerts:
         istio-pilot-service-account.istio-control: istio-pilot.istio-control
+
+    certmanager:
+      hub: quay.io/jetstack
+      tag: v0.6.2
+      image: cert-manager-controller
 
     nodeagent:
       image: node-agent-k8s
@@ -528,7 +568,7 @@ spec:
       enabled: true
       replicaCount: 1
       hub: docker.io/prom
-      tag: v2.15.1
+      tag: v2.12.0
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
@@ -550,7 +590,7 @@ spec:
       replicaCount: 1
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 6.4.3
       persist: false
       storageClassName: ""
       accessMode: ReadWriteMany
