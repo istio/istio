@@ -225,6 +225,9 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 		valuesYAML, err = util.OverlayYAML(valuesYAML, string(b))
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 		valuesTree := make(map[string]interface{})
 		if err := yaml.Unmarshal([]byte(valuesYAML), &valuesTree); err != nil {
 			t.Fatal(err.Error())
