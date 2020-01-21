@@ -48,8 +48,8 @@ const (
 )
 
 type Env struct {
-	ProxySetUp        *proxyEnv.TestSetup
-	AuthServer        *tokenBackend.AuthorizationServer
+	ProxySetUp *proxyEnv.TestSetup
+	AuthServer *tokenBackend.AuthorizationServer
 
 	stsServer         *stsServer.Server
 	xDSServer         *grpc.Server
