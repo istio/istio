@@ -81,11 +81,17 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 }
 
 // Run refreshes root certs and updates config map accordingly.
-func (rotator *SelfSignedCARootCertRotator) Run(rootCertRotatorChan chan struct{}) {
+func (rotator *SelfSignedCARootCertRotator) Run(stopCh chan struct{}) {
 	if rotator.config.enableJitter {
 		rootCertRotatorLog.Infof("Jitter is enabled, wait %s before "+
 			"starting root cert rotator.", rotator.backOffTime.String())
-		time.Sleep(rotator.backOffTime)
+		select {
+		case <-time.After(rotator.backOffTime):
+			rootCertRotatorLog.Infof("Jitter complete, start rotator.")
+		case <-stopCh:
+			rootCertRotatorLog.Info("Received stop signal, so stop the root cert rotator.")
+			return
+		}
 	}
 	ticker := time.NewTicker(rotator.config.CheckInterval)
 	for {
@@ -93,7 +99,7 @@ func (rotator *SelfSignedCARootCertRotator) Run(rootCertRotatorChan chan struct{
 		case <-ticker.C:
 			rootCertRotatorLog.Info("Check and rotate root cert.")
 			rotator.checkAndRotateRootCert()
-		case _, ok := <-rootCertRotatorChan:
+		case _, ok := <-stopCh:
 			if !ok {
 				rootCertRotatorLog.Info("Received stop signal, so stop the root cert rotator.")
 				if ticker != nil {
@@ -166,6 +172,12 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 	}
 
 	rootCertRotatorLog.Infof("Refresh root certificate, root cert is about to expire: %s", err.Error())
+
+	oldCertOptions, err := util.GetCertOptionsFromExistingCert(caSecret.Data[caCertID])
+	if err != nil {
+		rootCertRotatorLog.Warnf("Failed to generate cert options from existing root certificate (%v), "+
+			"new root certificate may not match old root certificate", err)
+	}
 	options := util.CertOptions{
 		TTL:           rotator.config.caCertTTL,
 		SignerPrivPem: caSecret.Data[caPrivateKeyID],
@@ -175,6 +187,10 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		RSAKeySize:    caKeySize,
 		IsDualUse:     rotator.config.dualUse,
 	}
+	// options should be consistent with the one used in NewSelfSignedIstioCAOptions().
+	// This is to make sure when rotate the root cert, we don't make unnecessary changes
+	// to the certificate or add extra fields to the certificate.
+	options = util.MergeCertOptions(options, oldCertOptions)
 	pemCert, pemKey, ckErr := util.GenRootCertFromExistingKey(options)
 	if ckErr != nil {
 		rootCertRotatorLog.Errorf("unable to generate CA cert and key for self-signed CA: %s", ckErr.Error())

@@ -22,8 +22,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
+	"istio.io/istio/galley/pkg/config/schema/resource"
+
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -32,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -602,7 +604,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
@@ -666,7 +667,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
@@ -728,7 +728,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
@@ -790,7 +789,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
@@ -852,7 +850,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      schemas.VirtualService.Type,
+			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
 			Name:      "virtual-service",
 			Namespace: "default",
 		},
@@ -860,7 +858,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceCopy := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      schemas.VirtualService.Type,
+			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
 			Name:      "virtual-service-copy",
 			Namespace: "default",
 		},
@@ -868,7 +866,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceWildcard := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      schemas.VirtualService.Type,
+			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
 			Name:      "virtual-service-wildcard",
 			Namespace: "default",
 		},
@@ -933,7 +931,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
 			proxy14Gateway.SetGatewaysForProxy(env.PushContext)
-			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy14Gateway, env.PushContext, tt.routeName)
+			route := configgen.buildGatewayHTTPRouteConfig(&proxy14Gateway, env.PushContext, tt.routeName)
 			if route == nil {
 				t.Fatal("got an empty route configuration")
 			}
@@ -954,21 +952,22 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 
 	configStore := &fakes.IstioConfigStore{}
 	configStore.GatewaysReturns(gateways)
-	configStore.ListStub = func(typ, namespace string) (configs []pilot_model.Config, e error) {
-		if typ == "virtual-service" {
+	configStore.ListStub = func(kind resource.GroupVersionKind, namespace string) (configs []pilot_model.Config, e error) {
+		switch kind {
+		case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 			return virtualServices, nil
-		}
-		if typ == "gateway" {
+		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 			return gateways, nil
+		default:
+			return nil, nil
 		}
-		return nil, nil
 	}
 	m := mesh.DefaultMeshConfig()
 	env := pilot_model.Environment{
 		PushContext:      pilot_model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &m,
+		Watcher:          mesh.NewFixedWatcher(&m),
 	}
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {

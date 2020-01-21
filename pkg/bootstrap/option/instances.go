@@ -130,6 +130,10 @@ func DisableReportCalls(value bool) Instance {
 	return newOptionOrSkipIfZero("DisableReportCalls", strVal)
 }
 
+func OutlierLogPath(value string) Instance {
+	return newOptionOrSkipIfZero("outlier_log_path", value)
+}
+
 func LightstepAddress(value string) Instance {
 	return newOptionOrSkipIfZero("lightstep", value).withConvert(addressConverter(value))
 }
@@ -230,4 +234,8 @@ func SDSUDSPath(value string) Instance {
 
 func SDSTokenPath(value string) Instance {
 	return newOption("sds_token_path", value)
+}
+
+func PilotCertProvider(value string) Instance {
+	return newOption("pilot_cert_provider", value)
 }

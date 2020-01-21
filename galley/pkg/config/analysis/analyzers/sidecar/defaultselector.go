@@ -15,15 +15,18 @@ package sidecar
 
 import (
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
-// DefaultSelectorAnalyzer validates, per namespace, that there aren't multiple Sidecar resources that have no selector
-// This is distinct from SelectorAnalyzer because it does not require pods, so it can run even if that collection is unavailable
+// DefaultSelectorAnalyzer validates, per namespace, that there aren't multiple
+// sidecar resources that have no selector. This is distinct from
+// SelectorAnalyzer because it does not require pods, so it can run even if that
+// collection is unavailable.
 type DefaultSelectorAnalyzer struct{}
 
 var _ analysis.Analyzer = &DefaultSelectorAnalyzer{}
@@ -31,21 +34,22 @@ var _ analysis.Analyzer = &DefaultSelectorAnalyzer{}
 // Metadata implements Analyzer
 func (a *DefaultSelectorAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "sidecar.DefaultSelectorAnalyzer",
+		Name:        "sidecar.DefaultSelectorAnalyzer",
+		Description: "Validates that there aren't multiple sidecar resources that have no selector",
 		Inputs: collection.Names{
-			metadata.IstioNetworkingV1Alpha3Sidecars,
+			collections.IstioNetworkingV1Alpha3Sidecars.Name(),
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
-	nsToSidecars := make(map[string][]*resource.Entry)
+	nsToSidecars := make(map[resource.Namespace][]*resource.Instance)
 
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Sidecars, func(r *resource.Entry) bool {
-		s := r.Item.(*v1alpha3.Sidecar)
+	c.ForEach(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(r *resource.Instance) bool {
+		s := r.Message.(*v1alpha3.Sidecar)
 
-		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+		ns := r.Metadata.FullName.Namespace
 
 		if s.WorkloadSelector == nil {
 			nsToSidecars[ns] = append(nsToSidecars[ns], r)
@@ -58,7 +62,7 @@ func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
 		if len(sList) > 1 {
 			sNames := getNames(sList)
 			for _, r := range sList {
-				c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewMultipleSidecarsWithoutWorkloadSelectors(r, sNames, ns))
+				c.Report(collections.IstioNetworkingV1Alpha3Sidecars.Name(), msg.NewMultipleSidecarsWithoutWorkloadSelectors(r, sNames, string(ns)))
 			}
 		}
 	}

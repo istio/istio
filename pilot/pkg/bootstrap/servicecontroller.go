@@ -19,6 +19,7 @@ import (
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -29,9 +30,13 @@ import (
 	"istio.io/istio/pkg/config/host"
 )
 
+func (s *Server) ServiceController() *aggregate.Controller {
+	return s.environment.ServiceDiscovery.(*aggregate.Controller)
+}
+
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
-	serviceControllers := aggregate.NewController()
+	serviceControllers := s.ServiceController()
 	registered := make(map[serviceregistry.ProviderID]bool)
 	for _, r := range args.Service.Registries {
 		serviceRegistry := serviceregistry.ProviderID(r)
@@ -46,10 +51,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initKubeRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-		case serviceregistry.MCP:
-			if s.mcpDiscovery != nil {
-				serviceControllers.AddRegistry(s.mcpDiscovery)
-			}
 		case serviceregistry.Consul:
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
@@ -61,14 +62,12 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
-	serviceControllers.AddRegistry(serviceEntryStore)
-
-	s.ServiceController = serviceControllers
+	s.serviceEntryStore = external.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.EnvoyXdsServer)
+	serviceControllers.AddRegistry(s.serviceEntryStore)
 
 	// Defer running of the service controllers.
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.ServiceController.Run(stop)
+		go serviceControllers.Run(stop)
 		return nil
 	})
 
@@ -77,12 +76,18 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 // initKubeRegistry creates all the k8s service controllers under this pilot
 func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
-	clusterID := string(serviceregistry.Kubernetes)
-	log.Infof("Primary Cluster name: %s", clusterID)
-	args.Config.ControllerOptions.ClusterID = clusterID
-	kubectl := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
-	s.kubeRegistry = kubectl
-	serviceControllers.AddRegistry(kubectl)
+	args.Config.ControllerOptions.ClusterID = s.clusterID
+	args.Config.ControllerOptions.Metrics = s.environment
+	args.Config.ControllerOptions.XDSUpdater = s.EnvoyXdsServer
+	args.Config.ControllerOptions.NetworksWatcher = s.environment.NetworksWatcher
+	if features.EnableEndpointSliceController {
+		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointSliceOnly
+	} else {
+		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointsOnly
+	}
+	kubeRegistry := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
+	s.kubeRegistry = kubeRegistry
+	serviceControllers.AddRegistry(kubeRegistry)
 	return
 }
 

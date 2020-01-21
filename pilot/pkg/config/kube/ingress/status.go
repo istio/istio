@@ -38,9 +38,11 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	queue2 "istio.io/istio/pkg/queue"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -60,10 +62,9 @@ type StatusSyncer struct {
 	// Name of service (ingressgateway default) to find the IP
 	ingressService string
 
-	queue    kube.Queue
+	queue    queue2.Instance
 	informer cache.SharedIndexInformer
 	elector  *leaderelection.LeaderElector
-	handler  *kube.ChainHandler
 }
 
 // Run the syncer until stopCh is closed
@@ -90,9 +91,8 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		electionID = fmt.Sprintf("%v-%v", ingressElectionID, ingressClass)
 	}
 
-	handler := &kube.ChainHandler{}
 	// queue requires a time duration for a retry delay after a handler error
-	queue := kube.NewQueue(1 * time.Second)
+	queue := queue2.NewQueue(1 * time.Second)
 
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
@@ -113,21 +113,13 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		ingressClass:        ingressClass,
 		defaultIngressClass: defaultIngressClass,
 		ingressService:      mesh.IngressService,
-		handler:             handler,
 	}
 
 	callbacks := leaderelection.LeaderCallbacks{
 		OnStartedLeading: func(ctx context.Context) {
 			log.Infof("I am the new status update leader")
 			go st.queue.Run(ctx.Done())
-			err := wait.PollUntil(updateInterval, func() (bool, error) {
-				st.queue.Push(kube.NewTask(st.handler.Apply, "Start leading", model.EventUpdate))
-				return false, nil
-			}, ctx.Done())
-
-			if err != nil {
-				log.Errorf("Stop requested")
-			}
+			go st.runUpdateStatus(ctx)
 		},
 		OnStoppedLeading: func() {
 			log.Infof("I am not status update leader anymore")
@@ -170,17 +162,40 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 
 	st.elector = le
 
-	// Register handler at the beginning
-	handler.Append(func(obj interface{}, event model.Event) error {
-		addrs, err := st.runningAddresses(ingressNamespace)
-		if err != nil {
-			return err
-		}
-
-		return st.updateStatus(sliceToStatus(addrs))
-	})
-
 	return &st, nil
+}
+
+func (s *StatusSyncer) onEvent() error {
+	addrs, err := s.runningAddresses(ingressNamespace)
+	if err != nil {
+		return err
+	}
+
+	return s.updateStatus(sliceToStatus(addrs))
+}
+
+func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
+	if _, err := s.runningAddresses(ingressNamespace); err != nil {
+		log.Warna("Missing ingress, skip status updates")
+		err = wait.PollUntil(10*time.Second, func() (bool, error) {
+			if sa, err := s.runningAddresses(ingressNamespace); err != nil || len(sa) == 0 {
+				return false, nil
+			}
+			return true, nil
+		}, ctx.Done())
+		if err != nil {
+			log.Warna("Error waiting for ingress")
+			return
+		}
+	}
+	err := wait.PollUntil(updateInterval, func() (bool, error) {
+		s.queue.Push(s.onEvent)
+		return false, nil
+	}, ctx.Done())
+
+	if err != nil {
+		log.Errorf("Stop requested")
+	}
 }
 
 // updateStatus updates ingress status with the list of IP
@@ -197,7 +212,7 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 		sort.SliceStable(curIPs, lessLoadBalancerIngress(curIPs))
 
 		if ingressSliceEqual(status, curIPs) {
-			log.Infof("skipping update of Ingress %v/%v (no change)", currIng.Namespace, currIng.Name)
+			log.Debugf("skipping update of Ingress %v/%v (no change)", currIng.Namespace, currIng.Name)
 			return nil
 		}
 

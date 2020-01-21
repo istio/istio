@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+# Copyright 2020 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+$ kubectl create ns istio-io-health
+
+# $snippet auth_policy.sh syntax="bash"
+$ kubectl apply -f - <<EOF
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "default"
+  namespace: "istio-io-health"
+spec:
+  peers:
+  - mtls: {}
+EOF
+# $endsnippet
+
+# $snippet destination_rule.sh syntax="bash"
+$ kubectl apply -f - <<EOF
+apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: "default"
+  namespace: "istio-io-health"
+spec:
+  host: "*.default.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+EOF
+# $endsnippet
+
+# $snippet deploy_service.sh syntax="bash"
+$ kubectl -n istio-io-health apply -f <(istioctl kube-inject -f @samples/health-check/liveness-command.yaml@)
+# $endsnippet
+
+$ kubectl -n istio-io-health rollout status deployment liveness --timeout 60s
+
+# $snippet liveness_check_status.sh syntax="bash" outputis="text"
+$ kubectl -n istio-io-health get pod
+# $verify verifier="lineRegex"
+NAME *READY *STATUS *RESTARTS *AGE
+liveness-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0 ?
+# $endsnippet
+
+# $snippet delete_liveness_service.sh syntax="bash"
+$ kubectl -n istio-io-health delete -f <(istioctl kube-inject -f @samples/health-check/liveness-command.yaml@)
+# $endsnippet

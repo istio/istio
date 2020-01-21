@@ -75,6 +75,7 @@ var (
 		annotation.SidecarStatsInclusionRegexps.Name:              alwaysValidFunc,
 		annotation.SidecarUserVolume.Name:                         alwaysValidFunc,
 		annotation.SidecarUserVolumeMount.Name:                    alwaysValidFunc,
+		annotation.SidecarEnableCoreDump.Name:                     validateBool,
 		annotation.SidecarStatusPort.Name:                         validateStatusPort,
 		annotation.SidecarStatusReadinessInitialDelaySeconds.Name: validateUInt32,
 		annotation.SidecarStatusReadinessPeriodSeconds.Name:       validateUInt32,
@@ -206,6 +207,7 @@ type Params struct {
 	Privileged                   bool                   `json:"privileged"`
 	SDSEnabled                   bool                   `json:"sdsEnabled"`
 	PodDNSSearchNamespaces       []string               `json:"podDNSSearchNamespaces"`
+	EnableCni                    bool                   `json:"enablecni"`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
@@ -242,6 +244,7 @@ func (p *Params) intoHelmValues() map[string]string {
 		"global.proxy.excludeInboundPorts":           p.ExcludeInboundPorts,
 		"sidecarInjectorWebhook.rewriteAppHTTPProbe": strconv.FormatBool(p.RewriteAppHTTPProbe),
 		"global.podDNSSearchNamespaces":              getHelmValue(p.PodDNSSearchNamespaces),
+		"istio_cni.enabled":                          strconv.FormatBool(p.EnableCni),
 	}
 	return vals
 }
@@ -384,6 +387,12 @@ func validateStatusPort(port string) error {
 // validateUInt32 validates that the given annotation value is a positive integer.
 func validateUInt32(value string) error {
 	_, err := strconv.ParseUint(value, 10, 32)
+	return err
+}
+
+// validateBool validates that the given annotation value is a boolean.
+func validateBool(value string) error {
+	_, err := strconv.ParseBool(value)
 	return err
 }
 
@@ -570,6 +579,17 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"directory":           directory,
 		"contains":            flippedContains,
 		"toLower":             strings.ToLower,
+	}
+
+	// Allows the template to use env variables from istiod.
+	// Istiod will use a custom template, without 'values.yaml', and the pod will have
+	// an optional 'vendor' configmap where additional settings can be defined.
+	funcMap["env"] = func(key string, def string) string {
+		val := os.Getenv(key)
+		if val == "" {
+			return def
+		}
+		return val
 	}
 
 	// Need to use FuncMap and SidecarTemplateData context

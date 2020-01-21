@@ -76,8 +76,11 @@ func TestListenerBuilder(t *testing.T) {
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
+			},
+			ServicePort: s.Ports[0],
 		}
 	}
 	proxy := getDefaultProxy()
@@ -85,7 +88,7 @@ func TestListenerBuilder(t *testing.T) {
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
 	builder := NewListenerBuilder(&proxy)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext).
+	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &proxy, env.PushContext).
 		getListeners()
 
 	// the listener for app
@@ -120,8 +123,11 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
+			},
+			ServicePort: s.Ports[0],
 		}
 	}
 	proxy := getDefaultProxy()
@@ -129,8 +135,8 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
 	builder := NewListenerBuilder(&proxy)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext).
-		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext).
+	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &proxy, env.PushContext).
+		buildVirtualOutboundListener(ldsEnv.configgen, &proxy, env.PushContext).
 		getListeners()
 
 	// app port listener and virtual inbound listener
@@ -166,8 +172,11 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
+			},
+			ServicePort: s.Ports[0],
 		}
 	}
 
@@ -177,9 +186,9 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
 	builder := NewListenerBuilder(&proxy)
-	return builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext).
-		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext).
-		buildVirtualInboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext).
+	return builder.buildSidecarInboundListeners(ldsEnv.configgen, &proxy, env.PushContext).
+		buildVirtualOutboundListener(ldsEnv.configgen, &proxy, env.PushContext).
+		buildVirtualInboundListener(ldsEnv.configgen, &proxy, env.PushContext).
 		getListeners()
 }
 

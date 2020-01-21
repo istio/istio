@@ -22,6 +22,8 @@ import (
 	"path"
 	"path/filepath"
 
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -61,9 +63,8 @@ func (i *operatorComponent) Close() (err error) {
 		// Note: when cleaning up an Istio deployment, ValidatingWebhookConfiguration
 		// and MutatingWebhookConfiguration must be cleaned up. Otherwise, next
 		// Istio deployment in the cluster will be impacted, causing flaky test results.
-		// Clean up ValidatingWebhookConfiguration, if any
-		_ = i.environment.DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName)
-		// Clean up MutatingWebhookConfiguration, if any
+		// Clean up ValidatingWebhookConfiguration and MutatingWebhookConfiguration if they exist
+		_ = i.environment.DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName(i.settings))
 		_ = i.environment.DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
 	}
 	return
@@ -131,9 +132,9 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 		return nil, err
 	}
 
-	icpFile := filepath.Join(workDir, "icp.yaml")
-	if err := ioutil.WriteFile(icpFile, []byte(cfg.IstioControlPlane()), os.ModePerm); err != nil {
-		return nil, fmt.Errorf("failed to write icp: %v", err)
+	iopFile := filepath.Join(workDir, "iop.yaml")
+	if err := ioutil.WriteFile(iopFile, []byte(cfg.IstioOperator()), os.ModePerm); err != nil {
+		return nil, fmt.Errorf("failed to write iop: %v", err)
 	}
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -143,7 +144,7 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 		"manifest", "apply",
 		"--skip-confirmation",
 		"--logtostderr",
-		"-f", icpFile,
+		"-f", iopFile,
 		"--force", // Blocked by https://github.com/istio/istio/issues/19009
 		"--set", "values.global.controlPlaneSecurityEnabled=false",
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
@@ -162,21 +163,31 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 	}
 
 	if !cfg.SkipWaitForValidationWebhook {
+		webhookService := "istio-galley"
+		if cfg.IsIstiodEnabled() {
+			webhookService = "istio-pilot"
+		}
 
-		// Wait for Galley & the validation webhook to come online before continuing
-		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
-			err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
+		// Wait for the validation webhook to come online before continuing.
+		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, webhookService); err != nil {
+			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, webhookService, err)
 			scopes.CI.Info(err.Error())
 			i.Dump()
 			return nil, err
 		}
 
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
-		err = waitForValidationWebhook(env.Accessor)
+		err = waitForValidationWebhook(env.Accessor, cfg)
 		if err != nil {
 			i.Dump()
 			return nil, err
 		}
+	}
+
+	// TODO(https://github.com/istio/istio/issues/19602) use --wait
+	if _, err := env.WaitUntilPodsAreReady(env.NewPodFetch(cfg.SystemNamespace), retry.Timeout(cfg.DeployTimeout)); err != nil {
+		scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
+		return nil, err
 	}
 
 	return i, nil

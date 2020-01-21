@@ -25,6 +25,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/jwt"
+	"istio.io/pkg/env"
 )
 
 const (
@@ -36,6 +38,9 @@ const (
 
 	// SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
 	SDSRootResourceName = "ROOTCA"
+
+	// K8sSAJwtFileName is the token volume mount file name for k8s jwt token.
+	K8sSAJwtFileName = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 	// K8sSATrustworthyJwtFileName is the token volume mount file name for k8s trustworthy jwt token.
 	K8sSATrustworthyJwtFileName = "/var/run/secrets/tokens/istio-token"
@@ -68,34 +73,10 @@ const (
 	AuthnFilterName = "istio_authn"
 )
 
-// MutualTLSMode is the mutule TLS mode specified by authentication policy.
-type MutualTLSMode int
-
-const (
-	// MTLSUnknown is used to indicate the variable hasn't been initialized correctly (with the authentication policy).
-	MTLSUnknown MutualTLSMode = iota
-
-	// MTLSDisable if authentication policy disable mTLS.
-	MTLSDisable
-
-	// MTLSPermissive if authentication policy enable mTLS in permissive mode.
-	MTLSPermissive
-
-	// MTLSStrict if authentication policy enable mTLS in strict mode.
-	MTLSStrict
+var (
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+		"The JWT validation policy. ")
 )
-
-// String converts MutualTLSMode to human readable string for debugging.
-func (mode MutualTLSMode) String() string {
-	// declare an array of strings
-	names := [...]string{
-		"UNKNOWN",
-		"DISABLE",
-		"PERMISSIVE",
-		"STRICT"}
-
-	return names[mode]
-}
 
 // ConstructSdsSecretConfigForGatewayListener constructs SDS secret configuration for ingress gateway.
 func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.SdsSecretConfig {
@@ -147,14 +128,21 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata *model.NodeMetad
 	// If metadata.SdsTokenPath is non-empty, envoy will fetch tokens from metadata.SdsTokenPath.
 	// Otherwise, if useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.12 or higher),
 	// pass it to SDS server to request key/cert.
+	gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
 	if sdsTokenPath := metadata.SdsTokenPath; len(sdsTokenPath) > 0 {
 		log.Debugf("SDS token path is (%v)", sdsTokenPath)
-		gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
 		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(sdsTokenPath, K8sSAJwtTokenHeaderKey)
 	} else {
-		// Use the default token path.
-		gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
-		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey)
+		if JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
+			log.Debug("call credentials uses third-party JWT")
+			gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey)
+		} else if JwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
+			log.Debug("call credentials uses first-party JWT")
+			gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSAJwtFileName, K8sSAJwtTokenHeaderKey)
+		} else {
+			log.Errorf("invalid JWT policy: %v", JwtPolicy.Get())
+			return nil
+		}
 	}
 
 	return &auth.SdsSecretConfig{

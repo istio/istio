@@ -1,0 +1,48 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ClusterRbacConfig
+metadata:
+  name: default
+spec:
+  mode: 'ON_WITH_INCLUSION'
+  inclusion:
+    namespaces: ["default"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: productpage
+  namespace: default
+spec:
+  rules:
+  - services: ["productpage.default.svc.cluster.local"]
+    methods: ["GET"]
+    paths: ["/one"]
+    constraints:
+    - key: "request.headers[x-id]"
+      values: ["id-1"]
+  - services: ["productpage.default.svc.cluster.local"]
+    methods: ["POST"]
+    paths: ["/two"]
+    constraints:
+    - key: "request.headers[x-lang]"
+      values: ["en"]
+  - services: ["reviews.default.svc.cluster.local"]
+    methods: ["PUT"]
+    paths: ["/three"]
+    constraints:
+    - key: "request.headers[x-lang]"
+      values: ["jp"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: binding
+  namespace: default
+spec:
+  subjects:
+  - user: "user"
+    properties:
+      request.headers[env]: "prod"
+  roleRef:
+    kind: ServiceRole
+    name: "productpage"

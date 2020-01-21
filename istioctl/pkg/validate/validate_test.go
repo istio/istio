@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
+	"istio.io/istio/pkg/test/env"
 )
 
 const (
@@ -81,82 +82,82 @@ metadata:
   selfLink: ""`
 	invalidSvcList = `
 apiVersion: v1
-items: 
-  - 
+items:
+  -
     apiVersion: v1
     kind: Service
-    metadata: 
+    metadata:
       name: details
-    spec: 
-      ports: 
-        - 
+    spec:
+      ports:
+        -
           name: details
           port: 9080
-  - 
+  -
     apiVersion: v1
     kind: Service
-    metadata: 
+    metadata:
       name: hello
-    spec: 
-      ports: 
-        - 
+    spec:
+      ports:
+        -
           port: 80
           protocol: TCP
 kind: List
-metadata: 
+metadata:
   resourceVersion: ""`
 	udpService = `
 kind: Service
-metadata: 
+metadata:
   name: hello
-spec: 
-  ports: 
-    - 
+spec:
+  ports:
+    -
       protocol: udp`
 	skippedService = `
 kind: Service
-metadata: 
+metadata:
   name: hello
   namespace: istio-system
-spec: 
-  ports: 
-    - 
+spec:
+  ports:
+    -
       name: http
       port: 9080`
 	validPortNamingSvc = `
 apiVersion: v1
 kind: Service
-metadata: 
+metadata:
   name: hello
-spec: 
-  ports: 
+spec:
+  ports:
     - name: http
       port: 9080`
 	validPortNamingWithSuffixSvc = `
 apiVersion: v1
 kind: Service
-metadata: 
+metadata:
   name: hello
-spec: 
-  ports: 
+spec:
+  ports:
     - name: http-hello
       port: 9080`
 	invalidPortNamingSvc = `
 apiVersion: v1
 kind: Service
-metadata: 
+metadata:
   name: hello
-spec: 
-  ports: 
+spec:
+  ports:
     - name: hello
       port: 9080`
 	portNameMissingSvc = `
 apiVersion: v1
 kind: Service
-metadata: 
+metadata:
   name: hello
-spec: 
-  ports: 
+spec:
+  ports:
   - protocol: TCP`
 	validVirtualService = `
 apiVersion: networking.istio.io/v1alpha3
@@ -242,7 +243,7 @@ metadata:
   name: istio-system`
 	invalidMixerKind = `
 apiVersion: config.istio.io/v1alpha2
-kind: validator
+kind: instance
 metadata:
   name: invalid-kind
 spec:`
@@ -264,7 +265,7 @@ spec:`
 	skippedDeployment = `
 apiVersion: apps/v1
 kind: Deployment
-metadata: 
+metadata:
   name: hello
   namespace: istio-system
 spec: ~`
@@ -277,6 +278,7 @@ func fromYAML(in string) *unstructured.Unstructured {
 	}
 	return &un
 }
+
 func TestValidateResource(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -365,6 +367,21 @@ func TestValidateResource(t *testing.T) {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%q", err == nil, c.valid, err)
 			}
 		})
+	}
+}
+
+func TestValidateFiles(t *testing.T) {
+	files := []string{
+		env.IstioSrc + "/mixer/testdata/config/attributes.yaml",
+		env.IstioSrc + "/mixer/template/metric/template.yaml",
+		env.IstioSrc + "/mixer/test/prometheus/prometheus-nosession.yaml",
+		env.IstioSrc + "/samples/httpbin/policy/keyval-template.yaml",
+		env.IstioSrc + "/samples/bookinfo/policy/mixer-rule-deny-ip-crd.yaml",
+	}
+	istioNamespace := "istio-system"
+	b := bytes.Buffer{}
+	if err := validateFiles(&istioNamespace, files, true, &b); err != nil {
+		t.Fatal(err)
 	}
 }
 

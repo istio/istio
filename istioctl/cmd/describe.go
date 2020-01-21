@@ -39,7 +39,9 @@ import (
 
 	mixerclient "istio.io/api/mixer/v1/config/client"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
 
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	istioctl_kubernetes "istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -51,9 +53,7 @@ import (
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/pkg/log"
 )
 
 type myProtoValue struct {
@@ -726,9 +726,12 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		return nil, err
 	}
 
-	for _, listener := range listeners.DynamicActiveListeners {
-		if filter.Verify(listener.Listener) {
-			sockAddr := listener.Listener.Address.GetSocketAddress()
+	for _, listener := range listeners.DynamicListeners {
+		if listener.ActiveState == nil {
+			continue
+		}
+		if filter.Verify(listener.ActiveState.Listener) {
+			sockAddr := listener.ActiveState.Listener.Address.GetSocketAddress()
 			if sockAddr != nil {
 				// Skip outbound listeners
 				if sockAddr.Address == "0.0.0.0" {
@@ -736,7 +739,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 				}
 			}
 
-			for _, filterChain := range listener.Listener.FilterChains {
+			for _, filterChain := range listener.ActiveState.Listener.FilterChains {
 				for _, filter := range filterChain.Filters {
 					hcm := &http_conn.HttpConnectionManager{}
 					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
@@ -764,12 +767,13 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, po
 		}
 	}
 
-	re := regexp.MustCompile("/apis/networking/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
+	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
+	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
 		return "", "", fmt.Errorf("not a VS path: %s", path)
 	}
-	return ss[2], ss[1], nil
+	return ss[3], ss[2], nil
 }
 
 // getIstioVirtualServicePathForSvcFromRoute returns something like "/apis/networking/v1alpha3/namespaces/default/virtual-service/reviews"
@@ -911,12 +915,13 @@ func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, p
 		return "", "", err
 	}
 
-	re := regexp.MustCompile("/apis/networking/v1alpha3/namespaces/(?P<namespace>[^/]+)/destination-rule/(?P<name>[^/]+)")
+	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
+	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/destination-rule/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
 		return "", "", fmt.Errorf("not a DR path: %s", path)
 	}
-	return ss[2], ss[1], nil
+	return ss[3], ss[2], nil
 }
 
 // getIstioDestinationRulePathForSvc returns something like "/apis/networking/v1alpha3/namespaces/default/destination-rule/reviews"
@@ -1071,9 +1076,12 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 	}
 
 	// VirtualServices for TCP may appear in the listeners
-	for _, listener := range listeners.DynamicActiveListeners {
-		if filter.Verify(listener.Listener) {
-			for _, filterChain := range listener.Listener.FilterChains {
+	for _, listener := range listeners.DynamicListeners {
+		if listener.ActiveState == nil {
+			continue
+		}
+		if filter.Verify(listener.ActiveState.Listener) {
+			for _, filterChain := range listener.ActiveState.Listener.FilterChains {
 				for _, filter := range filterChain.Filters {
 					if filter.Name == "mixer" {
 						// nolint: staticcheck
@@ -1135,7 +1143,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			var dr *model.Config
 			if err == nil && drName != "" && drNamespace != "" {
-				dr = configClient.Get(schemas.DestinationRule.Type, drName, drNamespace)
+				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), drName, drNamespace)
 				if dr != nil {
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
 				}
@@ -1143,7 +1151,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs := configClient.Get(schemas.VirtualService.Type, vsName, vsNamespace)
+				vs := configClient.Get(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(), vsName, vsNamespace)
 				if vs != nil {
 					if row == 0 {
 						fmt.Fprintf(writer, "\n")
@@ -1368,7 +1376,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			var dr *model.Config
 			if err == nil && drName != "" && drNamespace != "" {
-				dr = configClient.Get(schemas.DestinationRule.Type, drName, drNamespace)
+				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), drName, drNamespace)
 				if dr != nil {
 					if len(svc.Spec.Ports) > 1 {
 						// If there is more than one port, prefix each DR by the port it applies to
@@ -1387,7 +1395,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs := configClient.Get(schemas.VirtualService.Type, vsName, vsNamespace)
+				vs := configClient.Get(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(), vsName, vsNamespace)
 				if vs != nil {
 					if len(svc.Spec.Ports) > 1 {
 						// If there is more than one port, prefix each DR by the port it applies to

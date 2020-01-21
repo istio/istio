@@ -144,7 +144,8 @@ func TestHandler_Close(t *testing.T) {
 	}
 
 	b.Lock()
-	if got, want := len(b.controllers), 0; got != want {
+	// should always have the local controller
+	if got, want := len(b.controllers), 1; got != want {
 		t.Errorf("Got %d controllers, want %d", got, want)
 	}
 	b.Unlock()
@@ -418,6 +419,27 @@ func TestKubegen_Generate(t *testing.T) {
 	ipToDeploymentConfigOut.SetDestinationWorkloadNamespace("testns")
 	ipToDeploymentConfigOut.SetDestinationWorkloadUid("istio://testns/workloads/test-deploymentconfig")
 
+	podNameWithDotIn := &kubernetes_apa_tmpl.Instance{
+		SourceUid:      "pod-with-dot.in-name.testns",
+		DestinationUid: "alt-pod-with-dot.in-name.testns",
+	}
+
+	podNameWithDotOut := kubernetes_apa_tmpl.NewOutput()
+	podNameWithDotOut.SetSourcePodName("pod-with-dot.in-name")
+	podNameWithDotOut.SetSourceNamespace("testns")
+	podNameWithDotOut.SetSourcePodUid("kubernetes://pod-with-dot.in-name.testns")
+	podNameWithDotOut.SetSourceLabels(map[string]string{"app": "some-app"})
+	podNameWithDotOut.SetSourceWorkloadName("pod-with-dot.in-name")
+	podNameWithDotOut.SetSourceWorkloadNamespace("testns")
+	podNameWithDotOut.SetSourceWorkloadUid("istio://testns/workloads/pod-with-dot.in-name")
+	podNameWithDotOut.SetDestinationPodName("alt-pod-with-dot.in-name")
+	podNameWithDotOut.SetDestinationNamespace("testns")
+	podNameWithDotOut.SetDestinationPodUid("kubernetes://alt-pod-with-dot.in-name.testns")
+	podNameWithDotOut.SetDestinationLabels(map[string]string{"app": "some-app"})
+	podNameWithDotOut.SetDestinationWorkloadName("alt-pod-with-dot.in-name")
+	podNameWithDotOut.SetDestinationWorkloadNamespace("testns")
+	podNameWithDotOut.SetDestinationWorkloadUid("istio://testns/workloads/alt-pod-with-dot.in-name")
+
 	tests := []struct {
 		name   string
 		inputs *kubernetes_apa_tmpl.Instance
@@ -434,6 +456,7 @@ func TestKubegen_Generate(t *testing.T) {
 		{"not-k8s", notKubernetesIn, kubernetes_apa_tmpl.NewOutput(), conf},
 		{"ip-svc-pod to pod-with-container", containerNameIn, containerNameOut, conf},
 		{"ip-svc-pod to deploymentconfig", ipToDeploymentConfigIn, ipToDeploymentConfigOut, conf},
+		{"pod-with-dot.in-name to alt-pod-with-dot.in-name", podNameWithDotIn, podNameWithDotOut, conf},
 	}
 
 	for _, v := range tests {
@@ -739,6 +762,20 @@ var k8sobjs = []runtime.Object{
 	&v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "no-controller-pod",
+			Namespace: "testns",
+			Labels:    map[string]string{"app": "some-app"},
+		},
+	},
+	&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-with-dot.in-name",
+			Namespace: "testns",
+			Labels:    map[string]string{"app": "some-app"},
+		},
+	},
+	&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "alt-pod-with-dot.in-name",
 			Namespace: "testns",
 			Labels:    map[string]string{"app": "some-app"},
 		},

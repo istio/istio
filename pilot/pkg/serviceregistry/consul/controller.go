@@ -144,7 +144,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, port int,
 	if serviceInstances, ok := c.serviceInstances[name]; ok {
 		var instances []*model.ServiceInstance
 		for _, instance := range serviceInstances {
-			if labels.HasSubsetOf(instance.Labels) && portMatch(instance, port) {
+			if labels.HasSubsetOf(instance.Endpoint.Labels) && portMatch(instance, port) {
 				instances = append(instances, instance)
 			}
 		}
@@ -156,7 +156,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, port int,
 
 // returns true if an instance's port matches with any in the provided list
 func portMatch(instance *model.ServiceInstance, port int) bool {
-	return port == 0 || port == instance.Endpoint.ServicePort.Port
+	return port == 0 || port == instance.ServicePort.Port
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
@@ -203,7 +203,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 			if len(proxy.IPAddresses) > 0 {
 				for _, ipAddress := range proxy.IPAddresses {
 					if ipAddress == addr {
-						out = append(out, instance.Labels)
+						out = append(out, instance.Endpoint.Labels)
 						break
 					}
 				}

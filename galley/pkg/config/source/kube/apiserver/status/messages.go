@@ -38,7 +38,7 @@ func NewMessageSet() Messages {
 
 // Add a new message for a given origin.
 func (m *Messages) Add(origin *rt.Origin, msg diag.Message) {
-	k := key{col: origin.Collection, res: origin.Name}
+	k := key{col: origin.Collection, res: origin.FullName}
 	e := m.entries[k]
 	e.origin = origin
 	e.messages = append(e.messages, msg)

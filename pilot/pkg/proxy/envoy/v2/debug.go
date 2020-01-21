@@ -23,6 +23,9 @@ import (
 	"net/http/pprof"
 	"sort"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/pkg/kube/inject"
+
 	"istio.io/istio/pilot/pkg/features"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
@@ -31,11 +34,11 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
@@ -90,7 +93,7 @@ const (
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, webhook *inject.Webhook) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[host.Name]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
@@ -100,7 +103,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	sctl.AddRegistry(serviceregistry.Simple{
 		ClusterID:        "v2-debug",
-		ProviderID:       serviceregistry.ProviderID("memAdapter"),
+		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.controller,
 	})
@@ -114,7 +117,6 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	}
 
 	mux.HandleFunc("/debug", s.Debug)
-	mux.HandleFunc("/ready", s.ready)
 
 	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
 	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
@@ -129,10 +131,12 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
 
-	s.addDebugHandler(mux, "/debug/authenticationz", "Dumpts the authn tls-check info", s.Authenticationz)
+	s.addDebugHandler(mux, "/debug/authenticationz", "Dumps the authn tls-check info", s.Authenticationz)
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
 	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+
+	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
@@ -240,8 +244,8 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 				}
 				for _, svc := range all {
 					_, _ = fmt.Fprintf(w, "%s:%s %v %s:%d %v %s\n", ss.Hostname,
-						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.ServiceAccount)
+						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.EndpointPort, svc.Endpoint.Labels,
+						svc.Endpoint.ServiceAccount)
 				}
 			}
 		}
@@ -351,18 +355,26 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	_, _ = fmt.Fprintf(w, "\n[\n")
-	for _, typ := range s.Env.IstioConfigStore.ConfigDescriptor() {
-		cfg, _ := s.Env.IstioConfigStore.List(typ.Type, "")
+
+	var err error
+	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
+		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
-			b, err := json.MarshalIndent(c, "  ", "  ")
+			var b []byte
+			b, err = json.MarshalIndent(c, "  ", "  ")
 			if err != nil {
-				return
+				// We're done.
+				return true
 			}
 			_, _ = w.Write(b)
 			_, _ = fmt.Fprint(w, ",\n")
 		}
+		return false
+	})
+
+	if err == nil {
+		_, _ = fmt.Fprint(w, "\n{}]")
 	}
-	_, _ = fmt.Fprint(w, "\n{}]")
 }
 
 // collectTLSSettingsForPort returns TLSSettings for the given port, key by subset name (the service-level settings
@@ -441,8 +453,9 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		}
 		mostRecentProxy = connections[mostRecent].node
 		svc, _ := s.Env.ServiceDiscovery.Services()
-		autoMTLSEnabled := s.Env.Mesh.GetEnableAutoMtls() != nil && s.Env.Mesh.GetEnableAutoMtls().Value
-		info := []*AuthenticationDebug{}
+		meshConfig := s.Env.Mesh()
+		autoMTLSEnabled := meshConfig.GetEnableAutoMtls() != nil && meshConfig.GetEnableAutoMtls().Value
+		info := make([]*AuthenticationDebug, 0)
 		for _, ss := range svc {
 			if ss.MeshExternal {
 				// Skip external services
@@ -502,7 +515,7 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 		destinationRuleName = configName(&destConfig.ConfigMeta)
 	}
 
-	output := []*AuthenticationDebug{}
+	output := make([]*AuthenticationDebug, 0)
 
 	clientTLSModes := collectTLSSettingsForPort(rule, port)
 	var subsets []string
@@ -535,7 +548,7 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 // - "AUTO": auto mTLS feature is enabled, client TLS (destination rule) is not set and pilot can auto detect client (m)TLS settings.
 // - "OK": both client and server TLS settings are set correctly.
 // - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
-func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
+func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode model.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
 	const autoState string = "AUTO"
@@ -549,9 +562,9 @@ func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, 
 		return okState
 	}
 
-	if (serverMode == authn_model.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
-		(serverMode == authn_model.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
-		(serverMode == authn_model.MTLSPermissive &&
+	if (serverMode == model.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
+		(serverMode == model.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
+		(serverMode == model.MTLSPermissive &&
 			(clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL || clientMode.GetMode() == networking.TLSSettings_DISABLE)) {
 		return okState
 	}
@@ -615,7 +628,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
-	dynamicActiveClusters := []*adminapi.ClustersConfigDump_DynamicCluster{}
+	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
 	clusters := s.generateRawClusters(conn.node, s.globalPushContext())
 
 	for _, cs := range clusters {
@@ -629,14 +642,15 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		return nil, err
 	}
 
-	dynamicActiveListeners := []*adminapi.ListenersConfigDump_DynamicListener{}
+	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	listeners := s.generateRawListeners(conn, s.globalPushContext())
 	for _, cs := range listeners {
-		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
+			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: cs}})
 	}
 	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
-		VersionInfo:            versionInfo(),
-		DynamicActiveListeners: dynamicActiveListeners,
+		VersionInfo:      versionInfo(),
+		DynamicListeners: dynamicActiveListeners,
 	})
 	if err != nil {
 		return nil, err
@@ -645,7 +659,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	routes := s.generateRawRoutes(conn, s.globalPushContext())
 	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
-		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
 		for _, rs := range routes {
 			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
@@ -660,6 +674,22 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
 	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
 	return configDump, nil
+}
+
+// InjectTemplateHandler dumps the injection template
+// Replaces dumping the template at startup.
+func (s *DiscoveryServer) InjectTemplateHandler(webhook *inject.Webhook) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		// TODO: we should split the inject template into smaller modules (separate one for dump core, etc),
+		// and allow pods to select which patches will be selected. When this happen, this should return
+		// all inject templates or take a param to select one.
+		if webhook == nil {
+			w.WriteHeader(404)
+			return
+		}
+
+		_, _ = w.Write([]byte(webhook.Config.Template))
+	}
 }
 
 // PushStatusHandler dumps the last PushContext
@@ -706,10 +736,6 @@ func writeAllADS(w io.Writer) {
 	_, _ = fmt.Fprint(w, "]\n")
 }
 
-func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
-	w.WriteHeader(200)
-}
-
 // lists all the supported debug endpoints.
 func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 	type debugEndpoint struct {
@@ -747,11 +773,48 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
 	}
+	var con *XdsConnection
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		adsClientsMutex.RLock()
+		defer adsClientsMutex.RUnlock()
+		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		if !ok || len(connections) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
+			return
+		}
+
+		mostRecent := ""
+		for key := range connections {
+			if mostRecent == "" || key > mostRecent {
+				mostRecent = key
+			}
+		}
+		con = connections[mostRecent]
+	}
 
 	edsClusterMutex.RLock()
 	defer edsClusterMutex.RUnlock()
 	comma := false
-	if len(edsClusters) > 0 {
+	if con != nil {
+		_, _ = fmt.Fprintln(w, "[")
+		for _, clusterName := range con.Clusters {
+			if comma {
+				_, _ = fmt.Fprint(w, ",\n")
+			} else {
+				comma = true
+			}
+			cla := s.generateEndpoints(clusterName, con.node, s.globalPushContext(), nil)
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(cla)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+		}
+		_, _ = fmt.Fprintln(w, "]")
+	} else if len(edsClusters) > 0 {
 		_, _ = fmt.Fprintln(w, "[")
 		for cluster := range edsClusters {
 			if comma {

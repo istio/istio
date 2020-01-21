@@ -55,7 +55,9 @@ func fullPermission(tag string) Permission {
 		NotPorts:   []string{"2"},
 		Constraints: []KeyValues{
 			{
-				"constraint-" + tag: []string{"value1-" + tag, "value2-" + tag},
+				"constraint-" + tag: Values{
+					Values: []string{"value1-" + tag, "value2-" + tag},
+				},
 			},
 		},
 	}
@@ -75,7 +77,9 @@ func fullPrincipal(tag string) Principal {
 		NotIPs:        []string{"not-ips-" + tag},
 		Properties: []KeyValues{
 			{
-				"property-" + tag: []string{"value-" + tag},
+				"property-" + tag: Values{
+					Values: []string{"value-" + tag},
+				},
 			},
 		},
 	}
@@ -125,6 +129,10 @@ func newCondition(key string) *security.Condition {
 		Values: []string{
 			fmt.Sprintf("value-%s-1", key),
 			fmt.Sprintf("value-%s-2", key),
+		},
+		NotValues: []string{
+			fmt.Sprintf("not-value-%s-1", key),
+			fmt.Sprintf("not-value-%s-2", key),
 		},
 	}
 }

@@ -15,6 +15,7 @@
 package client_test
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -182,7 +183,7 @@ func TestGateway(t *testing.T) {
 
 	snapshots := cache.NewSnapshotCache(true, mock{}, nil)
 	_ = snapshots.SetSnapshot(id, makeSnapshot(s, t))
-	server := xds.NewServer(snapshots, nil)
+	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	go func() {
 		_ = grpcServer.Serve(lis)
@@ -260,23 +261,20 @@ var (
 			UID:       "istio://ns3/services/svc",
 		},
 	}
-	mesh = &model.Environment{
-		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer:  "mixer_server:9091",
-			MixerReportServer: "mixer_server:9091",
-		},
-		ServiceDiscovery: mock{},
-	}
 	pushContext = model.PushContext{
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
 			host.Name("svc.ns3"): {
 				"ns3": &svc,
 			},
 		},
+		Mesh: &meshconfig.MeshConfig{
+			MixerCheckServer:  "mixer_server:9091",
+			MixerReportServer: "mixer_server:9091",
+		},
+		ServiceDiscovery: mock{},
 	}
 	clientParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
-		Env:              mesh,
 		Node: &model.Proxy{
 			ID:       "pod.ns",
 			Type:     model.Router,
@@ -339,8 +337,8 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 
 	p.OnOutboundRouteConfiguration(&clientParams, clientRoute)
 
-	return cache.Snapshot{
-		Routes:    cache.NewResources("http", []cache.Resource{clientRoute}),
-		Listeners: cache.NewResources("http", []cache.Resource{clientListener}),
-	}
+	snapshot := cache.Snapshot{}
+	snapshot.Resources[cache.Route] = cache.NewResources("http", []cache.Resource{clientRoute})
+	snapshot.Resources[cache.Listener] = cache.NewResources("http", []cache.Resource{clientListener})
+	return snapshot
 }

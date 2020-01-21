@@ -17,8 +17,6 @@
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
-ROOTDIR=$(cd "$(dirname "$0")"/..; pwd)
-
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -103,6 +101,33 @@ function download_envoy_if_necessary () {
     # Make a copy named just "envoy" in the same directory (overwrite if necessary).
     echo "Copying $2 to $(dirname "$2")/envoy"
     cp -f "$2" "$(dirname "$2")/envoy"
+    popd
+  fi
+}
+
+# Downloads WebAssembly based plugin if it doesn't already exist.
+# Params:
+#   $1: The URL of the WebAssembly file to be downloaded.
+#   $2: The full path of the output file.
+function download_wasm_if_necessary () {
+  download_file_dir="$(dirname "$2")"
+  download_file_name="$(basename "$1")"
+  download_file_path="${download_file_dir}/${download_file_name}"
+  if [[ ! -f "${download_file_path}" ]] ; then
+    # Enter the output directory.
+    mkdir -p "${download_file_dir}"
+    pushd "${download_file_dir}"
+
+    # Download the WebAssembly plugin files to the output directory.
+    echo "Downloading WebAssembly file: ${DOWNLOAD_COMMAND} $1 to ${download_file_path}"
+    if [[ ${DOWNLOAD_COMMAND} == curl* ]]; then
+      time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -o "${download_file_name}"
+    elif [[ ${DOWNLOAD_COMMAND} == wget* ]]; then
+      time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -O "${download_file_name}"
+    fi
+
+    # Copy the webassembly file to the output location
+    cp "${download_file_path}" "$2"
     popd
   fi
 }
@@ -198,6 +223,17 @@ else
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
 
+# Donwload WebAssembly plugin files
+WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}
+if [[ "$LOCAL_OS" == "Darwin" ]]; then
+  WASM_RELEASE_DIR=${ISTIO_ENVOY_MACOS_RELEASE_DIR}
+fi
+for plugin in stats metadata_exchange
+do
+  FILTER_WASM_URL="${ISTIO_ENVOY_BASE_URL}/${plugin}-${ISTIO_ENVOY_VERSION}.wasm"
+  download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.wasm
+done
+
 # Copy native envoy binary to ISTIO_OUT
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/envoy"
 cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/envoy"
@@ -207,5 +243,3 @@ cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/envoy"
 # Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
 echo "Copying ${ISTIO_OUT}/envoy to ${ISTIO_BIN}/envoy"
 cp -f "${ISTIO_OUT}/envoy" "${ISTIO_BIN}/envoy"
-
-"${ROOTDIR}/bin/init_helm.sh"

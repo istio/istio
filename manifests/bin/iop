@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+
+# Example script to install - will be replaced by operator or other tools, used for testing and as sample.
+
+set -x
+
+BASE=${BASE:-`pwd`}
+OUT=${OUT:-$BASE/out}
+
+#
+# Params:
+# - namespace
+# - release name (helm and kubectl)
+# - config template dir
+# - [-t] - show template
+#
+# Env: IOP_MODE=helm - use helm instead of kubectl
+# Defaults to kubectl apply --prune
+#
+# Namespace will be labeled with the value of ISTIO_ENV (default to istio-control)
+function iop() {
+    local ns=$1
+    shift
+    local rel=$1
+    shift
+    local tmpl=$1
+    shift
+
+    # Global settings - base is expected to be set to a directory including them
+    local cfg="-f $BASE/global.yaml"
+
+    # User overrides
+    if [ -f $HOME/.istio-values.yaml ]; then
+        cfg="$cfg -f $HOME/.istio-values.yaml"
+    fi
+
+    if [ "$HUB" != "" ] ; then
+        cfg="$cfg --set global.hub=$HUB"
+    fi
+    if [ "$TAG" != "" ] ; then
+        cfg="$cfg --set global.tag=$TAG"
+    fi
+
+    if [ "$1" == "-t" ]; then
+        shift
+        render_kube_yaml $ns $rel $tmpl $*
+    elif [ "$1" == "-d" ]; then
+        shift
+        kubectl delete --namespace $ns -l release=$ns-$rel $*
+    elif [ "$IOP_MODE" == "helm" ] ; then
+        echo helm upgrade --wait -i $n $cfg $*
+        helm upgrade --namespace $ns --wait -i $rel $tmpl $cfg $*
+    else
+        # The 'release' tag is used to group related configs.
+        # Apply will make sure that any old config with the same tag that is no longer present will
+        # be removed. The release MUST be unique across cluster.
+        kubectl create  ns $ns > /dev/null  2>&1
+        #set label 'name' to namespace which is required if enableNamespacesByDefault is true.
+        kubectl label namespace $ns name=$ns --overwrite
+
+        if [ "$ISTIO_ENV" != "" ]; then
+            kubectl label namespace $ns istio-env=$ISTIO_ENV --overwrite
+        fi
+
+        render_kube_yaml $ns $rel $tmpl $* | kubectl apply -n $ns --prune -l release=$ns-$rel -f -
+    fi
+}
+
+# The output of template and kustomize will be saved under $OUT/$NS/$NAME
+function render_kube_yaml() {
+    local ns=$1
+    shift
+    local rel=$1
+    shift
+    local tmpl=$1
+    shift
+
+    if [ -f ${BASE}/kustomize/$ns/$rel/kustomization.yaml ]; then
+            mkdir -p $OUT/$ns/$rel/ > /dev/null
+            helm template --namespace $ns --name-template $ns-$rel $tmpl $cfg $* > $OUT/$ns/$rel/k8s.yaml
+            cp ${BASE}/kustomize/$ns/$rel/* $OUT/$ns/$rel/ > /dev/null
+            kustomize build $OUT/$ns/$rel
+        else
+            helm template --namespace $ns --name-template $ns-$rel $tmpl $cfg $*
+        fi
+}
+
+if [ "$1" == "" ] ; then
+    echo "iop NAMESPACE COMPONENT CONFIGDIR [-t|-d] [HELM_TEMPLATE_OPTIONS]"
+    echo ""
+    echo "-d: delete the component"
+    echo "-t: show the config to be applied"
+    echo ""
+    echo "Env:"
+    echo "  IOP_MODE=helm to install with tiller (not recommended)"
+    echo "  HUB, TAG to select a specific hub and tag for istio images"
+    echo "  ISTIO_ENV if set, the namespace will be labeled with ISTIO_ENV"
+    echo "  $HOME/.istio-values.yaml for user specific settings. You can add more options via --set or -f"
+    echo ""
+    exit 1
+fi
+
+IBASE=${IBASE:-`pwd`}
+
+iop $*

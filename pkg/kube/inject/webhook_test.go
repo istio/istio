@@ -848,7 +848,7 @@ func createTestWebhook(t testing.TB, configYaml string) (*Webhook, func()) {
 		t.Fatalf("failed to read webhook config: %v", err)
 	}
 	return &Webhook{
-		sidecarConfig:          config,
+		Config:                 config,
 		sidecarTemplateVersion: "unit-test-fake-version",
 		meshConfig:             &m,
 		valuesConfig:           getValuesWithHelm(nil, t),

@@ -17,7 +17,7 @@ package apiserver
 import (
 	"time"
 
-	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 )
@@ -29,7 +29,7 @@ type Options struct {
 
 	ResyncPeriod time.Duration
 
-	Resources schema.KubeResources
+	Schemas collection.Schemas
 
 	StatusController status.Controller
 

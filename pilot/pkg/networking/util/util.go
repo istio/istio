@@ -36,13 +36,13 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/strcase"
 )
 
 const (
@@ -76,11 +76,11 @@ const (
 
 	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
 	// endpoint level plantext transport socket configuration
-	EnvoyRawBufferSocketName = "raw_buffer"
+	EnvoyRawBufferSocketName = "envoy.transport_sockets.raw_buffer"
 
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
-	EnvoyTLSSocketName = "tls"
+	EnvoyTLSSocketName = "envoy.transport_sockets.tls"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -171,11 +171,11 @@ func BuildAddress(bind string, port uint32) *core.Address {
 	}
 }
 
-// GetNetworkEndpointAddress returns an Envoy v2 API `Address` that represents this NetworkEndpoint
-func GetNetworkEndpointAddress(n *model.NetworkEndpoint) *core.Address {
+// GetEndpointAddress returns an Envoy v2 API `Address` that represents this IstioEndpoint
+func GetEndpointAddress(n *model.IstioEndpoint) *core.Address {
 	switch n.Family {
 	case model.AddressFamilyTCP:
-		return BuildAddress(n.Address, uint32(n.Port))
+		return BuildAddress(n.Address, n.EndpointPort)
 	case model.AddressFamilyUnix:
 		return &core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: n.Address}}}
 	default:
@@ -252,11 +252,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE12 checks whether the given Istio version is greater than or equals 1.2.
-func IsIstioVersionGE12(node *model.Proxy) bool {
-	return node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 2, Patch: -1}) >= 0
-}
-
 // IsIstioVersionGE13 checks whether the given Istio version is greater than or equals 1.3.
 func IsIstioVersionGE13(node *model.Proxy) bool {
 	return node.IstioVersion == nil ||
@@ -295,35 +290,10 @@ func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Por
 	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
 }
 
-// ResolveHostsInNetworksConfig will go through the Gateways addresses for all
-// networks in the config and if it's not an IP address it will try to lookup
-// that hostname and replace it with the IP address in the config
-func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
-	if config == nil {
-		return
-	}
-	for _, n := range config.Networks {
-		for _, gw := range n.Gateways {
-			gwIP := net.ParseIP(gw.GetAddress())
-			if gwIP == nil {
-				addrs, err := net.LookupHost(gw.GetAddress())
-				if err != nil {
-					log.Warnf("error resolving host %#v: %v", gw.GetAddress(), err)
-				}
-				if err == nil && len(addrs) > 0 {
-					gw.Gw = &meshconfig.Network_IstioNetworkGateway_Address{
-						Address: addrs[0],
-					}
-				}
-			}
-		}
-	}
-}
-
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
 	if locality == "" {
-		return nil
+		return &core.Locality{}
 	}
 
 	region, zone, subzone := SplitLocality(locality)
@@ -448,7 +418,8 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 				Fields: map[string]*pstruct.Value{
 					"config": {
 						Kind: &pstruct.Value_StringValue{
-							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace, config.Type, config.Name),
+							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace,
+								strcase.CamelCaseToKebabCase(config.Type), config.Name),
 						},
 					},
 				},
@@ -527,7 +498,12 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(uid string, network string, tlsMode string) *core.Metadata {
+func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *model.PushContext) *core.Metadata {
+	if !push.IsMixerEnabled() {
+		// Only use UIDs when Mixer is enabled.
+		uid = ""
+	}
+
 	if uid == "" && network == "" && tlsMode == model.DisabledTLSModeLabel {
 		return nil
 	}

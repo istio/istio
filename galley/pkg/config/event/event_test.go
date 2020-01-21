@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package event
+package event_test
 
 import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/testing/data"
 
 	. "github.com/onsi/gomega"
 
@@ -27,40 +29,40 @@ import (
 )
 
 func TestEvent_String(t *testing.T) {
-	e := resource.Entry{
+	e := resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("ns1", "rs1"),
-			Version: "v1",
+			FullName: resource.NewFullName("ns1", "rs1"),
+			Version:  "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	tests := []struct {
-		i   Event
+		i   event.Event
 		exp string
 	}{
 		{
-			i:   Event{},
+			i:   event.Event{},
 			exp: "[Event](None)",
 		},
 		{
-			i:   Event{Kind: Added, Entry: &e},
+			i:   event.Event{Kind: event.Added, Resource: &e},
 			exp: "[Event](Added: /ns1/rs1)",
 		},
 		{
-			i:   Event{Kind: Updated, Entry: &e},
+			i:   event.Event{Kind: event.Updated, Resource: &e},
 			exp: "[Event](Updated: /ns1/rs1)",
 		},
 		{
-			i:   Event{Kind: Deleted, Entry: &e},
+			i:   event.Event{Kind: event.Deleted, Resource: &e},
 			exp: "[Event](Deleted: /ns1/rs1)",
 		},
 		{
-			i:   Event{Kind: FullSync, Source: collection.NewName("foo")},
+			i:   event.Event{Kind: event.FullSync, Source: data.Foo},
 			exp: "[Event](FullSync: foo)",
 		},
 		{
-			i:   Event{Kind: Kind(99), Source: collection.NewName("foo")},
+			i:   event.Event{Kind: event.Kind(99), Source: data.Foo},
 			exp: "[Event](<<Unknown Kind 99>>)",
 		},
 	}
@@ -75,40 +77,40 @@ func TestEvent_String(t *testing.T) {
 }
 
 func TestEvent_DetailedString(t *testing.T) {
-	e := resource.Entry{
+	e := resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("ns1", "rs1"),
-			Version: "v1",
+			FullName: resource.NewFullName("ns1", "rs1"),
+			Version:  "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	tests := []struct {
-		i      Event
+		i      event.Event
 		prefix string
 	}{
 		{
-			i:      Event{},
+			i:      event.Event{},
 			prefix: "[Event](None",
 		},
 		{
-			i:      Event{Kind: Added, Entry: &e},
+			i:      event.Event{Kind: event.Added, Resource: &e},
 			prefix: "[Event](Added: /ns1/rs1",
 		},
 		{
-			i:      Event{Kind: Updated, Entry: &e},
+			i:      event.Event{Kind: event.Updated, Resource: &e},
 			prefix: "[Event](Updated: /ns1/rs1",
 		},
 		{
-			i:      Event{Kind: Deleted, Entry: &e},
+			i:      event.Event{Kind: event.Deleted, Resource: &e},
 			prefix: "[Event](Deleted: /ns1/rs1",
 		},
 		{
-			i:      Event{Kind: FullSync, Source: collection.NewName("foo")},
+			i:      event.Event{Kind: event.FullSync, Source: data.Foo},
 			prefix: "[Event](FullSync: foo",
 		},
 		{
-			i:      Event{Kind: Kind(99), Source: collection.NewName("foo")},
+			i:      event.Event{Kind: event.Kind(99), Source: data.Foo},
 			prefix: "[Event](<<Unknown Kind 99>>",
 		},
 	}
@@ -127,18 +129,18 @@ func TestEvent_DetailedString(t *testing.T) {
 func TestEvent_Clone(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	r := resource.Entry{
+	r := resource.Instance{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns1", "rs1"),
+			FullName: resource.NewFullName("ns1", "rs1"),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
 			Version: "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
-	e := Event{Kind: Added, Source: collection.NewName("boo"), Entry: &r}
+	e := event.Event{Kind: event.Added, Source: data.Boo, Resource: &r}
 
 	g.Expect(e.Clone()).To(Equal(e))
 }
@@ -146,11 +148,11 @@ func TestEvent_Clone(t *testing.T) {
 func TestEvent_FullSyncFor(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	e := FullSyncFor(collection.NewName("boo"))
+	e := event.FullSyncFor(data.Boo)
 
-	expected := Event{
-		Kind:   FullSync,
-		Source: collection.NewName("boo"),
+	expected := event.Event{
+		Kind:   event.FullSync,
+		Source: data.Boo,
 	}
 	g.Expect(e).To(Equal(expected))
 }
@@ -158,23 +160,23 @@ func TestEvent_FullSyncFor(t *testing.T) {
 func TestEvent_AddFor(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	r := resource.Entry{
+	r := resource.Instance{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns1", "rs1"),
+			FullName: resource.NewFullName("ns1", "rs1"),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
 			Version: "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
-	e := AddFor(collection.NewName("boo"), &r)
+	e := event.AddFor(data.Boo, &r)
 
-	expected := Event{
-		Kind:   Added,
-		Source: collection.NewName("boo"),
-		Entry:  &r,
+	expected := event.Event{
+		Kind:     event.Added,
+		Source:   data.Boo,
+		Resource: &r,
 	}
 	g.Expect(e).To(Equal(expected))
 }
@@ -182,23 +184,23 @@ func TestEvent_AddFor(t *testing.T) {
 func TestEvent_UpdateFor(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	r := resource.Entry{
+	r := resource.Instance{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns1", "rs1"),
+			FullName: resource.NewFullName("ns1", "rs1"),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
 			Version: "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
-	e := UpdateFor(collection.NewName("boo"), &r)
+	e := event.UpdateFor(data.Boo, &r)
 
-	expected := Event{
-		Kind:   Updated,
-		Source: collection.NewName("boo"),
-		Entry:  &r,
+	expected := event.Event{
+		Kind:     event.Updated,
+		Source:   data.Boo,
+		Resource: &r,
 	}
 	g.Expect(e).To(Equal(expected))
 }
@@ -206,17 +208,17 @@ func TestEvent_UpdateFor(t *testing.T) {
 func TestEvent_DeleteFor(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	n := resource.NewName("ns1", "rs1")
+	n := resource.NewFullName("ns1", "rs1")
 	v := resource.Version("v1")
-	e := DeleteFor(collection.NewName("boo"), n, v)
+	e := event.DeleteFor(data.Boo, n, v)
 
-	expected := Event{
-		Kind:   Deleted,
-		Source: collection.NewName("boo"),
-		Entry: &resource.Entry{
+	expected := event.Event{
+		Kind:   event.Deleted,
+		Source: data.Boo,
+		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
-				Name:    n,
-				Version: v,
+				FullName: n,
+				Version:  v,
 			},
 		},
 	}
@@ -226,68 +228,68 @@ func TestEvent_DeleteFor(t *testing.T) {
 func TestEvent_UpdateForResource(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	r := resource.Entry{
+	r := resource.Instance{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns1", "rs1"),
+			FullName: resource.NewFullName("ns1", "rs1"),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
 			Version: "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
-	e := DeleteForResource(collection.NewName("boo"), &r)
+	e := event.DeleteForResource(data.Boo, &r)
 
-	expected := Event{
-		Kind:   Deleted,
-		Source: collection.NewName("boo"),
-		Entry:  &r,
+	expected := event.Event{
+		Kind:     event.Deleted,
+		Source:   data.Boo,
+		Resource: &r,
 	}
 	g.Expect(e).To(Equal(expected))
 }
 
 func TestEvent_IsSource(t *testing.T) {
 	g := NewGomegaWithT(t)
-	e := Event{
-		Kind:   Deleted,
-		Source: collection.NewName("boo"),
+	e := event.Event{
+		Kind:   event.Deleted,
+		Source: data.Boo,
 	}
-	g.Expect(e.IsSource(collection.NewName("boo"))).To(BeTrue())
+	g.Expect(e.IsSource(data.Boo.Name())).To(BeTrue())
 	g.Expect(e.IsSource(collection.NewName("noo"))).To(BeFalse())
 }
 
 func TestEvent_IsSourceAny(t *testing.T) {
 	g := NewGomegaWithT(t)
-	e := Event{
-		Kind:   Deleted,
-		Source: collection.NewName("boo"),
+	e := event.Event{
+		Kind:   event.Deleted,
+		Source: data.Boo,
 	}
-	g.Expect(e.IsSourceAny(collection.NewName("foo"))).To(BeFalse())
-	g.Expect(e.IsSourceAny(collection.NewName("boo"))).To(BeTrue())
-	g.Expect(e.IsSourceAny(collection.NewName("boo"), collection.NewName("foo"))).To(BeTrue())
+	g.Expect(e.IsSourceAny(data.Foo.Name())).To(BeFalse())
+	g.Expect(e.IsSourceAny(data.Boo.Name())).To(BeTrue())
+	g.Expect(e.IsSourceAny(data.Boo.Name(), data.Foo.Name())).To(BeTrue())
 }
 
 func TestEvent_WithSource(t *testing.T) {
 	g := NewGomegaWithT(t)
-	oldCol := collection.NewName("boo")
-	e := Event{
-		Kind:   Deleted,
+	oldCol := data.Boo
+	e := event.Event{
+		Kind:   event.Deleted,
 		Source: oldCol,
 	}
-	newCol := collection.NewName("far")
+	newCol := data.Foo
 	a := e.WithSource(newCol)
-	g.Expect(a.Source).To(Equal(newCol))
-	g.Expect(e.Source).To(Equal(oldCol))
+	g.Expect(a.Source.Name()).To(Equal(newCol.Name()))
+	g.Expect(e.Source.Name()).To(Equal(oldCol.Name()))
 }
 
 func TestEvent_WithSource_Reset(t *testing.T) {
 	g := NewGomegaWithT(t)
-	e := Event{
-		Kind: Reset,
+	e := event.Event{
+		Kind: event.Reset,
 	}
-	newCol := collection.NewName("far")
+	newCol := data.Foo
 	a := e.WithSource(newCol)
-	g.Expect(a.Source).To(Equal(collection.EmptyName))
-	g.Expect(e.Source).To(Equal(collection.EmptyName))
+	g.Expect(a.Source).To(BeNil())
+	g.Expect(e.Source).To(BeNil())
 }

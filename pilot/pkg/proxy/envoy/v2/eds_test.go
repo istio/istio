@@ -32,6 +32,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -51,19 +52,23 @@ const (
 )
 
 func TestEds(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := initLocalPilotTestEnv(t, func(args *bootstrap.PilotArgs) {
+		args.MeshConfig.LocalityLbSetting = &v1alpha3.LocalityLoadBalancerSetting{}
+	})
 	defer tearDown()
 
 	// will be checked in the direct request test
 	addUdsEndpoint(server)
 
 	// enable locality load balancing and add relevant endpoints in order to test
-	server.EnvoyXdsServer.Env.Mesh.LocalityLbSetting = &v1alpha3.LocalityLoadBalancerSetting{}
 	addLocalityEndpoints(server, "locality.cluster.local")
 	addLocalityEndpoints(server, "locality-no-outlier-detection.cluster.local")
 
 	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
 	addTestClientEndpoints(server)
+
+	// Trigger a push to update the contents of the registry to push context and push to connected clients.
+	fullPush(server)
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
@@ -111,54 +116,54 @@ func TestEds(t *testing.T) {
 		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
 
 	})
-	t.Run("WeightedServiceEntry", func(t *testing.T) {
-		_, tearDown := initLocalPilotTestEnv(t)
-		defer tearDown()
+}
 
-		adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
-		defer adscConn.Close()
-		endpoints := adscConn.GetEndpoints()
-		lbe, f := endpoints["outbound|80||weighted.static.svc.cluster.local"]
-		if !f || len(lbe.Endpoints) == 0 {
-			t.Fatalf("No lb endpoints for %v, %v", "outbound|80||weighted.static.svc.cluster.local", adscConn.EndpointsJSON())
+func TestEdsWeightedServiceEntry(t *testing.T) {
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+	endpoints := adscConn.GetEndpoints()
+	lbe, f := endpoints["outbound|80||weighted.static.svc.cluster.local"]
+	if !f || len(lbe.Endpoints) == 0 {
+		t.Fatalf("No lb endpoints for %v, %v", "outbound|80||weighted.static.svc.cluster.local", adscConn.EndpointsJSON())
+	}
+	expected := map[string]uint32{
+		"a":       9, // sum of 1 and 8
+		"b":       3,
+		"3.3.3.3": 1, // no weight provided is normalized to 1
+		"2.2.2.2": 8,
+		"1.1.1.1": 3,
+	}
+	got := make(map[string]uint32)
+	for _, lbe := range lbe.Endpoints {
+		got[lbe.Locality.Region] = lbe.LoadBalancingWeight.Value
+		for _, e := range lbe.LbEndpoints {
+			got[e.GetEndpoint().Address.GetSocketAddress().Address] = e.LoadBalancingWeight.Value
 		}
-		expected := map[string]uint32{
-			"a":       9, // sum of 1 and 8
-			"b":       3,
-			"3.3.3.3": 1, // no weight provided is normalized to 1
-			"2.2.2.2": 8,
-			"1.1.1.1": 3,
-		}
-		got := make(map[string]uint32)
-		for _, lbe := range lbe.Endpoints {
-			got[lbe.Locality.Region] = lbe.LoadBalancingWeight.Value
-			for _, e := range lbe.LbEndpoints {
-				got[e.GetEndpoint().Address.GetSocketAddress().Address] = e.LoadBalancingWeight.Value
-			}
-		}
-		if !reflect.DeepEqual(expected, got) {
-			t.Errorf("Expected LB weights %v got %v", expected, got)
-		}
-	})
+	}
+	if !reflect.DeepEqual(expected, got) {
+		t.Errorf("Expected LB weights %v got %v", expected, got)
+	}
 }
 
 func TestEDSOverlapping(t *testing.T) {
-
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
-	// add endpoints with multiple ports with the same port number
+	// add endpoints with multiple ports with the same port number.
 	addOverlappingEndpoints(server)
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
+
 	testOverlappingPorts(server, adscConn, t)
 }
 
 // Validates the behavior when Service resolution type is updated after initial EDS push.
 // See https://github.com/istio/istio/issues/18355 for more details.
 func TestEDSServiceResolutionUpdate(t *testing.T) {
-
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -185,7 +190,6 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 
 // Validate that when endpoints of a service flipflop between 1 and 0 does not trigger a full push.
 func TestEndpointFlipFlops(t *testing.T) {
-
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -245,7 +249,6 @@ func TestEndpointFlipFlops(t *testing.T) {
 
 // Validate that deleting a service clears entries from EndpointShardsByService.
 func TestDeleteService(t *testing.T) {
-
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -264,6 +267,12 @@ func TestDeleteService(t *testing.T) {
 		t.Fatalf("Expected service key %s to be deleted in EndpointShardsByService. But is still there %v",
 			"removeservice.com", server.EnvoyXdsServer.EndpointShardsByService)
 	}
+}
+
+func fullPush(server *bootstrap.Server) {
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+	// TODO: See if we can disable debounce completely for tests to avoid sleep.
+	time.Sleep(200 * time.Millisecond) // Wait till push debounce is stable.
 }
 
 func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
@@ -297,30 +306,31 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: fmt.Sprintf("10.10.10.10"),
-			Port:    80,
-			ServicePort: &model.Port{
-				Name:     "http",
-				Port:     80,
-				Protocol: protocol.HTTP,
-			},
-			Locality: asdcLocality,
+		Endpoint: &model.IstioEndpoint{
+			Address:         fmt.Sprintf("10.10.10.10"),
+			ServicePortName: "http",
+			EndpointPort:    80,
+			Locality:        asdcLocality,
+		},
+		ServicePort: &model.Port{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
 		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: fmt.Sprintf("10.10.10.11"),
-			Port:    80,
-			ServicePort: &model.Port{
-				Name:     "http",
-				Port:     80,
-				Protocol: protocol.HTTP,
-			},
-			Locality: asdc2Locality,
+		Endpoint: &model.IstioEndpoint{
+			Address:         fmt.Sprintf("10.10.10.11"),
+			ServicePortName: "http",
+			EndpointPort:    80,
+			Locality:        asdc2Locality,
+		},
+		ServicePort: &model.Port{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 // Verify server sends the endpoint. This check for a single endpoint with the given
@@ -684,21 +694,20 @@ func addUdsEndpoint(server *bootstrap.Server) {
 		Resolution:   model.ClientSideLB,
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("localuds.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Family:  model.AddressFamilyUnix,
-			Address: udsPath,
-			Port:    0,
-			ServicePort: &model.Port{
-				Name:     "grpc",
-				Port:     0,
-				Protocol: protocol.GRPC,
-			},
-			Locality: "localhost",
+		Endpoint: &model.IstioEndpoint{
+			Family:          model.AddressFamilyUnix,
+			Address:         udsPath,
+			EndpointPort:    0,
+			ServicePortName: "grpc",
+			Locality:        "localhost",
+			Labels:          map[string]string{"socket": "unix"},
 		},
-		Labels: map[string]string{"socket": "unix"},
+		ServicePort: &model.Port{
+			Name:     "grpc",
+			Port:     0,
+			Protocol: protocol.GRPC,
+		},
 	})
-
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
@@ -723,19 +732,19 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 	}
 	for i, locality := range localities {
 		server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address: fmt.Sprintf("10.0.0.%v", i),
-				Port:    80,
-				ServicePort: &model.Port{
-					Name:     "http",
-					Port:     80,
-					Protocol: protocol.HTTP,
-				},
-				Locality: locality,
+			Endpoint: &model.IstioEndpoint{
+				Address:         fmt.Sprintf("10.0.0.%v", i),
+				EndpointPort:    80,
+				ServicePortName: "http",
+				Locality:        locality,
+			},
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: protocol.HTTP,
 			},
 		})
 	}
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 func addEdsCluster(server *bootstrap.Server, hostName string, portName string, address string, port int) {
@@ -751,17 +760,19 @@ func addEdsCluster(server *bootstrap.Server, hostName string, portName string, a
 	})
 
 	server.EnvoyXdsServer.MemRegistry.AddInstance(host.Name(hostName), &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: address,
-			Port:    port,
-			ServicePort: &model.Port{
-				Name:     portName,
-				Port:     port,
-				Protocol: protocol.HTTP,
-			},
+		Endpoint: &model.IstioEndpoint{
+			Address:         address,
+			EndpointPort:    uint32(port),
+			ServicePortName: portName,
+		},
+		ServicePort: &model.Port{
+			Name:     portName,
+			Port:     port,
+			Protocol: protocol.HTTP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
+	fullPush(server)
 }
 
 func updateServiceResolution(server *bootstrap.Server) {
@@ -778,17 +789,19 @@ func updateServiceResolution(server *bootstrap.Server) {
 	})
 
 	server.EnvoyXdsServer.MemRegistry.AddInstance("edsdns.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "somevip.com",
-			Port:    8080,
-			ServicePort: &model.Port{
-				Name:     "http",
-				Port:     8080,
-				Protocol: protocol.HTTP,
-			},
+		Endpoint: &model.IstioEndpoint{
+			Address:         "somevip.com",
+			EndpointPort:    8080,
+			ServicePortName: "http",
+		},
+		ServicePort: &model.Port{
+			Name:     "http",
+			Port:     8080,
+			Protocol: protocol.HTTP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
+	fullPush(server)
 }
 
 func addOverlappingEndpoints(server *bootstrap.Server) {
@@ -808,17 +821,19 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("overlapping.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "10.0.0.53",
-			Port:    53,
-			ServicePort: &model.Port{
-				Name:     "tcp-dns",
-				Port:     53,
-				Protocol: protocol.TCP,
-			},
+		Endpoint: &model.IstioEndpoint{
+			Address:         "10.0.0.53",
+			EndpointPort:    53,
+			ServicePortName: "tcp-dns",
+		},
+		ServicePort: &model.Port{
+			Name:     "tcp-dns",
+			Port:     53,
+			Protocol: protocol.TCP,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
+	fullPush(server)
 }
 
 // Verify the endpoint debug interface is installed and returns some string.

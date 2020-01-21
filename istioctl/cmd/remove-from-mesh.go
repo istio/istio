@@ -19,20 +19,18 @@ import (
 	"io"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-
-	"istio.io/istio/pkg/config/schemas"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
-
-	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/pkg/log"
-
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 )
 
 func removeFromMeshCmd() *cobra.Command {
@@ -49,8 +47,39 @@ func removeFromMeshCmd() *cobra.Command {
 		},
 	}
 	removeFromMeshCmd.AddCommand(svcUnMeshifyCmd())
+	removeFromMeshCmd.AddCommand(deploymentUnMeshifyCmd())
 	removeFromMeshCmd.AddCommand(externalSvcUnMeshifyCmd())
 	return removeFromMeshCmd
+}
+
+func deploymentUnMeshifyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "deployment",
+		Short: "Remove deployment from Istio service mesh",
+		Long: `istioctl experimental remove-from-mesh deployment restarts pods with the Istio sidecar un-injected.
+THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+`,
+		Example: `istioctl experimental remove-from-mesh deployment productpage-v1`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return fmt.Errorf("expecting deployment name")
+			}
+			client, err := interfaceFactory(kubeconfig)
+			if err != nil {
+				return err
+			}
+			ns := handlers.HandleNamespace(namespace, defaultNamespace)
+			writer := cmd.OutOrStdout()
+			dep, err := client.AppsV1().Deployments(ns).Get(args[0], metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("deployment %q does not exist", args[0])
+			}
+			deps := []appsv1.Deployment{}
+			deps = append(deps, *dep)
+			return unInjectSideCarFromDeployment(client, deps, args[0], ns, writer)
+		},
+	}
+	return cmd
 }
 
 func svcUnMeshifyCmd() *cobra.Command {
@@ -188,7 +217,7 @@ func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernete
 	}
 	serviceEntryGVR := schema.GroupVersionResource{
 		Group:    "networking.istio.io",
-		Version:  schemas.ServiceEntry.Version,
+		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 		Resource: "serviceentries",
 	}
 	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(resourceName(svcName), metav1.GetOptions{})

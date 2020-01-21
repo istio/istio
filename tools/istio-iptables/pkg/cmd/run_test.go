@@ -18,40 +18,43 @@ import (
 	"net"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
-func TestHandleInboundIpv6RulesWithoutEnableInboundIpv6s(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
-	ipv6Range := NetworkRange{
-		IsWildcard: false,
-		IPNets:     nil,
-	}
-	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
-	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
-	expected := []string{
-		"ip6tables -t filter -A INPUT -m state --state ESTABLISHED -j ACCEPT",
-		"ip6tables -t filter -A INPUT -i lo -d ::1 -j ACCEPT",
-		"ip6tables -t filter -A INPUT -j REJECT",
-	}
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("Output mismatch. Expected: %#v ; Actual: %#v", expected, actual)
-	}
-	actual = FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
-	if !reflect.DeepEqual(actual, []string{}) {
-		t.Errorf("Expected output to be empty; instead got: %#v", actual)
+func constructTestConfig() *config.Config {
+	return &config.Config{
+		DryRun:                  false,
+		RestoreFormat:           true,
+		ProxyPort:               "15001",
+		InboundCapturePort:      "15006",
+		ProxyUID:                constants.DefaultProxyUID,
+		ProxyGID:                constants.DefaultProxyUID,
+		InboundInterceptionMode: "",
+		InboundTProxyMark:       "1337",
+		InboundTProxyRouteTable: "133",
+		InboundPortsInclude:     "",
+		InboundPortsExclude:     "",
+		OutboundPortsExclude:    "",
+		OutboundIPRangesInclude: "",
+		OutboundIPRangesExclude: "",
+		KubevirtInterfaces:      "",
+		EnableInboundIPv6:       false,
 	}
 }
 
 func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
-	iptConfigurator.cfg.EnableInboundIPv6s = net.IPv6loopback
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = ""
+	cfg.EnableInboundIPv6 = true
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	ipv6Range := NetworkRange{
 		IsWildcard: false,
 		IPNets:     nil,
 	}
-	iptConfigurator.cfg.InboundPortsInclude = ""
 	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
 	expected := []string{
@@ -62,7 +65,12 @@ func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
-		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
 	}
 	if !reflect.DeepEqual(actual, expected) {
@@ -71,14 +79,15 @@ func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
 }
 
 func TestHandleInboundIpv6RulesWithInboundPorts(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
-	iptConfigurator.cfg.EnableInboundIPv6s = net.IPv6loopback
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = "4000,5000"
+	cfg.EnableInboundIPv6 = true
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	ipv6Range := NetworkRange{
 		IsWildcard: false,
 		IPNets:     nil,
 	}
-	iptConfigurator.cfg.InboundPortsInclude = "4000,5000"
 	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
 	expected := []string{
@@ -91,7 +100,12 @@ func TestHandleInboundIpv6RulesWithInboundPorts(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
-		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
 	}
 	if !reflect.DeepEqual(actual, expected) {
@@ -100,15 +114,16 @@ func TestHandleInboundIpv6RulesWithInboundPorts(t *testing.T) {
 }
 
 func TestHandleInboundIpv6RulesWithWildcardRanges(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
-	iptConfigurator.cfg.EnableInboundIPv6s = net.IPv6loopback
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = "4000,5000"
+	cfg.KubevirtInterfaces = "eth0,eth1"
+	cfg.EnableInboundIPv6 = true
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	ipv6Range := NetworkRange{
 		IsWildcard: true,
 		IPNets:     nil,
 	}
-	iptConfigurator.cfg.InboundPortsInclude = "4000,5000"
-	iptConfigurator.cfg.KubevirtInterfaces = "eth0,eth1"
 	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
 	expected := []string{
@@ -123,7 +138,12 @@ func TestHandleInboundIpv6RulesWithWildcardRanges(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
-		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT",
 		"ip6tables -t nat -I PREROUTING 1 -i eth0 -j RETURN",
@@ -135,17 +155,18 @@ func TestHandleInboundIpv6RulesWithWildcardRanges(t *testing.T) {
 }
 
 func TestHandleInboundIpv6RulesWithIpNets(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
-	iptConfigurator.cfg.EnableInboundIPv6s = net.IPv6loopback
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = "4000,5000"
+	cfg.InboundPortsExclude = "6000,7000"
+	cfg.KubevirtInterfaces = "eth0,eth1"
+	cfg.EnableInboundIPv6 = true
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	_, ipnet, _ := net.ParseCIDR("10.0.0.0/8")
 	ipv6Range := NetworkRange{
 		IsWildcard: false,
 		IPNets:     []*net.IPNet{ipnet},
 	}
-	iptConfigurator.cfg.InboundPortsInclude = "4000,5000"
-	iptConfigurator.cfg.InboundPortsExclude = "6000,7000"
-	iptConfigurator.cfg.KubevirtInterfaces = "eth0,eth1"
 	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
 	expected := []string{
@@ -158,7 +179,12 @@ func TestHandleInboundIpv6RulesWithIpNets(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
-		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d 10.0.0.0/8 -j RETURN",
 		"ip6tables -t nat -I PREROUTING 1 -i eth0 -d 10.0.0.0/8 -j ISTIO_REDIRECT",
@@ -172,19 +198,20 @@ func TestHandleInboundIpv6RulesWithIpNets(t *testing.T) {
 }
 
 func TestHandleInboundIpv6RulesWithUidGid(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
-	iptConfigurator.cfg.EnableInboundIPv6s = net.IPv6loopback
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = "4000,5000"
+	cfg.InboundPortsExclude = "6000,7000"
+	cfg.KubevirtInterfaces = "eth0,eth1"
+	cfg.ProxyGID = "1,2"
+	cfg.ProxyUID = "3,4"
+	cfg.EnableInboundIPv6 = true
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	_, ipnet, _ := net.ParseCIDR("10.0.0.0/8")
 	ipv6Range := NetworkRange{
 		IsWildcard: false,
 		IPNets:     []*net.IPNet{ipnet},
 	}
-	iptConfigurator.cfg.InboundPortsInclude = "4000,5000"
-	iptConfigurator.cfg.InboundPortsExclude = "6000,7000"
-	iptConfigurator.cfg.KubevirtInterfaces = "eth0,eth1"
-	iptConfigurator.cfg.ProxyGID = "1,2"
-	iptConfigurator.cfg.ProxyUID = "3,4"
 	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
 	expected := []string{
@@ -197,10 +224,17 @@ func TestHandleInboundIpv6RulesWithUidGid(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
-		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 3 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 3 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 4 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 4 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 4 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 2 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d 10.0.0.0/8 -j RETURN",
@@ -215,8 +249,9 @@ func TestHandleInboundIpv6RulesWithUidGid(t *testing.T) {
 }
 
 func TestHandleInboundIpv4RulesWithWildCard(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
+	cfg := constructTestConfig()
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	ipv4Range := NetworkRange{
 		IsWildcard: true,
 		IPNets:     nil,
@@ -233,13 +268,14 @@ func TestHandleInboundIpv4RulesWithWildCard(t *testing.T) {
 }
 
 func TestHandleInboundIpv4RulesWithWildcardWithKubeVirtInterfaces(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
+	cfg := constructTestConfig()
+	cfg.KubevirtInterfaces = "eth1,eth2"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	ipv4Range := NetworkRange{
 		IsWildcard: true,
 		IPNets:     nil,
 	}
-	iptConfigurator.cfg.KubevirtInterfaces = "eth1,eth2"
 	iptConfigurator.handleInboundIpv4Rules(ipv4Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
 	expected := []string{
@@ -254,8 +290,9 @@ func TestHandleInboundIpv4RulesWithWildcardWithKubeVirtInterfaces(t *testing.T) 
 }
 
 func TestHandleInboundIpv4RulesWithIpNets(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
+	cfg := constructTestConfig()
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	_, ipnet, _ := net.ParseCIDR("10.0.0.0/8")
 	ipv4Range := NetworkRange{
 		IsWildcard: false,
@@ -274,14 +311,15 @@ func TestHandleInboundIpv4RulesWithIpNets(t *testing.T) {
 }
 
 func TestHandleInboundIpv4RulesWithIpNetsWithKubeVirtInterfaces(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
+	cfg := constructTestConfig()
+	cfg.KubevirtInterfaces = "eth1,eth2"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	_, ipnet, _ := net.ParseCIDR("10.0.0.0/8")
 	ipv4Range := NetworkRange{
 		IsWildcard: false,
 		IPNets:     []*net.IPNet{ipnet},
 	}
-	iptConfigurator.cfg.KubevirtInterfaces = "eth1,eth2"
 	iptConfigurator.handleInboundIpv4Rules(ipv4Range)
 	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
 	expected := []string{
@@ -297,7 +335,9 @@ func TestHandleInboundIpv4RulesWithIpNetsWithKubeVirtInterfaces(t *testing.T) {
 }
 
 func TestSeparateV4V6WithWildcardCIDRPrefix(t *testing.T) {
-	iptConfigurator := NewIptablesConfigurator(constructConfig())
+	cfg := constructTestConfig()
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	v4Range, v6Range, _ := iptConfigurator.separateV4V6("*")
 	if !v4Range.IsWildcard || !v6Range.IsWildcard {
 		t.Errorf("Expected v4Range and v6Range to be wildcards")
@@ -305,7 +345,9 @@ func TestSeparateV4V6WithWildcardCIDRPrefix(t *testing.T) {
 }
 
 func TestSeparateV4V6WithV4OnlyCIDRPrefix(t *testing.T) {
-	iptConfigurator := NewIptablesConfigurator(constructConfig())
+	cfg := constructTestConfig()
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	v4Range, v6Range, _ := iptConfigurator.separateV4V6("10.0.0.0/8,172.16.0.0/16")
 	if v4Range.IsWildcard {
 		t.Errorf("Expected v4Range to be not have wildcards")
@@ -317,7 +359,7 @@ func TestSeparateV4V6WithV4OnlyCIDRPrefix(t *testing.T) {
 	if !reflect.DeepEqual(v6Range, expectedIpv6Range) {
 		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv6Range, v6Range)
 	}
-	ips := []string{}
+	var ips []string
 	for _, val := range v4Range.IPNets {
 		ips = append(ips, val.String())
 	}
@@ -328,7 +370,9 @@ func TestSeparateV4V6WithV4OnlyCIDRPrefix(t *testing.T) {
 }
 
 func TestSeparateV4V6WithV6OnlyCIDRPrefix(t *testing.T) {
-	iptConfigurator := NewIptablesConfigurator(constructConfig())
+	cfg := constructTestConfig()
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	v4Range, v6Range, _ := iptConfigurator.separateV4V6("fd04:3e42:4a4e:3381::/64,ffff:ffff:ac10:ac10::/64")
 	if v6Range.IsWildcard {
 		t.Errorf("Expected v6Range to be not have wildcards")
@@ -340,7 +384,7 @@ func TestSeparateV4V6WithV6OnlyCIDRPrefix(t *testing.T) {
 	if !reflect.DeepEqual(v4Range, expectedIpv4Range) {
 		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv4Range, v4Range)
 	}
-	ips := []string{}
+	var ips []string
 	for _, val := range v6Range.IPNets {
 		ips = append(ips, val.String())
 	}
@@ -351,8 +395,10 @@ func TestSeparateV4V6WithV6OnlyCIDRPrefix(t *testing.T) {
 }
 
 func TestHandleInboundPortsIncludeWithEmptyInboundPorts(t *testing.T) {
-	iptConfigurator := NewIptablesConfigurator(constructConfig())
-	iptConfigurator.cfg.InboundPortsInclude = ""
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = ""
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.handleInboundPortsInclude()
 
 	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
@@ -367,8 +413,10 @@ func TestHandleInboundPortsIncludeWithEmptyInboundPorts(t *testing.T) {
 }
 
 func TestHandleInboundPortsIncludeWithInboundPorts(t *testing.T) {
-	iptConfigurator := NewIptablesConfigurator(constructConfig())
-	iptConfigurator.cfg.InboundPortsInclude = "32000,31000"
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = "32000,31000"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.handleInboundPortsInclude()
 
 	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
@@ -388,8 +436,10 @@ func TestHandleInboundPortsIncludeWithInboundPorts(t *testing.T) {
 }
 
 func TestHandleInboundPortsIncludeWithWildcardInboundPorts(t *testing.T) {
-	iptConfigurator := NewIptablesConfigurator(constructConfig())
-	iptConfigurator.cfg.InboundPortsInclude = "*"
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = "*"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.handleInboundPortsInclude()
 
 	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
@@ -409,11 +459,11 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPorts(t *testing.T) {
 }
 
 func TestHandleInboundPortsIncludeWithInboundPortsAndTproxy(t *testing.T) {
-	config := constructConfig()
-	config.DryRun = true
-	iptConfigurator := NewIptablesConfigurator(config)
-	iptConfigurator.cfg.InboundPortsInclude = "32000,31000"
-	iptConfigurator.cfg.InboundInterceptionMode = "TPROXY"
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = "32000,31000"
+	cfg.InboundInterceptionMode = "TPROXY"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.handleInboundPortsInclude()
 
 	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
@@ -442,11 +492,11 @@ func TestHandleInboundPortsIncludeWithInboundPortsAndTproxy(t *testing.T) {
 }
 
 func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T) {
-	config := constructConfig()
-	config.DryRun = true
-	iptConfigurator := NewIptablesConfigurator(config)
-	iptConfigurator.cfg.InboundPortsInclude = "*"
-	iptConfigurator.cfg.InboundInterceptionMode = "TPROXY"
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = "*"
+	cfg.InboundInterceptionMode = "TPROXY"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.handleInboundPortsInclude()
 
 	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
@@ -468,5 +518,42 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 	}
 	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {
 		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv4Rules, ip4Rules)
+	}
+}
+
+func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
+	cfg := constructConfig()
+	cfg.DryRun = true
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.cfg.EnableInboundIPv6 = false
+	iptConfigurator.cfg.ProxyGID = "1,2"
+	iptConfigurator.cfg.ProxyUID = "3,4"
+	iptConfigurator.run()
+	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	expected := []string{
+		"iptables -t nat -N ISTIO_REDIRECT",
+		"iptables -t nat -N ISTIO_IN_REDIRECT",
+		"iptables -t nat -N ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 3 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 3 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 4 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 4 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 4 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 1 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 2 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
+	}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
 	}
 }

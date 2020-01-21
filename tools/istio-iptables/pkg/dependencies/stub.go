@@ -16,26 +16,11 @@ package dependencies
 
 import (
 	"fmt"
-	"net"
-	"os/user"
 	"strings"
-
-	"istio.io/pkg/env"
 )
 
 // StdoutStubDependencies implementation of interface Dependencies, which is used for testing
 type StdoutStubDependencies struct {
-}
-
-// GetLocalIP returns the local IP address
-func (s *StdoutStubDependencies) GetLocalIP() (net.IP, error) {
-	ip := env.RegisterStringVar("STUB_IP", "127.0.0.1", "Stub value for local ip").Get()
-	return net.ParseIP(ip), nil
-}
-
-// LookupUser returns user, which runs this executable
-func (s *StdoutStubDependencies) LookupUser() (*user.User, error) {
-	return &user.User{Uid: "0"}, nil
 }
 
 // RunOrFail runs a command and panics, if it fails

@@ -16,77 +16,80 @@
 collections:
   # Built-in K8s collections
   - name: "k8s/core/v1/endpoints"
-    proto: "k8s.io.api.core.v1.Endpoints"
-    protoPackage: "k8s.io/api/core/v1"
+    kind: "Endpoints"
 
   - name: "k8s/core/v1/namespaces"
-    proto: "k8s.io.api.core.v1.NamespaceSpec"
-    protoPackage: "k8s.io/api/core/v1"
+    kind: "Namespace"
 
   - name: "k8s/core/v1/nodes"
-    proto: "k8s.io.api.core.v1.NodeSpec"
-    protoPackage: "k8s.io/api/core/v1"
+    kind: "Node"
 
   - name: "k8s/core/v1/pods"
-    proto: "k8s.io.api.core.v1.Pod"
-    protoPackage: "k8s.io/api/core/v1"
+    kind: "Pod"
 
   - name: "k8s/core/v1/services"
-    proto: "k8s.io.api.core.v1.ServiceSpec"
-    protoPackage: "k8s.io/api/core/v1"
+    kind: "Service"
 
   - name: "k8s/extensions/v1beta1/ingresses"
+    kind: "Ingress"
+    group: "extensions"
+
+  - name: "k8s/apps/v1/deployments"
+    kind: "Deployment"
+    group: "apps"
+
+resources:
+  - collection: "k8s/extensions/v1beta1/ingresses"
+    kind: "Ingress"
+    plural: "ingresses"
+    group: "extensions"
+    version: "v1beta1"
     proto: "k8s.io.api.extensions.v1beta1.IngressSpec"
     protoPackage: "k8s.io/api/extensions/v1beta1"
 
-  - name: "k8s/apps/v1/deployments"
+  - collection: "k8s/core/v1/services"
+    kind: "Service"
+    plural: "services"
+    version: "v1"
+    proto: "k8s.io.api.core.v1.ServiceSpec"
+    protoPackage: "k8s.io/api/core/v1"
+
+  - collection: "k8s/core/v1/namespaces"
+    kind: "Namespace"
+    plural: "namespaces"
+    version: "v1"
+    proto: "k8s.io.api.core.v1.NamespaceSpec"
+    protoPackage: "k8s.io/api/core/v1"
+
+  - collection: "k8s/core/v1/nodes"
+    kind: "Node"
+    plural: "nodes"
+    version: "v1"
+    proto: "k8s.io.api.core.v1.NodeSpec"
+    protoPackage: "k8s.io/api/core/v1"
+
+  - collection: "k8s/core/v1/pods"
+    kind: "Pod"
+    plural: "pods"
+    version: "v1"
+    proto: "k8s.io.api.core.v1.Pod"
+    protoPackage: "k8s.io/api/core/v1"
+
+  - collection: "k8s/core/v1/endpoints"
+    kind: "Endpoints"
+    plural: "endpoints"
+    version: "v1"
+    proto: "k8s.io.api.core.v1.Endpoints"
+    protoPackage: "k8s.io/api/core/v1"
+
+  - collection: "k8s/apps/v1/deployments"
+    kind: "Deployment"
+    plural: "deployments"
+    group: "apps"
+    version: "v1"
     proto: "k8s.io.api.apps.v1.Deployment"
     protoPackage: "k8s.io/api/apps/v1"
 
-# Configuration for input sources
-sources:
-  # Kubernetes specific configuration.
-  - type: kubernetes
-    resources:
-      - collection: "k8s/extensions/v1beta1/ingresses"
-        kind: "Ingress"
-        plural: "ingresses"
-        group: "extensions"
-        version: "v1beta1"
-
-      - collection: "k8s/core/v1/services"
-        kind: "Service"
-        plural: "services"
-        version: "v1"
-
-      - collection: "k8s/core/v1/namespaces"
-        kind: "Namespace"
-        plural: "namespaces"
-        version: "v1"
-
-      - collection: "k8s/core/v1/nodes"
-        kind: "Node"
-        plural: "nodes"
-        version: "v1"
-
-      - collection: "k8s/core/v1/pods"
-        kind: "Pod"
-        plural: "pods"
-        version: "v1"
-
-      - collection: "k8s/core/v1/endpoints"
-        kind: "Endpoints"
-        plural: "endpoints"
-        version: "v1"
-
-      - collection: "k8s/apps/v1/deployments"
-        kind: "Deployment"
-        plural: "deployments"
-        group: "apps"
-        version: "apps/v1"
-
-
-# Transform specific configurations
 transforms:
   - type: direct
     mapping:

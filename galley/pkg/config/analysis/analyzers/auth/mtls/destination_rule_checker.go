@@ -17,10 +17,10 @@ package mtls
 import (
 	"sort"
 
-	"istio.io/istio/galley/pkg/config/resource"
-
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -34,8 +34,8 @@ import (
 // and what's documented on the istio.io site:
 // https://istio.io/docs/ops/traffic-management/deploy-guidelines/#cross-namespace-configuration-sharing
 type DestinationRuleChecker struct {
-	namespaceToDestinations map[string]destinations
-	rootNamespace           string
+	namespaceToDestinations map[resource.Namespace]destinations
+	rootNamespace           resource.Namespace
 }
 
 // destination represents a destination specified in a DestinationRule.
@@ -43,7 +43,7 @@ type destination struct {
 	targetService TargetService
 	usesMTLS      bool
 	isPrivate     bool
-	resource      *resource.Entry
+	resource      *resource.Instance
 }
 
 // destinations is a list of destinations that supports being sorted by
@@ -79,9 +79,9 @@ func (d destinations) Swap(i, j int) {
 
 // NewDestinationRuleChecker creates a new instance with the given config root
 // namespace.
-func NewDestinationRuleChecker(rootNamespace string) *DestinationRuleChecker {
+func NewDestinationRuleChecker(rootNamespace resource.Namespace) *DestinationRuleChecker {
 	return &DestinationRuleChecker{
-		namespaceToDestinations: make(map[string]destinations),
+		namespaceToDestinations: make(map[resource.Namespace]destinations),
 		rootNamespace:           rootNamespace,
 	}
 }
@@ -100,7 +100,7 @@ func (dc *DestinationRuleChecker) TargetServices() []TargetService {
 }
 
 // AddDestinationRule adds a DestinationRule to the checker.
-func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Entry, rule *v1alpha3.DestinationRule) {
+func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Instance, rule *v1alpha3.DestinationRule) {
 	// By default Destination rules are exported publicly.
 	isPrivate := false
 	for _, export := range rule.ExportTo {
@@ -109,7 +109,7 @@ func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Entry, r
 		}
 	}
 
-	namespace, _ := resource.Metadata.Name.InterpretAsNamespaceAndName()
+	namespace := resource.Metadata.FullName.Namespace
 	fqdn := util.ConvertHostToFQDN(namespace, rule.GetHost())
 	// By default, we are not using MTLS
 	usesMTLS := false
@@ -152,7 +152,7 @@ func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Entry, r
 // considered for routing are only rules that match a superset of the hosts
 // specified by the TargetService FQDN. This means you can check, for example,
 // the hostname '*.svc.cluster.local' to see if strict MTLS is enforced globally.
-func (dc *DestinationRuleChecker) DoesNamespaceUseMTLSToService(srcNamespace, dstNamespace string, ts TargetService) (bool, *resource.Entry) {
+func (dc *DestinationRuleChecker) DoesNamespaceUseMTLSToService(srcNamespace, dstNamespace resource.Namespace, ts TargetService) (bool, *resource.Instance) {
 	var matchingDestination *destination
 	// First, check for a destination rule for src namespace only if the
 	// namespace isn't the root namespace. Pilot has this behavior to ensure that the
@@ -184,7 +184,7 @@ func (dc *DestinationRuleChecker) DoesNamespaceUseMTLSToService(srcNamespace, ds
 // specified target service, optionally including privately-exported rules. Note
 // that if target service has a wildcard in it, then matched rules must be a
 // strict superset of the target service hostnames.
-func (dc *DestinationRuleChecker) findMatchingRuleInNamespace(namespace string, ts TargetService, includePrivate bool) *destination {
+func (dc *DestinationRuleChecker) findMatchingRuleInNamespace(namespace resource.Namespace, ts TargetService, includePrivate bool) *destination {
 	// TODO Port name should be handled at some point.
 	// TODO We should really presort these ahead of time.
 	var ds destinations

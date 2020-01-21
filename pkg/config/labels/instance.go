@@ -78,6 +78,9 @@ func (i Instance) Equals(that Instance) bool {
 
 // Validate ensures tag is well-formed
 func (i Instance) Validate() error {
+	if i == nil {
+		return nil
+	}
 	var errs error
 	for k, v := range i {
 		if err := validateTagKey(k); err != nil {

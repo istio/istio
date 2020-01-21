@@ -22,32 +22,29 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-
-	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pkg/config/schemas"
-
-	"istio.io/istio/pilot/pkg/model"
-
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/istioctl/pkg/kubernetes"
+	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	configschema "istio.io/istio/pkg/config/schema"
 )
 
 var (
-	forFlag              string
-	nameflag             string
-	threshold            float32
-	timeout              time.Duration
-	resourceVersion      string
-	verbose              bool
-	targetSchemaInstance configschema.Instance
-	clientGetter         func(string, string) (dynamic.Interface, error)
+	forFlag         string
+	nameflag        string
+	threshold       float32
+	timeout         time.Duration
+	resourceVersion string
+	verbose         bool
+	targetSchema    collection.Schema
+	clientGetter    func(string, string) (dynamic.Interface, error)
 )
 
 const pollInterval = time.Second
@@ -57,11 +54,13 @@ func waitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wait [flags] <type> <name>[.<namespace>]",
 		Short: "Wait for an Istio resource",
-		Long: `Waits for the specified condition to be true of an Istio resource.  For example:
+		Long:  `Waits for the specified condition to be true of an Istio resource.`,
+		Example: `
+# Wait until the bookinfo virtual service has been distributed to all proxies in the mesh
+istioctl experimental wait --for=distribution virtualservice bookinfo.default
 
-istioctl experimental wait --for=distribution virtual-service bookinfo.default
-
-will block until the bookinfo virtual service has been distributed to all proxies in the mesh.
+# Wait until 99% of the proxies receive the distribution, timing out after 5 minutes
+istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virtualservice bookinfo.default
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			printVerbosef(cmd, "kubeconfig %s", kubeconfig)
@@ -91,7 +90,7 @@ will block until the bookinfo virtual service has been distributed to all proxie
 				return fmt.Errorf("unable to retrieve kubernetes resource %s: %v", "", err)
 			}
 			resourceVersions := []string{firstVersion}
-			targetResource := model.Key(targetSchemaInstance.Type, nameflag, namespace)
+			targetResource := model.Key(targetSchema.Resource().Kind(), nameflag, namespace)
 			for {
 				//run the check here as soon as we start
 				// because tickers won't run immediately
@@ -146,18 +145,23 @@ will block until the bookinfo virtual service has been distributed to all proxie
 
 func printVerbosef(cmd *cobra.Command, template string, args ...interface{}) {
 	if verbose {
-		fmt.Fprintf(cmd.OutOrStdout(), template+"\n", args...)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), template+"\n", args...)
 	}
 }
 
-func validateType(typ string) error {
-	for _, instance := range schemas.Istio {
-		if strings.EqualFold(typ, instance.VariableName) || strings.EqualFold(typ, instance.Type) {
-			targetSchemaInstance = instance
+func validateType(kind string) error {
+	originalKind := kind
+
+	// Remove any dashes.
+	kind = strings.ReplaceAll(kind, "-", "")
+
+	for _, s := range collections.Pilot.All() {
+		if strings.EqualFold(kind, s.Resource().Kind()) {
+			targetSchema = s
 			return nil
 		}
 	}
-	return fmt.Errorf("type %s is not recognized", typ)
+	return fmt.Errorf("type %s is not recognized", originalKind)
 }
 
 func countVersions(versionCount map[string]int, configVersion string) {
@@ -230,9 +234,9 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		if err != nil {
 			return err
 		}
-		collectionParts := strings.Split(targetSchemaInstance.Collection, "/")
-		group := targetSchemaInstance.Group + ".istio.io"
-		version := targetSchemaInstance.Version
+		collectionParts := strings.Split(targetSchema.Name().String(), "/")
+		group := targetSchema.Resource().Group()
+		version := targetSchema.Resource().Version()
 		resource := collectionParts[3]
 		r := dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}).Namespace(namespace)
 		obj, err := r.Get(nameflag, metav1.GetOptions{})

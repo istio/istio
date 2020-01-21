@@ -24,6 +24,9 @@ DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --sidecar_injector_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --app_hub=${HUB}
 
+# Enable Istio CNI in helm template commands
+export ENABLE_ISTIO_CNI ?= false
+
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
 e2e_simple: build generate_e2e_yaml e2e_simple_run
@@ -99,12 +102,6 @@ test/local/auth/e2e_pilotv2: generate_e2e_yaml
 	# Run the pilot controller tests
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/controller
 
-e2e_cloudfoundry: init
-	iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
-	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot/cloudfoundry ${T} \
-		${CAPTURE_LOG}
-	iptables -t nat -F
-
 test/local/auth/e2e_bookinfo_envoyv2: generate_e2e_yaml
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/bookinfo \
 		--auth_enable=true --egress=true --ingress=false --rbac_enable=false \
@@ -119,7 +116,7 @@ test/local/auth/e2e_bookinfo_trustdomain: generate_e2e_yaml
 generate_e2e_yaml: $(e2e_files)
 
 # Create yaml files for e2e tests. Applies values-e2e.yaml, then values-$filename.yaml
-$(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
+$(e2e_files): $(HOME)/.helm istio-init.yaml
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template \

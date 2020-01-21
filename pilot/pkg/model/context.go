@@ -29,9 +29,14 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 )
+
+var _ mesh.Holder = &Environment{}
+var _ mesh.NetworksHolder = &Environment{}
 
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
@@ -41,8 +46,15 @@ type Environment struct {
 	// Config interface for listing routing rules
 	IstioConfigStore
 
-	// Mesh is the mesh config (to be merged into the config store)
-	Mesh *meshconfig.MeshConfig
+	// Watcher is the watcher for the mesh config (to be merged into the config store)
+	mesh.Watcher
+
+	// NetworksWatcher (loaded from a config map) provides information about the
+	// set of networks inside a mesh and how to route to endpoints in each
+	// network. Each network provides information about the endpoints in a
+	// routable L3 network. A single routable L3 network can have one or more
+	// service registries.
+	mesh.NetworksWatcher
 
 	// PushContext holds informations during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
@@ -51,13 +63,38 @@ type Environment struct {
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
 	PushContext *PushContext
+}
 
-	// MeshNetworks (loaded from a config map) provides information about the
-	// set of networks inside a mesh and how to route to endpoints in each
-	// network. Each network provides information about the endpoints in a
-	// routable L3 network. A single routable L3 network can have one or more
-	// service registries.
-	MeshNetworks *meshconfig.MeshNetworks
+func (e *Environment) Mesh() *meshconfig.MeshConfig {
+	if e != nil && e.Watcher != nil {
+		return e.Watcher.Mesh()
+	}
+	return nil
+}
+
+func (e *Environment) AddMeshHandler(h func()) {
+	if e != nil && e.Watcher != nil {
+		e.Watcher.AddMeshHandler(h)
+	}
+}
+
+func (e *Environment) Networks() *meshconfig.MeshNetworks {
+	if e != nil && e.NetworksWatcher != nil {
+		return e.NetworksWatcher.Networks()
+	}
+	return nil
+}
+
+func (e *Environment) AddNetworksHandler(h func()) {
+	if e != nil && e.NetworksWatcher != nil {
+		e.NetworksWatcher.AddNetworksHandler(h)
+	}
+}
+
+func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+	if e != nil && e.PushContext != nil {
+		e.PushContext.AddMetric(metric, key, proxy, msg)
+	}
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -355,29 +392,35 @@ var (
 // To compare only on major, call this function with { X, -1, -1}.
 // to compare only on major & minor, call this function with {X, Y, -1}.
 func (pversion *IstioVersion) Compare(inv *IstioVersion) int {
-	if pversion.Major > inv.Major {
-		return 1
-	} else if pversion.Major < inv.Major {
-		return -1
+	// check major
+	if r := compareVersion(pversion.Major, inv.Major); r != 0 {
+		return r
 	}
 
-	// check minors
+	// check minor
 	if inv.Minor > -1 {
-		if pversion.Minor > inv.Minor {
-			return 1
-		} else if pversion.Minor < inv.Minor {
-			return -1
+		if r := compareVersion(pversion.Minor, inv.Minor); r != 0 {
+			return r
 		}
+
 		// check patch
 		if inv.Patch > -1 {
-			if pversion.Patch > inv.Patch {
-				return 1
-			} else if pversion.Patch < inv.Patch {
-				return -1
+			if r := compareVersion(pversion.Patch, inv.Patch); r != 0 {
+				return r
 			}
 		}
 	}
 	return 0
+}
+
+func compareVersion(ov, nv int) int {
+	if ov == nv {
+		return 0
+	}
+	if ov < nv {
+		return -1
+	}
+	return 1
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -467,8 +510,8 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.MergedGateway = ps.mergeGateways(node)
 }
 
-func (node *Proxy) SetServiceInstances(env *Environment) error {
-	instances, err := env.GetProxyServiceInstances(node)
+func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) error {
+	instances, err := serviceDiscovery.GetProxyServiceInstances(node)
 	if err != nil {
 		log.Errorf("failed to get service proxy service instances: %v", err)
 		return err
@@ -572,23 +615,16 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 		return out, fmt.Errorf("missing parts in the service node %q", s)
 	}
 
-	out.Type = NodeType(parts[0])
-
-	if !IsApplicationNodeType(out.Type) {
+	if !IsApplicationNodeType(NodeType(parts[0])) {
 		return out, fmt.Errorf("invalid node type (valid types: sidecar, router in the service node %q", s)
 	}
+	out.Type = NodeType(parts[0])
 
 	// Get all IP Addresses from Metadata
-	if len(metadata.InstanceIPs) > 0 {
-		ipAddresses, err := parseIPAddresses(metadata.InstanceIPs)
-		if err == nil {
-			out.IPAddresses = ipAddresses
-		} else if isValidIPAddress(parts[1]) {
-			//Fail back, use IP from node id
-			out.IPAddresses = append(out.IPAddresses, parts[1])
-		}
+	if hasValidIPAddresses(metadata.InstanceIPs) {
+		out.IPAddresses = metadata.InstanceIPs
 	} else if isValidIPAddress(parts[1]) {
-		// Get IP from node id, it's only for backward-compatible, IP should come from metadata
+		//Fall back, use IP from node id, it's only for backward-compatibility, IP should come from metadata
 		out.IPAddresses = append(out.IPAddresses, parts[1])
 	}
 
@@ -600,7 +636,7 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 	out.ID = parts[2]
 	out.DNSDomain = parts[3]
 	if len(metadata.IstioVersion) == 0 {
-		log.Warnf("Istio Version is not found in metadata, which may have undesirable side effects")
+		log.Warnf("Istio Version is not found in metadata for %v, which may have undesirable side effects", out.ID)
 	}
 	out.IstioVersion = ParseIstioVersion(metadata.IstioVersion)
 	if len(metadata.Labels) > 0 {
@@ -611,11 +647,6 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 
 // ParseIstioVersion parses a version string and returns IstioVersion struct
 func ParseIstioVersion(ver string) *IstioVersion {
-	if strings.HasPrefix(ver, "master-") {
-		// This proxy is from a master branch build. Assume latest version
-		return MaxIstioVersion
-	}
-
 	// strip the release- prefix if any and extract the version string
 	ver = istioVersionRegexp.FindString(strings.TrimPrefix(ver, "release-"))
 
@@ -680,17 +711,17 @@ func ParsePort(addr string) int {
 	return port
 }
 
-// parseIPAddresses extracts IPs from a string
-func parseIPAddresses(ipAddresses []string) ([]string, error) {
+// hasValidIPAddresses returns true if the input ips are all valid, otherwise returns false.
+func hasValidIPAddresses(ipAddresses []string) bool {
 	if len(ipAddresses) == 0 {
-		return ipAddresses, fmt.Errorf("no valid IP address")
+		return false
 	}
 	for _, ipAddress := range ipAddresses {
 		if !isValidIPAddress(ipAddress) {
-			return ipAddresses, fmt.Errorf("invalid IP address %q", ipAddress)
+			return false
 		}
 	}
-	return ipAddresses, nil
+	return true
 }
 
 // Tell whether the given IP address is valid or not

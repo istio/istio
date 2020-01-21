@@ -24,26 +24,30 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/keepalive"
+
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingapi "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
-	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
+	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schemas"
 	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -56,44 +60,36 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if len(s.mesh.ConfigSources) > 0 {
+	meshConfig := s.environment.Mesh()
+	if len(meshConfig.ConfigSources) > 0 {
+		// Using MCP for config.
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
 	} else if args.Config.FileDir != "" {
-		store := memory.Make(schemas.Istio)
+		store := memory.Make(collections.Pilot)
 		configController := memory.NewController(store)
 
 		err := s.makeFileMonitor(args.Config.FileDir, configController)
 		if err != nil {
 			return err
 		}
-
-		s.configController = configController
+		s.ConfigStores = append(s.ConfigStores, configController)
 	} else {
 		configController, err := s.makeKubeConfigController(args)
 		if err != nil {
 			return err
 		}
-
-		s.configController = configController
+		s.ConfigStores = append(s.ConfigStores, configController)
 	}
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if hasKubeRegistry(args.Service.Registries) && s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
+	if hasKubeRegistry(args.Service.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
-		configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
-			s.configController,
-			ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions),
-		})
-		if err != nil {
-			return err
-		}
+		s.ConfigStores = append(s.ConfigStores,
+			ingress.NewController(s.kubeClient, meshConfig, args.Config.ControllerOptions))
 
-		// Update the config controller
-		s.configController = configController
-
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
+		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient,
 			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 		} else {
@@ -104,8 +100,15 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 	}
 
+	// Wrap the config controller with a cache.
+	aggregateConfigController, err := configaggregate.MakeCache(s.ConfigStores)
+	if err != nil {
+		return err
+	}
+	s.configController = aggregateConfigController
+
 	// Create the config store.
-	s.istioConfigStore = model.MakeIstioStore(s.configController)
+	s.environment.IstioConfigStore = model.MakeIstioStore(s.configController)
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -116,36 +119,40 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initMCPConfigController(args *PilotArgs) error {
+func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		if err != nil {
+			cancel()
+		}
+	}()
+
 	var clients []*sink.Client
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
 
-	s.mcpOptions = &coredatamodel.Options{
+	mcpOptions := &mcp.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.Config),
+		XDSUpdater:   s.EnvoyXdsServer,
 	}
 	reporter := monitoring.NewStatsContext("pilot")
 
-	for _, configSource := range s.mesh.ConfigSources {
+	for _, configSource := range s.environment.Mesh().ConfigSources {
 		if strings.Contains(configSource.Address, fsScheme+"://") {
 			srcAddress, err := url.Parse(configSource.Address)
 			if err != nil {
-				cancel()
 				return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
 			}
 			if srcAddress.Scheme == fsScheme {
 				if srcAddress.Path == "" {
-					cancel()
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.MakeWithLedger(schemas.Istio, buildLedger(args.Config))
+				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.Config))
 				configController := memory.NewController(store)
 
 				err := s.makeFileMonitor(srcAddress.Path, configController)
 				if err != nil {
-					cancel()
 					return err
 				}
 				configStores = append(configStores, configController)
@@ -153,24 +160,16 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			}
 		}
 
-		conn, err := grpcDial(ctx, cancel, configSource, args)
+		conn, err := grpcDial(ctx, configSource, args)
 		if err != nil {
 			log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
-			cancel()
 			return err
 		}
 		conns = append(conns, conn)
-		s.mcpController(conn, reporter, &clients, &configStores)
+		s.mcpController(mcpOptions, conn, reporter, &clients, &configStores)
 
 		// create MCP SyntheticServiceEntryController
 		if resourceContains(configSource.SubscribedResources, meshconfig.Resource_SERVICE_REGISTRY) {
-			conn, err := grpcDial(ctx, cancel, configSource, args)
-			if err != nil {
-				log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
-				cancel()
-				return err
-			}
-			conns = append(conns, conn)
 			s.sseMCPController(args, conn, reporter, &clients, &configStores)
 		}
 	}
@@ -182,8 +181,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			client := clients[i]
 			wg.Add(1)
 			go func() {
+				defer wg.Done()
 				client.Run(ctx)
-				wg.Done()
 			}()
 		}
 
@@ -206,12 +205,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		return nil
 	})
 
-	// Wrap the config controller with a cache.
-	aggregateMcpController, err := configaggregate.MakeCache(configStores)
-	if err != nil {
-		return err
-	}
-	s.configController = aggregateMcpController
+	s.ConfigStores = append(s.ConfigStores, configStores...)
 	return nil
 }
 
@@ -224,7 +218,7 @@ func resourceContains(resources []meshconfig.Resource, resource meshconfig.Resou
 	return false
 }
 
-func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSource *meshconfig.ConfigSource) (grpc.DialOption, error) {
+func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSource) (grpc.DialOption, error) {
 	securityOption := grpc.WithInsecure()
 	if configSource.TlsSettings != nil &&
 		configSource.TlsSettings.Mode != networkingapi.TLSSettings_DISABLE {
@@ -262,7 +256,6 @@ func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSo
 					log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
 					select {
 					case <-ctx.Done():
-						cancel()
 						return nil, ctx.Err()
 					case <-time.After(requiredMCPCertCheckFreq):
 						// retry
@@ -275,7 +268,6 @@ func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSo
 
 			watcher, err := creds.WatchFiles(ctx.Done(), credentialOption)
 			if err != nil {
-				cancel()
 				return nil, err
 			}
 			transportCreds := creds.CreateForClient(configSource.TlsSettings.Sni, watcher)
@@ -286,23 +278,21 @@ func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSo
 }
 
 func (s *Server) mcpController(
+	opts *mcp.Options,
 	conn *grpc.ClientConn,
 	reporter monitoring.Reporter,
 	clients *[]*sink.Client,
 	configStores *[]model.ConfigStoreCache) {
 	clientNodeID := ""
-	collections := make([]sink.CollectionOptions, 0, len(schemas.Istio)-1)
-	for _, c := range schemas.Istio {
-		// do not register SSEs for this controller as there is a dedicated controller
-		if c.Collection == schemas.SyntheticServiceEntry.Collection {
-			continue
-		}
-		collections = append(collections, sink.CollectionOptions{Name: c.Collection, Incremental: false})
+	all := collections.Pilot.All()
+	cols := make([]sink.CollectionOptions, 0, len(all))
+	for _, c := range all {
+		cols = append(cols, sink.CollectionOptions{Name: c.Name().String(), Incremental: false})
 	}
 
-	mcpController := coredatamodel.NewController(s.mcpOptions)
+	mcpController := mcp.NewController(opts)
 	sinkOptions := &sink.Options{
-		CollectionOptions: collections,
+		CollectionOptions: cols,
 		Updater:           mcpController,
 		ID:                clientNodeID,
 		Reporter:          reporter,
@@ -321,22 +311,20 @@ func (s *Server) sseMCPController(args *PilotArgs,
 	clients *[]*sink.Client,
 	configStores *[]model.ConfigStoreCache) {
 	clientNodeID := "SSEMCP"
-	s.incrementalMcpOptions = &coredatamodel.Options{
+	sseOptions := &serviceentry.Options{
+		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+		XDSUpdater:   s.EnvoyXdsServer,
 	}
-	controller := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
-	s.discoveryOptions = &coredatamodel.DiscoveryOptions{
-		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-	}
-	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(controller, s.discoveryOptions)
+	ctl := serviceentry.NewSyntheticServiceEntryController(sseOptions)
 	incrementalSinkOptions := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{
 			{
-				Name:        schemas.SyntheticServiceEntry.Collection,
+				Name:        collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String(),
 				Incremental: true,
 			},
 		},
-		Updater:  controller,
+		Updater:  ctl,
 		ID:       clientNodeID,
 		Reporter: reporter,
 	}
@@ -344,27 +332,21 @@ func (s *Server) sseMCPController(args *PilotArgs,
 	incMcpClient := sink.NewClient(incSrcClient, incrementalSinkOptions)
 	configz.Register(incMcpClient)
 	*clients = append(*clients, incMcpClient)
-	*configStores = append(*configStores, controller)
+	*configStores = append(*configStores, ctl)
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
-	configClient, err := controller.NewClient(args.Config.KubeConfig, "", schemas.Istio,
+	configClient, err := controller.NewClient(args.Config.KubeConfig, "", collections.Pilot,
 		args.Config.ControllerOptions.DomainSuffix, buildLedger(args.Config))
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
-	}
-
-	if !args.Config.DisableInstallCRDs {
-		if err = configClient.RegisterResources(); err != nil {
-			return nil, multierror.Prefix(err, "failed to register custom resources.")
-		}
 	}
 
 	return controller.NewController(configClient, args.Config.ControllerOptions), nil
 }
 
 func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, schemas.Istio)
+	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot)
 	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
@@ -374,4 +356,30 @@ func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigSt
 	})
 
 	return nil
+}
+
+func grpcDial(ctx context.Context,
+	configSource *meshconfig.ConfigSource, args *PilotArgs) (*grpc.ClientConn, error) {
+	securityOption, err := mcpSecurityOptions(ctx, configSource)
+	if err != nil {
+		return nil, err
+	}
+
+	keepaliveOption := grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:    args.KeepaliveOptions.Time,
+		Timeout: args.KeepaliveOptions.Timeout,
+	})
+
+	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(args.MCPInitialWindowSize))
+	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(args.MCPInitialConnWindowSize))
+	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
+
+	return grpc.DialContext(
+		ctx,
+		configSource.Address,
+		securityOption,
+		msgSizeOption,
+		keepaliveOption,
+		initialWindowSizeOption,
+		initialConnWindowSizeOption)
 }

@@ -129,12 +129,19 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 	tlsMode := model.GetTLSModeFromEndpointLabels(svcLabels)
 	hostname := serviceHostname(instance.ServiceName)
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address:     addr,
-			Port:        instance.ServicePort,
-			ServicePort: port,
-			Locality:    instance.Datacenter,
+		Endpoint: &model.IstioEndpoint{
+			Address:         addr,
+			EndpointPort:    uint32(instance.ServicePort),
+			ServicePortName: port.Name,
+			Locality:        instance.Datacenter,
+			Labels:          svcLabels,
+			TLSMode:         tlsMode,
+			Attributes: model.ServiceAttributes{
+				Name:      string(hostname),
+				Namespace: model.IstioDefaultConfigNamespace,
+			},
 		},
+		ServicePort: port,
 		Service: &model.Service{
 			Hostname:     hostname,
 			Address:      instance.ServiceAddress,
@@ -146,8 +153,6 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 				Namespace: model.IstioDefaultConfigNamespace,
 			},
 		},
-		Labels:  svcLabels,
-		TLSMode: tlsMode,
 	}
 }
 

@@ -263,9 +263,6 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	}
 	defer cancel()
 
-	// wait for debounce
-	time.Sleep(3 * v2.DebounceAfter)
-
 	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
@@ -318,9 +315,6 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancel()
-
-	// wait for debounce
-	time.Sleep(3 * v2.DebounceAfter)
 
 	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
 	if err != nil {

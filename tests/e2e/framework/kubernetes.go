@@ -90,6 +90,8 @@ const (
 	kubernetesReadinessTimeout        = time.Second * 180
 	kubernetesReadinessInterval       = 200 * time.Millisecond
 	validationWebhookReadinessTimeout = time.Minute
+	istioOperatorTimeout              = time.Second * 300
+	istioOperatorFreq                 = time.Second * 10
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
 
@@ -567,8 +569,13 @@ func (k *KubeInfo) Teardown() error {
 			}
 		}
 		if *useOperator {
+			//save operator logs
+			log.Info("Saving istio-operator logs")
+			if err := util.FetchAndSaveClusterLogs("istio-operator", k.TmpDir, k.KubeConfig); err != nil {
+				log.Errorf("Failed to save operator logs: %v", err)
+			}
 			// Need an operator unique delete procedure
-			if _, err := util.Shell("kubectl -n istio-operator delete IstioControlPlane example-istiocontrolplane"); err != nil {
+			if _, err := util.Shell("kubectl -n istio-operator delete IstioOperator example-istiocontrolplane"); err != nil {
 				log.Errorf("Failed to delete the Istio CR.")
 				return err
 			}
@@ -819,6 +826,10 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Istio operator %s deployment failed", testIstioYaml)
 			return err
 		}
+		if err := k.waitForIstioOperator(); err != nil {
+			log.Errorf("istio operator fails to deploy Istio: %v", err)
+			return err
+		}
 	} else {
 		// Create istio-system namespace
 		if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
@@ -1025,6 +1036,27 @@ EOF`, k.KubeConfig, dummyValidationRule)
 	return nil
 }
 
+func (k *KubeInfo) waitForIstioOperator() error {
+
+	get := fmt.Sprintf(`kubectl --kubeconfig=%s get iop example-istiocontrolplane -n istio-operator -o yaml`, k.KubeConfig)
+	timeout := time.Now().Add(istioOperatorTimeout)
+	for {
+		if time.Now().After(timeout) {
+			return errors.New("timeout waiting for istio operator to deploy Istio")
+		}
+		out, err := util.ShellSilent(get)
+		if err == nil && strings.Contains(out, "HEALTHY") {
+			break
+		}
+
+		log.Warnf("istio-operator is still deploying Istio: %v", err)
+		time.Sleep(istioOperatorFreq)
+
+	}
+	log.Info("istio operator succeeds to deploy Istio")
+	return nil
+}
+
 func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio-init", "files", kubernetesCRD)
 	yamlFileName = filepath.Join(k.ReleaseDir, yamlFileName)
@@ -1202,7 +1234,7 @@ func replacePattern(content []byte, src, dest string) []byte {
 
 // This code is in need of a reimplementation and some rethinking. An in-place
 // modification on the raw manifest is the wrong approach. This model is also
-// not portable to our future around IstioControlPlane where we don't necessarily
+// not portable to our future around IstioOperator where we don't necessarily
 // have a manifest to in place modify...
 func (k *KubeInfo) generateIstio(src, dst string) error {
 	content, err := ioutil.ReadFile(src)

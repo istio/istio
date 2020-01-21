@@ -1,0 +1,67 @@
+# Within the istio-system namespace, we have a control plane component with a DR
+# that would normally violate policy. However the istio control plane is
+# not controlled via Policy declarations, and is therefore exempt. We don't
+# expect the validator to complain about this either.
+apiVersion: authentication.istio.io/v1alpha1
+kind: MeshPolicy
+metadata:
+  name: default
+spec:
+  peers:
+  - mtls: {}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-telemetry
+  namespace: istio-system
+  labels:
+    app: mixer
+    istio: mixer
+spec:
+  selector:
+    app: istio-telemetry
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: istio-telemetry-pod
+  namespace: istio-system
+  labels:
+    app: istio-telemetry
+spec:
+  containers:
+  - name: istio-proxy
+---
+# This destination rule would normally break mtls, but it doesn't in practice
+# due to the control plane having its own setup.
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-telemetry
+  namespace: istio-system
+spec:
+  host: istio-telemetry.istio-system.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      http:
+        http2MaxRequests: 10000
+        maxRequestsPerConnection: 10000

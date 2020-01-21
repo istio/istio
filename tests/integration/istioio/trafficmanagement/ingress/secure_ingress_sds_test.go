@@ -19,7 +19,6 @@ import (
 
 	"github.com/Masterminds/semver"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/istioio"
@@ -46,18 +45,17 @@ func TestSecureIngressSDS(t *testing.T) {
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			istioio.NewBuilder("traffic_management__ingress__secure_gateways_sds").
-				Add(script(ctx, "generate_certs_and_keys.txt", "")).
-				Add(script(ctx, "enable_sds.txt", env.IstioSrc)).
-				Add(script(ctx, "configure_tls_ingress_single_host.txt", "")).
-				Add(script(ctx, "configure_tls_ingress_multiple_hosts.txt", "")).
-				Add(script(ctx, "configure_mtls_ingress.txt", "")).
-				Add(script(ctx, "troubleshooting.txt", "")).
-				Defer(script(ctx, "cleanup.txt", "")).
+				Add(script(ctx, "generate_certs_and_keys.txt")).
+				Add(script(ctx, "configure_tls_ingress_single_host.txt")).
+				Add(script(ctx, "configure_tls_ingress_multiple_hosts.txt")).
+				Add(script(ctx, "configure_mtls_ingress.txt")).
+				Add(script(ctx, "troubleshooting.txt")).
+				Defer(script(ctx, "cleanup.txt")).
 				BuildAndRun(ctx)
 		})
 }
 
-func script(ctx framework.TestContext, filename, workDir string) istioio.Script {
+func script(ctx framework.TestContext, filename string) istioio.Script {
 	// Determine the commands to use for ingress host/port.
 	e := ctx.Environment().(*kube.Environment)
 	runtimeSecureIngressPortCommand := secureIngressPortCommand
@@ -72,7 +70,6 @@ func script(ctx framework.TestContext, filename, workDir string) istioio.Script 
 			"isSnippet":                false,
 			"password":                 "password",
 			"curlOptions":              "--retry 10 --retry-connrefused --retry-delay 5 ",
-			"yamlDir":                  ctx.WorkDir(),
 			"secureIngressPortCommand": runtimeSecureIngressPortCommand,
 			"ingressHostCommand":       runtimeIngressHostCommand,
 		}),
@@ -80,10 +77,8 @@ func script(ctx framework.TestContext, filename, workDir string) istioio.Script 
 			"isSnippet":                true,
 			"password":                 "<password>",
 			"curlOptions":              "",
-			"yamlDir":                  "$HOME",
 			"secureIngressPortCommand": secureIngressPortCommand,
 			"ingressHostCommand":       ingressHostCommand,
 		}),
-		WorkDir: workDir,
 	}
 }

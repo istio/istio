@@ -291,6 +291,24 @@ var (
 		},
 	}
 
+	configs10 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name: "sidecar-scope-with-http-proxy",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   7443,
+						Protocol: "http_proxy",
+						Name:     "grpc-tls",
+					},
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -706,6 +724,21 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 		},
+		{
+			"http-proxy-protocol-matches-any-port",
+			configs10,
+			services7,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime"},
+				{
+					Hostname: "foo",
+				},
+			},
+		},
 	}
 
 	for idx, tt := range tests {
@@ -713,9 +746,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			var found bool
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
-			ps.Env = &Environment{
-				Mesh: &meshConfig,
-			}
+			ps.Mesh = &meshConfig
 			if tt.services != nil {
 				ps.publicServices = append(ps.publicServices, tt.services...)
 			}
@@ -935,9 +966,7 @@ func TestContainsEgressNamespace(t *testing.T) {
 			}
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
-			ps.Env = &Environment{
-				Mesh: &meshConfig,
-			}
+			ps.Mesh = &meshConfig
 
 			services := []*Service{
 				{Hostname: "nomatch", Attributes: ServiceAttributes{Namespace: "nomatch"}},
@@ -1072,9 +1101,7 @@ outboundTrafficPolicy:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ps := NewPushContext()
-			ps.Env = &Environment{
-				Mesh: &test.meshConfig,
-			}
+			ps.Mesh = &test.meshConfig
 
 			var sidecarScope *SidecarScope
 			if test.sidecar == nil {
