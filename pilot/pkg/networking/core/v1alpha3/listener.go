@@ -18,8 +18,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1279,26 +1281,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForP
 		if (*currentListenerEntry).locked {
 			return false, nil
 		}
-
-		if !util.IsProtocolSniffingEnabledForOutbound(node) {
-			if pluginParams.Service != nil {
-				if !(*currentListenerEntry).servicePort.Protocol.IsThrift() {
-					outboundListenerConflict{
-						metric:          model.ProxyStatusConflictOutboundListenerTCPOverThrift,
-						node:            pluginParams.Node,
-						listenerName:    *listenerMapKey,
-						currentServices: (*currentListenerEntry).services,
-						currentProtocol: (*currentListenerEntry).servicePort.Protocol,
-						newHostname:     pluginParams.Service.Hostname,
-						newProtocol:     pluginParams.Port.Protocol,
-					}.addMetric(node, pluginParams.Push)
-				}
-
-				// Skip building listener for the same thrift port
-				(*currentListenerEntry).services = append((*currentListenerEntry).services, pluginParams.Service)
-			}
-			return false, nil
-		}
 	}
 
 	// No conflicts. Add a thrift filter chain option to the listenerOpts
@@ -2057,20 +2039,38 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	return connectionManager
 }
 
-func buildThriftRatelimit(rlsCluster, domain string) *thrift_ratelimit.RateLimit {
+func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_ThriftConfig) *thrift_ratelimit.RateLimit {
 	thriftRateLimit := &thrift_ratelimit.RateLimit{
 		Domain:          domain,
 		Timeout:         ptypes.DurationProto(ThriftRLSDefaultTimeoutMS * time.Millisecond),
 		FailureModeDeny: false,
 		RateLimitService: &ratelimit.RateLimitServiceConfig{
-			GrpcService: &core.GrpcService{
-				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: rlsCluster,
-					},
-				},
-			},
+			GrpcService: &core.GrpcService{},
 		},
+	}
+
+	rlsUrl, err := url.Parse(thriftconfig.RateLimitUrl)
+	if err != nil {
+		log.Warnf("unable to parse rate limit url: %s\n", thriftconfig.RateLimitUrl)
+		return nil
+	}
+
+	rlsPort := 8081
+	if meshConfigPort := rlsUrl.Port(); meshConfigPort != "" {
+		if parsedPort, err := strconv.Atoi(meshConfigPort); err != nil {
+			log.Warnf("unable to parse rate limit port from url: %s\n", thriftconfig.RateLimitUrl)
+			rlsPort = parsedPort
+		}
+	}
+
+	thriftRateLimit.RateLimitService.GrpcService.TargetSpecifier = &core.GrpcService_EnvoyGrpc_{
+		EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+			ClusterName: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(rlsUrl.Host), rlsPort),
+		},
+	}
+
+	if meshConfigTimeout := thriftconfig.GetRateLimitTimeout(); meshConfigTimeout != nil {
+		thriftRateLimit.Timeout = gogo.DurationToProtoDuration(meshConfigTimeout)
 	}
 
 	if err := thriftRateLimit.Validate(); err != nil {
@@ -2262,12 +2262,12 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 
 			// If the RLS service was provided, add the RLS to the Thrift filter
 			// chain. Rate limiting is only applied client-side.
-			if rlsURI := features.ThriftRatelimitService.Get(); rlsURI != "" &&
+			if rlsURI := opts.push.Mesh.ThriftConfig.RateLimitUrl; rlsURI != "" &&
 				mutable.Listener.TrafficDirection == core.TrafficDirection_OUTBOUND &&
 				pluginParams.Service != nil &&
 				pluginParams.Service.Hostname != "" &&
 				len(quotas) > 0 {
-				rateLimitConfig := buildThriftRatelimit(rlsURI, fmt.Sprint(pluginParams.Service.Hostname))
+				rateLimitConfig := buildThriftRatelimit(fmt.Sprint(pluginParams.Service.Hostname), opts.push.Mesh.ThriftConfig)
 				rateLimitFilter := &thrift_proxy.ThriftFilter{
 					Name: "envoy.filters.thrift.rate_limit",
 				}

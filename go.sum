@@ -292,6 +292,8 @@ github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d/go.mod h1:SlYgWuQ5
 github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48/go.mod h1:SlYgWuQ5SjCEi6WLHjHCa1yvBfUnHcTbrrZtXPKa29o=
 github.com/gogo/protobuf v1.3.0 h1:G8O7TerXerS4F6sx9OV7/nRfJdnXgHZu/S/7F2SN+UE=
 github.com/gogo/protobuf v1.3.0/go.mod h1:SlYgWuQ5SjCEi6WLHjHCa1yvBfUnHcTbrrZtXPKa29o=
+github.com/gogo/protobuf v1.3.1 h1:DqDEcV5aeaTmdFBePNpYsp3FlcVH/2ISVVM9Qf8PSls=
+github.com/gogo/protobuf v1.3.1/go.mod h1:SlYgWuQ5SjCEi6WLHjHCa1yvBfUnHcTbrrZtXPKa29o=
 github.com/golang/groupcache v0.0.0-20160516000752-02826c3e7903/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
 github.com/golang/groupcache v0.0.0-20180513044358-24b0969c4cb7/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
 github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef h1:veQD95Isof8w9/WXiA+pa3tz3fJXkt5B7QaRBrM62gk=
@@ -983,10 +985,14 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/api v0.0.0-20191120195622-f0abe0c81e59 h1:NlvDpTU4aQWcq9kOwq5BmG8dg+ZeSvAa25y9RwVO3do=
 istio.io/api v0.0.0-20191120195622-f0abe0c81e59/go.mod h1:+cyHH83OwC0rFpwk8eXctzPNpiCAbB+r6kmMiAxxBHw=
+istio.io/api v0.0.0-20200117194847-776c2d7b730b h1:DsEoA5rUSByrNudiGyRhqcFYxeGYoCRPE4wpk6MasTE=
+istio.io/api v0.0.0-20200117194847-776c2d7b730b/go.mod h1:bcY3prusO/6vA6zGHz4PNG2v79clPyTw06Xx3fprJSQ=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a h1:w7zILua2dnYo9CxImhpNW4NE/8ZxEoc/wfBfHrhUhrE=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
 istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55 h1:nvpx66mnuGvXYP4IfCWfUqB9YhiXBF3MvUDsclNnDzI=
 istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
+istio.io/gogo-genproto v0.0.0-20191212213402-78a529a42cd8 h1:vcvyAXMWwGwTlFdFT36QlzYg5Ggm9p9/FYcMjf2vZnQ=
+istio.io/gogo-genproto v0.0.0-20191212213402-78a529a42cd8/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
 istio.io/operator v0.0.0-20191223222718-4f86f733e5bc h1:GVsGDZ3K6a+9P9b0Syah1L+BhQj5YBQ4Vjd53wVJdKo=
 istio.io/operator v0.0.0-20191223222718-4f86f733e5bc/go.mod h1:p2nHwiSx3lDo8Xjyt5H9UCUBdFccFBPRcQvyEXeLf8g=
 istio.io/pkg v0.0.0-20191029184635-5c2f5ef63692 h1:MT7e5hpQ8cGtKCeWIjtdluEVkIhkN2tw4iVkAzhWHYA=
