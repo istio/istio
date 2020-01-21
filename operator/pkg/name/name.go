@@ -263,7 +263,14 @@ func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOper
 		return "", fmt.Errorf("defaultNamespace must be set")
 	}
 
-	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Namespace")
+	var componentPath string
+	if componentName.IsCoreComponent() {
+		componentPath = "Components."+ string(componentName)+".Namespace"
+	} else {
+		componentPath = "AddonComponents."+util.ToYAMLPathString(string(componentName))+".Namespace"
+	}
+
+	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, componentPath)
 	if err != nil {
 		return "", fmt.Errorf("error in Namepsace GetFromStructPath componentNamespace for component=%s: %s", componentName, err)
 	}
