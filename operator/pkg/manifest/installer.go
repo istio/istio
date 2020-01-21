@@ -106,7 +106,6 @@ var (
 			name.GalleyComponentName,
 			name.CitadelComponentName,
 			name.NodeAgentComponentName,
-			name.CertManagerComponentName,
 			name.SidecarInjectorComponentName,
 			name.CNIComponentName,
 			name.IngressComponentName,
@@ -240,7 +239,7 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 	}
 	wg.Wait()
 	if opts.Wait {
-		return out, waitForResources(allAppliedObjects, opts)
+		return out, WaitForResources(allAppliedObjects, opts)
 	}
 	return out, nil
 }
@@ -315,7 +314,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	if err := waitForResources(nsObjects, &opts); err != nil {
+	if err := WaitForResources(nsObjects, &opts); err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	appliedObjects = append(appliedObjects, nsObjects...)
@@ -537,10 +536,10 @@ func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
 	return nil
 }
 
-// waitForResources polls to get the current status of all pods, PVCs, and Services
+// WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
 // TODO - plumb through k8s client and remove global `k8sRESTConfig`
-func waitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error {
+func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error {
 	if opts.DryRun {
 		logAndPrint("Not waiting for resources ready in dry run mode.")
 		return nil

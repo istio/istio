@@ -1021,6 +1021,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 		tcpListeners = append(tcpListeners, httpProxy)
 	}
 
+	removeListenerFilterTimeout(tcpListeners)
 	return tcpListeners
 }
 
@@ -1305,89 +1306,99 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	conflictType := NoConflict
 
-	switch pluginParams.ListenerProtocol {
-	case plugin.ListenerProtocolHTTP:
+	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
+	if pluginParams.Port.Protocol == protocol.HTTP_PROXY {
 		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
 			return
+		} else {
+			listenerOpts.filterChainOpts = opts
 		}
-
-		// Check if conflict happens
-		if util.IsProtocolSniffingEnabledForOutbound(node) && currentListenerEntry != nil {
-			// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
-			// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
-			if currentListenerEntry.protocol.IsHTTP() {
-				conflictType = HTTPOverHTTP
-			} else if currentListenerEntry.protocol.IsTCP() {
-				conflictType = HTTPOverTCP
-			} else {
-				conflictType = HTTPOverAuto
+	} else {
+		switch pluginParams.ListenerProtocol {
+		case plugin.ListenerProtocolHTTP:
+			if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
+				&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
+				return
 			}
-		}
 
-		listenerOpts.filterChainOpts = opts
+			// Check if conflict happens
+			if util.IsProtocolSniffingEnabledForOutbound(node) && currentListenerEntry != nil {
+				// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
+				// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
+				if currentListenerEntry.protocol.IsHTTP() {
+					conflictType = HTTPOverHTTP
+				} else if currentListenerEntry.protocol.IsTCP() {
+					conflictType = HTTPOverTCP
+				} else {
+					conflictType = HTTPOverAuto
+				}
+			}
 
-	case plugin.ListenerProtocolTCP:
-		if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
-			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
+			listenerOpts.filterChainOpts = opts
+
+		case plugin.ListenerProtocolTCP:
+			if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
+				&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
+				return
+			}
+
+			// Check if conflict happens
+			if util.IsProtocolSniffingEnabledForOutbound(node) && currentListenerEntry != nil {
+				// Build TCP listener. If current listener entry is using HTTP, add a new TCP filter chain
+				// If current listener is using protocol sniffing, merge the TCP filter chains.
+				if currentListenerEntry.protocol.IsHTTP() {
+					conflictType = TCPOverHTTP
+				} else if currentListenerEntry.protocol.IsTCP() {
+					conflictType = TCPOverTCP
+				} else {
+					conflictType = TCPOverAuto
+				}
+			}
+
+			listenerOpts.filterChainOpts = opts
+
+		case plugin.ListenerProtocolAuto:
+			// Add tcp filter chain, build TCP filter chain first.
+			if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
+				&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
+				return
+			}
+			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
+
+			// Add http filter chain and tcp filter chain to the listener opts
+			if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
+				&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
+				return
+			}
+
+			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
+			for _, opt := range opts {
+				if opt.match == nil {
+					opt.match = &listener.FilterChainMatch{}
+				}
+
+				// Support HTTP/1.0, HTTP/1.1 and HTTP/2
+				opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+			}
+
+			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
+			listenerOpts.needHTTPInspector = true
+
+			if currentListenerEntry != nil {
+				if currentListenerEntry.protocol.IsHTTP() {
+					conflictType = AutoOverHTTP
+				} else if currentListenerEntry.protocol.IsTCP() {
+					conflictType = AutoOverTCP
+				} else {
+					conflictType = AutoOverAuto
+				}
+			}
+
+		default:
+			// UDP or other protocols: no need to log, it's too noisy
 			return
 		}
-
-		// Check if conflict happens
-		if util.IsProtocolSniffingEnabledForOutbound(node) && currentListenerEntry != nil {
-			// Build TCP listener. If current listener entry is using HTTP, add a new TCP filter chain
-			// If current listener is using protocol sniffing, merge the TCP filter chains.
-			if currentListenerEntry.protocol.IsHTTP() {
-				conflictType = TCPOverHTTP
-			} else if currentListenerEntry.protocol.IsTCP() {
-				conflictType = TCPOverTCP
-			} else {
-				conflictType = TCPOverAuto
-			}
-		}
-
-		listenerOpts.filterChainOpts = opts
-
-	case plugin.ListenerProtocolAuto:
-		// Add tcp filter chain, build TCP filter chain first.
-		if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
-			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
-			return
-		}
-		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
-
-		// Add http filter chain and tcp filter chain to the listener opts
-		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
-			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
-			return
-		}
-
-		// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
-		for _, opt := range opts {
-			if opt.match == nil {
-				opt.match = &listener.FilterChainMatch{}
-			}
-
-			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
-		}
-
-		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
-		listenerOpts.needHTTPInspector = true
-
-		if currentListenerEntry != nil {
-			if currentListenerEntry.protocol.IsHTTP() {
-				conflictType = AutoOverHTTP
-			} else if currentListenerEntry.protocol.IsTCP() {
-				conflictType = AutoOverTCP
-			} else {
-				conflictType = AutoOverAuto
-			}
-		}
-
-	default:
-		// UDP or other protocols: no need to log, it's too noisy
-		return
 	}
 
 	// These wildcard listeners are intended for outbound traffic. However, there are cases where inbound traffic can hit these.
@@ -2333,4 +2344,24 @@ func isFallthroughFilterChain(fc *listener.FilterChain) bool {
 		return true
 	}
 	return false
+}
+
+func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
+	for _, l := range listeners {
+		// Remove listener filter timeout for
+		// 	1. outbound listeners AND
+		// 	2. without HTTP inspector
+		hasHttpInspector := false
+		for _, lf := range l.ListenerFilters {
+			if lf.Name == wellknown.HttpInspector {
+				hasHttpInspector = true
+				break
+			}
+		}
+
+		if !hasHttpInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
+			l.ListenerFiltersTimeout = nil
+			l.ContinueOnListenerFiltersTimeout = false
+		}
+	}
 }
