@@ -16,7 +16,6 @@ package controlplane
 
 import (
 	"fmt"
-	"sort"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/component/component"
@@ -64,31 +63,21 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
 		out.components = append(out.components, component.NewEgressComponent(c.Name, idx, &o))
 	}
-	for _, cn := range orderedKeys(installSpec.AddonComponents) {
-		c := installSpec.AddonComponents[cn]
-		if c.Enabled == nil || !c.Enabled.Value {
+	for _, cn := range name.AllAddonComponentNames {
+		c := installSpec.AddonComponents[util.ToYAMLPathString(string(cn))]
+		if c == nil || c.Enabled == nil || !c.Enabled.Value {
 			continue
-		}
-		rn := ""
-		// For well-known addon components like Prometheus, the resource names are included
-		// in the translations.
-		if cm := translator.ComponentMap(cn); cm != nil {
-			rn = cm.ResourceName
 		}
 		o := *opts
 		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
+		rn := ""
+		// Resource names are included in the translations.
+		if cm := translator.ComponentMap(string(cn)); cm != nil {
+			rn = cm.ResourceName
+		}
 		out.components = append(out.components, component.NewAddonComponent(cn, rn, &o))
 	}
 	return out, nil
-}
-
-func orderedKeys(m map[string]*v1alpha1.ExternalComponentSpec) []string {
-	var keys []string
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 func defaultIfEmpty(val, dflt string) string {

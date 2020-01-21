@@ -50,7 +50,13 @@ const (
 	EgressComponentName  ComponentName = "EgressGateways"
 
 	// Addon components
-	AddonComponentName ComponentName = "Addon"
+	PrometheusComponentName ComponentName = "Prometheus"
+	KialiComponentName      ComponentName = "Kiali"
+	GrafanaComponentName    ComponentName = "Grafana"
+	// TODO (dgn): this is inconsistent with the other components. I think we should
+	//             change to separate components per impl -> Jaeger, Zipkin, etc.
+	TracingComponentName ComponentName = "Tracing"
+	CoreDNSComponentName ComponentName = "CoreDNS"
 
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
@@ -73,6 +79,13 @@ var (
 		CitadelComponentName,
 		NodeAgentComponentName,
 		CNIComponentName,
+	}
+	AllAddonComponentNames = []ComponentName{
+		PrometheusComponentName,
+		KialiComponentName,
+		GrafanaComponentName,
+		TracingComponentName,
+		CoreDNSComponentName,
 	}
 	DeprecatedNames = []ComponentName{
 		InjectorComponentName,
@@ -108,11 +121,6 @@ func (cn ComponentName) IsGateway() bool {
 	return cn == IngressComponentName || cn == EgressComponentName
 }
 
-// IsAddon reports whether cn is an addon component.
-func (cn ComponentName) IsAddon() bool {
-	return cn == AddonComponentName
-}
-
 // IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.
 // IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.
 func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (bool, error) {
@@ -122,8 +130,14 @@ func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1a
 	if componentName == EgressComponentName {
 		return len(controlPlaneSpec.Components.EgressGateways) != 0, nil
 	}
-
-	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Enabled")
+	var componentPath string
+	if componentName.IsCoreComponent() {
+		componentPath = "Components."+ string(componentName)+".Enabled"
+	} else {
+		componentPath = "AddonComponents."+util.ToYAMLPathString(string(componentName))+".Enabled"
+	}
+	
+	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, componentPath)
 	if err != nil {
 		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for component=%s: %s",
 			componentName, err)
