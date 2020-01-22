@@ -6824,6 +6824,9 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
         {{- if .Values.global.controlPlaneSecurityEnabled }}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
@@ -7879,6 +7882,9 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
           {{- if .Values.global.istiod.enabled }}
           - --controlPlaneAuthPolicy
           - NONE
@@ -9509,6 +9515,9 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
     - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
+  {{- end }}
+  {{- if .Values.global.sts.servicePort }}
+    - --stsPort={{ .Values.global.sts.servicePort }}
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -11328,6 +11337,9 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
         {{- if .Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
@@ -11958,6 +11970,9 @@ template: |
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
     - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
+  {{- end }}
+  {{- if .Values.global.sts.servicePort }}
+    - --stsPort={{ .Values.global.sts.servicePort }}
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -13497,6 +13512,9 @@ spec:
         {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
         {{- if .Values.global.logAsJson }}
           - --log_as_json
@@ -33397,6 +33415,9 @@ spec:
       {{- end }}
       {{- if .Values.global.trustDomain }}
         - --trust-domain={{ .Values.global.trustDomain }}
+      {{- end }}
+      {{- if .Values.global.sts.servicePort }}
+      - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
       {{- if .Values.global.logAsJson }}
         - --log_as_json
