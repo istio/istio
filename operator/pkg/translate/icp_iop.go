@@ -17,7 +17,6 @@ package translate
 import (
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
 
 	"gopkg.in/yaml.v2"
 
@@ -64,10 +63,9 @@ func ReadICPtoIOPTranslations(filePath string) (map[string]string, error) {
 // TranslateICPToIOPVer takes an IstioControlPlane YAML string and the target version as input,
 // then translates it into an IstioOperator YAML string.
 func TranslateICPToIOPVer(icp string, ver version.Version) (string, error) {
-	translateConfigPath := filepath.Join(TranslateConfigFolder, ICPToIOPConfigPrefix+ver.MinorVersion.String()+".yaml")
-	translations, err := ReadTranslationsVFS(translateConfigPath)
+	translations, err := ICPtoIOPTranslations(ver)
 	if err != nil {
-		return "", fmt.Errorf("could not read translate config from VFS path: %s, error: %s", translateConfigPath, err)
+		return "", fmt.Errorf("could not read translate config for version %s: %s", ver, err)
 	}
 	return TranslateICPToIOP(icp, translations)
 }
