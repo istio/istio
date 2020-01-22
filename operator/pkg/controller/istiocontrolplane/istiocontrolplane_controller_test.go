@@ -51,7 +51,6 @@ var (
 		string(name.SidecarInjectorComponentName): healthyVersionStatus,
 		string(name.TelemetryComponentName):       healthyVersionStatus,
 		string(name.CitadelComponentName):         healthyVersionStatus,
-		string(name.GalleyComponentName):          healthyVersionStatus,
 		string(name.IngressComponentName):         healthyVersionStatus,
 		string(name.AddonComponentName):           healthyVersionStatus,
 	}
@@ -62,7 +61,6 @@ var (
 		string(name.TelemetryComponentName):       healthyVersionStatus,
 		string(name.PolicyComponentName):          healthyVersionStatus,
 		string(name.CitadelComponentName):         healthyVersionStatus,
-		string(name.GalleyComponentName):          healthyVersionStatus,
 		string(name.IngressComponentName):         healthyVersionStatus,
 		string(name.EgressComponentName):          healthyVersionStatus,
 		string(name.AddonComponentName):           healthyVersionStatus,
@@ -73,7 +71,6 @@ var (
 		string(name.SidecarInjectorComponentName): healthyVersionStatus,
 		string(name.TelemetryComponentName):       healthyVersionStatus,
 		string(name.CitadelComponentName):         healthyVersionStatus,
-		string(name.GalleyComponentName):          healthyVersionStatus,
 		string(name.NodeAgentComponentName):       healthyVersionStatus,
 		string(name.IngressComponentName):         healthyVersionStatus,
 		string(name.AddonComponentName):           healthyVersionStatus,

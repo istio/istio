@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
+			if g, err = galley.New(ctx, galley.Config{CreateClient: true}); err != nil {
 				return err
 			}
 			galleyHostPort := g.Address()[6:]
@@ -78,6 +78,9 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["pilot.configSource.subscribedResources[0]"] = "SERVICE_REGISTRY"
 	// ICP doesn't support set with list, so need to override here
 	cfg.ControlPlaneValues = `
+components:
+  galley:
+    enabled: true
 values:
   galley:
     enableServiceDiscovery: true
