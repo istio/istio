@@ -650,7 +650,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: pilot2
+    app: pilot
     istio: pilot
     release: istio
   name: istio-pilot
