@@ -299,6 +299,6 @@ var (
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
 		"the provider of Pilot DNS certificate.")
 
-	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyFirstPartyJWT,
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
 )

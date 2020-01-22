@@ -133,7 +133,7 @@ var (
 		"max number of message events for stackdriver")
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
 		"the provider of Pilot DNS certificate.").Get()
-	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyFirstPartyJWT,
+	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
 
 	sdsUdsWaitTimeout = time.Minute

@@ -74,7 +74,7 @@ const (
 )
 
 var (
-	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyFirstPartyJWT,
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
 )
 
