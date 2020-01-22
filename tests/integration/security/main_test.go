@@ -55,4 +55,10 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	rootNamespace = cfg.SystemNamespace
+
+	cfg.ControlPlaneValues = `
+components:
+  citadel:
+    enabled: true
+`
 }

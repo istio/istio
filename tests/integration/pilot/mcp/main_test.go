@@ -81,6 +81,8 @@ func setupConfig(cfg *istio.Config) {
 components:
   galley:
     enabled: true
+  citadel:
+    enabled: true
 values:
   galley:
     enableServiceDiscovery: true
