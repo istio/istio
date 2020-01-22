@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package test
+package successtest
 
 import (
 	"fmt"
@@ -21,7 +21,9 @@ import (
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/mixer/test/client/env"
+	testID "istio.io/istio/mixer/test/client/env"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
+	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
 
 // TestProxySTS verifies that XDS server receives token correctly.
@@ -43,9 +45,9 @@ func TestProxySTS(t *testing.T) {
 	cb := xdsService.CreateXdsCallback(t)
 	cb.SetExpectedToken(expectedToken)
 	// Start all test servers and proxy
-	setup := SetUpTest(t, cb)
+	setup := stsTest.SetUpTest(t, cb, testID.STSTest)
 	// Verify that initially XDS stream is not set up, stats do not update initial stats
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
 	setup.StartProxy(t)
@@ -54,7 +56,7 @@ func TestProxySTS(t *testing.T) {
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(1))
 	// Verify that LDS push is done and dynamic listener works properly, this is
 	// to make sure XDS stream is working properly
-	setup.proxySetUp.WaitEnvoyReady()
+	setup.ProxySetUp.WaitEnvoyReady()
 	// Issues a GET echo request with 0 size body to the dynamic listener
 	if _, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", setup.ProxyListenerPort)); err != nil {
 		t.Errorf("Failed in request: %v", err)
