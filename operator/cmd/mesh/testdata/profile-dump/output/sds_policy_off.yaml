@@ -120,7 +120,7 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
   sidecarInjector:
-    enabled: true
+    enabled: false
     k8s:
       replicaCount: 1
       strategy:
