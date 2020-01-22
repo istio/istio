@@ -144,8 +144,9 @@ func localPilotTestEnv(t *testing.T, initFunc func(*bootstrap.Server), additiona
 	initFunc(server)
 
 	// Trigger a push, to initiate push context with contents of registry.
-	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 
+	// Wait till a push is propagated.
 	time.Sleep(200 * time.Millisecond)
 
 	// Add a dummy client connection to validate that push is triggered.
