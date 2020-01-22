@@ -26,7 +26,13 @@ func TestRequestTimeouts(t *testing.T) {
 		NewTest(t).
 		Run(istioio.NewBuilder("tasks__traffic_management__request_timeouts").
 			Add(istioio.Script{
+				Input: istioio.Path("../common/scripts/bookinfo.txt"),
+			}).
+			Add(istioio.Script{
 				Input: istioio.Path("scripts/request_timeouts.txt"),
+			}).
+			Add(istioio.Script{
+				Input: istioio.Path("scripts/request_timeouts_delay.txt"),
 			}).
 			Defer(istioio.Script{
 				Input: istioio.Inline{

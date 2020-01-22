@@ -48,8 +48,8 @@ fi
 export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
 # $endsnippet
 
-# Step 1: Route requests to v2 of the reviews service
-# $snippet v2_reviews.sh syntax="bash"
+# Step 1: add a half second request timeout for calls to the reviews service
+# $snippet delay_reviews.sh syntax="bash"
 $ kubectl apply -f - <<EOF
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -57,41 +57,20 @@ metadata:
   name: reviews
 spec:
   hosts:
-    - reviews
+  - reviews
   http:
   - route:
     - destination:
         host: reviews
         subset: v2
+    timeout: 0.5s
 EOF
 # $endsnippet
 
-# Step 2: Add a 2 second delay to calls to the ratings service
-# $snippet delay_ratings.sh syntax="bash"
-$ kubectl apply -f - <<EOF
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: ratings
-spec:
-  hosts:
-  - ratings
-  http:
-  - fault:
-      delay:
-        percent: 100
-        fixedDelay: 2s
-    route:
-    - destination:
-        host: ratings
-        subset: v1
-EOF
-# $endsnippet
-
-# Step 3: Verify 2s delay with ratings stars displayed
+# Step 2: Verify product reviews are unavailable
 # $snippet verify_ratings.sh syntax="bash"
-$ curl http://"${GATEWAY_URL}"/productpage | grep -o ".*Reviewer1"
-sleep 2
+$ curl http://"${GATEWAY_URL}"/productpage | grep -o "<p>Sorry.*</p>"
+sleep 1
 # $verify verifier="contains"
-<small>Reviewer1
+<p>Sorry, product reviews are currently unavailable for this book.</p>
 # $endsnippet
