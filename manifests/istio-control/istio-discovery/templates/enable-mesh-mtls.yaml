@@ -33,6 +33,17 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: disable-mtls-to-kube-dns
+  namespace: kube-system
+spec:
+  host: "kube-dns.kube-system.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
 {{ end }}
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
