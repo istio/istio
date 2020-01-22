@@ -217,7 +217,53 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	// Assign namespace dependencies
 	out.namespaceDependencies = make(map[string]struct{})
 	for _, listener := range out.EgressListeners {
-		for _, s := range listener.services {
+		// Explicitly callable services are potential destinations, copy those first
+		serviceDestinations := append([]*Service(nil), listener.services...)
+
+		addDestination := func(d *networking.Destination) {
+			if d == nil {
+				return
+			}
+			// Default to this hostname in our config namespace
+			s, ok := ps.ServiceByHostnameAndNamespace[host.Name(d.Host)][configNamespace]
+			if !ok {
+				// Otherwise pick randomly
+				for _, v := range ps.ServiceByHostnameAndNamespace[host.Name(d.Host)] {
+					s, ok = v, true
+				}
+				if !ok {
+					return
+				}
+			}
+
+			serviceDestinations = append(serviceDestinations, s)
+		}
+
+		// Infer more possible destinations from virtual services
+		for _, vs := range listener.virtualServices {
+			v := vs.Spec.(*networking.VirtualService)
+
+			for _, h := range v.Http {
+				for _, r := range h.Route {
+					addDestination(r.Destination)
+				}
+				addDestination(h.Mirror)
+
+			}
+			for _, t := range v.Tcp {
+				for _, r := range t.Route {
+					addDestination(r.Destination)
+
+				}
+			}
+			for _, t := range v.Tls {
+				for _, r := range t.Route {
+					addDestination(r.Destination)
+				}
+			}
+		}
+
+		for _, s := range serviceDestinations {
 			if _, found := servicesAdded[string(s.Hostname)]; !found {
 				servicesAdded[string(s.Hostname)] = s
 				out.services = append(out.services, s)
