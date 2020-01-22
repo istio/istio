@@ -226,6 +226,7 @@ ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 depend: init | $(ISTIO_OUT)
 
 DIRS_TO_CLEAN := $(ISTIO_OUT)
+DIRS_TO_CLEAN += $(ISTIO_OUT_LINUX)
 
 $(OUTPUT_DIRS):
 	@mkdir -p $@
