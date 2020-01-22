@@ -29,8 +29,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/webhooks/validation/server"
 
 	"istio.io/pkg/log"
 
@@ -133,7 +133,7 @@ func TestWebhook(t *testing.T) {
 						t.Skip("istiod does not support cert rotation")
 					}
 
-					addr, done := startWebhookPortForwarderOrFail(t, env, istioNs)
+					addr, done := startWebhookPortForwarderOrFail(t, env, cfg)
 					defer done()
 
 					startingSN := fetchWebhookCertSerialNumbersOrFail(t, addr)
@@ -213,15 +213,23 @@ func getVwcResourceVersion(vwcName string, t test.Failer, env *kube.Environment)
 	return vwc.GetResourceVersion()
 }
 
-func startWebhookPortForwarderOrFail(t test.Failer, env *kube.Environment, ns string) (addr string, done func()) {
+func startWebhookPortForwarderOrFail(t test.Failer, env *kube.Environment, cfg istio.Config) (addr string, done func()) {
 	t.Helper()
 
+	// This function should only be called when testing galley's validation
+	// webhook. Istiod doesn't support cert rotation.
+	if cfg.IsIstiodEnabled() {
+		t.Fatal("istiod does not support cert rotation")
+	}
+	// Hardcode Galley's webhook port.
+	port := (uint16)(server.DefaultArgs().Port)
+
 	// ensure only one pod *exists* before we start port forwarding.
-	scaleDeployment(ns, deployName, 0, t, env)
-	scaleDeployment(ns, deployName, 1, t, env)
+	scaleDeployment(cfg.IstioNamespace, deployName, 0, t, env)
+	scaleDeployment(cfg.IstioNamespace, deployName, 1, t, env)
 
 	var webhookPod *v1.Pod
-	fetchFunc := env.Accessor.NewSinglePodFetch(ns, fmt.Sprintf("app=%v", webhookControllerApp))
+	fetchFunc := env.Accessor.NewSinglePodFetch(cfg.IstioNamespace, fmt.Sprintf("app=%v", webhookControllerApp))
 	retry.UntilSuccessOrFail(t, func() error {
 		pods, err := fetchFunc()
 		if err != nil {
@@ -234,7 +242,7 @@ func startWebhookPortForwarderOrFail(t test.Failer, env *kube.Environment, ns st
 		return tkube.CheckPodReady(webhookPod)
 	}, retry.Timeout(5*time.Minute))
 
-	forwarder, err := env.Accessor.NewPortForwarder(*webhookPod, 0, 15017)
+	forwarder, err := env.Accessor.NewPortForwarder(*webhookPod, 0, port)
 	if err != nil {
 		t.Fatalf("failed creating port forwarding to the controller: %v", err)
 	}
@@ -267,7 +275,7 @@ func fetchWebhookCertSerialNumbersOrFail(t test.Failer, addr string) []string { 
 	}
 	defer client.CloseIdleConnections()
 
-	url := fmt.Sprintf("https://%v/%v", addr, bootstrap.HTTPSWebhookServerReadyPath)
+	url := fmt.Sprintf("https://%v/%v", addr, server.HTTPSHandlerReadyPath)
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		t.Fatalf("invalid request: %v", err)

@@ -86,6 +86,15 @@ export ISTIO_BIN=$(GOBIN)
 
 export ISTIO_OUT:=$(TARGET_OUT)
 export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
+
+# LOCAL_OUT should include architecture where we are currently running versus the desired.
+# This is used when we need to run a build artifact.
+ifeq ($(IN_BUILD_CONTAINER),1)
+  LOCAL_OUT := $(ISTIO_OUT_LINUX)
+else
+  LOCAL_OUT := $(ISTIO_OUT)
+endif
+
 export HELM=helm
 export ARTIFACTS ?= $(ISTIO_OUT)
 export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
@@ -197,6 +206,7 @@ default: init build test
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${TARGET_OUT}/logs
+	mkdir -p ${TARGET_OUT}/release
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -205,7 +215,7 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
 	ISTIO_OUT=$(ISTIO_OUT) ISTIO_BIN=$(ISTIO_BIN) bin/init.sh
 	touch $(ISTIO_OUT)/istio_is_init
 
-# init.sh downloads envoy
+# init.sh downloads envoy and webassembly plugins
 ${ISTIO_OUT}/envoy: init
 ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
@@ -365,11 +375,11 @@ ${ISTIO_OUT}/release/istioctl-win.exe: depend
 
 # generate the istioctl completion files
 ${ISTIO_OUT}/release/istioctl.bash: istioctl
-	${ISTIO_OUT}/istioctl collateral --bash && \
+	${LOCAL_OUT}/istioctl collateral --bash && \
 	mv istioctl.bash ${ISTIO_OUT}/release/istioctl.bash
 
 ${ISTIO_OUT}/release/_istioctl: istioctl
-	${ISTIO_OUT}/istioctl collateral --zsh && \
+	${LOCAL_OUT}/istioctl collateral --zsh && \
 	mv _istioctl ${ISTIO_OUT}/release/_istioctl
 
 .PHONY: binaries-test

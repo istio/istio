@@ -135,7 +135,9 @@ rules:
               - requestedServerName:
                   prefix: prefix.
               - requestedServerName:
-                  regex: .+
+                  safeRegex:
+                    googleRe2: {}
+                    regex: .+
           - notRule:
               orRules:
                 rules:
@@ -146,7 +148,9 @@ rules:
                 - requestedServerName:
                     prefix: not-prefix.
                 - requestedServerName:
-                    regex: .+
+                    safeRegex:
+                      googleRe2: {}
+                      regex: .+
           - orRules:
               rules:
               - metadata:
@@ -176,7 +180,9 @@ rules:
                   - key: c
                   value:
                     stringMatch:
-                      regex: .+
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
           - notRule:
               orRules:
                 rules:
@@ -207,7 +213,9 @@ rules:
                     - key: c
                     value:
                       stringMatch:
-                        regex: .+
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
       principals:
       - andIds:
           ids:
@@ -240,7 +248,9 @@ rules:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .+
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
           - notId:
               orIds:
                 ids:
@@ -271,7 +281,9 @@ rules:
                     - key: source.principal
                     value:
                       stringMatch:
-                        regex: .+
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
           - orIds:
               ids:
               - metadata:
@@ -301,7 +313,9 @@ rules:
                   - key: request.auth.principal
                   value:
                     stringMatch:
-                      regex: .+
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
           - notId:
               orIds:
                 ids:
@@ -332,7 +346,9 @@ rules:
                     - key: request.auth.principal
                     value:
                       stringMatch:
-                        regex: .+
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
           - orIds:
               ids:
               - metadata:
@@ -341,28 +357,36 @@ rules:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .*/ns/ns/.*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/ns/.*
               - metadata:
                   filter: istio_authn
                   path:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .*/ns/ns-prefix-.*/.*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/ns-prefix-.*/.*
               - metadata:
                   filter: istio_authn
                   path:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .*/ns/.*-ns-suffix/.*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/.*-ns-suffix/.*
               - metadata:
                   filter: istio_authn
                   path:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .*/ns/.*/.*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/.*/.*
           - notId:
               orIds:
                 ids:
@@ -372,28 +396,36 @@ rules:
                     - key: source.principal
                     value:
                       stringMatch:
-                        regex: .*/ns/not-ns/.*
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/not-ns/.*
                 - metadata:
                     filter: istio_authn
                     path:
                     - key: source.principal
                     value:
                       stringMatch:
-                        regex: .*/ns/not-ns-prefix-.*/.*
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/not-ns-prefix-.*/.*
                 - metadata:
                     filter: istio_authn
                     path:
                     - key: source.principal
                     value:
                       stringMatch:
-                        regex: .*/ns/.*-not-ns-suffix/.*
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/.*-not-ns-suffix/.*
                 - metadata:
                     filter: istio_authn
                     path:
                     - key: source.principal
                     value:
                       stringMatch:
-                        regex: .*/ns/.*/.*
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/.*/.*
           - orIds:
               ids:
               - sourceIp:
@@ -465,28 +497,36 @@ rules:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .*/ns/ns/.*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/ns/.*
               - metadata:
                   filter: istio_authn
                   path:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .*/ns/ns-prefix-.*/.*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/ns-prefix-.*/.*
               - metadata:
                   filter: istio_authn
                   path:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .*/ns/.*-ns-suffix/.*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/.*-ns-suffix/.*
               - metadata:
                   filter: istio_authn
                   path:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .*/ns/.*/.*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/.*/.*
           - notId:
               orIds:
                 ids:
@@ -496,28 +536,36 @@ rules:
                     - key: source.principal
                     value:
                       stringMatch:
-                        regex: .*/ns/not-ns/.*
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/not-ns/.*
                 - metadata:
                     filter: istio_authn
                     path:
                     - key: source.principal
                     value:
                       stringMatch:
-                        regex: .*/ns/not-ns-prefix-.*/.*
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/not-ns-prefix-.*/.*
                 - metadata:
                     filter: istio_authn
                     path:
                     - key: source.principal
                     value:
                       stringMatch:
-                        regex: .*/ns/.*-not-ns-suffix/.*
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/.*-not-ns-suffix/.*
                 - metadata:
                     filter: istio_authn
                     path:
                     - key: source.principal
                     value:
                       stringMatch:
-                        regex: .*/ns/.*/.*
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/.*/.*
           - orIds:
               ids:
               - metadata:
@@ -547,7 +595,9 @@ rules:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .+
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
           - notId:
               orIds:
                 ids:
@@ -578,7 +628,9 @@ rules:
                     - key: source.principal
                     value:
                       stringMatch:
-                        regex: .+
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
           - orIds:
               ids:
               - metadata:
@@ -608,7 +660,9 @@ rules:
                   - key: request.auth.principal
                   value:
                     stringMatch:
-                      regex: .+
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
           - notId:
               orIds:
                 ids:
@@ -639,7 +693,9 @@ rules:
                     - key: request.auth.principal
                     value:
                       stringMatch:
-                        regex: .+
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
           - orIds:
               ids:
               - metadata:
@@ -669,7 +725,9 @@ rules:
                   - key: request.auth.audiences
                   value:
                     stringMatch:
-                      regex: .+
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
           - notId:
               orIds:
                 ids:
@@ -700,7 +758,9 @@ rules:
                     - key: request.auth.audiences
                     value:
                       stringMatch:
-                        regex: .+
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
           - orIds:
               ids:
               - metadata:
@@ -730,7 +790,9 @@ rules:
                   - key: request.auth.presenter
                   value:
                     stringMatch:
-                      regex: .+
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
           - notId:
               orIds:
                 ids:
@@ -761,7 +823,9 @@ rules:
                     - key: request.auth.presenter
                     value:
                       stringMatch:
-                        regex: .+
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
           - orIds:
               ids:
               - metadata:
@@ -803,7 +867,9 @@ rules:
                     listMatch:
                       oneOf:
                         stringMatch:
-                          regex: .+
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
           - notId:
               orIds:
                 ids:
@@ -846,4 +912,6 @@ rules:
                       listMatch:
                         oneOf:
                           stringMatch:
-                            regex: .+
+                            safeRegex:
+                              googleRe2: {}
+                              regex: .+

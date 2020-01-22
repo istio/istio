@@ -1911,7 +1911,7 @@ func TestValidatePortName(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validatePortName(tc.name); (err == nil) != tc.valid {
+			if err := ValidatePortName(tc.name); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
