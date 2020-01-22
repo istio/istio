@@ -15,11 +15,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-{{- if .Values.global.istiod.enabled }}
-        name: istio-pilot
-{{- else }}
         name: istio-sidecar-injector
-{{- end }}
         namespace: {{ .Release.Namespace }}
         path: "/inject"
 {{- if .Values.sidecarInjectorWebhook.selfSigned }}
