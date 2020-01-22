@@ -49,7 +49,6 @@ spec:
         chart: pilot
 {{- end }}
       annotations:
-        sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
