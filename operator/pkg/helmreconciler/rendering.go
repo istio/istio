@@ -44,6 +44,7 @@ import (
 
 // ObjectCache is a cache of objects.
 type ObjectCache struct {
+	// cache is a cache keyed by object Hash() function.
 	cache map[string]*object.K8sObject
 	mu    *sync.RWMutex
 }
@@ -208,11 +209,11 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 	}
 	objectCache := objectCaches[name]
 
+	objectCachesMu.Unlock()
+
 	// Ensure that for a given CR name only one control loop uses the per-name cache at any time.
 	objectCache.mu.Lock()
 	defer objectCache.mu.Unlock()
-
-	objectCachesMu.Unlock()
 
 	// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR name and no
 	// other controller is allowed to work on at the same time.
