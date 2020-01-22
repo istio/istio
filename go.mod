@@ -105,6 +105,7 @@ require (
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
+	github.com/istio.io/proxy/src/envoy/tcp/metadata_exchange/config v0.0.0
 	github.com/jefferai/jsonx v1.0.0 // indirect
 	github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 // indirect
 	github.com/kr/pretty v0.1.0
@@ -190,3 +191,5 @@ replace github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/au
 replace github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.5.0
 
 replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.2.0+incompatible
+
+replace github.com/istio.io/proxy/src/envoy/tcp/metadata_exchange/config v0.0.0 => ./pilot/pkg/metadata_exchange
