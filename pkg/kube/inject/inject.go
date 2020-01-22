@@ -834,8 +834,12 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
 	if meshconfig.SdsUdsPath != "" {
 		var grp = int64(1337)
-		podSpec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup: &grp,
+		if podSpec.SecurityContext == nil {
+			podSpec.SecurityContext = &corev1.PodSecurityContext{
+				FSGroup: &grp,
+			}
+		} else {
+			podSpec.SecurityContext.FSGroup = &grp
 		}
 	}
 
