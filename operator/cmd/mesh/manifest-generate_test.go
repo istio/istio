@@ -29,12 +29,12 @@ import (
 
 type testGroup []struct {
 	desc string
-	// Small changes to the input profile can produce large changes to the golden output
-	// files. This can make it difficult to spot meaningful changes in pull requests.
+	// Small changes to the input profile produce large changes to the golden output
+	// files. This makes it difficult to spot meaningful changes in pull requests.
 	// By default we hide these changes to make developers life's a bit easier. However,
-	// it is still usefil to sometimes show override this behavior and show the full diff.
-	// When this flag is true, use an alternative file suffix that is not hidden by github
-	// in PRs.
+	// it is still useful to sometimes override this behavior and show the full diff.
+	// When this flag is true, use an alternative file suffix that is not hidden by
+	// default github in pull requests.
 	showOutputFileInPullRequest bool
 	flags                       string
 	noInput                     bool

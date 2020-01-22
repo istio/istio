@@ -27,7 +27,6 @@ spec:
         chart: galley
 {{- end }}
       annotations:
-        sidecar.istio.io/inject: "false"
         {{- if .Values.galley.podAnnotations }}
 {{ toYaml .Values.galley.podAnnotations | indent 8 }}
         {{- end }}
