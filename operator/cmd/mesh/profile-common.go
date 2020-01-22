@@ -19,6 +19,10 @@ import (
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
+
+	"istio.io/pkg/log"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
@@ -31,6 +35,9 @@ import (
 	pkgversion "istio.io/pkg/version"
 )
 
+
+var scope = log.RegisterScope("installer", "installer", 0)
+
 // getIOPS creates an IstioOperatorSpec from the following sources, overlaid sequentially:
 // 1. Compiled in base, or optionally base from paths pointing to one or multiple ICP files at inFilename.
 // 2. Profile overlay, if non-default overlay is selected. This also comes either from compiled in or path specified in IOP contained in inFilename.
@@ -41,7 +48,7 @@ import (
 // ones that are compiled in. If it does, the starting point will be the base and profile YAMLs at that file path.
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
-func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force bool, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
 	overlayYAML := ""
 	var overlayIOPS *v1alpha1.IstioOperatorSpec
 	set := make(map[string]interface{})
@@ -137,6 +144,18 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 		}
 	}
 
+	if kubeConfig != nil {
+		kubeOverrides, err := getClusterSpecificValues(kubeConfig, force, l)
+		if err != nil {
+			return "", nil, err
+		}
+		scope.Infof("Applying Cluster specific settings: %v", kubeOverrides)
+		baseYAML, err = util.OverlayYAML(baseYAML, kubeOverrides)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
 	// Merge base and overlay.
 	mergedYAML, err := util.OverlayYAML(baseYAML, overlayYAML)
 	if err != nil {
@@ -159,8 +178,48 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 	return finalYAML, finalIOPS, nil
 }
 
-func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML, configPath string, force bool, l *Logger) (string, error) {
-	finalYAML, finalIOPS, err := genIOPS(inFilename, profile, setOverlayYAML, "", force, l)
+func getClusterSpecificValues(config *rest.Config, force bool, l *Logger) (string, error) {
+	overlays := []string{}
+
+	jwt, err := getJwtTypeOverlay(config, l)
+	if err != nil {
+		if force {
+			l.logAndPrint(err)
+		} else {
+			return "", err
+		}
+	} else {
+		overlays = append(overlays, jwt)
+	}
+
+	return MakeTreeFromSetList(overlays, false, l)
+
+}
+
+func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
+	d, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
+	}
+	_, s, err := d.ServerGroupsAndResources()
+	if err != nil {
+		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
+	}
+	for _, res := range s {
+		for _, api := range res.APIResources {
+			// Appearance of this API indicates we do support third party jwt token
+			if api.Name == "serviceaccounts/token" {
+				return "values.global.jwtPolicy=third-party-jwt", nil
+			}
+		}
+	}
+	// TODO link to istio.io doc on how to secure this
+	l.logAndPrint("Detected that your cluster does not support third party JWT authentication. Falling back to less secure first party JWT")
+	return "values.global.jwtPolicy=first-party-jwt", nil
+}
+
+func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML, configPath string, force bool, kubeConfig *rest.Config, l *Logger) (string, error) {
+	finalYAML, finalIOPS, err := genIOPS(inFilename, profile, setOverlayYAML, "", force, kubeConfig, l)
 	if err != nil {
 		return "", err
 	}
