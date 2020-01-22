@@ -15,12 +15,12 @@
 package mock
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -81,13 +81,20 @@ type AuthorizationServer struct {
 	mutex                       sync.RWMutex
 	generateFederatedTokenError error
 	generateAccessTokenError    error
+	accessTokenLife             int // life of issued access token in seconds
+	accessToken                 string
+	enableDynamicAccessToken    bool // whether generates different token each time
+	numGetFederatedTokenCalls   int
+	numGetAccessTokenCalls      int
+	blockFederatedTokenRequest  bool
+	blockAccessTokenRequest     bool
 }
 
 type Config struct {
-	Port                int
-	SubjectToken        string
-	TrustDomain         string
-	ExpectedAccessToken string
+	Port         int
+	SubjectToken string
+	TrustDomain  string
+	AccessToken  string
 }
 
 // StartNewServer creates a mock server and starts it. The server listens on
@@ -101,8 +108,9 @@ func StartNewServer(t *testing.T, conf Config) (*AuthorizationServer, error) {
 	if conf.TrustDomain != "" {
 		td = conf.TrustDomain
 	}
-	if conf.ExpectedAccessToken != "" {
-		FakeAccessToken = conf.ExpectedAccessToken
+	token := FakeAccessToken
+	if conf.AccessToken != "" {
+		token = conf.AccessToken
 	}
 	server := &AuthorizationServer{
 		t: t,
@@ -118,6 +126,11 @@ func StartNewServer(t *testing.T, conf Config) (*AuthorizationServer, error) {
 			Name:  fmt.Sprintf("projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum),
 			Scope: []string{"https://www.googleapis.com/auth/cloud-platform"},
 		},
+		accessTokenLife:            3600,
+		accessToken:                token,
+		enableDynamicAccessToken:   false,
+		blockFederatedTokenRequest: false,
+		blockAccessTokenRequest:    false,
 	}
 	return server, server.Start(conf.Port)
 }
@@ -128,10 +141,55 @@ func (ms *AuthorizationServer) SetGenFedTokenError(err error) {
 	ms.generateFederatedTokenError = err
 }
 
+func (ms *AuthorizationServer) BlockFederatedTokenRequest(block bool) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.blockFederatedTokenRequest = block
+}
+
+func (ms *AuthorizationServer) BlockAccessTokenRequest(block bool) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.blockAccessTokenRequest = block
+}
+
 func (ms *AuthorizationServer) SetGenAcsTokenError(err error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 	ms.generateAccessTokenError = err
+}
+
+// SetTokenLifeTime sets life time of issued access token to d seconds
+func (ms *AuthorizationServer) SetTokenLifeTime(d int) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.accessTokenLife = d
+}
+
+// SetAccessToken sets the issued access token to token
+func (ms *AuthorizationServer) SetAccessToken(token string) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.accessToken = token
+}
+
+// SetAccessToken sets the issued access token to token
+func (ms *AuthorizationServer) EnableDynamicAccessToken(enable bool) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.enableDynamicAccessToken = enable
+}
+
+func (ms *AuthorizationServer) NumGetAccessTokenCalls() int {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	return ms.numGetAccessTokenCalls
+}
+
+func (ms *AuthorizationServer) NumGetFederatedTokenCalls() int {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	return ms.numGetFederatedTokenCalls
 }
 
 // Start starts the mock server.
@@ -142,10 +200,10 @@ func (ms *AuthorizationServer) Start(port int) error {
 	mux.HandleFunc(atEndpoint, ms.getAccessToken)
 	ms.t.Logf("Registered handler for endpoints:\n%s\n%s", atEndpoint, "/v1/identitybindingtoken")
 	server := &http.Server{
-		Addr:    ":",
+		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
 		Handler: mux,
 	}
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		log.Errorf("Server failed to listen %v", err)
 		return err
@@ -155,7 +213,6 @@ func (ms *AuthorizationServer) Start(port int) error {
 
 	ms.Port = port
 	ms.URL = fmt.Sprintf("http://localhost:%d", port)
-	server.Addr = ":" + strconv.Itoa(port)
 
 	go func() {
 		if err := server.Serve(ln); err != nil {
@@ -174,8 +231,7 @@ func (ms *AuthorizationServer) Stop() error {
 	if ms.server == nil {
 		return nil
 	}
-
-	return ms.server.Close()
+	return ms.server.Shutdown(context.TODO())
 }
 
 func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *http.Request) {
@@ -187,12 +243,17 @@ func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *htt
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	var fakeErr error
-	var want federatedTokenRequest
+
 	ms.mutex.Lock()
-	want = ms.expectedFederatedTokenRequest
-	fakeErr = ms.generateFederatedTokenError
+	ms.numGetFederatedTokenCalls++
+	want := ms.expectedFederatedTokenRequest
+	fakeErr := ms.generateFederatedTokenError
+	blockRequest := ms.blockFederatedTokenRequest
 	ms.mutex.Unlock()
+
+	if blockRequest {
+		time.Sleep(1 * time.Hour)
+	}
 
 	if req.Header.Get("Content-Type") != "application/json" {
 		ms.t.Errorf("Content-Type header does not match\nwant %s\n got %s",
@@ -227,12 +288,21 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		return
 	}
 
-	var fakeErr error
-	want := accessTokenRequest{}
 	ms.mutex.Lock()
-	want = ms.expectedAccessTokenRequest
-	fakeErr = ms.generateAccessTokenError
+	ms.numGetAccessTokenCalls++
+	want := ms.expectedAccessTokenRequest
+	fakeErr := ms.generateAccessTokenError
+	tokenLifeInSec := ms.accessTokenLife
+	token := ms.accessToken
+	if ms.enableDynamicAccessToken {
+		token = token + time.Now().String()
+	}
+	blockRequest := ms.blockAccessTokenRequest
 	ms.mutex.Unlock()
+
+	if blockRequest {
+		time.Sleep(1 * time.Hour)
+	}
 
 	if req.Header.Get("Authorization") != "" {
 		auth := req.Header.Get("Authorization")
@@ -258,9 +328,9 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		return
 	}
 	resp := accessTokenResponse{
-		AccessToken: FakeAccessToken,
+		AccessToken: token,
 		ExpireTime: duration.Duration{
-			Seconds: 3600,
+			Seconds: int64(tokenLifeInSec),
 		},
 	}
 

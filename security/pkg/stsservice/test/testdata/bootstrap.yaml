@@ -39,7 +39,7 @@ static_resources:
     address:
       socket_address:
         address: 127.0.0.1
-        port_value: 30000
+        port_value: {{.Ports.TCPProxyPort}}
     filter_chains:
     - filters:
       - name: envoy.http_connection_manager
