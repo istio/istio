@@ -230,7 +230,6 @@
 // profiles/empty.yaml
 // profiles/minimal.yaml
 // profiles/remote.yaml
-// profiles/sds.yaml
 // translateConfig/reverseTranslateConfig-1.4.yaml
 // translateConfig/reverseTranslateConfig-1.5.yaml
 // translateConfig/translate-ICP-IOP-1.5.yaml
@@ -40241,46 +40240,6 @@ func profilesRemoteYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesSdsYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  components:
-    nodeAgent:
-      enabled: true
-  values:
-    global:
-      controlPlaneSecurityEnabled: true
-      mtls:
-        enabled: true
-      sds:
-        enabled: true
-        udsPath: "unix:/var/run/sds/uds_path"
-        token:
-          aud: "istio-ca"
-    nodeagent:
-      image: node-agent-k8s
-      env:
-        CA_PROVIDER: "Citadel"
-        CA_ADDR: "istio-citadel:8060"
-        VALID_TOKEN: true
-
-`)
-
-func profilesSdsYamlBytes() ([]byte, error) {
-	return _profilesSdsYaml, nil
-}
-
-func profilesSdsYaml() (*asset, error) {
-	bytes, err := profilesSdsYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "profiles/sds.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _translateconfigReversetranslateconfig14Yaml = []byte(`kubernetesPatternMapping:
   "{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env"
   "{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec"
@@ -41365,7 +41324,6 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/empty.yaml":                                                                     profilesEmptyYaml,
 	"profiles/minimal.yaml":                                                                   profilesMinimalYaml,
 	"profiles/remote.yaml":                                                                    profilesRemoteYaml,
-	"profiles/sds.yaml":                                                                       profilesSdsYaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                         translateconfigReversetranslateconfig14Yaml,
 	"translateConfig/reverseTranslateConfig-1.5.yaml":                                         translateconfigReversetranslateconfig15Yaml,
 	"translateConfig/translate-ICP-IOP-1.5.yaml":                                              translateconfigTranslateIcpIop15Yaml,
@@ -41751,7 +41709,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"empty.yaml":   &bintree{profilesEmptyYaml, map[string]*bintree{}},
 		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
 		"remote.yaml":  &bintree{profilesRemoteYaml, map[string]*bintree{}},
-		"sds.yaml":     &bintree{profilesSdsYaml, map[string]*bintree{}},
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},

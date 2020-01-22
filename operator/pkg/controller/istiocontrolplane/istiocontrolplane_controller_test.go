@@ -62,15 +62,6 @@ var (
 		string(name.EgressComponentName):    healthyVersionStatus,
 		string(name.AddonComponentName):     healthyVersionStatus,
 	}
-	sdsStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
-		string(name.IstioBaseComponentName): healthyVersionStatus,
-		string(name.PilotComponentName):     healthyVersionStatus,
-		string(name.TelemetryComponentName): healthyVersionStatus,
-		string(name.CitadelComponentName):   healthyVersionStatus,
-		string(name.NodeAgentComponentName): healthyVersionStatus,
-		string(name.IngressComponentName):   healthyVersionStatus,
-		string(name.AddonComponentName):     healthyVersionStatus,
-	}
 )
 
 type testCase struct {
@@ -96,16 +87,6 @@ func TestIOPController_SwitchProfile(t *testing.T) {
 			description:    "switch profile from default to demo",
 			initialProfile: "default",
 			targetProfile:  "demo",
-		},
-		{
-			description:    "switch profile from demo to sds",
-			initialProfile: "demo",
-			targetProfile:  "sds",
-		},
-		{
-			description:    "switch profile from sds to default",
-			initialProfile: "sds",
-			targetProfile:  "default",
 		},
 	}
 	for i, c := range cases {
@@ -208,8 +189,6 @@ func checkIOPStatus(cl client.Client, key client.ObjectKey, profile string) (boo
 		expectedComponentStatus = minimalStatus
 	case "default":
 		expectedComponentStatus = defaultStatus
-	case "sds":
-		expectedComponentStatus = sdsStatus
 	case "demo":
 		expectedComponentStatus = demoStatus
 	}
