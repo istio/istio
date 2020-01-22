@@ -158,7 +158,7 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	fmt.Println("CA server is up.")
 
 	// Create a local HTTP server to mock Cloud Gaia
-	mockSTSServer, err := msts.StartNewServer(t)
+	mockSTSServer, err := msts.StartNewServer(t, msts.Config{Port: 0})
 	if err != nil {
 		t.Fatalf("Mock STS server failed to start: %v", err)
 	}
