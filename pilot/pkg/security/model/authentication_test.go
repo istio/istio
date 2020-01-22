@@ -31,7 +31,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	metaConfig := &envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig{
 		SecretData: &core.DataSource{
 			Specifier: &core.DataSource_Filename{
-				Filename: K8sSAJwtFileName,
+				Filename: K8sSATrustworthyJwtFileName,
 			},
 		},
 		HeaderKey: K8sSAJwtTokenHeaderKey,
@@ -48,7 +48,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
-	gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSAJwtFileName, K8sSAJwtTokenHeaderKey)
+	gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey)
 
 	cases := []struct {
 		serviceAccount string
@@ -83,7 +83,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			sdsUdsPath:     "/tmp/sdsuds.sock",
 			expected: &auth.SdsSecretConfig{
 				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: constructsdsconfighelper(K8sSAJwtFileName, K8sSAJwtTokenHeaderKey, metaConfig),
+				SdsConfig: constructsdsconfighelper(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey, metaConfig),
 			},
 		},
 		{
