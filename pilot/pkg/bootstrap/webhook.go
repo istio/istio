@@ -29,8 +29,6 @@ import (
 )
 
 const (
-	// readiness path for the https server
-	HTTPSWebhookServerReadyPath = "/httpsReady"
 	// debounce file watcher events to minimize noise in logs
 	watchDebounceDelay = 100 * time.Millisecond
 )
@@ -108,7 +106,7 @@ func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
 	})
 
 	// setup our readiness handler and the corresponding client we'll use later to check it with.
-	s.httpsMux.HandleFunc(HTTPSWebhookServerReadyPath, func(w http.ResponseWriter, _ *http.Request) {
+	s.httpsMux.HandleFunc(server.HTTPSHandlerReadyPath, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	s.httpsReadyClient = &http.Client{
@@ -129,7 +127,7 @@ func (s *Server) checkHTTPSWebhookServerReadiness() int {
 		URL: &url.URL{
 			Scheme: "https",
 			Host:   s.httpsServer.Addr,
-			Path:   HTTPSWebhookServerReadyPath,
+			Path:   server.HTTPSHandlerReadyPath,
 		},
 	}
 

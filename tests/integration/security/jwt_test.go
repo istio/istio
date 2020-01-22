@@ -348,6 +348,7 @@ func TestRequestAuthentication(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			jwtPolicies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
+				file.AsStringOrFail(t, "testdata/requestauthn/a-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/b-authn-authz.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/e-authn.yaml.tmpl"),
@@ -506,6 +507,51 @@ func TestRequestAuthentication(t *testing.T) {
 						authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
 						"X-Test-Payload": payload1,
 					},
+				},
+				{
+					Name: "invalid aud",
+					Request: connection.Checker{
+						From: b,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeForbidden,
+				},
+				{
+					Name: "valid aud",
+					Request: connection.Checker{
+						From: b,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1WithAud},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
+				},
+				{
+					Name: "verify policies are combined",
+					Request: connection.Checker{
+						From: b,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 			}
 			for _, c := range testCases {

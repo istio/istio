@@ -132,8 +132,8 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 	return out
 }
 
-func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
-	return a.alphaApplier.InboundFilterChain(sdsUdsPath, meta)
+func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
+	return a.alphaApplier.InboundFilterChain(sdsUdsPath, node)
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.

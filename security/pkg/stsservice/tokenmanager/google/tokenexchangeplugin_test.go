@@ -138,7 +138,7 @@ func defaultSTSRequest() stsservice.StsRequestParameters {
 // setUpTest sets up token manager, authorization server.
 func setUpTest(t *testing.T) (*Plugin, *mock.AuthorizationServer, string, string) {
 	tm, _ := CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum)
-	ms, err := mock.StartNewServer(t)
+	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
 	}

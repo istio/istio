@@ -14,7 +14,7 @@ components:
   cni:
     enabled: false
   galley:
-    enabled: true
+    enabled: false
     k8s:
       replicaCount: 1
       resources:
@@ -120,7 +120,7 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
   sidecarInjector:
-    enabled: true
+    enabled: false
     k8s:
       replicaCount: 1
       strategy:
@@ -589,6 +589,14 @@ values:
     enabled: true
     v2:
       enabled: false
+      prometheus:
+        enabled: true
+      stackdriver:
+        configOverride: {}
+        enabled: false
+        logging: false
+        monitoring: false
+        topology: false
   tracing:
     enabled: false
     ingress:

@@ -73,7 +73,9 @@ rules:
                   - key: db.table
                   value:
                     stringMatch:
-                      regex: .*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*
           - orRules:
               rules:
               - header:
@@ -152,7 +154,9 @@ rules:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .*/ns/source-ns/.*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/source-ns/.*
           - orIds:
               ids:
               - metadata:
@@ -172,7 +176,9 @@ rules:
                   - key: request.auth.audiences
                   value:
                     stringMatch:
-                      regex: .*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*
           - orIds:
               ids:
               - metadata:
@@ -184,7 +190,9 @@ rules:
                     listMatch:
                       oneOf:
                         stringMatch:
-                          regex: .*
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*
           - orIds:
               ids:
               - metadata:
@@ -193,7 +201,9 @@ rules:
                   - key: request.auth.presenter
                   value:
                     stringMatch:
-                      regex: .*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*
           - orIds:
               ids:
               - metadata:
@@ -202,7 +212,9 @@ rules:
                   - key: request.auth.principal
                   value:
                     stringMatch:
-                      regex: .*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*
           - orIds:
               ids:
               - metadata:
@@ -211,7 +223,9 @@ rules:
                   - key: source.principal
                   value:
                     stringMatch:
-                      regex: .*/ns/.*/.*
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/.*/.*
           - orIds:
               ids:
               - any: true

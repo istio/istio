@@ -67,9 +67,9 @@ func init() {
 	_ = kubeApiApps.AddToScheme(runtimeScheme)
 }
 
-const HTTPSHandlerReadyPath = "/ready"
-
 const (
+	HTTPSHandlerReadyPath = "/httpsReady"
+
 	watchDebounceDelay = 100 * time.Millisecond
 )
 
