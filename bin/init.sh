@@ -31,21 +31,6 @@ export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 # Set the architecture. Matches logic in the Makefile.
 export GOARCH=${GOARCH:-'amd64'}
 
-# Determine the OS. Matches logic in the Makefile.
-LOCAL_OS=${LOCAL_OS:-"$(uname)"}
-case ${LOCAL_OS} in
-  'Linux')
-    export GOOS=${GOOS:-"linux"}
-    ;;
-  'Darwin')
-    export GOOS=${GOOS:-"darwin"}
-    ;;
-  *)
-    echo "This system's OS ${LOCAL_OS} isn't recognized/supported"
-    exit 1
-    ;;
-esac
-
 # test scripts seem to like to run this script directly rather than use make
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
@@ -183,7 +168,7 @@ if [[ ${USE_LOCAL_PROXY} == 1 ]] ; then
   fi
 
   # Point the native paths to the local envoy build.
-  if [[ "$LOCAL_OS" == "Darwin" ]]; then
+  if [[ "$GOOS_LOCAL" == "darwin" ]]; then
     ISTIO_ENVOY_MACOS_RELEASE_PATH=${ISTIO_ENVOY_LOCAL_PATH}
 
     ISTIO_ENVOY_LINUX_LOCAL_PATH=${ISTIO_ENVOY_LINUX_LOCAL_PATH:-}
@@ -214,7 +199,7 @@ fi
 # Download and extract the Envoy linux release binary.
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH"
 
-if [[ "$LOCAL_OS" == "Darwin" ]]; then
+if [[ "$GOOS_LOCAL" == "darwin" ]]; then
   # Download and extract the Envoy macOS release binary
   download_envoy_if_necessary "${ISTIO_ENVOY_MACOS_RELEASE_URL}" "$ISTIO_ENVOY_MACOS_RELEASE_PATH"
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH}
