@@ -189,36 +189,36 @@ func unmarshalAndValidateIOPSpec(iopsYAML string) (*v1alpha1.IstioOperatorSpec, 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
 func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error) {
 	var errs []error
-	log.Infof("Processing resources from manifest: %s", manifest.Name)
+	crName := h.instance.Name + "-" + manifest.Name
+	log.Infof("Processing resources from manifest: %s for CR %s", manifest.Name, crName)
 	allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 	if err != nil {
 		return 0, err
 	}
 
-	name := h.instance.Name
-
 	objectCachesMu.Lock()
 
-	// Create and/or get the cache corresponding to the CR name we're processing. Per name partitioning is required to
+	// Create and/or get the cache corresponding to the CR crName we're processing. Per crName partitioning is required to
 	// prune the cache to remove any objects not in the manifest generated for a given CR.
-	if objectCaches[name] == nil {
-		objectCaches[name] = &ObjectCache{
+	if objectCaches[crName] == nil {
+		objectCaches[crName] = &ObjectCache{
 			cache: make(map[string]*object.K8sObject),
 			mu:    &sync.RWMutex{},
 		}
 	}
-	objectCache := objectCaches[name]
+	objectCache := objectCaches[crName]
 
 	objectCachesMu.Unlock()
 
-	// Ensure that for a given CR name only one control loop uses the per-name cache at any time.
+	// Ensure that for a given CR crName only one control loop uses the per-crName cache at any time.
 	objectCache.mu.Lock()
 	defer objectCache.mu.Unlock()
 
-	// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR name and no
+	// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR crName and no
 	// other controller is allowed to work on at the same time.
 
 	var changedObjects object.K8sObjects
+	var changedObjectKeys []string
 	allObjectsMap := make(map[string]bool)
 
 	// Check which objects in the manifest have changed from those in the cache.
@@ -230,13 +230,18 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 			log.Infof("Object %s is unchanged, skip update.", oh)
 			continue
 		}
+		//log.Infof("%s changed:\n%s", oh, util.YAMLDiff(objectCache.cache[oh].YAMLDebugString(), obj.YAMLDebugString()))
 		changedObjects = append(changedObjects, obj)
+		changedObjectKeys = append(changedObjectKeys, oh)
 	}
+
+	log.Infof("Changed object list: \n - %s", strings.Join(changedObjectKeys, "\n - "))
 
 	// For each changed object, write it to the API server.
 	for _, obj := range changedObjects {
 		err = h.ProcessObject(manifest.Name, obj.UnstructuredObject())
 		if err != nil {
+			log.Error(err.Error())
 			errs = append(errs, err)
 			continue
 		}
@@ -253,6 +258,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		}
 	}
 	for _, k := range removeKeys {
+		log.Infof("Pruning object %s from cache.", k)
 		delete(objectCache.cache, k)
 	}
 
