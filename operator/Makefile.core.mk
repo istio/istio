@@ -109,6 +109,27 @@ protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front
 
 ########################
 
+# Legacy IstioControlPlane included for translation purposes.
+icp_v1alpha2_path := pkg/apis/istio/v1alpha2
+icp_v1alpha2_protos := $(wildcard $(icp_v1alpha2_path)/*.proto)
+icp_v1alpha2_pb_gos := $(icp_v1alpha2_protos:.proto=.pb.go)
+icp_v1alpha2_pb_pythons := $(patsubst $(icp_v1alpha2_path)/%.proto,$(python_output_path)/$(icp_v1alpha2_path)/%_pb2.py,$(icp_v1alpha2_protos))
+icp_v1alpha2_pb_docs := $(icp_v1alpha2_path)/v1alpha2.pb.html
+icp_v1alpha2_openapi := $(icp_v1alpha2_protos:.proto=.json)
+
+$(icp_v1alpha2_pb_gos) $(icp_v1alpha2_pb_docs) $(icp_v1alpha2_pb_pythons): $(icp_v1alpha2_protos)
+	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(icp_v1alpha2_path) $(protoc_gen_python_plugin) $^
+	@cp -r ${TMPDIR}/pkg/* pkg/
+	@rm -fr ${TMPDIR}/pkg
+	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(icp_v1alpha2_path)/istiocontrolplane_types.pb.go
+	@sed -i 's|<key,value,effect>|\&lt\;key,value,effect\&gt\;|g' $(icp_v1alpha2_path)/v1alpha2.pb.html
+	@sed -i 's|<operator>|\&lt\;operator\&gt\;|g' $(icp_v1alpha2_path)/v1alpha2.pb.html
+
+generate-icp: $(icp_v1alpha2_pb_gos) $(icp_v1alpha2_pb_docs) $(icp_v1alpha2_pb_pythons)
+
+clean-icp:
+	@rm -fr $(icp_v1alpha2_pb_gos) $(icp_v1alpha2_pb_docs) $(icp_v1alpha2_pb_pythons)
+
 v1alpha1_path := pkg/apis/istio/v1alpha1
 v1alpha1_protos := $(wildcard $(v1alpha1_path)/*.proto)
 v1alpha1_pb_gos := $(v1alpha1_protos:.proto=.pb.go)

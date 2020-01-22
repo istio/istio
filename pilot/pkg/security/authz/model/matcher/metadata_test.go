@@ -73,8 +73,13 @@ func TestMetadataListMatcher(t *testing.T) {
 							OneOf: &envoy_matcher.ValueMatcher{
 								MatchPattern: &envoy_matcher.ValueMatcher_StringMatch{
 									StringMatch: &envoy_matcher.StringMatcher{
-										MatchPattern: &envoy_matcher.StringMatcher_Regex{
-											Regex: regex,
+										MatchPattern: &envoy_matcher.StringMatcher_SafeRegex{
+											SafeRegex: &envoy_matcher.RegexMatcher{
+												EngineType: &envoy_matcher.RegexMatcher_GoogleRe2{
+													GoogleRe2: &envoy_matcher.RegexMatcher_GoogleRE2{},
+												},
+												Regex: regex,
+											},
 										},
 									},
 								},

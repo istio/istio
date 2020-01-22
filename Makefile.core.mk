@@ -226,6 +226,7 @@ ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 depend: init | $(ISTIO_OUT)
 
 DIRS_TO_CLEAN := $(ISTIO_OUT)
+DIRS_TO_CLEAN += $(ISTIO_OUT_LINUX)
 
 $(OUTPUT_DIRS):
 	@mkdir -p $@
@@ -275,17 +276,8 @@ BINARIES:=./istioctl/cmd/istioctl \
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 
-# We always build Linux containers even if not running in a Linux. Linux binaries
-# are needed for packaging in Docker. On other GOOS_LOCAL, such as darwin, we need
-# to specially build Linux binaries. Otherwise, the default build target will build
-# Linux on Linux platforms.
-BUILD_DEPS:=
-ifneq ($(GOOS_LOCAL),"linux")
-BUILD_DEPS += build-linux
-endif
-
 .PHONY: build
-build: depend $(BUILD_DEPS)
+build: depend
 	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.

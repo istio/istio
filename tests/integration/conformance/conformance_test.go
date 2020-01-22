@@ -51,7 +51,7 @@ func TestConformance(t *testing.T) {
 			ctx.Fatalf("error loading test cases: %v", err)
 		}
 
-		gal := galley.NewOrFail(ctx, ctx, galley.Config{})
+		gal := galley.NewOrFail(ctx, ctx, galley.Config{CreateClient: true})
 		p := pilot.NewOrFail(ctx, ctx, pilot.Config{Galley: gal})
 
 		for _, ca := range cases {

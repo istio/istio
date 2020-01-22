@@ -200,7 +200,6 @@ if [[ ${USE_LOCAL_PROXY} == 1 ]] ; then
 fi
 
 mkdir -p "${ISTIO_OUT}"
-mkdir -p "${ISTIO_BIN}"
 
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
@@ -225,9 +224,6 @@ fi
 
 # Donwload WebAssembly plugin files
 WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}
-if [[ "$LOCAL_OS" == "Darwin" ]]; then
-  WASM_RELEASE_DIR=${ISTIO_ENVOY_MACOS_RELEASE_DIR}
-fi
 for plugin in stats metadata_exchange
 do
   FILTER_WASM_URL="${ISTIO_ENVOY_BASE_URL}/${plugin}-${ISTIO_ENVOY_VERSION}.wasm"
@@ -237,9 +233,3 @@ done
 # Copy native envoy binary to ISTIO_OUT
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/envoy"
 cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/envoy"
-
-# TODO(nmittler): Remove once tests no longer use the envoy binary directly.
-# circleCI expects this in the bin directory
-# Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
-echo "Copying ${ISTIO_OUT}/envoy to ${ISTIO_BIN}/envoy"
-cp -f "${ISTIO_OUT}/envoy" "${ISTIO_BIN}/envoy"

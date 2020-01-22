@@ -23,17 +23,21 @@ import (
 )
 
 func TestManifestMigrate(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/20112")
-	// TODO implement for 1.5
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-migrate")
 	tests := []struct {
 		desc string
 	}{
+		/* TODO: implement for 1.5.
 		{
 			desc: "default_values",
 		},
 		{
 			desc: "overlay_values",
+		},
+
+		*/
+		{
+			desc: "default_icp_iop",
 		},
 	}
 	for _, tt := range tests {
@@ -65,5 +69,5 @@ func TestManifestMigrate(t *testing.T) {
 }
 
 func runManifestMigrate(path string) (string, error) {
-	return runCommand("manifest migrate --logtostderr " + path)
+	return runCommand("manifest migrate " + path)
 }

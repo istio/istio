@@ -32,3 +32,24 @@ spec:
     istio: pilot
     {{- end }}
 ---
+{{- if .Values.global.istiod.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+spec:
+  ports:
+    - port: 15012
+      name: https-dns # mTLS with k8s-signed cert
+    - port: 443
+      name: https-webhook # validation and injection
+      targetPort: 15017
+  selector:
+    app: pilot
+    istio: pilot
+---
+{{- end }}

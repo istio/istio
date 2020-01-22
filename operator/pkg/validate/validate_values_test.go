@@ -185,9 +185,6 @@ func TestValidateValuesFromProfile(t *testing.T) {
 		{
 			profile: "minimal",
 		},
-		{
-			profile: "sds",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
@@ -225,6 +222,9 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 		valuesYAML, err = util.OverlayYAML(valuesYAML, string(b))
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 		valuesTree := make(map[string]interface{})
 		if err := yaml.Unmarshal([]byte(valuesYAML), &valuesTree); err != nil {
 			t.Fatal(err.Error())
