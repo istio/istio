@@ -42,13 +42,16 @@ import (
 	"istio.io/pkg/version"
 )
 
+// ObjectCache is a cache of objects.
+type ObjectCache struct {
+	cache map[string]*object.K8sObject
+	mu    *sync.RWMutex
+}
+
 var (
 	// objectCaches holds the latest copy of each object applied by the controller, keyed by the IstioOperator CR name
 	// and the object Hash() function.
-	objectCaches = make(map[string]map[string]*object.K8sObject)
-	// objectCacheMu protects each cache corresponding to CR name.
-	objectCacheMu = make(map[string]*sync.RWMutex)
-	// objectCachesMu protects both objectCaches first level access and objectCacheMu.
+	objectCaches   = make(map[string]*ObjectCache)
 	objectCachesMu sync.RWMutex
 )
 
@@ -195,21 +198,19 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 
 	objectCachesMu.Lock()
 
-	if objectCacheMu[name] == nil {
-		objectCacheMu[name] = &sync.RWMutex{}
-	}
-
-	// Ensure that for a given CR name only one control loop uses the per-name cache at any time.
-	mu := objectCacheMu[name]
-	mu.Lock()
-	defer mu.Unlock()
-
 	// Create and/or get the cache corresponding to the CR name we're processing. Per name partitioning is required to
 	// prune the cache to remove any objects not in the manifest generated for a given CR.
 	if objectCaches[name] == nil {
-		objectCaches[name] = make(map[string]*object.K8sObject)
+		objectCaches[name] = &ObjectCache{
+			cache: make(map[string]*object.K8sObject),
+			mu:    &sync.RWMutex{},
+		}
 	}
 	objectCache := objectCaches[name]
+
+	// Ensure that for a given CR name only one control loop uses the per-name cache at any time.
+	objectCache.mu.Lock()
+	defer objectCache.mu.Unlock()
 
 	objectCachesMu.Unlock()
 
@@ -223,7 +224,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 	for _, obj := range allObjects {
 		oh := obj.Hash()
 		allObjectsMap[oh] = true
-		if co, ok := objectCache[oh]; ok && obj.Equal(co) {
+		if co, ok := objectCache.cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
 			log.Infof("Object %s is unchanged, skip update.", oh)
 			continue
@@ -240,18 +241,18 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		}
 		log.Infof("Adding object %s to cache.", obj.Hash())
 		// Update the cache with the latest object.
-		objectCache[obj.Hash()] = obj
+		objectCache.cache[obj.Hash()] = obj
 	}
 
 	// Prune anything not in the manifest out of the cache.
 	var removeKeys []string
-	for k := range objectCache {
+	for k := range objectCache.cache {
 		if !allObjectsMap[k] {
 			removeKeys = append(removeKeys, k)
 		}
 	}
 	for _, k := range removeKeys {
-		delete(objectCache, k)
+		delete(objectCache.cache, k)
 	}
 
 	return len(changedObjects), utilerrors.NewAggregate(errs)
