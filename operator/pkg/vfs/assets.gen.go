@@ -6863,6 +6863,10 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -6935,12 +6939,18 @@ spec:
           - name: SDS_ENABLED
             value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
+          {{- if eq .Values.global.pilotCertProvider "citadel" }}
+          - mountPath: /etc/istio/citadel-ca-cert
+            name: citadel-ca-cert
+          {{- end }}
           {{ if .Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
             readOnly: true
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -6954,10 +6964,16 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+      {{- if eq .Values.global.pilotCertProvider "citadel" }}
+      - name: citadel-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      {{- end }}
       {{- if .Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -6965,6 +6981,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
       {{- end }}
       {{ if .Values.global.sds.enabled }}
       - name: sdsudspath
@@ -7927,6 +7944,8 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
 {{- if .Values.global.istiod.enabled }}
@@ -8019,9 +8038,11 @@ spec:
             name: citadel-ca-cert
 {{- end }}
 {{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
+{{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
 {{ else }}
@@ -8029,8 +8050,10 @@ spec:
           - name: sdsudspath
             mountPath: /var/run/sds
             readOnly: true
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
           {{- if $gateway.sds.enabled }}
           - name: ingressgatewaysdsudspath
@@ -8057,6 +8080,7 @@ spec:
       - name: ingressgatewaysdsudspath
         emptyDir: {}
 {{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -8064,6 +8088,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
 {{- else }}
       {{- if $gateway.sds.enabled }}
       - name: ingressgatewaysdsudspath
@@ -8073,6 +8098,7 @@ spec:
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -8080,6 +8106,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
       {{- end }}
 {{- end }}
       - name: istio-certs
@@ -9521,6 +9548,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
     {{- end }}
     env:
+    - name: JWT_POLICY
+      value: {{ .Values.global.jwtPolicy }}
     - name: POD_NAME
       valueFrom:
         fieldRef:
@@ -9685,8 +9714,10 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - mountPath: /var/run/sds
       name: sds-uds-path
       readOnly: true
+    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
+    {{- end }}
     {{- if .Values.global.sds.customTokenDirectory }}
     - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
       name: custom-sds-token
@@ -9721,6 +9752,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   - name: sds-uds-path
     hostPath:
       path: /var/run/sds
+  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:
       sources:
@@ -9728,6 +9760,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
+  {{- end }}
   {{- if .Values.global.sds.customTokenDirectory }}
   - name: custom-sds-token
     secret:
@@ -13402,6 +13435,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
@@ -13450,7 +13485,7 @@ spec:
           - name: config-volume
             mountPath: /etc/istio/config
           {{ if .Values.global.istiod.enabled }}
-          {{ if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true

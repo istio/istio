@@ -112,6 +112,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
@@ -160,7 +162,7 @@ spec:
           - name: config-volume
             mountPath: /etc/istio/config
           {{ if .Values.global.istiod.enabled }}
-          {{ if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true

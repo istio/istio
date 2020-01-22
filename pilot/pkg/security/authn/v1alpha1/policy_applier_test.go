@@ -1090,7 +1090,7 @@ func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
 	}
 
 	gRPCConfig.CredentialsFactoryName = authn_model.FileBasedMetadataPlugName
-	gRPCConfig.CallCredentials = authn_model.ConstructgRPCCallCredentials(authn_model.K8sSATrustworthyJwtFileName, authn_model.K8sSAJwtTokenHeaderKey)
+	gRPCConfig.CallCredentials = authn_model.ConstructgRPCCallCredentials(authn_model.K8sSAJwtFileName, authn_model.K8sSAJwtTokenHeaderKey)
 
 	return &auth.SdsSecretConfig{
 		Name: name,

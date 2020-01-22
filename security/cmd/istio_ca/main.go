@@ -301,8 +301,8 @@ func initEnvVars() {
 	enableNamespacesByDefault := env.RegisterBoolVar("CITADEL_ENABLE_NAMESPACES_BY_DEFAULT", true,
 		"Determines whether unlabeled namespaces should be targeted by this Citadel instance").Get()
 	opts.enableNamespacesByDefault = enableNamespacesByDefault
-	jwtPolicy := env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
-		"The JWT validation policy. ").Get()
+	jwtPolicy := env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyFirstPartyJWT,
+		"The JWT validation policy.").Get()
 	opts.jwtPolicy = jwtPolicy
 }
 

@@ -199,6 +199,8 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
 {{- if .Values.global.istiod.enabled }}
@@ -291,9 +293,11 @@ spec:
             name: citadel-ca-cert
 {{- end }}
 {{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
+{{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
 {{ else }}
@@ -301,8 +305,10 @@ spec:
           - name: sdsudspath
             mountPath: /var/run/sds
             readOnly: true
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
           {{- if $gateway.sds.enabled }}
           - name: ingressgatewaysdsudspath
@@ -329,6 +335,7 @@ spec:
       - name: ingressgatewaysdsudspath
         emptyDir: {}
 {{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -336,6 +343,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
 {{- else }}
       {{- if $gateway.sds.enabled }}
       - name: ingressgatewaysdsudspath
@@ -345,6 +353,7 @@ spec:
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -352,6 +361,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
       {{- end }}
 {{- end }}
       - name: istio-certs

@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -49,6 +51,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
@@ -143,6 +146,7 @@ type Server struct {
 
 	webhookCertMu sync.Mutex
 	webhookCert   *tls.Certificate
+	jwtPath       string
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -205,6 +209,17 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// CA signing certificate must be created first.
+	if features.JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
+		log.Info("JWT policy is third-party-jwt")
+		s.jwtPath = ThirdPartyJWTPath
+	} else if features.JwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
+		log.Info("JWT policy is first-party-jwt")
+		s.jwtPath = securityModel.K8sSAJwtFileName
+	} else {
+		err := fmt.Errorf("invalid JWT policy %v", features.JwtPolicy.Get())
+		log.Errorf("%v", err)
+		return nil, err
+	}
 	if s.EnableCA() {
 		var err error
 		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)

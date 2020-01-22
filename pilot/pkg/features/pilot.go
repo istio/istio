@@ -17,6 +17,8 @@ package features
 import (
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
@@ -296,4 +298,7 @@ var (
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
 		"the provider of Pilot DNS certificate.")
+
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyFirstPartyJWT,
+		"The JWT validation policy.")
 )
