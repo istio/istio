@@ -88,6 +88,7 @@
 // charts/istio-control/istio-discovery/templates/_affinity.tpl
 // charts/istio-control/istio-discovery/templates/_helpers.tpl
 // charts/istio-control/istio-discovery/templates/autoscale.yaml
+// charts/istio-control/istio-discovery/templates/clusterrole-galley-disable-webhook.yaml
 // charts/istio-control/istio-discovery/templates/clusterrole.yaml
 // charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml
 // charts/istio-control/istio-discovery/templates/configmap-envoy.yaml
@@ -12619,6 +12620,77 @@ func chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml() (*asset, error) {
 	return a, nil
 }
 
+var _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml = []byte(`{{/* If we have Istiod enabled and Galley disabled, we may run into issues during upgrade. */}}
+{{/* The old Galley will continuely try to patch its webhook, when we actually want to remove it. */}}
+{{/* This will disable Galley's permission to do so, if galley is disabled. */}}
+{{- if and .Values.global.istiod.enabled (not .Values.galley.enabled) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-galley-{{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+rules:
+  # For reading Istio resources
+  - apiGroups: [
+    "authentication.istio.io",
+    "config.istio.io",
+    "networking.istio.io",
+    "rbac.istio.io",
+    "security.istio.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+    # For updating Istio resource statuses
+  - apiGroups: [
+    "authentication.istio.io",
+    "config.istio.io",
+    "networking.istio.io",
+    "rbac.istio.io",
+    "security.istio.io"]
+    resources: ["*/status"]
+    verbs: ["update"]
+
+    # Remove galley's permissions to reconcile the validation config when istiod is present.
+    # Notably missing here is the permission to modify webhooks.
+
+  - apiGroups: ["extensions","apps"]
+    resources: ["deployments"]
+    resourceNames: ["istio-galley"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["deployments/finalizers"]
+    resourceNames: ["istio-galley"]
+    verbs: ["update"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    verbs: ["get", "list", "watch"]
+---
+{{- end }}`)
+
+func chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYamlBytes() ([]byte, error) {
+	return _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, nil
+}
+
+func chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml() (*asset, error) {
+	bytes, err := chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/clusterrole-galley-disable-webhook.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml = []byte(`{{ if .Values.clusterResources }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -14001,7 +14073,27 @@ spec:
     istio: pilot
     {{- end }}
 ---
-`)
+{{- if .Values.global.istiod.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+spec:
+  ports:
+    - port: 15012
+      name: https-dns # mTLS with k8s-signed cert
+    - port: 443
+      name: https-webhook # validation and injection
+      targetPort: 15017
+  selector:
+    app: pilot
+    istio: pilot
+---
+{{- end }}`)
 
 func chartsIstioControlIstioDiscoveryTemplatesServiceYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesServiceYaml, nil
@@ -14578,7 +14670,8 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`{{- if not .Values.global.istiod.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`{{/* If Istiod is not enabled, create a NOP config for Istiod so we don't block config application. */}}
+{{- if not .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -14588,6 +14681,18 @@ metadata:
     app: istiod
     release: {{ .Release.Name }}
     istio: istiod
+webhooks:
+{{/* If Istiod is enabled and galley is disabled, create a NOP config for Galley's webhook */}}
+{{- else if not .Values.galley.enabled}}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-galley
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: galley
+    release: {{ .Release.Name }}
+    istio: galley
 webhooks:
 {{- end }}`)
 
@@ -14621,7 +14726,7 @@ webhooks:
   - name: validation.istio.io
     clientConfig:
       service:
-        name: istio-pilot{{ .Values.version }}
+        name: istiod
         namespace: {{ .Release.Namespace }}
         path: "/validate"
         port: 443
@@ -14819,6 +14924,9 @@ sidecarInjectorWebhook:
   #   container.apparmor.security.beta.kubernetes.io/istio-init: runtime/default
   #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
   injectedAnnotations: {}
+
+galley:
+  enabled: false
 
 telemetry:
   enabled: true
@@ -39829,7 +39937,7 @@ spec:
 
   # Config management feature
     galley:
-      enabled: true
+      enabled: false
       k8s:
         replicaCount: 1
         resources:
@@ -41709,6 +41817,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/_affinity.tpl":                            chartsIstioControlIstioDiscoveryTemplates_affinityTpl,
 	"charts/istio-control/istio-discovery/templates/_helpers.tpl":                             chartsIstioControlIstioDiscoveryTemplates_helpersTpl,
 	"charts/istio-control/istio-discovery/templates/autoscale.yaml":                           chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml,
+	"charts/istio-control/istio-discovery/templates/clusterrole-galley-disable-webhook.yaml":  chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml,
 	"charts/istio-control/istio-discovery/templates/clusterrole.yaml":                         chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml,
 	"charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml":                  chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml,
 	"charts/istio-control/istio-discovery/templates/configmap-envoy.yaml":                     chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml,
@@ -42035,6 +42144,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"_affinity.tpl":                            &bintree{chartsIstioControlIstioDiscoveryTemplates_affinityTpl, map[string]*bintree{}},
 					"_helpers.tpl":                             &bintree{chartsIstioControlIstioDiscoveryTemplates_helpersTpl, map[string]*bintree{}},
 					"autoscale.yaml":                           &bintree{chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"clusterrole-galley-disable-webhook.yaml":  &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, map[string]*bintree{}},
 					"clusterrole.yaml":                         &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml, map[string]*bintree{}},
 					"clusterrolebinding.yaml":                  &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
 					"configmap-envoy.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},

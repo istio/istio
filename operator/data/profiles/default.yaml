@@ -130,7 +130,7 @@ spec:
 
   # Config management feature
     galley:
-      enabled: true
+      enabled: false
       k8s:
         replicaCount: 1
         resources:
