@@ -35,6 +35,8 @@ func TestMain(m *testing.M) {
 components:
   cni:
      enabled: true
+     hub: gcr.io/istio-testing
+     tag: latest
 `
 		})).
 		Run()
