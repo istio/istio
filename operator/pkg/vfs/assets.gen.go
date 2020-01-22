@@ -13294,7 +13294,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   # TODO: default template doesn't have this, which one is right ?
   labels:
-    app: pilot
+    app: pilot2
     {{- if ne .Values.version ""}}
     version: {{ .Values.version }}
     {{- end }}
