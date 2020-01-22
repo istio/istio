@@ -801,7 +801,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			AlpnProtocols: []string{"h2", "http/1.1"},
+			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
@@ -810,12 +810,14 @@ func TestOnInboundFilterChains(t *testing.T) {
 		in         *authn.Policy
 		sdsUdsPath string
 		expected   []plugin.FilterChain
-		meta       *model.NodeMetadata
+		node       *model.Proxy
 	}{
 		{
 			name: "NoAuthnPolicy",
 			in:   nil,
-			meta: &model.NodeMetadata{},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
 			// No need to set up filter chain, default one is okay.
 			expected: nil,
 		},
@@ -832,7 +834,9 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meta:     &model.NodeMetadata{},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
 			expected: nil,
 		},
 		{
@@ -844,7 +848,9 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meta: &model.NodeMetadata{},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: tlsContext,
@@ -864,7 +870,9 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meta: &model.NodeMetadata{},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
 			// Only one filter chain with mTLS settings should be generated.
 			expected: []plugin.FilterChain{
 				{
@@ -885,11 +893,77 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meta: &model.NodeMetadata{},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: tlsContext,
+					FilterChainMatch: &listener.FilterChainMatch{
+						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
+					},
+					ListenerFilters: []*listener.ListenerFilter{
+						{
+							Name:       "envoy.listener.tls_inspector",
+							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
+						},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{},
+				},
+			},
+		},
+		{
+			name: "PermissiveMTLSWithMxcOff",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_PERMISSIVE,
+							},
+						},
+					},
+				},
+			},
+			node: &model.Proxy{
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 4, Patch: 0},
+				Metadata:     &model.NodeMetadata{IstioVersion: "1.4.0"},
+			},
+			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: &auth.DownstreamTlsContext{
+						CommonTlsContext: &auth.CommonTlsContext{
+							TlsCertificates: []*auth.TlsCertificate{
+								{
+									CertificateChain: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/etc/certs/cert-chain.pem",
+										},
+									},
+									PrivateKey: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/etc/certs/key.pem",
+										},
+									},
+								},
+							},
+							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+								ValidationContext: &auth.CertificateValidationContext{
+									TrustedCa: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/etc/certs/root-cert.pem",
+										},
+									},
+								},
+							},
+							AlpnProtocols: []string{"h2", "http/1.1"},
+						},
+						RequireClientCertificate: protovalue.BoolTrue,
+					},
 					FilterChainMatch: &listener.FilterChainMatch{
 						ApplicationProtocols: []string{"istio"},
 					},
@@ -915,7 +989,9 @@ func TestOnInboundFilterChains(t *testing.T) {
 				},
 			},
 			sdsUdsPath: "/tmp/sdsuds.sock",
-			meta:       &model.NodeMetadata{},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
@@ -929,7 +1005,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 									ValidationContextSdsSecretConfig: constructSDSConfig(authn_model.SDSRootResourceName, "/tmp/sdsuds.sock"),
 								},
 							},
-							AlpnProtocols: []string{"h2", "http/1.1"},
+							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
@@ -949,11 +1025,12 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meta: &model.NodeMetadata{
-				TLSServerCertChain: "/custom/path/to/cert-chain.pem",
-				TLSServerKey:       "/custom-key.pem",
-				TLSServerRootCert:  "/custom/path/to/root.pem",
-			},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					TLSServerCertChain: "/custom/path/to/cert-chain.pem",
+					TLSServerKey:       "/custom-key.pem",
+					TLSServerRootCert:  "/custom/path/to/root.pem",
+				}},
 			// Only one filter chain with mTLS settings should be generated.
 			expected: []plugin.FilterChain{
 				{
@@ -982,7 +1059,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 									},
 								},
 							},
-							AlpnProtocols: []string{"h2", "http/1.1"},
+							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
@@ -993,7 +1070,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 	for _, c := range cases {
 		got := NewPolicyApplier(c.in).InboundFilterChain(
 			c.sdsUdsPath,
-			c.meta,
+			c.node,
 		)
 		if !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
