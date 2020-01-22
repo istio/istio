@@ -80,6 +80,18 @@ test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
+test.integration.istioio.kube.presubmit: istioctl | $(JUNIT_REPORT)
+	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/istioio/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+	--istio.test.select -postsubmit,-flaky \
+	--istio.test.kube.operator=false
+	--istio.test.env kube \
+	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
+	--istio.test.hub=${HUB} \
+	--istio.test.tag=${TAG} \
+	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
+	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+
 test.integration.istioio.kube.postsubmit: test.integration.istioio.kube.presubmit
 	SNIPPETS_GCS_PATH="istio-snippets/$(shell git rev-parse HEAD)" prow/upload-istioio-snippets.sh
 
