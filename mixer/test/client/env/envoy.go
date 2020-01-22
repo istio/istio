@@ -70,7 +70,7 @@ func (s *TestSetup) newEnvoy() (envoy.Instance, error) {
 		options = append(options, o...)
 	}
 	/* #nosec */
-	envoyPath := filepath.Join(env.IstioBin, "envoy")
+	envoyPath := filepath.Join(env.IstioOut, "envoy")
 	if path, exists := ev.RegisterStringVar("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
 		envoyPath = path
 	}
