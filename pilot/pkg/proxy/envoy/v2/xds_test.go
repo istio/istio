@@ -124,6 +124,7 @@ func gatewayID(ip string) string { //nolint: unparam
 	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }
 
+// localPilotTestEnv builds a pilot testing environment and it initializes with registry with the passed in init function.
 func localPilotTestEnv(t *testing.T, initFunc func(*bootstrap.Server), additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, util.TearDownFunc) {
 	initMutex.Lock()
 	defer initMutex.Unlock()
