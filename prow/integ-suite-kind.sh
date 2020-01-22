@@ -33,6 +33,9 @@ set -x
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
+# Temporary, for testing
+export VARIANT=distroless
+
 while (( "$#" )); do
   case "$1" in
     # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
