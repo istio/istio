@@ -225,9 +225,6 @@ fi
 
 # Donwload WebAssembly plugin files
 WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}
-if [[ "$LOCAL_OS" == "Darwin" ]]; then
-  WASM_RELEASE_DIR=${ISTIO_ENVOY_MACOS_RELEASE_DIR}
-fi
 for plugin in stats metadata_exchange
 do
   FILTER_WASM_URL="${ISTIO_ENVOY_BASE_URL}/${plugin}-${ISTIO_ENVOY_VERSION}.wasm"
