@@ -353,8 +353,3 @@ dockerx.pushx: dockerx
 # Scan images for security vulnerabilities using the ImageScanner tool
 docker.scan_images: $(DOCKER_PUSH_TARGETS)
 	$(foreach TGT,$(DOCKER_TARGETS),$(call run_vulnerability_scanning,$(subst docker.,,$(TGT)),$(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
-
-# Experimental Skaffold for istiod
-skaffold.istiod: docker.pilot
-	docker tag $(HUB)/pilot:$(TAG) $(IMAGE)
-	docker push $(IMAGE)
