@@ -85,7 +85,6 @@ func (s *Server) initCertController(args *PilotArgs) error {
 		k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1beta1(), k8sClient.CertificatesV1beta1(),
 		defaultCACertPath, secretNames, dnsNames, namespaces)
 	if err != nil {
-		// TODO: fallback to certs signed by the local CA
 		return fmt.Errorf("failed to create certificate controller: %v", err)
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
