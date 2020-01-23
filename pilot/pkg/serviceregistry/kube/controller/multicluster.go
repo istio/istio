@@ -134,6 +134,7 @@ func (m *Multicluster) updateHandler() {
 		req := &model.PushRequest{
 			Full:               true,
 			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
+			Reason:             []model.TriggerReason{model.UnknownTrigger},
 		}
 		m.XDSUpdater.ConfigUpdate(req)
 	}

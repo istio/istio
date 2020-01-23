@@ -98,6 +98,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 						Full:               true,
 						NamespacesUpdated:  map[string]struct{}{curr.Namespace: {}},
 						ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{serviceEntryKind: {}},
+						Reason:             []model.TriggerReason{model.ServiceUpdate},
 					}
 					c.XdsUpdater.ConfigUpdate(pushReq)
 				} else {

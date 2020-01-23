@@ -73,6 +73,7 @@ func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.E
 					// TODO: extend and set service instance type, so no need to re-init push context
 					ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{
 						collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
+					Reason: []model.TriggerReason{model.EndpointUpdate},
 				})
 				return nil
 			}
