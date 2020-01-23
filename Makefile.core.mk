@@ -387,9 +387,8 @@ istioctl.completion: ${ISTIO_OUT}/release/istioctl.bash ${ISTIO_OUT}/release/_is
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
-.PHONY: istioctl-install
-istioctl-install:
-	go install istio.io/istio/istioctl/cmd/istioctl
+.PHONY: istioctl-install-container
+istioctl-install-container: istioctl
 
 #-----------------------------------------------------------------------------
 # Target: test
