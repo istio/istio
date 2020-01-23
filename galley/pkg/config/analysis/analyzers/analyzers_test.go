@@ -79,6 +79,25 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "jwtTargetsInvalidServicePortName",
+		inputFiles: []string{"testdata/jwt-invalid-service-port-name.yaml"},
+		analyzer:   &auth.JwtAnalyzer{},
+		expected: []message{
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy default.my-namespace"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy default.my-namespace-2"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy default.my-namespace-2"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy default.my-namespace-not-tcp"},
+		},
+	},
+	{
+		name:       "jwtTargetsValidServicePortName",
+		inputFiles: []string{"testdata/jwt-valid-service-port-name.yaml"},
+		analyzer:   &auth.JwtAnalyzer{},
+		expected:   []message{
+			// port prefixes all pass
+		},
+	},
+	{
 		name:           "mtlsAnalyzerAutoMtlsSkips",
 		inputFiles:     []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
 		meshConfigFile: "testdata/mesh-with-automtls.yaml",
