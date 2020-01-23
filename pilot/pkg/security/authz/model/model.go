@@ -325,3 +325,18 @@ func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rba
 	}
 	return policy
 }
+
+// ValidateForTCPFilter validates that the model is valid for building a RBAC TCP filter.
+func (m *Model) ValidateForTCPFilter() error {
+	for _, permission := range m.Permissions {
+		if err := permission.ValidateForTCP(true); err != nil {
+			return err
+		}
+	}
+	for _, principal := range m.Principals {
+		if err := principal.ValidateForTCP(true); err != nil {
+			return err
+		}
+	}
+	return nil
+}

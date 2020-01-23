@@ -35,14 +35,27 @@ func TestBuildHTTPFilter(t *testing.T) {
 		name              string
 		trustDomainBundle trustdomain.Bundle
 		policies          *model.AuthorizationPolicies
+		forTCPFilter      bool
 		wantDeny          *http_config.RBAC
 		wantAllow         *http_config.RBAC
 	}{
 		{
-			name:      "v1beta1 action",
-			policies:  getPolicies("testdata/v1beta1/action-in.yaml", t),
-			wantDeny:  getProto("testdata/v1beta1/action-deny-out.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/action-allow-out.yaml", t),
+			name:         "v1beta1 action allow with HTTP fields for TCP filter",
+			forTCPFilter: true,
+			policies:     getPolicies("testdata/v1beta1/action-allow-HTTP-for-TCP-filter-in.yaml", t),
+			wantAllow:    getProto("testdata/v1beta1/action-allow-HTTP-for-TCP-filter-out.yaml", t),
+		},
+		{
+			name:      "v1beta1 action both",
+			policies:  getPolicies("testdata/v1beta1/action-both-in.yaml", t),
+			wantDeny:  getProto("testdata/v1beta1/action-both-deny-out.yaml", t),
+			wantAllow: getProto("testdata/v1beta1/action-both-allow-out.yaml", t),
+		},
+		{
+			name:         "v1beta1 action deny with HTTP fields for TCP filter",
+			forTCPFilter: true,
+			policies:     getPolicies("testdata/v1beta1/action-deny-HTTP-for-TCP-filter-in.yaml", t),
+			wantDeny:     getProto("testdata/v1beta1/action-deny-HTTP-for-TCP-filter-out.yaml", t),
 		},
 		{
 			name:      "v1beta1 all fields",
@@ -139,13 +152,9 @@ func TestBuildHTTPFilter(t *testing.T) {
 			if b == nil {
 				t.Fatalf("failed to create builder")
 			}
-			gotDeny, gotAllow := b.generator.Generate(false)
-			if tc.wantDeny != nil {
-				verify(t, gotDeny, tc.wantDeny)
-			}
-			if tc.wantAllow != nil {
-				verify(t, gotAllow, tc.wantAllow)
-			}
+			gotDeny, gotAllow := b.generator.Generate(tc.forTCPFilter)
+			verify(t, gotDeny, tc.wantDeny)
+			verify(t, gotAllow, tc.wantAllow)
 		})
 	}
 }
