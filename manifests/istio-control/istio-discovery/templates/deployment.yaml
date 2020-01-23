@@ -29,7 +29,7 @@ spec:
       {{- if ne .Values.version ""}}
       app: pilot
       version: {{ .Values.version }}
-      {{ else }}
+      {{- else }}
       istio: pilot
       {{- end }}
   template:
@@ -38,7 +38,7 @@ spec:
         app: pilot
         {{- if ne .Values.version ""}}
         version: {{ .Values.version }}
-        {{ else }}
+        {{- else }}
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
@@ -112,6 +112,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
@@ -159,12 +161,12 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          {{ if .Values.global.istiod.enabled }}
-          {{ if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          {{- if .Values.global.istiod.enabled }}
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          {{ end }}
+          {{- end }}
           - name: local-certs
             mountPath: /var/run/secrets/istio-dns
           - name: cacerts
@@ -179,7 +181,7 @@ spec:
           - name: validation
             mountPath: /var/lib/istio/validation
             readOnly: true
-          {{ end }}
+          {{- end }}
 {{- if .Values.global.controlPlaneSecurityEnabled }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
@@ -294,7 +296,7 @@ spec:
           name: istio-validation
           optional: true
 
-      {{ else }}
+      {{- else }}
       {{- if .Values.global.sds.enabled }}
       - hostPath:
           path: /var/run/sds

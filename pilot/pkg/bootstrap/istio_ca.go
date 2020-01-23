@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coreos/go-oidc"
+	oidc "github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -100,10 +100,8 @@ var (
 	k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
 		"Kuberenetes service host, set automatically when running in-cluster")
 
-	// JWTPath is the well-known location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
-	// In a cluster that doesn't support projected JWTs we can't run the CA functionality of istiod - instead
-	// old-style Citadel must be run, with Secret created for each workload.
-	JWTPath = "./var/run/secrets/tokens/istio-token"
+	// ThirdPartyJWTPath is the well-known location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
+	ThirdPartyJWTPath = "./var/run/secrets/tokens/istio-token"
 
 	// This value can also be extracted from the mounted token
 	trustedIssuer = env.RegisterStringVar("TOKEN_ISSUER", "",
@@ -137,10 +135,11 @@ func (s *Server) EnableCA() bool {
 		log.Warn("kubeclient is nil; disable the CA functionality")
 		return false
 	}
-	if _, err := ioutil.ReadFile(JWTPath); err != nil {
+	if _, err := ioutil.ReadFile(s.jwtPath); err != nil {
 		// for debug we may want to override this by setting trustedIssuer explicitly
 		if trustedIssuer.Get() == "" {
-			log.Warnf("istiod running without access to K8S tokens (jwt path %v); disable the CA functionality", JWTPath)
+			log.Warnf("istiod running without access to K8S tokens (jwt path %v); disable the CA functionality",
+				s.jwtPath)
 			return false
 		}
 	}
@@ -164,7 +163,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopC
 	aud := audience.Get()
 
 	ch := make(chan struct{})
-	token, err := ioutil.ReadFile(JWTPath)
+	token, err := ioutil.ReadFile(s.jwtPath)
 	if err == nil {
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {

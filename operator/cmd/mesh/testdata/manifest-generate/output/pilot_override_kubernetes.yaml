@@ -80,6 +80,8 @@ spec:
         - 60m
         - --disable-install-crds=true
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: POD_NAME

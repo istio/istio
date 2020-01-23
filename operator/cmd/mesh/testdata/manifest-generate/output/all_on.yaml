@@ -6720,6 +6720,10 @@ spec:
               memory: 128Mi
             
           env:
+          - name: JWT_POLICY
+            value: third-party-jwt
+          - name: PILOT_CERT_PROVIDER
+            value: citadel
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -6777,6 +6781,8 @@ spec:
           - name: SDS_ENABLED
             value: "false"
           volumeMounts:
+          - mountPath: /etc/istio/citadel-ca-cert
+            name: citadel-ca-cert
           
           - name: istio-certs
             mountPath: /etc/certs
@@ -6788,6 +6794,9 @@ spec:
             mountPath: "/etc/istio/egressgateway-ca-certs"
             readOnly: true
       volumes:
+      - name: citadel-ca-cert
+        configMap:
+          name: istio-ca-root-cert
       
       - name: istio-certs
         secret:
@@ -7425,6 +7434,8 @@ spec:
               memory: 128Mi
             
           env:
+          - name: JWT_POLICY
+            value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
             value: citadel
           - name: "ISTIO_META_USER_SDS"
@@ -8379,6 +8390,8 @@ spec:
         - 30m
         - --disable-install-crds=true
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: POD_NAME
@@ -9858,6 +9871,8 @@ data:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
         {{- end }}
         env:
+        - name: JWT_POLICY
+          value: {{ .Values.global.jwtPolicy }}
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -10022,8 +10037,10 @@ data:
         - mountPath: /var/run/sds
           name: sds-uds-path
           readOnly: true
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        {{- end }}
         {{- if .Values.global.sds.customTokenDirectory }}
         - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
           name: custom-sds-token
@@ -10058,6 +10075,7 @@ data:
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -10065,6 +10083,7 @@ data:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
       {{- if .Values.global.sds.customTokenDirectory }}
       - name: custom-sds-token
         secret:
