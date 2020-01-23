@@ -13352,7 +13352,7 @@ spec:
       {{- if ne .Values.version ""}}
       app: pilot
       version: {{ .Values.version }}
-      {{ else }}
+      {{- else }}
       istio: pilot
       {{- end }}
   template:
@@ -13361,7 +13361,7 @@ spec:
         app: pilot
         {{- if ne .Values.version ""}}
         version: {{ .Values.version }}
-        {{ else }}
+        {{- else }}
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
@@ -13619,7 +13619,7 @@ spec:
           name: istio-validation
           optional: true
 
-      {{ else }}
+      {{- else }}
       {{- if .Values.global.sds.enabled }}
       - hostPath:
           path: /var/run/sds
