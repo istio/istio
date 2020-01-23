@@ -22,9 +22,9 @@ global:
       host: # example: statsd-svc.istio-system
       port: # example: 9125
 
-  # Omit creation of cluster when generate standalone gateway.
-  # Cluster role already have been creating when other components have been
-  # installed
+  # Omit creation of cluster roles when generate standalone gateway.
+  # Cluster roles have already been created alongside other components
+  # installation
   rbac:
     clusterRole:
       create: false

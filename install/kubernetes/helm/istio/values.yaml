@@ -624,7 +624,7 @@ global:
   operatorManageWebhooks: false
 
   # Configure whether the cluster roles and their bindings are created.
-  # This allows to create gateways, after installing other components.
+  # This allows to create gateways after installing other components.
   rbac:
     clusterRole:
       create: true
