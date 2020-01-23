@@ -207,6 +207,7 @@ func (c *controller) Apply(change *sink.Change) error {
 		c.options.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:               true,
 			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{kind: {}},
+			Reason:             []model.TriggerReason{model.ConfigUpdate},
 		})
 	}
 	return nil
