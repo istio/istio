@@ -89,6 +89,7 @@ var (
 		InjectorComponentName,
 	}
 	allComponentNamesMap        = make(map[ComponentName]bool)
+	addonComponentNamesMap      = make(map[ComponentName]bool)
 	deprecatedComponentNamesMap = make(map[ComponentName]bool)
 )
 
@@ -99,6 +100,9 @@ func init() {
 	for _, n := range DeprecatedNames {
 		deprecatedComponentNamesMap[n] = true
 	}
+	for _, n := range AllAddonComponentNames {
+		addonComponentNamesMap[n] = true
+	}
 }
 
 // ManifestMap is a map of ComponentName to its manifest string.
@@ -107,6 +111,11 @@ type ManifestMap map[ComponentName][]string
 // IsCoreComponent reports whether cn is a core component.
 func (cn ComponentName) IsCoreComponent() bool {
 	return allComponentNamesMap[cn]
+}
+
+// IsAddonComponent reports whether cn is an addonComponent.
+func (cn ComponentName) IsAddonComponent() bool {
+	return addonComponentNamesMap[cn]
 }
 
 // IsDeprecatedName reports whether cn is a deprecated component.
@@ -128,10 +137,8 @@ func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1a
 	if componentName == EgressComponentName {
 		return len(controlPlaneSpec.Components.EgressGateways) != 0, nil
 	}
-	var componentPath string
-	if componentName.IsCoreComponent() {
-		componentPath = "Components." + string(componentName) + ".Enabled"
-	} else {
+	componentPath := "Components." + string(componentName) + ".Enabled"
+	if componentName.IsAddonComponent() {
 		componentPath = "AddonComponents." + util.ToYAMLPathString(string(componentName)) + ".Enabled"
 	}
 
@@ -216,10 +223,8 @@ func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOper
 		return "", fmt.Errorf("defaultNamespace must be set")
 	}
 
-	var componentPath string
-	if componentName.IsCoreComponent() {
-		componentPath = "Components." + string(componentName) + ".Namespace"
-	} else {
+	componentPath := "Components." + string(componentName) + ".Namespace"
+	if componentName.IsAddonComponent() {
 		componentPath = "AddonComponents." + util.ToYAMLPathString(string(componentName)) + ".Namespace"
 	}
 
