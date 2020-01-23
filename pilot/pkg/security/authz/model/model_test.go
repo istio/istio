@@ -89,7 +89,7 @@ func TestNewServiceMetadata(t *testing.T) {
 	}
 }
 
-func TestNewModel(t *testing.T) {
+func TestNewModelV1alpha1(t *testing.T) {
 	role := &istio_rbac.ServiceRole{
 		Rules: []*istio_rbac.AccessRule{
 			fullRule("perm-1"),
@@ -634,5 +634,73 @@ func TestModel_Generate(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestModel_Validate(t *testing.T) {
+	testCases := []struct {
+		name        string
+		permissions []Permission
+		principals  []Principal
+		wantError   bool
+	}{
+		{
+			name: "invalid permission",
+			permissions: []Permission{
+				{
+					Methods: []string{"GET"},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid principal",
+			principals: []Principal{
+				{
+					RequestPrincipals: []string{"id"},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid permission and principal",
+			permissions: []Permission{
+				{
+					Methods: []string{"GET"},
+				},
+			},
+			principals: []Principal{
+				{
+					RequestPrincipals: []string{"id"},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "valid permission and principal",
+			permissions: []Permission{
+				{
+					Ports: []string{"80"},
+				},
+			},
+			principals: []Principal{
+				{
+					Namespaces: []string{"ns"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		m := Model{
+			Permissions: tc.permissions,
+			Principals:  tc.principals,
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			got := m.ValidateForTCPFilter()
+			if tc.wantError != (got != nil) {
+				t.Errorf("wantError %v but got error %v", tc.wantError, got)
+			}
+		})
 	}
 }
