@@ -18,7 +18,7 @@ import (
 	"sync"
 
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // ChangeNotifierFn is called when a collection instance changes.

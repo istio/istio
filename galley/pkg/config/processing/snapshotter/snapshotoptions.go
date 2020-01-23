@@ -16,7 +16,7 @@ package snapshotter
 
 import (
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // SnapshotOptions is settings for a single snapshotImpl target.

@@ -17,8 +17,8 @@ package event
 import (
 	"fmt"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Router distributes events to different handlers, based on collection name.

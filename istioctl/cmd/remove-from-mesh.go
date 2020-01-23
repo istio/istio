@@ -29,8 +29,8 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func removeFromMeshCmd() *cobra.Command {

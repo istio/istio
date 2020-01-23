@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
