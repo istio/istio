@@ -534,7 +534,7 @@ var (
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
 
-			if nodeAgentSDSEnabled && role.Type == model.SidecarProxy {
+			if nodeAgentSDSEnabled {
 				tlsCertsToWatch = []string{}
 			}
 
