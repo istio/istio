@@ -21,8 +21,8 @@ import (
 )
 
 func main() {
- 	rootCmd := mesh.GetRootCmd(os.Args[1:])
- 	if err := rootCmd.Execute(); err != nil {
+	rootCmd := mesh.GetRootCmd(os.Args[1:])
+	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
