@@ -1,3 +1,7 @@
+Proceeding despite the following validation errors: 
+unknown field "sts" in v1alpha1.GlobalConfig
+Proceeding despite the following validation errors: 
+unknown field "sts" in v1alpha1.GlobalConfig
 addonComponents:
   prometheus:
     enabled: true
@@ -379,6 +383,8 @@ values:
       token:
         aud: istio-ca
       udsPath: ""
+    sts:
+      servicePort: 0
     tracer:
       datadog:
         address: $(HOST_IP):8126
