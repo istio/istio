@@ -235,13 +235,15 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		sdsFromFile = true
 		ns, err = sc.generateKeyCertFromExistingFiles(existingCertChainFile, existingKeyFile, token, connKey)
 	}
+
 	if sdsFromFile {
 		if err != nil {
 			cacheLog.Errorf("%s failed to generate secret for proxy: %v, by loading from files",
 				conIDresourceNamePrefix, err)
 			return nil, err
 		}
-		sc.secrets.Store(connKey, *ns)
+		// This is not stored - envoy will refresh when the cert is about to expire.
+		cacheLog.Infoa("GenerateSecret from file", resourceName)
 		return ns, nil
 	}
 
@@ -256,6 +258,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 			return nil, err
 		}
 
+		cacheLog.Infoa("GenerateSecret ", resourceName)
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
@@ -289,6 +292,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		CreatedTime:  t,
 		Version:      t.String(),
 	}
+	cacheLog.Infoa("Loaded root cert from certificate", resourceName)
 	sc.secrets.Store(connKey, *ns)
 	cacheLog.Debugf("%s successfully generate secret for proxy", conIDresourceNamePrefix)
 	return ns, nil
