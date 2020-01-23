@@ -29,9 +29,9 @@ type PolicyApplier interface {
 
 	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.
-	JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter
+	JwtFilter() *http_conn.HttpFilter
 
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.
-	AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter
+	AuthNFilter(proxyType model.NodeType) *http_conn.HttpFilter
 }

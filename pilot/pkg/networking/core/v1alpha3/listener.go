@@ -1454,13 +1454,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// When this happens, Envoy will infinite loop sending requests to itself.
 	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
 	if listenerOpts.bind == actualWildcard && features.RestrictPodIPTrafficLoops.Get() {
-		blackhole := blackholeStructMarshalling
-		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-			blackhole = blackholeAnyMarshalling
-		}
 		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
 			destinationCIDRs: pluginParams.Node.IPAddresses,
-			networkFilters:   []*listener.Filter{blackhole},
+			networkFilters:   []*listener.Filter{blackholeFilter},
 		}}, listenerOpts.filterChainOpts...)
 	}
 
