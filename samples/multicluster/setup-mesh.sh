@@ -116,6 +116,10 @@ create_offline_root_ca(){
 }
 
 create_base() {
+  if [ -f "${BASE_FILENAME}" ]; then
+    echo "${BASE_FILENAME} already exists."
+    return
+  fi
   cat << EOF > "${BASE_FILENAME}"
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator

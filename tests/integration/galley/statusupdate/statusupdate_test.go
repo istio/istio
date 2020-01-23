@@ -42,6 +42,16 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["galley.enableAnalysis"] = "true"
+	cfg.ControlPlaneValues = `
+components:
+  galley:
+    enabled: true
+  citadel:
+    enabled: true
+values:
+  galley:
+    enableAnalysis: true
+`
 }
 
 const (

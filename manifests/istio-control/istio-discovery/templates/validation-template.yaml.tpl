@@ -13,7 +13,7 @@ webhooks:
   - name: validation.istio.io
     clientConfig:
       service:
-        name: istio-pilot{{ .Values.version }}
+        name: istiod
         namespace: {{ .Release.Namespace }}
         path: "/validate"
         port: 443

@@ -22,6 +22,8 @@ import (
 
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/version"
+	"istio.io/istio/operator/pkg/vfs"
 )
 
 const (
@@ -29,10 +31,24 @@ const (
 apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 `
+	iCPIOPTranslationsFilename = "translate-ICP-IOP-"
 )
 
-// ReadTranslations reads a file at filePath with key:value pairs in the format expected by TranslateICPToIOP.
-func ReadTranslations(filePath string) (map[string]string, error) {
+// ICPtoIOPTranslations returns the translations for the given binary version.
+func ICPtoIOPTranslations(ver version.Version) (map[string]string, error) {
+	b, err := vfs.ReadFile("translateConfig/" + iCPIOPTranslationsFilename + ver.MinorVersion.String() + ".yaml")
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string)
+	if err := yaml.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ReadICPtoIOPTranslations reads a file at filePath with key:value pairs in the format expected by TranslateICPToIOP.
+func ReadICPtoIOPTranslations(filePath string) (map[string]string, error) {
 	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -42,6 +58,16 @@ func ReadTranslations(filePath string) (map[string]string, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// TranslateICPToIOPVer takes an IstioControlPlane YAML string and the target version as input,
+// then translates it into an IstioOperator YAML string.
+func TranslateICPToIOPVer(icp string, ver version.Version) (string, error) {
+	translations, err := ICPtoIOPTranslations(ver)
+	if err != nil {
+		return "", fmt.Errorf("could not read translate config for version %s: %s", ver, err)
+	}
+	return TranslateICPToIOP(icp, translations)
 }
 
 // TranslateICPToIOP takes an IstioControlPlane YAML string and a map of translations with key:value format

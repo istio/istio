@@ -30,9 +30,6 @@ func TestProfileDump(t *testing.T) {
 		{
 			desc: "all_off",
 		},
-		{
-			desc: "sds_policy_off",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {

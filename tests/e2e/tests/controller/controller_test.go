@@ -50,14 +50,10 @@ func makeClient(desc collection.Schemas) (*crd.Client, error) {
 		return nil, err
 	}
 
-	err = cl.RegisterResources()
+	err = cl.RegisterMockResourceCRD()
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO(kuat) initial watch always fails, takes time to register, keep
-	// around as a work-around
-	// kr.DeregisterResources()
 
 	return cl, nil
 }
@@ -139,7 +135,6 @@ func TestTempWorkspace(t *testing.T) {
 	t.Run("controllerCacheFreshness", func(t *testing.T) {
 		controllerCacheFreshness(t, client, ns)
 	})
-
 }
 
 func storeInvariant(t *testing.T, client model.ConfigStore, ns string) {

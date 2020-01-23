@@ -847,7 +847,7 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
-		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
+		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, proxy)
 	}
 }
 
@@ -1096,7 +1096,7 @@ func applyLocalityLBSetting(
 	}
 }
 
-func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSettings, mtlsCtxType mtlsContextType) {
+func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSettings, mtlsCtxType mtlsContextType, node *model.Proxy) {
 	if tls == nil {
 		return
 	}
@@ -1194,7 +1194,11 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 			}
 		} else if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
+			if util.IsTCPMetadataExchangeEnabled(node) {
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
+			} else {
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
+			}
 		}
 	}
 
