@@ -1120,6 +1120,23 @@ func ValidateConnectTimeout(timeout *types.Duration) error {
 	return err
 }
 
+// ValidateProtocolDetectionTimeout validates the envoy protocol detection timeout
+func ValidateProtocolDetectionTimeout(timeout *types.Duration) error {
+	dur, err := types.DurationFromProto(timeout)
+	if err != nil {
+		return err
+	}
+	// 0s is a valid value if trying to disable protocol detection timeout
+	if dur == time.Second*0 {
+		return nil
+	}
+	if dur%time.Millisecond != 0 {
+		return errors.New("only durations to ms precision are supported")
+	}
+
+	return nil
+}
+
 // ValidateMeshConfig checks that the mesh config is well-formed
 func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	if mesh.MixerCheckServer != "" {
@@ -1140,6 +1157,10 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 
 	if err := ValidateConnectTimeout(mesh.ConnectTimeout); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
+	}
+
+	if err := ValidateProtocolDetectionTimeout(mesh.ProtocolDetectionTimeout); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid protocol detection timeout:"))
 	}
 
 	if mesh.DefaultConfig == nil {

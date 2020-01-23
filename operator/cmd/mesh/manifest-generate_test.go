@@ -62,7 +62,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 		{
 			desc:       "flag_set_values",
 			diffIgnore: "ConfigMap:*:istio",
-			flags:      "-s values.global.proxy.image=myproxy",
+			flags:      "-s values.global.proxy.image=myproxy --set values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16",
 			noInput:    true,
 		},
 		{
@@ -191,8 +191,9 @@ func TestMultiICPSFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if got != want {
-			t.Errorf("`manifest generate` got = %v, want %v", got, want)
+		diff := compare.YAMLCmp(got, want)
+		if diff != "" {
+			t.Errorf("`manifest generate` diff = %s", diff)
 		}
 	})
 }

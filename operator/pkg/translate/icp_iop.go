@@ -60,6 +60,16 @@ func ReadICPtoIOPTranslations(filePath string) (map[string]string, error) {
 	return out, nil
 }
 
+// TranslateICPToIOPVer takes an IstioControlPlane YAML string and the target version as input,
+// then translates it into an IstioOperator YAML string.
+func TranslateICPToIOPVer(icp string, ver version.Version) (string, error) {
+	translations, err := ICPtoIOPTranslations(ver)
+	if err != nil {
+		return "", fmt.Errorf("could not read translate config for version %s: %s", ver, err)
+	}
+	return TranslateICPToIOP(icp, translations)
+}
+
 // TranslateICPToIOP takes an IstioControlPlane YAML string and a map of translations with key:value format
 // souce-path:destination-path (where paths are expressed in pkg/tpath format) and returns an IstioOperator string.
 func TranslateICPToIOP(icp string, translations map[string]string) (string, error) {

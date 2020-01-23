@@ -48,8 +48,9 @@ const (
 )
 
 type Env struct {
-	proxySetUp        *proxyEnv.TestSetup
-	authServer        *tokenBackend.AuthorizationServer
+	ProxySetUp *proxyEnv.TestSetup
+	AuthServer *tokenBackend.AuthorizationServer
+
 	stsServer         *stsServer.Server
 	xDSServer         *grpc.Server
 	xDSCb             *xdsService.XDSCallbacks
@@ -60,8 +61,8 @@ type Env struct {
 func (e *Env) TearDown() {
 	// Stop proxy first, otherwise XDS stream is still alive and server's graceful
 	// stop will be blocked.
-	e.proxySetUp.TearDown()
-	e.authServer.Stop()
+	e.ProxySetUp.TearDown()
+	e.AuthServer.Stop()
 	e.xDSServer.GracefulStop()
 	e.stsServer.Stop()
 }
@@ -95,19 +96,20 @@ func WriteDataToFile(path string, content string) error {
 // Envoy loads a test config that requires token credential to access XDS server.
 // That token credential is provisioned by STS server.
 // Here is a map between ports and servers
-// auth server    : MixerPort
-// STS server     : ServerProxyPort
-// proxy listener : ClientProxyPort
-// XDS server     : DiscoveryPort
-// test backend   : BackendPort
-// proxy admin    : AdminPort
-func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
+// auth server            : MixerPort
+// STS server             : ServerProxyPort
+// Dynamic proxy listener : ClientProxyPort
+// Static proxy listener  : TCPProxyPort
+// XDS server             : DiscoveryPort
+// test backend           : BackendPort
+// proxy admin            : AdminPort
+func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16) *Env {
 	// Set up credential files for bootstrap config
-	jwtToken := getDataFromFile("testdata/trustworthy-jwt.jwt", t)
+	jwtToken := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/trustworthy-jwt.jwt", t)
 	if err := WriteDataToFile(proxyTokenPath, jwtToken); err != nil {
 		t.Fatalf("failed to set up token file %s: %v", proxyTokenPath, err)
 	}
-	caCert := getDataFromFile("testdata/ca-certificate.crt", t)
+	caCert := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/ca-certificate.crt", t)
 	if err := WriteDataToFile(certPath, caCert); err != nil {
 		t.Fatalf("failed to set up ca certificate file %s: %v", certPath, err)
 	}
@@ -116,21 +118,22 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 		initialToken: jwtToken,
 	}
 	// Set up test environment for Proxy
-	proxySetUp := proxyEnv.NewTestSetup(proxyEnv.STSTest, t)
+	proxySetUp := proxyEnv.NewTestSetup(testID, t)
 	proxySetUp.SetNoMixer(true)
-	proxySetUp.EnvoyTemplate = getDataFromFile("testdata/bootstrap.yaml", t)
-	env.proxySetUp = proxySetUp
+	proxySetUp.EnvoyTemplate = getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/bootstrap.yaml", t)
+	env.ProxySetUp = proxySetUp
 	env.DumpPortMap(t)
 	// Set up auth server that provides token service
 	backend, err := tokenBackend.StartNewServer(t, tokenBackend.Config{
-		SubjectToken:        jwtToken,
-		Port:                int(proxySetUp.Ports().MixerPort),
-		ExpectedAccessToken: cb.ExpectedToken(),
+		SubjectToken: jwtToken,
+		Port:         int(proxySetUp.Ports().MixerPort),
+		AccessToken:  cb.ExpectedToken(),
 	})
 	if err != nil {
 		t.Fatalf("failed to start a auth backend: %v", err)
 	}
-	env.authServer = backend
+	env.AuthServer = backend
+
 	// Set up STS server
 	stsServer, err := setUpSTS(int(proxySetUp.Ports().ServerProxyPort), backend.URL)
 	if err != nil {
@@ -157,27 +160,29 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks) *Env {
 }
 
 // DumpPortMap dumps port allocation status
-// auth server    : MixerPort
-// STS server     : ServerProxyPort
-// proxy listener : ClientProxyPort
-// XDS server     : DiscoveryPort
-// test backend   : BackendPort
-// proxy admin    : AdminPort
+// auth server            : MixerPort
+// STS server             : ServerProxyPort
+// Dynamic proxy listener : ClientProxyPort
+// Static proxy listener  : TCPProxyPort
+// XDS server             : DiscoveryPort
+// test backend           : BackendPort
+// proxy admin            : AdminPort
 func (e *Env) DumpPortMap(t *testing.T) {
 	log.Printf("\n\tport allocation status\t\t\t\n"+
-		"auth server\t:\t%d\n"+
-		"STS server\t:\t%d\n"+
-		"listener port\t:\t%d\n"+
-		"XDS server\t:\t%d\n"+
-		"test backend\t:\t%d\n"+
-		"proxy admin\t:\t%d", e.proxySetUp.Ports().MixerPort,
-		e.proxySetUp.Ports().ServerProxyPort, e.proxySetUp.Ports().ClientProxyPort,
-		e.proxySetUp.Ports().DiscoveryPort, e.proxySetUp.Ports().BackendPort,
-		e.proxySetUp.Ports().AdminPort)
+		"auth server\t\t:\t%d\n"+
+		"STS server\t\t:\t%d\n"+
+		"dynamic listener port\t:\t%d\n"+
+		"static listener port\t:\t%d\n"+
+		"XDS server\t\t:\t%d\n"+
+		"test backend\t\t:\t%d\n"+
+		"proxy admin\t\t:\t%d", e.ProxySetUp.Ports().MixerPort,
+		e.ProxySetUp.Ports().ServerProxyPort, e.ProxySetUp.Ports().ClientProxyPort,
+		e.ProxySetUp.Ports().TCPProxyPort, e.ProxySetUp.Ports().DiscoveryPort,
+		e.ProxySetUp.Ports().BackendPort, e.ProxySetUp.Ports().AdminPort)
 }
 
 func (e *Env) StartProxy(t *testing.T) {
-	if err := e.proxySetUp.SetUp(); err != nil {
+	if err := e.ProxySetUp.SetUp(); err != nil {
 		t.Fatalf("failed to start proxy: %v", err)
 	}
 	log.Println("proxy is running...")
@@ -187,7 +192,7 @@ func (e *Env) StartProxy(t *testing.T) {
 // verifies that the STS flow is ready.
 func (e *Env) WaitForStsFlowReady(t *testing.T) {
 	t.Logf("%s check if all servers in the STS flow are up and ready", time.Now().String())
-	addr, _ := net.ResolveTCPAddr("tcp", fmt.Sprintf("127.0.0.1:%d", e.proxySetUp.Ports().ServerProxyPort))
+	addr, _ := net.ResolveTCPAddr("tcp", fmt.Sprintf("127.0.0.1:%d", e.ProxySetUp.Ports().ServerProxyPort))
 	stsServerAddress := addr.String()
 	hTTPClient := &http.Client{
 		Transport: &http.Transport{
