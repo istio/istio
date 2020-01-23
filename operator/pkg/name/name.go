@@ -132,11 +132,8 @@ func (cn ComponentName) IsAddon() bool {
 // IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.
 // TODO: remove extra validations when comfort level is high enough.
 func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (bool, error) {
-	// for addon components, enablement is defined in values part.
-	if componentName == AddonComponentName {
-		enabled, _, err := IsComponentEnabledFromValue(string(componentName), controlPlaneSpec.Values)
-		return enabled, err
-	}
+	// TODO: resolve the addon components enablement after issue: https://github.com/istio/istio/issues/20316
+	// Addon Components only need to check from values
 	// for Istio components, check whether override path exist in values part first then ISCP.
 	valuePath := ComponentNameToHelmComponentPath[componentName]
 	enabled, pathExist, err := IsComponentEnabledFromValue(valuePath, controlPlaneSpec.Values)

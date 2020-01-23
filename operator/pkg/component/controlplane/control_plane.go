@@ -27,8 +27,9 @@ import (
 
 const (
 	istioIngressGatewayName = "istio-ingressgateway"
-	istioEgressGatewayName = "istio-egressgateway"
+	istioEgressGatewayName  = "istio-egressgateway"
 )
+
 // IstioOperator is an installation of an Istio control plane.
 type IstioOperator struct {
 	// components is a slice of components that are part of the feature.
@@ -57,11 +58,11 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		if c.Name == istioIngressGatewayName {
 			valuePath := "gateways." + istioIngressGatewayName
 			enabled, pathExist, err := name.IsComponentEnabledFromValue(valuePath, installSpec.Values)
-			if err == nil && pathExist && enabled {
+			if err == nil && pathExist {
 				if c.Enabled == nil {
 					c.Enabled = &v1alpha1.BoolValueForPB{}
 				}
-				c.Enabled.Value = true
+				c.Enabled.Value = enabled
 			}
 		}
 		if c.Enabled == nil || !c.Enabled.Value {
@@ -75,11 +76,11 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		if c.Name == istioEgressGatewayName {
 			valuePath := "gateways." + istioEgressGatewayName
 			enabled, pathExist, err := name.IsComponentEnabledFromValue(valuePath, installSpec.Values)
-			if err == nil && pathExist && enabled {
+			if err == nil && pathExist {
 				if c.Enabled == nil {
 					c.Enabled = &v1alpha1.BoolValueForPB{}
 				}
-				c.Enabled.Value = true
+				c.Enabled.Value = enabled
 			}
 		}
 		if c.Enabled == nil || !c.Enabled.Value {
