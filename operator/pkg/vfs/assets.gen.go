@@ -39330,7 +39330,7 @@ spec:
 
   # Security feature
     citadel:
-      enabled: true
+      enabled: false
       k8s:
         strategy:
           rollingUpdate:
