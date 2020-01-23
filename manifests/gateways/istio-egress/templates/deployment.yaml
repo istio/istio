@@ -146,6 +146,10 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -218,12 +222,18 @@ spec:
           - name: SDS_ENABLED
             value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
+          {{- if eq .Values.global.pilotCertProvider "citadel" }}
+          - mountPath: /etc/istio/citadel-ca-cert
+            name: citadel-ca-cert
+          {{- end }}
           {{ if .Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
             readOnly: true
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -237,10 +247,16 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+      {{- if eq .Values.global.pilotCertProvider "citadel" }}
+      - name: citadel-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      {{- end }}
       {{- if .Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -248,6 +264,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
       {{- end }}
       {{ if .Values.global.sds.enabled }}
       - name: sdsudspath

@@ -6300,6 +6300,8 @@ spec:
         - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: ISTIO_META_USER_SDS
@@ -7304,6 +7306,8 @@ spec:
         - 30m
         - --disable-install-crds=true
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: POD_NAME

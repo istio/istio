@@ -192,6 +192,8 @@ template: |
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
     {{- end }}
     env:
+    - name: JWT_POLICY
+      value: {{ .Values.global.jwtPolicy }}
     - name: POD_NAME
       valueFrom:
         fieldRef:
@@ -356,8 +358,10 @@ template: |
     - mountPath: /var/run/sds
       name: sds-uds-path
       readOnly: true
+    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
+    {{- end }}
     {{- if .Values.global.sds.customTokenDirectory }}
     - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
       name: custom-sds-token
@@ -392,6 +396,7 @@ template: |
   - name: sds-uds-path
     hostPath:
       path: /var/run/sds
+  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:
       sources:
@@ -399,6 +404,7 @@ template: |
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
+  {{- end }}
   {{- if .Values.global.sds.customTokenDirectory }}
   - name: custom-sds-token
     secret:
