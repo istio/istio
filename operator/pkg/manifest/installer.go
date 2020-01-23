@@ -266,7 +266,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	// TODO: remove this when `kubectl --prune` supports empty objects
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
 	// Delete all resources for a disabled component
-	if len(objects) == 0 {
+	if len(objects) == 0 && !opts.DryRun {
 		getOpts := opts
 		getOpts.Output = "yaml"
 		getOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}
@@ -361,16 +361,16 @@ func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
 		return nil, err
 	}
 	if yamlGet["kind"] != "List" {
-		return nil, fmt.Errorf("`kubectl get` returned a yaml whose kind is not List")
+		return nil, fmt.Errorf("`kubectl get` returned YAML whose kind is not List")
 	}
 	if _, ok := yamlGet["items"]; !ok {
-		return nil, fmt.Errorf("`kubectl get` returned a yaml without 'items' in the root")
+		return nil, fmt.Errorf("`kubectl get` returned YAML without 'items'")
 	}
 	switch items := yamlGet["items"].(type) {
 	case []interface{}:
 		return items, nil
 	}
-	return nil, fmt.Errorf("`kubectl get` returned a yaml incorrecnt type 'items' in the root")
+	return nil, fmt.Errorf("`kubectl get` returned incorrect 'items' type")
 }
 
 func DeploymentExists(kubeconfig, context, namespace, name string) (bool, error) {
