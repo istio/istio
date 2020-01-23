@@ -13,6 +13,8 @@ USER 1337:1337
 # hadolint ignore=DL3007
 FROM gcr.io/distroless/static:nonroot as distroless
 
+WORKDIR /
+
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
