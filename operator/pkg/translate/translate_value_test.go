@@ -49,6 +49,12 @@ pilot:
   replicaCount: 1
   nodeSelector:
     beta.kubernetes.io/os: linux
+  tolerations:
+  - key: dedicated
+    operator: Exists
+    effect: NoSchedule
+  - key: CriticalAddonsOnly
+    operator: Exists
   autoscaleEnabled: true
   autoscaleMax: 3
   autoscaleMin: 1

@@ -62,7 +62,6 @@ var (
 		name.IstioOperatorComponentName:      true,
 		name.IstioOperatorCustomResourceName: true,
 		name.CNIComponentName:                true,
-		name.CertManagerComponentName:        true,
 	}
 
 	gatewayPathMapping = map[string]string {
