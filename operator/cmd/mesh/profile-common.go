@@ -27,8 +27,8 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
-	version2 "istio.io/istio/operator/version"
-	"istio.io/pkg/version"
+	binversion "istio.io/istio/operator/version"
+	pkgversion "istio.io/pkg/version"
 )
 
 // getIOPS creates an IstioOperatorSpec from the following sources, overlaid sequentially:
@@ -50,13 +50,24 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 		return "", nil, fmt.Errorf("could not Unmarshal overlay Set%s: %s", setOverlayYAML, err)
 	}
 	if inFilename != nil {
-		b, err := ReadLayeredYAMLs(inFilename)
+		inputYaml, err := ReadLayeredYAMLs(inFilename)
 		if err != nil {
 			return "", nil, fmt.Errorf("could not read values from file %s: %s", inFilename, err)
 		}
-		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(b, force)
+		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(inputYaml, force)
 		if err != nil {
-			return "", nil, err
+			iopYAML, translateErr := translate.TranslateICPToIOPVer(inputYaml, binversion.OperatorBinaryVersion)
+			if translateErr != nil {
+				return "", nil, fmt.Errorf("could not unmarshal yaml or translate it to IOP: %s, %s\n\nOriginal YAML:\n%s",
+					err, translateErr, inputYaml)
+			}
+			l.logAndPrintf("%s\n\nIstio Operator CR has been upgraded. "+
+				"Your IstioControlPlane CR has been translated into IstioOperator CR above.\n"+
+				"Please keep the new IstioOperator CR for your future install or upgrade.", iopYAML)
+			overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(iopYAML, force)
+			if err != nil {
+				return "", nil, err
+			}
 		}
 		profile = overlayIOPS.Profile
 	}
@@ -100,13 +111,21 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 
 	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force)
 	if err != nil {
-		return "", nil, err
+		baseIopYAML, translateErr := translate.TranslateICPToIOPVer(baseCRYAML, binversion.OperatorBinaryVersion)
+		if translateErr != nil {
+			return "", nil, fmt.Errorf("could not unmarshal or translate base yaml into IOP with profile %s at version %s: %s, %s",
+				profile, binversion.OperatorBinaryVersion, err, translateErr)
+		}
+		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(baseIopYAML, force)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
 	// override from variables that are set during release build time.
-	hub := version.DockerInfo.Hub
-	tag := version.DockerInfo.Tag
+	hub := pkgversion.DockerInfo.Hub
+	tag := pkgversion.DockerInfo.Tag
 	if hub != "unknown" && tag != "unknown" {
 		buildHubTagOverlayYAML, err := helm.GenerateHubTagOverlay(hub, tag)
 		if err != nil {
@@ -146,7 +165,7 @@ func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML, c
 		return "", err
 	}
 
-	t, err := translate.NewTranslator(version2.OperatorBinaryVersion.MinorVersion)
+	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
 	if err != nil {
 		return "", err
 	}

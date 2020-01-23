@@ -17,6 +17,7 @@ package translate
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -44,6 +45,12 @@ const (
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
 	HelmValuesNamespaceSubpath = "namespace"
+	// TranslateConfigFolder is the folder where we store translation configurations
+	TranslateConfigFolder = "translateConfig"
+	// translateConfig is the prefix of IstioOperator's translation configuration file
+	TranslateConfigPrefix = "translateConfig-"
+	// ICPToIOPConfigPrefix is the prefix of IstioControPlane-to-IstioOperator translation configuration file
+	ICPToIOPConfigPrefix = "translate-ICP-IOP-"
 
 	// devDbg generates lots of output useful in development.
 	devDbg = false
@@ -101,8 +108,7 @@ type Translation struct {
 
 // NewTranslator creates a new translator for minorVersion and returns a ptr to it.
 func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
-	v := fmt.Sprintf("%s.%d", minorVersion.MajorVersion, minorVersion.Minor)
-	f := "translateConfig/translateConfig-" + v + ".yaml"
+	f := filepath.Join(TranslateConfigFolder, TranslateConfigPrefix+minorVersion.String()+".yaml")
 	b, err := vfs.ReadFile(f)
 	if err != nil {
 		return nil, fmt.Errorf("could not read translateConfig file %s: %s", f, err)
