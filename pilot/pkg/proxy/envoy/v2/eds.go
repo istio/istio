@@ -440,6 +440,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 				Full:              false,
 				NamespacesUpdated: map[string]struct{}{namespace: {}},
 				EdsUpdates:        map[string]struct{}{serviceName: {}},
+				Reason:            []model.TriggerReason{model.EndpointUpdate},
 			})
 		}
 		return
@@ -504,6 +505,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			NamespacesUpdated:  map[string]struct{}{namespace: {}},
 			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 			EdsUpdates:         edsUpdates,
+			Reason:             []model.TriggerReason{model.EndpointUpdate},
 		})
 	}
 }

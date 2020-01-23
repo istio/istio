@@ -69,6 +69,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Start:              t0,
 				NamespacesUpdated:  map[string]struct{}{"ns1": {}},
 				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg1"}: {}},
+				Reason:             []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
 			&PushRequest{
 				Full:               false,
@@ -76,6 +77,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Start:              t1,
 				NamespacesUpdated:  map[string]struct{}{"ns2": {}},
 				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg2"}: {}},
+				Reason:             []TriggerReason{EndpointUpdate},
 			},
 			PushRequest{
 				Full:               true,
@@ -83,6 +85,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Start:              t0,
 				NamespacesUpdated:  map[string]struct{}{"ns1": {}, "ns2": {}},
 				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg1"}: {}, resource.GroupVersionKind{Kind: "cfg2"}: {}},
+				Reason:             []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
 		},
 		{
