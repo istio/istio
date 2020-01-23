@@ -212,7 +212,7 @@ init: $(ISTIO_OUT)/istio_is_init
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
 $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
-	ISTIO_OUT=$(ISTIO_OUT) ISTIO_BIN=$(ISTIO_BIN) bin/init.sh
+	ISTIO_OUT=$(ISTIO_OUT) ISTIO_BIN=$(ISTIO_BIN) GOOS_LOCAL=$(GOOS_LOCAL) bin/init.sh
 	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy and webassembly plugins
@@ -226,6 +226,7 @@ ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 depend: init | $(ISTIO_OUT)
 
 DIRS_TO_CLEAN := $(ISTIO_OUT)
+DIRS_TO_CLEAN += $(ISTIO_OUT_LINUX)
 
 $(OUTPUT_DIRS):
 	@mkdir -p $@
@@ -275,17 +276,8 @@ BINARIES:=./istioctl/cmd/istioctl \
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 
-# We always build Linux containers even if not running in a Linux. Linux binaries
-# are needed for packaging in Docker. On other GOOS_LOCAL, such as darwin, we need
-# to specially build Linux binaries. Otherwise, the default build target will build
-# Linux on Linux platforms.
-BUILD_DEPS:=
-ifneq ($(GOOS_LOCAL),"linux")
-BUILD_DEPS += build-linux
-endif
-
 .PHONY: build
-build: depend $(BUILD_DEPS)
+build: depend
 	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
@@ -395,9 +387,8 @@ istioctl.completion: ${ISTIO_OUT}/release/istioctl.bash ${ISTIO_OUT}/release/_is
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
-.PHONY: istioctl-install
-istioctl-install:
-	go install istio.io/istio/istioctl/cmd/istioctl
+.PHONY: istioctl-install-container
+istioctl-install-container: istioctl
 
 #-----------------------------------------------------------------------------
 # Target: test

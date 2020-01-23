@@ -518,12 +518,18 @@ func getCredentialToken(ctx context.Context) (string, error) {
 		if len(h) != 1 {
 			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", k8sSAJwtTokenHeaderKey, len(h))
 		}
+		if len(h[0]) == 0 {
+			return "", fmt.Errorf("received empty credential for existing header: %s", k8sSAJwtTokenHeaderKey)
+		}
 		return h[0], nil
 	}
 
 	if h, ok := metadata[credentialTokenHeaderKey]; ok {
 		if len(h) != 1 {
 			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", credentialTokenHeaderKey, len(h))
+		}
+		if len(h[0]) == 0 {
+			return "", fmt.Errorf("received empty credential for existing header: %s", credentialTokenHeaderKey)
 		}
 		return h[0], nil
 	}

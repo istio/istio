@@ -93,6 +93,10 @@ else
 	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
 endif
 
+# rule for wasm extensions.
+$(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm: init
+$(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
+
 # Default proxy image.
 docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent istio-iptables
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
