@@ -14,7 +14,7 @@ require (
 	cloud.google.com/go v0.50.0
 	cloud.google.com/go/logging v1.0.0
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
-	contrib.go.opencensus.io/exporter/stackdriver v0.12.8
+	contrib.go.opencensus.io/exporter/stackdriver v0.12.9
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
 	fortio.org/fortio v1.3.1
 	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
