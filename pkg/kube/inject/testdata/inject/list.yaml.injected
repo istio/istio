@@ -17,7 +17,7 @@ items:
     template:
       metadata:
         annotations:
-          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
           app: hello
@@ -70,7 +70,7 @@ items:
           - "2"
           env:
           - name: JWT_POLICY
-            value: third-party-jwt
+            value: first-party-jwt
           - name: PILOT_CERT_PROVIDER
             value: citadel
           - name: CA_ADDR
@@ -159,8 +159,6 @@ items:
             name: citadel-ca-cert
           - mountPath: /etc/istio/proxy
             name: istio-envoy
-          - mountPath: /var/run/secrets/tokens
-            name: istio-token
           - mountPath: /etc/certs/
             name: istio-certs
             readOnly: true
@@ -210,13 +208,6 @@ items:
         - emptyDir:
             medium: Memory
           name: istio-envoy
-        - name: istio-token
-          projected:
-            sources:
-            - serviceAccountToken:
-                audience: istio-ca
-                expirationSeconds: 43200
-                path: istio-token
         - configMap:
             name: istio-ca-root-cert
           name: citadel-ca-cert
@@ -242,7 +233,7 @@ items:
     template:
       metadata:
         annotations:
-          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
           app: hello
@@ -295,7 +286,7 @@ items:
           - "2"
           env:
           - name: JWT_POLICY
-            value: third-party-jwt
+            value: first-party-jwt
           - name: PILOT_CERT_PROVIDER
             value: citadel
           - name: CA_ADDR
@@ -384,8 +375,6 @@ items:
             name: citadel-ca-cert
           - mountPath: /etc/istio/proxy
             name: istio-envoy
-          - mountPath: /var/run/secrets/tokens
-            name: istio-token
           - mountPath: /etc/certs/
             name: istio-certs
             readOnly: true
@@ -435,13 +424,6 @@ items:
         - emptyDir:
             medium: Memory
           name: istio-envoy
-        - name: istio-token
-          projected:
-            sources:
-            - serviceAccountToken:
-                audience: istio-ca
-                expirationSeconds: 43200
-                path: istio-token
         - configMap:
             name: istio-ca-root-cert
           name: citadel-ca-cert

@@ -39459,7 +39459,7 @@ spec:
         gatewayName: ingressgateway
         enableHttps: false
       pilotCertProvider: citadel
-      jwtPolicy: third-party-jwt
+      jwtPolicy: first-party-jwt
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"

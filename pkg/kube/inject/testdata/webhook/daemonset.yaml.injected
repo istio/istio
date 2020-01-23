@@ -65,7 +65,7 @@ spec:
         - "2"
         env:
         - name: JWT_POLICY
-          value: third-party-jwt
+          value: first-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: CA_ADDR
@@ -147,8 +147,6 @@ spec:
           name: citadel-ca-cert
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        - mountPath: /var/run/secrets/tokens
-          name: istio-token
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
@@ -198,13 +196,6 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              audience: istio-ca
-              expirationSeconds: 43200
-              path: istio-token
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert

@@ -560,7 +560,7 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 	return nil
 }
 
-// initialize secureGRPCServer - using K8S DNS certs
+// initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.Options) error {
 	certDir := dnsCertDir
 
@@ -620,7 +620,7 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 				return
 			}
 
-			log.Infof("starting K8S-signed grpc=%s", dnsGrpc)
+			log.Infof("starting DNS cert based grpc=%s", dnsGrpc)
 			// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 			// on a listener
 			err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
