@@ -622,3 +622,9 @@ global:
   # webhook configurations. When this option is set as false, webhooks manage their
   # own webhook configurations.
   operatorManageWebhooks: false
+
+  # Configure whether the cluster roles and their bindings are created.
+  # This allows to create gateways, after installing other components.
+  rbac:
+    clusterRole:
+      create: true
