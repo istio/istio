@@ -347,6 +347,8 @@ gen: go-gen mirror-licenses format update-crds gen-charts
 
 gen-check: gen check-clean-repo
 
+include operator/Makefile.proto.mk
+
 #-----------------------------------------------------------------------------
 # Target: go build
 #-----------------------------------------------------------------------------
