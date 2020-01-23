@@ -1,0 +1,23 @@
+# The legacy profile will disable istiod and bring back the old microservices model
+# This will be removed in future releases
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    sidecarInjector:
+      enabled: true
+    citadel:
+      enabled: true
+    galley:
+      enabled: true
+    egressGateways:
+    - enabled: true
+  addonComponents:
+    prometheus:
+      enabled: false
+
+  values:
+    global:
+      pilotCertProvider: kubernetes
+      istiod:
+        enabled: false

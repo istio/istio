@@ -6780,15 +6780,12 @@ spec:
               {"app":"istio-egressgateway","istio":"egressgateway"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
-          - name: SDS_ENABLED
-            value: "false"
           volumeMounts:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -6809,7 +6806,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      
       - name: istio-certs
         secret:
           secretName: istio.default

@@ -228,6 +228,7 @@
 // profiles/default.yaml
 // profiles/demo.yaml
 // profiles/empty.yaml
+// profiles/legacy.yaml
 // profiles/minimal.yaml
 // profiles/remote.yaml
 // translateConfig/reverseTranslateConfig-1.4.yaml
@@ -6937,8 +6938,6 @@ spec:
               {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
-          - name: SDS_ENABLED
-            value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
           {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
@@ -6949,15 +6948,6 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          {{- end }}
-          {{- end }}
-          {{ if .Values.global.sds.enabled }}
-          - name: sdsudspath
-            mountPath: /var/run/sds
-            readOnly: true
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-          - name: istio-token
-            mountPath: /var/run/secrets/tokens
           {{- end }}
           {{- end }}
           - name: istio-certs
@@ -6988,25 +6978,6 @@ spec:
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
 {{- end }}
-      {{- if .Values.global.sds.enabled }}
-      - name: sdsudspath
-        hostPath:
-          path: /var/run/sds
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: istio-token
-              expirationSeconds: 43200
-              audience: {{ .Values.global.sds.token.aud }}
-      {{- end }}
-      {{- end }}
-      {{ if .Values.global.sds.enabled }}
-      - name: sdsudspath
-        hostPath:
-          path: /var/run/sds
-      {{- end }}
       - name: istio-certs
         secret:
           secretName: istio.default
@@ -13862,7 +13833,8 @@ func chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml() (*as
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`{{- if not .Values.global.operatorManageWebhooks }}
+var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`{{- if .Values.global.istiod.enabled }}
+{{- if not .Values.global.operatorManageWebhooks }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -13919,6 +13891,7 @@ webhooks:
 {{- else }}
       matchLabels:
         "sidecar.istio.io/inject": "true"
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}`)
@@ -40392,6 +40365,46 @@ func profilesEmptyYaml() (*asset, error) {
 	return a, nil
 }
 
+var _profilesLegacyYaml = []byte(`# The legacy profile will disable istiod and bring back the old microservices model
+# This will be removed in future releases
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    sidecarInjector:
+      enabled: true
+    citadel:
+      enabled: true
+    galley:
+      enabled: true
+    egressGateways:
+    - enabled: true
+  addonComponents:
+    prometheus:
+      enabled: false
+
+  values:
+    global:
+      pilotCertProvider: kubernetes
+      istiod:
+        enabled: false
+`)
+
+func profilesLegacyYamlBytes() ([]byte, error) {
+	return _profilesLegacyYaml, nil
+}
+
+func profilesLegacyYaml() (*asset, error) {
+	bytes, err := profilesLegacyYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "profiles/legacy.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _profilesMinimalYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -41595,6 +41608,7 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/default.yaml":                                                                   profilesDefaultYaml,
 	"profiles/demo.yaml":                                                                      profilesDemoYaml,
 	"profiles/empty.yaml":                                                                     profilesEmptyYaml,
+	"profiles/legacy.yaml":                                                                    profilesLegacyYaml,
 	"profiles/minimal.yaml":                                                                   profilesMinimalYaml,
 	"profiles/remote.yaml":                                                                    profilesRemoteYaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                         translateconfigReversetranslateconfig14Yaml,
@@ -41980,6 +41994,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"default.yaml": &bintree{profilesDefaultYaml, map[string]*bintree{}},
 		"demo.yaml":    &bintree{profilesDemoYaml, map[string]*bintree{}},
 		"empty.yaml":   &bintree{profilesEmptyYaml, map[string]*bintree{}},
+		"legacy.yaml":  &bintree{profilesLegacyYaml, map[string]*bintree{}},
 		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
 		"remote.yaml":  &bintree{profilesRemoteYaml, map[string]*bintree{}},
 	}},
