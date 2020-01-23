@@ -36,6 +36,8 @@ func TestMain(m *testing.M) {
 components:
   galley:
     enabled: true
+  citadel:
+    enabled: true
 `
 		})).
 		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
