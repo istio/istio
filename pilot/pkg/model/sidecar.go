@@ -216,45 +216,55 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 
 	// Assign namespace dependencies
 	out.namespaceDependencies = make(map[string]struct{})
+
+	addService := func(s *Service) {
+		if s == nil {
+			return
+		}
+		if foundSvc, found := servicesAdded[string(s.Hostname)]; !found {
+			servicesAdded[string(s.Hostname)] = s
+			out.services = append(out.services, s)
+			out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
+		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
+			// merge the ports to service when each listener generates partial service
+			// we only merge if the found service is in the same namespace as the one we're trying to add
+			os := servicesAdded[string(s.Hostname)]
+			for _, p := range s.Ports {
+				found := false
+				for _, osp := range os.Ports {
+					if p.Port == osp.Port {
+						found = true
+						break
+					}
+				}
+				if !found {
+					os.Ports = append(os.Ports, p)
+				}
+			}
+		}
+	}
+
 	for _, listener := range out.EgressListeners {
-		// Explicitly callable services are potential destinations, copy those first
-		serviceDestinations := append([]*Service(nil), listener.services...)
+		// First add the explicitly requested services
+		for _, s := range listener.services {
+			addService(s)
+		}
 
 		// Infer more possible destinations from virtual services
+		// Services chosen here will not override services explicitly requested in listener.services.
+		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
+		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range listener.virtualServices {
 			v := vs.Spec.(*networking.VirtualService)
 			for _, d := range virtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
 				if s, ok := ps.ServiceByHostnameAndNamespace[host.Name(d.Host)][configNamespace]; ok {
-					serviceDestinations = append(serviceDestinations, s)
+					addService(s)
 				} else {
 					// Otherwise pick randomly
 					for _, v := range ps.ServiceByHostnameAndNamespace[host.Name(d.Host)] {
-						serviceDestinations = append(serviceDestinations, v)
+						addService(v)
 						break
-					}
-				}
-			}
-		}
-
-		for _, s := range serviceDestinations {
-			if _, found := servicesAdded[string(s.Hostname)]; !found {
-				servicesAdded[string(s.Hostname)] = s
-				out.services = append(out.services, s)
-				out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
-			} else if s.Ports != nil && len(s.Ports) > 0 {
-				// merge the ports to service when each listener generates partial service
-				os := servicesAdded[string(s.Hostname)]
-				for _, p := range s.Ports {
-					found := false
-					for _, osp := range os.Ports {
-						if p.Port == osp.Port {
-							found = true
-							break
-						}
-					}
-					if !found {
-						os.Ports = append(os.Ports, p)
 					}
 				}
 			}
