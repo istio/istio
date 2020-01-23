@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	scope = log.RegisterScope("kubectlcmd", "kubectlcmd", 0)
+	scope = log.RegisterScope("installer", "installer", 0)
 )
 
 // New creates a Client that runs kubectl available on the path with default authentication

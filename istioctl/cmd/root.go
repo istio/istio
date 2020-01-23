@@ -72,9 +72,7 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("processing", log.ErrorLevel)
 	o.SetOutputLevel("source", log.ErrorLevel)
 	o.SetOutputLevel("analysis", log.WarnLevel)
-	o.SetOutputLevel("kubectlcmd", log.WarnLevel)
 	o.SetOutputLevel("installer", log.WarnLevel)
-	o.SetOutputLevel("helm", log.WarnLevel)
 
 	return o
 }

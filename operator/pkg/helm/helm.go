@@ -44,7 +44,7 @@ const (
 )
 
 var (
-	scope = log.RegisterScope("helm", "helm", 0)
+	scope = log.RegisterScope("installer", "installer", 0)
 )
 
 // TemplateRenderer defines a helm template renderer interface.
