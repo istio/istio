@@ -83,10 +83,10 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/jwt-invalid-service-port-name.yaml"},
 		analyzer:   &auth.JwtAnalyzer{},
 		expected: []message{
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy default.my-namespace"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy default.my-namespace-2"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy default.my-namespace-2"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy default.my-namespace-not-tcp"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy test-with-ports.my-namespace"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy test-without-ports.my-namespace-2"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy test-without-ports.my-namespace-2"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy test-with-udp-port.my-namespace-not-tcp"},
 		},
 	},
 	{
