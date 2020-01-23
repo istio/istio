@@ -191,8 +191,9 @@ func TestMultiICPSFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if got != want {
-			t.Errorf("`manifest generate` got = %v, want %v", got, want)
+		diff := compare.YAMLCmp(got, want)
+		if diff != "" {
+			t.Errorf("`manifest generate` diff = %s", diff)
 		}
 	})
 }
