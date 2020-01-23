@@ -82,10 +82,20 @@ endif
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
 export ISTIO_BIN=$(GOBIN)
-# Using same package structure as pkg/
 
 export ISTIO_OUT:=$(TARGET_OUT)
 export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
+
+# Determine if one of the targets contains `test`. If it does, and we are
+# running in the container, make sure we point at the linux (container OS) binaries.
+ifeq ($(findstring test,${MAKECMDGOALS}),test)
+  ifeq ($(IN_BUILD_CONTAINER),1)
+    $(info WARNING: Found a test target and in build container so forcing variables to linux to create/get container OS binaries)
+    ISTIO_OUT := $(ISTIO_OUT_LINUX)
+    GOARCH_LOCAL := amd64
+    GOOS_LOCAL := linux
+  endif
+endif
 
 # LOCAL_OUT should include architecture where we are currently running versus the desired.
 # This is used when we need to run a build artifact.
@@ -197,7 +207,6 @@ endif
 ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
-
 
 .PHONY: default
 default: init build test
