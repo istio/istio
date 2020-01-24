@@ -1149,7 +1149,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 		}
 
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
-		if opts.push.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
