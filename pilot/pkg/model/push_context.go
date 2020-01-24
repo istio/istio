@@ -24,15 +24,15 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/pkg/monitoring"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/visibility"
 )
 

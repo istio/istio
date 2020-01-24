@@ -19,9 +19,9 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestNames_Clone(t *testing.T) {

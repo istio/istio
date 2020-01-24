@@ -22,7 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // Schemas contains metadata about configuration resources.

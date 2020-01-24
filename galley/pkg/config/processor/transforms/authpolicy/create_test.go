@@ -25,9 +25,9 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestAuthPolicy_Input_Output(t *testing.T) {

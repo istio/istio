@@ -24,10 +24,10 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/schema/snapshots"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/snapshots"
 )
 
 type context struct {

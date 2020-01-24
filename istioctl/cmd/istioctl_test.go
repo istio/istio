@@ -21,11 +21,11 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // sortedConfigStore lets us facade any ConfigStore (such as memory.Make()'s) providing

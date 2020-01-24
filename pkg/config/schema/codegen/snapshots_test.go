@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/schema/ast"
+	"istio.io/istio/pkg/config/schema/ast"
 )
 
 func TestStaticSnapshots(t *testing.T) {

@@ -18,15 +18,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and

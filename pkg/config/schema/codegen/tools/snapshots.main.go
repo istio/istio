@@ -21,12 +21,12 @@ import (
 	"io/ioutil"
 	"os"
 
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/ast"
-	"istio.io/istio/galley/pkg/config/schema/codegen"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/ast"
+	"istio.io/istio/pkg/config/schema/codegen"
 )
 
-// Utility for generating collections.gen.go. Called from gen.go
+// Utility for generating snapshots.gen.go. Called from gen.go
 func main() {
 	if len(os.Args) != 4 {
 		fmt.Printf("Invalid args: %v", os.Args)
@@ -57,14 +57,14 @@ func main() {
 		os.Exit(-4)
 	}
 
-	contents, err := codegen.StaticCollections(pkg, m)
+	contents, err := codegen.StaticSnapshots(pkg, m)
 	if err != nil {
 		fmt.Printf("Error applying static init template: %v", err)
-		os.Exit(-3)
+		os.Exit(-5)
 	}
 
 	if err = ioutil.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
 		fmt.Printf("Error writing output file: %v", err)
-		os.Exit(-4)
+		os.Exit(-6)
 	}
 }

@@ -24,8 +24,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/atomic"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -35,10 +33,11 @@ import (
 	api "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	pkgtest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/config"
 )

@@ -17,7 +17,7 @@ package resource
 import (
 	"time"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // Metadata about a resource.
