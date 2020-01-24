@@ -24,12 +24,12 @@ import (
 
 	istioRbacPb "istio.io/api/rbac/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	authzModel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func newService(hostname string, labels map[string]string, t *testing.T) *model.ServiceInstance {

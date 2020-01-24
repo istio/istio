@@ -17,7 +17,7 @@ package collections
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema"
 )
 
 func TestCollectionNames(t *testing.T) {

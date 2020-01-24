@@ -20,14 +20,13 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 

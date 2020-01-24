@@ -21,7 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/schema/ast"
+	"istio.io/istio/pkg/config/schema/ast"
 )
 
 func TestStaticCollections(t *testing.T) {
@@ -82,8 +82,8 @@ func TestStaticCollections(t *testing.T) {
 package pkg
 
 import (
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 )
 

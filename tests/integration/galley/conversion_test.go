@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/testdatasets/conversion"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
