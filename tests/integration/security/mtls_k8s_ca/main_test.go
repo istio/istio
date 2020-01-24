@@ -34,7 +34,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mtls", m).
+		NewSuite("mtls_k8s_ca", m).
 		RequireEnvironment(environment.Kube).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
@@ -58,5 +58,4 @@ func setupConfig(cfg *istio.Config) {
 	}
 	cfg.Values["global.pilotCertProvider"] = "kubernetes"
 	cfg.Values["global.mtls.auto"] = "true"
-	cfg.Values["global.controlPlaneSecurityEnabled"] = "true"
 }
