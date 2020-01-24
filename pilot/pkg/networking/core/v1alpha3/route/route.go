@@ -449,7 +449,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 						DefaultValue: translateIntegerToFractionalPercent((int32(percent))),
 					},
 				}
-			case percentage > 0:
+			case percentage.GetValue() > 0:
 				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
 					Cluster: cluster,
 					RuntimeFraction: &core.RuntimeFractionalPercent{
