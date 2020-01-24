@@ -24,12 +24,12 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
 	"istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/resource"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
 )
 

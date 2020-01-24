@@ -18,7 +18,7 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
