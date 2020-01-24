@@ -75,7 +75,7 @@ var (
 	secretControllerResyncPeriod = env.RegisterStringVar("SECRET_WATCHER_RESYNC_PERIOD", "", "").Get()
 	// ingressFallbackSecret specifies the name of fallback secret for ingress gateway.
 	ingressFallbackSecret = env.RegisterStringVar("INGRESS_GATEWAY_FALLBACK_SECRET", "gateway-fallback", "").Get()
-	secretFetcherLog      = log.RegisterScope("secretFetcherLog", "secret fetcher debugging", 0)
+	secretFetcherLog      = log.RegisterScope("secretfetcher", "secret fetcher debugging", 0)
 )
 
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.

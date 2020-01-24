@@ -37,7 +37,7 @@ import (
 )
 
 var (
-	cacheLog = log.RegisterScope("cacheLog", "cache debugging", 0)
+	cacheLog = log.RegisterScope("cache", "cache debugging", 0)
 )
 
 const (
