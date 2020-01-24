@@ -402,7 +402,7 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model
 		setDownstreamTLSContext(tls, tlsServerRootCert, tlsServerCertChain, tlsServerKey, protovalue.BoolTrue, alpnProtocols, []string{})
 	} else {
 		tls.RequireClientCertificate = protovalue.BoolTrue
-		tls.CommonTlsContext.AlpnProtocols = util.ALPNHttp
+		tls.CommonTlsContext.AlpnProtocols = alpnProtocols
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
 			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsUdsPath, meta),
 		}
@@ -457,7 +457,7 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model
 			tlsServerCertChain := path.Join(certsPath, constants.CertChainFilename)
 			tlsServerKey := path.Join(certsPath, constants.KeyFilename)
 
-			setDownstreamTLSContext(dnsSANTLSContext, tlsServerRootCert, tlsServerCertChain, tlsServerKey, protovalue.BoolTrue, util.ALPNHttp, []string{})
+			setDownstreamTLSContext(dnsSANTLSContext, tlsServerRootCert, tlsServerCertChain, tlsServerKey, protovalue.BoolTrue, alpnProtocols, []string{})
 
 			dnsSANCertFilterChain := plugin.FilterChain{
 				FilterChainMatch: &ldsv2.FilterChainMatch{

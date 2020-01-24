@@ -1114,6 +1114,112 @@ func TestOnInboundFilterChains(t *testing.T) {
 					TLSContext: tlsContext,
 					FilterChainMatch: &listener.FilterChainMatch{
 						TransportProtocol:    "tls",
+						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
+					},
+					ListenerFilters: []*listener.ListenerFilter{
+						{
+							Name:       "envoy.listener.tls_inspector",
+							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
+						},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{},
+				},
+				{
+					TLSContext: &auth.DownstreamTlsContext{
+						CommonTlsContext: &auth.CommonTlsContext{
+							TlsCertificates: []*auth.TlsCertificate{
+								{
+									CertificateChain: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/etc/certs/custom/cert-chain.pem",
+										},
+									},
+									PrivateKey: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/etc/certs/custom/key.pem",
+										},
+									},
+								},
+							},
+							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+								ValidationContext: &auth.CertificateValidationContext{
+									TrustedCa: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/etc/certs/custom/root-cert.pem",
+										},
+									},
+								},
+							},
+							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+						},
+						RequireClientCertificate: protovalue.BoolTrue,
+					},
+					FilterChainMatch: &listener.FilterChainMatch{
+						TransportProtocol: "tls",
+					},
+					ListenerFilters: []*listener.ListenerFilter{
+						{
+							Name:       "envoy.listener.tls_inspector",
+							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
+						},
+					},
+				},
+			},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					TLSServerDNSCert: "/etc/certs/custom",
+				},
+			},
+		},
+		{
+			name: "Permissive mTLS using certificate with DNS SANs with Mxc Off",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_PERMISSIVE,
+							},
+						},
+					},
+				},
+			},
+			// Three filter chains, one for mtls traffic from istio clients, one for mtls traffic from non-istio clients, one for plain text traffic.
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: &auth.DownstreamTlsContext{
+						CommonTlsContext: &auth.CommonTlsContext{
+							TlsCertificates: []*auth.TlsCertificate{
+								{
+									CertificateChain: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/etc/certs/cert-chain.pem",
+										},
+									},
+									PrivateKey: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/etc/certs/key.pem",
+										},
+									},
+								},
+							},
+							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+								ValidationContext: &auth.CertificateValidationContext{
+									TrustedCa: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/etc/certs/root-cert.pem",
+										},
+									},
+								},
+							},
+							AlpnProtocols: []string{"h2", "http/1.1"},
+						},
+						RequireClientCertificate: protovalue.BoolTrue,
+					},
+					FilterChainMatch: &listener.FilterChainMatch{
+						TransportProtocol:    "tls",
 						ApplicationProtocols: []string{"istio"},
 					},
 					ListenerFilters: []*listener.ListenerFilter{
@@ -1139,8 +1245,12 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meta: &model.NodeMetadata{
-				TLSServerDNSCert: "/etc/certs/custom",
+			node: &model.Proxy{
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 4, Patch: 0},
+				Metadata: &model.NodeMetadata{
+					TLSServerDNSCert: "/etc/certs/custom",
+					IstioVersion:     "1.4.0",
+				},
 			},
 		},
 	}
