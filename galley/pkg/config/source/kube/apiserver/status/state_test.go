@@ -23,10 +23,10 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
+	"istio.io/istio/pkg/config/resource"
 )
 
 func TestState_SetLastKnown_NoEntry(t *testing.T) {

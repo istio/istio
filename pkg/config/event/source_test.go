@@ -19,8 +19,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
+	"istio.io/istio/pkg/config/event"
 )
 
 func TestMergeSources_Basic(t *testing.T) {

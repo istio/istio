@@ -15,7 +15,7 @@
 package meshcfg
 
 import (
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 )
 
 // ResourceName for the Istio Mesh Config resource

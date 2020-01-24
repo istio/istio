@@ -17,7 +17,7 @@ package status
 import (
 	"sync"
 
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 

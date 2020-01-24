@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
