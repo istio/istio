@@ -119,7 +119,8 @@ func genApplyManifests(setOverlay []string, inFilename []string, force bool, dry
 }
 
 // GenManifests generate manifest from input file and setOverLay
-func GenManifests(inFilename []string, setOverlayYAML string, force bool, kubeConfig *rest.Config, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
+func GenManifests(inFilename []string, setOverlayYAML string, force bool,
+	kubeConfig *rest.Config, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
 	mergedYAML, err := genProfile(false, inFilename, "", setOverlayYAML, "", force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err

@@ -47,7 +47,8 @@ var scope = log.RegisterScope("installer", "installer", 0)
 // ones that are compiled in. If it does, the starting point will be the base and profile YAMLs at that file path.
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
-func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+func genIOPS(inFilename []string, profile, setOverlayYAML, ver string,
+	force bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
 	overlayYAML := ""
 	var overlayIOPS *v1alpha1.IstioOperatorSpec
 	set := make(map[string]interface{})
@@ -217,7 +218,8 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 	return "values.global.jwtPolicy=first-party-jwt", nil
 }
 
-func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML, configPath string, force bool, kubeConfig *rest.Config, l *Logger) (string, error) {
+func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML,
+	configPath string, force bool, kubeConfig *rest.Config, l *Logger) (string, error) {
 	finalYAML, finalIOPS, err := genIOPS(inFilename, profile, setOverlayYAML, "", force, kubeConfig, l)
 	if err != nil {
 		return "", err
