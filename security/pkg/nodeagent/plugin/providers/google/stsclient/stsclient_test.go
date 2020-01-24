@@ -28,12 +28,12 @@ func TestGetFederatedToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
-	secureTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
+	SecureTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
 	defer func() {
 		if err := ms.Stop(); err != nil {
 			t.Logf("failed to stop mock server: %v", err)
 		}
-		secureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
+		SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	}()
 
 	token, _, _, err := r.ExchangeToken(context.Background(), mock.FakeTrustDomain, mock.FakeSubjectToken)

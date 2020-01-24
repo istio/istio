@@ -37,7 +37,7 @@ import (
 )
 
 var (
-	cacheLog = log.RegisterScope("cacheLog", "cache debugging", 0)
+	cacheLog = log.RegisterScope("cache", "cache debugging", 0)
 )
 
 const (
@@ -715,7 +715,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
 	if err != nil {
 		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
-			" resource name.", conIDresourceNamePrefix, err)
+			" resource name: %s", conIDresourceNamePrefix, err, connKey.ResourceName)
 		csrHostName = connKey.ResourceName
 	}
 	options := util.CertOptions{

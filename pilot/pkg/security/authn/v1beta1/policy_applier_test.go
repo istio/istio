@@ -1187,7 +1187,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			AlpnProtocols: []string{"h2", "http/1.1"},
+			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
@@ -1197,7 +1197,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 		in         *authn_alpha_api.Policy
 		sdsUdsPath string
 		expected   []plugin.FilterChain
-		meta       *model.NodeMetadata
+		node       *model.Proxy
 	}{
 		name: "PermissiveMTLS",
 		in: &authn_alpha_api.Policy{
@@ -1211,13 +1211,15 @@ func TestOnInboundFilterChain(t *testing.T) {
 				},
 			},
 		},
-		meta: &model.NodeMetadata{},
+		node: &model.Proxy{
+			Metadata: &model.NodeMetadata{},
+		},
 		// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 		expected: []plugin.FilterChain{
 			{
 				TLSContext: tlsContext,
 				FilterChainMatch: &listener.FilterChainMatch{
-					ApplicationProtocols: []string{"istio"},
+					ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
 				},
 				ListenerFilters: []*listener.ListenerFilter{
 					{
@@ -1233,7 +1235,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 	}
 	got := NewPolicyApplier(nil, tc.in).InboundFilterChain(
 		tc.sdsUdsPath,
-		tc.meta,
+		tc.node,
 	)
 	if !reflect.DeepEqual(got, tc.expected) {
 		t.Errorf("[%v] unexpected filter chains, got %v, want %v", tc.name, got, tc.expected)

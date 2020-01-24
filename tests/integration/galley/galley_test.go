@@ -44,7 +44,7 @@ spec:
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			gal := galley.NewOrFail(t, ctx, galley.Config{})
+			gal := galley.NewOrFail(t, ctx, galley.Config{CreateClient: true})
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "res",
 				Inject: true,

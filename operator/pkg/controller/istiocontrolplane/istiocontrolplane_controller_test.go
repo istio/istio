@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/kr/pretty"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,37 +45,20 @@ var (
 		string(name.PilotComponentName):     healthyVersionStatus,
 	}
 	defaultStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
-		string(name.IstioBaseComponentName):       healthyVersionStatus,
-		string(name.PilotComponentName):           healthyVersionStatus,
-		string(name.SidecarInjectorComponentName): healthyVersionStatus,
-		string(name.TelemetryComponentName):       healthyVersionStatus,
-		string(name.CitadelComponentName):         healthyVersionStatus,
-		string(name.GalleyComponentName):          healthyVersionStatus,
-		string(name.IngressComponentName):         healthyVersionStatus,
-		string(name.AddonComponentName):           healthyVersionStatus,
+		string(name.IstioBaseComponentName): healthyVersionStatus,
+		string(name.PilotComponentName):     healthyVersionStatus,
+		string(name.TelemetryComponentName): healthyVersionStatus,
+		string(name.IngressComponentName):   healthyVersionStatus,
+		string(name.AddonComponentName):     healthyVersionStatus,
 	}
 	demoStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
-		string(name.IstioBaseComponentName):       healthyVersionStatus,
-		string(name.PilotComponentName):           healthyVersionStatus,
-		string(name.SidecarInjectorComponentName): healthyVersionStatus,
-		string(name.TelemetryComponentName):       healthyVersionStatus,
-		string(name.PolicyComponentName):          healthyVersionStatus,
-		string(name.CitadelComponentName):         healthyVersionStatus,
-		string(name.GalleyComponentName):          healthyVersionStatus,
-		string(name.IngressComponentName):         healthyVersionStatus,
-		string(name.EgressComponentName):          healthyVersionStatus,
-		string(name.AddonComponentName):           healthyVersionStatus,
-	}
-	sdsStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
-		string(name.IstioBaseComponentName):       healthyVersionStatus,
-		string(name.PilotComponentName):           healthyVersionStatus,
-		string(name.SidecarInjectorComponentName): healthyVersionStatus,
-		string(name.TelemetryComponentName):       healthyVersionStatus,
-		string(name.CitadelComponentName):         healthyVersionStatus,
-		string(name.GalleyComponentName):          healthyVersionStatus,
-		string(name.NodeAgentComponentName):       healthyVersionStatus,
-		string(name.IngressComponentName):         healthyVersionStatus,
-		string(name.AddonComponentName):           healthyVersionStatus,
+		string(name.IstioBaseComponentName): healthyVersionStatus,
+		string(name.PilotComponentName):     healthyVersionStatus,
+		string(name.TelemetryComponentName): healthyVersionStatus,
+		string(name.PolicyComponentName):    healthyVersionStatus,
+		string(name.IngressComponentName):   healthyVersionStatus,
+		string(name.EgressComponentName):    healthyVersionStatus,
+		string(name.AddonComponentName):     healthyVersionStatus,
 	}
 )
 
@@ -103,16 +85,6 @@ func TestIOPController_SwitchProfile(t *testing.T) {
 			description:    "switch profile from default to demo",
 			initialProfile: "default",
 			targetProfile:  "demo",
-		},
-		{
-			description:    "switch profile from demo to sds",
-			initialProfile: "demo",
-			targetProfile:  "sds",
-		},
-		{
-			description:    "switch profile from sds to default",
-			initialProfile: "sds",
-			targetProfile:  "default",
 		},
 	}
 	for i, c := range cases {
@@ -215,8 +187,6 @@ func checkIOPStatus(cl client.Client, key client.ObjectKey, profile string) (boo
 		expectedComponentStatus = minimalStatus
 	case "default":
 		expectedComponentStatus = defaultStatus
-	case "sds":
-		expectedComponentStatus = sdsStatus
 	case "demo":
 		expectedComponentStatus = demoStatus
 	}
@@ -224,7 +194,7 @@ func checkIOPStatus(cl client.Client, key client.ObjectKey, profile string) (boo
 	size := len(status.ComponentStatus)
 	expectedSize := len(expectedComponentStatus)
 	if size != expectedSize {
-		return false, fmt.Errorf("status got: %s, want: %s", pretty.Sprint(status.ComponentStatus), pretty.Sprint(expectedComponentStatus))
+		return false, fmt.Errorf("status got: \n%+v, want: \n%+v", status.ComponentStatus, expectedComponentStatus)
 	}
 	for k, v := range status.ComponentStatus {
 		if s, ok := expectedComponentStatus[k]; ok {

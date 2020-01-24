@@ -122,20 +122,6 @@ const (
 	InjectionPolicyEnabled InjectionPolicy = "enabled"
 )
 
-// Defaults values for injecting istio proxy into kubernetes
-// resources.
-const (
-	DefaultSidecarProxyUID              = uint64(1337)
-	DefaultVerbosity                    = 2
-	DefaultStatusPort                   = 15020
-	DefaultReadinessInitialDelaySeconds = 1
-	DefaultReadinessPeriodSeconds       = 2
-	DefaultReadinessFailureThreshold    = 30
-	DefaultIncludeIPRanges              = "*"
-	DefaultIncludeInboundPorts          = "*"
-	DefaultkubevirtInterfaces           = ""
-)
-
 const (
 	// ProxyContainerName is used by e2e integration tests for fetching logs
 	ProxyContainerName = "istio-proxy"
@@ -165,96 +151,6 @@ type SidecarTemplateData struct {
 	ProxyConfig    *meshconfig.ProxyConfig
 	MeshConfig     *meshconfig.MeshConfig
 	Values         map[string]interface{}
-}
-
-// Params describes configurable parameters for injecting istio proxy
-// into a kubernetes resource.
-type Params struct {
-	InitImage       string `json:"initImage"`
-	ProxyImage      string `json:"proxyImage"`
-	Version         string `json:"version"`
-	ImagePullPolicy string `json:"imagePullPolicy"`
-	Tracer          string `json:"tracer"`
-	// Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for these IP
-	// ranges. All outbound traffic can be redirected with the wildcard character "*". Defaults to "*".
-	IncludeIPRanges string `json:"includeIPRanges"`
-	// Comma separated list of IP ranges in CIDR form. If set, outbound traffic will not be redirected for
-	// these IP ranges. Exclusions are only applied if configured to redirect all outbound traffic. By default,
-	// no IP ranges are excluded.
-	ExcludeIPRanges string `json:"excludeIPRanges"`
-	// Comma separated list of inbound ports for which traffic is to be redirected to Envoy. All ports can be
-	// redirected with the wildcard character "*". Defaults to "*".
-	IncludeInboundPorts string `json:"includeInboundPorts"`
-	// Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those ports.
-	// Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports are excluded.
-	ExcludeInboundPorts string `json:"excludeInboundPorts"`
-	// Comma separated list of outbound ports. If set, outbound traffic will not be redirected for those ports.
-	// By default, no ports are excluded.
-	ExcludeOutboundPorts string `json:"excludeOutboundPorts"`
-	// Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound
-	// By default, no interfaces are configured.
-	KubevirtInterfaces           string                 `json:"kubevirtInterfaces"`
-	Verbosity                    int                    `json:"verbosity"`
-	SidecarProxyUID              uint64                 `json:"sidecarProxyUID"`
-	Mesh                         *meshconfig.MeshConfig `json:"-"`
-	StatusPort                   int                    `json:"statusPort"`
-	ReadinessInitialDelaySeconds uint32                 `json:"readinessInitialDelaySeconds"`
-	ReadinessPeriodSeconds       uint32                 `json:"readinessPeriodSeconds"`
-	ReadinessFailureThreshold    uint32                 `json:"readinessFailureThreshold"`
-	RewriteAppHTTPProbe          bool                   `json:"rewriteAppHTTPProbe"`
-	EnableCoreDump               bool                   `json:"enableCoreDump"`
-	DebugMode                    bool                   `json:"debugMode"`
-	Privileged                   bool                   `json:"privileged"`
-	SDSEnabled                   bool                   `json:"sdsEnabled"`
-	PodDNSSearchNamespaces       []string               `json:"podDNSSearchNamespaces"`
-	EnableCni                    bool                   `json:"enablecni"`
-}
-
-// Validate validates the parameters and returns an error if there is configuration issue.
-func (p *Params) Validate() error {
-	if err := ValidateIncludeIPRanges(p.IncludeIPRanges); err != nil {
-		return err
-	}
-	if err := ValidateExcludeIPRanges(p.ExcludeIPRanges); err != nil {
-		return err
-	}
-	if err := ValidateIncludeInboundPorts(p.IncludeInboundPorts); err != nil {
-		return err
-	}
-	return ValidateExcludeInboundPorts(p.ExcludeInboundPorts)
-}
-
-// intoHelmValues returns a map of the traversed path in helm values YAML to the param value.
-func (p *Params) intoHelmValues() map[string]string {
-	vals := map[string]string{
-		"global.proxy_init.image":                    p.InitImage,
-		"global.proxy.image":                         p.ProxyImage,
-		"global.proxy.enableCoreDump":                strconv.FormatBool(p.EnableCoreDump),
-		"global.proxy.privileged":                    strconv.FormatBool(p.Privileged),
-		"global.imagePullPolicy":                     p.ImagePullPolicy,
-		"global.proxy.statusPort":                    strconv.Itoa(p.StatusPort),
-		"global.proxy.tracer":                        p.Tracer,
-		"global.proxy.readinessInitialDelaySeconds":  strconv.Itoa(int(p.ReadinessInitialDelaySeconds)),
-		"global.proxy.readinessPeriodSeconds":        strconv.Itoa(int(p.ReadinessPeriodSeconds)),
-		"global.proxy.readinessFailureThreshold":     strconv.Itoa(int(p.ReadinessFailureThreshold)),
-		"global.sds.enabled":                         strconv.FormatBool(p.SDSEnabled),
-		"global.proxy.includeIPRanges":               p.IncludeIPRanges,
-		"global.proxy.excludeIPRanges":               p.ExcludeIPRanges,
-		"global.proxy.includeInboundPorts":           p.IncludeInboundPorts,
-		"global.proxy.excludeInboundPorts":           p.ExcludeInboundPorts,
-		"sidecarInjectorWebhook.rewriteAppHTTPProbe": strconv.FormatBool(p.RewriteAppHTTPProbe),
-		"global.podDNSSearchNamespaces":              getHelmValue(p.PodDNSSearchNamespaces),
-		"istio_cni.enabled":                          strconv.FormatBool(p.EnableCni),
-	}
-	return vals
-}
-
-func getHelmValue(namespace []string) string {
-	if len(namespace) == 0 {
-		return ""
-	}
-
-	return "{" + strings.Join(namespace, ",") + "}"
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -847,8 +743,12 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
 	if meshconfig.SdsUdsPath != "" {
 		var grp = int64(1337)
-		podSpec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup: &grp,
+		if podSpec.SecurityContext == nil {
+			podSpec.SecurityContext = &corev1.PodSecurityContext{
+				FSGroup: &grp,
+			}
+		} else {
+			podSpec.SecurityContext.FSGroup = &grp
 		}
 	}
 

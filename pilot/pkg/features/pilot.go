@@ -17,6 +17,8 @@ package features
 import (
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
@@ -209,6 +211,12 @@ var (
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
 	)
 
+	EnableTCPMetadataExchange = env.RegisterBoolVar(
+		"PILOT_ENABLE_TCP_METADATA_EXCHANGE",
+		true,
+		"If enabled, metadata exchange will be enabled for TCP using ALPN and Network Metadata Exchange filters in Envoy",
+	)
+
 	ScopePushes = env.RegisterBoolVar(
 		"PILOT_SCOPE_PUSHES",
 		true,
@@ -298,4 +306,7 @@ var (
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
 		"the provider of Pilot DNS certificate.")
+
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+		"The JWT validation policy.")
 )

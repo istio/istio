@@ -123,10 +123,6 @@ const (
 )
 
 var (
-	// JWTPath is the default location of a JWT token to be used to authenticate with XDS and CA servers.
-	// If the file is missing, the agent will fallback to using mounted certificates if XDS address is secure.
-	JWTPath = "./var/run/secrets/tokens/istio-token"
-
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	LocalSDS = "/etc/istio/proxy/SDS"
 
@@ -174,7 +170,7 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider string) *SDSAgent {
+func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath string) *SDSAgent {
 	ac := &SDSAgent{}
 
 	ac.PilotCertProvider = pilotCertProvider
@@ -184,11 +180,11 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider string) *S
 		log.Fatala("Invalid discovery address", discAddr, err)
 	}
 
-	if _, err := os.Stat(JWTPath); err == nil {
-		ac.JWTPath = JWTPath
+	if _, err := os.Stat(jwtPath); err == nil {
+		ac.JWTPath = jwtPath
 	} else {
 		// Can't use in-process SDS.
-		log.Warna("Missing JWT token, can't use in process SDS ", JWTPath, err)
+		log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
 
 		if discPort == "15012" {
 			log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
@@ -238,6 +234,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
 	serverOptions.UseLocalJWT = true
+	serverOptions.JWTPath = conf.JWTPath
 
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := newSecretCache(serverOptions)

@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -43,17 +45,18 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -143,6 +146,7 @@ type Server struct {
 
 	webhookCertMu sync.Mutex
 	webhookCert   *tls.Certificate
+	jwtPath       string
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -205,6 +209,17 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// CA signing certificate must be created first.
+	if features.JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
+		log.Info("JWT policy is third-party-jwt")
+		s.jwtPath = ThirdPartyJWTPath
+	} else if features.JwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
+		log.Info("JWT policy is first-party-jwt")
+		s.jwtPath = securityModel.K8sSAJwtFileName
+	} else {
+		err := fmt.Errorf("invalid JWT policy %v", features.JwtPolicy.Get())
+		log.Errorf("%v", err)
+		return nil, err
+	}
 	if s.EnableCA() {
 		var err error
 		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)
@@ -356,10 +371,16 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: []model.TriggerReason{model.GlobalUpdate},
+		})
 	})
 	s.environment.AddNetworksHandler(func() {
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: []model.TriggerReason{model.GlobalUpdate},
+		})
 	})
 
 	if err := s.initEventHandlers(); err != nil {
@@ -539,7 +560,7 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 	return nil
 }
 
-// initialize secureGRPCServer - using K8S DNS certs
+// initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.Options) error {
 	certDir := dnsCertDir
 
@@ -599,7 +620,7 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 				return
 			}
 
-			log.Infof("starting K8S-signed grpc=%s", dnsGrpc)
+			log.Infof("starting DNS cert based grpc=%s", dnsGrpc)
 			// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 			// on a listener
 			err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
@@ -689,6 +710,7 @@ func (s *Server) initEventHandlers() error {
 			Full:               true,
 			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
 			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
+			Reason:             []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
@@ -705,6 +727,7 @@ func (s *Server) initEventHandlers() error {
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
 			// TODO: extend and set service instance type, so no need re-init push context
 			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
+			Reason:             []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
 	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
@@ -719,6 +742,7 @@ func (s *Server) initEventHandlers() error {
 			pushReq := &model.PushRequest{
 				Full:               true,
 				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{curr.GroupVersionKind(): {}},
+				Reason:             []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}

@@ -25,11 +25,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	networkingapi "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -40,6 +37,8 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -440,6 +439,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 				Full:              false,
 				NamespacesUpdated: map[string]struct{}{namespace: {}},
 				EdsUpdates:        map[string]struct{}{serviceName: {}},
+				Reason:            []model.TriggerReason{model.EndpointUpdate},
 			})
 		}
 		return
@@ -504,6 +504,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			NamespacesUpdated:  map[string]struct{}{namespace: {}},
 			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 			EdsUpdates:         edsUpdates,
+			Reason:             []model.TriggerReason{model.EndpointUpdate},
 		})
 	}
 }

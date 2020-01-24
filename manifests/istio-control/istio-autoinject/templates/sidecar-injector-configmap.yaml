@@ -1,4 +1,3 @@
-{{- if not .Values.global.istiod.enabled }}
 {{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
@@ -25,5 +24,4 @@ data:
       "{{ $key }}": "{{ $val }}"
     {{- end }}
 
-{{- end }}
 {{- end }}

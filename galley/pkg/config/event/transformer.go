@@ -17,8 +17,8 @@ package event
 import (
 	"sync/atomic"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Transformer is a Processor that transforms input events from one or more collections to a set of output events to

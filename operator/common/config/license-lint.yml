@@ -88,6 +88,7 @@ whitelisted_modules:
   - github.com/heketi/heketi
   - github.com/heketi/utils
   - github.com/inconshreveable/mousetrap
+  - github.com/istio.io/proxy/src/envoy/tcp/metadata_exchange/config
   - github.com/JeffAshton/win_pdh
   - github.com/jmespath/go-jmespath
   - github.com/jteeuwen/go-bindata

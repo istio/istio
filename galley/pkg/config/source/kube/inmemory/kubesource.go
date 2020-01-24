@@ -30,11 +30,11 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	schemaresource "istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"istio.io/istio/pkg/config/schema/collection"
+	schemaresource "istio.io/istio/pkg/config/schema/resource"
 )
 
 var inMemoryKubeNameDiscriminator int64

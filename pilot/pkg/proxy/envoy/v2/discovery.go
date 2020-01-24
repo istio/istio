@@ -148,7 +148,9 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
-	model.JwtKeyResolver.PushFunc = out.ClearCache
+	model.JwtKeyResolver.PushFunc = func() {
+		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
+	}
 
 	return out
 }
@@ -253,12 +255,6 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 	return s.Env.PushContext
 }
 
-// ClearCache is wrapper for clearCache method, used when new controller gets
-// instantiated dynamically
-func (s *DiscoveryServer) ClearCache() {
-	s.ConfigUpdate(&model.PushRequest{Full: true})
-}
-
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
@@ -322,6 +318,10 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			free = true
 			pushWorker()
 		case r := <-ch:
+			// If reason is not set, record it as an unknown reason
+			if len(r.Reason) == 0 {
+				r.Reason = []model.TriggerReason{model.UnknownTrigger}
+			}
 			if !enableEDSDebounce && !r.Full {
 				// trigger push now, just for EDS
 				go pushFn(r)
@@ -358,7 +358,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			// Get the next proxy to push. This will block if there are no updates required.
 			client, info := queue.Dequeue()
-
+			recordPushTriggers(info.Reason...)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
 				queue.MarkDone(client)
