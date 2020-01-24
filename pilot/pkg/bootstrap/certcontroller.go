@@ -108,13 +108,6 @@ func (s *Server) initCertController(args *PilotArgs) error {
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
 func (s *Server) initDNSCerts(hostname string) error {
-	if _, err := os.Stat(dnsKeyFile); err == nil {
-		// Existing certificate mounted by user. Skip self-signed certificate generation.
-		// Use this with an existing CA - the expectation is that the cert will match the
-		// DNS name in DiscoveryAddress.
-		return nil
-	}
-
 	parts := strings.Split(hostname, ".")
 	if len(parts) < 2 {
 		return fmt.Errorf("invalid hostname %s, should contain at least service name and namespace", hostname)
@@ -144,8 +137,8 @@ func (s *Server) initDNSCerts(hostname string) error {
 		log.Infof("Generating Citadel-signed cert for %v", names)
 		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
 	} else {
-		log.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
-		err = fmt.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
+		log.Infof("User specified certs: %v", features.PilotCertProvider.Get())
+		return nil
 	}
 	if err != nil {
 		return err

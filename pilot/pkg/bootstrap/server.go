@@ -261,6 +261,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		} else {
 			s.caBundlePath = path.Join(localCertDir.Get(), "cert-chain.pem")
 		}
+	} else {
+		s.caBundlePath = path.Join(features.PilotCertProvider.Get(), "cert-chain.pem")
 	}
 
 		// initDNSListener() must be called after the createCA()

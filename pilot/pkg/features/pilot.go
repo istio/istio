@@ -295,5 +295,5 @@ var (
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
-		"the provider of Pilot DNS certificate.")
+		"the provider of Pilot DNS certificate. Supports 'citade', 'kubernetes' or a path to user-supplied certs")
 )
