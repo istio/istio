@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	"github.com/hashicorp/go-multierror"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	security "istio.io/api/security/v1beta1"
@@ -328,15 +329,16 @@ func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rba
 
 // ValidateForTCPFilter validates that the model is valid for building a RBAC TCP filter.
 func (m *Model) ValidateForTCPFilter() error {
+	var errs *multierror.Error
 	for _, permission := range m.Permissions {
 		if err := permission.ValidateForTCP(true); err != nil {
-			return err
+			errs = multierror.Append(errs, err)
 		}
 	}
 	for _, principal := range m.Principals {
 		if err := principal.ValidateForTCP(true); err != nil {
-			return err
+			errs = multierror.Append(errs, err)
 		}
 	}
-	return nil
+	return errs.ErrorOrNil()
 }
