@@ -840,8 +840,8 @@ func translatePercentToFractionalPercent(p *networking.Percent) *xdstype.Fractio
 // envoy.type.FractionalPercent instance.
 func translateIntegerToFractionalPercent(p int32) *xdstype.FractionalPercent {
 	return &xdstype.FractionalPercent{
-		Numerator:   uint32(p * 10000),
-		Denominator: xdstype.FractionalPercent_MILLION,
+		Numerator:   uint32(p),
+		Denominator: xdstype.FractionalPercent_HUNDRED,
 	}
 }
 
