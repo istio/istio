@@ -20,7 +20,7 @@ set -o pipefail
 
 # TODO: Find better way to re-use HOST in multiple test
 # Export HOST, PORT and URL
-# $snippet export_gateway_url.sh syntax="bash"
+# $snippet export_gateway_url_2.sh syntax="bash"
 INGRESS_NS=${INGRESS_NS:-istio-system}
 INGRESS_HOST=$(kubectl -n "${INGRESS_NS}" get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 export INGRESS_HOST
@@ -68,8 +68,8 @@ EOF
 # $endsnippet
 
 # Step 2: Verify product reviews are unavailable
-# $snippet verify_ratings.sh syntax="bash"
-$ curl http://"${GATEWAY_URL}"/productpage | grep -o "<p>Sorry.*</p>"
+# $snippet verify_ratings_2.sh syntax="bash"
+$ curl -sS http://"${GATEWAY_URL}"/productpage | grep -o "<p>Sorry.*</p>"
 sleep 1
 # $verify verifier="contains"
 <p>Sorry, product reviews are currently unavailable for this book.</p>
