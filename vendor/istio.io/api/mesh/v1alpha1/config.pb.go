@@ -225,7 +225,7 @@ type MeshConfig struct {
 	// If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
 	TcpKeepalive *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive `protobuf:"bytes,28,opt,name=tcp_keepalive,json=tcpKeepalive,proto3" json:"tcp_keepalive,omitempty"`
 	// Class of ingress resources to be processed by Istio ingress
-	// controller.  This corresponds to the value of
+	// controller. This corresponds to the value of
 	// "kubernetes.io/ingress.class" annotation.
 	IngressClass string `protobuf:"bytes,7,opt,name=ingress_class,json=ingressClass,proto3" json:"ingress_class,omitempty"`
 	// Name of theKubernetes service used for the istio ingress controller.
@@ -269,7 +269,7 @@ type MeshConfig struct {
 	// dependencies, instead of using allow_any, so that traffic to these
 	// services can be monitored.
 	OutboundTrafficPolicy *MeshConfig_OutboundTrafficPolicy `protobuf:"bytes,17,opt,name=outbound_traffic_policy,json=outboundTrafficPolicy,proto3" json:"outbound_traffic_policy,omitempty"`
-	// Enables clide side policy checks.
+	// Enables client side policy checks.
 	EnableClientSidePolicyCheck bool `protobuf:"varint,19,opt,name=enable_client_side_policy_check,json=enableClientSidePolicyCheck,proto3" json:"enable_client_side_policy_check,omitempty"`
 	// Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
 	// Use secret-mount files instead of SDS if set to empty.

@@ -368,9 +368,9 @@ func (m *MutualTls) GetMode() MutualTls_Mode {
 //
 // ```yaml
 // issuer: https://example.com
-// jwks_uri: https://example.com/.well-known/jwks.json
-// trigger_rules:
-// - excluded_paths:
+// jwksUri: https://example.com/.well-known/jwks.json
+// triggerRules:
+// - excludedPaths:
 //   - exact: /health_check
 //   - prefix: /status/
 // ```
@@ -380,9 +380,9 @@ func (m *MutualTls) GetMode() MutualTls_Mode {
 //
 // ```yaml
 // issuer: https://example.com
-// jwks_uri: https://example.com/.well-known/jwks.json
-// trigger_rules:
-// - included_paths:
+// jwksUri: https://example.com/.well-known/jwks.json
+// triggerRules:
+// - includedPaths:
 //   - prefix: /admin
 // ```
 //
@@ -392,11 +392,11 @@ func (m *MutualTls) GetMode() MutualTls_Mode {
 //
 // ```yaml
 // issuer: https://example.com
-// jwks_uri: https://example.com/.well-known/jwks.json
-// trigger_rules:
-// - excluded_paths:
+// jwksUri: https://example.com/.well-known/jwks.json
+// triggerRules:
+// - excludedPaths:
 //   - exact: /status/version
-//   included_paths:
+//   includedPaths:
 //   - prefix: /status/
 // ```
 type Jwt struct {
@@ -880,10 +880,10 @@ func (m *OriginAuthenticationMethod) GetJwt() *Jwt {
 //       audiences:
 //       - "productpage"
 //       jwksUri: "https://www.googleapis.com/oauth2/v1/certs"
-//       jwt_headers:
+//       jwtHeaders:
 //       - "x-goog-iap-jwt-assertion"
-//       trigger_rules:
-//       - excluded_paths:
+//       triggerRules:
+//       - excludedPaths:
 //         - exact: /health_check
 //   principalBinding: USE_ORIGIN
 // ```
