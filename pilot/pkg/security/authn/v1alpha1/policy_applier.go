@@ -372,7 +372,7 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model
 		}
 	}
 
-	if sdsUdsPath == "" {
+	if !node.Metadata.SdsEnabled || sdsUdsPath == "" {
 		base := meta.SdsBase + constants.AuthCertsPath
 		tlsServerRootCert := model.GetOrDefault(meta.TLSServerRootCert, base+constants.RootCertFilename)
 
