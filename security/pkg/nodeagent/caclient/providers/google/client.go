@@ -35,7 +35,7 @@ import (
 const bearerTokenPrefix = "Bearer "
 
 var (
-	googleCAClientLog = log.RegisterScope("googleCAClientLog", "Google CA client debugging", 0)
+	googleCAClientLog = log.RegisterScope("googleca", "Google CA client debugging", 0)
 	gkeClusterURL     = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 

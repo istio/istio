@@ -45,7 +45,7 @@ const (
 	certExpirationBuffer = time.Minute
 )
 
-var serverCaLog = log.RegisterScope("serverCaLog", "Citadel server log", 0)
+var serverCaLog = log.RegisterScope("serverca", "Citadel server log", 0)
 
 type authenticator interface {
 	Authenticate(ctx context.Context) (*authenticate.Caller, error)

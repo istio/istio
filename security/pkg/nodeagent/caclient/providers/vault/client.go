@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	vaultClientLog = log.RegisterScope("vaultClientLog", "Vault client debugging", 0)
+	vaultClientLog = log.RegisterScope("vault", "Vault client debugging", 0)
 )
 
 type vaultClient struct {
