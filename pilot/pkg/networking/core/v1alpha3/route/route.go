@@ -433,27 +433,27 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 		if in.Mirror != nil {
 			cluster := GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port)
+			var percent uint32 = 100
+			var percentage float64 = 100
+			if in.MirrorPercent != nil {
+				percent = in.MirrorPercent.GetValue()
+			}
+			if in.MirrorPercentage != nil {
+				percentage = in.MirrorPercentage.GetValue()
+			}
 			switch {
-			case in.MirrorPercent != nil && in.MirrorPercent.GetValue() > 0:
+			case percent > 0:
 				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
 					Cluster: cluster,
 					RuntimeFraction: &core.RuntimeFractionalPercent{
 						DefaultValue: translateIntegerToFractionalPercent((int32(in.MirrorPercent.Value))),
 					},
 				}
-			case in.MirrorPercentage != nil && in.MirrorPercent.GetValue() > 0:
+			case percentage > 0:
 				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
 					Cluster: cluster,
 					RuntimeFraction: &core.RuntimeFractionalPercent{
 						DefaultValue: translatePercentToFractionalPercent(in.MirrorPercentage),
-					},
-				}
-			default:
-				// default it to 100, if nothing is specified.
-				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
-					Cluster: cluster,
-					RuntimeFraction: &core.RuntimeFractionalPercent{
-						DefaultValue: translateIntegerToFractionalPercent(100),
 					},
 				}
 			}
