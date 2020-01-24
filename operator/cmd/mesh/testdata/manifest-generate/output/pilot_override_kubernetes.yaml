@@ -81,7 +81,7 @@ spec:
         - --disable-install-crds=true
         env:
         - name: JWT_POLICY
-          value: first-party-jwt
+          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: POD_NAME
@@ -131,6 +131,9 @@ spec:
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+          readOnly: true
         - mountPath: /var/run/secrets/istio-dns
           name: local-certs
         - mountPath: /etc/cacerts
@@ -152,6 +155,13 @@ spec:
       - emptyDir:
           medium: Memory
         name: local-certs
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
       - configMap:
           name: istiod
           optional: true
@@ -624,7 +634,7 @@ data:
         "istiod": {
           "enabled": true
         },
-        "jwtPolicy": "first-party-jwt",
+        "jwtPolicy": "third-party-jwt",
         "k8sIngress": {
           "enableHttps": false,
           "enabled": false,

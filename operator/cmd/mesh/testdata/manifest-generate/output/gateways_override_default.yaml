@@ -544,7 +544,7 @@ spec:
         - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
-          value: first-party-jwt
+          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: ISTIO_META_USER_SDS
@@ -644,6 +644,9 @@ spec:
         volumeMounts:
         - mountPath: /etc/istio/citadel-ca-cert
           name: citadel-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+          readOnly: true
         - mountPath: /var/run/ingress_gateway
           name: ingressgatewaysdsudspath
         - mountPath: /etc/certs
@@ -662,6 +665,13 @@ spec:
         name: citadel-ca-cert
       - emptyDir: {}
         name: ingressgatewaysdsudspath
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
       - name: istio-certs
         secret:
           optional: true

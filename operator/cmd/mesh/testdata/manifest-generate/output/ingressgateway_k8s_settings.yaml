@@ -6307,7 +6307,7 @@ spec:
             
           env:
           - name: JWT_POLICY
-            value: first-party-jwt
+            value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
             value: citadel
           - name: "ISTIO_META_USER_SDS"
@@ -6373,6 +6373,9 @@ spec:
           volumeMounts:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
 
@@ -6391,6 +6394,13 @@ spec:
           name: istio-ca-root-cert
       - name: ingressgatewaysdsudspath
         emptyDir: {}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: istio-ca
       - name: istio-certs
         secret:
           secretName: istio.istio-ingressgateway-service-account
