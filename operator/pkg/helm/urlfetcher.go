@@ -30,7 +30,6 @@ import (
 
 	"istio.io/istio/operator/pkg/httprequest"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -126,7 +125,7 @@ func (f *URLFetcher) fetchChart(shaF string) error {
 		hash := strings.Split(string(hashAll), " ")[0]
 		h := sha256.New()
 		if _, err := io.Copy(h, file); err != nil {
-			log.Error(err.Error())
+			scope.Error(err.Error())
 		}
 		sum := h.Sum(nil)
 		actualHash := hex.EncodeToString(sum)

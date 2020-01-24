@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -45,17 +47,18 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -145,6 +148,7 @@ type Server struct {
 
 	webhookCertMu sync.Mutex
 	webhookCert   *tls.Certificate
+	jwtPath       string
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -207,65 +211,30 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// CA signing certificate must be created first.
+	if features.JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
+		log.Info("JWT policy is third-party-jwt")
+		s.jwtPath = ThirdPartyJWTPath
+	} else if features.JwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
+		log.Info("JWT policy is first-party-jwt")
+		s.jwtPath = securityModel.K8sSAJwtFileName
+	} else {
+		err := fmt.Errorf("invalid JWT policy %v", features.JwtPolicy.Get())
+		log.Errorf("%v", err)
+		return nil, err
+	}
 	if s.EnableCA() {
 		var err error
 		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)
 		if err != nil {
 			return nil, fmt.Errorf("EnableCA: %v", err)
 		}
-
-	}
-
-	// Setup the root cert chain and caBundlePath - before calling initDNSListener.
-	if features.PilotCertProvider.Get() == KubernetesCAProvider {
-		s.caBundlePath = defaultCACertPath
-	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
-		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
-		if _, err := os.Stat(signingKeyFile); err != nil {
-			// When Citadel is configured to use self-signed certs, keep a local copy so other
-			// components can load it via file (e.g. webhook config controller).
-			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
-				return nil, err
-			}
-			// We have direct access to the self-signed
-			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
-
-			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
-			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
-				return nil, err
-			}
-
-			s.caBundlePath = internalSelfSignedRootPath
-			s.addStartFunc(func(stop <-chan struct{}) error {
-				go func() {
-					for {
-						select {
-						case <-stop:
-							return
-						case <-time.After(namespaceResyncPeriod):
-							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
-							if !bytes.Equal(rootCert, newRootCert) {
-								rootCert = newRootCert
-								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
-									log.Errorf("Failed to update local copy of self-signed root: %v", err)
-								} else {
-									log.Info("Updtaed local copy of self-signed root")
-								}
-							}
-						}
-					}
-				}()
-				return nil
-			})
-
-		} else {
-			s.caBundlePath = path.Join(localCertDir.Get(), "cert-chain.pem")
+		err = s.initPublicKey()
+		if err != nil {
+			return nil, fmt.Errorf("Extract public key: %v", err)
 		}
-	} else {
-		s.caBundlePath = path.Join(features.PilotCertProvider.Get(), "cert-chain.pem")
 	}
 
-		// initDNSListener() must be called after the createCA()
+	// initDNSListener() must be called after the createCA()
 	// because initDNSListener() may use a Citadel generated cert.
 	if err := s.initDNSListener(args); err != nil {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
@@ -304,6 +273,60 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	return s, nil
+}
+
+// Save the root public key file and initialize the path the the file, to be used by other
+// components.
+func (s *Server) initPublicKey() error {
+	// Setup the root cert chain and caBundlePath - before calling initDNSListener.
+	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+		s.caBundlePath = defaultCACertPath
+	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
+		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		if _, err := os.Stat(signingKeyFile); err != nil {
+			// When Citadel is configured to use self-signed certs, keep a local copy so other
+			// components can load it via file (e.g. webhook config controller).
+			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
+				return err
+			}
+			// We have direct access to the self-signed
+			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
+
+			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+				return err
+			}
+
+			s.caBundlePath = internalSelfSignedRootPath
+			s.addStartFunc(func(stop <-chan struct{}) error {
+				go func() {
+					for {
+						select {
+						case <-stop:
+							return
+						case <-time.After(namespaceResyncPeriod):
+							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+							if !bytes.Equal(rootCert, newRootCert) {
+								rootCert = newRootCert
+								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+									log.Errorf("Failed to update local copy of self-signed root: %v", err)
+								} else {
+									log.Info("Updtaed local copy of self-signed root")
+								}
+							}
+						}
+					}
+				}()
+				return nil
+			})
+
+		} else {
+			s.caBundlePath = path.Join(localCertDir.Get(), "cert-chain.pem")
+		}
+	} else {
+		s.caBundlePath = path.Join(features.PilotCertProvider.Get(), "cert-chain.pem")
+	}
+	return nil
 }
 
 func getClusterID(args *PilotArgs) string {
@@ -596,7 +619,7 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 	return nil
 }
 
-// initialize secureGRPCServer - using K8S DNS certs
+// initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.Options) error {
 	certDir := dnsCertDir
 
@@ -656,7 +679,7 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 				return
 			}
 
-			log.Infof("starting K8S-signed grpc=%s", dnsGrpc)
+			log.Infof("starting DNS cert based grpc=%s", dnsGrpc)
 			// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 			// on a listener
 			err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")

@@ -72,6 +72,8 @@ var (
 	istioComponentLabelStr = name.OperatorAPINamespace + "/component"
 	// istioVersionLabelStr indicates the Istio version of the installation.
 	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
+
+	scope = log.RegisterScope("installer", "installer", 0)
 )
 
 // ComponentApplyOutput is used to capture errors and stdout/stderr outputs for a command, per component.
@@ -199,12 +201,12 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 
 // ApplyAll applies all given manifests using kubectl client.
 func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, opts *kubectlcmd.Options) (CompositeOutput, error) {
-	log.Infof("Preparing manifests for these components:")
+	scope.Infof("Preparing manifests for these components:")
 	for c := range manifests {
-		log.Infof("- %s", c)
+		scope.Infof("- %s", c)
 	}
-	log.Infof("Component dependencies tree: \n%s", installTreeString())
-	if err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	scope.Infof("Component dependencies tree: \n%s", installTreeString())
+	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return nil, err
 	}
 	return applyRecursive(manifests, version, opts)
@@ -221,9 +223,9 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 		wg.Add(1)
 		go func() {
 			if s := dependencyWaitCh[c]; s != nil {
-				log.Infof("%s is waiting on a prerequisite...", c)
+				scope.Infof("%s is waiting on a prerequisite...", c)
 				<-s
-				log.Infof("Prerequisite for %s has completed, proceeding with install.", c)
+				scope.Infof("Prerequisite for %s has completed, proceeding with install.", c)
 			}
 			applyOut, appliedObjects := ApplyManifest(c, strings.Join(m, helm.YAMLSeparator), version.String(), *opts)
 			mu.Lock()
@@ -235,12 +237,12 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 			// For example, for the validation webhook to become ready, so we should wait for it always.
 			if len(componentDependencies[c]) > 0 {
 				if err := WaitForResources(appliedObjects, opts); err != nil {
-					log.Errorf("failed to wait for resource: %v", err)
+					scope.Errorf("failed to wait for resource: %v", err)
 				}
 			}
 			// Signal all the components that depend on us.
 			for _, ch := range componentDependencies[c] {
-				log.Infof("unblocking child %s.", ch)
+				scope.Infof("unblocking child %s.", ch)
 				dependencyWaitCh[ch] <- struct{}{}
 			}
 			wg.Done()
@@ -374,7 +376,7 @@ func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
 }
 
 func DeploymentExists(kubeconfig, context, namespace, name string) (bool, error) {
-	if err := InitK8SRestClient(kubeconfig, context); err != nil {
+	if _, err := InitK8SRestClient(kubeconfig, context); err != nil {
 		return false, err
 	}
 
@@ -499,11 +501,11 @@ func objectsNotInLists(objects object.K8sObjects, lists ...object.K8sObjects) ob
 
 func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
 	if dryRun {
-		log.Info("Not waiting for CRDs in dry run mode.")
+		scope.Info("Not waiting for CRDs in dry run mode.")
 		return nil
 	}
 
-	log.Info("Waiting for CRDs to be applied.")
+	scope.Info("Waiting for CRDs to be applied.")
 	cs, err := apiextensionsclient.NewForConfig(k8sRESTConfig)
 	if err != nil {
 		return fmt.Errorf("k8s client error: %s", err)
@@ -525,27 +527,27 @@ func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
 				switch cond.Type {
 				case apiextensionsv1beta1.Established:
 					if cond.Status == apiextensionsv1beta1.ConditionTrue {
-						log.Infof("established CRD %q", crdName)
+						scope.Infof("established CRD %q", crdName)
 						continue descriptor
 					}
 				case apiextensionsv1beta1.NamesAccepted:
 					if cond.Status == apiextensionsv1beta1.ConditionFalse {
-						log.Warnf("name conflict: %v", cond.Reason)
+						scope.Warnf("name conflict: %v", cond.Reason)
 					}
 				}
 			}
-			log.Infof("missing status condition for %q", crdName)
+			scope.Infof("missing status condition for %q", crdName)
 			return false, nil
 		}
 		return true, nil
 	})
 
 	if errPoll != nil {
-		log.Errorf("failed to verify CRD creation; %s", errPoll)
+		scope.Errorf("failed to verify CRD creation; %s", errPoll)
 		return fmt.Errorf("failed to verify CRD creation: %s", errPoll)
 	}
 
-	log.Info("Finished applying CRDs.")
+	scope.Info("Finished applying CRDs.")
 	return nil
 }
 
@@ -759,18 +761,18 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 	}
 }
 
-func InitK8SRestClient(kubeconfig, context string) error {
+func InitK8SRestClient(kubeconfig, context string) (*rest.Config, error) {
 	var err error
 	if kubeconfig == currentKubeconfig && context == currentContext && k8sRESTConfig != nil {
-		return nil
+		return k8sRESTConfig, nil
 	}
 	currentKubeconfig, currentContext = kubeconfig, context
 
 	k8sRESTConfig, err = defaultRestConfig(kubeconfig, context)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return k8sRESTConfig, nil
 }
 
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
@@ -817,6 +819,6 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 
 func logAndPrint(v ...interface{}) {
 	s := fmt.Sprintf(v[0].(string), v[1:]...)
-	log.Infof(s)
+	scope.Infof(s)
 	fmt.Println(s)
 }

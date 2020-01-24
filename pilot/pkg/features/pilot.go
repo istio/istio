@@ -17,6 +17,8 @@ package features
 import (
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
@@ -295,5 +297,8 @@ var (
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
-		"the provider of Pilot DNS certificate. Supports 'citade', 'kubernetes' or a path to user-supplied certs")
+		"the provider of Pilot DNS certificate. Supports 'citadel', 'kubernetes' or a path to user-supplied certs")
+
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+		"The JWT validation policy.")
 )

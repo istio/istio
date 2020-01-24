@@ -6306,6 +6306,8 @@ spec:
               memory: 128Mi
             
           env:
+          - name: JWT_POLICY
+            value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
             value: citadel
           - name: "ISTIO_META_USER_SDS"
