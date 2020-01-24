@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -107,10 +108,10 @@ func Analyze() *cobra.Command {
 istioctl analyze
 
 # Analyze the current live cluster, simulating the effect of applying additional yaml files
-istioctl analyze a.yaml b.yaml
+istioctl analyze a.yaml b.yaml config/
 
 # Analyze yaml files without connecting to a live cluster
-istioctl analyze --use-kube=false a.yaml b.yaml
+istioctl analyze --use-kube=false a.yaml b.yaml config/
 
 # Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
 istioctl analyze -S "IST0103=Pod mypod.testing"
@@ -329,7 +330,6 @@ istioctl analyze -L
 
 func gatherFiles(args []string) ([]local.ReaderSource, error) {
 	var readers []local.ReaderSource
-	var err error
 	for _, f := range args {
 		var r *os.File
 
@@ -339,15 +339,49 @@ func gatherFiles(args []string) ([]local.ReaderSource, error) {
 			}
 			r = os.Stdin
 		} else {
-			r, err = os.Open(f)
+			fm, err := os.Stat(f)
 			if err != nil {
 				return nil, err
 			}
-			runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
+			if fm.IsDir() {
+				dirReaders, err := gatherFilesInDirectory(f)
+				if err != nil {
+					return nil, err
+				}
+				readers = append(readers, dirReaders...)
+			} else {
+				r, err = os.Open(f)
+				if err != nil {
+					return nil, err
+				}
+				runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
+			}
 		}
 		readers = append(readers, local.ReaderSource{Name: f, Reader: r})
 	}
 	return readers, nil
+}
+
+func gatherFilesInDirectory(dir string) ([]local.ReaderSource, error) {
+	var readers []local.ReaderSource
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		r, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
+		readers = append(readers, local.ReaderSource{Name: path, Reader: r})
+		return nil
+	})
+	return readers, err
 }
 
 func colorPrefix(m diag.Message) string {
