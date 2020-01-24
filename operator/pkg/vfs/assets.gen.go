@@ -11276,7 +11276,7 @@ spec:
           - --readinessProbePath=/tmp/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
-  {{- if .Values.global.configValidation }}
+  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
           - --enable-validation=true
   {{- else }}
           - --enable-validation=false
@@ -11307,7 +11307,7 @@ spec:
           - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
 {{- end }}
           volumeMounts:
-  {{- if .Values.global.configValidation }}
+  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
