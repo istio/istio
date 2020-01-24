@@ -20,11 +20,11 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
+	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/snapshots"
 )

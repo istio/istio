@@ -17,7 +17,7 @@ package event_test
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/pkg/config/event"
 )
 
 func TestEventKind_String(t *testing.T) {
