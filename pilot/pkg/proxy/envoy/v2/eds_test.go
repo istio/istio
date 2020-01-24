@@ -525,9 +525,15 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	}
 	testTCPEndpoints("127.0.0.4", adsc, t)
 
+	// Update the endpoint to original SA - expect full
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
+		newEndpointWithAccount("127.0.0.2", "hello-sa", "v1"))
+	edsFullUpdateCheck(adsc, t)
+	testTCPEndpoints("127.0.0.2", adsc, t)
+
 	// Update the endpoint again, no label change - expect incremental
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
-		newEndpointWithAccount("127.0.0.5", "account2", "v1"))
+		newEndpointWithAccount("127.0.0.5", "hello-sa", "v1"))
 
 	upd, err = adsc.Wait(5 * time.Second)
 	if err != nil {
