@@ -66,7 +66,9 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 	if len(args) == 1 {
 		profile = args[0]
 	}
-	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, profile, "", pdArgs.configPath, true, l)
+	// For profile dump, we may not have access to the kube cluster, so don't rely on kubeconfig
+	// TODO: support optional kubeconfig reading
+	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, profile, "", pdArgs.configPath, true, nil, l)
 	if err != nil {
 		return err
 	}
