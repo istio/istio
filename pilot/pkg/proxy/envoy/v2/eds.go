@@ -473,7 +473,6 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			ep.mutex.Lock()
 			serviceAccounts[e.ServiceAccount] = true
 			_, f = ep.ServiceAccounts[e.ServiceAccount]
-				serviceName, e, e.ServiceAccount, f)
 			if !f {
 				ep.ServiceAccounts[e.ServiceAccount] = true
 			}
