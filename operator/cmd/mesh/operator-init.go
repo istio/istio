@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 
 	"istio.io/istio/operator/pkg/helm"
@@ -125,12 +126,6 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 
 	log.Infof("Using the following manifest to install operator:\n%s\n", mstr)
 
-	// If CR was passed, we must create a namespace for it and install CR into it.
-	customResource, istioNamespace, err := getCRAndNamespaceFromFile(oiArgs.inFilename, l)
-	if err != nil {
-		l.logAndFatal(err)
-	}
-
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,
 		Verbose:     args.verbose,
@@ -139,8 +134,14 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 		Kubeconfig:  oiArgs.kubeConfigPath,
 		Context:     oiArgs.context,
 	}
+	kubeconfig, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context)
+	if err != nil {
+		l.logAndFatal(err)
+	}
 
-	if err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	// If CR was passed, we must create a namespace for it and install CR into it.
+	customResource, istioNamespace, err := getCRAndNamespaceFromFile(oiArgs.inFilename, kubeconfig, l)
+	if err != nil {
 		l.logAndFatal(err)
 	}
 
@@ -195,12 +196,12 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 	return success
 }
 
-func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource string, istioNamespace string, err error) {
+func getCRAndNamespaceFromFile(filePath string, kubeconfig *rest.Config, l *Logger) (customResource string, istioNamespace string, err error) {
 	if filePath == "" {
 		return "", "", nil
 	}
 
-	mergedYAML, err := genProfile(false, []string{filePath}, "", "", "", true, l)
+	mergedYAML, err := genProfile(false, []string{filePath}, "", "", "", true, kubeconfig, l)
 	if err != nil {
 		return "", "", err
 	}
