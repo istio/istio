@@ -17,6 +17,7 @@ package v2
 import (
 	"strconv"
 	"sync"
+	"reflect"
 	"sync/atomic"
 	"time"
 
@@ -451,6 +452,8 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		s.EndpointShardsByService[serviceName] = map[string]*EndpointShards{}
 	}
 	ep, f := s.EndpointShardsByService[serviceName][namespace]
+	adsLog.Infof("incfly debug, edsUpdate(), serviceName = %v, namespace = %v, ep = %v, exists(f) = %v",
+		serviceName, namespace, ep, f)
 	if !f {
 		// This endpoint is for a service that was not previously loaded.
 		// Return an error to force a full sync, which will also cause the
@@ -460,6 +463,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			ServiceAccounts: map[string]bool{},
 		}
 		s.EndpointShardsByService[serviceName][namespace] = ep
+		adsLog.Infof("incfly debug, edsUpdate(), not associated before, internal %v", internal)
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
 			requireFull = true
@@ -468,10 +472,15 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 
 	// 2. Update data for the specific cluster. Each cluster gets independent
 	// updates containing the full list of endpoints for the service in that cluster.
+	adsLog.Infof("incfly debug, initial check existing endpoints SA set = %v", ep.ServiceAccounts)
+	serviceAccounts := map[string]bool{}
 	for _, e := range istioEndpoints {
 		if e.ServiceAccount != "" {
 			ep.mutex.Lock()
+			serviceAccounts[e.ServiceAccount] = true
 			_, f = ep.ServiceAccounts[e.ServiceAccount]
+			adsLog.Infof("incfly debug, edsUpdate(), svc = %v, endpoint itself %v, checking sa = %v, exist or not: %v",
+				serviceName, e, e.ServiceAccount, f)
 			if !f {
 				ep.ServiceAccounts[e.ServiceAccount] = true
 			}
@@ -480,16 +489,23 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			if !f && !internal {
 				// The entry has a service account that was not previously associated.
 				// Requires a CDS push and full sync.
-				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
+				adsLog.Infof("Endpoint updating svc = %v, service account %v", serviceName, e.ServiceAccount)
 				requireFull = true
-				break
+				// break
 			}
 		}
 	}
+	if !reflect.DeepEqual(serviceAccounts, ep.ServiceAccounts) {
+		ep.ServiceAccounts = serviceAccounts
+		adsLog.Infof("incfly debug updating service accounts now, svc %v, accoutns %v", serviceName, ep.ServiceAccounts)
+	}
+	adsLog.Infof("incfly debug,  after handling, svc = %v, endpoints SA set = %v", serviceName, ep.ServiceAccounts)
 
 	ep.mutex.Lock()
 	ep.Shards[clusterID] = istioEndpoints
 	ep.mutex.Unlock()
+
+	adsLog.Infof("incfly debug, in the end full push or not %v", requireFull)
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
 	// no need to trigger push here.
