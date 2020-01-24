@@ -35,7 +35,6 @@ import (
 	pkgversion "istio.io/pkg/version"
 )
 
-
 var scope = log.RegisterScope("installer", "installer", 0)
 
 // getIOPS creates an IstioOperatorSpec from the following sources, overlaid sequentially:
