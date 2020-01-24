@@ -17,6 +17,8 @@ package bootstrap
 import (
 	"time"
 
+	"istio.io/istio/pkg/config/constants"
+
 	"istio.io/istio/security/pkg/pki/ca"
 
 	v1 "k8s.io/api/core/v1"
@@ -37,11 +39,9 @@ const (
 	// can update its CA certificate in a ConfigMap in every namespace.
 	namespaceResyncPeriod = time.Second * 30
 	// The name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
-	CACertNamespaceConfigMap = "istio-ca-root-cert"
-	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
-	CACertNamespaceConfigMapDataName = "ca-cert-ns.pem"
-	CACertNamespaceInsertInterval    = time.Second
-	CACertNamespaceInsertTimeout     = time.Second * 2
+	CACertNamespaceConfigMap      = "istio-ca-root-cert"
+	CACertNamespaceInsertInterval = time.Second
+	CACertNamespaceInsertTimeout  = time.Second * 2
 )
 
 // NamespaceController manages the CA certificate in each namespace.
@@ -92,7 +92,7 @@ func (nc *NamespaceController) namespaceAdded(obj interface{}) {
 	if ok {
 		rootCert := nc.ca.GetCAKeyCertBundle().GetRootCertPem()
 		err := certutil.InsertDataToConfigMapWithRetry(nc.core, ns.GetName(), string(rootCert), CACertNamespaceConfigMap,
-			CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)
+			constants.CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)
 		if err != nil {
 			log.Errorf("error when inserting CA cert to configmap: %v", err)
 		} else {
@@ -114,7 +114,7 @@ func (nc *NamespaceController) namespaceUpdated(oldObj, newObj interface{}) {
 		// For simplifying the implementation and no overhead for reading the certificate from the ConfigMap,
 		// simply updates the ConfigMap to the current Citadel CA certificate.
 		err := certutil.InsertDataToConfigMapWithRetry(nc.core, ns.GetName(), string(rootCert), CACertNamespaceConfigMap,
-			CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)
+			constants.CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)
 		if err != nil {
 			log.Errorf("error when updating CA cert in configmap: %v", err)
 		} else {
