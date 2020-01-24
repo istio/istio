@@ -15,6 +15,7 @@
 package model
 
 import (
+	"sort"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -245,7 +246,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	}
 
 	for _, listener := range out.EgressListeners {
-		// First add the explicitly requested services
+		// First add the explicitly requested services, which take priority
 		for _, s := range listener.services {
 			addService(s)
 		}
@@ -259,13 +260,27 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 			for _, d := range virtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
 				if s, ok := ps.ServiceByHostnameAndNamespace[host.Name(d.Host)][configNamespace]; ok {
+					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
 					addService(s)
 				} else {
-					// Otherwise pick randomly
-					for _, v := range ps.ServiceByHostnameAndNamespace[host.Name(d.Host)] {
-						addService(v)
-						break
+					// We couldn't find the hostname in our config namespace
+					// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
+					// TODO: could we choose services more intelligently based on their ports?
+					byNamespace := ps.ServiceByHostnameAndNamespace[host.Name(d.Host)]
+					if len(byNamespace) == 0 {
+						// This hostname isn't found anywhere
+						continue
 					}
+
+					ns := make([]string, 0, len(byNamespace))
+					for k := range byNamespace {
+						ns = append(ns, k)
+					}
+					sort.Strings(ns)
+
+					// Pick first namespace alphabetically
+					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+					addService(byNamespace[ns[0]])
 				}
 			}
 		}
