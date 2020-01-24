@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -22,6 +23,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -214,7 +216,54 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	}
 
-	// initDNSListener() must be called after the createCA()
+	// Setup the root cert chain and caBundlePath - before calling initDNSListener.
+	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+		s.caBundlePath = defaultCACertPath
+	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
+		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		if _, err := os.Stat(signingKeyFile); err != nil {
+			// When Citadel is configured to use self-signed certs, keep a local copy so other
+			// components can load it via file (e.g. webhook config controller).
+			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
+				return nil, err
+			}
+			// We have direct access to the self-signed
+			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
+
+			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+				return nil, err
+			}
+
+			s.caBundlePath = internalSelfSignedRootPath
+			s.addStartFunc(func(stop <-chan struct{}) error {
+				go func() {
+					for {
+						select {
+						case <-stop:
+							return
+						case <-time.After(namespaceResyncPeriod):
+							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+							if !bytes.Equal(rootCert, newRootCert) {
+								rootCert = newRootCert
+								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+									log.Errorf("Failed to update local copy of self-signed root: %v", err)
+								} else {
+									log.Info("Updtaed local copy of self-signed root")
+								}
+							}
+						}
+					}
+				}()
+				return nil
+			})
+
+		} else {
+			s.caBundlePath = path.Join(localCertDir.Get(), "cert-chain.pem")
+		}
+	}
+
+		// initDNSListener() must be called after the createCA()
 	// because initDNSListener() may use a Citadel generated cert.
 	if err := s.initDNSListener(args); err != nil {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
