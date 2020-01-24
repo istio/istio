@@ -161,8 +161,6 @@ func verifyOutput(t *testing.T, c testCase) {
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
 
-	file = "" // Clear, because we re-use
-
 	fErr := rootCmd.Execute()
 	output := out.String()
 

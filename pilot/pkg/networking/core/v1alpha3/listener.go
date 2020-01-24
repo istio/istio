@@ -1358,9 +1358,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
 			return
-		} else {
-			listenerOpts.filterChainOpts = opts
 		}
+		listenerOpts.filterChainOpts = opts
 	} else {
 		switch pluginParams.ListenerProtocol {
 		case plugin.ListenerProtocolHTTP:
@@ -2398,15 +2397,15 @@ func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
 		// Remove listener filter timeout for
 		// 	1. outbound listeners AND
 		// 	2. without HTTP inspector
-		hasHttpInspector := false
+		hasHTTPInspector := false
 		for _, lf := range l.ListenerFilters {
 			if lf.Name == wellknown.HttpInspector {
-				hasHttpInspector = true
+				hasHTTPInspector = true
 				break
 			}
 		}
 
-		if !hasHttpInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
+		if !hasHTTPInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
 			l.ListenerFiltersTimeout = nil
 			l.ContinueOnListenerFiltersTimeout = false
 		}

@@ -314,7 +314,6 @@ func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Ob
 				oldEpVersion = version(namedConf[conf.Name].Annotations, endpointKey)
 			}
 			namedConf[conf.Name] = conf
-			// c.dispatch(*conf, model.EventUpdate)
 		} else {
 			event = model.EventAdd
 			c.configStore[conf.Namespace] = map[string]*model.Config{

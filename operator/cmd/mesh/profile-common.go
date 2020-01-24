@@ -62,7 +62,7 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 		}
 		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(inputYaml, force)
 		if err != nil {
-			iopYAML, translateErr := translate.TranslateICPToIOPVer(inputYaml, binversion.OperatorBinaryVersion)
+			iopYAML, translateErr := translate.ICPToIOPVer(inputYaml, binversion.OperatorBinaryVersion)
 			if translateErr != nil {
 				return "", nil, fmt.Errorf("could not unmarshal yaml or translate it to IOP: %s, %s\n\nOriginal YAML:\n%s",
 					err, translateErr, inputYaml)
@@ -117,12 +117,12 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 
 	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force)
 	if err != nil {
-		baseIopYAML, translateErr := translate.TranslateICPToIOPVer(baseCRYAML, binversion.OperatorBinaryVersion)
+		baseIopYAML, translateErr := translate.ICPToIOPVer(baseCRYAML, binversion.OperatorBinaryVersion)
 		if translateErr != nil {
 			return "", nil, fmt.Errorf("could not unmarshal or translate base yaml into IOP with profile %s at version %s: %s, %s",
 				profile, binversion.OperatorBinaryVersion, err, translateErr)
 		}
-		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(baseIopYAML, force)
+		_, overlayYAML, err = unmarshalAndValidateIOP(baseIopYAML, force)
 		if err != nil {
 			return "", nil, err
 		}

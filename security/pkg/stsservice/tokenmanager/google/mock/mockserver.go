@@ -68,6 +68,7 @@ type accessTokenResponse struct {
 }
 
 // AuthorizationServer mocks google secure token server.
+// nolint: maligned
 type AuthorizationServer struct {
 	Port   int
 	URL    string
@@ -295,7 +296,7 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 	tokenLifeInSec := ms.accessTokenLife
 	token := ms.accessToken
 	if ms.enableDynamicAccessToken {
-		token = token + time.Now().String()
+		token += time.Now().String()
 	}
 	blockRequest := ms.blockAccessTokenRequest
 	ms.mutex.Unlock()
