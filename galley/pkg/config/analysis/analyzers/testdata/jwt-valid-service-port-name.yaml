@@ -72,3 +72,32 @@ spec:
       targetPort: 8082
       name: http2-svc-8082
 ---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-named-ports
+  namespace: namespace-named-ports
+spec:
+  targets:
+    - name: my-service-named-port
+      ports:
+        - name: http-foo
+  origins:
+    - jwt:
+        issuer: "testing@secure.istio.io"
+        jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-named-port
+  namespace: namespace-named-ports
+spec:
+  selector:
+    app: my-service-named-port
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http-foo
+---

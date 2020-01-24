@@ -15,7 +15,7 @@
 package auth
 
 import (
-	"strings"
+	"regexp"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -29,13 +29,8 @@ import (
 	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
-const (
-	portNameHttp    = "http"
-	portNameHttp2   = "http2"
-	portNameHttps   = "https"
-	portPrefixHttp  = portNameHttp + "-"
-	portPrefixHttp2 = portNameHttp2 + "-"
-	portPrefixHttps = portNameHttps + "-"
+var (
+	jwtSupportedPortName = regexp.MustCompile("^http(2|s)?(-.*)?$")
 )
 
 // JwtAnalyzer checks for misconfiguration of an Authentication policy
@@ -91,34 +86,63 @@ func (j *JwtAnalyzer) analyzeServiceTarget(r *resource.Instance, ctx analysis.Co
 	ns := r.Metadata.FullName.Namespace
 
 	for _, origin := range policy.Origins {
-		if origin.GetJwt() != nil {
-			for _, target := range policy.GetTargets() {
+		if origin.GetJwt() == nil {
+			continue
+		}
 
-				fqdn := util.ConvertHostToFQDN(ns, target.GetName())
-				if svc, has := nsm[fqdn]; has {
-					if len(target.GetPorts()) == 0 {
-						checkServicePorts(r, ctx, svc)
-						continue
-					}
+		for _, target := range policy.GetTargets() {
+			fqdn := util.ConvertHostToFQDN(ns, target.GetName())
+			svc, ok := nsm[fqdn]
+			if !ok {
+				// service was not found, but this is not considered an error
+				continue
+			}
 
-					// check ports defined in the authentication policy for the service
-					for _, port := range target.GetPorts() {
-						if port.GetName() == "" {
-							checkPort(r, ctx, port.GetNumber(), svc)
-						}
+			if len(target.GetPorts()) == 0 {
+				checkServicePorts(r, ctx, svc)
+				continue
+			}
 
-					}
-				} // else no target service was found, but not an error
+			// check ports defined in the authentication policy for the service
+			for _, port := range target.GetPorts() {
+				if port.GetName() == "" {
+					checkPortNumber(r, ctx, port.GetNumber(), svc)
+				} else {
+					checkPortName(r, ctx, port.GetName(), svc)
+				}
 			}
 		}
 	}
-
 }
 
-func checkPort(r *resource.Instance, ctx analysis.Context, portNum uint32, svc *v1.ServiceSpec) {
+func checkPortName(r *resource.Instance, ctx analysis.Context, portName string, svc *v1.ServiceSpec) {
 	var svcPort *v1.ServicePort
 	for _, port := range svc.Ports {
-		if strings.ToUpper(string(port.Protocol)) != "TCP" && port.Protocol != "" {
+		if portName != port.Name {
+			continue
+		}
+		if !isTCPProtocol(port.Protocol) {
+			ctx.Report(collections.IstioAuthenticationV1Alpha1Policies.Name(),
+				msg.NewJwtFailureDueToInvalidServicePortPrefix(
+					r,
+					int(port.Port),
+					port.Name,
+					string(port.Protocol),
+					port.TargetPort.String(),
+				))
+			return
+		}
+
+		svcPort = &port
+		break
+	}
+	checkPort(r, ctx, svcPort)
+}
+
+func checkPortNumber(r *resource.Instance, ctx analysis.Context, portNum uint32, svc *v1.ServiceSpec) {
+	var svcPort *v1.ServicePort
+	for _, port := range svc.Ports {
+		if !isTCPProtocol(port.Protocol) {
 			continue
 		}
 		if portNum == uint32(port.Port) {
@@ -126,34 +150,37 @@ func checkPort(r *resource.Instance, ctx analysis.Context, portNum uint32, svc *
 			break
 		}
 	}
-	if svcPort != nil {
-		portName := strings.ToLower(svcPort.Name)
-		if !portHasSupportedPrefix(portName) {
-			ctx.Report(collections.IstioAuthenticationV1Alpha1Policies.Name(),
-				msg.NewJwtFailureDueToInvalidServicePortPrefix(
-					r,
-					int(portNum),
-					portName,
-					string(svcPort.Protocol),
-					svcPort.TargetPort.String(),
-				))
-		}
+	checkPort(r, ctx, svcPort)
+}
 
+func checkPort(r *resource.Instance, ctx analysis.Context, svcPort *v1.ServicePort) {
+	if svcPort == nil {
+		return
+	}
+
+	svcPortName := svcPort.Name
+	if !isJwtSupportedPortName(svcPortName) {
+		ctx.Report(collections.IstioAuthenticationV1Alpha1Policies.Name(),
+			msg.NewJwtFailureDueToInvalidServicePortPrefix(
+				r,
+				int(svcPort.Port),
+				svcPortName,
+				string(svcPort.Protocol),
+				svcPort.TargetPort.String(),
+			))
 	}
 }
 
 func checkServicePorts(r *resource.Instance, ctx analysis.Context, svc *v1.ServiceSpec) {
 	for _, port := range svc.Ports {
-		portName := strings.ToLower(port.Name)
-		if (strings.ToUpper(string(port.Protocol)) == "TCP" || port.Protocol == "") &&
-			portHasSupportedPrefix(portName) {
+		if isTCPProtocol(port.Protocol) && isJwtSupportedPortName(port.Name) {
 			continue
 		} else {
 			ctx.Report(collections.IstioAuthenticationV1Alpha1Policies.Name(),
 				msg.NewJwtFailureDueToInvalidServicePortPrefix(
 					r,
 					int(port.Port),
-					portName,
+					port.Name,
 					string(port.Protocol),
 					port.TargetPort.String(),
 				))
@@ -162,9 +189,10 @@ func checkServicePorts(r *resource.Instance, ctx analysis.Context, svc *v1.Servi
 	}
 }
 
-func portHasSupportedPrefix(portName string) bool {
-	return strings.HasPrefix(portName, portPrefixHttp) ||
-		strings.HasPrefix(portName, portPrefixHttp2) ||
-		strings.HasPrefix(portName, portPrefixHttps) ||
-		portName == portNameHttp || portName == portNameHttp2 || portName == portNameHttps
+func isTCPProtocol(protocol v1.Protocol) bool {
+	return string(protocol) == "TCP" || protocol == ""
+}
+
+func isJwtSupportedPortName(portName string) bool {
+	return jwtSupportedPortName.Match([]byte(portName))
 }
