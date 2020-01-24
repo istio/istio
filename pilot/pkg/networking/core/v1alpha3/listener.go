@@ -18,10 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/url"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -621,7 +619,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 	thriftOpts := &thriftListenerOpts{
 		transport:   thrift_proxy.TransportType_AUTO_TRANSPORT,
 		protocol:    thrift_proxy.ProtocolType_AUTO_PROTOCOL,
-		routeConfig: configgen.buildSidecarThriftRouteConfig(clusterName),
+		routeConfig: configgen.buildSidecarThriftRouteConfig(clusterName, pluginParams.Push.Mesh.ThriftConfig.RateLimitUrl),
 	}
 
 	return thriftOpts
@@ -1211,7 +1209,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	}}
 }
 
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForPortOrUDS(node *model.Proxy, listenerMapKey *string,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForPortOrUDS(_ *model.Proxy, listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
 	// first identify the bind if its not set. Then construct the key
@@ -1252,7 +1250,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForP
 	thriftOpts := &thriftListenerOpts{
 		protocol:    thrift_proxy.ProtocolType_AUTO_PROTOCOL,
 		transport:   thrift_proxy.TransportType_AUTO_TRANSPORT,
-		routeConfig: configgen.buildSidecarThriftRouteConfig(clusterName),
+		routeConfig: configgen.buildSidecarThriftRouteConfig(clusterName, pluginParams.Push.Mesh.ThriftConfig.RateLimitUrl),
 	}
 
 	return true, []*filterChainOpts{{
@@ -2002,23 +2000,15 @@ func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_Thr
 		},
 	}
 
-	rlsUrl, err := url.Parse(thriftconfig.RateLimitUrl)
+	rlsClusterName, err := thritRLSClusterNameFromAuthority(thriftconfig.RateLimitUrl)
 	if err != nil {
-		log.Warnf("unable to parse rate limit url: %s\n", thriftconfig.RateLimitUrl)
+		log.Errorf("unable to generate thrift rls cluster name: %s\n", rlsClusterName)
 		return nil
-	}
-
-	rlsPort := 8081
-	if meshConfigPort := rlsUrl.Port(); meshConfigPort != "" {
-		if parsedPort, err := strconv.Atoi(meshConfigPort); err != nil {
-			log.Warnf("unable to parse rate limit port from url: %s\n", thriftconfig.RateLimitUrl)
-			rlsPort = parsedPort
-		}
 	}
 
 	thriftRateLimit.RateLimitService.GrpcService.TargetSpecifier = &core.GrpcService_EnvoyGrpc_{
 		EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-			ClusterName: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(rlsUrl.Host), rlsPort),
+			ClusterName: rlsClusterName,
 		},
 	}
 

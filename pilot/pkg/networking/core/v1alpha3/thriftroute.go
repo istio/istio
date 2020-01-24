@@ -15,16 +15,22 @@
 package v1alpha3
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
-
-	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/pkg/log"
 )
 
 // buildDefaultThriftInboundRoute builds a default inbound route.
-func buildDefaultThriftRoute(clusterName string) *thrift_proxy.Route {
+func buildDefaultThriftRoute(clusterName, rateLimitClusterName string) *thrift_proxy.Route {
 	var rateLimits []*route.RateLimit
-	if features.ThriftRatelimitService.Get() != "" {
+	if rateLimitClusterName != "" {
 		rateLimits = []*route.RateLimit{
 			{
 				Actions: []*route.RateLimit_Action{
@@ -60,13 +66,45 @@ func buildDefaultThriftRoute(clusterName string) *thrift_proxy.Route {
 
 // Builds the route config with a single blank method route on the inbound path.
 // We route inbound and outbound identically.
-func (configgen *ConfigGeneratorImpl) buildSidecarThriftRouteConfig(clusterName string) *thrift_proxy.RouteConfiguration {
+func (configgen *ConfigGeneratorImpl) buildSidecarThriftRouteConfig(clusterName, rateLimitURL string) *thrift_proxy.RouteConfiguration {
+
+	rlsClusterName, err := thritRLSClusterNameFromAuthority(rateLimitURL)
+	if err != nil {
+		rlsClusterName = ""
+	}
+
 	routes := []*thrift_proxy.Route{
-		buildDefaultThriftRoute(clusterName),
+		buildDefaultThriftRoute(clusterName, rlsClusterName),
 	}
 
 	return &thrift_proxy.RouteConfiguration{
 		Name:   clusterName,
 		Routes: routes,
 	}
+}
+
+// Build a cluster name from an authority (host[:port]) string. If an error is
+// encountered, an empty string is returned as the cluster name.
+func thritRLSClusterNameFromAuthority(authority string) (string, error) {
+	rlsPort := 8081
+
+	if authority == "" {
+		return "", errors.New("empty url")
+	}
+
+	components := strings.Split(authority, ":")
+	if len(components) < 2 {
+		log.Debugf("Using default port to parse rate limit port from authority (using %v default): %s", rlsPort, authority)
+	} else if len(components) > 2 {
+		return "", errors.New(fmt.Sprintf("Authority had too many components: %v", authority))
+	} else {
+
+		if p, err := strconv.Atoi(components[1]); err != nil {
+			return "", errors.New(fmt.Sprintf("Unable to parse port provided in authority: %v", authority))
+		} else {
+			rlsPort = p
+		}
+	}
+
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(components[0]), rlsPort), nil
 }
