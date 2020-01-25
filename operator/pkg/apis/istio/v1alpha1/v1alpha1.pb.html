@@ -1218,6 +1218,24 @@ No
 No
 </td>
 </tr>
+<tr id="GalleyConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GalleyConfig-tag">
+<td><code>tag</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="GalleyConfig-podAntiAffinityLabelSelector" class="deprecated ">
 <td><code>podAntiAffinityLabelSelector</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
@@ -2008,10 +2026,7 @@ No
 <td><code>string</code></td>
 <td>
 <p>Configure the Pilot certificate provider.
-Currently, two providers are supported: &ldquo;kubernetes&rdquo; and &ldquo;citadel&rdquo;.
-TODO (lei-tang): the default value of this option is currently set as &ldquo;kubernetes&rdquo; to be consistent
-with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
-we may change the default value of this option as &ldquo;citadel&rdquo;.</p>
+Currently, two providers are supported: &ldquo;kubernetes&rdquo; and &ldquo;citadel&rdquo;.</p>
 
 </td>
 <td>
@@ -3501,6 +3516,24 @@ env:
 No
 </td>
 </tr>
+<tr id="MixerPolicyConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyConfig-tag">
+<td><code>tag</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="MixerPolicyConfig-cpu" class="deprecated ">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
@@ -3827,6 +3860,24 @@ No
 No
 </td>
 </tr>
+<tr id="MixerTelemetryConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-tag">
+<td><code>tag</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="MixerTelemetryConfig-cpu" class="deprecated ">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
@@ -4027,6 +4078,24 @@ No
 <td>
 <p>Image name for the Node Agent DaemonSet.</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="NodeAgentConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="NodeAgentConfig-tag">
+<td><code>tag</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td>
 </td>
 <td>
 No
@@ -4415,6 +4484,24 @@ No
 <tr id="PilotConfig-plugins">
 <td><code>plugins</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PilotConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PilotConfig-tag">
+<td><code>tag</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
 <td>
 </td>
 <td>
@@ -5989,6 +6076,24 @@ No
 
 <p>Examples: custom-sidecar<em>injector, docker.io/someuser:custom-sidecar</em>injector</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-tag">
+<td><code>tag</code></td>
+<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td>
 </td>
 <td>
 No
