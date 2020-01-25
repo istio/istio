@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/collections"
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -896,7 +896,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			[]*Service{
 				{
 					Hostname: "foo.svc.cluster.local",
-					Ports:    port8000,
+					// Ports should not be merged even though virtual service will select the service with 7443
+					// as ns1 comes before ns2, because 8000 was already picked explicitly and is in different namespace
+					Ports: port8000,
 				},
 				{
 					Hostname: "baz.svc.cluster.local",
@@ -916,6 +918,36 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 				{
 					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
+			"virtual-service-pick-alphabetical",
+			configs11,
+			// Ambiguous; same hostname in ns1 and ns2, neither is config namespace
+			// ns1 should always win
+			services12,
+			virtualServices1,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
+			"virtual-service-bad-host",
+			configs11,
+			services9,
+			virtualServices1,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
 					Ports:    port7443,
 				},
 			},
