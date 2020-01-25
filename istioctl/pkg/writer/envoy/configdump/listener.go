@@ -21,6 +21,7 @@ import (
 	"text/tabwriter"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 )
@@ -136,13 +137,23 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*xdsapi.Listener, error)
 	listeners := make([]*xdsapi.Listener, 0)
 	for _, listener := range listenerDump.DynamicListeners {
 		if listener.ActiveState != nil && listener.ActiveState.Listener != nil {
-			listeners = append(listeners, listener.ActiveState.Listener)
+			listenerTyped := &xdsapi.Listener{}
+			err = ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+			if err != nil {
+				return nil, err
+			}
+			listeners = append(listeners, listenerTyped)
 		}
 	}
 
 	for _, listener := range listenerDump.StaticListeners {
 		if listener.Listener != nil {
-			listeners = append(listeners, listener.Listener)
+			listenerTyped := &xdsapi.Listener{}
+			err = ptypes.UnmarshalAny(listener.Listener, listenerTyped)
+			if err != nil {
+				return nil, err
+			}
+			listeners = append(listeners, listenerTyped)
 		}
 	}
 	if len(listeners) == 0 {

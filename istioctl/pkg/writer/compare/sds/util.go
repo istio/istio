@@ -21,6 +21,8 @@ import (
 	"time"
 
 	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -204,11 +206,17 @@ func parseDynamicSecret(s *envoy_admin_v2alpha.SecretsConfigDump_DynamicSecret, 
 	builder := NewSecretItemBuilder()
 	builder.Name(s.Name).State(state)
 
-	certChainSecret := s.GetSecret().
+	secretTyped := &auth.Secret{}
+	err := ptypes.UnmarshalAny(s.GetSecret(), secretTyped)
+	if err != nil {
+		return SecretItem{}, err
+	}
+
+	certChainSecret := secretTyped.
 		GetTlsCertificate().
 		GetCertificateChain().
 		GetInlineBytes()
-	caDataSecret := s.GetSecret().
+	caDataSecret := secretTyped.
 		GetValidationContext().
 		GetTrustedCa().
 		GetInlineBytes()
