@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoy_admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/golang/protobuf/ptypes"
 
@@ -202,7 +202,7 @@ func GetEnvoySecrets(
 	return proxySecretItems, nil
 }
 
-func parseDynamicSecret(s *envoy_admin_v2alpha.SecretsConfigDump_DynamicSecret, state string) (SecretItem, error) {
+func parseDynamicSecret(s *envoy_admin.SecretsConfigDump_DynamicSecret, state string) (SecretItem, error) {
 	builder := NewSecretItemBuilder()
 	builder.Name(s.Name).State(state)
 
