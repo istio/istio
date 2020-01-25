@@ -56,7 +56,6 @@ const (
 
 // Pseudo-constants, since golang doesn't support a true const slice/array
 var (
-	requiredPerms     = []string{"list", "watch"}
 	analysisSnapshots = []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry}
 )
 
@@ -234,7 +233,6 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 
 		if err = src.ApplyContent(string(i), string(by)); err != nil {
 			errs = multierror.Append(errs, err)
-			src.ApplyContent(string(i), string(by))
 		}
 	}
 

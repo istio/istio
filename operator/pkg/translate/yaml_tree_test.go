@@ -66,7 +66,7 @@ func TestTranslateYAMLTree(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			got, err := TranslateICPToIOP(icp, translations)
+			got, err := ICPToIOP(icp, translations)
 			if err != nil {
 				t.Fatal(err)
 			}

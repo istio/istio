@@ -541,7 +541,7 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
-// GatewayServices returns the set of services which are refered from the proxy gateways.
+// GatewayServices returns the set of services which are referred from the proxy gateways.
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := ps.Services(proxy)
 	// gateway set.

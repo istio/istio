@@ -627,8 +627,8 @@ func SortQuotaSpec(specs []Config) {
 	})
 }
 
-func (config Config) DeepCopy() Config {
-	copied, err := copystructure.Copy(config)
+func (c Config) DeepCopy() Config {
+	copied, err := copystructure.Copy(c)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
 		//  * The reflection walk over the structure fails, which should never happen

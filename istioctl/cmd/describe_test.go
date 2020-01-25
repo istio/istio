@@ -611,8 +611,6 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 		namespace = c.namespace
 	}
 
-	file = "" // Clear, because we re-use
-
 	fErr := rootCmd.Execute()
 	output := out.String()
 

@@ -49,9 +49,6 @@ var (
 	istioNamespace   string
 	defaultNamespace string
 
-	// input file name
-	file string
-
 	// output format (yaml or short)
 	outputFormat string
 
