@@ -75,7 +75,7 @@ const (
 
 var (
 	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
-		"The JWT validation policy.")
+		"The JWT validation policy. 'third-party-jwt' recommended, 'first-party-jwt' as a fallback.")
 )
 
 // ConstructSdsSecretConfigForGatewayListener constructs SDS secret configuration for ingress gateway.
