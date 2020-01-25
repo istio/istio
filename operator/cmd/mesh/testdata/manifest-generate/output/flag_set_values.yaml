@@ -7095,6 +7095,7 @@ data:
     enableProtocolSniffingForOutbound: true
     enabled: true
     env: {}
+    hub: ""
     image: pilot
     ingress:
       ingressClass: istio
@@ -7119,6 +7120,7 @@ data:
         memory: 2048Mi
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
+    tag: ""
     tolerations: []
     traceSampling: 1
 

@@ -45,6 +45,10 @@ const (
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
 	HelmValuesNamespaceSubpath = "namespace"
+	// HelmValuesHubSubpath is the subpath from the component root to the hub parameter.
+	HelmValuesHubSubpath = "hub"
+	// HelmValuesTagSubpath is the subpath from the component root to the tag parameter.
+	HelmValuesTagSubpath = "tag"
 	// TranslateConfigFolder is the folder where we store translation configurations
 	TranslateConfigFolder = "translateConfig"
 	// TranslateConfigPrefix is the prefix of IstioOperator's translation configuration file
@@ -201,7 +205,7 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 	}
 
 	// Enabled and namespace fields require special handling because of inheritance rules.
-	if err := t.setEnablementAndNamespaces(root, ii); err != nil {
+	if err := t.setComponentProperties(root, ii); err != nil {
 		return "", err
 	}
 
@@ -338,9 +342,9 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 	return errs
 }
 
-// setEnablementAndNamespaces translates the enablement and namespace value of each component in the baseYAML values
-// tree, based on feature/component inheritance relationship.
-func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, iop *v1alpha1.IstioOperatorSpec) error {
+// setComponentProperties translates properties (e.g., enablement and namespace) of each component
+// in the baseYAML values tree, based on feature/component inheritance relationship.
+func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1alpha1.IstioOperatorSpec) error {
 	var keys []string
 	for k := range t.ComponentMaps {
 		if k != name.IngressComponentName && k != name.EgressComponentName {
@@ -372,6 +376,20 @@ func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, iop
 		}
 		if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesNamespaceSubpath), ns); err != nil {
 			return err
+		}
+
+		hub, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Hub")
+		if found && hub.(string) != "" {
+			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesHubSubpath), hub); err != nil {
+				return err
+			}
+		}
+
+		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
+		if found && tag.(string) != "" {
+			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), tag); err != nil {
+				return err
+			}
 		}
 	}
 
