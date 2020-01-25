@@ -367,7 +367,7 @@ func (s *TestSetup) WaitForStatsUpdateAndGetStats(waitDuration int) (string, err
 
 type statEntry struct {
 	Name  string `json:"name"`
-	Value int    `json:"value"`
+	Value uint64 `json:"value"`
 }
 
 type stats struct {
@@ -382,7 +382,7 @@ func (s *TestSetup) WaitEnvoyReady() {
 
 	delay := 200 * time.Millisecond
 	total := 3 * time.Second
-	var stats map[string]int
+	var stats map[string]uint64
 	for attempt := 0; attempt < int(total/delay); attempt++ {
 		statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
 		code, respBody, errGet := HTTPGet(statsURL)
@@ -402,8 +402,8 @@ func (s *TestSetup) WaitEnvoyReady() {
 
 // UnmarshalStats Unmarshals Envoy stats from JSON format into a map, where stats name is
 // key, and stats value is value.
-func (s *TestSetup) unmarshalStats(statsJSON string) map[string]int {
-	statsMap := make(map[string]int)
+func (s *TestSetup) unmarshalStats(statsJSON string) map[string]uint64 {
+	statsMap := make(map[string]uint64)
 
 	var statsArray stats
 	if err := json.Unmarshal([]byte(statsJSON), &statsArray); err != nil {
@@ -420,7 +420,7 @@ func (s *TestSetup) unmarshalStats(statsJSON string) map[string]int {
 func (s *TestSetup) VerifyStats(expectedStats map[string]int) {
 	s.t.Helper()
 
-	check := func(actualStatsMap map[string]int) error {
+	check := func(actualStatsMap map[string]uint64) error {
 		for eStatsName, eStatsValue := range expectedStats {
 			aStatsValue, ok := actualStatsMap[eStatsName]
 			if !ok && eStatsValue != 0 {
