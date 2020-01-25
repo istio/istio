@@ -269,6 +269,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 					byNamespace := ps.ServiceByHostnameAndNamespace[host.Name(d.Host)]
 					if len(byNamespace) == 0 {
 						// This hostname isn't found anywhere
+						log.Debugf("Could not find service hostname %s parsed from %s", d.Host, vs.Key())
 						continue
 					}
 
