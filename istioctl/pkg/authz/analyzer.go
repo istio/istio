@@ -27,6 +27,8 @@ import (
 	"strings"
 
 	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )
@@ -67,9 +69,14 @@ func NewAnalyzer(envoyConfig *configdump.Wrapper) (*Analyzer, error) {
 func (a *Analyzer) getParsedListeners() []*ParsedListener {
 	ret := make([]*ParsedListener, 0)
 	for _, listener := range a.listenerDump.DynamicListeners {
-		ip := listener.ActiveState.Listener.Address.GetSocketAddress().Address
+		listenerTyped := &xdsapi.Listener{}
+		err := ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+		if err != nil {
+			return nil
+		}
+		ip := listenerTyped.Address.GetSocketAddress().Address
 		if ip == a.nodeIP || ip == "0.0.0.0" {
-			if ld := ParseListener(listener.ActiveState.Listener); ld != nil {
+			if ld := ParseListener(listenerTyped); ld != nil {
 				ret = append(ret, ld)
 			}
 		}
