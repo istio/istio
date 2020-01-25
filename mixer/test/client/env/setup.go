@@ -366,8 +366,8 @@ func (s *TestSetup) WaitForStatsUpdateAndGetStats(waitDuration int) (string, err
 }
 
 type statEntry struct {
-	Name  string `json:"name"`
-	Value uint64 `json:"value"`
+	Name  string      `json:"name"`
+	Value json.Number `json:"value"`
 }
 
 type stats struct {
@@ -411,7 +411,11 @@ func (s *TestSetup) unmarshalStats(statsJSON string) map[string]uint64 {
 	}
 
 	for _, v := range statsArray.StatList {
-		statsMap[v.Name] = v.Value
+		tmp, err := v.Value.Float64()
+		if err != nil {
+			s.t.Fatalf("unable to convert json.Number from stats: %v", err)
+		}
+		statsMap[v.Name] = uint64(tmp)
 	}
 	return statsMap
 }
