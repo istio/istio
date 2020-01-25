@@ -259,8 +259,8 @@ func TestRouteDirective(t *testing.T) {
 	}
 
 	var expectedStats = map[string]uint64{
-		"http_mixer_filter.total_check_calls":        2 * len(testCases),
-		"http_mixer_filter.total_remote_check_calls": len(testCases),
+		"http_mixer_filter.total_check_calls":        uint64(2 * len(testCases)),
+		"http_mixer_filter.total_remote_check_calls": uint64(len(testCases)),
 	}
 
 	s.VerifyStats(expectedStats)
