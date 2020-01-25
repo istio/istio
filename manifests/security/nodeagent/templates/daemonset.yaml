@@ -32,7 +32,7 @@ spec:
 {{- if contains "/" .Values.nodeagent.image }}
           image: "{{ .Values.nodeagent.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.nodeagent.hub | default .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.nodeagent.tag | default .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
