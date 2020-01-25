@@ -326,6 +326,10 @@
             "description": "Default destination service name if none was specified in the client request.",
             "type": "string",
             "format": "string"
+          },
+          "ignoreForwardedAttributes": {
+            "description": "Whether or not to use attributes forwarded in the request headers to create the attribute bag to send to mixer. For intra-mesh traffic, this should be set to \"false\". For ingress/egress gateways, this should be set to \"true\".",
+            "type": "boolean"
           }
         }
       },

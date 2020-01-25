@@ -92,12 +92,15 @@ message ServiceConfig {
   // In case of a per-route override, per-route attributes take precedence
   // over the attributes supplied in the client configuration.
   //
-  // Forwarded attributes take precedence over the static Mixer attributes.
+  // Forwarded attributes take precedence over the static Mixer attributes,
+  // except in cases where there is clear configuration to ignore forwarded
+  // attributes. Gateways, for instance, should never use forwarded attributes.
+  //
   // The full order of application is as follows:
   // 1. static Mixer attributes from the filter config;
   // 2. static Mixer attributes from the route config;
-  // 3. forwarded attributes from the source filter config (if any);
-  // 4. forwarded attributes from the source route config (if any);
+  // 3. forwarded attributes from the source filter config (if any and not ignored);
+  // 4. forwarded attributes from the source route config (if any and not ignored);
   // 5. derived attributes from the request metadata.
   Attributes forward_attributes = 8;
 }
@@ -181,6 +184,12 @@ message HttpClientConfig {
   // Default attributes to forward to upstream. This typically
   // includes the "source.ip" and "source.uid" attributes.
   Attributes forward_attributes = 5;
+
+  // Whether or not to use attributes forwarded in the request headers to 
+  // create the attribute bag to send to mixer. For intra-mesh traffic,
+  // this should be set to "false". For ingress/egress gateways, this
+  // should be set to "true".
+  bool ignore_forwarded_attributes = 6;
 }
 
 // Defines the client config for TCP.

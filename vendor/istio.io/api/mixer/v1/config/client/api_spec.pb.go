@@ -78,7 +78,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //           stringValue: deletePet
 //     httpMethod: DELETE
 //     uriTemplate: /api/pets/{id}
-//   api_keys:
+//   apiKeys:
 //   - query: api-key
 // ```
 type HTTPAPISpec struct {
@@ -517,7 +517,7 @@ var xxx_messageInfo_HTTPAPISpecReference proto.InternalMessageInfo
 //   services:
 //   - name: foo
 //     namespace: bar
-//   api_specs:
+//   apiSpecs:
 //   - name: petstore
 //     namespace: default
 // ```

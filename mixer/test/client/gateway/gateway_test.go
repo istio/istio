@@ -222,7 +222,7 @@ func TestGateway(t *testing.T) {
 	if _, _, err := env.HTTPGetWithHeaders(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort), headers); err != nil {
 		t.Errorf("Failed in request: %v", err)
 	}
-	sourceUID = "in-mesh-app"
+	// verify that sourceUID is not overridden by forwarded attributes.
 	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, sourceUID))
 	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, sourceUID))
 }

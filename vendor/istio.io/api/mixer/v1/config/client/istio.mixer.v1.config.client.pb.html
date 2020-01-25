@@ -161,7 +161,7 @@ spec:
           stringValue: deletePet
     httpMethod: DELETE
     uriTemplate: /api/pets/&lbrace;id}
-  api_keys:
+  apiKeys:
   - query: api-key
 </code></pre>
 
@@ -226,7 +226,7 @@ spec:
   services:
   - name: foo
     namespace: bar
-  api_specs:
+  apiSpecs:
   - name: petstore
     namespace: default
 </code></pre>
@@ -436,6 +436,17 @@ Report. This typically includes &ldquo;destination.ip&rdquo; and
 <td>
 <p>Default attributes to forward to upstream. This typically
 includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.</p>
+
+</td>
+</tr>
+<tr id="HttpClientConfig-ignore_forwarded_attributes">
+<td><code>ignoreForwardedAttributes</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Whether or not to use attributes forwarded in the request headers to
+create the attribute bag to send to mixer. For intra-mesh traffic,
+this should be set to &ldquo;false&rdquo;. For ingress/egress gateways, this
+should be set to &ldquo;true&rdquo;.</p>
 
 </td>
 </tr>
@@ -817,12 +828,15 @@ includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.
 In case of a per-route override, per-route attributes take precedence
 over the attributes supplied in the client configuration.</p>
 
-<p>Forwarded attributes take precedence over the static Mixer attributes.
-The full order of application is as follows:
+<p>Forwarded attributes take precedence over the static Mixer attributes,
+except in cases where there is clear configuration to ignore forwarded
+attributes. Gateways, for instance, should never use forwarded attributes.</p>
+
+<p>The full order of application is as follows:
 1. static Mixer attributes from the filter config;
 2. static Mixer attributes from the route config;
-3. forwarded attributes from the source filter config (if any);
-4. forwarded attributes from the source route config (if any);
+3. forwarded attributes from the source filter config (if any and not ignored);
+4. forwarded attributes from the source route config (if any and not ignored);
 5. derived attributes from the request metadata.</p>
 
 </td>

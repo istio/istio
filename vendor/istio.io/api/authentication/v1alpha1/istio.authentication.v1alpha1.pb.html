@@ -33,9 +33,9 @@ prefix <code>/status/</code>. This is useful to expose some paths for public acc
 keep others JWT validated.</p>
 
 <pre><code class="language-yaml">issuer: https://example.com
-jwks_uri: https://example.com/.well-known/jwks.json
-trigger_rules:
-- excluded_paths:
+jwksUri: https://example.com/.well-known/jwks.json
+triggerRules:
+- excludedPaths:
   - exact: /health_check
   - prefix: /status/
 </code></pre>
@@ -44,9 +44,9 @@ trigger_rules:
 validation on a specific set of paths but keep others public accessible.</p>
 
 <pre><code class="language-yaml">issuer: https://example.com
-jwks_uri: https://example.com/.well-known/jwks.json
-trigger_rules:
-- included_paths:
+jwksUri: https://example.com/.well-known/jwks.json
+triggerRules:
+- includedPaths:
   - prefix: /admin
 </code></pre>
 
@@ -55,11 +55,11 @@ trigger_rules:
 <code>/status/version</code> will require a valid JWT to proceed.</p>
 
 <pre><code class="language-yaml">issuer: https://example.com
-jwks_uri: https://example.com/.well-known/jwks.json
-trigger_rules:
-- excluded_paths:
+jwksUri: https://example.com/.well-known/jwks.json
+triggerRules:
+- excludedPaths:
   - exact: /status/version
-  included_paths:
+  includedPaths:
   - prefix: /status/
 </code></pre>
 
@@ -394,10 +394,10 @@ spec:
       audiences:
       - &quot;productpage&quot;
       jwksUri: &quot;https://www.googleapis.com/oauth2/v1/certs&quot;
-      jwt_headers:
+      jwtHeaders:
       - &quot;x-goog-iap-jwt-assertion&quot;
-      trigger_rules:
-      - excluded_paths:
+      triggerRules:
+      - excludedPaths:
         - exact: /health_check
   principalBinding: USE_ORIGIN
 </code></pre>
