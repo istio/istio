@@ -6177,7 +6177,152 @@ metadata:
 
 # Citadel component is disabled.
 
-# Cni component is disabled.
+# Resources for Cni component
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-cni
+  labels:
+    app: istio-cni
+    release: istio
+rules:
+- apiGroups: [""]
+  resources:
+  - pods
+  - nodes
+  verbs:
+  - get
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-cni
+  labels:
+    app: istio-cni
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-cni
+subjects:
+- kind: ServiceAccount
+  name: istio-cni
+  namespace: istio-system
+---
+
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: istio-cni-config
+  namespace: istio-system
+  labels:
+    app: istio-cni
+    release: istio
+data:
+  # The CNI network configuration to add to the plugin chain on each node.  The special
+  # values in this config will be automatically populated.
+  cni_network_config: |-
+        {
+          "type": "istio-cni",
+          "log_level": "info",
+          "kubernetes": {
+              "kubeconfig": "__KUBECONFIG_FILEPATH__",
+              "cni_bin_dir": "/opt/cni/bin",
+              "exclude_namespaces": [ "istio-system" ]
+          }
+        }
+---
+
+
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: istio-cni-node
+  namespace: istio-system
+  labels:
+    k8s-app: istio-cni-node
+    release: istio
+spec:
+  selector:
+    matchLabels:
+      k8s-app: istio-cni-node
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: istio-cni-node
+      annotations:
+        # This, along with the CriticalAddonsOnly toleration below,
+        # marks the pod as a critical add-on, ensuring it gets
+        # priority scheduling and that its resources are reserved
+        # if it ever gets evicted.
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+    spec:
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+      hostNetwork: true
+      tolerations:
+        # Make sure istio-cni-node gets scheduled on all nodes.
+        - effect: NoSchedule
+          operator: Exists
+        # Mark the pod as a critical add-on for rescheduling.
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      priorityClassName: system-cluster-critical
+      serviceAccountName: istio-cni
+      # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
+      # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
+      terminationGracePeriodSeconds: 5
+      containers:
+        # This container installs the Istio CNI binaries
+        # and CNI network config file on each node.
+        - name: install-cni
+          image: "component.cni.hub/install-cni:component.cni.tag"
+          imagePullPolicy: Always
+          command: ["/install-cni.sh"]
+          env:
+            # The CNI network config to install on each node.
+            - name: CNI_NETWORK_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: istio-cni-config
+                  key: cni_network_config
+            - name: CNI_NET_DIR
+              value: /etc/cni/net.d
+          volumeMounts:
+            - mountPath: /host/opt/cni/bin
+              name: cni-bin-dir
+            - mountPath: /host/etc/cni/net.d
+              name: cni-net-dir
+      volumes:
+        # Used to install CNI.
+        - name: cni-bin-dir
+          hostPath:
+            path: /opt/cni/bin
+        - name: cni-net-dir
+          hostPath:
+            path: /etc/cni/net.d
+---
+
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-cni
+  namespace: istio-system
+  labels:
+    app: istio-cni
+    release: istio
+---
 
 # Galley component is disabled.
 
@@ -6362,7 +6507,7 @@ spec:
           value: Kubernetes
         - name: SDS_ENABLED
           value: "false"
-        image: gcr.io/istio-testing/myproxy:latest
+        image: istio-spec.hub/proxyv2:istio-spec.tag
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -7095,7 +7240,7 @@ data:
     enableProtocolSniffingForOutbound: true
     enabled: true
     env: {}
-    hub: ""
+    hub: component.pilot.hub
     image: pilot
     ingress:
       ingressClass: istio
@@ -7120,7 +7265,7 @@ data:
         memory: 2048Mi
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
-    tag: ""
+    tag: component.pilot.tag
     tolerations: []
     traceSampling: 1
 
@@ -7337,7 +7482,7 @@ spec:
         - configMapRef:
             name: istiod
             optional: true
-        image: gcr.io/istio-testing/pilot:latest
+        image: component.pilot.hub/pilot:component.pilot.tag
         imagePullPolicy: IfNotPresent
         name: discovery
         ports:
@@ -7462,7 +7607,7 @@ data:
         "enableHelmTest": false,
         "enableTracing": true,
         "enabled": true,
-        "hub": "gcr.io/istio-testing",
+        "hub": "istio-spec.hub",
         "imagePullPolicy": "IfNotPresent",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
@@ -7539,8 +7684,8 @@ data:
           "excludeIPRanges": "",
           "excludeInboundPorts": "",
           "excludeOutboundPorts": "",
-          "image": "myproxy",
-          "includeIPRanges": "172.30.0.0/16,172.21.0.0/16",
+          "image": "proxyv2",
+          "includeIPRanges": "*",
           "includeInboundPorts": "*",
           "kubevirtInterfaces": "",
           "logLevel": "warning",
@@ -7583,7 +7728,7 @@ data:
           "udsPath": ""
         },
         "securityNamespace": "istio-system",
-        "tag": "latest",
+        "tag": "istio-spec.tag",
         "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
@@ -7603,7 +7748,7 @@ data:
         "useMCP": false
       },
       "istio_cni": {
-        "enabled": false
+        "enabled": true
       },
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
@@ -8088,6 +8233,16 @@ data:
           - {{ render . }}
           {{- end }}
       {{- end }}
+      podRedirectAnnot:
+        sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
+        traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) }}"
+        traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
+        traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
+      {{- end }}
+        traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
 ---
 
 
@@ -9537,7 +9692,7 @@ spec:
               fieldPath: metadata.namespace
         - name: GOMAXPROCS
           value: "6"
-        image: gcr.io/istio-testing/mixer:latest
+        image: istio-spec.hub/mixer:istio-spec.tag
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
