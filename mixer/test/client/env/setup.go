@@ -417,7 +417,7 @@ func (s *TestSetup) unmarshalStats(statsJSON string) map[string]uint64 {
 }
 
 // VerifyStats verifies Envoy stats.
-func (s *TestSetup) VerifyStats(expectedStats map[string]int) {
+func (s *TestSetup) VerifyStats(expectedStats map[string]uint64) {
 	s.t.Helper()
 
 	check := func(actualStatsMap map[string]uint64) error {
@@ -461,7 +461,7 @@ func (s *TestSetup) VerifyStats(expectedStats map[string]int) {
 
 // VerifyStatsLT verifies that Envoy stats contains stat expectedStat, whose value is less than
 // expectedStatVal.
-func (s *TestSetup) VerifyStatsLT(actualStats string, expectedStat string, expectedStatVal int) {
+func (s *TestSetup) VerifyStatsLT(actualStats string, expectedStat string, expectedStatVal uint64) {
 	s.t.Helper()
 	actualStatsMap := s.unmarshalStats(actualStats)
 
