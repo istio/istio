@@ -49,8 +49,15 @@ const (
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
 
-	// Addon components
-	AddonComponentName ComponentName = "Addon"
+	// Addon root component
+	AddonComponentName ComponentName = "AddonComponents"
+
+	// Legacy addon components
+	PrometheusComponentName ComponentName = "Prometheus"
+	KialiComponentName      ComponentName = "Kiali"
+	GrafanaComponentName    ComponentName = "Grafana"
+	TracingComponentName    ComponentName = "Tracing"
+	CoreDNSComponentName    ComponentName = "Istiocoredns"
 
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
@@ -77,8 +84,17 @@ var (
 	DeprecatedNames = []ComponentName{
 		InjectorComponentName,
 	}
-	allComponentNamesMap        = make(map[ComponentName]bool)
-	deprecatedComponentNamesMap = make(map[ComponentName]bool)
+	AllLegacyAddonComponentNames = []ComponentName{
+		PrometheusComponentName,
+		KialiComponentName,
+		GrafanaComponentName,
+		TracingComponentName,
+		CoreDNSComponentName,
+	}
+	allComponentNamesMap         = make(map[ComponentName]bool)
+	deprecatedComponentNamesMap  = make(map[ComponentName]bool)
+	LegacyAddonComponentNamesMap = make(map[ComponentName]bool)
+	LegacyAddonComponentPathMap  = make(map[string]string)
 
 	// ComponentNameToHelmComponentPath defines mapping from component name to helm component root path.
 	// TODO: merge this with the componentMaps defined in translateConfig
@@ -102,6 +118,13 @@ func init() {
 	}
 	for _, n := range DeprecatedNames {
 		deprecatedComponentNamesMap[n] = true
+	}
+	for _, n := range AllLegacyAddonComponentNames {
+		LegacyAddonComponentNamesMap[n] = true
+		cn := strings.ToLower(string(n))
+		valuePath := fmt.Sprintf("values.%s.enabled", cn)
+		iopPath := fmt.Sprintf("addonComponents.%s.enabled", cn)
+		LegacyAddonComponentPathMap[valuePath] = iopPath
 	}
 }
 
@@ -128,12 +151,15 @@ func (cn ComponentName) IsAddon() bool {
 	return cn == AddonComponentName
 }
 
+// IsLegacyAddonComponent reports whether cn is an legacy addonComponent name.
+func (cn ComponentName) IsLegacyAddonComponent() bool {
+	return LegacyAddonComponentNamesMap[cn]
+}
+
 // IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.
 // IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.
 // TODO: remove extra validations when comfort level is high enough.
 func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (bool, error) {
-	// TODO: resolve the addon components enablement after issue: https://github.com/istio/istio/issues/20316
-	// Addon Components only need to check from values
 	// for Istio components, check whether override path exist in values part first then ISCP.
 	valuePath := ComponentNameToHelmComponentPath[componentName]
 	enabled, pathExist, err := IsComponentEnabledFromValue(valuePath, controlPlaneSpec.Values)
@@ -146,6 +172,14 @@ func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1a
 	}
 	if componentName == EgressComponentName {
 		return len(controlPlaneSpec.Components.EgressGateways) != 0, nil
+	}
+	if componentName == AddonComponentName {
+		for _, ac := range controlPlaneSpec.AddonComponents {
+			if ac.Enabled != nil && ac.Enabled.Value {
+				return true, nil
+			}
+		}
+		return false, nil
 	}
 
 	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Enabled")
