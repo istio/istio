@@ -157,7 +157,7 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string,
 			return "", nil, err
 		}
 	}
-	overlayYAML, err = translate.TranslateYAMLTree(overlayYAML, overlayYAML, name.LegacyAddonComponentPathMap)
+	overlayYAML, err = translate.OverlayYAMLTree(overlayYAML, overlayYAML, name.LegacyAddonComponentPathMap)
 	if err != nil {
 		return "", nil, fmt.Errorf("error translating addon components enablement from values of overlay files: %v", err)
 	}
@@ -170,7 +170,7 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string,
 		return "", nil, err
 	}
 
-	setOverlayYAML, err = translate.TranslateYAMLTree(setOverlayYAML, setOverlayYAML, name.LegacyAddonComponentPathMap)
+	setOverlayYAML, err = translate.OverlayYAMLTree(setOverlayYAML, setOverlayYAML, name.LegacyAddonComponentPathMap)
 	if err != nil {
 		return "", nil, fmt.Errorf("error translating addon components enablement from values of set overlay: %v", err)
 	}
