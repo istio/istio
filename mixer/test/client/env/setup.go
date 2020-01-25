@@ -407,7 +407,7 @@ func (s *TestSetup) unmarshalStats(statsJSON string) map[string]uint64 {
 
 	var statsArray stats
 	if err := json.Unmarshal([]byte(statsJSON), &statsArray); err != nil {
-		s.t.Fatalf("unable to unmarshal stats from json")
+		s.t.Fatalf("unable to unmarshal stats from json: %v", err)
 	}
 
 	for _, v := range statsArray.StatList {
