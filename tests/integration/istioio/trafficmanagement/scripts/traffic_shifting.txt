@@ -87,7 +87,6 @@ virtualservice.networking.istio.io/ratings created
 virtualservice.networking.istio.io/details created
 # $endsnippet
 
-sleep 10
 # Step 2: verify no rating stars visible, (reviews-v3 traffic=0%)
 verify_traffic_shift 0
 
@@ -98,6 +97,8 @@ $ kubectl apply -f @samples/bookinfo/networking/virtual-service-reviews-50-v3.ya
 # $verify
 virtualservice.networking.istio.io/reviews configured
 # $endsnippet
+istioctl experimental wait --for=distribution VirtualService reviews.default
+
 
 # Step 4: Confirm the rule was replaced
 
