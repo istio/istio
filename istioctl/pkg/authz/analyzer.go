@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoy_admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/golang/protobuf/ptypes"
 
@@ -37,8 +37,8 @@ import (
 type Analyzer struct {
 	nodeIP       string
 	nodeType     string
-	listenerDump *envoy_admin_v2alpha.ListenersConfigDump
-	clusterDump  *envoy_admin_v2alpha.ClustersConfigDump
+	listenerDump *envoy_admin.ListenersConfigDump
+	clusterDump  *envoy_admin.ClustersConfigDump
 }
 
 // NewAnalyzer creates a new analyzer for a given pod based on its envoy config.
