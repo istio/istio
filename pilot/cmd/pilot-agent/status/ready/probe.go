@@ -17,7 +17,7 @@ package ready
 import (
 	"fmt"
 
-	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
