@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mtls_first_party_jwt
+package mtlsfirstpartyjwt
 
 import (
 	"testing"
