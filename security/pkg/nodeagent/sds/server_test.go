@@ -40,9 +40,7 @@ import (
 const mockCAAddress = "localhost:0"
 
 var (
-	mockMeshCAServer *mca.CAServer
-	mockSTSServer    *msts.AuthorizationServer
-	validCerts       = []string{
+	validCerts = []string{
 		`-----BEGIN CERTIFICATE-----
 MIIFiDCCA3ACCQDriJFARkUboTANBgkqhkiG9w0BAQsFADCBhTELMAkGA1UEBhMC
 VVMxEzARBgNVBAgTCkNhbGlmb3JuaWExEjAQBgNVBAcTCVN1bm55dmFsZTEOMAwG
@@ -142,11 +140,6 @@ yTi7LtqQOBVq0veaVudHd+9I/JrJ
 -----END CERTIFICATE-----
 `}
 )
-
-func cleanup() {
-	mockMeshCAServer.Stop()
-	mockSTSServer.Stop()
-}
 
 func createRealSDSServer(t *testing.T, socket string) *Server {
 	// Create a local grpc server to mock Mesh CA

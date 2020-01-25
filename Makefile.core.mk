@@ -323,11 +323,12 @@ lint-go-split:
 	@golangci-lint run -c ./common/config/.golangci.yml ./sidecar-injector/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./operator/...
 
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
 
-lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
+lint: lint-python lint-copyright-banner lint-scripts lint-go-split lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh

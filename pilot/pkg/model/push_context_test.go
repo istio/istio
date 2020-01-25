@@ -68,7 +68,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:               push0,
 				Start:              t0,
 				NamespacesUpdated:  map[string]struct{}{"ns1": {}},
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg1"}: {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg1"}: {}},
 				Reason:             []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
 			&PushRequest{
@@ -76,7 +76,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:               push1,
 				Start:              t1,
 				NamespacesUpdated:  map[string]struct{}{"ns2": {}},
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg2"}: {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg2"}: {}},
 				Reason:             []TriggerReason{EndpointUpdate},
 			},
 			PushRequest{
@@ -84,7 +84,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:               push1,
 				Start:              t0,
 				NamespacesUpdated:  map[string]struct{}{"ns1": {}, "ns2": {}},
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg1"}: {}, resource.GroupVersionKind{Kind: "cfg2"}: {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg1"}: {}, {Kind: "cfg2"}: {}},
 				Reason:             []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
 		},
@@ -121,7 +121,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigTypesUpdated: nil},
-			&PushRequest{Full: true, ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg2"}: {}}},
+			&PushRequest{Full: true, ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg2"}: {}}},
 			PushRequest{Full: true, ConfigTypesUpdated: nil},
 		},
 	}
