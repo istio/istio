@@ -411,6 +411,9 @@ func (s *TestSetup) unmarshalStats(statsJSON string) map[string]uint64 {
 	}
 
 	for _, v := range statsArray.StatList {
+		if v.Value == "" {
+			continue
+		}
 		tmp, err := v.Value.Float64()
 		if err != nil {
 			s.t.Fatalf("unable to convert json.Number from stats: %v", err)
