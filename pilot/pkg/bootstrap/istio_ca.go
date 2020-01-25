@@ -21,11 +21,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pilot/pkg/features"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	"istio.io/istio/pilot/pkg/features"
 
 	oidc "github.com/coreos/go-oidc"
 	"google.golang.org/grpc"

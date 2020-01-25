@@ -15,7 +15,6 @@
 package bootstrap
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -23,7 +22,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
 	"path"
 	"strconv"
 	"strings"
