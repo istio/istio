@@ -432,21 +432,10 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
-			var percent uint32 = 100
-			if in.MirrorPercent != nil {
-				percent = in.MirrorPercent.GetValue()
-			}
-
-			if percent > 0 {
-				n := GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port)
+			if mp := mirrorPercent(in); mp != nil {
 				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
-					Cluster: n,
-					RuntimeFraction: &core.RuntimeFractionalPercent{
-						DefaultValue: &xdstype.FractionalPercent{
-							Numerator:   percent,
-							Denominator: xdstype.FractionalPercent_HUNDRED,
-						},
-					},
+					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port),
+					RuntimeFraction: mp,
 				}
 			}
 		}
@@ -526,6 +515,33 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 // SortHeaderValueOption type and the functions below (Len, Less and Swap) are for sort.Stable for type HeaderValueOption
 type SortHeaderValueOption []*core.HeaderValueOption
+
+// mirrorPercent computes the mirror percent to be used based on "Mirror" data in route.
+func mirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
+	switch {
+	case in.MirrorPercentage != nil:
+		if in.MirrorPercentage.GetValue() > 0 {
+			return &core.RuntimeFractionalPercent{
+				DefaultValue: translatePercentToFractionalPercent(in.MirrorPercentage),
+			}
+		}
+		// If zero percent is provided explicitly, we should not mirror.
+		return nil
+	case in.MirrorPercent != nil:
+		if in.MirrorPercent.GetValue() > 0 {
+			return &core.RuntimeFractionalPercent{
+				DefaultValue: translateIntegerToFractionalPercent((int32(in.MirrorPercent.GetValue()))),
+			}
+		}
+		// If zero percent is provided explicitly, we should not mirror.
+		return nil
+	default:
+		// Default to 100 percent if percent is not given.
+		return &core.RuntimeFractionalPercent{
+			DefaultValue: translateIntegerToFractionalPercent(100),
+		}
+	}
+}
 
 // Len is i the sort.Interface for SortHeaderValueOption
 func (b SortHeaderValueOption) Len() int {
@@ -831,8 +847,8 @@ func translatePercentToFractionalPercent(p *networking.Percent) *xdstype.Fractio
 // envoy.type.FractionalPercent instance.
 func translateIntegerToFractionalPercent(p int32) *xdstype.FractionalPercent {
 	return &xdstype.FractionalPercent{
-		Numerator:   uint32(p * 10000),
-		Denominator: xdstype.FractionalPercent_MILLION,
+		Numerator:   uint32(p),
+		Denominator: xdstype.FractionalPercent_HUNDRED,
 	}
 }
 
