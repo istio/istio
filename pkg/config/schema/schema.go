@@ -157,8 +157,8 @@ func ParseAndBuild(yamlText string) (*Metadata, error) {
 
 // Build strongly-typed Metadata from parsed AST.
 func Build(astm *ast.Metadata) (*Metadata, error) {
-	resourceKey := func(group, kind string) string {
-		return group + "/" + kind
+	resourceKey := func(group, version, kind string) string {
+		return group + "/" + version + "/" + kind
 	}
 
 	resources := make(map[string]resource.Schema)
@@ -206,7 +206,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			return nil, err
 		}
 
-		key := resourceKey(ar.Group, ar.Kind)
+		key := resourceKey(ar.Group, ar.Version, ar.Kind)
 		if _, ok := resources[key]; ok {
 			return nil, fmt.Errorf("found duplicate resource for resource (%s)", key)
 		}
@@ -216,7 +216,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 	cBuilder := collection.NewSchemasBuilder()
 	kubeBuilder := collection.NewSchemasBuilder()
 	for _, c := range astm.Collections {
-		key := resourceKey(c.Group, c.Kind)
+		key := resourceKey(c.Group, c.Version, c.Kind)
 		r, found := resources[key]
 		if !found {
 			return nil, fmt.Errorf("failed locating resource (%s) for collection %s", key, c.Name)

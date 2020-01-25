@@ -78,123 +78,181 @@ collections:
   - name: "istio/authentication/v1alpha1/meshpolicies"
     kind: "MeshPolicy"
     group: "authentication.istio.io"
+    version: "v1alpha1"
     pilot: true
 
   - name: "istio/authentication/v1alpha1/policies"
     kind: "Policy"
     group: "authentication.istio.io"
+    version: "v1alpha1"
     pilot: true
 
   - name: "istio/config/v1alpha2/adapters"
     kind: "adapter"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "istio/config/v1alpha2/httpapispecs"
     kind: "HTTPAPISpec"
     group: "config.istio.io"
+    version: "v1alpha2"
     pilot: true
 
   - name: "istio/config/v1alpha2/httpapispecbindings"
     kind: "HTTPAPISpecBinding"
     group: "config.istio.io"
+    version: "v1alpha2"
     pilot: true
 
   - name: "istio/config/v1alpha2/templates"
     kind: "template"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "istio/mesh/v1alpha1/MeshConfig"
     kind: "MeshConfig"
     group: ""
+    version: "v1alpha1"
 
+  # The QuotaSpec and QuotaSpecBinding collections here look incorrect but they are not.
+  # The collection name is not consistent with other collections which following a
+  # convention of <prefix>/<group>/<version>/<kind>. This should really be
+  # "istio/config/v1alpha2/quotaspecs". We can't fix this without breaking comparability
+  # with older versions of Istio. The 'v1' version is also incorrect. The `+"`"+`v1alpha2`+"`"+` here
+  # matches the version used by the resource/CRD. It's probably not worth fixing these since
+  # they should go away with telemetry v2.
   - name: "istio/mixer/v1/config/client/quotaspecs"
     kind: "QuotaSpec"
     group: "config.istio.io"
+    version: "v1alpha2"
     pilot: true
 
   - name: "istio/mixer/v1/config/client/quotaspecbindings"
     kind: "QuotaSpecBinding"
     group: "config.istio.io"
+    version: "v1alpha2"
     pilot: true
 
   - name: "istio/networking/v1alpha3/destinationrules"
     kind: "DestinationRule"
     group: "networking.istio.io"
+    version: "v1alpha3"
     pilot: true
+
+  - name: "istio/networking/v1beta1/destinationrules"
+    kind: "DestinationRule"
+    group: "networking.istio.io"
+    version: "v1beta1"
 
   - name: "istio/networking/v1alpha3/envoyfilters"
     kind: "EnvoyFilter"
     group: "networking.istio.io"
+    version: "v1alpha3"
     pilot: true
 
   - name: "istio/networking/v1alpha3/gateways"
     kind: "Gateway"
     group: "networking.istio.io"
+    version: "v1alpha3"
     pilot: true
+
+  - name: "istio/networking/v1beta1/gateways"
+    kind: "Gateway"
+    group: "networking.istio.io"
+    version: "v1beta1"
 
   - name: "istio/networking/v1alpha3/serviceentries"
     kind: "ServiceEntry"
     group: "networking.istio.io"
+    version: "v1alpha3"
     pilot: true
+
+  - name: "istio/networking/v1beta1/serviceentries"
+    kind: "ServiceEntry"
+    group: "networking.istio.io"
+    version: "v1beta1"
 
   - name: "istio/networking/v1alpha3/synthetic/serviceentries"
     kind: "ServiceEntry"
     group: "networking.istio.io"
+    version: "v1alpha3"
 
   - name: "istio/networking/v1alpha3/sidecars"
     kind: "Sidecar"
     group: "networking.istio.io"
+    version: "v1alpha3"
     pilot: true
+
+  - name: "istio/networking/v1beta1/sidecars"
+    kind: "Sidecar"
+    group: "networking.istio.io"
+    version: "v1beta1"
 
   - name: "istio/networking/v1alpha3/virtualservices"
     kind: "VirtualService"
     group: "networking.istio.io"
+    version: "v1alpha3"
     pilot: true
+
+  - name: "istio/networking/v1beta1/virtualservices"
+    kind: "VirtualService"
+    group: "networking.istio.io"
+    version: "v1beta1"
 
   - name: "istio/policy/v1beta1/attributemanifests"
     kind: "attributemanifest"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "istio/policy/v1beta1/instances"
     kind: "instance"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "istio/policy/v1beta1/handlers"
     kind: "handler"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "istio/policy/v1beta1/rules"
     kind: "rule"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "istio/rbac/v1alpha1/clusterrbacconfigs"
     kind: "ClusterRbacConfig"
     group: "rbac.istio.io"
+    version: "v1alpha1"
     pilot: true
 
   - name: "istio/rbac/v1alpha1/rbacconfigs"
     kind: "RbacConfig"
     group: "rbac.istio.io"
+    version: "v1alpha1"
     pilot: true
 
   - name: "istio/rbac/v1alpha1/servicerolebindings"
     kind: "ServiceRoleBinding"
     group: "rbac.istio.io"
+    version: "v1alpha1"
     pilot: true
 
   - name: "istio/rbac/v1alpha1/serviceroles"
     kind: "ServiceRole"
     group: "rbac.istio.io"
+    version: "v1alpha1"
     pilot: true
 
   - name: "istio/security/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"
     group: "security.istio.io"
+    version: "v1beta1"
     pilot: true
 
   - name: "istio/security/v1beta1/requestauthentications"
     kind: "RequestAuthentication"
     group: "security.istio.io"
+    version: "v1beta1"
     pilot: true
 
   ### K8s collections ###
@@ -203,133 +261,191 @@ collections:
   - name: "k8s/apps/v1/deployments"
     kind: "Deployment"
     group: "apps"
+    version: "v1"
 
   - name: "k8s/core/v1/endpoints"
     kind: "Endpoints"
     group: ""
+    version: "v1"
 
   - name: "k8s/core/v1/namespaces"
     kind: "Namespace"
     group: ""
+    version: "v1"
 
   - name: "k8s/core/v1/nodes"
     kind: "Node"
     group: ""
+    version: "v1"
 
   - name: "k8s/core/v1/pods"
     kind: "Pod"
     group: ""
+    version: "v1"
 
   - name: "k8s/core/v1/secrets"
     kind: "Secret"
     group: ""
+    version: "v1"
 
   - name: "k8s/core/v1/services"
     kind: "Service"
     group: ""
+    version: "v1"
 
   - name: "k8s/extensions/v1beta1/ingresses"
     kind: "Ingress"
     group: "extensions"
+    version: "v1beta1"
 
   # Istio CRD collections
   - name: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
     kind: "MeshPolicy"
     group: "authentication.istio.io"
+    version: "v1alpha1"
 
   - name: "k8s/authentication.istio.io/v1alpha1/policies"
     kind: "Policy"
     group: "authentication.istio.io"
+    version: "v1alpha1"
 
   - name: "k8s/config.istio.io/v1alpha2/adapters"
     kind: "adapter"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "k8s/config.istio.io/v1alpha2/attributemanifests"
     kind: "attributemanifest"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "k8s/config.istio.io/v1alpha2/httpapispecs"
     kind: "HTTPAPISpec"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "k8s/config.istio.io/v1alpha2/httpapispecbindings"
     kind: "HTTPAPISpecBinding"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "k8s/config.istio.io/v1alpha2/instances"
     kind: "instance"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "k8s/config.istio.io/v1alpha2/templates"
     kind: "template"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "k8s/config.istio.io/v1alpha2/quotaspecs"
     kind: "QuotaSpec"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "k8s/config.istio.io/v1alpha2/quotaspecbindings"
     kind: "QuotaSpecBinding"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "k8s/config.istio.io/v1alpha2/rules"
     kind: "rule"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "k8s/networking.istio.io/v1alpha3/destinationrules"
     kind: "DestinationRule"
     group: "networking.istio.io"
+    version: "v1alpha3"
+
+  - name: "k8s/networking.istio.io/v1beta1/destinationrules"
+    kind: "DestinationRule"
+    group: "networking.istio.io"
+    version: "v1beta1"
 
   - name: "k8s/networking.istio.io/v1alpha3/envoyfilters"
     kind: "EnvoyFilter"
     group: "networking.istio.io"
+    version: "v1alpha3"
 
   - name: "k8s/networking.istio.io/v1alpha3/gateways"
     kind: "Gateway"
     group: "networking.istio.io"
+    version: "v1alpha3"
+
+  - name: "k8s/networking.istio.io/v1beta1/gateways"
+    kind: "Gateway"
+    group: "networking.istio.io"
+    version: "v1beta1"
 
   - name: "k8s/networking.istio.io/v1alpha3/serviceentries"
     kind: "ServiceEntry"
     group: "networking.istio.io"
+    version: "v1alpha3"
+
+  - name: "k8s/networking.istio.io/v1beta1/serviceentries"
+    kind: "ServiceEntry"
+    group: "networking.istio.io"
+    version: "v1beta1"
 
   - name: "k8s/networking.istio.io/v1alpha3/sidecars"
     kind: "Sidecar"
     group: "networking.istio.io"
+    version: "v1alpha3"
+
+  - name: "k8s/networking.istio.io/v1beta1/sidecars"
+    kind: "Sidecar"
+    group: "networking.istio.io"
+    version: "v1beta1"
 
   - name: "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind: "VirtualService"
     group: "networking.istio.io"
+    version: "v1alpha3"
+
+  - name: "k8s/networking.istio.io/v1beta1/virtualservices"
+    kind: "VirtualService"
+    group: "networking.istio.io"
+    version: "v1beta1"
 
   - name: "k8s/config.istio.io/v1alpha2/handlers"
     kind: "handler"
     group: "config.istio.io"
+    version: "v1alpha2"
 
   - name: "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs"
     kind: "ClusterRbacConfig"
     group: "rbac.istio.io"
+    version: "v1alpha1"
 
   - name: "k8s/rbac.istio.io/v1alpha1/policy"
     kind: "ServiceRoleBinding"
     group: "rbac.istio.io"
+    version: "v1alpha1"
 
   - name: "k8s/rbac.istio.io/v1alpha1/rbacconfigs"
     kind: "RbacConfig"
     group: "rbac.istio.io"
+    version: "v1alpha1"
 
   - name: "k8s/rbac.istio.io/v1alpha1/serviceroles"
     kind: "ServiceRole"
     group: "rbac.istio.io"
+    version: "v1alpha1"
 
   - name: "k8s/security.istio.io/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"
     group: "security.istio.io"
+    version: "v1beta1"
 
   - name: "k8s/security.istio.io/v1beta1/requestauthentications"
     kind: "RequestAuthentication"
     group: "security.istio.io"
+    version: "v1beta1"
 
-# The snapshots to generate
+# The snapshots to generate.
+# NOTE: v1beta1 networking APIS are omitted here. We'll continue to watch the v1alpha3 APIS for now.
 snapshots:
   # Used by Galley to distribute configuration.
   - name: "default"
@@ -453,12 +569,28 @@ resources:
     version: "v1alpha3"
     proto: "istio.networking.v1alpha3.VirtualService"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes v1alpha3 route rules"
+    description: "describes route rules"
+
+  - kind: "VirtualService"
+    plural: "virtualservices"
+    group: "networking.istio.io"
+    version: "v1beta1"
+    proto: "istio.networking.v1alpha3.VirtualService"
+    protoPackage: "istio.io/api/networking/v1alpha3"
+    description: "describes route rules"
 
   - kind: "Gateway"
     plural: "gateways"
     group: "networking.istio.io"
     version: "v1alpha3"
+    proto: "istio.networking.v1alpha3.Gateway"
+    protoPackage: "istio.io/api/networking/v1alpha3"
+    description: "describes a gateway (how a proxy is exposed on the network)"
+
+  - kind: "Gateway"
+    plural: "gateways"
+    group: "networking.istio.io"
+    version: "v1beta1"
     proto: "istio.networking.v1alpha3.Gateway"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes a gateway (how a proxy is exposed on the network)"
@@ -471,10 +603,26 @@ resources:
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes service entries"
 
+  - kind: "ServiceEntry"
+    plural: "serviceentries"
+    group: "networking.istio.io"
+    version: "v1beta1"
+    proto: "istio.networking.v1alpha3.ServiceEntry"
+    protoPackage: "istio.io/api/networking/v1alpha3"
+    description: "describes service entries"
+
   - kind: "DestinationRule"
     plural: "destinationrules"
     group: "networking.istio.io"
     version: "v1alpha3"
+    proto: "istio.networking.v1alpha3.DestinationRule"
+    protoPackage: "istio.io/api/networking/v1alpha3"
+    description: "describes destination rules"
+
+  - kind: "DestinationRule"
+    plural: "destinationrules"
+    group: "networking.istio.io"
+    version: "v1beta1"
     proto: "istio.networking.v1alpha3.DestinationRule"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes destination rules"
@@ -491,6 +639,14 @@ resources:
     plural: "sidecars"
     group: "networking.istio.io"
     version: "v1alpha3"
+    proto: "istio.networking.v1alpha3.Sidecar"
+    protoPackage: "istio.io/api/networking/v1alpha3"
+    description: "describes the listeners associated with sidecars in a namespace"
+
+  - kind: "Sidecar"
+    plural: "sidecars"
+    group: "networking.istio.io"
+    version: "v1beta1"
     proto: "istio.networking.v1alpha3.Sidecar"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes the listeners associated with sidecars in a namespace"
@@ -548,7 +704,6 @@ resources:
 
   - kind: "MeshConfig"
     plural: "meshconfigs"
-    group: ""
     version: "v1alpha1"
     proto: "istio.mesh.v1alpha1.MeshConfig"
     protoPackage: "istio.io/api/mesh/v1alpha1"

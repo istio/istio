@@ -15,6 +15,7 @@
 package schema
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -23,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/schema/ast"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
@@ -48,11 +50,11 @@ collections:
   - name:         "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
-
+    version:      "v1alpha3" 
   - name:         "istio/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
-
+    version:      "v1alpha3"
 snapshots:
   - name: "default"
     strategy: debounce
@@ -152,6 +154,7 @@ collections:
   - name:  "$$$"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -169,9 +172,11 @@ collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -189,6 +194,7 @@ collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -205,12 +211,13 @@ snapshots:
 		},
 		{
 			name:     "collection missing resource",
-			expected: "failed locating resource (networking.istio.io/VirtualService)",
+			expected: "failed locating resource (networking.istio.io/v1alpha3/VirtualService)",
 			input: `
 collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 `,
 		},
 		{
@@ -221,6 +228,7 @@ collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -242,6 +250,7 @@ collections:
   - name:  "istio/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -273,10 +282,12 @@ collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 
   - name:  "istio/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 
 snapshots:
   - name: "default"
@@ -382,6 +393,82 @@ func TestBuild_UnknownTransform(t *testing.T) {
 
 	_, err := Build(a)
 	g.Expect(err).NotTo(BeNil())
+}
+
+func TestMultipleVersions(t *testing.T) {
+	var input = `
+collections:
+ - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
+   kind:         "VirtualService"
+   group:        "networking.istio.io"
+   version:      "v1alpha3"
+
+ - name:  "k8s/networking.istio.io/v1beta1/virtualservices"
+   kind:         "VirtualService"
+   group:        "networking.istio.io"
+   version:      "v1beta1"
+
+ - name:  "istio/networking.istio.io/v1alpha3/virtualservices"
+   kind:         "VirtualService"
+   group:        "networking.istio.io"
+   version:      "v1alpha3"
+
+ - name:  "istio/networking.istio.io/v1beta1/virtualservices"
+   kind:         "VirtualService"
+   group:        "networking.istio.io"
+   version:      "v1beta1"
+
+resources:
+ - kind:         "VirtualService"
+   plural:       "virtualservices"
+   group:        "networking.istio.io"
+   version:      "v1alpha3"
+   proto:        "istio.networking.v1alpha3.VirtualService"
+   protoPackage: "istio.io/api/networking/v1alpha3"
+
+ - kind:         "VirtualService"
+   plural:       "virtualservices"
+   group:        "networking.istio.io"
+   version:      "v1beta1"
+   proto:        "istio.networking.v1alpha3.VirtualService"
+   protoPackage: "istio.io/api/networking/v1alpha3"
+
+transforms:
+ - type: direct
+   mapping:
+     "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking.istio.io/v1alpha3/virtualservices"
+     "k8s/networking.istio.io/v1beta1/virtualservices": "istio/networking.istio.io/v1beta1/virtualservices"
+`
+	g := NewGomegaWithT(t)
+
+	s, err := ParseAndBuild(input)
+	g.Expect(err).To(BeNil())
+
+	cases := []struct {
+		group, version, kind string
+		valid                bool
+	}{
+		{"networking.istio.io", "v1alpha3", "VirtualService", true},
+		{"networking.istio.io", "v1beta1", "VirtualService", true},
+		{"networking.istio.io", "v1beta2", "VirtualService", false},
+	}
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%v] %v/%v/%v", i, c.group, c.version, c.kind), func(tt *testing.T) {
+			gvk := resource.GroupVersionKind{
+				Group:   c.group,
+				Version: c.version,
+				Kind:    c.kind,
+			}
+			schema, ok := s.AllCollections().FindByGroupVersionKind(gvk)
+			g.Expect(ok).Should(Equal(c.valid))
+			if c.valid {
+				g.Expect(schema.Resource().Group()).Should(Equal(c.group))
+				g.Expect(schema.Resource().Version()).Should(Equal(c.version))
+				g.Expect(schema.Resource().Kind()).Should(Equal(c.kind))
+			}
+		})
+	}
+
 }
 
 type unknownXformSettings struct {

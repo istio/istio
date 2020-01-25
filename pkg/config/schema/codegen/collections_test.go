@@ -41,6 +41,7 @@ func TestStaticCollections(t *testing.T) {
 						Description:  "describes a really cool foo thing",
 						Group:        "foo.group",
 						Kind:         "fookind",
+						Version:      "v1",
 						Disabled:     true,
 					},
 					{
@@ -49,6 +50,7 @@ func TestStaticCollections(t *testing.T) {
 						Description:  "describes a really cool bar thing",
 						Group:        "bar.group",
 						Kind:         "barkind",
+						Version:      "v1",
 						Disabled:     false,
 					},
 				},

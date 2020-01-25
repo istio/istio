@@ -227,8 +227,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: valid-rule
-spec:
-  badField: oops
+specTypo:
   match: request.headers["clnt"] == "abc"
   actions:
   - handler: handler-for-valid-rule.denier

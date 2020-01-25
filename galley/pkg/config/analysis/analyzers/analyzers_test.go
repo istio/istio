@@ -468,6 +468,10 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	existingNames := make(map[string]struct{})
 	for _, a := range All() {
 		n := a.Metadata().Name
+		if strings.HasPrefix(n, "schema.ValidationAnalyzer") {
+			// We may have more than one validator for different versions of the same group/kind.
+			continue
+		}
 		_, ok := existingNames[n]
 		g.Expect(ok).To(BeFalse(), fmt.Sprintf("Analyzer name %q is used more than once. "+
 			"Analyzers should be registered in All() exactly once and have a unique name.", n))

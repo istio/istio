@@ -299,6 +299,96 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// IstioNetworkingV1Beta1Destinationrules describes the collection
+	// istio/networking/v1beta1/destinationrules
+	IstioNetworkingV1Beta1Destinationrules = collection.Builder{
+		Name:         "istio/networking/v1beta1/destinationrules",
+		VariableName: "IstioNetworkingV1Beta1Destinationrules",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "DestinationRule",
+			Plural:        "destinationrules",
+			Version:       "v1beta1",
+			Proto:         "istio.networking.v1alpha3.DestinationRule",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateDestinationRule,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// IstioNetworkingV1Beta1Gateways describes the collection
+	// istio/networking/v1beta1/gateways
+	IstioNetworkingV1Beta1Gateways = collection.Builder{
+		Name:         "istio/networking/v1beta1/gateways",
+		VariableName: "IstioNetworkingV1Beta1Gateways",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "Gateway",
+			Plural:        "gateways",
+			Version:       "v1beta1",
+			Proto:         "istio.networking.v1alpha3.Gateway",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateGateway,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// IstioNetworkingV1Beta1Serviceentries describes the collection
+	// istio/networking/v1beta1/serviceentries
+	IstioNetworkingV1Beta1Serviceentries = collection.Builder{
+		Name:         "istio/networking/v1beta1/serviceentries",
+		VariableName: "IstioNetworkingV1Beta1Serviceentries",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "ServiceEntry",
+			Plural:        "serviceentries",
+			Version:       "v1beta1",
+			Proto:         "istio.networking.v1alpha3.ServiceEntry",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateServiceEntry,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// IstioNetworkingV1Beta1Sidecars describes the collection
+	// istio/networking/v1beta1/sidecars
+	IstioNetworkingV1Beta1Sidecars = collection.Builder{
+		Name:         "istio/networking/v1beta1/sidecars",
+		VariableName: "IstioNetworkingV1Beta1Sidecars",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "Sidecar",
+			Plural:        "sidecars",
+			Version:       "v1beta1",
+			Proto:         "istio.networking.v1alpha3.Sidecar",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateSidecar,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// IstioNetworkingV1Beta1Virtualservices describes the collection
+	// istio/networking/v1beta1/virtualservices
+	IstioNetworkingV1Beta1Virtualservices = collection.Builder{
+		Name:         "istio/networking/v1beta1/virtualservices",
+		VariableName: "IstioNetworkingV1Beta1Virtualservices",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "VirtualService",
+			Plural:        "virtualservices",
+			Version:       "v1beta1",
+			Proto:         "istio.networking.v1alpha3.VirtualService",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateVirtualService,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// IstioPolicyV1Beta1Attributemanifests describes the collection
 	// istio/policy/v1beta1/attributemanifests
 	IstioPolicyV1Beta1Attributemanifests = collection.Builder{
@@ -940,6 +1030,96 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SNetworkingIstioIoV1Beta1Destinationrules describes the collection
+	// k8s/networking.istio.io/v1beta1/destinationrules
+	K8SNetworkingIstioIoV1Beta1Destinationrules = collection.Builder{
+		Name:         "k8s/networking.istio.io/v1beta1/destinationrules",
+		VariableName: "K8SNetworkingIstioIoV1Beta1Destinationrules",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "DestinationRule",
+			Plural:        "destinationrules",
+			Version:       "v1beta1",
+			Proto:         "istio.networking.v1alpha3.DestinationRule",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateDestinationRule,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SNetworkingIstioIoV1Beta1Gateways describes the collection
+	// k8s/networking.istio.io/v1beta1/gateways
+	K8SNetworkingIstioIoV1Beta1Gateways = collection.Builder{
+		Name:         "k8s/networking.istio.io/v1beta1/gateways",
+		VariableName: "K8SNetworkingIstioIoV1Beta1Gateways",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "Gateway",
+			Plural:        "gateways",
+			Version:       "v1beta1",
+			Proto:         "istio.networking.v1alpha3.Gateway",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateGateway,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SNetworkingIstioIoV1Beta1Serviceentries describes the collection
+	// k8s/networking.istio.io/v1beta1/serviceentries
+	K8SNetworkingIstioIoV1Beta1Serviceentries = collection.Builder{
+		Name:         "k8s/networking.istio.io/v1beta1/serviceentries",
+		VariableName: "K8SNetworkingIstioIoV1Beta1Serviceentries",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "ServiceEntry",
+			Plural:        "serviceentries",
+			Version:       "v1beta1",
+			Proto:         "istio.networking.v1alpha3.ServiceEntry",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateServiceEntry,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SNetworkingIstioIoV1Beta1Sidecars describes the collection
+	// k8s/networking.istio.io/v1beta1/sidecars
+	K8SNetworkingIstioIoV1Beta1Sidecars = collection.Builder{
+		Name:         "k8s/networking.istio.io/v1beta1/sidecars",
+		VariableName: "K8SNetworkingIstioIoV1Beta1Sidecars",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "Sidecar",
+			Plural:        "sidecars",
+			Version:       "v1beta1",
+			Proto:         "istio.networking.v1alpha3.Sidecar",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateSidecar,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SNetworkingIstioIoV1Beta1Virtualservices describes the collection
+	// k8s/networking.istio.io/v1beta1/virtualservices
+	K8SNetworkingIstioIoV1Beta1Virtualservices = collection.Builder{
+		Name:         "k8s/networking.istio.io/v1beta1/virtualservices",
+		VariableName: "K8SNetworkingIstioIoV1Beta1Virtualservices",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "VirtualService",
+			Plural:        "virtualservices",
+			Version:       "v1beta1",
+			Proto:         "istio.networking.v1alpha3.VirtualService",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateVirtualService,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SRbacIstioIoV1Alpha1Clusterrbacconfigs describes the collection
 	// k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs
 	K8SRbacIstioIoV1Alpha1Clusterrbacconfigs = collection.Builder{
@@ -1066,6 +1246,11 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3SyntheticServiceentries).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
+		MustAdd(IstioNetworkingV1Beta1Destinationrules).
+		MustAdd(IstioNetworkingV1Beta1Gateways).
+		MustAdd(IstioNetworkingV1Beta1Serviceentries).
+		MustAdd(IstioNetworkingV1Beta1Sidecars).
+		MustAdd(IstioNetworkingV1Beta1Virtualservices).
 		MustAdd(IstioPolicyV1Beta1Attributemanifests).
 		MustAdd(IstioPolicyV1Beta1Handlers).
 		MustAdd(IstioPolicyV1Beta1Instances).
@@ -1102,6 +1287,11 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Serviceentries).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Destinationrules).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Gateways).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Serviceentries).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Sidecars).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Virtualservices).
 		MustAdd(K8SRbacIstioIoV1Alpha1Clusterrbacconfigs).
 		MustAdd(K8SRbacIstioIoV1Alpha1Policy).
 		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
@@ -1128,6 +1318,11 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3SyntheticServiceentries).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
+		MustAdd(IstioNetworkingV1Beta1Destinationrules).
+		MustAdd(IstioNetworkingV1Beta1Gateways).
+		MustAdd(IstioNetworkingV1Beta1Serviceentries).
+		MustAdd(IstioNetworkingV1Beta1Sidecars).
+		MustAdd(IstioNetworkingV1Beta1Virtualservices).
 		MustAdd(IstioPolicyV1Beta1Attributemanifests).
 		MustAdd(IstioPolicyV1Beta1Handlers).
 		MustAdd(IstioPolicyV1Beta1Instances).
@@ -1168,6 +1363,11 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Serviceentries).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Destinationrules).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Gateways).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Serviceentries).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Sidecars).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Virtualservices).
 		MustAdd(K8SRbacIstioIoV1Alpha1Clusterrbacconfigs).
 		MustAdd(K8SRbacIstioIoV1Alpha1Policy).
 		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).

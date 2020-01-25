@@ -53,11 +53,11 @@ func NewFileSnapshot(root string, schemas collection.Schemas) *FileSnapshot {
 
 	ss := schemas.All()
 	if len(ss) == 0 {
-		ss = collections.Pilot.All()
+		ss = collections.Istio.All()
 	}
 
 	for _, k := range ss {
-		if _, ok := collections.Pilot.FindByGroupVersionKind(k.Resource().GroupVersionKind()); ok {
+		if _, ok := collections.Istio.FindByGroupVersionKind(k.Resource().GroupVersionKind()); ok {
 			snapshot.configTypeFilter[k.Resource().GroupVersionKind()] = true
 		}
 	}
