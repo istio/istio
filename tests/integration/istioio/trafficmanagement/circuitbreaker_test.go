@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package circuitbreaker
+package trafficmanagement
 
 import (
 	"testing"
@@ -24,9 +24,13 @@ func TestCircuitbreaker(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(istioio.NewBuilder("tasks__traffic_management__circuit_breaking").
-			Add(istioio.Script{Input: istioio.Path("scripts/circuitbreaker_setup.txt")}).
-			Add(istioio.MultiPodWait("istio-io-circuitbreaker")).
-			Add(istioio.Script{Input: istioio.Path("scripts/trip_circuitbreaker.txt")}).
-			Defer(istioio.Script{Input: istioio.Path("scripts/cleanup.txt")}).
+			Add(
+				istioio.Script{Input: istioio.Path("scripts/circuitbreaker_test_setup.txt")},
+				istioio.MultiPodWait("istio-io-circuitbreaker"),
+				istioio.Script{
+					Input:        istioio.Evaluate(istioio.Path("scripts/trip_circuitbreaker.txt"), map[string]interface{}{"isSnippet": false}),
+					SnippetInput: istioio.Evaluate(istioio.Path("scripts/trip_circuitbreaker.txt"), map[string]interface{}{"isSnippet": true}),
+				}).
+			Defer(istioio.Script{Input: istioio.Path("scripts/circuitbreaker_test_cleanup.txt")}).
 			Build())
 }
