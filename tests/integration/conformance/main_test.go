@@ -38,13 +38,13 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("conformance_test", m).
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
-		cfg.ControlPlaneValues = `
+			cfg.ControlPlaneValues = `
 components:
   galley:
     enabled: true
   citadel:
     enabled: true
 `
-	})).
+		})).
 		Run()
 }
