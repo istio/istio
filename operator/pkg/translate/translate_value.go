@@ -40,7 +40,7 @@ type ReverseTranslator struct {
 	KubernetesMapping map[string]*Translation `yaml:"kubernetesMapping,omitempty"`
 	// GatewayKubernetesMapping defines actual k8s mappings for gateway components generated from KubernetesPatternMapping before each translation.
 	GatewayKubernetesMapping map[string]*Translation `yaml:"GatewayKubernetesMapping,omitempty"`
-	// ValuesToFeatureComponentName defines mapping from value path to feature and component name in API paths.
+	// ValuesToComponentName defines mapping from value path to component name in API paths.
 	ValuesToComponentName map[string]name.ComponentName `yaml:"valuesToComponentName,omitempty"`
 }
 
@@ -64,7 +64,7 @@ var (
 		name.CNIComponentName:                true,
 	}
 
-	gatewayPathMapping = map[string]string {
+	gatewayPathMapping = map[string]string{
 		"gateways.istio-ingressgateway": "Components.IngressGateways",
 		"gateways.istio-egressgateway":  "Components.EgressGateways",
 	}
@@ -139,7 +139,7 @@ func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) err
 				return err
 			}
 			newP := util.PathFromString(outPathTmpl)
-			gwOutputMapping [newKey] = &Translation{newP[len(newP)-2:].String(), nil}
+			gwOutputMapping[newKey] = &Translation{newP[len(newP)-2:].String(), nil}
 		}
 	}
 	t.GatewayKubernetesMapping = gwOutputMapping
@@ -166,7 +166,7 @@ func NewReverseTranslator(minorVersion version.MinorVersion) (*ReverseTranslator
 }
 
 // TranslateFromValueToSpec translates from values.yaml value to IstioOperatorSpec.
-func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte) (controlPlaneSpec *v1alpha1.IstioOperatorSpec, err error) {
+func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte, force bool) (controlPlaneSpec *v1alpha1.IstioOperatorSpec, err error) {
 
 	var yamlTree = make(map[string]interface{})
 	err = yaml.Unmarshal(values, &yamlTree)
@@ -185,7 +185,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte) (controlPlan
 	}
 
 	var cpSpec = &v1alpha1.IstioOperatorSpec{}
-	err = util.UnmarshalWithJSONPB(string(outputVal), cpSpec)
+	err = util.UnmarshalWithJSONPB(string(outputVal), cpSpec, force)
 
 	if err != nil {
 		return nil, fmt.Errorf("error when unmarshalling into control plane spec %v, \nyaml:\n %s", err, outputVal)

@@ -290,7 +290,7 @@ values:
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}
 			scope.Debugf("value struct: \n%s\n", pretty.Sprint(valueStruct))
-			gotSpec, err := tr.TranslateFromValueToSpec([]byte(tt.valueYAML))
+			gotSpec, err := tr.TranslateFromValueToSpec([]byte(tt.valueYAML), false)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Errorf("ValuesToProto(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.valueYAML, gotErr, wantErr)
 			}

@@ -206,7 +206,7 @@ func MakeTreeFromSetList(setOverlay []string, force bool, l *Logger) (string, er
 			return "", err
 		}
 		iops := &v1alpha1.IstioOperatorSpec{}
-		if err := util.UnmarshalWithJSONPB(string(testTree), iops); err != nil {
+		if err := util.UnmarshalWithJSONPB(string(testTree), iops, false); err != nil {
 			return "", fmt.Errorf("bad path=value: %s", kv)
 		}
 		if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {

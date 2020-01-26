@@ -151,7 +151,7 @@ func ParseK8SYAMLToIstioOperatorSpec(yml string) (*v1alpha1.IstioOperatorSpec, *
 		return nil, nil, err
 	}
 	iop := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(string(y), iop); err != nil {
+	if err := util.UnmarshalWithJSONPB(string(y), iop, false); err != nil {
 		return nil, nil, err
 	}
 	gvk := o.GroupVersionKind()

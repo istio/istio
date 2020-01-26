@@ -50,7 +50,7 @@ const (
 	EgressComponentName  ComponentName = "EgressGateways"
 
 	// Addon components
-	AddonComponentName ComponentName = "Addon"
+	AddonComponentName ComponentName = "AddonComponents"
 
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
