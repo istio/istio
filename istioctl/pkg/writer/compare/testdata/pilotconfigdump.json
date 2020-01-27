@@ -1,11 +1,11 @@
 {
     "configs": [
         {
-            "@type": "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump",
+            "@type": "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump",
             "bootstrap": {}
         },
         {
-            "@type": "type.googleapis.com/envoy.admin.v2alpha.ClustersConfigDump",
+            "@type": "type.googleapis.com/envoy.admin.v3.ClustersConfigDump",
             "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
             "dynamicActiveClusters": [
                 {
@@ -36,7 +36,7 @@
             ]
         },
         {
-            "@type": "type.googleapis.com/envoy.admin.v2alpha.ListenersConfigDump",
+            "@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
             "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
             "dynamicListeners": [
               {
@@ -267,7 +267,7 @@
             ]
         },
         {
-            "@type": "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump",
+            "@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
             "dynamicRouteConfigs": [
                 {
                     "versionInfo": "2018-06-19 06:21:16.597131985 +0000 UTC m=+38444.053119011",

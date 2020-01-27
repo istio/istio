@@ -1380,7 +1380,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 	cd := configdump.Wrapper{}
 	err = cd.UnmarshalJSON(byConfigDump)
 	if err != nil {
-		return fmt.Errorf("can't parse sidecar config_dump: %v", err)
+		return fmt.Errorf("can't parse sidecar config_dump for %v: %v", err, pod.ObjectMeta.Name)
 	}
 
 	// If the sidecar is on Envoy 1.3 or higher, don't complain about empty K8s Svc Port name
