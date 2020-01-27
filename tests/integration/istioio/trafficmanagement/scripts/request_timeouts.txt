@@ -18,34 +18,11 @@ set -e
 set -u
 set -o pipefail
 
-# TODO: Find better way to re-use HOST in multiple test
 # Export HOST, PORT and URL
 # $snippet export_gateway_url_1.sh syntax="bash"
-INGRESS_NS=${INGRESS_NS:-istio-system}
-INGRESS_HOST=$(kubectl -n "${INGRESS_NS}" get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-export INGRESS_HOST
-INGRESS_PORT=$(kubectl -n "${INGRESS_NS}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
-export INGRESS_PORT
-SECURE_INGRESS_PORT=$(kubectl -n "${INGRESS_NS}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
-export SECURE_INGRESS_PORT
-if [ -z "$INGRESS_HOST" ]; then
-    INGRESS_HOST=$(kubectl get po -l istio=ingressgateway -n "${INGRESS_NS}" -o jsonpath='{.items[0].status.hostIP}')
-    export INGRESS_HOST
-    INGRESS_PORT=$(kubectl -n "${INGRESS_NS}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
-    export INGRESS_PORT
-    SECURE_INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].nodePort}')
-    export SECURE_INGRESS_PORT
-fi
-MINIKUBE_IP=$(minikube ip)
-if [ -n "$MINIKUBE_IP" ]; then
-    INGRESS_HOST=$(minikube ip)
-    export INGRESS_HOST
-    INGRESS_PORT=$(kubectl -n "${INGRESS_NS}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
-    export INGRESS_PORT
-    SECURE_INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].nodePort}')
-    export SECURE_INGRESS_PORT
-fi
-export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
+$ export INGRESS_HOST={{ .ingressHostCommand }}
+$ export INGRESS_PORT={{ .ingressPortCommand }}
+$ export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
 # $endsnippet
 
 # Step 1: Route requests to v2 of the reviews service
@@ -87,6 +64,8 @@ spec:
         subset: v1
 EOF
 # $endsnippet
+
+echo "sending request to $GATEWAY_URL"
 
 # Step 3: Verify 2s delay with ratings stars displayed
 # $snippet verify_ratings_1.sh syntax="bash"
