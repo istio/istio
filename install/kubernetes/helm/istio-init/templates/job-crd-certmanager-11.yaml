@@ -1,4 +1,4 @@
-{{- if .Values.certmanager.enabled }}
+{{- if and .Values.certmanager.enabled .Values.job.activated }}
 apiVersion: batch/v1
 kind: Job
 metadata:

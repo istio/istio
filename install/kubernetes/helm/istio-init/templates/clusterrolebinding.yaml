@@ -1,4 +1,5 @@
-apiVersion: rbac.authorization.k8s.io/v1
+{{ if .Values.use_jobs  }}
+piVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-init-admin-role-binding-{{ .Release.Namespace }}
@@ -13,3 +14,4 @@ subjects:
   - kind: ServiceAccount
     name: istio-init-service-account
     namespace: {{ .Release.Namespace }}
+{{ end }}

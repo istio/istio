@@ -16,6 +16,7 @@ certmanager:
   enabled: false
 
 job:
+  activated: true
   resources:
     requests:
       cpu: 10m

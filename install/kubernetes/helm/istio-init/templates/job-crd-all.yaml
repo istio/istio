@@ -1,3 +1,4 @@
+{{ if .Values.job.activated }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -28,3 +29,4 @@ spec:
         configMap:
           name: istio-crd-all
       restartPolicy: OnFailure
+{{ end }}

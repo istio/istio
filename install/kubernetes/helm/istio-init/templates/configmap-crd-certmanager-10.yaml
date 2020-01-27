@@ -1,4 +1,5 @@
 {{- if .Values.certmanager.enabled }}
+{{ if .Values.job.activated }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,4 +8,7 @@ metadata:
 data:
   crd-certmanager-10.yaml: |-
 {{.Files.Get "files/crd-certmanager-10.yaml" | printf "%s" | indent 4}}
+{{ else }}
+{{ .Files.Get "files/crd-certmanager-10.yaml" }}
+{{ end }}
 {{- end }}
