@@ -247,6 +247,7 @@ func (s *StringBool) UnmarshalJSON(data []byte) error {
 // Fields should not be assumed to exist on the proxy, especially newly added fields which will not exist
 // on older versions.
 // The JSON field names should never change, as they are needed for backward compatibility with older proxies
+// nolint: maligned
 type NodeMetadata struct {
 	// IstioVersion specifies the Istio version associated with the proxy
 	IstioVersion string `json:"ISTIO_VERSION,omitempty"`
