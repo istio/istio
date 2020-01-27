@@ -585,8 +585,10 @@ values:
     selfSigned: false
   telemetry:
     enabled: true
-    v2:
+    v1:
       enabled: false
+    v2:
+      enabled: true
       prometheus:
         enabled: true
       stackdriver:
