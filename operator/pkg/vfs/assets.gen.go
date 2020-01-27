@@ -241,7 +241,6 @@
 // profiles/empty.yaml
 // profiles/minimal.yaml
 // profiles/remote.yaml
-// profiles/sds.yaml
 // translateConfig/reverseTranslateConfig-1.4.yaml
 // translateConfig/reverseTranslateConfig-1.5.yaml
 // translateConfig/translate-ICP-IOP-1.5.yaml
@@ -3425,6 +3424,7 @@ spec:
                         - REMOVE
                         - INSERT_BEFORE
                         - INSERT_AFTER
+                        - INSERT_FIRST
                         type: string
                       value:
                         description: The JSON config of the object being patched.
@@ -6958,6 +6958,7 @@ spec:
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
     spec:
+      serviceAccountName: istio-egressgateway-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -7069,6 +7070,10 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -7141,12 +7146,25 @@ spec:
           - name: SDS_ENABLED
             value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
+          {{- if eq .Values.global.pilotCertProvider "citadel" }}
+          - mountPath: /etc/istio/citadel-ca-cert
+            name: citadel-ca-cert
+          {{- end }}
+          {{- if .Values.global.istiod.enabled }}
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+          {{- end }}
+          {{- end }}
           {{ if .Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
             readOnly: true
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -7160,10 +7178,13 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{- if .Values.global.sds.enabled }}
-      - name: sdsudspath
-        hostPath:
-          path: /var/run/sds
+      {{- if eq .Values.global.pilotCertProvider "citadel" }}
+      - name: citadel-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      {{- end }}
+{{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -7171,6 +7192,21 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
+{{- end }}
+      {{- if .Values.global.sds.enabled }}
+      - name: sdsudspath
+        hostPath:
+          path: /var/run/sds
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
       {{- end }}
       {{ if .Values.global.sds.enabled }}
       - name: sdsudspath
@@ -8133,6 +8169,8 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
 {{- if .Values.global.istiod.enabled }}
@@ -8225,9 +8263,11 @@ spec:
             name: citadel-ca-cert
 {{- end }}
 {{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
+{{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
 {{ else }}
@@ -8235,8 +8275,10 @@ spec:
           - name: sdsudspath
             mountPath: /var/run/sds
             readOnly: true
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
           {{- if $gateway.sds.enabled }}
           - name: ingressgatewaysdsudspath
@@ -8263,6 +8305,7 @@ spec:
       - name: ingressgatewaysdsudspath
         emptyDir: {}
 {{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -8270,6 +8313,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
 {{- else }}
       {{- if $gateway.sds.enabled }}
       - name: ingressgatewaysdsudspath
@@ -8279,6 +8323,7 @@ spec:
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -8286,6 +8331,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
       {{- end }}
 {{- end }}
       - name: istio-certs
@@ -9727,6 +9773,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
     {{- end }}
     env:
+    - name: JWT_POLICY
+      value: {{ .Values.global.jwtPolicy }}
     - name: POD_NAME
       valueFrom:
         fieldRef:
@@ -9837,6 +9885,10 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
         value: "{{ $value }}"
     {{- end }}
     {{- end }}
+    {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+    - name: {{ $key }}
+      value: "{{ $value }}"
+    {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
     {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
     readinessProbe:
@@ -9850,16 +9902,21 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
         add:
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
         - NET_ADMIN
+        {{- end }}
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        - NET_BIND_SERVICE
+        {{- end }}
         {{- end }}
         drop:
         - ALL
       privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
-      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -9891,8 +9948,10 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - mountPath: /var/run/sds
       name: sds-uds-path
       readOnly: true
+    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
+    {{- end }}
     {{- if .Values.global.sds.customTokenDirectory }}
     - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
       name: custom-sds-token
@@ -9927,6 +9986,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   - name: sds-uds-path
     hostPath:
       path: /var/run/sds
+  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:
       sources:
@@ -9934,6 +9994,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
+  {{- end }}
   {{- if .Values.global.sds.customTokenDirectory }}
   - name: custom-sds-token
     secret:
@@ -10393,7 +10454,7 @@ spec:
 {{- if contains "/" .Values.sidecarInjectorWebhook.image }}
           image: "{{ .Values.sidecarInjectorWebhook.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.sidecarInjectorWebhook.image | default "sidecar_injector" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.sidecarInjectorWebhook.hub | default .Values.global.hub }}/{{ .Values.sidecarInjectorWebhook.image | default "sidecar_injector" }}:{{ .Values.sidecarInjectorWebhook.tag | default .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
@@ -10758,6 +10819,8 @@ var _chartsIstioControlIstioAutoinjectValuesYaml = []byte(`sidecarInjectorWebhoo
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
 
+  hub: ""
+  tag: ""
   image: sidecar_injector
 
   # This enables injection of sidecar in all namespaces,
@@ -11424,7 +11487,7 @@ spec:
 {{- if contains "/" .Values.galley.image }}
           image: "{{ .Values.galley.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.galley.image | default "galley" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.galley.hub | default .Values.global.hub }}/{{ .Values.galley.image | default "galley" }}:{{ .Values.galley.tag | default .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
@@ -11441,7 +11504,7 @@ spec:
           - --readinessProbePath=/tmp/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
-  {{- if .Values.global.configValidation }}
+  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
           - --enable-validation=true
   {{- else }}
           - --enable-validation=false
@@ -11472,7 +11535,7 @@ spec:
           - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
 {{- end }}
           volumeMounts:
-  {{- if .Values.global.configValidation }}
+  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -11861,6 +11924,8 @@ func chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl
 }
 
 var _chartsIstioControlIstioConfigValuesYaml = []byte(`galley:
+  hub: ""
+  tag: ""
   image: galley
   replicaCount: 1
   rollingMaxSurge: 100%
@@ -12294,6 +12359,10 @@ template: |
         value: "{{ $value }}"
     {{- end }}
     {{- end }}
+    {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+    - name: {{ $key }}
+      value: "{{ $value }}"
+    {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
     {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
     readinessProbe:
@@ -12307,9 +12376,14 @@ template: |
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
         add:
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
         - NET_ADMIN
+        {{- end }}
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        - NET_BIND_SERVICE
+        {{- end }}
         {{- end }}
         drop:
         - ALL
@@ -12317,7 +12391,7 @@ template: |
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
       fsGroup: 1337
-      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -12417,6 +12491,16 @@ template: |
       - {{ render . }}
       {{- end }}
   {{- end }}
+  podRedirectAnnot:
+    sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
+    traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
+    traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
+    traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` (includeInboundPorts .Spec.Containers) }}"
+    traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
+  {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
+    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+  {{- end }}
+    traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
 `)
 
 func chartsIstioControlIstioDiscoveryFilesInjectionTemplateYamlBytes() ([]byte, error) {
@@ -13525,7 +13609,7 @@ spec:
       {{- if ne .Values.version ""}}
       app: pilot
       version: {{ .Values.version }}
-      {{ else }}
+      {{- else }}
       istio: pilot
       {{- end }}
   template:
@@ -13534,7 +13618,7 @@ spec:
         app: pilot
         {{- if ne .Values.version ""}}
         version: {{ .Values.version }}
-        {{ else }}
+        {{- else }}
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
@@ -13561,7 +13645,7 @@ spec:
 {{- if contains "/" .Values.pilot.image }}
           image: "{{ .Values.pilot.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.pilot.hub | default .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.pilot.tag | default .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
@@ -13608,6 +13692,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
@@ -13655,12 +13741,12 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          {{ if .Values.global.istiod.enabled }}
-          {{ if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          {{- if .Values.global.istiod.enabled }}
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          {{ end }}
+          {{- end }}
           - name: local-certs
             mountPath: /var/run/secrets/istio-dns
           - name: cacerts
@@ -13675,7 +13761,7 @@ spec:
           - name: validation
             mountPath: /var/lib/istio/validation
             readOnly: true
-          {{ end }}
+          {{- end }}
 {{- if .Values.global.controlPlaneSecurityEnabled }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
@@ -13790,7 +13876,7 @@ spec:
           name: istio-validation
           optional: true
 
-      {{ else }}
+      {{- else }}
       {{- if .Values.global.sds.enabled }}
       - hostPath:
           path: /var/run/sds
@@ -13942,8 +14028,9 @@ metadata:
   labels:
     release: {{ .Release.Name }}
 data:
+{{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
-    {{ .Values | toJson }}
+{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" | toPrettyJson | indent 4 }}
 
   # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
   # and istiod webhook functionality.
@@ -14488,6 +14575,58 @@ spec:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-metadata-exchange-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.5.*'
+        listener: {}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.metadata_exchange
+          config:
+            protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.5.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.5.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              protocol: istio-peer-exchange
+---
 {{- if .Values.telemetry.v2.prometheus.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -14596,6 +14735,103 @@ spec:
                   code:
                     local:
                       inline_string: envoy.wasm.stats
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-stats-filter-1.5
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
 ---
 {{- end }}
 
@@ -14846,6 +15082,9 @@ pilot:
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
 
+  hub: ""
+  tag: ""
+
   # Can be a full hub/image:tag
   image: pilot
   traceSampling: 1.0
@@ -15004,11 +15243,11 @@ telemetry:
   enabled: true
   v1:
     # Set true to enable Mixer based telemetry
-    enabled: true
+    enabled: false
   v2:
     # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
     # also enable metadata exchange and stats filter.
-    enabled: false
+    enabled: true
     # Indicate if prometheus stats filter is enabled or not
     prometheus:
       enabled: true
@@ -15769,7 +16008,7 @@ spec:
 {{- if contains "/" .Values.mixer.policy.image }}
         image: "{{ .Values.mixer.policy.image }}"
 {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.mixer.policy.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.mixer.policy.hub | default .Values.global.hub }}/{{ .Values.mixer.policy.image }}:{{ .Values.mixer.policy.tag | default .Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         ports:
@@ -16052,6 +16291,8 @@ func chartsIstioPolicyTemplatesServiceaccountYaml() (*asset, error) {
 
 var _chartsIstioPolicyValuesYaml = []byte(`mixer:
   policy:
+    hub: ""
+    tag: ""
     image: mixer
 
     replicaCount: 1
@@ -33496,7 +33737,7 @@ spec:
 {{- if contains "/" .Values.mixer.telemetry.image }}
         image: "{{ .Values.mixer.telemetry.image }}"
 {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.mixer.telemetry.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.mixer.telemetry.hub | default .Values.global.hub }}/{{ .Values.mixer.telemetry.image }}:{{ .Values.mixer.telemetry.tag | default .Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         ports:
@@ -34794,6 +35035,8 @@ var _chartsIstioTelemetryMixerTelemetryValuesYaml = []byte(`mixer:
     useAdapterCRDs: false
 
   telemetry:
+    hub: ""
+    tag: ""
     image: mixer
     enabled: true
     replicaCount: 1
@@ -39103,7 +39346,7 @@ spec:
 {{- if contains "/" .Values.nodeagent.image }}
           image: "{{ .Values.nodeagent.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.nodeagent.hub | default .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.nodeagent.tag | default .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
@@ -39195,6 +39438,8 @@ var _chartsSecurityNodeagentValuesYaml = []byte(`#
 #
 nodeagent:
   enabled: false
+  hub: ""
+  tag: ""
   image: node-agent-k8s
   env:
     # name of authentication provider.
@@ -39960,7 +40205,7 @@ spec:
 
    # Telemetry feature
     telemetry:
-      enabled: true
+      enabled: false
       k8s:
         env:
           - name: POD_NAMESPACE
@@ -39997,7 +40242,7 @@ spec:
 
   # Security feature
     citadel:
-      enabled: true
+      enabled: false
       k8s:
         strategy:
           rollingUpdate:
@@ -40234,8 +40479,10 @@ spec:
 
     telemetry:
       enabled: true
-      v2:
+      v1:
         enabled: false
+      v2:
+        enabled: true
         prometheus:
           enabled: true
         stackdriver:
@@ -40907,46 +41154,6 @@ func profilesRemoteYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesSdsYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  components:
-    nodeAgent:
-      enabled: true
-  values:
-    global:
-      controlPlaneSecurityEnabled: true
-      mtls:
-        enabled: true
-      sds:
-        enabled: true
-        udsPath: "unix:/var/run/sds/uds_path"
-        token:
-          aud: "istio-ca"
-    nodeagent:
-      image: node-agent-k8s
-      env:
-        CA_PROVIDER: "Citadel"
-        CA_ADDR: "istio-citadel:8060"
-        VALID_TOKEN: true
-
-`)
-
-func profilesSdsYamlBytes() ([]byte, error) {
-	return _profilesSdsYaml, nil
-}
-
-func profilesSdsYaml() (*asset, error) {
-	bytes, err := profilesSdsYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "profiles/sds.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _translateconfigReversetranslateconfig14Yaml = []byte(`kubernetesPatternMapping:
   "{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env"
   "{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec"
@@ -41013,7 +41220,6 @@ var _translateconfigTranslateIcpIop15Yaml = []byte(`trafficManagement.components
 policy.components.policy: components.policy
 telemetry.components.telemetry: components.telemetry
 security.components.citadel: components.citadel
-security.components.certManager: components.certManager
 security.components.nodeAgent: components.nodeAgent
 configManagement.components.galley: components.galley
 autoInjection.components.injector: components.sidecarInjector
@@ -41022,6 +41228,7 @@ cni: components.cni
 gateways.components.ingressGateway: components.ingressGateways.[name:istio-ingressgateway]
 gateways.components.egressGateway: components.egressGateways.[name:istio-egressgateway]
 
+security.components.certManager: addonComponents.certManager
 values.grafana.enabled: addonComponents.grafana.enabled
 values.kiali.enabled: addonComponents.kiali.enabled
 values.prometheus.enabled: addonComponents.prometheus.enabled
@@ -42042,7 +42249,6 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/empty.yaml":                                                                     profilesEmptyYaml,
 	"profiles/minimal.yaml":                                                                   profilesMinimalYaml,
 	"profiles/remote.yaml":                                                                    profilesRemoteYaml,
-	"profiles/sds.yaml":                                                                       profilesSdsYaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                         translateconfigReversetranslateconfig14Yaml,
 	"translateConfig/reverseTranslateConfig-1.5.yaml":                                         translateconfigReversetranslateconfig15Yaml,
 	"translateConfig/translate-ICP-IOP-1.5.yaml":                                              translateconfigTranslateIcpIop15Yaml,
@@ -42443,7 +42649,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"empty.yaml":   &bintree{profilesEmptyYaml, map[string]*bintree{}},
 		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
 		"remote.yaml":  &bintree{profilesRemoteYaml, map[string]*bintree{}},
-		"sds.yaml":     &bintree{profilesSdsYaml, map[string]*bintree{}},
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},

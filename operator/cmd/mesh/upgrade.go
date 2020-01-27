@@ -113,8 +113,13 @@ func UpgradeCmd() *cobra.Command {
 
 // upgrade is the main function for Upgrade command
 func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
+	// Create a kube client from args.kubeConfigPath and  args.context
+	kubeClient, err := manifest.NewClient(args.kubeConfigPath, args.context)
+	if err != nil {
+		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
+	}
 	// Generate IOPS objects
-	targetIOPSYaml, targetIOPS, err := genIOPS(args.inFilename, "", "", "", args.force, l)
+	targetIOPSYaml, targetIOPS, err := genIOPS(args.inFilename, "", "", "", args.force, kubeClient.Config, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilename, err)
 	}
@@ -127,12 +132,6 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 			return fmt.Errorf("failed to convert the target tag '%s' into a valid version, "+
 				"you can use --force flag to skip the version check if you know the tag is correct", targetTag)
 		}
-	}
-
-	// Create a kube client from args.kubeConfigPath and  args.context
-	kubeClient, err := manifest.NewClient(args.kubeConfigPath, args.context)
-	if err != nil {
-		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
 
 	// Get Istio control plane namespace
@@ -165,7 +164,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	// Generates IOPS for args.inFilename IOP specs yaml. Param force is set to true to
 	// skip the validation because the code only has the validation proto for the
 	// target version.
-	currentIOPSYaml, _, err := genIOPS(args.inFilename, "", "", currentVersion, true, l)
+	currentIOPSYaml, _, err := genIOPS(args.inFilename, "", "", currentVersion, true, kubeClient.Config, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file: %s for the current version: %s, error: %v",
 			args.inFilename, currentVersion, err)

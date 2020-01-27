@@ -9,7 +9,6 @@ global:
         memory: 40Mi
 
     accessLogFile: "/dev/stdout"
-    enableCoreDump: true
 
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY

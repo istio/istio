@@ -222,7 +222,7 @@ func startWebhookPortForwarderOrFail(t test.Failer, env *kube.Environment, cfg i
 		t.Fatal("istiod does not support cert rotation")
 	}
 	// Hardcode Galley's webhook port.
-	port := (uint16)(server.DefaultArgs().Port)
+	port := uint16(server.DefaultArgs().Port)
 
 	// ensure only one pod *exists* before we start port forwarding.
 	scaleDeployment(cfg.IstioNamespace, deployName, 0, t, env)

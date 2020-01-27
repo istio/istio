@@ -38,14 +38,12 @@ var (
 
 // Builder wraps all needed information for building the RBAC filter for a service.
 type Builder struct {
-	isXDSMarshalingToAnyEnabled bool
-	generator                   policy.Generator
+	generator policy.Generator
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
 func NewBuilder(trustDomainBundle trustdomain.Bundle, serviceInstance *model.ServiceInstance,
-	workloadLabels labels.Collection, configNamespace string,
-	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
+	workloadLabels labels.Collection, configNamespace string, policies *model.AuthorizationPolicies) *Builder {
 	var generator policy.Generator
 
 	denyPolicies, allowPolicies := policies.ListAuthorizationPolicies(configNamespace, workloadLabels)
@@ -79,8 +77,7 @@ func NewBuilder(trustDomainBundle trustdomain.Bundle, serviceInstance *model.Ser
 	}
 
 	return &Builder{
-		isXDSMarshalingToAnyEnabled: isXDSMarshalingToAnyEnabled,
-		generator:                   generator,
+		generator: generator,
 	}
 }
 
@@ -92,27 +89,24 @@ func (b *Builder) BuildHTTPFilters() []*httpFilterPb.HttpFilter {
 
 	var filters []*httpFilterPb.HttpFilter
 	denyConfig, allowConfig := b.generator.Generate(false /* forTCPFilter */)
-	if denyFilter := createHTTPFilter(denyConfig, b.isXDSMarshalingToAnyEnabled); denyFilter != nil {
+	if denyFilter := createHTTPFilter(denyConfig); denyFilter != nil {
 		filters = append(filters, denyFilter)
 	}
-	if allowFilter := createHTTPFilter(allowConfig, b.isXDSMarshalingToAnyEnabled); allowFilter != nil {
+	if allowFilter := createHTTPFilter(allowConfig); allowFilter != nil {
 		filters = append(filters, allowFilter)
 	}
 	return filters
 }
 
-func createHTTPFilter(config *envoyRbacHttpPb.RBAC, isXDSMarshalingToAnyEnabled bool) *httpFilterPb.HttpFilter {
+// nolint: interfacer
+func createHTTPFilter(config *envoyRbacHttpPb.RBAC) *httpFilterPb.HttpFilter {
 	if config == nil {
 		return nil
 	}
 
 	httpConfig := httpFilterPb.HttpFilter{
-		Name: authzModel.RBACHTTPFilterName,
-	}
-	if isXDSMarshalingToAnyEnabled {
-		httpConfig.ConfigType = &httpFilterPb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		httpConfig.ConfigType = &httpFilterPb.HttpFilter_Config{Config: util.MessageToStruct(config)}
+		Name:       authzModel.RBACHTTPFilterName,
+		ConfigType: &httpFilterPb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)},
 	}
 	return &httpConfig
 }
@@ -125,16 +119,16 @@ func (b *Builder) BuildTCPFilters() []*tcpFilterPb.Filter {
 
 	var filters []*tcpFilterPb.Filter
 	denyConfig, allowConfig := b.generator.Generate(true /* forTCPFilter */)
-	if denyFilter := createTCPFilter(denyConfig, b.isXDSMarshalingToAnyEnabled); denyFilter != nil {
+	if denyFilter := createTCPFilter(denyConfig); denyFilter != nil {
 		filters = append(filters, denyFilter)
 	}
-	if allowFilter := createTCPFilter(allowConfig, b.isXDSMarshalingToAnyEnabled); allowFilter != nil {
+	if allowFilter := createTCPFilter(allowConfig); allowFilter != nil {
 		filters = append(filters, allowFilter)
 	}
 	return filters
 }
 
-func createTCPFilter(config *envoyRbacHttpPb.RBAC, isXDSMarshalingToAnyEnabled bool) *tcpFilterPb.Filter {
+func createTCPFilter(config *envoyRbacHttpPb.RBAC) *tcpFilterPb.Filter {
 	if config == nil {
 		return nil
 	}
@@ -148,12 +142,8 @@ func createTCPFilter(config *envoyRbacHttpPb.RBAC, isXDSMarshalingToAnyEnabled b
 	}
 
 	tcpConfig := tcpFilterPb.Filter{
-		Name: authzModel.RBACTCPFilterName,
-	}
-	if isXDSMarshalingToAnyEnabled {
-		tcpConfig.ConfigType = &tcpFilterPb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
-	} else {
-		tcpConfig.ConfigType = &tcpFilterPb.Filter_Config{Config: util.MessageToStruct(rbacConfig)}
+		Name:       authzModel.RBACTCPFilterName,
+		ConfigType: &tcpFilterPb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)},
 	}
 	return &tcpConfig
 }

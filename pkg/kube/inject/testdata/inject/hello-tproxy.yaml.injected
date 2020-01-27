@@ -14,9 +14,11 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/interceptionMode: TPROXY
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/interceptionMode: REDIRECT
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: hello
@@ -48,28 +50,35 @@ spec:
         - 1m0s
         - --discoveryAddress
         - istio-pilot:15010
-        - --dnsRefreshRate
-        - 300s
+        - --zipkinAddress
+        - ""
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
         - --connectTimeout
         - 1s
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
         - NONE
+        - --dnsRefreshRate
+        - 300s
+        - --statusPort
+        - "15020"
+        - --trust-domain=cluster.local
+        - --controlPlaneBootstrap=false
         - --concurrency
         - "2"
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: citadel
+        - name: CA_ADDR
+          value: istio-pilot.istio-system.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: ISTIO_META_POD_PORTS
-          value: |-
-            [
-                {"name":"http","containerPort":80}
-            ]
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -82,8 +91,17 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"name":"http","containerPort":80}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -95,7 +113,7 @@ spec:
         - name: SDS_ENABLED
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
-          value: TPROXY
+          value: REDIRECT
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable"}
@@ -103,13 +121,22 @@ spec:
           value: hello
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
-        image: docker.io/istio/proxyv2:unittest
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15020
+          initialDelaySeconds: 1
+          periodSeconds: 2
         resources:
           limits:
             cpu: "2"
@@ -120,18 +147,20 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
-            add:
-            - NET_ADMIN
             drop:
             - ALL
           privileged: false
           readOnlyRootFilesystem: true
           runAsGroup: 1337
-          runAsNonRoot: false
-          runAsUser: 0
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
+        - mountPath: /etc/istio/citadel-ca-cert
+          name: citadel-ca-cert
         - mountPath: /etc/istio/proxy
           name: istio-envoy
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
@@ -145,16 +174,16 @@ spec:
         - -u
         - "1337"
         - -m
-        - TPROXY
+        - REDIRECT
         - -i
-        - ""
+        - '*'
         - -x
         - ""
         - -b
         - '*'
         - -d
-        - ""
-        image: docker.io/istio/proxy_init:unittest
+        - "15020"
+        image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -181,6 +210,16 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - configMap:
+          name: istio-ca-root-cert
+        name: citadel-ca-cert
       - name: istio-certs
         secret:
           optional: true

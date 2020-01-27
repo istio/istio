@@ -21,10 +21,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")

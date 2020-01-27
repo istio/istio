@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/processor/groups"
-	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestDefault(t *testing.T) {

@@ -29,3 +29,9 @@ PHONYS := $(shell ls | grep -v Makefile)
 $(PHONYS):
 	@$(MAKE) $@
 endif
+
+# istioctl-install builds then installs istioctl into $GOPATH/BIN
+# Used for debugging istioctl during dev work
+.PHONY: istioctl-install
+istioctl-install: istioctl-install-container
+	cp out/$(TARGET_OS)_$(TARGET_ARCH)/istioctl ${GOPATH}/bin

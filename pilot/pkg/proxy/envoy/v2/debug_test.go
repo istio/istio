@@ -315,7 +315,7 @@ func TestAuthenticationZ(t *testing.T) {
 			name:           "dumps most recent proxy with 200",
 			proxyID:        "dumpApp-644fc65469-96dza.testns",
 			wantCode:       200,
-			expectedLength: 25,
+			expectedLength: 24,
 		},
 	}
 

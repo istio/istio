@@ -47,7 +47,7 @@ func ICPtoIOPTranslations(ver version.Version) (map[string]string, error) {
 	return out, nil
 }
 
-// ReadICPtoIOPTranslations reads a file at filePath with key:value pairs in the format expected by TranslateICPToIOP.
+// ReadICPtoIOPTranslations reads a file at filePath with key:value pairs in the format expected by ICPToIOP.
 func ReadICPtoIOPTranslations(filePath string) (map[string]string, error) {
 	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -60,9 +60,19 @@ func ReadICPtoIOPTranslations(filePath string) (map[string]string, error) {
 	return out, nil
 }
 
-// TranslateICPToIOP takes an IstioControlPlane YAML string and a map of translations with key:value format
+// ICPToIOPVer takes an IstioControlPlane YAML string and the target version as input,
+// then translates it into an IstioOperator YAML string.
+func ICPToIOPVer(icp string, ver version.Version) (string, error) {
+	translations, err := ICPtoIOPTranslations(ver)
+	if err != nil {
+		return "", fmt.Errorf("could not read translate config for version %s: %s", ver, err)
+	}
+	return ICPToIOP(icp, translations)
+}
+
+// ICPToIOP takes an IstioControlPlane YAML string and a map of translations with key:value format
 // souce-path:destination-path (where paths are expressed in pkg/tpath format) and returns an IstioOperator string.
-func TranslateICPToIOP(icp string, translations map[string]string) (string, error) {
+func ICPToIOP(icp string, translations map[string]string) (string, error) {
 	icps, err := getSpecSubtree(icp)
 	if err != nil {
 		return "", err
@@ -74,7 +84,7 @@ func TranslateICPToIOP(icp string, translations map[string]string) (string, erro
 		return "", err
 	}
 
-	translated, err := TranslateYAMLTree(icps, outTree, translations)
+	translated, err := YAMLTree(icps, outTree, translations)
 	if err != nil {
 		return "", err
 	}

@@ -35,7 +35,6 @@ import (
 
 const (
 	proxyContainerName = "istio-proxy"
-	proxyAdminPort     = 15000
 )
 
 var _ echo.Sidecar = &sidecar{}
@@ -164,7 +163,7 @@ func (s *sidecar) ListenersOrFail(t test.Failer) *envoyAdmin.Listeners {
 
 func (s *sidecar) adminRequest(path string, out proto.Message) error {
 	// Exec onto the pod and make a curl request to the admin port, writing
-	command := fmt.Sprintf("curl http://127.0.0.1:%d/%s", proxyAdminPort, path)
+	command := fmt.Sprintf("pilot-agent request GET %s", path)
 	response, err := s.accessor.Exec(s.podNamespace, s.podName, proxyContainerName, command)
 	if err != nil {
 		return fmt.Errorf("failed exec on pod %s/%s: %v. Command: %s. Output:\n%s",

@@ -147,14 +147,14 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 	respData := &federatedTokenResponse{}
 
 	req := p.constructFederatedTokenRequest(parameters)
-	resp, err := p.sendRequestWithRetry(req)
+	resp, timeElapsed, err := p.sendRequestWithRetry(req)
 	if err != nil {
 		respCode := 0
 		if resp != nil {
 			respCode = resp.StatusCode
 		}
-		pluginLog.Errorf("Failed to exchange federated token (HTTP status %d): %v", respCode,
-			err)
+		pluginLog.Errorf("Failed to exchange federated token (HTTP status %d, total time elapsed %s): %v",
+			respCode, timeElapsed.String(), err)
 		return nil, fmt.Errorf("failed to exchange federated token (HTTP status %d): %v", respCode,
 			err)
 	}
@@ -163,9 +163,10 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 
 	if pluginLog.DebugEnabled() {
 		respDump, _ := httputil.DumpResponse(resp, false)
-		pluginLog.Debugf("Received federated token response: \n%s", string(respDump))
+		pluginLog.Debugf("Received federated token response after %s: \n%s",
+			timeElapsed.String(), string(respDump))
 	} else {
-		pluginLog.Info("Received federated token response")
+		pluginLog.Infof("Received federated token response after %s", timeElapsed.String())
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -188,23 +189,27 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 
 // Send HTTP request every 0.01 seconds until successfully receive response or hit max retry numbers.
 // If response code is 4xx, return immediately without retry.
-func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, err error) {
+func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, elapsedTime time.Duration, err error) {
+	start := time.Now()
 	for i := 0; i < maxRequestRetry; i++ {
 		resp, err = p.hTTPClient.Do(req)
+		if err != nil {
+			pluginLog.Errorf("failed to send out request: %v (response: %v)", err, resp)
+		}
 		if resp != nil && resp.StatusCode == http.StatusOK {
-			return resp, err
+			return resp, time.Since(start), err
 		}
 		if resp != nil && resp.StatusCode >= http.StatusBadRequest && resp.StatusCode < http.StatusInternalServerError {
-			return resp, err
+			return resp, time.Since(start), err
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	if resp != nil && resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := ioutil.ReadAll(resp.Body)
 		defer resp.Body.Close()
-		return resp, fmt.Errorf("HTTP Status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return resp, time.Since(start), fmt.Errorf("HTTP Status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
-	return resp, err
+	return resp, time.Since(start), err
 }
 
 type accessTokenRequest struct {
@@ -255,22 +260,24 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 	respData := &accessTokenResponse{}
 
 	req := p.constructGenerateAccessTokenRequest(federatedToken)
-	resp, err := p.sendRequestWithRetry(req)
+	resp, timeElapsed, err := p.sendRequestWithRetry(req)
 	if err != nil {
 		respCode := 0
 		if resp != nil {
 			respCode = resp.StatusCode
 		}
-		pluginLog.Errorf("failed to exchange access token (HTTP status %d): %v", respCode, err)
+		pluginLog.Errorf("failed to exchange access token (HTTP status %d, total time elapsed %s): %v",
+			respCode, timeElapsed.String(), err)
 		return respData, fmt.Errorf("failed to exchange access token (HTTP status %d): %v", respCode, err)
 	}
 	defer resp.Body.Close()
 
 	if pluginLog.DebugEnabled() {
 		respDump, _ := httputil.DumpResponse(resp, false)
-		pluginLog.Debugf("Received access token response: \n%s", string(respDump))
+		pluginLog.Debugf("Received access token response after %s: \n%s",
+			timeElapsed.String(), string(respDump))
 	} else {
-		pluginLog.Info("Received access token response")
+		pluginLog.Infof("Received access token response after %s", timeElapsed.String())
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)

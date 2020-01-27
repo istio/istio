@@ -269,6 +269,7 @@ func AppendToSlicePtr(parentSlice interface{}, value interface{}) error {
 	v := reflect.ValueOf(value)
 
 	if !IsSliceInterfacePtr(parentSlice) {
+		// nolint: golint
 		return fmt.Errorf("AppendToSlicePtr parent type is %T, must be *[]interface{}", parentSlice)
 	}
 

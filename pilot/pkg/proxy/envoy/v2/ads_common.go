@@ -15,9 +15,9 @@
 package v2
 
 import (
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {

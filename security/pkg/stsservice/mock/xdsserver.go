@@ -108,6 +108,7 @@ type XDSConf struct {
 }
 
 // StartXDSServer sets up a mock XDS server
+// nolint: interfacer
 func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS bool) (*grpc.Server, error) {
 	snapshotCache := cache.NewSnapshotCache(false, hasher{}, nil)
 	server := xds.NewServer(context.Background(), snapshotCache, cb)
@@ -132,7 +133,7 @@ func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS b
 	snapshot := cache.Snapshot{}
 	snapshot.Resources[cache.Listener] = cache.Resources{Version: time.Now().String(), Items: map[string]cache.Resource{
 		"backend": ls.makeListener()}}
-	snapshotCache.SetSnapshot("", snapshot)
+	_ = snapshotCache.SetSnapshot("", snapshot)
 	go func() {
 		_ = gRPCServer.Serve(lis)
 	}()
@@ -140,13 +141,19 @@ func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS b
 }
 
 type XDSCallbacks struct {
-	numStream         int
-	numTokenReceived  int
+	numStream        int
+	numTokenReceived int
+
 	callbackError     bool
 	lastReceivedToken string
 	mutex             sync.RWMutex
 	expectedToken     string
 	t                 *testing.T
+
+	// These members close a stream for numStreamClose times, each time the stream
+	// lasts for streamDuration seconds. The numStreamClose + 1 stream is kept open.
+	numStreamClose int
+	streamDuration time.Duration
 }
 
 func CreateXdsCallback(t *testing.T) *XDSCallbacks {
@@ -163,6 +170,15 @@ func (c *XDSCallbacks) SetExpectedToken(expected string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.expectedToken = expected
+}
+
+// SetNumberOfStreamClose force XDS server to close gRPC stream n times. Each
+// stream will last d seconds before close.
+func (c *XDSCallbacks) SetNumberOfStreamClose(n int, d int) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.numStreamClose = n
+	c.streamDuration = time.Duration(d) * time.Second
 }
 
 func (c *XDSCallbacks) ExpectedToken() string {
@@ -203,6 +219,11 @@ func (c *XDSCallbacks) OnStreamOpen(ctx context.Context, id int64, url string) e
 					"not match expected token (%s vs %s)", id, url, h[0], c.expectedToken)
 			} else {
 				c.t.Logf("xDS stream (id: %d, url: %s) has valid token: %v", id, url, h[0])
+			}
+			if c.numStream <= c.numStreamClose {
+				time.Sleep(c.streamDuration)
+				c.t.Logf("force close %d/%d xDS stream (id: %d, url: %s)", c.numStream, c.numStreamClose, id, url)
+				return fmt.Errorf("force to close the stream (id: %d, url: %s)", id, url)
 			}
 		} else {
 			c.t.Errorf("XDS stream (id: %d, url: %s) does not have token in metadata %+v",

@@ -40,9 +40,7 @@ import (
 const mockCAAddress = "localhost:0"
 
 var (
-	mockMeshCAServer *mca.CAServer
-	mockSTSServer    *msts.AuthorizationServer
-	validCerts       = []string{
+	validCerts = []string{
 		`-----BEGIN CERTIFICATE-----
 MIIFiDCCA3ACCQDriJFARkUboTANBgkqhkiG9w0BAQsFADCBhTELMAkGA1UEBhMC
 VVMxEzARBgNVBAgTCkNhbGlmb3JuaWExEjAQBgNVBAcTCVN1bm55dmFsZTEOMAwG
@@ -143,11 +141,6 @@ yTi7LtqQOBVq0veaVudHd+9I/JrJ
 `}
 )
 
-func cleanup() {
-	mockMeshCAServer.Stop()
-	mockSTSServer.Stop()
-}
-
 func createRealSDSServer(t *testing.T, socket string) *Server {
 	// Create a local grpc server to mock Mesh CA
 	caService := &mca.CAService{Certs: validCerts, Err: nil}
@@ -183,7 +176,7 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	workloadSdsCacheOptions.Pkcs8Keys = false
 	workloadSdsCacheOptions.Plugins = NewPlugins([]string{"GoogleTokenExchange"})
 	workloadSdsCacheOptions.RotationInterval = 10 * time.Minute
-	workloadSdsCacheOptions.InitialBackoff = 10
+	workloadSdsCacheOptions.InitialBackoffInMilliSec = 10
 	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, NotifyProxy, *workloadSdsCacheOptions)
 
 	server, err := NewServer(arg, workloadSecretCache, nil)

@@ -35,17 +35,17 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/snapshots"
 )
 
 const (
@@ -56,7 +56,6 @@ const (
 
 // Pseudo-constants, since golang doesn't support a true const slice/array
 var (
-	requiredPerms     = []string{"list", "watch"}
 	analysisSnapshots = []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry}
 )
 
@@ -234,7 +233,6 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 
 		if err = src.ApplyContent(string(i), string(by)); err != nil {
 			errs = multierror.Append(errs, err)
-			src.ApplyContent(string(i), string(by))
 		}
 	}
 
