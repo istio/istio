@@ -280,7 +280,7 @@ func AppendToSlicePtr(parentSlice interface{}, value interface{}) error {
 	} else {
 		newSlice = reflect.Append(pv.Elem(), v)
 	}
-	fmt.Printf("parentSlice has type %T, newSlice %T", parentSlice, newSlice.Interface())
+	fmt.Printf("parentSlice has type %T, newSlice %T\n", parentSlice, newSlice.Interface())
 	pv.Elem().Set(newSlice)
 	return nil
 }
