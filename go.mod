@@ -76,7 +76,6 @@ require (
 	github.com/googleapis/gax-go/v2 v2.0.5
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.1
-	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20171214222146-0e7658f8ee99
@@ -89,7 +88,6 @@ require (
 	github.com/hashicorp/vault/api v1.0.3
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/huandu/xstrings v1.2.1 // indirect
-	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/istio.io/proxy/src/envoy/tcp/metadata_exchange/config v0.0.0
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kr/pretty v0.1.0
@@ -141,10 +139,9 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
+	golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
 	golang.org/x/tools v0.0.0-20191216173652-a0e659d51361
 	google.golang.org/api v0.15.0
-	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/genproto v0.0.0-20191223191004-3caeed10a8bf
 	google.golang.org/grpc v1.26.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
@@ -153,6 +150,7 @@ require (
 	istio.io/api v0.0.0-20200126041626-2e8814b40f58
 	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
 	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca
+	istio.io/tools v0.0.0-20200127191011-26f35ded64ca // indirect
 	k8s.io/api v0.17.2
 	k8s.io/apiextensions-apiserver v0.17.2
 	k8s.io/apimachinery v0.17.2
