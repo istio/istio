@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/jwt"
 	"os"
 	"path"
 	"strings"
@@ -36,7 +37,6 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -139,8 +139,10 @@ func (s *Server) EnableCA() bool {
 		return false
 	}
 	if _, err := ioutil.ReadFile(s.jwtPath); err != nil {
-		// for debug we may want to override this by setting trustedIssuer explicitly
-		if trustedIssuer.Get() == "" {
+		// for debug we may want to override this by setting trustedIssuer explicitly.
+		// If TOKEN_ISSUER is set, we ignore the lack of mounted JWT token, it means user is using
+		// an external OIDC provider to validate the tokens, and istiod lack of a JWT doesn't indicate a problem.
+		if features.JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT && trustedIssuer.Get() == "" {
 			log.Warnf("istiod running without access to K8S tokens (jwt path %v); disable the CA functionality",
 				s.jwtPath)
 			return false
@@ -184,7 +186,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopC
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
-		true, model.JwtPolicy.Get())
+		true, features.JwtPolicy.Get())
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}

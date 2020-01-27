@@ -300,5 +300,5 @@ var (
 		"the provider of Pilot DNS certificate. Supports 'citadel', 'kubernetes' or a path to user-supplied certs")
 
 	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
-		"The JWT validation policy.")
+		"The JWT validation policy. Default 'third-party-jwt' is recommended. Use 'first-party-jwt' as a fallback.")
 )
