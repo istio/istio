@@ -58,7 +58,7 @@ gateways:
       name: tls
 
   istio-egressgateway:
-    enabled: true
+    enabled: false
     autoscaleMax: 1
     resources:
       requests:
