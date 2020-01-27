@@ -242,10 +242,14 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
-		serverOptions.EnableIngressGatewaySDS = true
-		// TODO: what is the setting for ingress ?
-		serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
-		gatewaySecretCache = newIngressSecretCache(podNamespace)
+		if ingressSdsExists() {
+			serverOptions.EnableIngressGatewaySDS = true
+			// TODO: what is the setting for ingress ?
+			serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
+			gatewaySecretCache = newIngressSecretCache(podNamespace)
+		} else {
+			log.Infof("Skipping gateway SDS")
+		}
 	}
 
 	// For sidecar and ingress we need to first get the certificates for the workload.
@@ -310,6 +314,13 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	}
 
 	return server, nil
+}
+
+func ingressSdsExists() bool {
+	p := strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
+	dir := path.Base(p)
+	_, err := os.Stat(dir)
+	return !os.IsNotExist(err)
 }
 
 // newSecretCache creates the cache for workload secrets and/or gateway secrets.
