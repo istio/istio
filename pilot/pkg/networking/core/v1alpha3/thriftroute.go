@@ -95,13 +95,13 @@ func thritRLSClusterNameFromAuthority(authority string) (string, error) {
 
 	components := strings.Split(authority, ":")
 	if len(components) < 2 {
-		log.Debugf("Using default port to parse rate limit port from authority (using %v default): %s", rlsPort, authority)
+		log.Debugf("using default port to parse rate limit port from authority (using %v default): %s", rlsPort, authority)
 	} else if len(components) > 2 {
-		return "", fmt.Errorf("Authority had too many components: %v", authority)
+		return "", fmt.Errorf("authority had too many components: %v", authority)
 	} else {
 		p, err := strconv.Atoi(components[1])
 		if err != nil {
-			return "", fmt.Errorf("Unable to parse port provided in authority: %v", authority)
+			return "", fmt.Errorf("unable to parse port provided in authority: %v", authority)
 		}
 		rlsPort = p
 	}
