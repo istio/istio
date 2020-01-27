@@ -61,7 +61,8 @@ func (n *kubeNamespace) Dump() {
 	}
 
 	for _, pod := range pods {
-		for _, container := range pod.Spec.Containers {
+		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
+		for _, container := range containers {
 			l, err := n.a.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
