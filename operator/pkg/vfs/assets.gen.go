@@ -9661,8 +9661,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     {{- end }}
     {{- end }}
     {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
-      - name: {{ $key }}
-        value: "{{ $value }}"
+    - name: {{ $key }}
+      value: "{{ $value }}"
     {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
     {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
@@ -12135,8 +12135,8 @@ template: |
     {{- end }}
     {{- end }}
     {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
-      - name: {{ $key }}
-        value: "{{ $value }}"
+    - name: {{ $key }}
+      value: "{{ $value }}"
     {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
     {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
