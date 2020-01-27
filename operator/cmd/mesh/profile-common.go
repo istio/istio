@@ -47,7 +47,8 @@ var scope = log.RegisterScope("installer", "installer", 0)
 // ones that are compiled in. If it does, the starting point will be the base and profile YAMLs at that file path.
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
-func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+func genIOPS(inFilename []string, profile, setOverlayYAML, ver string,
+	force bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
 	overlayYAML := ""
 	var overlayIOPS *v1alpha1.IstioOperatorSpec
 	set := make(map[string]interface{})
@@ -62,7 +63,7 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 		}
 		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(inputYaml, force)
 		if err != nil {
-			iopYAML, translateErr := translate.TranslateICPToIOPVer(inputYaml, binversion.OperatorBinaryVersion)
+			iopYAML, translateErr := translate.ICPToIOPVer(inputYaml, binversion.OperatorBinaryVersion)
 			if translateErr != nil {
 				return "", nil, fmt.Errorf("could not unmarshal yaml or translate it to IOP: %s, %s\n\nOriginal YAML:\n%s",
 					err, translateErr, inputYaml)
@@ -117,12 +118,12 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string, force boo
 
 	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force)
 	if err != nil {
-		baseIopYAML, translateErr := translate.TranslateICPToIOPVer(baseCRYAML, binversion.OperatorBinaryVersion)
+		baseIopYAML, translateErr := translate.ICPToIOPVer(baseCRYAML, binversion.OperatorBinaryVersion)
 		if translateErr != nil {
 			return "", nil, fmt.Errorf("could not unmarshal or translate base yaml into IOP with profile %s at version %s: %s, %s",
 				profile, binversion.OperatorBinaryVersion, err, translateErr)
 		}
-		overlayIOPS, overlayYAML, err = unmarshalAndValidateIOP(baseIopYAML, force)
+		_, overlayYAML, err = unmarshalAndValidateIOP(baseIopYAML, force)
 		if err != nil {
 			return "", nil, err
 		}
@@ -217,7 +218,8 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 	return "values.global.jwtPolicy=first-party-jwt", nil
 }
 
-func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML, configPath string, force bool, kubeConfig *rest.Config, l *Logger) (string, error) {
+func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML,
+	configPath string, force bool, kubeConfig *rest.Config, l *Logger) (string, error) {
 	finalYAML, finalIOPS, err := genIOPS(inFilename, profile, setOverlayYAML, "", force, kubeConfig, l)
 	if err != nil {
 		return "", err

@@ -224,7 +224,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		var err error
 		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)
 		if err != nil {
-			return nil, fmt.Errorf("EnableCA: %v", err)
+			return nil, fmt.Errorf("enableCA: %v", err)
 		}
 		err = s.initPublicKey()
 		if err != nil {

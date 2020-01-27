@@ -108,6 +108,7 @@ type XDSConf struct {
 }
 
 // StartXDSServer sets up a mock XDS server
+// nolint: interfacer
 func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS bool) (*grpc.Server, error) {
 	snapshotCache := cache.NewSnapshotCache(false, hasher{}, nil)
 	server := xds.NewServer(context.Background(), snapshotCache, cb)
@@ -132,7 +133,7 @@ func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS b
 	snapshot := cache.Snapshot{}
 	snapshot.Resources[cache.Listener] = cache.Resources{Version: time.Now().String(), Items: map[string]cache.Resource{
 		"backend": ls.makeListener()}}
-	snapshotCache.SetSnapshot("", snapshot)
+	_ = snapshotCache.SetSnapshot("", snapshot)
 	go func() {
 		_ = gRPCServer.Serve(lis)
 	}()

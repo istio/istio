@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mtls_k8s_ca
+package mtlsfirstpartyjwt
 
 import (
 	"testing"
@@ -34,7 +34,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mtls_k8s_ca", m).
+		NewSuite("mtls_first_party_jwt", m).
 		RequireEnvironment(environment.Kube).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
@@ -56,6 +56,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["global.pilotCertProvider"] = "kubernetes"
+	cfg.Values["global.jwtPolicy"] = "first-party-jwt"
 	cfg.Values["global.mtls.auto"] = "true"
 }

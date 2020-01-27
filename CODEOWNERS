@@ -2,6 +2,7 @@
 /bin/                                                            @istio/wg-test-and-release-maintainers
 /cmd/istiod/                                                     @istio/wg-environments-maintainers
 /galley/                                                         @istio/wg-config-maintainers
+/galley/pkg/config/analysis/                                     @istio/wg-config-maintainers @istio/wg-user-experience-maintainers
 /install/                                                        @istio/wg-environments-maintainers
 /istioctl/                                                       @istio/wg-user-experience-maintainers
 /manifests/                                                      @istio/wg-environments-maintainers
@@ -13,7 +14,6 @@
 /pilot/pkg/networking/plugin/authn/                              @istio/wg-security-maintainers
 /pilot/pkg/networking/plugin/authz/                              @istio/wg-security-maintainers
 /pilot/pkg/networking/plugin/mixer/                              @istio/wg-policies-and-telemetry-maintainers
-/pilot/pkg/config/                                               @istio/wg-networking-maintainers-pilot
 /pilot/pkg/serviceregistry/                                      @istio/wg-networking-maintainers-pilot
 /pilot/pkg/model/                                                @istio/wg-networking-maintainers-pilot
 /pilot/pkg/networking/core                                       @istio/wg-networking-maintainers-pilot

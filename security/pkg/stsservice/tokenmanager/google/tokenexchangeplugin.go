@@ -147,7 +147,7 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 	respData := &federatedTokenResponse{}
 
 	req := p.constructFederatedTokenRequest(parameters)
-	resp, err, timeElapsed := p.sendRequestWithRetry(req)
+	resp, timeElapsed, err := p.sendRequestWithRetry(req)
 	if err != nil {
 		respCode := 0
 		if resp != nil {
@@ -189,7 +189,7 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 
 // Send HTTP request every 0.01 seconds until successfully receive response or hit max retry numbers.
 // If response code is 4xx, return immediately without retry.
-func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, err error, elapsedTime time.Duration) {
+func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, elapsedTime time.Duration, err error) {
 	start := time.Now()
 	for i := 0; i < maxRequestRetry; i++ {
 		resp, err = p.hTTPClient.Do(req)
@@ -197,19 +197,19 @@ func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, e
 			pluginLog.Errorf("failed to send out request: %v (response: %v)", err, resp)
 		}
 		if resp != nil && resp.StatusCode == http.StatusOK {
-			return resp, err, time.Since(start)
+			return resp, time.Since(start), err
 		}
 		if resp != nil && resp.StatusCode >= http.StatusBadRequest && resp.StatusCode < http.StatusInternalServerError {
-			return resp, err, time.Since(start)
+			return resp, time.Since(start), err
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	if resp != nil && resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := ioutil.ReadAll(resp.Body)
 		defer resp.Body.Close()
-		return resp, fmt.Errorf("HTTP Status %d, body: %s", resp.StatusCode, string(bodyBytes)), time.Since(start)
+		return resp, time.Since(start), fmt.Errorf("HTTP Status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
-	return resp, err, time.Since(start)
+	return resp, time.Since(start), err
 }
 
 type accessTokenRequest struct {
@@ -260,7 +260,7 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 	respData := &accessTokenResponse{}
 
 	req := p.constructGenerateAccessTokenRequest(federatedToken)
-	resp, err, timeElapsed := p.sendRequestWithRetry(req)
+	resp, timeElapsed, err := p.sendRequestWithRetry(req)
 	if err != nil {
 		respCode := 0
 		if resp != nil {
