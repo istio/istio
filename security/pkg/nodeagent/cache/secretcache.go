@@ -27,6 +27,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
@@ -830,13 +831,16 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 	var requestErrorString string
 	var err error
 
+	// Assign a unique request ID for all the retries.
+	reqID := uuid.New().String()
+
 	// Keep trying until no error or timeout.
 	for {
 		var httpRespCode int
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", conIDresourceNamePrefix)
 			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-				ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		} else {
 			requestErrorString = fmt.Sprintf("%s token exchange", conIDresourceNamePrefix)
 			p := sc.configOptions.Plugins[0]
