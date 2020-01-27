@@ -293,7 +293,12 @@ func checkIfMirrorWasApplied(target echo.Instance, mirrorClusterName string, tc 
 			clusterName := fmt.Sprintf("outbound|%d||%s", port.ServicePort, mirrorClusterName)
 			instance.Equals(clusterName, "{.requestMirrorPolicy.cluster}")
 
-			instance.Equals(tc.percentage*10000, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}") // Set to MILLION.
+			if tc.absent {
+				instance.Equals(tc.percentage, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}")
+			} else {
+				instance.Equals(tc.percentage*10000, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}") // Set to MILLION.
+				instance.Equals("MILLION", "{.requestMirrorPolicy.runtimeFraction.defaultValue.denominator}")
+			}
 		} else {
 			instance.NotExists("{.requestMirrorPolicy}")
 		}
