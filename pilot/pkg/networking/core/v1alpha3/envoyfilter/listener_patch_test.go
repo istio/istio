@@ -143,6 +143,27 @@ func TestApplyListenerPatches(t *testing.T) {
 					Listener: &networking.EnvoyFilter_ListenerMatch{
 						PortNumber: 12345,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{Name: "filter1"},
+						},
+					},
+				},
+				Proxy: &networking.EnvoyFilter_ProxyMatch{
+					ProxyVersion: `^1\.[5-9](.*?)$`,
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+				Value:     buildPatchStruct(`{"name":"filter0"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 12345,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{Name: "filter2"},
 						},
 					},
@@ -270,6 +291,27 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
 				Value:     buildPatchStruct(`{"name": "http-filter3"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      xdsutil.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+				Value:     buildPatchStruct(`{"name": "http-filter0"}`),
 			},
 		},
 		{
