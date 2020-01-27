@@ -23,7 +23,7 @@ import (
 	"net/http/pprof"
 	"sort"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube/inject"
 
 	"istio.io/istio/pilot/pkg/features"

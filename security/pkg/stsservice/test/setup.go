@@ -53,7 +53,6 @@ type Env struct {
 
 	stsServer         *stsServer.Server
 	xDSServer         *grpc.Server
-	xDSCb             *xdsService.XDSCallbacks
 	ProxyListenerPort int
 	initialToken      string // initial token is sent to STS server for token exchange
 }
@@ -62,7 +61,7 @@ func (e *Env) TearDown() {
 	// Stop proxy first, otherwise XDS stream is still alive and server's graceful
 	// stop will be blocked.
 	e.ProxySetUp.TearDown()
-	e.AuthServer.Stop()
+	_ = e.AuthServer.Stop()
 	e.xDSServer.GracefulStop()
 	e.stsServer.Stop()
 }
@@ -88,7 +87,7 @@ func WriteDataToFile(path string, content string) error {
 	if _, err = f.WriteString(content); err != nil {
 		return err
 	}
-	f.Sync()
+	_ = f.Sync()
 	return nil
 }
 
@@ -204,7 +203,7 @@ func (e *Env) WaitForStsFlowReady(t *testing.T) {
 		},
 	}
 	// keep sending requests periodically until a success STS response is received
-	req := e.genStsReq(t, stsServerAddress)
+	req := e.genStsReq(stsServerAddress)
 	for i := 0; i < 20; i++ {
 		resp, err := hTTPClient.Do(req)
 		if err == nil {
@@ -218,7 +217,7 @@ func (e *Env) WaitForStsFlowReady(t *testing.T) {
 	t.Errorf("STS flow is not ready")
 }
 
-func (e *Env) genStsReq(t *testing.T, stsAddr string) (req *http.Request) {
+func (e *Env) genStsReq(stsAddr string) (req *http.Request) {
 	stsQuery := url.Values{}
 	stsQuery.Set("grant_type", stsServer.TokenExchangeGrantType)
 	stsQuery.Set("resource", "https//:backend.example.com")
@@ -235,11 +234,11 @@ func (e *Env) genStsReq(t *testing.T, stsAddr string) (req *http.Request) {
 	return req
 }
 
-func setUpSTS(stsPort int, backendUrl string) (*stsServer.Server, error) {
+func setUpSTS(stsPort int, backendURL string) (*stsServer.Server, error) {
 	// Create token exchange Google plugin
 	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(tokenBackend.FakeTrustDomain, tokenBackend.FakeProjectNum)
-	federatedTokenTestingEndpoint := backendUrl + "/v1/identitybindingtoken"
-	accessTokenTestingEndpoint := backendUrl + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
+	federatedTokenTestingEndpoint := backendURL + "/v1/identitybindingtoken"
+	accessTokenTestingEndpoint := backendURL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)
 	// Create token manager
 	tm := tokenmanager.CreateTokenManager(tokenmanager.GoogleTokenExchange,

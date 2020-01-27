@@ -191,7 +191,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 
 	} else {
 		log.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
-		err = fmt.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
+		err = fmt.Errorf("invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
 	}
 	if err != nil {
 		return err

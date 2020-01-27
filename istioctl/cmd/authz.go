@@ -30,7 +30,6 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/security/authz/converter"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 )
 

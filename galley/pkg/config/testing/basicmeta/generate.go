@@ -18,10 +18,10 @@ package basicmeta
 //go:generate go-bindata --nocompress --nometadata --pkg basicmeta -o basicmeta.gen.go basicmeta.yaml basicmeta2.yaml
 
 // Create static initializers file
-//go:generate go run $REPO_ROOT/galley/pkg/config/schema/codegen/tools/staticinit.main.go basicmeta basicmeta.yaml staticinit.gen.go
+//go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/staticinit.main.go basicmeta basicmeta.yaml staticinit.gen.go
 
 // Create collection constants
-//go:generate go run $REPO_ROOT/galley/pkg/config/schema/codegen/tools/collections.main.go basicmeta basicmeta.yaml collections.gen.go
+//go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go basicmeta basicmeta.yaml collections.gen.go
 
 //go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/testing/basicmeta/collections.gen.go"
 //go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/testing/basicmeta/staticinit.gen.go"

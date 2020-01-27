@@ -19,14 +19,14 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // TODO: move this out of 'external' package. Either 'serviceentry' package or
@@ -98,6 +98,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 						Full:               true,
 						NamespacesUpdated:  map[string]struct{}{curr.Namespace: {}},
 						ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{serviceEntryKind: {}},
+						Reason:             []model.TriggerReason{model.ServiceUpdate},
 					}
 					c.XdsUpdater.ConfigUpdate(pushReq)
 				} else {

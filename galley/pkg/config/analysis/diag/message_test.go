@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 
 	. "github.com/onsi/gomega"
 )

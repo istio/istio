@@ -18,10 +18,10 @@ import (
 	"sync"
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestEventConsistency(t *testing.T) {

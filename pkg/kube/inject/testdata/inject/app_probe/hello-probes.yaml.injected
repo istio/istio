@@ -15,9 +15,10 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"ec8689dff7f37cdfd2c61ffe1941cc189d9f3a65df1a77e3355ae529d0d12194","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"bfb085eb5ec13a689e8c0461d5453ad4820228cb1bb63d99e635214548fc808c","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: 80,90
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: hello
@@ -29,22 +30,19 @@ spec:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         livenessProbe:
           httpGet:
-            path: /app-health/hello/livez
-            port: 15020
+            port: http
         name: hello
         ports:
         - containerPort: 80
           name: http
         readinessProbe:
           httpGet:
-            path: /app-health/hello/readyz
-            port: 15020
+            port: 3333
         resources: {}
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         livenessProbe:
           httpGet:
-            path: /app-health/world/livez
-            port: 15020
+            port: http
         name: world
         ports:
         - containerPort: 90
@@ -72,31 +70,35 @@ spec:
         - 1m0s
         - --discoveryAddress
         - istio-pilot:15010
-        - --dnsRefreshRate
-        - 300s
+        - --zipkinAddress
+        - ""
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
         - --connectTimeout
         - 1s
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
         - NONE
+        - --dnsRefreshRate
+        - 300s
         - --statusPort
         - "15020"
+        - --trust-domain=cluster.local
+        - --controlPlaneBootstrap=false
         - --concurrency
         - "2"
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: citadel
+        - name: CA_ADDR
+          value: istio-pilot.istio-system.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: ISTIO_META_POD_PORTS
-          value: |-
-            [
-                {"name":"http","containerPort":80}
-                ,{"name":"http","containerPort":90}
-            ]
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -109,8 +111,18 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"name":"http","containerPort":80}
+                ,{"name":"http","containerPort":90}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -130,9 +142,9 @@ spec:
           value: hello
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
-        image: docker.io/istio/proxyv2:unittest
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -144,8 +156,8 @@ spec:
           httpGet:
             path: /healthz/ready
             port: 15020
-          initialDelaySeconds: 2
-          periodSeconds: 30
+          initialDelaySeconds: 1
+          periodSeconds: 2
         resources:
           limits:
             cpu: "2"
@@ -164,8 +176,12 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
+        - mountPath: /etc/istio/citadel-ca-cert
+          name: citadel-ca-cert
         - mountPath: /etc/istio/proxy
           name: istio-envoy
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
@@ -181,14 +197,14 @@ spec:
         - -m
         - REDIRECT
         - -i
-        - ""
+        - '*'
         - -x
         - ""
         - -b
         - '*'
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:unittest
+        image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -215,6 +231,16 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - configMap:
+          name: istio-ca-root-cert
+        name: citadel-ca-cert
       - name: istio-certs
         secret:
           optional: true

@@ -6,6 +6,8 @@ sidecarInjectorWebhook:
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
 
+  hub: ""
+  tag: ""
   image: sidecar_injector
 
   # This enables injection of sidecar in all namespaces,

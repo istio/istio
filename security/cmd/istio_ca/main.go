@@ -175,8 +175,6 @@ var (
 		"istio-sidecar-injector",
 		"istio-galley",
 	}
-
-	rootCertRotatorChan chan struct{}
 )
 
 func fatalf(template string, args ...interface{}) {
@@ -302,7 +300,7 @@ func initEnvVars() {
 		"Determines whether unlabeled namespaces should be targeted by this Citadel instance").Get()
 	opts.enableNamespacesByDefault = enableNamespacesByDefault
 	jwtPolicy := env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
-		"The JWT validation policy. ").Get()
+		"The JWT validation policy.").Get()
 	opts.jwtPolicy = jwtPolicy
 }
 

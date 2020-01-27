@@ -3413,6 +3413,7 @@ spec:
                         - REMOVE
                         - INSERT_BEFORE
                         - INSERT_AFTER
+                        - INSERT_FIRST
                         type: string
                       value:
                         description: The JSON config of the object being patched.
@@ -6862,6 +6863,10 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -6934,12 +6939,18 @@ spec:
           - name: SDS_ENABLED
             value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
+          {{- if eq .Values.global.pilotCertProvider "citadel" }}
+          - mountPath: /etc/istio/citadel-ca-cert
+            name: citadel-ca-cert
+          {{- end }}
           {{ if .Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
             readOnly: true
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -6953,10 +6964,16 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+      {{- if eq .Values.global.pilotCertProvider "citadel" }}
+      - name: citadel-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      {{- end }}
       {{- if .Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -6964,6 +6981,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
       {{- end }}
       {{ if .Values.global.sds.enabled }}
       - name: sdsudspath
@@ -7926,6 +7944,8 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
 {{- if .Values.global.istiod.enabled }}
@@ -8018,9 +8038,11 @@ spec:
             name: citadel-ca-cert
 {{- end }}
 {{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
+{{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
 {{ else }}
@@ -8028,8 +8050,10 @@ spec:
           - name: sdsudspath
             mountPath: /var/run/sds
             readOnly: true
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
           {{- if $gateway.sds.enabled }}
           - name: ingressgatewaysdsudspath
@@ -8056,6 +8080,7 @@ spec:
       - name: ingressgatewaysdsudspath
         emptyDir: {}
 {{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -8063,6 +8088,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
 {{- else }}
       {{- if $gateway.sds.enabled }}
       - name: ingressgatewaysdsudspath
@@ -8072,6 +8098,7 @@ spec:
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -8079,6 +8106,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
       {{- end }}
 {{- end }}
       - name: istio-certs
@@ -9520,6 +9548,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
     {{- end }}
     env:
+    - name: JWT_POLICY
+      value: {{ .Values.global.jwtPolicy }}
     - name: POD_NAME
       valueFrom:
         fieldRef:
@@ -9630,6 +9660,10 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
         value: "{{ $value }}"
     {{- end }}
     {{- end }}
+    {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+      - name: {{ $key }}
+        value: "{{ $value }}"
+    {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
     {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
     readinessProbe:
@@ -9643,16 +9677,21 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
         add:
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
         - NET_ADMIN
+        {{- end }}
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        - NET_BIND_SERVICE
+        {{- end }}
         {{- end }}
         drop:
         - ALL
       privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
-      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -9684,8 +9723,10 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - mountPath: /var/run/sds
       name: sds-uds-path
       readOnly: true
+    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
+    {{- end }}
     {{- if .Values.global.sds.customTokenDirectory }}
     - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
       name: custom-sds-token
@@ -9720,6 +9761,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   - name: sds-uds-path
     hostPath:
       path: /var/run/sds
+  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:
       sources:
@@ -9727,6 +9769,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
+  {{- end }}
   {{- if .Values.global.sds.customTokenDirectory }}
   - name: custom-sds-token
     secret:
@@ -10186,7 +10229,7 @@ spec:
 {{- if contains "/" .Values.sidecarInjectorWebhook.image }}
           image: "{{ .Values.sidecarInjectorWebhook.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.sidecarInjectorWebhook.image | default "sidecar_injector" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.sidecarInjectorWebhook.hub | default .Values.global.hub }}/{{ .Values.sidecarInjectorWebhook.image | default "sidecar_injector" }}:{{ .Values.sidecarInjectorWebhook.tag | default .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
@@ -10551,6 +10594,8 @@ var _chartsIstioControlIstioAutoinjectValuesYaml = []byte(`sidecarInjectorWebhoo
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
 
+  hub: ""
+  tag: ""
   image: sidecar_injector
 
   # This enables injection of sidecar in all namespaces,
@@ -11217,7 +11262,7 @@ spec:
 {{- if contains "/" .Values.galley.image }}
           image: "{{ .Values.galley.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.galley.image | default "galley" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.galley.hub | default .Values.global.hub }}/{{ .Values.galley.image | default "galley" }}:{{ .Values.galley.tag | default .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
@@ -11234,7 +11279,7 @@ spec:
           - --readinessProbePath=/tmp/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
-  {{- if .Values.global.configValidation }}
+  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
           - --enable-validation=true
   {{- else }}
           - --enable-validation=false
@@ -11265,7 +11310,7 @@ spec:
           - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
 {{- end }}
           volumeMounts:
-  {{- if .Values.global.configValidation }}
+  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -11654,6 +11699,8 @@ func chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl
 }
 
 var _chartsIstioControlIstioConfigValuesYaml = []byte(`galley:
+  hub: ""
+  tag: ""
   image: galley
   replicaCount: 1
   rollingMaxSurge: 100%
@@ -12087,6 +12134,10 @@ template: |
         value: "{{ $value }}"
     {{- end }}
     {{- end }}
+    {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+      - name: {{ $key }}
+        value: "{{ $value }}"
+    {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
     {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
     readinessProbe:
@@ -12100,9 +12151,14 @@ template: |
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
         add:
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
         - NET_ADMIN
+        {{- end }}
+        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        - NET_BIND_SERVICE
+        {{- end }}
         {{- end }}
         drop:
         - ALL
@@ -12110,7 +12166,7 @@ template: |
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
       fsGroup: 1337
-      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -12210,6 +12266,16 @@ template: |
       - {{ render . }}
       {{- end }}
   {{- end }}
+  podRedirectAnnot:
+    sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
+    traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
+    traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
+    traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` (includeInboundPorts .Spec.Containers) }}"
+    traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
+  {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
+    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+  {{- end }}
+    traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
 `)
 
 func chartsIstioControlIstioDiscoveryFilesInjectionTemplateYamlBytes() ([]byte, error) {
@@ -13318,7 +13384,7 @@ spec:
       {{- if ne .Values.version ""}}
       app: pilot
       version: {{ .Values.version }}
-      {{ else }}
+      {{- else }}
       istio: pilot
       {{- end }}
   template:
@@ -13327,7 +13393,7 @@ spec:
         app: pilot
         {{- if ne .Values.version ""}}
         version: {{ .Values.version }}
-        {{ else }}
+        {{- else }}
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
@@ -13354,7 +13420,7 @@ spec:
 {{- if contains "/" .Values.pilot.image }}
           image: "{{ .Values.pilot.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.pilot.hub | default .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.pilot.tag | default .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
@@ -13401,6 +13467,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
@@ -13448,12 +13516,12 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          {{ if .Values.global.istiod.enabled }}
-          {{ if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          {{- if .Values.global.istiod.enabled }}
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          {{ end }}
+          {{- end }}
           - name: local-certs
             mountPath: /var/run/secrets/istio-dns
           - name: cacerts
@@ -13468,7 +13536,7 @@ spec:
           - name: validation
             mountPath: /var/lib/istio/validation
             readOnly: true
-          {{ end }}
+          {{- end }}
 {{- if .Values.global.controlPlaneSecurityEnabled }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
@@ -13583,7 +13651,7 @@ spec:
           name: istio-validation
           optional: true
 
-      {{ else }}
+      {{- else }}
       {{- if .Values.global.sds.enabled }}
       - hostPath:
           path: /var/run/sds
@@ -13735,8 +13803,9 @@ metadata:
   labels:
     release: {{ .Release.Name }}
 data:
+{{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
-    {{ .Values | toJson }}
+{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" | toPrettyJson | indent 4 }}
 
   # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
   # and istiod webhook functionality.
@@ -14638,6 +14707,9 @@ pilot:
   replicaCount: 1
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
+
+  hub: ""
+  tag: ""
 
   # Can be a full hub/image:tag
   image: pilot
@@ -15562,7 +15634,7 @@ spec:
 {{- if contains "/" .Values.mixer.policy.image }}
         image: "{{ .Values.mixer.policy.image }}"
 {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.mixer.policy.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.mixer.policy.hub | default .Values.global.hub }}/{{ .Values.mixer.policy.image }}:{{ .Values.mixer.policy.tag | default .Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         ports:
@@ -15845,6 +15917,8 @@ func chartsIstioPolicyTemplatesServiceaccountYaml() (*asset, error) {
 
 var _chartsIstioPolicyValuesYaml = []byte(`mixer:
   policy:
+    hub: ""
+    tag: ""
     image: mixer
 
     replicaCount: 1
@@ -33289,7 +33363,7 @@ spec:
 {{- if contains "/" .Values.mixer.telemetry.image }}
         image: "{{ .Values.mixer.telemetry.image }}"
 {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.mixer.telemetry.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.mixer.telemetry.hub | default .Values.global.hub }}/{{ .Values.mixer.telemetry.image }}:{{ .Values.mixer.telemetry.tag | default .Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         ports:
@@ -34587,6 +34661,8 @@ var _chartsIstioTelemetryMixerTelemetryValuesYaml = []byte(`mixer:
     useAdapterCRDs: false
 
   telemetry:
+    hub: ""
+    tag: ""
     image: mixer
     enabled: true
     replicaCount: 1
@@ -38436,7 +38512,7 @@ spec:
 {{- if contains "/" .Values.nodeagent.image }}
           image: "{{ .Values.nodeagent.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.nodeagent.hub | default .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.nodeagent.tag | default .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
@@ -38528,6 +38604,8 @@ var _chartsSecurityNodeagentValuesYaml = []byte(`#
 #
 nodeagent:
   enabled: false
+  hub: ""
+  tag: ""
   image: node-agent-k8s
   env:
     # name of authentication provider.
