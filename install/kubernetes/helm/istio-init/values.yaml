@@ -16,6 +16,8 @@ certmanager:
   enabled: false
 
 job:
+  # activated specifies if the CRD's should be created via Kubernetes jobs
+  # if you use helm and tiller this option is not backwards compatible.
   activated: true
   resources:
     requests:
