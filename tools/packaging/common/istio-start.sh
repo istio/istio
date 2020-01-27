@@ -21,7 +21,7 @@
 set -e
 
 # Match pilot/docker/Dockerfile.proxyv2
-export ISTIO_META_ISTIO_VERSION="1.3.0"
+export ISTIO_META_ISTIO_VERSION="1.4.4"
 
 # Load optional config variables
 ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
