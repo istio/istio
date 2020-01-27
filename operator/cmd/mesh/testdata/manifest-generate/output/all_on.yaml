@@ -6663,6 +6663,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+      serviceAccountName: istio-egressgateway-service-account
       containers:
         - name: istio-proxy
           image: "gcr.io/istio-testing/proxyv2:latest"
@@ -6783,6 +6784,9 @@ spec:
           volumeMounts:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
           
           - name: istio-certs
             mountPath: /etc/certs
@@ -6797,6 +6801,13 @@ spec:
       - name: citadel-ca-cert
         configMap:
           name: istio-ca-root-cert
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: istio-ca
       
       - name: istio-certs
         secret:
