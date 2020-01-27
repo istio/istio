@@ -198,7 +198,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	opt := Options{
 		SecretTTL:                time.Minute,
 		RotationInterval:         300 * time.Microsecond,
-		EvictionDuration:         60 * time.Second,
+		EvictionDuration:         2 * time.Second,
 		InitialBackoffInMilliSec: 10,
 		SkipValidateCert:         true,
 	}
