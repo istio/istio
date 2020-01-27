@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -141,6 +142,7 @@ func TestAuthNPolicies(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
+
 	ps.ServiceDiscovery = env
 	authNPolicies := map[string]*authn.Policy{
 		constants.DefaultAuthenticationPolicyName: {},
@@ -198,20 +200,7 @@ func TestAuthNPolicies(t *testing.T) {
 	}
 	configStore := newFakeStore()
 	for key, value := range authNPolicies {
-		cfg := Config{
-			ConfigMeta: ConfigMeta{
-				Type:      collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
-				Group:     collections.IstioAuthenticationV1Alpha1Policies.Resource().Group(),
-				Version:   collections.IstioAuthenticationV1Alpha1Policies.Resource().Version(),
-				Name:      key,
-				Domain:    "cluster.local",
-				Namespace: testNamespace,
-			},
-			Spec: value,
-		}
-		if _, err := configStore.Create(cfg); err != nil {
-			t.Error(err)
-		}
+		addTestAuthenticationPolicy(t, key, testNamespace, value, configStore)
 	}
 
 	// Add cluster-scoped policy
@@ -224,19 +213,7 @@ func TestAuthNPolicies(t *testing.T) {
 			},
 		}},
 	}
-	globalCfg := Config{
-		ConfigMeta: ConfigMeta{
-			Type:    collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(),
-			Group:   collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Group(),
-			Version: collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Version(),
-			Name:    constants.DefaultAuthenticationPolicyName,
-			Domain:  "cluster.local",
-		},
-		Spec: globalPolicy,
-	}
-	if _, err := configStore.Create(globalCfg); err != nil {
-		t.Error(err)
-	}
+	addTestAuthenticationPolicy(t, constants.DefaultAuthenticationPolicyName, "", globalPolicy, configStore)
 
 	store := istioConfigStore{ConfigStore: configStore}
 	env.IstioConfigStore = &store
@@ -329,6 +306,255 @@ func TestAuthNPolicies(t *testing.T) {
 
 			if !reflect.DeepEqual(gotPolicy, c.expectedPolicy) {
 				t.Errorf("Policy: got(%v) != want(%v)\n", gotPolicy, c.expectedPolicy)
+			}
+		})
+	}
+}
+
+func addTestAuthenticationPolicy(t *testing.T, name, namespace string, spec *authn.Policy, configStore *fakeStore) {
+	var cfg Config
+	if len(namespace) == 0 {
+		cfg = Config{
+			ConfigMeta: ConfigMeta{
+				Type:    collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(),
+				Group:   collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Group(),
+				Version: collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Version(),
+				Name:    name,
+				Domain:  "cluster.local",
+			},
+			Spec: spec,
+		}
+	} else {
+		cfg = Config{
+			ConfigMeta: ConfigMeta{
+				Type:      collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
+				Group:     collections.IstioAuthenticationV1Alpha1Policies.Resource().Group(),
+				Version:   collections.IstioAuthenticationV1Alpha1Policies.Resource().Version(),
+				Name:      name,
+				Domain:    "cluster.local",
+				Namespace: namespace,
+			},
+			Spec: spec,
+		}
+	}
+	if _, err := configStore.Create(cfg); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestEffectiveAuthNPolicies(t *testing.T) {
+	const testNamespace string = "test-namespace"
+	testPort := Port{Port: 80}
+	ps := NewPushContext()
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	ps.Mesh = env.Mesh()
+	configStore := newFakeStore()
+
+	policy1 := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{
+				Mtls: &authn.MutualTls{
+					Mode: authn.MutualTls_STRICT,
+				},
+			},
+		}},
+	}
+	addTestAuthenticationPolicy(t, constants.DefaultAuthenticationPolicyName, testNamespace, policy1, configStore)
+
+	policy2 := &authn.Policy{
+		Targets: []*authn.TargetSelector{{
+			Name: "bar",
+		}},
+
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{
+				Mtls: &authn.MutualTls{
+					Mode: authn.MutualTls_PERMISSIVE,
+				},
+			},
+		}},
+		Origins: []*authn.OriginAuthenticationMethod{{
+			Jwt: &authn.Jwt{
+				Issuer:  "http://abc",
+				JwksUri: "http://xyz",
+			},
+		}},
+	}
+	addTestAuthenticationPolicy(t, "bar", testNamespace, policy2, configStore)
+
+	store := istioConfigStore{ConfigStore: configStore}
+	env.IstioConfigStore = &store
+	if err := ps.initAuthnPolicies(env); err != nil {
+		t.Fatalf("init authn policies failed: %v", err)
+	}
+
+	ps.ServiceByHostnameAndNamespace["foo.test-namespace.svc.cluster.local"] = map[string]*Service{"default": nil}
+	ps.ServiceByHostnameAndNamespace["bar.test-namespace.svc.cluster.local"] = map[string]*Service{"default": nil}
+
+	cases := []struct {
+		name                    string
+		hostname                host.Name
+		labels                  labels.Collection
+		enableAutoMtls          bool
+		expectedPolicy          *authn.Policy
+		expectedEffectivePolicy *authn.Policy
+	}{
+		{
+			name:           "auto mtls off without label",
+			hostname:       "foo.test-namespace.svc.cluster.local",
+			enableAutoMtls: false,
+			expectedPolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			expectedEffectivePolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:           "auto mtls off with label",
+			hostname:       "foo.test-namespace.svc.cluster.local",
+			enableAutoMtls: false,
+			labels:         labels.Collection{{"security.istio.io/tlsMode": "true"}},
+			expectedPolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			expectedEffectivePolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:           "auto mtls on without label",
+			hostname:       "foo.test-namespace.svc.cluster.local",
+			enableAutoMtls: true,
+			expectedPolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			expectedEffectivePolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:           "auto mtls on with label",
+			hostname:       "foo.test-namespace.svc.cluster.local",
+			enableAutoMtls: true,
+			labels:         labels.Collection{{"security.istio.io/tlsMode": "true"}},
+			expectedPolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			expectedEffectivePolicy: &authn.Policy{},
+		},
+		{
+			name:           "bar auto mtls on with label",
+			hostname:       "bar.test-namespace.svc.cluster.local",
+			enableAutoMtls: true,
+			labels:         labels.Collection{{"security.istio.io/tlsMode": "true"}},
+			expectedPolicy: &authn.Policy{
+				Targets: []*authn.TargetSelector{{
+					Name: "bar",
+				}},
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_PERMISSIVE,
+							},
+						},
+					},
+				},
+				Origins: []*authn.OriginAuthenticationMethod{{
+					Jwt: &authn.Jwt{
+						Issuer:  "http://abc",
+						JwksUri: "http://xyz",
+					},
+				}},
+			},
+			expectedEffectivePolicy: &authn.Policy{
+				Targets: []*authn.TargetSelector{{
+					Name: "bar",
+				}},
+				Origins: []*authn.OriginAuthenticationMethod{{
+					Jwt: &authn.Jwt{
+						Issuer:  "http://abc",
+						JwksUri: "http://xyz",
+					},
+				}},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		ps.Mesh.EnableAutoMtls = &types.BoolValue{
+			Value: c.enableAutoMtls,
+		}
+		service := &Service{
+			Hostname:   c.hostname,
+			Attributes: ServiceAttributes{Namespace: testNamespace},
+		}
+		t.Run(c.name, func(t *testing.T) {
+			gotPolicy, _ := ps.AuthenticationPolicyForWorkload(service, &testPort)
+			if !reflect.DeepEqual(gotPolicy, c.expectedPolicy) {
+				t.Errorf("Policy: got(%v) != want(%v)\n", gotPolicy, c.expectedPolicy)
+			}
+
+			gotEffectivePolicy, _ := ps.EffectiveAuthenticationPolicy(service, &testPort, c.labels)
+			if !reflect.DeepEqual(gotEffectivePolicy, c.expectedEffectivePolicy) {
+				t.Errorf("Effective policy: got(%v) != want(%v)\n", gotEffectivePolicy, c.expectedEffectivePolicy)
 			}
 		})
 	}

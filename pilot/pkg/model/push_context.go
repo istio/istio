@@ -1393,6 +1393,22 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	return nil
 }
 
+// mTLSDisabledByLabels returns true if there is one label with key TLSModeLabelName (security.istio.io/tlsMode)
+// and value is *not* IstioMutualTLSModeLabel (istio)
+func (ps *PushContext) mTLSDisabledByLabels(labels labels.Collection) bool {
+	if ps.Mesh.GetEnableAutoMtls() == nil || !ps.Mesh.GetEnableAutoMtls().Value || labels == nil {
+		return false
+	}
+	for _, l := range labels {
+		for k, v := range l {
+			if k == TLSModeLabelName && v != IstioMutualTLSModeLabel {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // AuthenticationPolicyForWorkload returns the matching auth policy for a given service
 // This replaces store.AuthenticationPolicyForWorkload
 func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *Port) (*authn.Policy, *ConfigMeta) {
@@ -1410,6 +1426,18 @@ func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *P
 
 	// Use default global authentication policy if no others found
 	return ps.AuthnPolicies.defaultMeshPolicy, ps.AuthnPolicies.defaultMeshPolicyMeta
+}
+
+// EffectiveAuthenticationPolicy returns the matching auth policy for a given service, taking into
+// account autoMtls and security.istio.io/tlsMode label.
+func (ps *PushContext) EffectiveAuthenticationPolicy(service *Service, port *Port, labels labels.Collection) (*authn.Policy, *ConfigMeta) {
+	policy, meta := ps.AuthenticationPolicyForWorkload(service, port)
+	if ps.mTLSDisabledByLabels(labels) && policy != nil && len(policy.Peers) > 0 {
+		newPolicy := *policy
+		newPolicy.Peers = nil
+		return &newPolicy, meta
+	}
+	return policy, meta
 }
 
 func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *Port) (*authn.Policy, *ConfigMeta) {
