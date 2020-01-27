@@ -206,7 +206,7 @@ func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, opts *kube
 		scope.Infof("- %s", c)
 	}
 	scope.Infof("Component dependencies tree: \n%s", installTreeString())
-	if err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return nil, err
 	}
 	return applyRecursive(manifests, version, opts)
@@ -268,7 +268,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	// TODO: remove this when `kubectl --prune` supports empty objects
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
 	// Delete all resources for a disabled component
-	if len(objects) == 0 {
+	if len(objects) == 0 && !opts.DryRun {
 		getOpts := opts
 		getOpts.Output = "yaml"
 		getOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}
@@ -363,20 +363,20 @@ func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
 		return nil, err
 	}
 	if yamlGet["kind"] != "List" {
-		return nil, fmt.Errorf("`kubectl get` returned a yaml whose kind is not List")
+		return nil, fmt.Errorf("`kubectl get` returned YAML whose kind is not List")
 	}
 	if _, ok := yamlGet["items"]; !ok {
-		return nil, fmt.Errorf("`kubectl get` returned a yaml without 'items' in the root")
+		return nil, fmt.Errorf("`kubectl get` returned YAML without 'items'")
 	}
 	switch items := yamlGet["items"].(type) {
 	case []interface{}:
 		return items, nil
 	}
-	return nil, fmt.Errorf("`kubectl get` returned a yaml incorrecnt type 'items' in the root")
+	return nil, fmt.Errorf("`kubectl get` returned incorrect 'items' type")
 }
 
 func DeploymentExists(kubeconfig, context, namespace, name string) (bool, error) {
-	if err := InitK8SRestClient(kubeconfig, context); err != nil {
+	if _, err := InitK8SRestClient(kubeconfig, context); err != nil {
 		return false, err
 	}
 
@@ -761,18 +761,18 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 	}
 }
 
-func InitK8SRestClient(kubeconfig, context string) error {
+func InitK8SRestClient(kubeconfig, context string) (*rest.Config, error) {
 	var err error
 	if kubeconfig == currentKubeconfig && context == currentContext && k8sRESTConfig != nil {
-		return nil
+		return k8sRESTConfig, nil
 	}
 	currentKubeconfig, currentContext = kubeconfig, context
 
 	k8sRESTConfig, err = defaultRestConfig(kubeconfig, context)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return k8sRESTConfig, nil
 }
 
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {

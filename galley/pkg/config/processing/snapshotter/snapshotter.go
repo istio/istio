@@ -20,11 +20,11 @@ import (
 	"time"
 
 	coll "istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/monitoring"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 

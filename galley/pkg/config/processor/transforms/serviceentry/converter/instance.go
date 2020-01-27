@@ -25,10 +25,10 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/constants"
 	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/validation"
 )
 

@@ -175,8 +175,6 @@ var (
 		"istio-sidecar-injector",
 		"istio-galley",
 	}
-
-	rootCertRotatorChan chan struct{}
 )
 
 func fatalf(template string, args ...interface{}) {

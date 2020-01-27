@@ -20,9 +20,9 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/data"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 
 	"github.com/gogo/protobuf/types"

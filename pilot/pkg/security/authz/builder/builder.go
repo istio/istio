@@ -98,6 +98,7 @@ func (b *Builder) BuildHTTPFilters() []*httpFilterPb.HttpFilter {
 	return filters
 }
 
+// nolint: interfacer
 func createHTTPFilter(config *envoyRbacHttpPb.RBAC) *httpFilterPb.HttpFilter {
 	if config == nil {
 		return nil

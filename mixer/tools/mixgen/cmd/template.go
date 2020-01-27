@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/test/env"
 )
 
 func templateCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
@@ -81,12 +81,11 @@ spec:
 		fatalf("template in invalid: %v", err)
 	}
 
-	repoRoot := env.RegisterStringVar("REPO_ROOT", "", "Absolute path to the base of the source repository.").Get()
 	tmplObj := &templateCRVar{
 		Name:       name,
 		Namespace:  ns,
 		Descriptor: base64.StdEncoding.EncodeToString(byts),
-		RawCommand: strings.Replace(rawCommand, repoRoot, "$REPO_ROOT", -1),
+		RawCommand: strings.Replace(rawCommand, env.IstioSrc, "$REPO_ROOT", -1),
 	}
 
 	t := gotemplate.New("templatecr")

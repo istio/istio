@@ -20,6 +20,7 @@ import (
 	"net"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1171,7 +1172,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
 		listenerOpts.bind = actualWildcard
 	}
-	*listenerMapKey = fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
+	*listenerMapKey = listenerOpts.bind + ":" + strconv.Itoa(pluginParams.Port.Port)
 
 	var exists bool
 
@@ -1230,9 +1231,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	} else {
 		if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto &&
 			util.IsProtocolSniffingEnabledForOutbound(node) && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
-			rdsName = fmt.Sprintf("%s:%d", pluginParams.Service.Hostname, pluginParams.Port.Port)
+			rdsName = string(pluginParams.Service.Hostname) + ":" + strconv.Itoa(pluginParams.Port.Port)
 		} else {
-			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
+			rdsName = strconv.Itoa(pluginParams.Port.Port)
 		}
 	}
 	httpOpts := &httpListenerOpts{
@@ -1442,9 +1443,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
 			return
-		} else {
-			listenerOpts.filterChainOpts = opts
 		}
+		listenerOpts.filterChainOpts = opts
 	} else {
 		switch pluginParams.ListenerProtocol {
 		case plugin.ListenerProtocolHTTP:
@@ -2163,7 +2163,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	listener := &xdsapi.Listener{
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like
-		Name:            fmt.Sprintf("%s_%d", opts.bind, opts.port),
+		Name:            opts.bind + "_" + strconv.Itoa(opts.port),
 		Address:         util.BuildAddress(opts.bind, uint32(opts.port)),
 		ListenerFilters: listenerFilters,
 		FilterChains:    filterChains,
@@ -2597,15 +2597,15 @@ func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
 		// Remove listener filter timeout for
 		// 	1. outbound listeners AND
 		// 	2. without HTTP inspector
-		hasHttpInspector := false
+		hasHTTPInspector := false
 		for _, lf := range l.ListenerFilters {
 			if lf.Name == wellknown.HttpInspector {
-				hasHttpInspector = true
+				hasHTTPInspector = true
 				break
 			}
 		}
 
-		if !hasHttpInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
+		if !hasHTTPInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
 			l.ListenerFiltersTimeout = nil
 			l.ContinueOnListenerFiltersTimeout = false
 		}

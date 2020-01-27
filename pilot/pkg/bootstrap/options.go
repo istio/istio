@@ -93,7 +93,7 @@ type DiscoveryServiceOptions struct {
 	// a port number is automatically chosen.
 	HTTPAddr string
 
-	// The listening addres for HTTPS (webhooks). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// The listening address for HTTPS (webhooks). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	HTTPSAddr string
 

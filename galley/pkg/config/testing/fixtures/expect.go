@@ -24,7 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/test/util/retry"
 )

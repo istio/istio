@@ -94,9 +94,10 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 		}
 	}
 
-	// If readiness probe is specified by a test, we wait almost forever.
+	// If readiness probe is not specified by a test, wait a long time
+	// Waiting forever would cause the test to timeout and lose logs
 	if c.ReadinessTimeout == 0 {
-		c.ReadinessTimeout = time.Second * 36000
+		c.ReadinessTimeout = time.Minute * 10
 	}
 
 	return nil

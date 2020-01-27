@@ -20,8 +20,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/resource"
 )
 
 func TestHandlerFromFn(t *testing.T) {
