@@ -266,21 +266,23 @@ func WritePathContext(nc *PathContext, value interface{}, merge bool) error {
 				return util.UpdateSlicePtr(nc.Parent.Node, idx, merged)
 			}
 		default:
-			scope.Debug("leaf update")
 			if isMapOrInterface(nc.Parent.Node) {
-				if isSliceOrPtrInterface(nc.Node) {
-					if isMapOrInterface(nc.Parent.Node) {
-						if err := util.AppendToSlicePtr(nc.Node, value); err != nil {
-							return err
-						}
-						return util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, nc.Node)
+				switch {
+				case isSliceOrPtrInterface(nc.Node):
+					if err := util.AppendToSlicePtr(nc.Node, value); err != nil {
+						return err
 					}
+					return util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, nc.Node)
+				case isMapOrInterface(nc.Node):
+					merged, err := mergeConditional(value, nc.Node, merge)
+					if err != nil {
+						return err
+					}
+					return util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, merged)
+				default:
+					scope.Debug("leaf update")
+					return util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, value)
 				}
-				merged, err := mergeConditional(value, nc.Node, merge)
-				if err != nil {
-					return err
-				}
-				return util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, merged)
 			}
 		}
 	}

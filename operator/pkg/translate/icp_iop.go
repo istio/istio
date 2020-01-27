@@ -84,7 +84,7 @@ func ICPToIOP(icp string, translations map[string]string) (string, error) {
 		return "", err
 	}
 
-	translated, err := YAMLTree(icps, outTree, translations)
+	translated, err := OverlayYAMLTree(icps, outTree, translations)
 	if err != nil {
 		return "", err
 	}
