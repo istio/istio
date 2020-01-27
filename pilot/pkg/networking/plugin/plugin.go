@@ -21,6 +21,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
+	"istio.io/istio/pilot/pkg/features"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -80,7 +81,10 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
 		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
 	case protocol.Thrift:
-		return ListenerProtocolThrift
+		if features.EnableThriftFilter.Get() {
+			return ListenerProtocolThrift
+		}
+		return ListenerProtocolTCP
 	case protocol.UDP:
 		return ListenerProtocolUnknown
 	default:

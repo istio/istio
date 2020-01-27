@@ -2262,14 +2262,10 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 					Name: "envoy.filters.thrift.rate_limit",
 				}
 				routerFilter := &thrift_proxy.ThriftFilter{
-					Name: "envoy.filters.thrift.router",
+					Name:       "envoy.filters.thrift.router",
+					ConfigType: &thrift_proxy.ThriftFilter_TypedConfig{TypedConfig: util.MessageToAny(rateLimitConfig)},
 				}
 
-				if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-					rateLimitFilter.ConfigType = &thrift_proxy.ThriftFilter_TypedConfig{TypedConfig: util.MessageToAny(rateLimitConfig)}
-				} else {
-					rateLimitFilter.ConfigType = &thrift_proxy.ThriftFilter_Config{Config: util.MessageToStruct(rateLimitConfig)}
-				}
 				thriftProxies[i].ThriftFilters = append(thriftProxies[i].ThriftFilters, rateLimitFilter, routerFilter)
 
 			}
