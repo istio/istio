@@ -18,8 +18,8 @@ import "testing"
 
 func TestGetClusterNameFromURL(t *testing.T) {
 	cluster, err := thritRLSClusterNameFromAuthority("")
-	if cluster != "" {
-		t.Fatalf("should return empty url on error (got %v)", cluster)
+	if err == nil || cluster != "" {
+		t.Fatalf("should error and return empty url (got %v)", cluster)
 	}
 	cluster, err = thritRLSClusterNameFromAuthority("host.com:80")
 	if err != nil {

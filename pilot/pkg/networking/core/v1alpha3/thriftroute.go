@@ -97,14 +97,13 @@ func thritRLSClusterNameFromAuthority(authority string) (string, error) {
 	if len(components) < 2 {
 		log.Debugf("Using default port to parse rate limit port from authority (using %v default): %s", rlsPort, authority)
 	} else if len(components) > 2 {
-		return "", errors.New(fmt.Sprintf("Authority had too many components: %v", authority))
+		return "", fmt.Errorf("Authority had too many components: %v", authority)
 	} else {
-
-		if p, err := strconv.Atoi(components[1]); err != nil {
-			return "", errors.New(fmt.Sprintf("Unable to parse port provided in authority: %v", authority))
-		} else {
-			rlsPort = p
+		p, err := strconv.Atoi(components[1])
+		if err != nil {
+			return "", fmt.Errorf("Unable to parse port provided in authority: %v", authority)
 		}
+		rlsPort = p
 	}
 
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(components[0]), rlsPort), nil
