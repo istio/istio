@@ -91,6 +91,92 @@ spec:
     - "{{.ImportNamespace}}/*"
     - "istio-system/*"
 `
+
+	Gateway = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-egressgateway
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*.gateway.com"
+  - port:
+      number: 443
+      name: https
+      protocol: TLS
+    hosts:
+    - "*.gateway.com"
+    tls:
+      mode: PASSTHROUGH
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route-via-egressgateway
+spec:
+  hosts:
+    - "*.gateway.com"
+  gateways:
+  - istio-egressgateway
+  - mesh
+  http:
+    - match:
+      - gateways:
+        - mesh # from sidecars, route to egress gateway service
+        port: 80
+      route:
+      - destination:
+          host: istio-egressgateway.istio-system.svc.cluster.local
+          port:
+            number: 80
+        weight: 100
+    - match:
+      - gateways:
+        - istio-egressgateway
+        port: 80
+      route:
+      - destination:
+          host: destination.{{.AppNamespace}}.svc.cluster.local
+          port:
+            number: 80
+        weight: 100
+      headers:
+        request:
+          add:
+            handled-by-egress-gateway: "true"
+    - match:
+      - gateways:
+        - mesh # from sidecars, route to egress gateway service
+        port: 443
+      route:
+      - destination:
+          host: istio-egressgateway.istio-system.svc.cluster.local
+          port:
+            number: 443
+        weight: 100
+    - match:
+      - gateways:
+        - istio-egressgateway
+        port: 443
+      route:
+      - destination:
+          host: destination.{{.AppNamespace}}.svc.cluster.local
+          port:
+            number: 443
+        weight: 100
+      headers:
+        request:
+          add:
+            handled-by-egress-gateway: "true"
+`
 )
 
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
@@ -107,6 +193,23 @@ func createSidecarScope(t *testing.T, appsNamespace namespace.Instance, serviceN
 	}
 	if err := g.ApplyConfig(appsNamespace, buf.String()); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
+	}
+}
+
+// We want to test "external" traffic. To do this without actually hitting an external endpoint,
+// we can import only the service namespace, so the apps are not known
+func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamespace namespace.Instance, g galley.Instance) {
+	tmpl, err := template.New("Gateway").Parse(Gateway)
+	if err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name()}); err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+	if err := g.ApplyConfig(serviceNamespace, buf.String()); err != nil {
+		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
 	}
 }
 
@@ -165,6 +268,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				t.Errorf("failed to apply service entries: %v", err)
 			}
 
+			createGateway(t, appsNamespace, serviceNamespace, g)
 			if err := WaitUntilNotCallable(client, dest); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)
 			}
@@ -172,6 +276,8 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 			cases := []struct {
 				name     string
 				portName string
+				host     string
+				gateway  bool
 			}{
 				{
 					name:     "HTTP Traffic",
@@ -181,6 +287,13 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 					name:     "HTTPS Traffic",
 					portName: "https",
 				},
+				{
+					name:     "HTTP Traffic Egress",
+					portName: "http",
+					host:     "foo.gateway.com",
+					gateway:  true,
+				},
+				// TODO add HTTPS through gateway
 			}
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
@@ -189,16 +302,29 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 							Target:   dest,
 							PortName: tc.portName,
 							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"Host": {tc.host},
+							},
 						})
-						if err != nil && len(expected[tc.portName]) != 0 {
+
+						key := tc.portName
+						if tc.gateway {
+							key += "_egress"
+						}
+						if err != nil && len(expected[key]) != 0 {
 							return fmt.Errorf("request failed: %v", err)
 						}
 						codes := make([]string, 0, len(resp))
 						for _, r := range resp {
 							codes = append(codes, r.Code)
 						}
-						if !reflect.DeepEqual(codes, expected[tc.portName]) {
-							return fmt.Errorf("got codes %v, expected %v", codes, expected[tc.portName])
+						if !reflect.DeepEqual(codes, expected[key]) {
+							return fmt.Errorf("got codes %v, expected %v", codes, expected[key])
+						}
+						for _, r := range resp {
+							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+							}
 						}
 						return nil
 					}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
