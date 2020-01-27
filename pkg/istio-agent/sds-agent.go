@@ -67,10 +67,10 @@ var (
 
 	trustDomainEnv                     = env.RegisterStringVar(trustDomain, "", "").Get()
 	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
-	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
+	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 12*time.Hour, "").Get()
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
-	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
+	initialBackoffInMilliSecEnv        = env.RegisterIntVar(InitialBackoffInMilliSec, 2000, "").Get()
 	pkcs8KeysEnv                       = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 
 	// Location of K8S CA root.
@@ -118,7 +118,7 @@ const (
 
 	// The environmental variable name for the initial backoff in milliseconds.
 	// example value format like "10"
-	InitialBackoff = "INITIAL_BACKOFF_MSEC"
+	InitialBackoffInMilliSec = "INITIAL_BACKOFF_MSEC"
 
 	pkcs8Key = "PKCS8_KEY"
 )
@@ -242,10 +242,14 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
-		serverOptions.EnableIngressGatewaySDS = true
-		// TODO: what is the setting for ingress ?
-		serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
-		gatewaySecretCache = newIngressSecretCache(podNamespace)
+		if ingressSdsExists() {
+			serverOptions.EnableIngressGatewaySDS = true
+			// TODO: what is the setting for ingress ?
+			serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
+			gatewaySecretCache = newIngressSecretCache(podNamespace)
+		} else {
+			log.Infof("Skipping gateway SDS")
+		}
 	}
 
 	// For sidecar and ingress we need to first get the certificates for the workload.
@@ -310,6 +314,13 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	}
 
 	return server, nil
+}
+
+func ingressSdsExists() bool {
+	p := strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
+	dir := path.Base(p)
+	_, err := os.Stat(dir)
+	return !os.IsNotExist(err)
 }
 
 // newSecretCache creates the cache for workload secrets and/or gateway secrets.
@@ -473,5 +484,5 @@ func applyEnvVars() {
 
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 
-	workloadSdsCacheOptions.InitialBackoff = int64(initialBackoffEnv)
+	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 }

@@ -260,8 +260,15 @@ func TestMain(m *testing.M) {
 values:
   global:
     disablePolicyChecks: false
+  telemetry:
+    v1:
+      enabled: true
+    v2:
+      enabled: false
 components:
   policy:
+    enabled: true
+  telemetry:
     enabled: true`
 		})).
 		Setup(testsetup).

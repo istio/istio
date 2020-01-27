@@ -81,7 +81,7 @@ spec:
 
    # Telemetry feature
     telemetry:
-      enabled: true
+      enabled: false
       k8s:
         env:
           - name: POD_NAMESPACE
@@ -355,8 +355,10 @@ spec:
 
     telemetry:
       enabled: true
-      v2:
+      v1:
         enabled: false
+      v2:
+        enabled: true
         prometheus:
           enabled: true
         stackdriver:
