@@ -1372,7 +1372,7 @@ data:
             value: "{{ $value }}"
         {{- end }}
         {{- end }}
-        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+        {{- range $key, $value := .Values.global.proxy.proxyMetadata }}
           - name: {{ $key }}
             value: "{{ $value }}"
         {{- end }}

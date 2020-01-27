@@ -9659,7 +9659,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
         value: "{{ $value }}"
     {{- end }}
     {{- end }}
-    {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+    {{- range $key, $value := .Values.global.proxy.ProxyMetadata }}
       - name: {{ $key }}
         value: "{{ $value }}"
     {{- end }}
@@ -12133,7 +12133,7 @@ template: |
         value: "{{ $value }}"
     {{- end }}
     {{- end }}
-    {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+    {{- range $key, $value := .Values.global.proxy.ProxyMetadata }}
       - name: {{ $key }}
         value: "{{ $value }}"
     {{- end }}
