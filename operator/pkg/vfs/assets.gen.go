@@ -14339,6 +14339,58 @@ spec:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-metadata-exchange-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.5.*'
+        listener: {}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.metadata_exchange
+          config:
+            protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.5.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.5.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              protocol: istio-peer-exchange
+---
 {{- if .Values.telemetry.v2.prometheus.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -14447,6 +14499,103 @@ spec:
                   code:
                     local:
                       inline_string: envoy.wasm.stats
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-stats-filter-1.5
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
 ---
 {{- end }}
 
@@ -14858,11 +15007,11 @@ telemetry:
   enabled: true
   v1:
     # Set true to enable Mixer based telemetry
-    enabled: true
+    enabled: false
   v2:
     # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
     # also enable metadata exchange and stats filter.
-    enabled: false
+    enabled: true
     # Indicate if prometheus stats filter is enabled or not
     prometheus:
       enabled: true
@@ -39360,7 +39509,7 @@ spec:
 
    # Telemetry feature
     telemetry:
-      enabled: true
+      enabled: false
       k8s:
         env:
           - name: POD_NAMESPACE
@@ -39634,8 +39783,10 @@ spec:
 
     telemetry:
       enabled: true
-      v2:
+      v1:
         enabled: false
+      v2:
+        enabled: true
         prometheus:
           enabled: true
         stackdriver:
