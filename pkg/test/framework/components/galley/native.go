@@ -282,6 +282,8 @@ func (c *nativeComponent) restart() error {
 	a.EnableValidationServer = false
 	a.EnableValidationController = false
 	a.ValidationWebhookControllerArgs.UnregisterValidationWebhook = false
+	a.Readiness.Path = "/tmp/readinessProbe"
+	a.Liveness.Path = "/tmp/livenessProbe"
 
 	// Bind to an arbitrary port.
 	a.APIAddress = "tcp://0.0.0.0:0"

@@ -45,8 +45,6 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -57,6 +55,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -224,7 +224,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		var err error
 		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)
 		if err != nil {
-			return nil, fmt.Errorf("EnableCA: %v", err)
+			return nil, fmt.Errorf("enableCA: %v", err)
 		}
 
 	}
@@ -560,7 +560,7 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 	return nil
 }
 
-// initialize secureGRPCServer - using K8S DNS certs
+// initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.Options) error {
 	certDir := dnsCertDir
 
@@ -620,7 +620,7 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 				return
 			}
 
-			log.Infof("starting K8S-signed grpc=%s", dnsGrpc)
+			log.Infof("starting DNS cert based grpc=%s", dnsGrpc)
 			// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 			// on a listener
 			err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")

@@ -131,7 +131,7 @@ var (
 
 	pushTriggers = monitoring.NewSum(
 		"pilot_push_triggers",
-		"Total number of times a push was triggered, labelled by reason for the push.",
+		"Total number of times a push was triggered, labeled by reason for the push.",
 		monitoring.WithLabels(typeTag),
 	)
 

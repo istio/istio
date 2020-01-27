@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processor/transforms/direct"
 	"istio.io/istio/galley/pkg/config/processor/transforms/ingress"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema"
 )
 
 //Providers builds and returns a list of all transformer objects

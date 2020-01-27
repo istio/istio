@@ -19,7 +19,7 @@ import (
 
 	"istio.io/api/authentication/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 )

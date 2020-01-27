@@ -18,8 +18,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/pkg/pool"
+
+	"istio.io/istio/pkg/config/resource"
 )
 
 // Version synthesizes a new resource version from existing resource versions. There needs to be at least one version

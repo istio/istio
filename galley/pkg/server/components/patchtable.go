@@ -18,13 +18,14 @@ import (
 	"io/ioutil"
 	"net"
 
-	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/pkg/filewatcher"
+
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/fs"
+	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/mcp/monitoring"
-	"istio.io/pkg/filewatcher"
 )
 
 // The patch table for external dependencies for code in components.

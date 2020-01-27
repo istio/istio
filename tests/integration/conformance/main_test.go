@@ -37,6 +37,14 @@ func loadCases() ([]*conformance.Test, error) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("conformance_test", m).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+components:
+  galley:
+    enabled: true
+  citadel:
+    enabled: true
+`
+		})).
 		Run()
 }

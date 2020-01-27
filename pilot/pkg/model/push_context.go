@@ -24,15 +24,15 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/pkg/monitoring"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -541,7 +541,42 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
-// GatewayServices returns the set of services which are refered from the proxy gateways.
+func virtualServiceDestinations(v *networking.VirtualService) []*networking.Destination {
+	if v == nil {
+		return nil
+	}
+
+	var ds []*networking.Destination
+
+	for _, h := range v.Http {
+		for _, r := range h.Route {
+			if r.Destination != nil {
+				ds = append(ds, r.Destination)
+			}
+		}
+		if h.Mirror != nil {
+			ds = append(ds, h.Mirror)
+		}
+	}
+	for _, t := range v.Tcp {
+		for _, r := range t.Route {
+			if r.Destination != nil {
+				ds = append(ds, r.Destination)
+			}
+		}
+	}
+	for _, t := range v.Tls {
+		for _, r := range t.Route {
+			if r.Destination != nil {
+				ds = append(ds, r.Destination)
+			}
+		}
+	}
+
+	return ds
+}
+
+// GatewayServices returns the set of services which are referred from the proxy gateways.
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := ps.Services(proxy)
 	// gateway set.
@@ -561,25 +596,8 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 			return svcs
 		}
 
-		for _, h := range vs.Http {
-			for _, r := range h.Route {
-				hostsFromGateways[r.Destination.Host] = struct{}{}
-			}
-			if h.Mirror != nil {
-				hostsFromGateways[h.Mirror.Host] = struct{}{}
-			}
-		}
-
-		for _, h := range vs.Tls {
-			for _, r := range h.Route {
-				hostsFromGateways[r.Destination.Host] = struct{}{}
-			}
-		}
-
-		for _, h := range vs.Tcp {
-			for _, r := range h.Route {
-				hostsFromGateways[r.Destination.Host] = struct{}{}
-			}
+		for _, d := range virtualServiceDestinations(vs) {
+			hostsFromGateways[d.Host] = struct{}{}
 		}
 	}
 
@@ -1362,7 +1380,16 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	if err != nil {
 		return err
 	}
-	ps.SetDestinationRules(configs)
+
+	// values returned from ConfigStore.List are immutable.
+	// Therefore, we make a copy
+	destRules := make([]Config, len(configs))
+
+	for i := range destRules {
+		destRules[i] = configs[i].DeepCopy()
+	}
+
+	ps.SetDestinationRules(destRules)
 	return nil
 }
 

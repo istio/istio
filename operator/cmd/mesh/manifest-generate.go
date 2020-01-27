@@ -74,7 +74,10 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) e
 	if err != nil {
 		return err
 	}
-	manifests, _, err := GenManifests(mgArgs.inFilename, overlayFromSet, mgArgs.force, l)
+
+	// For generate, we may not have access to the kube cluster, so don't rely on kubeconfig
+	// TODO: support optional kubeconfig reading
+	manifests, _, err := GenManifests(mgArgs.inFilename, overlayFromSet, mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}

@@ -28,13 +28,12 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
