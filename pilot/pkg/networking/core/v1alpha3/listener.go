@@ -1069,7 +1069,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 						}
 					} else {
 						// Standard logic for headless and non headless services
-						if servicePort.Protocol.IsThrift() {
+						if features.EnableThriftFilter.Get() &&
+							servicePort.Protocol.IsThrift() {
 							listenerOpts.bind = service.Address
 						}
 						configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
