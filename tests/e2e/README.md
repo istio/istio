@@ -18,7 +18,7 @@ hermetic environment.
 
 For example: `prow/e2e-kind-suite.sh --auth_enable --single_test e2e_simple`.
 
-The full list of jobs can be found in [test-infra](https://github.com/istio/test-infra/blob/master/prow/config/jobs/istio.yaml).
+The full list of jobs can be found in [test-infra](https://github.com/istio/test-infra/blob/release-1.5/prow/config/jobs/istio.yaml).
 
 ## Debugging
 
@@ -35,7 +35,7 @@ To see its usage run:
 kubectl exec -it <test pod> -n <test namespace> -c app -- client -h
 ```
 
-or check [the source code](https://github.com/istio/istio/blob/master/pkg/test/echo/cmd/client/main.go).
+or check [the source code](https://github.com/istio/istio/blob/release-1.5/pkg/test/echo/cmd/client/main.go).
 
 ## Adding New E2E Tests
 
