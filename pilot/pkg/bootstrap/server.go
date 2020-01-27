@@ -228,7 +228,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		}
 		err = s.initPublicKey()
 		if err != nil {
-			return nil, fmt.Errorf("Extract public key: %v", err)
+			return nil, fmt.Errorf("init public key: %v", err)
 		}
 	}
 

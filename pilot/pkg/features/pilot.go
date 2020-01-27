@@ -297,8 +297,8 @@ var (
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
-		"the provider of Pilot DNS certificate. Supports 'citadel', 'kubernetes' or a path to user-supplied certs")
+		"the provider of Pilot DNS certificate.")
 
 	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
-		"The JWT validation policy. Default 'third-party-jwt' is recommended. Use 'first-party-jwt' as a fallback.")
+		"The JWT validation policy.")
 )
