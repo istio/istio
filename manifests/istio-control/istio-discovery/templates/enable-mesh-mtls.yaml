@@ -37,9 +37,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: disable-mtls-to-kube-dns
-  namespace: kube-system
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
 spec:
-  host: "kube-dns.kube-system.svc.cluster.local"
+  host: "kube-dns.kube-system.svc.{{ .Values.global.proxy.clusterDomain }}"
   trafficPolicy:
     tls:
       mode: DISABLE
