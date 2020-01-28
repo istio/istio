@@ -137,6 +137,50 @@ func (s *Server) initDNSCerts(hostname string) error {
 	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
 		log.Infof("Generating Citadel-signed cert for %v", names)
 		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
+
+		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		if _, err := os.Stat(signingKeyFile); err != nil {
+			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
+			// When Citadel is configured to use self-signed certs, keep a local copy so other
+			// components can load it via file (e.g. webhook config controller).
+			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
+				return err
+			}
+			// We have direct access to the self-signed
+			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
+
+			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+				return err
+			}
+
+			s.addStartFunc(func(stop <-chan struct{}) error {
+				go func() {
+					for {
+						select {
+						case <-stop:
+							return
+						case <-time.After(namespaceResyncPeriod):
+							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+							if !bytes.Equal(rootCert, newRootCert) {
+								rootCert = newRootCert
+								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+									log.Errorf("Failed to update local copy of self-signed root: %v", err)
+								} else {
+									log.Info("Updated local copy of self-signed root")
+								}
+							}
+						}
+					}
+				}()
+				return nil
+			})
+			s.caBundlePath = internalSelfSignedRootPath
+		} else {
+			log.Infof("Use plugged-in cert at %v", signingKeyFile)
+			s.caBundlePath = path.Join(localCertDir.Get(), "root-cert.pem")
+		}
+
 	} else {
 		log.Infof("User specified certs: %v", features.PilotCertProvider.Get())
 		return nil

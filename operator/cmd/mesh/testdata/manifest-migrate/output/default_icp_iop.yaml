@@ -611,7 +611,7 @@ spec:
         persist: false
         spanStorageType: badger
         storageClassName: ""
-        tag: "1.14"
+        tag: "1.16"
       nodeSelector: {}
       opencensus:
         exporters:

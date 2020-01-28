@@ -360,6 +360,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					ServerName:          EnvoyServerName,
 					HttpProtocolOptions: httpProtoOpts,
 				},
+				addGRPCWebFilter: serverProto == protocol.GRPCWeb,
 			},
 		}
 	}

@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -56,7 +56,7 @@ func newSidecar(pod kubeCore.Pod, accessor *kube.Accessor) (*sidecar, error) {
 	// Extract the node ID from Envoy.
 	if err := sidecar.WaitForConfig(func(cfg *envoyAdmin.ConfigDump) (bool, error) {
 		for _, c := range cfg.Configs {
-			if c.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump" {
+			if c.TypeUrl == "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump" {
 				cd := envoyAdmin.BootstrapConfigDump{}
 				if err := ptypes.UnmarshalAny(c, &cd); err != nil {
 					return false, err

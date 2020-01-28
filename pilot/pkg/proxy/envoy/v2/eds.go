@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -468,27 +469,25 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 
 	// 2. Update data for the specific cluster. Each cluster gets independent
 	// updates containing the full list of endpoints for the service in that cluster.
+	serviceAccounts := map[string]bool{}
 	for _, e := range istioEndpoints {
 		if e.ServiceAccount != "" {
-			ep.mutex.Lock()
-			_, f = ep.ServiceAccounts[e.ServiceAccount]
-			if !f {
-				ep.ServiceAccounts[e.ServiceAccount] = true
-			}
-			ep.mutex.Unlock()
+			serviceAccounts[e.ServiceAccount] = true
+		}
+	}
 
-			if !f && !internal {
-				// The entry has a service account that was not previously associated.
-				// Requires a CDS push and full sync.
-				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
-				requireFull = true
-				break
-			}
+	if !reflect.DeepEqual(serviceAccounts, ep.ServiceAccounts) {
+		adsLog.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
+			serviceName, ep.ServiceAccounts, serviceAccounts)
+		if !internal {
+			requireFull = true
+			adsLog.Infof("Full push, service accounts changed, %v", serviceName)
 		}
 	}
 
 	ep.mutex.Lock()
 	ep.Shards[clusterID] = istioEndpoints
+	ep.ServiceAccounts = serviceAccounts
 	ep.mutex.Unlock()
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
