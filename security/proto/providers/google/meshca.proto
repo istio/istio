@@ -27,9 +27,7 @@ message MeshCertificateRequest {
   string csr = 2;
   // Optional: requested certificate validity period.
   google.protobuf.Duration validity = 3;
-  // A path to a Private CA CertificateAuthority resource, in the format
-  // `projects/*/locations/*/certificateAuthorities/*`.
-  // Reserved 4: string certificate_authority
+  // Reserved 4
 }
 
 // Certificate response message.
