@@ -7226,9 +7226,6 @@ spec:
           readOnly: true
       serviceAccountName: istio-galley-service-account
       volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-galley-service-account
       - configMap:
           name: istio-galley-configuration
         name: config
