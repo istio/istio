@@ -15,9 +15,11 @@
 package bootstrap
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
