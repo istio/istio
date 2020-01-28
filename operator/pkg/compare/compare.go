@@ -266,6 +266,30 @@ func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, 
 	return manifestDiff(aosm, bosm, im, verbose)
 }
 
+// SelectAndIgnoreFromOutput selects and ignore subset from the manifest string
+func SelectAndIgnoreFromOutput(got string, selectResources string, ignoreResources string) (string, error) {
+	sm := getObjPathMap(selectResources)
+	im := getObjPathMap(ignoreResources)
+	ao, err := object.ParseK8sObjectsFromYAMLManifest(got)
+	if err != nil {
+		return "", err
+	}
+	aom := ao.ToMap()
+	slrs, err := filterResourceWithSelectAndIgnore(aom, sm, im)
+	if err != nil {
+		return "", err
+	}
+	var sb strings.Builder
+	for _, ko := range slrs {
+		yl, err := ko.YAML()
+		if err != nil {
+			return "", err
+		}
+		sb.WriteString(string(yl) + object.YAMLSeparator)
+	}
+	return sb.String(), nil
+}
+
 // renameResource filter the input resources with selected and ignored filter.
 func renameResource(iom map[string]*object.K8sObject, rnm map[string]string) (map[string]*object.K8sObject, error) {
 	oom := make(map[string]*object.K8sObject)
