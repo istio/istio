@@ -102,6 +102,7 @@
 // charts/istio-control/istio-discovery/templates/serviceaccount.yaml
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml
+// charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml
 // charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration-noop.yaml
 // charts/istio-control/istio-discovery/templates/validation-template.yaml.tpl
 // charts/istio-control/istio-discovery/values.yaml
@@ -14753,6 +14754,282 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml() (*asset, erro
 	}
 
 	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: metadata-exchange-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY # inbound, outbound, and gateway
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                configuration: envoy.wasm.metadata_exchange
+                vm_config:
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.metadata_exchange
+---
+{{- if .Values.telemetry.v2.prometheus.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+---
+{{- end }}
+
+{{- if .Values.telemetry.v2.stackdriver.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stackdriver-filter-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_outbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_inbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_outbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s", "disable_host_header_fallback": true}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
+---
+{{- end}}
+{{- end}}
+`)
+
+func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16YamlBytes() ([]byte, error) {
+	return _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml, nil
+}
+
+func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml() (*asset, error) {
+	bytes, err := chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -41469,6 +41746,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/serviceaccount.yaml":                      chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml,
 	"charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml":                     chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml,
 	"charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml":                     chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml,
+	"charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml":                     chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml,
 	"charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration-noop.yaml": chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml,
 	"charts/istio-control/istio-discovery/templates/validation-template.yaml.tpl":             chartsIstioControlIstioDiscoveryTemplatesValidationTemplateYamlTpl,
 	"charts/istio-control/istio-discovery/values.yaml":                                        chartsIstioControlIstioDiscoveryValuesYaml,
@@ -41785,6 +42063,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"serviceaccount.yaml":                      &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml, map[string]*bintree{}},
 					"telemetryv2_1.4.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml, map[string]*bintree{}},
 					"telemetryv2_1.5.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml, map[string]*bintree{}},
+					"telemetryv2_1.6.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml, map[string]*bintree{}},
 					"validatingwebhookconfiguration-noop.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml, map[string]*bintree{}},
 					"validation-template.yaml.tpl":             &bintree{chartsIstioControlIstioDiscoveryTemplatesValidationTemplateYamlTpl, map[string]*bintree{}},
 				}},
