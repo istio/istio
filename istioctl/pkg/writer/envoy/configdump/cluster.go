@@ -22,6 +22,7 @@ import (
 	"text/tabwriter"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
@@ -123,12 +124,22 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*xdsapi.Cluster, error) {
 	clusters := make([]*xdsapi.Cluster, 0)
 	for _, cluster := range clusterDump.DynamicActiveClusters {
 		if cluster.Cluster != nil {
-			clusters = append(clusters, cluster.Cluster)
+			clusterTyped := &xdsapi.Cluster{}
+			err = ptypes.UnmarshalAny(cluster.Cluster, clusterTyped)
+			if err != nil {
+				return nil, err
+			}
+			clusters = append(clusters, clusterTyped)
 		}
 	}
 	for _, cluster := range clusterDump.StaticClusters {
 		if cluster.Cluster != nil {
-			clusters = append(clusters, cluster.Cluster)
+			clusterTyped := &xdsapi.Cluster{}
+			err = ptypes.UnmarshalAny(cluster.Cluster, clusterTyped)
+			if err != nil {
+				return nil, err
+			}
+			clusters = append(clusters, clusterTyped)
 		}
 	}
 	if len(clusters) == 0 {

@@ -125,7 +125,7 @@ const reportAttributesFailPost = `
 `
 
 // Stats in Envoy proxy.
-var expectedStats = map[string]int{
+var expectedStats = map[string]uint64{
 	// Policy check stats
 	"tcp_mixer_filter.total_check_calls":             2,
 	"tcp_mixer_filter.total_check_cache_hits":        0,
