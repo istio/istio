@@ -47,6 +47,7 @@ type CAServer struct {
 }
 
 // CreateServer creates a mocked local Google CA server and runs it in a separate thread.
+// nolint: interfacer
 func CreateServer(addr string, service *CAService) (*CAServer, error) {
 	// create a local grpc server
 	s := &CAServer{
@@ -55,7 +56,7 @@ func CreateServer(addr string, service *CAService) (*CAServer, error) {
 
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to listen on the TCP address: %v", err)
+		return nil, fmt.Errorf("failed to listen on the TCP address: %v", err)
 	}
 	s.Address = lis.Addr().String()
 

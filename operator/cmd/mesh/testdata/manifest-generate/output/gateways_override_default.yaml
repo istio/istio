@@ -1,4 +1,4 @@
-# Resources for Addon component
+# Resources for AddonComponents component
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -543,6 +543,8 @@ spec:
         - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: ISTIO_META_USER_SDS
@@ -602,8 +604,6 @@ spec:
             {"app":"istio-ingressgateway","istio":"ingressgateway"}
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        - name: SDS_ENABLED
-          value: "false"
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy

@@ -442,8 +442,8 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	// Set SDS configuration on the metadata, if provided.
 	if sdsEnabled {
 		// sds is enabled
-		meta.SdsEnabled = "1"
-		meta.SdsTrustJwt = "1"
+		meta.SdsEnabled = true
+		meta.SdsTrustJwt = true
 	}
 
 	return meta, untypedMeta, nil

@@ -33,6 +33,7 @@ tracing:
     name: envoy.zipkin
     config:
       collector_cluster: zipkin
+      collector_endpoint_version: HTTP_JSON
       collector_endpoint: /
       trace_id_128bit: true
       shared_span_context: false

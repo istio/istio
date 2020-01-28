@@ -266,7 +266,6 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
-	file = "" // Clear, because we re-use
 
 	fErr := rootCmd.Execute()
 	output := out.String()

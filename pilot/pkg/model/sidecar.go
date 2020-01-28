@@ -15,6 +15,7 @@
 package model
 
 import (
+	"sort"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -216,26 +217,71 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 
 	// Assign namespace dependencies
 	out.namespaceDependencies = make(map[string]struct{})
+
+	addService := func(s *Service) {
+		if s == nil {
+			return
+		}
+		if foundSvc, found := servicesAdded[string(s.Hostname)]; !found {
+			servicesAdded[string(s.Hostname)] = s
+			out.services = append(out.services, s)
+			out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
+		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
+			// merge the ports to service when each listener generates partial service
+			// we only merge if the found service is in the same namespace as the one we're trying to add
+			os := servicesAdded[string(s.Hostname)]
+			for _, p := range s.Ports {
+				found := false
+				for _, osp := range os.Ports {
+					if p.Port == osp.Port {
+						found = true
+						break
+					}
+				}
+				if !found {
+					os.Ports = append(os.Ports, p)
+				}
+			}
+		}
+	}
+
 	for _, listener := range out.EgressListeners {
+		// First add the explicitly requested services, which take priority
 		for _, s := range listener.services {
-			if _, found := servicesAdded[string(s.Hostname)]; !found {
-				servicesAdded[string(s.Hostname)] = s
-				out.services = append(out.services, s)
-				out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
-			} else if s.Ports != nil && len(s.Ports) > 0 {
-				// merge the ports to service when each listener generates partial service
-				os := servicesAdded[string(s.Hostname)]
-				for _, p := range s.Ports {
-					found := false
-					for _, osp := range os.Ports {
-						if p.Port == osp.Port {
-							found = true
-							break
-						}
+			addService(s)
+		}
+
+		// Infer more possible destinations from virtual services
+		// Services chosen here will not override services explicitly requested in listener.services.
+		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
+		// want in the hosts field, and the potentially random choice below won't matter
+		for _, vs := range listener.virtualServices {
+			v := vs.Spec.(*networking.VirtualService)
+			for _, d := range virtualServiceDestinations(v) {
+				// Default to this hostname in our config namespace
+				if s, ok := ps.ServiceByHostnameAndNamespace[host.Name(d.Host)][configNamespace]; ok {
+					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+					addService(s)
+				} else {
+					// We couldn't find the hostname in our config namespace
+					// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
+					// TODO: could we choose services more intelligently based on their ports?
+					byNamespace := ps.ServiceByHostnameAndNamespace[host.Name(d.Host)]
+					if len(byNamespace) == 0 {
+						// This hostname isn't found anywhere
+						log.Debugf("Could not find service hostname %s parsed from %s", d.Host, vs.Key())
+						continue
 					}
-					if !found {
-						os.Ports = append(os.Ports, p)
+
+					ns := make([]string, 0, len(byNamespace))
+					for k := range byNamespace {
+						ns = append(ns, k)
 					}
+					sort.Strings(ns)
+
+					// Pick first namespace alphabetically
+					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+					addService(byNamespace[ns[0]])
 				}
 			}
 		}

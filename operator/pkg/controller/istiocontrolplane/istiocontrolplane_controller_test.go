@@ -47,25 +47,15 @@ var (
 	defaultStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
 		string(name.IstioBaseComponentName): healthyVersionStatus,
 		string(name.PilotComponentName):     healthyVersionStatus,
-		string(name.TelemetryComponentName): healthyVersionStatus,
 		string(name.IngressComponentName):   healthyVersionStatus,
 		string(name.AddonComponentName):     healthyVersionStatus,
 	}
 	demoStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
 		string(name.IstioBaseComponentName): healthyVersionStatus,
 		string(name.PilotComponentName):     healthyVersionStatus,
-		string(name.TelemetryComponentName): healthyVersionStatus,
 		string(name.PolicyComponentName):    healthyVersionStatus,
 		string(name.IngressComponentName):   healthyVersionStatus,
 		string(name.EgressComponentName):    healthyVersionStatus,
-		string(name.AddonComponentName):     healthyVersionStatus,
-	}
-	sdsStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
-		string(name.IstioBaseComponentName): healthyVersionStatus,
-		string(name.PilotComponentName):     healthyVersionStatus,
-		string(name.TelemetryComponentName): healthyVersionStatus,
-		string(name.NodeAgentComponentName): healthyVersionStatus,
-		string(name.IngressComponentName):   healthyVersionStatus,
 		string(name.AddonComponentName):     healthyVersionStatus,
 	}
 )

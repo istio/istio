@@ -37,7 +37,7 @@ const (
 )
 
 var (
-	citadelClientLog = log.RegisterScope("citadelClientLog", "citadel client debugging", 0)
+	citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
 )
 
 type citadelClient struct {

@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -35,7 +35,6 @@ import (
 
 const (
 	proxyContainerName = "istio-proxy"
-	proxyAdminPort     = 15000
 )
 
 var _ echo.Sidecar = &sidecar{}
@@ -57,7 +56,7 @@ func newSidecar(pod kubeCore.Pod, accessor *kube.Accessor) (*sidecar, error) {
 	// Extract the node ID from Envoy.
 	if err := sidecar.WaitForConfig(func(cfg *envoyAdmin.ConfigDump) (bool, error) {
 		for _, c := range cfg.Configs {
-			if c.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump" {
+			if c.TypeUrl == "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump" {
 				cd := envoyAdmin.BootstrapConfigDump{}
 				if err := ptypes.UnmarshalAny(c, &cd); err != nil {
 					return false, err
@@ -164,7 +163,7 @@ func (s *sidecar) ListenersOrFail(t test.Failer) *envoyAdmin.Listeners {
 
 func (s *sidecar) adminRequest(path string, out proto.Message) error {
 	// Exec onto the pod and make a curl request to the admin port, writing
-	command := fmt.Sprintf("curl http://127.0.0.1:%d/%s", proxyAdminPort, path)
+	command := fmt.Sprintf("pilot-agent request GET %s", path)
 	response, err := s.accessor.Exec(s.podNamespace, s.podName, proxyContainerName, command)
 	if err != nil {
 		return fmt.Errorf("failed exec on pod %s/%s: %v. Command: %s. Output:\n%s",

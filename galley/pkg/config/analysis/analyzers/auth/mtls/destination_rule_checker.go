@@ -20,8 +20,8 @@ import (
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/resource"
 )
 
 // DestinationRuleChecker computes whether or not MTLS is used according to

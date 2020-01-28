@@ -26,11 +26,11 @@ import (
 	istioRbacPb "istio.io/api/rbac/v1alpha1"
 	istioSecurityPb "istio.io/api/security/v1beta1"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	authzModel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // We cannot import `testing` here, as it will bring extra test flags into the binary. Instead, just include the interface here

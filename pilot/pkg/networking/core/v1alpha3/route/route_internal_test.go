@@ -19,9 +19,11 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -479,6 +481,92 @@ func TestTranslateCORSPolicy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := translateCORSPolicy(tt.in); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("translateCORSPolicy() = \n%v, want \n%v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMirrorPercent(t *testing.T) {
+	cases := []struct {
+		name  string
+		route *networking.HTTPRoute
+		want  *core.RuntimeFractionalPercent
+	}{
+		{
+			name: "zero mirror percent",
+			route: &networking.HTTPRoute{
+				Mirror:        &networking.Destination{},
+				MirrorPercent: &types.UInt32Value{Value: 0.0},
+			},
+			want: nil,
+		},
+		{
+			name: "mirror with no value given",
+			route: &networking.HTTPRoute{
+				Mirror: &networking.Destination{},
+			},
+			want: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   100,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+		},
+		{
+			name: "mirror with actual percent",
+			route: &networking.HTTPRoute{
+				Mirror:        &networking.Destination{},
+				MirrorPercent: &types.UInt32Value{Value: 50},
+			},
+			want: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   50,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+		},
+		{
+			name: "zero mirror percentage",
+			route: &networking.HTTPRoute{
+				Mirror:           &networking.Destination{},
+				MirrorPercentage: &networking.Percent{Value: 0.0},
+			},
+			want: nil,
+		},
+		{
+			name: "mirrorpercentage with actual percent",
+			route: &networking.HTTPRoute{
+				Mirror:           &networking.Destination{},
+				MirrorPercentage: &networking.Percent{Value: 50.0},
+			},
+			want: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   500000,
+					Denominator: xdstype.FractionalPercent_MILLION,
+				},
+			},
+		},
+		{
+			name: "mirrorpercentage takes precedence when both are given",
+			route: &networking.HTTPRoute{
+				Mirror:           &networking.Destination{},
+				MirrorPercent:    &types.UInt32Value{Value: 40},
+				MirrorPercentage: &networking.Percent{Value: 50.0},
+			},
+			want: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   500000,
+					Denominator: xdstype.FractionalPercent_MILLION,
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mp := mirrorPercent(tt.route)
+			if !reflect.DeepEqual(mp, tt.want) {
+				t.Errorf("Unexpected mirro percent want %v, got %v", tt.want, mp)
 			}
 		})
 	}

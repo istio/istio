@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 )
 
 // DocPrefix is the root URL for validation message docs

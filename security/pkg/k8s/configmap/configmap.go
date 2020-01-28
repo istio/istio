@@ -26,7 +26,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-var configMapLog = log.RegisterScope("configMapController", "ConfigMap controller log", 0)
+var configMapLog = log.RegisterScope("configmapcontroller", "ConfigMap controller log", 0)
 
 const (
 	IstioSecurityConfigMapName = "istio-security"

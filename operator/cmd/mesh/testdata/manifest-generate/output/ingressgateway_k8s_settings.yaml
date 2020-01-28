@@ -1,4 +1,4 @@
-# Resources for Addon component
+# Resources for AddonComponents component
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -3567,6 +3567,7 @@ spec:
                         - REMOVE
                         - INSERT_BEFORE
                         - INSERT_AFTER
+                        - INSERT_FIRST
                         type: string
                       value:
                         description: The JSON config of the object being patched.
@@ -6306,6 +6307,8 @@ spec:
               memory: 128Mi
             
           env:
+          - name: JWT_POLICY
+            value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
             value: citadel
           - name: "ISTIO_META_USER_SDS"
@@ -6366,8 +6369,6 @@ spec:
               {"app":"istio-ingressgateway","istio":"ingressgateway"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
-          - name: SDS_ENABLED
-            value: "false"
           volumeMounts:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
