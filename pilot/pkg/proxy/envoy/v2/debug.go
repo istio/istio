@@ -28,8 +28,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -632,7 +633,11 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	clusters := s.generateRawClusters(conn.node, s.globalPushContext())
 
 	for _, cs := range clusters {
-		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
+		cluster, err := ptypes.MarshalAny(cs)
+		if err != nil {
+			return nil, err
+		}
+		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cluster})
 	}
 	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
 		VersionInfo:           versionInfo(),
@@ -645,8 +650,12 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	listeners := s.generateRawListeners(conn, s.globalPushContext())
 	for _, cs := range listeners {
+		listener, err := ptypes.MarshalAny(cs)
+		if err != nil {
+			return nil, err
+		}
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
-			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: cs}})
+			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener}})
 	}
 	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
 		VersionInfo:      versionInfo(),
@@ -661,7 +670,11 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	if len(routes) > 0 {
 		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
 		for _, rs := range routes {
-			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
+			route, err := ptypes.MarshalAny(rs)
+			if err != nil {
+				return nil, err
+			}
+			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: route})
 		}
 		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
 		if err != nil {

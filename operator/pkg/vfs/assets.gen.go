@@ -6752,6 +6752,7 @@ spec:
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
     spec:
+      serviceAccountName: istio-egressgateway-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -6943,6 +6944,13 @@ spec:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
           {{- end }}
+          {{- if .Values.global.istiod.enabled }}
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+          {{- end }}
+          {{- end }}
           {{ if .Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
@@ -6969,6 +6977,17 @@ spec:
         configMap:
           name: istio-ca-root-cert
       {{- end }}
+{{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
+{{- end }}
       {{- if .Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
@@ -39620,7 +39639,32 @@ spec:
             maxUnavailable: "25%"
 
     egressGateways:
-
+    - name: istio-egressgateway
+      enabled: false
+      k8s:
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-ingressgateway
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                targetAverageUtilization: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
     # Istio CNI feature
     cni:
       enabled: false

@@ -186,7 +186,7 @@ const reportAttributesOkPost2 = `
 `
 
 // Stats in Envoy proxy.
-var expectedStats = map[string]int{
+var expectedStats = map[string]uint64{
 	// Policy check stats
 	"http_mixer_filter.total_check_calls":             3,
 	"http_mixer_filter.total_check_cache_hits":        0,
