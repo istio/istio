@@ -212,7 +212,6 @@ func isSupportedPermission(key string) bool {
 	case key == attrDestIP:
 	case key == attrDestPort:
 	case key == pathHeader || key == methodHeader || key == hostHeader:
-	case strings.HasPrefix(key, attrRequestHeader):
 	case key == attrConnSNI:
 	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
 	default:
