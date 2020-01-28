@@ -37211,7 +37211,7 @@ tracing:
   jaeger:
     hub: docker.io/jaegertracing
     image: all-in-one
-    tag: 1.14
+    tag: 1.16
     memory:
       max_traces: 50000
     resources: {}
@@ -40088,7 +40088,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.14"
+        tag: "1.16"
         memory:
           max_traces: 50000
         spanStorageType: badger

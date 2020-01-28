@@ -668,7 +668,7 @@ spec:
         persist: false
         spanStorageType: badger
         storageClassName: ""
-        tag: 1.12
+        tag: 1.16
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
       provider: jaeger
