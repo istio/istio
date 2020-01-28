@@ -78,13 +78,6 @@ var (
 		NodeAgentComponentName,
 		CNIComponentName,
 	}
-	AllAddonComponentNames = []ComponentName{
-		PrometheusComponentName,
-		KialiComponentName,
-		GrafanaComponentName,
-		TracingComponentName,
-		CoreDNSComponentName,
-	}
 	DeprecatedNames = []ComponentName{
 		InjectorComponentName,
 	}

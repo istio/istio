@@ -43,7 +43,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		InstallSpec: installSpec,
 		Translator:  translator,
 	}
-	for _, c := range append(name.AllCoreComponentNames, name.AllAddonComponentNames...) {
+	for _, c := range append(name.AllCoreComponentNames, name.AllLegacyAddonComponentNames...) {
 		o := *opts
 		ns, err := name.Namespace(c, installSpec)
 		if err != nil {
