@@ -57,10 +57,8 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-# Test targets to run with the new installer. Some targets are filtered now as they are not yet working
-NEW_INSTALLER_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integration/... | grep -v "/mixer\|telemetry/tracing\|/istioctl\|/istioio")
-
-TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
+# filter out non-standard test directories
+TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples | grep -v /istioio)
 
 # Generate integration test targets for local environment.
 test.integration.%.local: | $(JUNIT_REPORT)
