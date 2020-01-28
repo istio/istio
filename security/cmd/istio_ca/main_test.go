@@ -120,7 +120,7 @@ func Test_createCA(t *testing.T) {
 				t.Errorf("cert PEM got = %v, want %v", string(gotCert), string(tt.wantCert))
 			}
 			if !reflect.DeepEqual(spiffe.GetTrustDomain(), tt.wantTrustDomain) {
-				t.Errorf("spiffe trustDomain got = %v, want %v", spiffe.GetTrustDomain(), string(tt.wantTrustDomain))
+				t.Errorf("spiffe trustDomain got = %v, want %v", spiffe.GetTrustDomain(), tt.wantTrustDomain)
 			}
 		})
 	}
