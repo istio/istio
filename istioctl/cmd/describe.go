@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	envoy_api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	envoy_api_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
@@ -730,8 +731,13 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		if listener.ActiveState == nil {
 			continue
 		}
-		if filter.Verify(listener.ActiveState.Listener) {
-			sockAddr := listener.ActiveState.Listener.Address.GetSocketAddress()
+		listenerTyped := &envoy_api.Listener{}
+		err = ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+		if err != nil {
+			return nil, err
+		}
+		if filter.Verify(listenerTyped) {
+			sockAddr := listenerTyped.Address.GetSocketAddress()
 			if sockAddr != nil {
 				// Skip outbound listeners
 				if sockAddr.Address == "0.0.0.0" {
@@ -739,7 +745,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 				}
 			}
 
-			for _, filterChain := range listener.ActiveState.Listener.FilterChains {
+			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
 					hcm := &http_conn.HttpConnectionManager{}
 					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
@@ -787,11 +793,16 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 		return "", err
 	}
 	for _, rcd := range rcd.DynamicRouteConfigs {
-		if rcd.RouteConfig.Name != sPort && !strings.HasPrefix(rcd.RouteConfig.Name, "http.") {
+		routeTyped := &envoy_api.RouteConfiguration{}
+		err = ptypes.UnmarshalAny(rcd.RouteConfig, routeTyped)
+		if err != nil {
+			return "", err
+		}
+		if routeTyped.Name != sPort && !strings.HasPrefix(routeTyped.Name, "http.") {
 			continue
 		}
 
-		for _, vh := range rcd.RouteConfig.VirtualHosts {
+		for _, vh := range routeTyped.VirtualHosts {
 			for _, route := range vh.Routes {
 				if routeDestinationMatchesSvc(route, svc, vh, port) {
 					return getIstioConfig(route.Metadata)
@@ -944,9 +955,13 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 	}
 
 	for _, dac := range dump.DynamicActiveClusters {
-		cluster := dac.Cluster
-		if filter.Verify(cluster) {
-			metadata := cluster.Metadata
+		clusterTyped := &envoy_api.Cluster{}
+		err = ptypes.UnmarshalAny(dac.Cluster, clusterTyped)
+		if err != nil {
+			return "", err
+		}
+		if filter.Verify(clusterTyped) {
+			metadata := clusterTyped.Metadata
 			if metadata != nil {
 				istioConfig := asMyProtoValue(metadata.FilterMetadata["istio"]).
 					keyAsString("config")
@@ -1082,8 +1097,13 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 		if listener.ActiveState == nil {
 			continue
 		}
-		if filter.Verify(listener.ActiveState.Listener) {
-			for _, filterChain := range listener.ActiveState.Listener.FilterChains {
+		listenerTyped := &envoy_api.Listener{}
+		err = ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+		if err != nil {
+			return "", err
+		}
+		if filter.Verify(listenerTyped) {
+			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
 					if filter.Name == "mixer" {
 						// nolint: staticcheck
@@ -1360,7 +1380,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 	cd := configdump.Wrapper{}
 	err = cd.UnmarshalJSON(byConfigDump)
 	if err != nil {
-		return fmt.Errorf("can't parse sidecar config_dump: %v", err)
+		return fmt.Errorf("can't parse sidecar config_dump for %v: %v", err, pod.ObjectMeta.Name)
 	}
 
 	// If the sidecar is on Envoy 1.3 or higher, don't complain about empty K8s Svc Port name

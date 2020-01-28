@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
