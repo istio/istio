@@ -72,7 +72,7 @@ cluster_manager.cds.update_success: 1
 listener_manager.lds.update_success: 1
 listener_manager.workers_started: 0
 server.state: 0`,
-			"workers have not yet started, 0",
+			"workers have not yet started",
 		},
 		{
 			"full",

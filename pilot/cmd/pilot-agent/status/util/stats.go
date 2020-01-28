@@ -62,7 +62,7 @@ func (s *Stats) String() string {
 }
 
 // GetReadinessStats returns the current Envoy state by checking the "server.state" stat.
-func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, uint64, error) {
+func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, error) {
 	// If the localHostAddr was not set, we use 'localhost' to void emppty host in URL.
 	if localHostAddr == "" {
 		localHostAddr = "localhost"
@@ -70,14 +70,14 @@ func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, uint64,
 
 	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, readyStatsRegex))
 	if err != nil {
-		return nil, 0, err
+		return nil, false, err
 	}
 	if !strings.Contains(stats.String(), "server.state") {
-		return nil, 0, fmt.Errorf("server.state is not yet updated: %s", stats.String())
+		return nil, false, fmt.Errorf("server.state is not yet updated: %s", stats.String())
 	}
 
 	if !strings.Contains(stats.String(), "listener_manager.workers_started") {
-		return nil, 0, fmt.Errorf("listener_manager.workers_started is not yet updated: %s", stats.String())
+		return nil, false, fmt.Errorf("listener_manager.workers_started is not yet updated: %s", stats.String())
 	}
 
 	s := &Stats{}
@@ -86,10 +86,10 @@ func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, uint64,
 		{name: statWorkersStarted, value: &s.WorkersStarted},
 	}
 	if err := parseStats(stats, allStats); err != nil {
-		return nil, 0, err
+		return nil, false, err
 	}
 
-	return &s.ServerState, s.WorkersStarted, nil
+	return &s.ServerState, s.WorkersStarted == 1, nil
 }
 
 // GetUpdateStatusStats returns the version stats for CDS and LDS.

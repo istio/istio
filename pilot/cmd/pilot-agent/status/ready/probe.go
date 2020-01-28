@@ -72,8 +72,8 @@ func (p *Probe) isEnvoyReady() error {
 		return fmt.Errorf("server is not live, current state is: %v", admin.ServerInfo_State(*state).String())
 	}
 
-	if ws != 1 {
-		return fmt.Errorf("workers have not yet started, %d", ws)
+	if !ws {
+		return fmt.Errorf("workers have not yet started")
 	}
 
 	return nil
