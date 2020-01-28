@@ -75,6 +75,12 @@ func isRetryableErr(c codes.Code, httpRespCode int, isGrpc bool) bool {
 
 // cacheLogPrefix returns a unified log prefix.
 func cacheLogPrefix(conID, resourceName string) string {
-	lPrefix := fmt.Sprintf("node:%s resource:%s", conID, resourceName)
+	lPrefix := fmt.Sprintf("[Node:%s Res:%s]", conID, resourceName)
+	return lPrefix
+}
+
+// cacheLogPrefix returns a unified log prefix.
+func cacheLogPrefixWithReqID(conID, resourceName, reqID string) string {
+	lPrefix := fmt.Sprintf("[Node:%s Res:%s Req:%s]", conID, resourceName, reqID)
 	return lPrefix
 }
