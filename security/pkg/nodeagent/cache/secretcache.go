@@ -824,16 +824,16 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 	// Add a jitter to initial CSR to avoid thundering herd problem.
 	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
 
-	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
+	// Assign a unique request ID for all the retries.
+	reqID := uuid.New().String()
+
+	conIDresourceNamePrefix := cacheLogPrefixWithReqID(connKey.ConnectionID, connKey.ResourceName, reqID)
 	startTime := time.Now()
 	var retry int64
 	var certChainPEM []string
 	exchangedToken := providedExchangedToken
 	var requestErrorString string
 	var err error
-
-	// Assign a unique request ID for all the retries.
-	reqID := uuid.New().String()
 
 	// Keep trying until no error or timeout.
 	for {
@@ -843,10 +843,11 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
 				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		} else {
-			requestErrorString = fmt.Sprintf("%s token exchange", conIDresourceNamePrefix)
+			requestErrorString = fmt.Sprintf("%s TokExch", conIDresourceNamePrefix)
 			p := sc.configOptions.Plugins[0]
 			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
 		}
+		cacheLog.Debugf("%s", requestErrorString)
 
 		if err == nil {
 			break
