@@ -53,11 +53,6 @@ const (
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	// Same value defined in pilot pkg(k8sSAJwtTokenHeaderKey)
 	k8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
-
-	// JWTPath is the path to the JWT token used for authentication.
-	// Note the use of "./", meaning on tests and VMs it is possible to use without root access.
-	// Pilot-agent runs with PWD=/
-	JWTPath = "./var/run/secrets/tokens/istio-token"
 )
 
 var (
@@ -124,6 +119,8 @@ type sdsservice struct {
 	skipToken bool
 
 	localJWT bool
+
+	jwtPath string
 }
 
 // ClientDebug represents a single SDS connection to the ndoe agent
@@ -145,7 +142,8 @@ type Debug struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool, recycleInterval time.Duration) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool,
+	recycleInterval time.Duration, jwtPath string) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -156,6 +154,7 @@ func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool,
 		tickerInterval: recycleInterval,
 		closing:        make(chan bool),
 		localJWT:       localJWT,
+		jwtPath:        jwtPath,
 	}
 
 	go ret.clearStaledClientsJob()
@@ -272,7 +271,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
 			if s.localJWT {
 				// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
-				tok, err := ioutil.ReadFile(JWTPath)
+				tok, err := ioutil.ReadFile(s.jwtPath)
 				if err != nil {
 					sdsServiceLog.Errorf("Failed to get credential token: %v", err)
 					return err
@@ -382,7 +381,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	token := ""
 	if s.localJWT {
 		// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
-		tok, err := ioutil.ReadFile(JWTPath)
+		tok, err := ioutil.ReadFile(s.jwtPath)
 		if err != nil {
 			sdsServiceLog.Errorf("Failed to get credential token: %v", err)
 			return nil, err

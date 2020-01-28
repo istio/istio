@@ -38,8 +38,6 @@ func configLogs(logToStdErr bool) error {
 	opt := log.DefaultOptions()
 	if logToStdErr {
 		opt.OutputPaths = []string{"stderr"}
-	} else {
-		opt.SetOutputLevel(log.OverrideScopeName, log.NoneLevel)
 	}
 	return log.Configure(opt)
 }

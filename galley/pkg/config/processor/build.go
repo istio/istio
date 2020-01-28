@@ -15,12 +15,12 @@
 package processor
 
 import (
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema"
 )
 
 // Settings is the settings that are needed for creating a config processing pipeline that can read

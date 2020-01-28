@@ -23,8 +23,8 @@ import (
 
 	"istio.io/pkg/filewatcher"
 
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/event"
 )
 
 // FsSource is a event.InMemorySource implementation that reads mesh from file.

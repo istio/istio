@@ -96,7 +96,7 @@ func translateFunc(values []byte, l *Logger) error {
 		if err != nil {
 			return err
 		}
-		out, err := translate.TranslateICPToIOP(string(values), translations)
+		out, err := translate.ICPToIOP(string(values), translations)
 		if err != nil {
 			return err
 		}

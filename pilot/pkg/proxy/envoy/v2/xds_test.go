@@ -105,7 +105,7 @@ func startEnvoy(t *testing.T) {
 		"NodeID":  nodeID,
 		"BaseDir": env.IstioSrc + "/tests/testdata/local",
 		// Same value used in the real template
-		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_VERSION: 1.3.0`, env.IstioSrc+"/tests/testdata/local"),
+		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_VERSION: 1.5.0`, env.IstioSrc+"/tests/testdata/local"),
 	}
 
 	// Mixer will push stats every 1 sec
@@ -162,7 +162,7 @@ func localPilotTestEnv(t *testing.T, initFunc func(*bootstrap.Server), additiona
 //
 // The server will have a set of pre-defined instances and services, and read CRDs from the
 // common tests/testdata directory.
-func initLocalPilotTestEnv(t *testing.T, additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, util.TearDownFunc) {
+func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
 	return localPilotTestEnv(t, func(server *bootstrap.Server) {
 		// Service and endpoints for hello.default - used in v1 pilot tests
 		hostname := host.Name("hello.default.svc.cluster.local")
@@ -310,7 +310,7 @@ func initLocalPilotTestEnv(t *testing.T, additionalArgs ...func(*bootstrap.Pilot
 		// RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
 		// service4 has no endpoints
 		server.EnvoyXdsServer.MemRegistry.AddHTTPService("service4.default.svc.cluster.local", "10.1.0.4", 80)
-	}, additionalArgs...)
+	})
 }
 
 // nolint: unparam

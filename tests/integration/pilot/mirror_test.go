@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -293,7 +293,12 @@ func checkIfMirrorWasApplied(target echo.Instance, mirrorClusterName string, tc 
 			clusterName := fmt.Sprintf("outbound|%d||%s", port.ServicePort, mirrorClusterName)
 			instance.Equals(clusterName, "{.requestMirrorPolicy.cluster}")
 
-			instance.Equals(tc.percentage, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}")
+			if tc.absent {
+				instance.Equals(tc.percentage, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}")
+			} else {
+				instance.Equals(tc.percentage*10000, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}") // Set to MILLION.
+				instance.Equals("MILLION", "{.requestMirrorPolicy.runtimeFraction.defaultValue.denominator}")
+			}
 		} else {
 			instance.NotExists("{.requestMirrorPolicy}")
 		}

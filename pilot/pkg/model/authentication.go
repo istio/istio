@@ -17,8 +17,8 @@ package model
 import (
 	"istio.io/api/security/v1beta1"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // MutualTLSMode is the mutule TLS mode specified by authentication policy.

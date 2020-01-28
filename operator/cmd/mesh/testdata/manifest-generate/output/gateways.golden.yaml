@@ -121,6 +121,8 @@ spec:
         - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: ISTIO_META_USER_SDS
@@ -178,8 +180,6 @@ spec:
             {"app":"istio-ingressgateway","istio":"ingressgateway"}
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        - name: SDS_ENABLED
-          value: "false"
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -536,6 +536,8 @@ spec:
               memory: 128Mi
             
           env:
+          - name: JWT_POLICY
+            value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
             value: citadel
           - name: "ISTIO_META_USER_SDS"
@@ -594,8 +596,6 @@ spec:
               {"app":"istio-ingressgateway","istio":"ingressgateway"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
-          - name: SDS_ENABLED
-            value: "false"
           volumeMounts:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert

@@ -72,7 +72,9 @@ func (principal *Principal) ValidateForTCP(forTCP bool) error {
 
 	for _, p := range principal.Properties {
 		for key := range p {
-			if strings.HasPrefix(key, "request.auth.") || key == attrSrcUser {
+			// The "request.auth.*" and "request.headers" attributes are only available for HTTP.
+			// See https://istio.io/docs/reference/config/security/conditions/.
+			if strings.HasPrefix(key, "request.") || key == attrSrcUser {
 				return fmt.Errorf("property(%v)", p)
 			}
 		}

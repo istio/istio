@@ -357,6 +357,10 @@ message GalleyConfig {
   TypeMapStringInterface nodeSelector = 13 [deprecated=true];
 
   TypeMapStringInterface podAnnotations = 14 [deprecated=true];
+
+  string hub = 15;
+
+  StringOrNumber tag = 16;
 }
 
 // GatewayLabelsConfig is a set of Configuration for gateway labels.
@@ -929,6 +933,10 @@ message MixerPolicyConfig {
   TypeMapStringInterface env = 17;
 
   TypeSliceOfMapStringInterface tolerations = 18 [deprecated=true];
+
+  string hub = 19;
+
+  StringOrNumber tag = 20;
 }
 
 // Configuration for Mixer Telemetry.
@@ -1007,6 +1015,10 @@ message MixerTelemetryConfig {
   TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 21 [deprecated=true];
 
   TypeSliceOfMapStringInterface tolerations = 22 [deprecated=true];
+
+  string hub = 23;
+
+  StringOrNumber tag = 24;
 }
 
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
@@ -1049,6 +1061,10 @@ message NodeAgentConfig {
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
   TypeMapStringInterface podAnnotations = 8 [deprecated=true];
+
+  string hub = 9;
+
+  StringOrNumber tag = 10;
 }
 
 // OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
@@ -1192,6 +1208,10 @@ message PilotConfig {
   string jwksResolverExtraRootCA = 32;
 
   TypeSliceOfMapStringInterface plugins = 33;
+
+  string hub = 34;
+
+  StringOrNumber tag = 35;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -1547,18 +1567,18 @@ message ResourcesRequestsConfig {
 // Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 message SDSConfig {
   // Controls whether the SecretDiscoveryService is enabled.
-  google.protobuf.BoolValue enabled = 1;
+  google.protobuf.BoolValue enabled = 1 [deprecated=true];
 
   // Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
-  string udsPath = 2;
+  string udsPath = 2 [deprecated=true];
 
   // Enables SDS use of k8s normal JWT to request for certificates.
-  google.protobuf.BoolValue useNormalJwt = 3;
+  google.protobuf.BoolValue useNormalJwt = 3 [deprecated=true];
 
   // Enables SDS use of trustworthy JWT to request for certificates.
-  google.protobuf.BoolValue useTrustworthyJwt = 4;
+  google.protobuf.BoolValue useTrustworthyJwt = 4 [deprecated=true];
 
-  TypeMapStringInterface token = 5;
+  TypeMapStringInterface token = 5 [deprecated=true];
 }
 
 // Configuration for secret volume mounts.
@@ -1674,6 +1694,10 @@ message SidecarInjectorConfig {
   //
   // Examples: custom-sidecar_injector, docker.io/someuser:custom-sidecar_injector
   string image = 3;
+
+  string hub = 4;
+
+  StringOrNumber tag = 5;
 
   // K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.
   //

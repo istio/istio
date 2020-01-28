@@ -19,10 +19,10 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.5-dev
+VERSION ?= 1.6-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.5-dev.1
+BASE_VERSION ?= 1.6-dev.0
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -87,12 +87,19 @@ export ISTIO_BIN=$(GOBIN)
 export ISTIO_OUT:=$(TARGET_OUT)
 export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
 
-# LOCAL_OUT should include architecture where we are currently running versus the desired.
-# This is used when we need to run a build artifact.
+# LOCAL_OUT should point to architecture where we are currently running versus the desired.
+# This is used when we need to run a build artifact during tests or later as part of another
+# target. If we are running in the Linux build container on non Linux hosts, we add the
+# linux binaries to the build dependencies, BUILD_DEPS, which can be added to other targets
+# that would need the Linux binaries (ex. tests).
+BUILD_DEPS:=
 ifeq ($(IN_BUILD_CONTAINER),1)
-  LOCAL_OUT := $(ISTIO_OUT_LINUX)
+  export LOCAL_OUT := $(ISTIO_OUT_LINUX)
+  ifneq ($(GOOS_LOCAL),"linux")
+    BUILD_DEPS += build-linux
+  endif
 else
-  LOCAL_OUT := $(ISTIO_OUT)
+  export LOCAL_OUT := $(ISTIO_OUT)
 endif
 
 export HELM=helm
@@ -323,11 +330,12 @@ lint-go-split:
 	@golangci-lint run -c ./common/config/.golangci.yml ./sidecar-injector/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./operator/...
 
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
 
-lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
+lint: lint-python lint-copyright-banner lint-scripts lint-go-split lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
@@ -416,46 +424,35 @@ test: | $(JUNIT_REPORT)
 	$(MAKE) -e -f Makefile.core.mk --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-GOTEST_PARALLEL ?= '-test.parallel=1'
+# TODO: remove the racetest targets and just have *-test targets that call race
 
 .PHONY: pilot-test
-pilot-test:
-	go test ${T} ./pilot/...
+pilot-test: pilot-racetest
 
 .PHONY: istioctl-test
-istioctl-test:
-	go test ${T} ./istioctl/...
+istioctl-test: istioctl-racetest
 
 .PHONY: operator-test
 operator-test:
 	go test ${T} ./operator/...
 
 .PHONY: mixer-test
-MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
-mixer-test:
-	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test ${MIXER_TEST_T} ./...)
+mixer-test: mixer-racetest
 
+# Galley test is not using -race yet. See https://github.com/istio/istio/issues/20110
 .PHONY: galley-test
 galley-test:
 	go test ${T} ./galley/...
 
 .PHONY: security-test
-security-test:
-	go test ${T} ./security/pkg/...
-	go test ${T} ./security/cmd/...
+security-test: security-racetest
 
 .PHONY: common-test
-common-test: build
-	go test ${T} ./pkg/...
-	go test ${T} ./tests/common/...
-	go test ${T} ./tools/istio-iptables/...
-	# Execute bash shell unit tests scripts
-	./tests/scripts/istio-iptables-test.sh
+common-test: common-racetest
 
 .PHONY: selected-pkg-test
 selected-pkg-test:
-	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${T} ./{}
+	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${T} -race ./{}
 
 #-----------------------------------------------------------------------------
 # Target: coverage
@@ -507,11 +504,11 @@ racetest: $(JUNIT_REPORT)
 
 .PHONY: pilot-racetest
 pilot-racetest:
-	RACE_TEST=true go test ${T} -race ./pilot/...
+	go test ${T} -race ./pilot/...
 
 .PHONY: istioctl-racetest
 istioctl-racetest:
-	RACE_TEST=true go test ${T} -race ./istioctl/...
+	go test ${T} -race ./istioctl/...
 
 .PHONY: operator-racetest
 operator-racetest:
@@ -519,22 +516,21 @@ operator-racetest:
 
 .PHONY: mixer-racetest
 mixer-racetest:
-	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; RACE_TEST=true go test ${T} -race ./...)
+	go test ${T} -race ./mixer/...
 
 .PHONY: galley-racetest
 galley-racetest:
-	RACE_TEST=true go test ${T} -race ./galley/...
+	go test ${T} -race ./galley/...
 
 .PHONY: security-racetest
 security-racetest:
-	RACE_TEST=true go test ${T} -race ./security/pkg/... ./security/cmd/...
+	go test ${T} -race ./security/pkg/... ./security/cmd/...
 
 .PHONY: common-racetest
-common-racetest:
+common-racetest: ${BUILD_DEPS}
 	# Execute bash shell unit tests scripts
-	./tests/scripts/istio-iptables-test.sh
-	RACE_TEST=true go test ${T} -race ./pkg/...
+	LOCAL_OUT=$(LOCAL_OUT) ./tests/scripts/istio-iptables-test.sh
+	go test ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
 
 #-----------------------------------------------------------------------------
 # Target: clean

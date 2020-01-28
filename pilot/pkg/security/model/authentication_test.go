@@ -28,7 +28,7 @@ import (
 )
 
 func TestConstructSdsSecretConfig(t *testing.T) {
-	trustworthyMetaConfig := &envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig{
+	metaConfig := &envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig{
 		SecretData: &core.DataSource{
 			Specifier: &core.DataSource_Filename{
 				Filename: K8sSATrustworthyJwtFileName,
@@ -83,7 +83,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			sdsUdsPath:     "/tmp/sdsuds.sock",
 			expected: &auth.SdsSecretConfig{
 				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: constructsdsconfighelper(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey, trustworthyMetaConfig),
+				SdsConfig: constructsdsconfighelper(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey, metaConfig),
 			},
 		},
 		{

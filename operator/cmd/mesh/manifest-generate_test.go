@@ -68,6 +68,10 @@ func TestManifestGenerateFlags(t *testing.T) {
 			diffIgnore: "ConfigMap:*:istio",
 		},
 		{
+			desc:       "component_hub_tag",
+			diffIgnore: "ConfigMap:*:istio",
+		},
+		{
 			desc:       "flag_set_values",
 			diffIgnore: "ConfigMap:*:istio",
 			flags:      "-s values.global.proxy.image=myproxy --set values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16",
@@ -217,7 +221,7 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := NewLogger(true, os.Stdout, os.Stderr)
-	_, iops, err := genIOPS(nil, "default", "", "", true, l)
+	_, iops, err := genIOPS(nil, "default", "", "", true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}
