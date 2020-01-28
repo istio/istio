@@ -37,7 +37,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("sds_ingress_single_mtls_gateway_compound_secret_test", m).
 		Label(label.CustomSetup).
-		Label(label.Flaky).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
