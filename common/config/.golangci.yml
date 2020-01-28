@@ -30,27 +30,23 @@ run:
     - ".*\\.gen\\.go"
 
 linters:
-  disable-all: true
-  enable:
-  - deadcode
-  - errcheck
-  - gocritic
-  - gofmt
-  - goimports
-  - golint
-  - gosimple
-  - govet
-  - ineffassign
-  - interfacer
-  - lll
-  - misspell
-  - staticcheck
-  - structcheck
-  - stylecheck
-  - typecheck
-  - unconvert
-  - unparam
-  - varcheck
+  enable-all: true
+  disable:
+    - bodyclose
+    - depguard
+    - dogsled
+    - dupl
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - goconst
+    - gocyclo
+    - godox
+    - gosec
+    - nakedret
+    - prealloc
+    - scopelint
+    - whitespace
   fast: false
 
 linters-settings:
