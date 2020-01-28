@@ -8626,7 +8626,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.5
+  name: metadata-exchange-1.6
   namespace: istio-system
 spec:
   configPatches:
@@ -8660,7 +8660,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.5
+  name: stats-filter-1.6
   namespace: istio-system
 spec:
   configPatches:
