@@ -21,11 +21,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/jwt"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	"istio.io/istio/pkg/jwt"
 
 	"istio.io/istio/pilot/pkg/features"
 
