@@ -6970,15 +6970,12 @@ spec:
           
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
-          - name: SDS_ENABLED
-            value: "false"
           volumeMounts:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          
           - name: podinfo
             mountPath: /etc/istio/pod
           - name: egressgateway-certs
@@ -7007,7 +7004,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      
       - name: egressgateway-certs
         secret:
           secretName: "istio-egressgateway-certs"
@@ -7458,8 +7454,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
-        - name: SDS_ENABLED
-          value: "false"
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -7751,8 +7745,6 @@ spec:
           
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
-          - name: SDS_ENABLED
-            value: "false"
           volumeMounts:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
@@ -7777,12 +7769,12 @@ spec:
       - name: podinfo
         downwardAPI:
           items:
-            - path: "labels"
-              fieldRef:
-                fieldPath: metadata.labels
-            - path: "annotations"
-              fieldRef:
-                fieldPath: metadata.annotations
+          - path: "labels"
+            fieldRef:
+              fieldPath: metadata.labels
+          - path: "annotations"
+            fieldRef:
+              fieldPath: metadata.annotations
       - name: ingressgatewaysdsudspath
         emptyDir: {}
       - name: istio-token
@@ -8034,6 +8026,7 @@ rules:
 - apiGroups: ["extensions"]
   resources: ["ingresses/status"]
   verbs: ["*"]
+  # TODO: remove, too broad permission, should be namespace only
 - apiGroups: [""]
   resources: ["configmaps"]
   # Create and update needed for ingress election
@@ -8695,6 +8688,10 @@ spec:
           optional: true
         name: inject
       - configMap:
+          name: istio-validation
+          optional: true
+        name: validation
+      - configMap:
           name: istio
         name: config-volume
       - configMap:
@@ -9190,8 +9187,6 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: SDS_ENABLED
-          value: "{{ .Values.global.sds.enabled }}"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
         {{- if .Values.global.network }}
@@ -10210,8 +10205,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
-        - name: SDS_ENABLED
-          value: "false"
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -10884,8 +10877,6 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: SDS_ENABLED
-          value: "{{ .Values.global.sds.enabled }}"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
         {{- if .Values.global.network }}
@@ -11002,24 +10993,9 @@ data:
         {{- end }}
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        {{- if .Values.global.sds.enabled }}
-        - mountPath: /var/run/sds
-          name: sds-uds-path
-          readOnly: true
-        {{- if and (eq .Values.global.jwtPolicy "third-party-jwt") .Values.global.istiod.enabled }}
-        - mountPath: /var/run/secrets/tokens
-          name: istio-token
-        {{- end }}
-        {{- if .Values.global.sds.customTokenDirectory }}
-        - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
-          name: custom-sds-token
-          readOnly: true
-        {{- end }}
-        {{- else }}
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
-        {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
           name: lightstep-certs
@@ -11040,25 +11016,6 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      {{- if .Values.global.sds.enabled }}
-      - name: sds-uds-path
-        hostPath:
-          path: /var/run/sds
-      {{- if and (eq .Values.global.jwtPolicy "third-party-jwt") .Values.global.istiod.enabled }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: istio-token
-              expirationSeconds: 43200
-              audience: {{ .Values.global.sds.token.aud }}
-      {{- end }}
-      {{- if .Values.global.sds.customTokenDirectory }}
-      - name: custom-sds-token
-        secret:
-          secretName: sdstokensecret
-      {{- end }}
-      {{- else }}
       - name: istio-certs
         secret:
           optional: true
@@ -11073,7 +11030,6 @@ data:
         {{ toYaml $value | indent 2 }}
         {{ end }}
         {{ end }}
-      {{- end }}
       {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
       - name: lightstep-certs
         secret:
@@ -12477,8 +12433,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
-        - name: SDS_ENABLED
-          value: "false"
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy

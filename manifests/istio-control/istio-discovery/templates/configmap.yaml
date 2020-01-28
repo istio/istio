@@ -143,12 +143,7 @@ data:
       - {{ . | quote }}
       {{- end }}
 
-    {{- if .Values.global.sds.enabled }}
-    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
-    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
-    sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
-
-    {{- else if .Values.global.istiod.enabled }}
+    {{- if .Values.global.istiod.enabled }}
 
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"

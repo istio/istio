@@ -285,8 +285,6 @@ spec:
 {{ end }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
-          - name: SDS_ENABLED
-            value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
 {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
@@ -301,15 +299,6 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
 {{ else }}
-          {{ if .Values.global.sds.enabled }}
-          - name: sdsudspath
-            mountPath: /var/run/sds
-            readOnly: true
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-          - name: istio-token
-            mountPath: /var/run/secrets/tokens
-          {{- end }}
-          {{- end }}
           {{- if $gateway.sds.enabled }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
@@ -340,15 +329,15 @@ spec:
       - name: podinfo
         downwardAPI:
           items:
-            - path: "labels"
-              fieldRef:
-                fieldPath: metadata.labels
-            - path: "annotations"
-              fieldRef:
-                fieldPath: metadata.annotations
+          - path: "labels"
+            fieldRef:
+              fieldPath: metadata.labels
+          - path: "annotations"
+            fieldRef:
+              fieldPath: metadata.annotations
+{{- if .Values.global.istiod.enabled }}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
-{{- if .Values.global.istiod.enabled }}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
@@ -362,20 +351,6 @@ spec:
       {{- if $gateway.sds.enabled }}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
-      {{- end }}
-      {{- if .Values.global.sds.enabled }}
-      - name: sdsudspath
-        hostPath:
-          path: /var/run/sds
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: istio-token
-              expirationSeconds: 43200
-              audience: {{ .Values.global.sds.token.aud }}
-      {{- end }}
       {{- end }}
 {{- end }}
       {{- if .Values.global.mountMtlsCerts }}
