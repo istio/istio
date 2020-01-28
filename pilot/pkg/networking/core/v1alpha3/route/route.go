@@ -762,7 +762,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 	if ps != nil {
 		switch ps.(type) {
 		case *route.RouteMatch_Prefix:
-			path = fmt.Sprintf("%s*", m.GetPrefix())
+			path = m.GetPrefix() + "*"
 		case *route.RouteMatch_Path:
 			path = m.GetPath()
 		case *route.RouteMatch_Regex:
@@ -779,9 +779,9 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
 		// Parse host and port from cluster name.
 		_, _, h, p := model.ParseSubsetKey(c)
-		return fmt.Sprintf("%s:%d%s", h, p, path)
+		return string(h) + ":" + strconv.Itoa(p) + path
 	}
-	return fmt.Sprintf("%s:%d%s", vsName, port, path)
+	return vsName + ":" + strconv.Itoa(port) + path
 }
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
