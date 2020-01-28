@@ -472,29 +472,22 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	serviceAccounts := map[string]bool{}
 	for _, e := range istioEndpoints {
 		if e.ServiceAccount != "" {
-			ep.mutex.Lock()
 			serviceAccounts[e.ServiceAccount] = true
-			_, f = ep.ServiceAccounts[e.ServiceAccount]
-			if !f {
-				ep.ServiceAccounts[e.ServiceAccount] = true
-			}
-			ep.mutex.Unlock()
-
-			if !f && !internal {
-				// The entry has a service account that was not previously associated.
-				// Requires a CDS push and full sync.
-				adsLog.Debugf("Full push, new service account: svc = %v, service account %v", serviceName, e.ServiceAccount)
-				requireFull = true
-			}
 		}
 	}
+
 	if !reflect.DeepEqual(serviceAccounts, ep.ServiceAccounts) {
-		adsLog.Debugf("Updating service accounts now, svc %v, accoutns %v", serviceName, ep.ServiceAccounts)
-		ep.ServiceAccounts = serviceAccounts
+		adsLog.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
+			serviceName, ep.ServiceAccounts, serviceAccounts)
+		if !internal {
+			requireFull = true
+			adsLog.Infof("Full push, service accounts changed, %v", serviceName)
+		}
 	}
 
 	ep.mutex.Lock()
 	ep.Shards[clusterID] = istioEndpoints
+	ep.ServiceAccounts = serviceAccounts
 	ep.mutex.Unlock()
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
