@@ -58,6 +58,7 @@
                             "deprecated_v1": true,
                             "value": {
                                 "route_config": {
+                                    "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
                                     "routes": [
                                         {
                                             "cluster": "outbound|443||istio-galley.istio-system.svc.cluster.local",
