@@ -20,9 +20,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
 	"k8s.io/client-go/kubernetes/fake"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"istio.io/istio/pkg/spiffe"
 )
 
 func Test_createCA(t *testing.T) {
@@ -119,7 +120,7 @@ func Test_createCA(t *testing.T) {
 				t.Errorf("cert PEM got = %v, want %v", string(gotCert), string(tt.wantCert))
 			}
 			if !reflect.DeepEqual(spiffe.GetTrustDomain(), tt.wantTrustDomain) {
-				t.Errorf("spiffe trustDomain got = %v, want %v", string(spiffe.GetTrustDomain()), string(tt.wantTrustDomain))
+				t.Errorf("spiffe trustDomain got = %v, want %v", spiffe.GetTrustDomain(), string(tt.wantTrustDomain))
 			}
 		})
 	}
