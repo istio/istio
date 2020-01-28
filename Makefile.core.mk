@@ -87,12 +87,19 @@ export ISTIO_BIN=$(GOBIN)
 export ISTIO_OUT:=$(TARGET_OUT)
 export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
 
-# LOCAL_OUT should include architecture where we are currently running versus the desired.
-# This is used when we need to run a build artifact.
+# LOCAL_OUT should point to architecture where we are currently running versus the desired.
+# This is used when we need to run a build artifact during tests or later as part of another
+# target. If we are running in the Linux build container on non Linux hosts, we add the
+# linux binaries to the build dependencies, BUILD_DEPS, which can be added to other targets
+# that would need the Linux binaries (ex. tests).
+BUILD_DEPS:=
 ifeq ($(IN_BUILD_CONTAINER),1)
-  LOCAL_OUT := $(ISTIO_OUT_LINUX)
+  export LOCAL_OUT := $(ISTIO_OUT_LINUX)
+  ifneq ($(GOOS_LOCAL),"linux")
+    BUILD_DEPS += build-linux
+  endif
 else
-  LOCAL_OUT := $(ISTIO_OUT)
+  export LOCAL_OUT := $(ISTIO_OUT)
 endif
 
 export HELM=helm
@@ -527,9 +534,9 @@ security-racetest:
 	go test ${T} -race ./security/pkg/... ./security/cmd/...
 
 .PHONY: common-racetest
-common-racetest:
+common-racetest: ${BUILD_DEPS}
 	# Execute bash shell unit tests scripts
-	./tests/scripts/istio-iptables-test.sh
+	LOCAL_OUT=$(LOCAL_OUT) ./tests/scripts/istio-iptables-test.sh
 	go test ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
 
 #-----------------------------------------------------------------------------

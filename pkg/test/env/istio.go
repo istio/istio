@@ -48,6 +48,10 @@ var (
 	// nolint: golint, stylecheck
 	ISTIO_OUT Variable = "ISTIO_OUT"
 
+	// LOCAL_OUT environment variable
+	// nolint: golint, stylecheck
+	LOCAL_OUT Variable = "LOCAL_OUT"
+
 	// REPO_ROOT environment variable
 	// nolint: golint, stylecheck
 	REPO_ROOT Variable = "REPO_ROOT"
@@ -81,6 +85,10 @@ var (
 
 	// IstioOut is the location of the output directory ($TOP/out)
 	IstioOut = verifyFile(ISTIO_OUT, ISTIO_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
+
+	// LocalOut is the location of the output directory for the OS we are running in,
+	// not necessarily the OS we are building for
+	LocalOut = verifyFile(LOCAL_OUT, LOCAL_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
 
 	// TODO: Some of these values are overlapping. We should re-align them.
 
