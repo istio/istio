@@ -345,8 +345,8 @@ func (c *kubeComponent) adminRequest(path string) (string, error) {
 }
 
 type statEntry struct {
-	Name  string `json:"name"`
-	Value int    `json:"value"`
+	Name  string      `json:"name"`
+	Value json.Number `json:"value"`
 }
 
 type stats struct {
@@ -364,7 +364,11 @@ func (c *kubeComponent) unmarshalStats(statsJSON string) (map[string]int, error)
 	}
 
 	for _, v := range statsArray.StatList {
-		statsMap[v.Name] = v.Value
+		if v.Value == "" {
+			continue
+		}
+		tmp, _ := v.Value.Float64()
+		statsMap[v.Name] = int(tmp)
 	}
 	return statsMap, nil
 }
