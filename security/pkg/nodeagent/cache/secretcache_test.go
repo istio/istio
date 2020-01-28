@@ -196,11 +196,11 @@ func TestWorkloadAgentGenerateSecretWithPluginProvider(t *testing.T) {
 func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain)
 	opt := Options{
-		SecretTTL:        time.Minute,
-		RotationInterval: 300 * time.Microsecond,
-		EvictionDuration: 2 * time.Second,
-		InitialBackoff:   10,
-		SkipValidateCert: true,
+		SecretTTL:                time.Minute,
+		RotationInterval:         300 * time.Microsecond,
+		EvictionDuration:         2 * time.Second,
+		InitialBackoffInMilliSec: 10,
+		SkipValidateCert:         true,
 	}
 
 	if isUsingPluginProvider {
@@ -298,11 +298,11 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain)
 	opt := Options{
-		SecretTTL:        200 * time.Microsecond,
-		RotationInterval: 200 * time.Microsecond,
-		EvictionDuration: 10 * time.Second,
-		InitialBackoff:   10,
-		SkipValidateCert: true,
+		SecretTTL:                200 * time.Microsecond,
+		RotationInterval:         200 * time.Microsecond,
+		EvictionDuration:         10 * time.Second,
+		InitialBackoffInMilliSec: 10,
+		SkipValidateCert:         true,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
@@ -686,11 +686,11 @@ func createSecretCache() *SecretCache {
 	ch := make(chan struct{})
 	fetcher.Run(ch)
 	opt := Options{
-		SecretTTL:        time.Minute,
-		RotationInterval: 300 * time.Microsecond,
-		EvictionDuration: 2 * time.Second,
-		InitialBackoff:   10,
-		SkipValidateCert: true,
+		SecretTTL:                time.Minute,
+		RotationInterval:         300 * time.Microsecond,
+		EvictionDuration:         2 * time.Second,
+		InitialBackoffInMilliSec: 10,
+		SkipValidateCert:         true,
 	}
 	return NewSecretCache(fetcher, notifyCb, opt)
 }
@@ -838,12 +838,12 @@ func checkBool(t *testing.T, name string, got bool, want bool) {
 func TestSetAlwaysValidTokenFlag(t *testing.T) {
 	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain)
 	opt := Options{
-		SecretTTL:            200 * time.Microsecond,
-		RotationInterval:     200 * time.Microsecond,
-		EvictionDuration:     10 * time.Second,
-		InitialBackoff:       10,
-		AlwaysValidTokenFlag: true,
-		SkipValidateCert:     true,
+		SecretTTL:                200 * time.Microsecond,
+		RotationInterval:         200 * time.Microsecond,
+		EvictionDuration:         10 * time.Second,
+		InitialBackoffInMilliSec: 10,
+		AlwaysValidTokenFlag:     true,
+		SkipValidateCert:         true,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
