@@ -150,6 +150,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 
 		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
 		if _, err := os.Stat(signingKeyFile); err != nil {
+			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
 			// When Citadel is configured to use self-signed certs, keep a local copy so other
 			// components can load it via file (e.g. webhook config controller).
 			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
@@ -176,7 +177,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
 									log.Errorf("Failed to update local copy of self-signed root: %v", err)
 								} else {
-									log.Info("Updtaed local copy of self-signed root")
+									log.Info("Updated local copy of self-signed root")
 								}
 							}
 						}
@@ -186,7 +187,8 @@ func (s *Server) initDNSCerts(hostname string) error {
 			})
 			s.caBundlePath = internalSelfSignedRootPath
 		} else {
-			s.caBundlePath = path.Join(localCertDir.Get(), "cert-chain.pem")
+			log.Infof("Use plugged-in cert at %v", signingKeyFile)
+			s.caBundlePath = path.Join(localCertDir.Get(), "root-cert.pem")
 		}
 
 	} else {
