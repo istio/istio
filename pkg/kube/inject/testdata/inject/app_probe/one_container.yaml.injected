@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"bfb085eb5ec13a689e8c0461d5453ad4820228cb1bb63d99e635214548fc808c","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"08dbe54376cfc7af6adee736e19a99a0a6a1b91feda34d0c4f1915c7a3afdf89","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -116,8 +116,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: SDS_ENABLED
-          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_METAJSON_LABELS

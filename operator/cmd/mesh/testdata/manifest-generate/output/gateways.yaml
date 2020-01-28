@@ -180,8 +180,6 @@ spec:
             {"app":"istio-ingressgateway","istio":"ingressgateway"}
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        - name: SDS_ENABLED
-          value: "false"
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -598,8 +596,6 @@ spec:
               {"app":"istio-ingressgateway","istio":"ingressgateway"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
-          - name: SDS_ENABLED
-            value: "false"
           volumeMounts:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
