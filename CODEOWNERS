@@ -1,5 +1,8 @@
 *                                                                @costinm @linsun @rshriram @howardjohn
+Makefile*                                                        @sdake @istio/wg-test-and-release-maintainers
 /bin/                                                            @istio/wg-test-and-release-maintainers
+/common/                                                         @sdake @istio/wg-test-and-release-maintainers
+/common-protos/                                                  @sdake @istio/wg-test-and-release-maintainers
 /cmd/istiod/                                                     @istio/wg-environments-maintainers
 /galley/                                                         @istio/wg-config-maintainers
 /galley/pkg/config/analysis/                                     @istio/wg-config-maintainers @istio/wg-user-experience-maintainers
