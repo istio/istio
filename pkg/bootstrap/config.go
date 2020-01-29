@@ -447,6 +447,11 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 		meta.SdsTrustJwt = true
 	}
 
+	// Add STS port into node metadata if it is not 0.
+	if stsPort != 0 {
+		meta.StsPort = string(stsPort)
+	}
+
 	return meta, untypedMeta, nil
 }
 
