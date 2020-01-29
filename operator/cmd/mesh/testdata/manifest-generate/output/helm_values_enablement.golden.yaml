@@ -256,14 +256,14 @@ spec:
           httpGet:
             path: /kiali/healthz
             port: 20001
-            scheme:   'HTTP' 
+            scheme: 'HTTP'
           initialDelaySeconds: 5
           periodSeconds: 30
         livenessProbe:
           httpGet:
             path: /kiali/healthz
             port: 20001
-            scheme:   'HTTP' 
+            scheme: 'HTTP'
           initialDelaySeconds: 5
           periodSeconds: 30
         env:
