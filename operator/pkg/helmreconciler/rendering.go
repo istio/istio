@@ -57,6 +57,13 @@ var (
 	objectCachesMu sync.RWMutex
 )
 
+// FlushObjectCaches flushes all K8s object caches.
+func FlushObjectCaches() {
+	objectCachesMu.Lock()
+	defer objectCachesMu.Unlock()
+	objectCaches = make(map[string]*ObjectCache)
+}
+
 func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, error) {
 	iop, ok := in.GetInputConfig().(*valuesv1alpha1.IstioOperator)
 	if !ok {
@@ -231,7 +238,6 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 			log.Infof("Object %s is unchanged, skip update.", oh)
 			continue
 		}
-		//log.Infof("%s changed:\n%s", oh, util.YAMLDiff(objectCache.cache[oh].YAMLDebugString(), obj.YAMLDebugString()))
 		changedObjects = append(changedObjects, obj)
 		changedObjectKeys = append(changedObjectKeys, oh)
 	}
