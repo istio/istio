@@ -348,6 +348,9 @@ type NodeMetadata struct {
 	// SdsTrustJwt indicates if SDS trust jwt is enabled or not. This is are set to "1" if true
 	SdsTrustJwt StringBool `json:"TRUSTJWT,omitempty"`
 
+	// StsPort specifies the port of security token exchange server (STS).
+	StsPort string `json:"STS_PORT,omitempty"`
+
 	InsecurePath string `json:"istio.io/insecurepath,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
