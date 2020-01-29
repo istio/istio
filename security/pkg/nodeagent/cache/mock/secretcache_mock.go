@@ -41,7 +41,7 @@ func NewMockCAClient(mockCertChain1st, mockCertChainRemain []string) *CAClient {
 	return &cl
 }
 
-func (c *CAClient) CSRSign(ctx context.Context, csrPEM []byte, exchangedToken string,
+func (c *CAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, exchangedToken string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	// Mock CSRSign failure errors to force Citadel agent to retry.
 	// 50% chance of failure.

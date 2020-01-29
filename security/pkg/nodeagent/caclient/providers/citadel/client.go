@@ -78,7 +78,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte) (caClientInter
 }
 
 // CSR Sign calls Citadel to sign a CSR.
-func (c *citadelClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
+func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
