@@ -60,6 +60,13 @@ prometheus:
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
 
+  # Configure whether provisions a certificate to Prometheus through Istio Agent.
+  # When this option is set as true, a sidecar is deployed along Prometheus to
+  # provision a certificate through Istio Agent to Prometheus. The provisioned certificate
+  # is shared with Prometheus through mounted files.
+  # When this option is set as false, this certificate provisioning mechanism is disabled.
+  provisionPrometheusCert: true
+
 # Indicate if Citadel is enabled, i.e., whether its generated certificates are available
 security:
   enabled: true
