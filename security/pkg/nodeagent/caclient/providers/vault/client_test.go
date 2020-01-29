@@ -160,7 +160,8 @@ func TestClientOnMockVaultCA(t *testing.T) {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		resp, err := cli.CSRSign(context.Background(), tc.cliConfig.csr, tc.cliConfig.clientToken, 1)
+		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012",
+			tc.cliConfig.csr, tc.cliConfig.clientToken, 1)
 		if err != nil {
 			match, _ := regexp.MatchString(tc.expectedErr+".+", err.Error())
 			if !match {
