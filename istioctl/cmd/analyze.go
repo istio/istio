@@ -17,7 +17,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
 	"sort"
@@ -326,11 +325,12 @@ istioctl analyze -L
 	return analysisCmd
 }
 
-func gatherFiles(args []string) ([]io.Reader, error) {
-	var readers []io.Reader
-	var r *os.File
+func gatherFiles(args []string) ([]local.ReaderSource, error) {
+	var readers []local.ReaderSource
 	var err error
 	for _, f := range args {
+		var r *os.File
+
 		if f == "-" {
 			if isatty.IsTerminal(os.Stdin.Fd()) {
 				fmt.Fprint(os.Stderr, "Reading from stdin:\n")
@@ -343,7 +343,7 @@ func gatherFiles(args []string) ([]io.Reader, error) {
 			}
 			runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
 		}
-		readers = append(readers, r)
+		readers = append(readers, local.ReaderSource{Name: f, Reader: r})
 	}
 	return readers, nil
 }
