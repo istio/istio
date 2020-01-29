@@ -91,7 +91,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	ncNode := v.Interface()
 
 	// For list types, we need a key to identify the selected list item. This can be either a a value key of the
-	// from :matching_value in the case of a leaf list, or a matching key:value in the case of a non-leaf list.
+	// form :matching_value in the case of a leaf list, or a matching key:value in the case of a non-leaf list.
 	if lst, ok := ncNode.([]interface{}); ok {
 		scope.Debug("list type")
 		if util.IsNPathElement(pe) {
