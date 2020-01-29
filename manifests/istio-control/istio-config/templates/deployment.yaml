@@ -170,8 +170,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
-          - name: SDS_ENABLED
-            value: "{{ .Values.global.sds.enabled }}"
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
@@ -187,7 +185,7 @@ spec:
 {{- end }}
 
       volumes:
-  {{- if or .Values.global.controlPlaneSecurityEnabled .Values.global.configValidation }}
+  {{- if or .Values.global.controlPlaneSecurityEnabled (and .Values.global.configValidation (not .Values.global.istiod.enabled)) }}
       - name: istio-certs
         secret:
           secretName: istio.istio-galley-service-account

@@ -66,6 +66,18 @@ func TestPrincipal_ValidateForTCP(t *testing.T) {
 			},
 		},
 		{
+			name: "principal with request header",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						"request.headers[id]": Values{
+							Values: []string{"123"},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "good principal",
 			principal: &Principal{
 				Users: []string{"user"},

@@ -1,7 +1,7 @@
 Routes Don't Match (RDS last loaded at Tue, 19 Jun 2018 06:21:16 UTC)
 --- Pilot Routes
 +++ Envoy Routes
-@@ -9,16 +9,14 @@
+@@ -10,16 +10,14 @@
                    "domains": [
                       "istio-policy.istio-system.svc.cluster.local",
                       "istio-policy.istio-system.svc.cluster.local:15004",

@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0"
+	liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener_manager.workers_started: 1"
 	onlyServerStats = "server.state: 0"
 	initServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 2"
 	noServerStats   = ""
@@ -66,10 +66,20 @@ listener_manager.lds.update_success: 1`,
 			prefix + "cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected",
 		},
 		{
+			"workers not started",
+			`
+cluster_manager.cds.update_success: 1
+listener_manager.lds.update_success: 1
+listener_manager.workers_started: 0
+server.state: 0`,
+			"workers have not yet started",
+		},
+		{
 			"full",
 			`
 cluster_manager.cds.update_success: 1
 listener_manager.lds.update_success: 1
+listener_manager.workers_started: 1
 server.state: 0`,
 			"",
 		},

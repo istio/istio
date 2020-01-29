@@ -4,8 +4,8 @@
     "cluster": "istio-proxy",
     "locality": {},
     "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
-      "SDS": "1",
-      "TRUSTJWT": "1",
+      "SDS": "true",
+      "TRUSTJWT": "true",
       "EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT"}
   },
   "stats_config": {

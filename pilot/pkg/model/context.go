@@ -223,10 +223,31 @@ func (l *PodPortList) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// StringBool defines a boolean that is serialized as a string for legacy reasons
+type StringBool bool
+
+func (s StringBool) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%t"`, s)), nil
+}
+
+func (s *StringBool) UnmarshalJSON(data []byte) error {
+	pls, err := strconv.Unquote(string(data))
+	if err != nil {
+		return err
+	}
+	b, err := strconv.ParseBool(pls)
+	if err != nil {
+		return err
+	}
+	*s = StringBool(b)
+	return nil
+}
+
 // NodeMetadata defines the metadata associated with a proxy
 // Fields should not be assumed to exist on the proxy, especially newly added fields which will not exist
 // on older versions.
 // The JSON field names should never change, as they are needed for backward compatibility with older proxies
+// nolint: maligned
 type NodeMetadata struct {
 	// IstioVersion specifies the Istio version associated with the proxy
 	IstioVersion string `json:"ISTIO_VERSION,omitempty"`
@@ -319,13 +340,16 @@ type NodeMetadata struct {
 
 	// SdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
-	SdsTokenPath string `json:"SDS_TOKEN_PATH,omitempty"`
-	UserSds      string `json:"USER_SDS,omitempty"`
-	SdsBase      string `json:"BASE,omitempty"`
+	SdsTokenPath string     `json:"SDS_TOKEN_PATH,omitempty"`
+	UserSds      StringBool `json:"USER_SDS,omitempty"`
+	SdsBase      string     `json:"BASE,omitempty"`
 	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
-	SdsEnabled string `json:"SDS,omitempty"`
+	SdsEnabled StringBool `json:"SDS,omitempty"`
 	// SdsTrustJwt indicates if SDS trust jwt is enabled or not. This is are set to "1" if true
-	SdsTrustJwt string `json:"TRUSTJWT,omitempty"`
+	SdsTrustJwt StringBool `json:"TRUSTJWT,omitempty"`
+
+	// StsPort specifies the port of security token exchange server (STS).
+	StsPort string `json:"STS_PORT,omitempty"`
 
 	InsecurePath string `json:"istio.io/insecurepath,omitempty"`
 

@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
@@ -27,6 +28,7 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
@@ -155,7 +157,10 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string,
 			return "", nil, err
 		}
 	}
-
+	overlayYAML, err = translate.OverlayYAMLTree(overlayYAML, overlayYAML, name.LegacyAddonComponentPathMap)
+	if err != nil {
+		return "", nil, fmt.Errorf("error translating addon components enablement from values of overlay files: %v", err)
+	}
 	// Merge base and overlay.
 	mergedYAML, err := util.OverlayYAML(baseYAML, overlayYAML)
 	if err != nil {
@@ -163,6 +168,11 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string,
 	}
 	if _, err := unmarshalAndValidateIOPS(mergedYAML, force, l); err != nil {
 		return "", nil, err
+	}
+
+	setOverlayYAML, err = translate.OverlayYAMLTree(setOverlayYAML, setOverlayYAML, name.LegacyAddonComponentPathMap)
+	if err != nil {
+		return "", nil, fmt.Errorf("error translating addon components enablement from values of set overlay: %v", err)
 	}
 
 	// Merge the tree build from --set option on top of that.

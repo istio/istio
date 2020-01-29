@@ -116,7 +116,7 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) error {
 	outputMapping := make(map[string]*Translation)
 	for valKey, componentName := range t.ValuesToComponentName {
-		cnEnabled, err := name.IsComponentEnabledFromValue(valKey, valueTree)
+		cnEnabled, _, err := IsComponentEnabledFromValue(componentName, valueTree)
 		if err != nil {
 			return err
 		}
@@ -219,8 +219,8 @@ func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSp
 // setEnablementAndNamespaces translates the enablement and namespace value of each component in the baseYAML values
 // tree, based on feature/component inheritance relationship.
 func (t *ReverseTranslator) setEnablementAndNamespacesFromValue(valueSpec map[string]interface{}, root map[string]interface{}) error {
-	for cnv, cni := range t.ValuesToComponentName {
-		enabled, err := name.IsComponentEnabledFromValue(cnv, valueSpec)
+	for _, cni := range t.ValuesToComponentName {
+		enabled, _, err := IsComponentEnabledFromValue(cni, valueSpec)
 		if err != nil {
 			return err
 		}

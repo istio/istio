@@ -49,8 +49,15 @@ const (
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
 
-	// Addon components
-	AddonComponentName ComponentName = "Addon"
+	// Addon root component
+	AddonComponentName ComponentName = "AddonComponents"
+
+	// Legacy addon components
+	PrometheusComponentName ComponentName = "Prometheus"
+	KialiComponentName      ComponentName = "Kiali"
+	GrafanaComponentName    ComponentName = "Grafana"
+	TracingComponentName    ComponentName = "Tracing"
+	CoreDNSComponentName    ComponentName = "Istiocoredns"
 
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
@@ -77,8 +84,17 @@ var (
 	DeprecatedNames = []ComponentName{
 		InjectorComponentName,
 	}
-	allComponentNamesMap        = make(map[ComponentName]bool)
-	deprecatedComponentNamesMap = make(map[ComponentName]bool)
+	AllLegacyAddonComponentNames = []ComponentName{
+		PrometheusComponentName,
+		KialiComponentName,
+		GrafanaComponentName,
+		TracingComponentName,
+		CoreDNSComponentName,
+	}
+	allComponentNamesMap         = make(map[ComponentName]bool)
+	deprecatedComponentNamesMap  = make(map[ComponentName]bool)
+	LegacyAddonComponentNamesMap = make(map[ComponentName]bool)
+	LegacyAddonComponentPathMap  = make(map[string]string)
 )
 
 func init() {
@@ -87,6 +103,13 @@ func init() {
 	}
 	for _, n := range DeprecatedNames {
 		deprecatedComponentNamesMap[n] = true
+	}
+	for _, n := range AllLegacyAddonComponentNames {
+		LegacyAddonComponentNamesMap[n] = true
+		cn := strings.ToLower(string(n))
+		valuePath := fmt.Sprintf("values.%s.enabled", cn)
+		iopPath := fmt.Sprintf("addonComponents.%s.enabled", cn)
+		LegacyAddonComponentPathMap[valuePath] = iopPath
 	}
 }
 
@@ -113,55 +136,9 @@ func (cn ComponentName) IsAddon() bool {
 	return cn == AddonComponentName
 }
 
-// IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.
-// IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.
-func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (bool, error) {
-	if componentName == IngressComponentName {
-		return len(controlPlaneSpec.Components.IngressGateways) != 0, nil
-	}
-	if componentName == EgressComponentName {
-		return len(controlPlaneSpec.Components.EgressGateways) != 0, nil
-	}
-
-	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Enabled")
-	if err != nil {
-		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for component=%s: %s",
-			componentName, err)
-	}
-	if !found || componentNodeI == nil {
-		return false, nil
-	}
-	componentNode, ok := componentNodeI.(*v1alpha1.BoolValueForPB)
-	if !ok {
-		return false, fmt.Errorf("component %s enabled has bad type %T, expect *v1alpha2.BoolValueForPB", componentName, componentNodeI)
-	}
-	if componentNode == nil {
-		return false, nil
-	}
-	return componentNode.Value, nil
-}
-
-// IsComponentEnabledFromValue get whether component is enabled in helm value.yaml tree.
-// valuePath points to component path in the values tree.
-func IsComponentEnabledFromValue(valuePath string, valueSpec map[string]interface{}) (bool, error) {
-	enabledPath := valuePath + ".enabled"
-	enableNodeI, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(enabledPath))
-	if err != nil {
-		return false, fmt.Errorf("error finding component enablement path: %s in helm value.yaml tree", enabledPath)
-	}
-	if !found {
-		// Some components do not specify enablement should be treated as enabled if the root node in the component subtree exists.
-		_, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
-		if found && err == nil {
-			return true, nil
-		}
-		return false, nil
-	}
-	enableNode, ok := enableNodeI.(bool)
-	if !ok {
-		return false, fmt.Errorf("node at valuePath %s has bad type %T, expect bool", enabledPath, enableNodeI)
-	}
-	return enableNode, nil
+// IsLegacyAddonComponent reports whether cn is an legacy addonComponent name.
+func (cn ComponentName) IsLegacyAddonComponent() bool {
+	return LegacyAddonComponentNamesMap[cn]
 }
 
 // NamespaceFromValue gets the namespace value in helm value.yaml tree.

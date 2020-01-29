@@ -693,7 +693,11 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		log.Errorf("Error in OverlayK8sSettings: %s", err)
 		return "", err
 	}
-	my = "# Resources for " + string(c.componentName) + " component\n\n" + my
+	cnOutput := string(c.componentName)
+	if !c.componentName.IsCoreComponent() && !c.componentName.IsGateway() {
+		cnOutput += " " + c.addonName
+	}
+	my = "# Resources for " + cnOutput + " component\n\n" + my
 	if devDbg {
 		log.Infof("Manifest after k8s API settings:\n%s\n", my)
 	}

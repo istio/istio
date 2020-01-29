@@ -81,7 +81,7 @@ spec:
 
    # Telemetry feature
     telemetry:
-      enabled: true
+      enabled: false
       k8s:
         env:
           - name: POD_NAMESPACE
@@ -181,7 +181,32 @@ spec:
             maxUnavailable: "25%"
 
     egressGateways:
-
+    - name: istio-egressgateway
+      enabled: false
+      k8s:
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-ingressgateway
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                targetAverageUtilization: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
     # Istio CNI feature
     cni:
       enabled: false
@@ -355,8 +380,10 @@ spec:
 
     telemetry:
       enabled: true
-      v2:
+      v1:
         enabled: false
+      v2:
+        enabled: true
         prometheus:
           enabled: true
         stackdriver:
@@ -603,7 +630,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.14"
+        tag: "1.16"
         memory:
           max_traces: 50000
         spanStorageType: badger

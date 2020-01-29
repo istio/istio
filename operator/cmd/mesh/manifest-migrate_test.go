@@ -43,7 +43,7 @@ func TestManifestMigrate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
-			outPath := filepath.Join(testDataDir, "output", tt.desc+".yaml")
+			outPath := filepath.Join(testDataDir, "output", tt.desc+goldenFileSuffixHideChangesInReview)
 
 			got, err := runManifestMigrate(inPath)
 			if err != nil {

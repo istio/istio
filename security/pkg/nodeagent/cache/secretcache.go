@@ -34,6 +34,8 @@ import (
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -61,11 +63,11 @@ const (
 	// identityTemplate is the format template of identity in the CSR request.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 
-	// For REST APIs between envoy->nodeagent, default value of 1s is used.
-	envoyDefaultTimeoutInMilliSec = 1000
+	// The total timeout for any credential retrieval process, default value of 10s is used.
+	totalTimeout = time.Second * 10
 
-	// initialBackOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
-	initialBackOffIntervalInMilliSec = 50
+	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
+	firstRetryBackOffInMilliSec = 50
 
 	// Timeout the K8s update/delete notification threads. This is to make sure to unblock the
 	// secret watch main thread in case those child threads got stuck due to any reason.
@@ -91,7 +93,7 @@ type Options struct {
 	SecretTTL time.Duration
 
 	// The initial backoff time in millisecond to avoid the thundering herd problem.
-	InitialBackoff int64
+	InitialBackoffInMilliSec int64
 
 	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
 	// secret should be refreshed if time.Now.After(secret.CreateTime + SecretTTL - SecretRefreshGraceDuration)
@@ -816,15 +818,18 @@ func (sc *SecretCache) isTokenExpired() bool {
 func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 	providedExchangedToken string, connKey ConnKey, isCSR bool) ([]string, error) {
 	sc.randMutex.Lock()
-	backOffInMilliSec := sc.rand.Int63n(sc.configOptions.InitialBackoff)
+	randomizedInitialBackOffInMS := sc.rand.Int63n(sc.configOptions.InitialBackoffInMilliSec)
 	sc.randMutex.Unlock()
-	cacheLog.Debugf("Wait for %d millisec", backOffInMilliSec)
+	cacheLog.Debugf("Wait for %d millisec for jitter", randomizedInitialBackOffInMS)
 	// Add a jitter to initial CSR to avoid thundering herd problem.
-	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
+	time.Sleep(time.Duration(randomizedInitialBackOffInMS) * time.Millisecond)
+	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
 
-	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
+	// Assign a unique request ID for all the retries.
+	reqID := uuid.New().String()
+
+	conIDresourceNamePrefix := cacheLogPrefixWithReqID(connKey.ConnectionID, connKey.ResourceName, reqID)
 	startTime := time.Now()
-	var retry int64
 	var certChainPEM []string
 	exchangedToken := providedExchangedToken
 	var requestErrorString string
@@ -836,12 +841,13 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", conIDresourceNamePrefix)
 			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-				ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		} else {
-			requestErrorString = fmt.Sprintf("%s token exchange", conIDresourceNamePrefix)
+			requestErrorString = fmt.Sprintf("%s TokExch", conIDresourceNamePrefix)
 			p := sc.configOptions.Plugins[0]
 			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
 		}
+		cacheLog.Debugf("%s", requestErrorString)
 
 		if err == nil {
 			break
@@ -854,14 +860,13 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		}
 
 		// If reach envoy timeout, fail the request by returning err
-		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
+		if startTime.Add(totalTimeout).Before(time.Now()) {
 			cacheLog.Errorf("%s retrial timed out: %v", requestErrorString, err)
 			return nil, err
 		}
-		retry++
-		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
-		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
-		cacheLog.Warnf("%s failed with error: %v, retry in %d millisec", requestErrorString, err, backOffInMilliSec)
+		time.Sleep(time.Duration(retryBackoffInMS) * time.Millisecond)
+		cacheLog.Warnf("%s failed with error: %v, retry in %d millisec", requestErrorString, err, retryBackoffInMS)
+		retryBackoffInMS *= 2 // Exponentially increase the retry backoff time.
 
 		// Record retry metrics.
 		if isCSR {
