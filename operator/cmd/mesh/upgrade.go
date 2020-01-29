@@ -145,7 +145,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI, l)
+	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
@@ -244,13 +244,13 @@ func waitForConfirmation(skipConfirmation bool, l *Logger) {
 }
 
 // checkSupportedVersions checks if the upgrade cur -> tar is supported by the tool
-func checkSupportedVersions(cur, tar, versionsURI string, l *Logger) error {
+func checkSupportedVersions(cur, tar, versionsURI string) error {
 	tarGoVersion, err := goversion.NewVersion(tar)
 	if err != nil {
 		return fmt.Errorf("failed to parse the target version: %v", tar)
 	}
 
-	compatibleMap, err := getVersionCompatibleMap(versionsURI, tarGoVersion, l)
+	compatibleMap, err := pkgversion.GetVersionCompatibleMap(versionsURI, tarGoVersion)
 	if err != nil {
 		return err
 	}
