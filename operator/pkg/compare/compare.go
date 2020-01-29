@@ -23,6 +23,8 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/operator/pkg/manifest"
+
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/yaml"
 
@@ -266,11 +268,11 @@ func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, 
 	return manifestDiff(aosm, bosm, im, verbose)
 }
 
-// SelectAndIgnoreFromOutput selects and ignore subset from the manifest string
-func SelectAndIgnoreFromOutput(got string, selectResources string, ignoreResources string) (string, error) {
+// SelectAndIgnoreFromOutput selects and ignores subset from the manifest string
+func SelectAndIgnoreFromOutput(ms string, selectResources string, ignoreResources string) (string, error) {
 	sm := getObjPathMap(selectResources)
 	im := getObjPathMap(ignoreResources)
-	ao, err := object.ParseK8sObjectsFromYAMLManifest(got)
+	ao, err := object.ParseK8sObjectsFromYAMLManifest(ms)
 	if err != nil {
 		return "", err
 	}
@@ -287,7 +289,16 @@ func SelectAndIgnoreFromOutput(got string, selectResources string, ignoreResourc
 		}
 		sb.WriteString(string(yl) + object.YAMLSeparator)
 	}
-	return sb.String(), nil
+	k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(sb.String())
+	if err != nil {
+		return "", err
+	}
+	k8sObjects.Sort(manifest.DefaultObjectOrder())
+	sortdManifests, err := k8sObjects.YAMLManifest()
+	if err != nil {
+		return "", err
+	}
+	return sortdManifests, nil
 }
 
 // renameResource filter the input resources with selected and ignored filter.

@@ -1,30 +1,3 @@
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: pilot
-    istio: pilot
-    release: istio
-  name: istio-pilot
-  namespace: istio-control
-spec:
-  ports:
-  - name: grpc-xds
-    port: 11111
-  - name: https-xds
-    port: 15011
-  - name: https-dns
-    port: 15012
-  - name: http-legacy-discovery
-    port: 8080
-  - name: http-monitoring
-    port: 15014
-  - name: https-webhook
-    port: 443
-    targetPort: 15017
-  selector:
-    istio: pilot
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -201,4 +174,33 @@ spec:
       - configMap:
           name: pilot-envoy-config
         name: pilot-envoy-config
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pilot
+    istio: pilot
+    release: istio
+  name: istio-pilot
+  namespace: istio-control
+spec:
+  ports:
+  - name: grpc-xds
+    port: 11111
+  - name: https-xds
+    port: 15011
+  - name: https-dns
+    port: 15012
+  - name: http-legacy-discovery
+    port: 8080
+  - name: http-monitoring
+    port: 15014
+  - name: https-webhook
+    port: 443
+    targetPort: 15017
+  selector:
+    istio: pilot
 ---

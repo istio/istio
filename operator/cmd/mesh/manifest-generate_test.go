@@ -212,7 +212,8 @@ func TestMultiICPSFiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
+		diffSelect := "handler:*:prometheus"
+		got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
 		diff := compare.YAMLCmp(got, want)
 		if diff != "" {
 			t.Errorf("`manifest generate` diff = %s", diff)

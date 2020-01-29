@@ -131,6 +131,8 @@ spec:
           name: telemetry-envoy-config
         name: telemetry-envoy-config
 ---
+
+
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
