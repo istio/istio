@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+
+# Copyright 2020 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+# Export HOST, PORT and URL
+# $snippet export_gateway_url_1.sh syntax="bash"
+$ export INGRESS_HOST={{ .ingressHostCommand }}
+$ export INGRESS_PORT={{ .ingressPortCommand }}
+$ export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
+# $endsnippet
+
+# Step 1: Install v2 of the ratings workload with the bookinfo-ratings-v2 service account
+# $snippet bookinfo-ratings-v2.sh syntax="bash" outputis="text"
+$ kubectl apply -f @samples/bookinfo/platform/kube/bookinfo-ratings-v2.yaml@
+# $endsnippet
+
+# Step 2: Create the appropriate destination rules
+# $snippet create-destination-rule.sh syntax="bash" outputis="text"
+$ kubectl apply -f @samples/bookinfo/networking/destination-rule-all-mtls.yaml@
+# $endsnippet
+
+# wait for destination rules to propagate
+sleep 5s
+
+# Step 3: update the reviews workload to only use the v2 of the ratings workload
+# $snippet update-reviews-v2.sh syntax="bash" outputis="text"
+$ kubectl apply -f @samples/bookinfo/networking/virtual-service-ratings-db.yaml@
+# $endsnippet
+
+# Step 4: Verify ratings is unavailable
+# $snippet verify_book_reviews_1.sh syntax="bash"
+$ curl -sS http://"${GATEWAY_URL}"/productpage | grep -o "<p><i>Ratings service.*</i></p>"
+# $verify verifier="contains"
+<p><i>Ratings service is currently unavailable</i></p>
+# $endsnippet
+
+# Step 5: Deploy the MongoDB workload
+# $snippet deploy_monogodb_workload.sh syntax="bash" outputis="text"
+$ kubectl apply -f @samples/bookinfo/platform/kube/bookinfo-db.yaml@
+# $endsnippet
+
+# wait for mongodb instance to start
+sleep 10s
+
+# Step 6: Verify that the Book Reviews section shows the review
+# $snippet verify_book_reviews_2.sh syntax="bash"
+$ curl -sS http://"${GATEWAY_URL}"/productpage | grep -o ".*Reviewer1"
+# $verify verifier="contains"
+<small>Reviewer1
+# $endsnippet
+
+# Step 7: Apply a default deny-all policy for the MongoDB workload
+# $snippet apply_deny_all_policy.sh syntax="bash"
+$ kubectl apply -f - <<EOF
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+spec:
+  selector:
+    matchLabels:
+      app: mongodb
+EOF
+# $endsnippet
+
+# Step 8: Verify ratings is unavailable again
+# $snippet verify_book_reviews_3.sh syntax="bash"
+$ curl -sS http://"${GATEWAY_URL}"/productpage | grep -o "<p><i>Ratings service.*</i></p>"
+# $verify verifier="contains"
+<p><i>Ratings service is currently unavailable</i></p>
+# $endsnippet
+
+# Step 9: Enforce workload-level access control for TCP traffic
+# $snippet enforce_workload_level_access.sh syntax="bash"
+$ kubectl apply -f - <<EOF
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: bookinfo-ratings-v2
+spec:
+  selector:
+    matchLabels:
+      app: mongodb
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/default/sa/bookinfo-ratings-v2"]
+    to:
+    - operation:
+        ports: ["27017"]
+EOF
+# $endsnippet
+
+# Step 10: Verify that the Book Reviews section shows the review
+# $snippet verify_book_reviews_4.sh syntax="bash"
+$ curl -sS http://"${GATEWAY_URL}"/productpage | grep -o ".*Reviewer1"
+# $verify verifier="contains"
+<small>Reviewer1
+# $endsnippet
