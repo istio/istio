@@ -2272,14 +2272,10 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			}
 
 			filter := &listener.Filter{
-				Name: wellknown.ThriftProxy,
+				Name:       wellknown.ThriftProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(thriftProxies[i])},
 			}
 
-			if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(thriftProxies[i])}
-			} else {
-				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(thriftProxies[i])}
-			}
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached Thrift filter with %d thrift_filter options to listener %q filter chain %d",
 				len(thriftProxies[i].ThriftFilters), mutable.Listener.Name, i)
