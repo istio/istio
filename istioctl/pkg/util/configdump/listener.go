@@ -17,7 +17,8 @@ package configdump
 import (
 	"sort"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/golang/protobuf/ptypes"
 )
 
@@ -36,7 +37,17 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 	}
 
 	sort.Slice(dal, func(i, j int) bool {
-		return dal[i].ActiveState.Listener.Name < dal[j].ActiveState.Listener.Name
+		listener := &xdsapi.Listener{}
+		err = ptypes.UnmarshalAny(dal[i].ActiveState.Listener, listener)
+		if err != nil {
+			return false
+		}
+		name := listener.Name
+		err = ptypes.UnmarshalAny(dal[j].ActiveState.Listener, listener)
+		if err != nil {
+			return false
+		}
+		return name < listener.Name
 	})
 	if stripVersions {
 		for i := range dal {

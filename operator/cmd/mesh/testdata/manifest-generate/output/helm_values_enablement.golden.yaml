@@ -1,359 +1,272 @@
-# Resources for Addon component
+# Resources for AddonComponents kiali component
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: prometheus-istio-system
+  name: kiali
   labels:
-    app: prometheus
+    app: kiali
     release: istio
 rules:
-- apiGroups: [""]
-  resources:
-  - nodes
-  - services
-  - endpoints
-  - pods
-  - nodes/proxy
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources:
-  - configmaps
-  verbs: ["get"]
-- nonResourceURLs: ["/metrics"]
-  verbs: ["get"]
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - endpoints
+      - namespaces
+      - nodes
+      - pods
+      - pods/log
+      - replicationcontrollers
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: ["extensions", "apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: ["batch"]
+    resources:
+      - cronjobs
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: 
+    - config.istio.io
+    - networking.istio.io
+    - authentication.istio.io
+    - rbac.istio.io
+    - security.istio.io
+    resources: ["*"]
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - watch
+  - apiGroups: ["monitoring.kiali.io"]
+    resources:
+      - monitoringdashboards
+    verbs:
+      - get
+      - list
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kiali-viewer
+  labels:
+    app: kiali
+    release: istio
+rules:
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - endpoints
+      - namespaces
+      - nodes
+      - pods
+      - pods/log
+      - replicationcontrollers
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: ["extensions", "apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: ["batch"]
+    resources:
+      - cronjobs
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: 
+    - config.istio.io
+    - networking.istio.io
+    - authentication.istio.io
+    - rbac.istio.io
+    - security.istio.io
+    resources: ["*"]
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: ["monitoring.kiali.io"]
+    resources:
+      - monitoringdashboards
+    verbs:
+      - get
+      - list
 ---
 
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: prometheus-istio-system
+  name: kiali
   labels:
-    app: prometheus
+    app: kiali
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: prometheus-istio-system
+  name: kiali
 subjects:
-- kind: ServiceAccount
-  name: prometheus
-  namespace: istio-system
+  - kind: ServiceAccount
+    name: kiali-service-account
+    namespace: istio-system
 ---
 
 
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: prometheus
+  name: kiali
   namespace: istio-system
   labels:
-    app: prometheus
+    app: kiali
     release: istio
 data:
-  prometheus.yml: |-
-    global:
-      scrape_interval: 15s
-    scrape_configs:
-
-    # Mixer scrapping. Defaults to Prometheus and mixer on same namespace.
-    #
-    - job_name: 'istio-mesh'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - istio-system
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-telemetry;prometheus
-
-    # Scrape config for envoy stats
-    - job_name: 'envoy-stats'
-      metrics_path: /stats/prometheus
-      kubernetes_sd_configs:
-      - role: pod
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_pod_container_port_name]
-        action: keep
-        regex: '.*-envoy-prom'
-      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-        action: replace
-        regex: ([^:]+)(?::\d+)?;(\d+)
-        replacement: $1:15090
-        target_label: __address__
-      - action: labelmap
-        regex: __meta_kubernetes_pod_label_(.+)
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        target_label: namespace
-      - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        target_label: pod_name
-
-    - job_name: 'istio-policy'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - istio-system
-
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-policy;http-policy-monitoring
-
-    - job_name: 'istio-telemetry'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - istio-system
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-telemetry;http-monitoring
-
-    - job_name: 'pilot'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - istio-system
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-pilot;http-monitoring
-
-    - job_name: 'galley'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - istio-system
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-galley;http-monitoring
-
-    - job_name: 'citadel'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - istio-system
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-citadel;http-monitoring
-
-    - job_name: 'sidecar-injector'
-
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - istio-system
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-sidecar-injector;http-monitoring
-
-    # scrape config for API servers
-    - job_name: 'kubernetes-apiservers'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - default
-      scheme: https
-      tls_config:
-        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: kubernetes;https
-
-    # scrape config for nodes (kubelet)
-    - job_name: 'kubernetes-nodes'
-      scheme: https
-      tls_config:
-        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-      kubernetes_sd_configs:
-      - role: node
-      relabel_configs:
-      - action: labelmap
-        regex: __meta_kubernetes_node_label_(.+)
-      - target_label: __address__
-        replacement: kubernetes.default.svc:443
-      - source_labels: [__meta_kubernetes_node_name]
-        regex: (.+)
-        target_label: __metrics_path__
-        replacement: /api/v1/nodes/${1}/proxy/metrics
-
-    # Scrape config for Kubelet cAdvisor.
-    #
-    # This is required for Kubernetes 1.7.3 and later, where cAdvisor metrics
-    # (those whose names begin with 'container_') have been removed from the
-    # Kubelet metrics endpoint.  This job scrapes the cAdvisor endpoint to
-    # retrieve those metrics.
-    #
-    # In Kubernetes 1.7.0-1.7.2, these metrics are only exposed on the cAdvisor
-    # HTTP endpoint; use "replacement: /api/v1/nodes/${1}:4194/proxy/metrics"
-    # in that case (and ensure cAdvisor's HTTP server hasn't been disabled with
-    # the --cadvisor-port=0 Kubelet flag).
-    #
-    # This job is not necessary and should be removed in Kubernetes 1.6 and
-    # earlier versions, or it will cause the metrics to be scraped twice.
-    - job_name: 'kubernetes-cadvisor'
-      scheme: https
-      tls_config:
-        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-      kubernetes_sd_configs:
-      - role: node
-      relabel_configs:
-      - action: labelmap
-        regex: __meta_kubernetes_node_label_(.+)
-      - target_label: __address__
-        replacement: kubernetes.default.svc:443
-      - source_labels: [__meta_kubernetes_node_name]
-        regex: (.+)
-        target_label: __metrics_path__
-        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
-
-    # scrape config for service endpoints.
-    - job_name: 'kubernetes-service-endpoints'
-      kubernetes_sd_configs:
-      - role: endpoints
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
-        action: keep
-        regex: true
-      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
-        action: replace
-        target_label: __scheme__
-        regex: (https?)
-      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
-        action: replace
-        target_label: __metrics_path__
-        regex: (.+)
-      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
-        action: replace
-        target_label: __address__
-        regex: ([^:]+)(?::\d+)?;(\d+)
-        replacement: $1:$2
-      - action: labelmap
-        regex: __meta_kubernetes_service_label_(.+)
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        target_label: kubernetes_namespace
-      - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        target_label: kubernetes_name
-
-    - job_name: 'kubernetes-pods'
-      kubernetes_sd_configs:
-      - role: pod
-      relabel_configs:  # If first two labels are present, pod should be scraped  by the istio-secure job.
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-        action: keep
-        regex: true
-      - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status]
-        action: drop
-        regex: (.+)
-      - source_labels: [__meta_kubernetes_pod_annotation_istio_mtls]
-        action: drop
-        regex: (true)
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-        action: replace
-        target_label: __metrics_path__
-        regex: (.+)
-      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-        action: replace
-        regex: ([^:]+)(?::\d+)?;(\d+)
-        replacement: $1:$2
-        target_label: __address__
-      - action: labelmap
-        regex: __meta_kubernetes_pod_label_(.+)
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        target_label: namespace
-      - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        target_label: pod_name
+  config.yaml: |
+    istio_component_namespaces:
+      grafana: istio-system
+      tracing: istio-system
+      pilot: istio-system
+      prometheus: istio-system
+    istio_namespace: istio-system
+    auth:
+      strategy: login
+    deployment:
+      accessible_namespaces: ['**']
+    server:
+      port: 20001
+      web_root: /kiali
+    external_services:
+      istio:
+        url_service_version: http://istio-pilot.istio-system:8080/version
+      tracing:
+        url: 
+      grafana:
+        url: 
+      prometheus:
+        url: http://prometheus.istio-system:9090
 ---
 
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: prometheus
+  name: kiali
   namespace: istio-system
   labels:
-    app: prometheus
+    app: kiali
     release: istio
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: prometheus
+      app: kiali
   template:
     metadata:
+      name: kiali
       labels:
-        app: prometheus
+        app: kiali
         release: istio
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        kiali.io/runtimes: go,kiali
     spec:
-      serviceAccountName: prometheus
+      serviceAccountName: kiali-service-account
       containers:
-        - name: prometheus
-          image: "docker.io/prom/prometheus:v2.15.1"
-          imagePullPolicy: IfNotPresent
-          args:
-            - '--storage.tsdb.retention=6h'
-            - '--config.file=/etc/prometheus/prometheus.yml'
-          ports:
-            - containerPort: 9090
-              name: http
-          livenessProbe:
-            httpGet:
-              path: /-/healthy
-              port: 9090
-          readinessProbe:
-            httpGet:
-              path: /-/ready
-              port: 9090
-          resources:
-            requests:
-              cpu: 10m
-            
-          volumeMounts:
-          - name: config-volume
-            mountPath: /etc/prometheus
-          - mountPath: /etc/istio-certs
-            name: istio-certs
+      - image: "quay.io/kiali/kiali:v1.9"
+        imagePullPolicy: IfNotPresent
+        name: kiali
+        command:
+        - "/opt/kiali/kiali"
+        - "-config"
+        - "/kiali-configuration/config.yaml"
+        - "-v"
+        - "3"
+        readinessProbe:
+          httpGet:
+            path: /kiali/healthz
+            port: 20001
+            scheme:   'HTTP' 
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /kiali/healthz
+            port: 20001
+            scheme:   'HTTP' 
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        env:
+        - name: ACTIVE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: kiali-configuration
+          mountPath: "/kiali-configuration"
+        - name: kiali-cert
+          mountPath: "/kiali-cert"
+        - name: kiali-secret
+          mountPath: "/kiali-secret"
+        resources:
+          requests:
+            cpu: 10m
+          
       volumes:
-      - name: config-volume
+      - name: kiali-configuration
         configMap:
-          name: prometheus
-      - name: istio-certs
+          name: kiali
+      - name: kiali-cert
         secret:
-          defaultMode: 420
+          secretName: istio.kiali-service-account
+          optional: true      
+      - name: kiali-secret
+        secret:
+          secretName: kiali
           optional: true
-          secretName: istio.default
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -393,30 +306,28 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: prometheus
+  name: kiali
   namespace: istio-system
-  annotations:
-    prometheus.io/scrape: 'true'
   labels:
-    app: prometheus
+    app: kiali
     release: istio
 spec:
-  selector:
-    app: prometheus
   ports:
-  - name: http-prometheus
-    protocol: TCP
-    port: 9090
+    - name: http-kiali
+      protocol: TCP
+      port: 20001
+  selector:
+    app: kiali
 ---
 
 
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: prometheus
+  name: kiali-service-account
   namespace: istio-system
   labels:
-    app: prometheus
+    app: kiali
     release: istio
 ---
 
@@ -6178,150 +6089,408 @@ metadata:
 
 # Citadel component is disabled.
 
-# Resources for Cni component
+# Cni component is disabled.
 
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+# Resources for EgressGateways component
+
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-cni
   labels:
-    app: istio-cni
+    app: istio-egressgateway
+    istio: egressgateway
     release: istio
-rules:
-- apiGroups: [""]
-  resources:
-  - pods
-  - nodes
-  verbs:
-  - get
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-cni
-  labels:
-    app: istio-cni
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-cni
-subjects:
-- kind: ServiceAccount
-  name: istio-cni
+  name: istio-egressgateway
   namespace: istio-system
+spec:
+  maxReplicas: 5
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 80
+    type: Resource
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istio-ingressgateway
+
 ---
 
 
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: istio-cni-config
-  namespace: istio-system
-  labels:
-    app: istio-cni
-    release: istio
-data:
-  # The CNI network configuration to add to the plugin chain on each node.  The special
-  # values in this config will be automatically populated.
-  cni_network_config: |-
-        {
-          "type": "istio-cni",
-          "log_level": "info",
-          "kubernetes": {
-              "kubeconfig": "__KUBECONFIG_FILEPATH__",
-              "cni_bin_dir": "/opt/cni/bin",
-              "exclude_namespaces": [ "istio-system" ]
-          }
-        }
----
-
-
-kind: DaemonSet
 apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: istio-cni-node
-  namespace: istio-system
   labels:
-    k8s-app: istio-cni-node
+    app: istio-egressgateway
+    istio: egressgateway
     release: istio
+  name: istio-egressgateway
+  namespace: istio-system
 spec:
   selector:
     matchLabels:
-      k8s-app: istio-cni-node
-  updateStrategy:
-    type: RollingUpdate
+      app: istio-egressgateway
+      istio: egressgateway
+  strategy:
     rollingUpdate:
-      maxUnavailable: 1
+      maxSurge: 100%
+      maxUnavailable: 25%
   template:
     metadata:
-      labels:
-        k8s-app: istio-cni-node
       annotations:
-        # This, along with the CriticalAddonsOnly toleration below,
-        # marks the pod as a critical add-on, ensuring it gets
-        # priority scheduling and that its resources are reserved
-        # if it ever gets evicted.
-        scheduler.alpha.kubernetes.io/critical-pod: ''
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: istio-egressgateway
+        chart: gateways
+        heritage: Tiller
+        istio: egressgateway
+        release: istio
     spec:
-      nodeSelector:
-        beta.kubernetes.io/os: linux
-      hostNetwork: true
-      tolerations:
-        # Make sure istio-cni-node gets scheduled on all nodes.
-        - effect: NoSchedule
-          operator: Exists
-        # Mark the pod as a critical add-on for rescheduling.
-        - key: CriticalAddonsOnly
-          operator: Exists
-        - effect: NoExecute
-          operator: Exists
-      priorityClassName: system-cluster-critical
-      serviceAccountName: istio-cni
-      # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
-      # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
-      terminationGracePeriodSeconds: 5
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
       containers:
-        # This container installs the Istio CNI binaries
-        # and CNI network config file on each node.
-        - name: install-cni
-          image: "component.cni.hub/install-cni:component.cni.tag"
-          imagePullPolicy: Always
-          command: ["/install-cni.sh"]
-          env:
-            # The CNI network config to install on each node.
-            - name: CNI_NETWORK_CONFIG
-              valueFrom:
-                configMapKeyRef:
-                  name: istio-cni-config
-                  key: cni_network_config
-            - name: CNI_NET_DIR
-              value: /etc/cni/net.d
-          volumeMounts:
-            - mountPath: /host/opt/cni/bin
-              name: cni-bin-dir
-            - mountPath: /host/etc/cni/net.d
-              name: cni-net-dir
+      - args:
+        - proxy
+        - router
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
+        - --log_output_level=default:info
+        - --drainDuration
+        - 45s
+        - --parentShutdownDuration
+        - 1m0s
+        - --connectTimeout
+        - 10s
+        - --serviceCluster
+        - istio-egressgateway
+        - --zipkinAddress
+        - zipkin.istio-system:9411
+        - --proxyAdminPort
+        - "15000"
+        - --statusPort
+        - "15020"
+        - --controlPlaneAuthPolicy
+        - NONE
+        - --discoveryAddress
+        - istio-pilot.istio-system:15010
+        - --trust-domain=cluster.local
+        env:
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: citadel
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.hostIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: istio-egressgateway
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-egressgateway
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        - name: ISTIO_AUTO_MTLS_ENABLED
+          value: "true"
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: ISTIO_META_CONFIG_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+            {"app":"istio-egressgateway","istio":"egressgateway"}
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
+        image: gcr.io/istio-testing/proxyv2:latest
+        imagePullPolicy: IfNotPresent
+        name: istio-proxy
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        - containerPort: 15443
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15020
+            scheme: HTTP
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /etc/istio/citadel-ca-cert
+          name: citadel-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+          readOnly: true
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+        - mountPath: /etc/istio/egressgateway-certs
+          name: egressgateway-certs
+          readOnly: true
+        - mountPath: /etc/istio/egressgateway-ca-certs
+          name: egressgateway-ca-certs
+          readOnly: true
+      serviceAccountName: istio-egressgateway-service-account
       volumes:
-        # Used to install CNI.
-        - name: cni-bin-dir
-          hostPath:
-            path: /opt/cni/bin
-        - name: cni-net-dir
-          hostPath:
-            path: /etc/cni/net.d
+      - configMap:
+          name: istio-ca-root-cert
+        name: citadel-ca-cert
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.default
+      - name: egressgateway-certs
+        secret:
+          optional: true
+          secretName: istio-egressgateway-certs
+      - name: egressgateway-ca-certs
+        secret:
+          optional: true
+          secretName: istio-egressgateway-ca-certs
+
+---
+
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-egressgateway
+  namespace: istio-system
+  labels:
+    app: istio-egressgateway
+    istio: egressgateway
+    
+    release: istio
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istio-egressgateway
+      istio: egressgateway
+      
+      release: istio
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-multicluster-egressgateway
+  namespace: istio-system
+  labels:
+    app: istio-egressgateway
+    istio: egressgateway
+    
+    release: istio
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - hosts:
+    - "*.global"
+    port:
+      name: tls
+      number: 15443
+      protocol: TLS
+    tls: {}
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: istio-multicluster-egressgateway
+  namespace: istio-system 
+  labels:
+    app: istio-egressgateway
+    istio: egressgateway
+    
+    release: istio
+spec:
+  gateways:
+  - istio-multicluster-egressgateway
+  hosts:
+  - "*.global"
+  tls:
+  - match:
+    - port: 15443
+      sniHosts:
+      - "*.global"
+    route:
+    - destination:
+        host: non.existent.cluster
+        port:
+          number: 15443
+      weight: 100
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: istio-multicluster-egressgateway
+  namespace: istio-system
+  labels:
+    app: istio-egressgateway
+    istio: egressgateway
+    
+    release: istio
+spec:
+  workloadLabels:
+    istio: egressgateway
+  filters:
+  - listenerMatch:
+      portNumber: 15443
+      listenerType: GATEWAY
+    filterName: envoy.filters.network.sni_cluster
+    filterType: NETWORK
+    filterConfig: {}
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-multicluster-egressgateway
+  namespace: istio-system
+  labels:
+    app: istio-egressgateway
+    istio: egressgateway
+    
+    release: istio
+spec:
+  host: "*.global"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-egressgateway
+  namespace: istio-system
+  annotations:
+  labels:
+    app: istio-egressgateway
+    istio: egressgateway
+    
+    release: istio
+spec:
+  type: ClusterIP
+  selector:
+    app: istio-egressgateway
+    istio: egressgateway
+    
+  ports:
+    -
+      name: http2
+      port: 80
+    -
+      name: https
+      port: 443
+    -
+      name: tls
+      port: 15443
+      targetPort: 15443
 ---
 
 
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-cni
+  name: istio-egressgateway-service-account
   namespace: istio-system
   labels:
-    app: istio-cni
+    app: istio-egressgateway
+    istio: egressgateway
+    
     release: istio
 ---
 
@@ -6506,9 +6675,7 @@ spec:
             {"app":"istio-ingressgateway","istio":"ingressgateway"}
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        - name: SDS_ENABLED
-          value: "false"
-        image: istio-spec.hub/proxyv2:istio-spec.tag
+        image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -6841,9 +7008,11 @@ rules:
 - apiGroups: ["extensions"]
   resources: ["ingresses/status"]
   verbs: ["*"]
+  # TODO: remove, too broad permission, should be namespace only
 - apiGroups: [""]
   resources: ["configmaps"]
-  verbs: ["get", "list", "watch"]
+  # Create and update needed for ingress election
+  verbs: ["get", "list", "watch", "create", "update"]
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
@@ -7241,7 +7410,7 @@ data:
     enableProtocolSniffingForOutbound: true
     enabled: true
     env: {}
-    hub: component.pilot.hub
+    hub: ""
     image: pilot
     ingress:
       ingressClass: istio
@@ -7266,7 +7435,7 @@ data:
         memory: 2048Mi
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
-    tag: component.pilot.tag
+    tag: ""
     tolerations: []
     traceSampling: 1
 
@@ -7482,7 +7651,7 @@ spec:
         - configMapRef:
             name: istiod
             optional: true
-        image: component.pilot.hub/pilot:component.pilot.tag
+        image: gcr.io/istio-testing/pilot:latest
         imagePullPolicy: IfNotPresent
         name: discovery
         ports:
@@ -7607,7 +7776,7 @@ data:
         "enableHelmTest": false,
         "enableTracing": true,
         "enabled": true,
-        "hub": "istio-spec.hub",
+        "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "IfNotPresent",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
@@ -7728,7 +7897,7 @@ data:
           "udsPath": ""
         },
         "securityNamespace": "istio-system",
-        "tag": "istio-spec.tag",
+        "tag": "latest",
         "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
@@ -7748,7 +7917,7 @@ data:
         "useMCP": false
       },
       "istio_cni": {
-        "enabled": true
+        "enabled": false
       },
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
@@ -8046,8 +8215,6 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: SDS_ENABLED
-          value: "{{ .Values.global.sds.enabled }}"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
         {{- if .Values.global.network }}
@@ -8764,6 +8931,146 @@ spec:
                   code:
                     local:
                       inline_string: "envoy.wasm.stats"
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: metadata-exchange-1.6
+  namespace: istio-system
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY # inbound, outbound, and gateway
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                configuration: envoy.wasm.metadata_exchange
+                vm_config:
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.metadata_exchange
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter-1.6
+  namespace: istio-system
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
 ---
 
 

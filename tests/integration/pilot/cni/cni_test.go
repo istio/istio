@@ -30,6 +30,7 @@ import (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("cni", m).
+		Skip("https://github.com/istio/istio/issues/20487").
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 components:

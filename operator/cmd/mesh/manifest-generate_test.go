@@ -28,12 +28,19 @@ import (
 )
 
 type testGroup []struct {
-	desc       string
-	flags      string
-	noInput    bool
-	outputDir  string
-	diffSelect string
-	diffIgnore string
+	desc string
+	// Small changes to the input profile produce large changes to the golden output
+	// files. This makes it difficult to spot meaningful changes in pull requests.
+	// By default we hide these changes to make developers life's a bit easier. However,
+	// it is still useful to sometimes override this behavior and show the full diff.
+	// When this flag is true, use an alternative file suffix that is not hidden by
+	// default github in pull requests.
+	showOutputFileInPullRequest bool
+	flags                       string
+	noInput                     bool
+	outputDir                   string
+	diffSelect                  string
+	diffIgnore                  string
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
@@ -44,8 +51,9 @@ func TestManifestGenerateFlags(t *testing.T) {
 			desc: "all_off",
 		},
 		{
-			desc:       "all_on",
-			diffIgnore: "ConfigMap:*:istio",
+			desc:                        "all_on",
+			diffIgnore:                  "ConfigMap:*:istio",
+			showOutputFileInPullRequest: true,
 		},
 		{
 			desc:       "prometheus",
@@ -157,6 +165,16 @@ func TestManifestGenerateGateway(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateHelmValues(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc: "helm_values_enablement",
+			diffSelect: "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway," +
+				" Deployment:*:kiali, Service:*:kiali, Deployment:*:prometheus, Service:*:prometheus",
+		},
+	})
+}
+
 func TestManifestGenerateOrdered(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it
@@ -188,7 +206,7 @@ func TestMultiICPSFiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		outPath := filepath.Join(testDataDir, "output/telemetry_override_values.yaml")
+		outPath := filepath.Join(testDataDir, "output/telemetry_override_values"+goldenFileSuffixHideChangesInReview)
 
 		want, err := readFile(outPath)
 		if err != nil {
@@ -227,7 +245,11 @@ func runTestGroup(t *testing.T, tests testGroup) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
-			outPath := filepath.Join(testDataDir, "output", tt.desc+".yaml")
+			outputSuffix := goldenFileSuffixHideChangesInReview
+			if tt.showOutputFileInPullRequest {
+				outputSuffix = goldenFileSuffixShowChangesInReview
+			}
+			outPath := filepath.Join(testDataDir, "output", tt.desc+outputSuffix)
 
 			var filenames []string
 			if !tt.noInput {

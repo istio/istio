@@ -445,6 +445,7 @@ var (
 						option.DisableReportCalls(disableInternalTelemetry),
 						option.SDSTokenPath(sdsTokenPath),
 						option.SDSUDSPath(sdsUDSPath),
+						option.STSPort(stsPort),
 					}
 
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
