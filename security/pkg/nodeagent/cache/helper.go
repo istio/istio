@@ -78,3 +78,9 @@ func cacheLogPrefix(conID, resourceName string) string {
 	lPrefix := fmt.Sprintf("node:%s resource:%s", conID, resourceName)
 	return lPrefix
 }
+
+// cacheLogPrefix returns a unified log prefix.
+func cacheLogPrefixWithReqID(conID, resourceName, reqID string) string {
+	lPrefix := fmt.Sprintf("node:%s resource:%s request:%s", conID, resourceName, reqID)
+	return lPrefix
+}
