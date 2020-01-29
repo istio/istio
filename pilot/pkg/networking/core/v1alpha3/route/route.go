@@ -31,7 +31,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pkg/util/gogo"
@@ -358,12 +357,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.Name = routeName
 		// add a name to the route
 	}
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.TypedPerFilterConfig = make(map[string]*any.Any)
-	} else {
-		out.PerFilterConfig = make(map[string]*structpb.Struct)
-	}
-
+	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
