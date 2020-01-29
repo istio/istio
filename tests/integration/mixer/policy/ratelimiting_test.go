@@ -253,6 +253,7 @@ func deleteConfigOrFail(t *testing.T, config string, g galley.Instance, ctx reso
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_policy_ratelimit", m).
+		Skip("https://github.com/istio/istio/issues/15686").
 		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {

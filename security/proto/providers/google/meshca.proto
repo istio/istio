@@ -14,16 +14,20 @@
 
 syntax = "proto3";
 
-package google.security.meshca.v1beta1;
+package google.security.meshca.v1;
+
+import "google/protobuf/duration.proto";
 
 // Certificate request message.
 message MeshCertificateRequest {
+  // The request ID must be a valid UUID with the exception that zero UUID is
+  // not supported (00000000-0000-0000-0000-000000000000).
+  string request_id = 1;
   // PEM-encoded certificate request.
-  string csr = 1;
-  // Optional subject ID field.
-  string subject_id = 2;
-  // Optional: requested certificate validity period, in seconds.
-  int64 validity_duration = 3;
+  string csr = 2;
+  // Optional: requested certificate validity period.
+  google.protobuf.Duration validity = 3;
+  // Reserved 4
 }
 
 // Certificate response message.

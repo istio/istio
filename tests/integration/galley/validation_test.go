@@ -165,9 +165,18 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 
 			recognized := make(map[string]struct{})
 
+			// TODO(jasonwzm) remove this after multi-version APIs are supported.
 			for _, r := range schema.MustGet().KubeCollections().All() {
 				s := strings.Join([]string{r.Resource().Group(), r.Resource().Version(), r.Resource().Kind()}, "/")
 				recognized[s] = struct{}{}
+			}
+			for _, gvk := range []string{
+				"networking.istio.io/v1beta1/Gateway",
+				"networking.istio.io/v1beta1/DestinationRule",
+				"networking.istio.io/v1beta1/VirtualService",
+				"networking.istio.io/v1beta1/Sidecar",
+			} {
+				recognized[gvk] = struct{}{}
 			}
 
 			testedValid := make(map[string]struct{})
