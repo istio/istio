@@ -466,7 +466,7 @@ func TestAnalyzeSuppressesMessagesWhenResourceIsAnnotated(t *testing.T) {
 
 			ad.Distribute(snapshots.Default, sDefault)
 
-			g.Eventually(func() []*Snapshot { return a.getAnalyzeCalls() }).Should(ConsistOf(sDefault))
+			g.Eventually(a.getAnalyzeCalls).Should(ConsistOf(sDefault))
 			if tc.wantSuppress {
 				g.Expect(u.getMessages()).To(HaveLen(0))
 			} else {
