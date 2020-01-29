@@ -50,10 +50,10 @@ type v1beta1PolicyApplier struct {
 	alphaApplier authn.PolicyApplier
 }
 
-func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
 		log.Debugf("JwtFilter: RequestAuthentication (beta policy) not found, fallback to alpha if available")
-		return a.alphaApplier.JwtFilter(isXDSMarshalingToAnyEnabled)
+		return a.alphaApplier.JwtFilter()
 	}
 
 	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules)
@@ -61,15 +61,10 @@ func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http
 	if filterConfigProto == nil {
 		return nil
 	}
-	out := &http_conn.HttpFilter{
-		Name: authn_model.EnvoyJwtFilterName,
+	return &http_conn.HttpFilter{
+		Name:       authn_model.EnvoyJwtFilterName,
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)},
 	}
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
-	}
-	return out
 }
 
 // All explaining code link can be removed before merging.
@@ -112,24 +107,20 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWTRule) *authn_filter.
 // istio.authentication.v1alpha1.Policy policy, we specially constructs the old filter config to
 // ensure Authn Filter won't reject the request, but still transform the attributes, e.g. request.auth.principal.
 // proxyType does not matter here, exists only for legacy reason.
-func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType) *http_conn.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
 		log.Debugf("AuthnFilter: RequestAuthentication (beta policy) not found, fallback to alpha if available")
-		return a.alphaApplier.AuthNFilter(proxyType, isXDSMarshalingToAnyEnabled)
-	}
-	out := &http_conn.HttpFilter{
-		Name: authn_model.AuthnFilterName,
+		return a.alphaApplier.AuthNFilter(proxyType)
 	}
 	filterConfigProto := convertToIstioAuthnFilterConfig(a.processedJwtRules)
 	if filterConfigProto == nil {
 		return nil
 	}
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+
+	return &http_conn.HttpFilter{
+		Name:       authn_model.AuthnFilterName,
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)},
 	}
-	return out
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
