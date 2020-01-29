@@ -684,6 +684,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 	}
 
 	podIP := proxy.IPAddresses[0]
+	tps := make(map[int]*model.Port)
 	for _, port := range service.Spec.Ports {
 		svcPort, exists := svc.Ports.Get(port.Name)
 		if !exists {
@@ -695,13 +696,17 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 			log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
 			continue
 		}
-
-		// consider multiple IP scenarios
-		for _, ip := range proxy.IPAddresses {
-			out = append(out, c.getEndpoints(podIP, ip, int32(portNum), svcPort, svc))
+		if _, exists = tps[portNum]; !exists {
+			tps[portNum] = svcPort
 		}
 	}
 
+	for port, svcPort := range tps {
+		// consider multiple IP scenarios
+		for _, ip := range proxy.IPAddresses {
+			out = append(out, c.getEndpoints(podIP, ip, int32(port), svcPort, svc))
+		}
+	}
 	return out
 }
 
