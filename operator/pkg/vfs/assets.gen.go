@@ -6824,7 +6824,16 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
-        {{- if .Values.global.controlPlaneSecurityEnabled }}
+        {{- if .Values.global.istiod.enabled }}
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          {{- else }}
+          - istio-pilot.istio-system.svc:15012
+          {{- end }}
+        {{- else if .Values.global.controlPlaneSecurityEnabled }}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress

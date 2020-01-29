@@ -243,6 +243,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
 		if ingressSdsExists() {
+			log.Infof("Starting gateway SDS")
 			serverOptions.EnableIngressGatewaySDS = true
 			// TODO: what is the setting for ingress ?
 			serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
@@ -318,7 +319,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 
 func ingressSdsExists() bool {
 	p := strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
-	dir := path.Base(p)
+	dir := path.Dir(p)
 	_, err := os.Stat(dir)
 	return !os.IsNotExist(err)
 }
