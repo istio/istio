@@ -125,7 +125,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.OutlierLogPath(cfg.OutlierLogPath),
 		option.StsPort(cfg.StsPort))
 
-
 	// Support passing extra info from node environment as metadata
 	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""
 	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, sdsEnabled)
