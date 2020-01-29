@@ -692,6 +692,12 @@ func TestOptions(t *testing.T) {
 			option:   option.PilotCertProvider("citadel"),
 			expected: "citadel",
 		},
+		{
+			testName: "sts_port",
+			key:      "stsPort",
+			option:   option.StsPort(555555),
+			expected: 555555,
+		},
 	}
 
 	for _, c := range cases {

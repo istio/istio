@@ -134,6 +134,10 @@ func OutlierLogPath(value string) Instance {
 	return newOptionOrSkipIfZero("outlier_log_path", value)
 }
 
+func StsPort(value int) Instance {
+	return newOptionOrSkipIfZero("stsPort", value)
+}
+
 func LightstepAddress(value string) Instance {
 	return newOptionOrSkipIfZero("lightstep", value).withConvert(addressConverter(value))
 }
