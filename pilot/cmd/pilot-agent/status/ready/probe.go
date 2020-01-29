@@ -65,7 +65,7 @@ func (p *Probe) checkConfigStatus() error {
 func (p *Probe) isEnvoyReady() error {
 	state, ws, err := util.GetReadinessStats(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
-		return fmt.Errorf("failed to get server info: %v", err)
+		return fmt.Errorf("failed to get readiness stats: %v", err)
 	}
 
 	if state != nil && admin.ServerInfo_State(*state) != admin.ServerInfo_LIVE {
