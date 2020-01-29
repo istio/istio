@@ -3363,7 +3363,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 										Fields: map[string]*types.Value{
 											"@type": {
 												Kind: &types.Value_StringValue{
-													StringValue: "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
+													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
 												},
 											},
 										},
