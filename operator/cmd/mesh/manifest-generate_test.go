@@ -214,6 +214,9 @@ func TestMultiICPSFiles(t *testing.T) {
 		}
 		diffSelect := "handler:*:prometheus"
 		got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+		if err != nil {
+			t.Errorf("error selecting from output manifest: %v", err)
+		}
 		diff := compare.YAMLCmp(got, want)
 		if diff != "" {
 			t.Errorf("`manifest generate` diff = %s", diff)
@@ -266,6 +269,9 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			if tt.diffSelect != "" {
 				diffSelect = tt.diffSelect
 				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				if err != nil {
+					t.Errorf("error selecting from output manifest: %v", err)
+				}
 			}
 
 			if tt.outputDir != "" {
