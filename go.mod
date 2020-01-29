@@ -90,7 +90,6 @@ require (
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/huandu/xstrings v1.2.1 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
-	github.com/istio.io/proxy/src/envoy/tcp/metadata_exchange/config v0.0.0
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kr/pretty v0.1.0
 	github.com/kylelemons/godebug v1.1.0
@@ -150,7 +149,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.7
-	istio.io/api v0.0.0-20200117194847-776c2d7b730b
+	istio.io/api v0.0.0-20200128154807-0b87dcc73131
 	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
 	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca
 	k8s.io/api v0.17.2
@@ -170,5 +169,3 @@ replace github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/au
 replace github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.5.0
 
 replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.2.0+incompatible
-
-replace github.com/istio.io/proxy/src/envoy/tcp/metadata_exchange/config v0.0.0 => ./pilot/pkg/metadata_exchange
