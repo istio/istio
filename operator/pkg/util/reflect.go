@@ -56,7 +56,7 @@ func IsSlice(value interface{}) bool {
 	return kindOf(value) == reflect.Slice
 }
 
-// IsStruct reports wheter value is a struct type
+// IsStruct reports whether value is a struct type
 func IsStruct(value interface{}) bool {
 	return kindOf(value) == reflect.Struct
 }
