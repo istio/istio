@@ -165,6 +165,16 @@ func TestManifestGenerateGateway(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateHelmValues(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc: "helm_values_enablement",
+			diffSelect: "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway," +
+				" Deployment:*:kiali, Service:*:kiali, Deployment:*:prometheus, Service:*:prometheus",
+		},
+	})
+}
+
 func TestManifestGenerateOrdered(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it

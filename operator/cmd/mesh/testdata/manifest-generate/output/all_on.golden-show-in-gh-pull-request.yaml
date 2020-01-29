@@ -1,4 +1,4 @@
-# Resources for AddonComponents component
+# Resources for AddonComponents coreDNS component
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -206,7 +206,7 @@ metadata:
 ---
 
 ---
-# Resources for AddonComponents component
+# Resources for AddonComponents prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
