@@ -20,11 +20,12 @@ import (
 	"strings"
 	"sync"
 
+	util2 "k8s.io/kubectl/pkg/util"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
-	kubectl "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
@@ -235,7 +236,11 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		changedObjectKeys = append(changedObjectKeys, oh)
 	}
 
-	log.Infof("Changed object list: \n - %s", strings.Join(changedObjectKeys, "\n - "))
+	if len(changedObjectKeys) > 0 {
+		log.Infof("Changed object list: \n - %s", strings.Join(changedObjectKeys, "\n - "))
+	} else {
+		log.Infof("No objects changed for this component.")
+	}
 
 	// For each changed object, write it to the API server.
 	for _, obj := range changedObjects {
@@ -284,26 +289,22 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 		return utilerrors.NewAggregate(allErrors)
 	}
 
-	mutatedObj, err := h.customizer.Listener().BeginResource(chartName, obj)
-	if err != nil {
-		log.Errorf("error preprocessing object: %s", err)
-		return err
-	}
-
-	err = kubectl.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
+	err := util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
 	if err != nil {
 		log.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(mutatedObj.GetObjectKind().GroupVersionKind())
-	objectKey, _ := client.ObjectKeyFromObject(mutatedObj)
+	receiver.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+	objectKey, _ := client.ObjectKeyFromObject(obj)
 
 	if err = h.client.Get(context.TODO(), objectKey, receiver); apierrors.IsNotFound(err) {
 		log.Infof("creating resource: %s", objectKey)
-		return h.client.Create(context.TODO(), mutatedObj)
+		return h.client.Create(context.TODO(), obj)
 	} else if err == nil {
-		return h.client.Update(context.TODO(), mutatedObj)
+		log.Infof("updating resource: %s", objectKey)
+		obj.SetResourceVersion(receiver.GetResourceVersion())
+		return h.client.Update(context.TODO(), obj)
 	}
 	return err
 }
