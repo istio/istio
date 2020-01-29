@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/pkg/test/istioio"
 )
 
-func TestCircuitbreaker(t *testing.T) {
+func TestCircuitBreaker(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(istioio.NewBuilder("tasks__traffic_management__circuit_breaking").
@@ -28,8 +28,18 @@ func TestCircuitbreaker(t *testing.T) {
 				istioio.Script{Input: istioio.Path("scripts/circuitbreaker_test_setup.txt")},
 				istioio.MultiPodWait("istio-io-circuitbreaker"),
 				istioio.Script{
-					Input:        istioio.Evaluate(istioio.Path("scripts/trip_circuitbreaker.txt"), map[string]interface{}{"isSnippet": false}),
-					SnippetInput: istioio.Evaluate(istioio.Path("scripts/trip_circuitbreaker.txt"), map[string]interface{}{"isSnippet": true}),
+					Input: istioio.Evaluate(istioio.Path("scripts/trip_circuitbreaker.txt"), map[string]interface{}{
+						"isSnippet":                false,
+						"inputTerminalFlag":        "-i",
+						"beforeCircuitBreakVerify": "| check_percentage_bounds 80 100 0 20",
+						"afterCircuitBreakVerify":  "| check_percentage_bounds 25 75 25 75",
+					}),
+					SnippetInput: istioio.Evaluate(istioio.Path("scripts/trip_circuitbreaker.txt"), map[string]interface{}{
+						"isSnippet":                true,
+						"inputTerminalFlag":        "-it",
+						"beforeCircuitBreakVerify": "",
+						"afterCircuitBreakVerify":  "",
+					}),
 				}).
 			Defer(istioio.Script{Input: istioio.Path("scripts/circuitbreaker_test_cleanup.txt")}).
 			Build())

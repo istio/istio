@@ -18,62 +18,45 @@ set -e
 set -u
 set -o pipefail
 
-{{ $inputTerminalFlag := "-i" }}
-{{- if .isSnippet -}}
-  {{ $inputTerminalFlag = "-it" }}
-{{- end -}}
-
-# $snippet test_fortio_httpbin_interaction.sh syntax="bash"
+# $snippet test_fortio_httpbin_interaction.sh syntax="bash" outputis="text"
 $ FORTIO_POD=$(kubectl get pods -n istio-io-circuitbreaker | grep fortio | awk '{ print $1 }')
-$ kubectl -n istio-io-circuitbreaker exec {{ $inputTerminalFlag }} $FORTIO_POD -c fortio /usr/bin/fortio -- load -curl http://httpbin:8000/get
+$ kubectl -n istio-io-circuitbreaker exec {{ .inputTerminalFlag }} $FORTIO_POD -c fortio /usr/bin/fortio -- load -curl http://httpbin:8000/get
 # $verify verifier="contains"
 200 OK
 # $endsnippet
 
-function is_acceptable() {
-  local status_and_percentage=$(grep '^Code\s*[0-9]*\s*:\s*[0-9]*\s\(.*\)$' | sed 's/[:%\(\)Code]//g' | cut -d " " -f2,5)
+function check_percentage_bounds() {
+    local lower_bounds=( ["200"]=${1:-"100"}  ["503"]=${3:-"0"} )
+    local upper_bounds=( ["200"]=${2:-"100"}  ["503"]=${4:-"0"} )
 
-  local status_code=$1
-  local lower_bound=$2
-  local upper_bound=$3
-
-  local given_status_code=$(echo $status_and_percentage | awk '{print $1}')
-  local given_percentage=$(echo $status_and_percentage | awk '{print $2}')
-
-  if ((given_status_code == status_code)); then
-    local is_below_lower_bound=$(bc <<< "${given_percentage} < ${lower_bound}")
-    local is_above_upper_bound=$(bc <<< "${given_percentage} > ${upper_bound}")
-    echo $is_below_lower_bound $is_above_upper_bound
-    if ((is_below_lower_bound || is_above_upper_bound)); then
-      echo "bound breached. status=${given_status} given=${given_percentage} - not between ${lower_bound} and ${upper_bound}"
-      return 1
-    fi
-  fi
+    readarray -t code_lines < <(grep -E "^Code ([1-5][0-9]{2,}) : [0-9]+ \(([0-9\.]+) %\)$")
+    
+    for code_line in "${code_lines[@]}"; do
+        local status_code=$(echo $code_line | cut -d' ' -f2)
+        local percentage_req=$(echo $code_line | cut -d' ' -f5 | sed "s/[\(]//g")
+        
+        local is_lower_bound_breached=$(bc <<< "scale=2; $percentage_req < ${lower_bounds[$status_code]}")
+        local is_upper_bound_breached=$(bc <<< "scale=2; $percentage_req > ${upper_bounds[$status_code]}")
+ 
+        if (($is_lower_bound_breached || $is_upper_bound_breached)); then
+            echo "percentage_req=$percentage_req for status=$status_code bounds breached"
+            exit 1
+        fi
+    done
 }
 
-{{ $withoutTripVerifyCmd := "| tee >(is_acceptable 200 80 100) | tee >(is_acceptable 503 0 20)" }}
-{{- if .isSnippet  -}}
-  {{ $withoutTripVerifyCmd = "" }}
-{{- end -}}
-
 # $snippet almost_trip_circuit_breaker.sh syntax="bash"
-$ kubectl -n istio-io-circuitbreaker exec {{ $inputTerminalFlag }} $FORTIO_POD -c fortio /usr/bin/fortio -- \
-    load -c 2 -qps 0 -n 20 -loglevel warning http://httpbin:8000/get {{ $withoutTripVerifyCmd }};
+$ kubectl -n istio-io-circuitbreaker exec {{ .inputTerminalFlag }} $FORTIO_POD -c fortio /usr/bin/fortio -- \
+    load -c 2 -qps 0 -n 20 -loglevel warning http://httpbin:8000/get {{ .beforeCircuitBreakVerify }}
 # $endsnippet
 
-{{ $withTripVerifyCmd := "| tee >(is_acceptable 200 30 60) | tee >(is_acceptable 503 0 0)" }}
-{{- if .isSnippet -}}
-  {{ $withTripVerifyCmd = "" }}
-{{- end -}}
 
 # $snippet trip_circuit_breaker.sh syntax="bash"
-$ kubectl -n istio-io-circuitbreaker exec {{ $inputTerminalFlag }} $FORTIO_POD -c fortio /usr/bin/fortio -- \
-    load -c 3 -qps 0 -n 30 -loglevel warning http://httpbin:8000/get {{ $withTripVerifyCmd }}
-# $verify verifier="contains"
-Parsed non ok code 503 (HTTP/1.1 503)
+$ kubectl -n istio-io-circuitbreaker exec {{ .inputTerminalFlag }} $FORTIO_POD -c fortio /usr/bin/fortio -- \
+    load -c 3 -qps 0 -n 30 -loglevel warning http://httpbin:8000/get {{ .afterCircuitBreakVerify }}
 # $endsnippet
 
 # $snippet print_statistics_after_tripping.sh syntax="bash"
-$ kubectl -n istio-io-circuitbreaker exec {{ $inputTerminalFlag }} $FORTIO_POD \
-  -c istio-proxy -- pilot-agent request GET stats | grep httpbin | grep pending
+$ kubectl -n istio-io-circuitbreaker exec {{ .inputTerminalFlag }} $FORTIO_POD -c istio-proxy -- \
+    pilot-agent request GET stats | grep httpbin | grep pending
 # $endsnippet
