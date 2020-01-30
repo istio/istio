@@ -82,7 +82,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 		case model.EventAdd:
 			switch pod.Status.Phase {
 			case v1.PodPending, v1.PodRunning:
-				if _, ok := pc.podsByIP[ip]; !ok {
+				if key != pc.podsByIP[ip] {
 					// add to cache if the pod is running or pending
 					pc.podsByIP[ip] = key
 					pc.proxyUpdates(ip)
@@ -98,7 +98,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			}
 			switch pod.Status.Phase {
 			case v1.PodPending, v1.PodRunning:
-				if _, ok := pc.podsByIP[ip]; !ok {
+				if key != pc.podsByIP[ip] {
 					// add to cache if the pod is running or pending
 					pc.podsByIP[ip] = key
 					pc.proxyUpdates(ip)

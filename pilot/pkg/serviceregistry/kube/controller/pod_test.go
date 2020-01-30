@@ -108,6 +108,36 @@ func TestPodCache(t *testing.T) {
 	})
 }
 
+// Regression test for https://github.com/istio/istio/issues/20676
+func TestIPReuse(t *testing.T) {
+	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+	defer c.Stop()
+	initTestEnv(t, c.client, fx)
+
+	cache.WaitForCacheSync(c.stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
+		c.services.HasSynced, c.endpoints.HasSynced)
+
+	addPods(t, c, generatePod("128.0.0.1", "pod", "ns", "1", "", map[string]string{"app": "test-app"}, map[string]string{}))
+	_ = waitForPod(c, "128.0.0.1")
+	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+
+	// Change the pod IP. This can happen if the pod moves to another node, for example.
+	updatePods(t, c, generatePod("128.0.0.2", "pod", "ns", "1", "", map[string]string{"app": "test-app"}, map[string]string{}))
+	_ = waitForPod(c, "128.0.0.2")
+	if p, f := c.pods.getPodKey("128.0.0.2"); !f || p != "ns/pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+
+	// A new pod is created with the old IP. We should get new-pod, not pod
+	addPods(t, c, generatePod("128.0.0.1", "new-pod", "ns", "2", "", map[string]string{"app": "test-app"}, map[string]string{}))
+	_ = waitForPod(c, "128.0.0.1")
+	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/new-pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+}
+
 func waitForPod(c *Controller, ip string) error {
 	return wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		c.pods.RLock()
