@@ -53,6 +53,7 @@ func (i *operatorComponent) Settings() Config {
 }
 
 func (i *operatorComponent) Close() (err error) {
+	return
 	scopes.CI.Infof("=== BEGIN: Cleanup Istio ===")
 	defer scopes.CI.Infof("=== DONE: Cleanup Istio ===")
 	if i.settings.DeployIstio {
