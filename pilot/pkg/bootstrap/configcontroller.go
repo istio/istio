@@ -34,13 +34,14 @@ import (
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
+	mcpSource "istio.io/istio/galley/pkg/config/source/mcp"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/event"
 	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
 	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -131,7 +132,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
 
-	mcpOptions := &mcp.Options{
+	mcpOptions := &event.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.Config),
 		XDSUpdater:   s.EnvoyXdsServer,
@@ -278,22 +279,29 @@ func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSour
 }
 
 func (s *Server) mcpController(
-	opts *mcp.Options,
+	opts *event.Options,
 	conn *grpc.ClientConn,
 	reporter monitoring.Reporter,
 	clients *[]*sink.Client,
 	configStores *[]model.ConfigStoreCache) {
 	clientNodeID := ""
-	all := collections.Pilot.All()
+	schemas := collections.Pilot
+	all := schemas.All()
 	cols := make([]sink.CollectionOptions, 0, len(all))
 	for _, c := range all {
 		cols = append(cols, sink.CollectionOptions{Name: c.Name().String(), Incremental: false})
 	}
 
-	mcpController := mcp.NewController(opts)
+	// Create an MCP client for all collections.
+	mcpUpdater := mcpSource.NewSource(schemas)
+
+	// Route inbound events to the MCP controller
+	store, handler := event.NewConfigStoreAndHandler(opts)
+	mcpUpdater.Dispatch(handler)
+
 	sinkOptions := &sink.Options{
 		CollectionOptions: cols,
-		Updater:           mcpController,
+		Updater:           mcpUpdater,
 		ID:                clientNodeID,
 		Reporter:          reporter,
 	}
@@ -302,7 +310,7 @@ func (s *Server) mcpController(
 	mcpClient := sink.NewClient(cl, sinkOptions)
 	configz.Register(mcpClient)
 	*clients = append(*clients, mcpClient)
-	*configStores = append(*configStores, mcpController)
+	*configStores = append(*configStores, store)
 }
 
 func (s *Server) sseMCPController(args *PilotArgs,

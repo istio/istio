@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
@@ -54,7 +56,7 @@ func (c *cache) apply(change *sink.Change) error {
 
 	// Make sure the event is for this collection. This will always be the case in practice.
 	if c.schema.Name().String() != change.Collection {
-		return fmt.Errorf("failed applying change for unexpected collection (%v)", change.Collection)
+		return warn(fmt.Errorf("failed applying change for unexpected collection (%v)", change.Collection))
 	}
 
 	if change.Incremental {
@@ -73,7 +75,7 @@ func (c *cache) applyFull(change *sink.Change) error {
 	for _, obj := range change.Objects {
 		e, err := deserializeEntry(obj, c.schema.Resource())
 		if err != nil {
-			return fmt.Errorf("failed parsing entry for collection (%v): %v", c.schema.Name(), err)
+			return warn(fmt.Errorf("failed parsing entry for collection (%v): %v", c.schema.Name(), err))
 		}
 
 		// Notify the handler if we've already synced.
@@ -104,14 +106,14 @@ func (c *cache) applyFull(change *sink.Change) error {
 
 func (c *cache) applyIncremental(change *sink.Change) error {
 	if !c.synced {
-		return fmt.Errorf("mcp: incremental change received before full for collection (%v)", change.Collection)
+		return warn(fmt.Errorf("mcp: incremental change received before full for collection (%v)", change.Collection))
 	}
 
 	// Add/update resources.
 	for _, obj := range change.Objects {
 		e, err := deserializeEntry(obj, c.schema.Resource())
 		if err != nil {
-			return fmt.Errorf("failed parsing entry for collection (%v): %v", c.schema.Name(), err)
+			return warn(fmt.Errorf("failed parsing entry for collection (%v): %v", c.schema.Name(), err))
 		}
 
 		// Notify the handler if we've already synced.
@@ -130,7 +132,7 @@ func (c *cache) applyIncremental(change *sink.Change) error {
 	for _, removed := range change.Removed {
 		name, err := resource.ParseFullName(removed)
 		if err != nil {
-			return fmt.Errorf("failed removing resource due to parsing error: %v", err)
+			return warn(fmt.Errorf("failed removing resource due to parsing error: %v", err))
 		}
 
 		if e, ok := c.resources[name]; ok {
@@ -139,7 +141,7 @@ func (c *cache) applyIncremental(change *sink.Change) error {
 			}
 			delete(c.resources, name)
 		} else {
-			return fmt.Errorf("incremental update attempting to delete missing resource (%v)", name)
+			return warn(fmt.Errorf("incremental update attempting to delete missing resource (%v)", name))
 		}
 	}
 
@@ -215,4 +217,9 @@ func deserializeEntry(obj *sink.Object, s resource2.Schema) (*resource.Instance,
 		Message:  obj.Body,
 		Origin:   defaultOrigin,
 	}, nil
+}
+
+func warn(err error) error {
+	log.Warna(err)
+	return err
 }

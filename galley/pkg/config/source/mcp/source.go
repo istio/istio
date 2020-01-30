@@ -46,7 +46,7 @@ func NewSource(schemas collection.Schemas) *Source {
 func (s Source) Apply(change *sink.Change) error {
 	c := s.caches[change.Collection]
 	if c == nil {
-		return fmt.Errorf("failed applying change for unknown collection (%v)", change.Collection)
+		return warn(fmt.Errorf("failed applying change for unknown collection (%v)", change.Collection))
 	}
 	return c.apply(change)
 }

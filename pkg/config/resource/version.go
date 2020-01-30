@@ -16,3 +16,7 @@ package resource
 
 // Version is the version identifier of a resource.
 type Version string
+
+func (v Version) String() string {
+	return string(v)
+}
