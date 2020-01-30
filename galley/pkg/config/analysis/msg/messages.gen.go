@@ -64,6 +64,10 @@ var (
 	// VirtualServiceDestinationPortSelectorRequired defines a diag.MessageType for message "VirtualServiceDestinationPortSelectorRequired".
 	// Description: A VirtualService routes to a service with more than one port exposed, but does not specify which to use.
 	VirtualServiceDestinationPortSelectorRequired = diag.NewMessageType(diag.Error, "IST0112", "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate.")
+
+	// JwtFailureDueToInvalidServicePortPrefix defines a diag.MessageType for message "JwtFailureDueToInvalidServicePortPrefix".
+	// Description: Authentication policy with JWT targets Service with invalid port specification.
+	JwtFailureDueToInvalidServicePortPrefix = diag.NewMessageType(diag.Warning, "IST0119", "Authentication policy with JWT targets Service with invalid port specification (port: %d, name: %s, protocol: %s, targetPort: %s).")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -200,6 +204,18 @@ func NewVirtualServiceDestinationPortSelectorRequired(entry *resource.Entry, des
 		originOrNil(entry),
 		destHost,
 		destPorts,
+	)
+}
+
+// NewJwtFailureDueToInvalidServicePortPrefix returns a new diag.Message based on JwtFailureDueToInvalidServicePortPrefix.
+func NewJwtFailureDueToInvalidServicePortPrefix(entry *resource.Entry, port int, portName string, protocol string, targetPort string) diag.Message {
+	return diag.NewMessage(
+		JwtFailureDueToInvalidServicePortPrefix,
+		originOrNil(entry),
+		port,
+		portName,
+		protocol,
+		targetPort,
 	)
 }
 
