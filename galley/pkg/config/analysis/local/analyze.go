@@ -23,6 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -252,7 +253,13 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 
 	// Since we're using a running k8s source, try to get mesh config from the configmap
 	if err := sa.addRunningKubeMeshConfigSource(client); err != nil {
-		scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)
+		_, err := client.CoreV1().Namespaces().Get(sa.istioNamespace.String(), metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			scope.Analysis.Warnf("%v namespace not found. Istio may not be installed in the target cluster. "+
+				"Using default mesh configuration values for analysis", sa.istioNamespace.String())
+		} else if err != nil {
+			scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)
+		}
 	}
 
 	src := apiserverNew(apiserver.Options{
