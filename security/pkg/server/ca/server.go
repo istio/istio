@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
+	"k8s.io/client-go/rest"
 
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
@@ -42,7 +43,8 @@ import (
 const (
 	jwtPath              = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	caCertPath           = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	k8sAPIServerURL      = "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews"
+	k8sAPIServerURL      = "https://kubernetes.default.svc"
+	k8sAPIServerPath     = "/apis/authentication.k8s.io/v1/tokenreviews"
 	certExpirationBuffer = time.Minute
 )
 
@@ -243,13 +245,10 @@ func NewWithGRPC(mc *kubecontroller.Multicluster, grpc *grpc.Server, ca Certific
 
 	// Only add k8s jwt authenticator if SDS is enabled.
 	if sdsEnabled {
-		authenticator, err := authenticate.NewKubeJWTAuthenticator(mc, k8sAPIServerURL, caCertPath, jwtPath,
-			trustDomain, jwtPolicy, clusterID)
+		authenticator, err := getKubeJWTAuthenticator(mc, trustDomain, jwtPolicy, clusterID)
 		if err == nil {
 			authenticators = append(authenticators, authenticator)
 			serverCaLog.Info("added K8s JWT authenticator")
-		} else {
-			serverCaLog.Warnf("failed to add JWT authenticator: %v", err)
 		}
 	}
 
@@ -280,6 +279,34 @@ func NewWithGRPC(mc *kubecontroller.Multicluster, grpc *grpc.Server, ca Certific
 		monitoring:     newMonitoringMetrics(),
 	}
 	return server, nil
+}
+
+var newKubeJWTAuthenticator = authenticate.NewKubeJWTAuthenticator
+var inClusterConfig = rest.InClusterConfig
+
+func getKubeJWTAuthenticator(mc *kubecontroller.Multicluster, trustDomain string,
+	jwtPolicy string, clusterID string) (*authenticate.KubeJWTAuthenticator, error) {
+	authenticator, err := newKubeJWTAuthenticator(mc, k8sAPIServerURL+k8sAPIServerPath, caCertPath, jwtPath,
+		trustDomain, jwtPolicy, clusterID)
+	if err == nil {
+		return authenticator, nil
+	}
+
+	serverCaLog.Warnf("failed to add JWT authenticator, will try InClusterConfig: %v", err)
+	rc, err := inClusterConfig()
+	if err != nil {
+		serverCaLog.Warnf("failed to get InClusterConfig: %v", err)
+		return nil, err
+	}
+
+	authenticator, err = newKubeJWTAuthenticator(mc, rc.Host+k8sAPIServerPath, rc.CAFile, rc.BearerTokenFile,
+		trustDomain, jwtPolicy, clusterID)
+	if err != nil {
+		serverCaLog.Warnf("failed to add JWT authenticator via InClusterConfig: %v", err)
+		return nil, err
+	}
+
+	return authenticator, nil
 }
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {
