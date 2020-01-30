@@ -19,7 +19,9 @@ import (
 	"sync"
 
 	apicorev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -49,6 +51,17 @@ func (n *namespaceImpl) Create(obj *apicorev1.Namespace) (*apicorev1.Namespace, 
 		Type:   watch.Added,
 		Object: obj,
 	})
+	return obj, nil
+}
+
+func (n *namespaceImpl) Get(name string, options metav1.GetOptions) (*apicorev1.Namespace, error) {
+	n.mux.Lock()
+	defer n.mux.Unlock()
+
+	obj, ok := n.namespaces[name]
+	if !ok {
+		return nil, kerrors.NewNotFound(schema.GroupResource{Resource: "namespaces"}, name)
+	}
 	return obj, nil
 }
 
@@ -119,10 +132,6 @@ func (n *namespaceImpl) UpdateStatus(*apicorev1.Namespace) (*apicorev1.Namespace
 }
 
 func (n *namespaceImpl) DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
-	panic("not implemented")
-}
-
-func (n *namespaceImpl) Get(name string, options metav1.GetOptions) (*apicorev1.Namespace, error) {
 	panic("not implemented")
 }
 
