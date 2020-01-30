@@ -117,7 +117,6 @@ require (
 	github.com/prometheus/client_golang v1.1.0
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.6.0
-	github.com/prometheus/procfs v0.0.8 // indirect
 	github.com/prometheus/prom2json v1.2.2
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/satori/go.uuid v1.2.0
@@ -151,7 +150,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.7
 	istio.io/api v0.0.0-20200128153701-833498da27eb
 	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
-	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca
+	istio.io/pkg v0.0.0-20200130191044-4035a24ca535
 	k8s.io/api v0.17.2
 	k8s.io/apiextensions-apiserver v0.17.2
 	k8s.io/apimachinery v0.17.2
