@@ -54,18 +54,14 @@ spec:
         notPrincipals: ["*"]
 ---
 
-# The following policy enables mTLS with PERMISSIVE mode for workload b, c and d
+# The following policy enables mTLS with PERMISSIVE mode for all workloads in the namespace
 
 apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: "permissive"
+  name: "default"
   namespace: "{{ .Namespace }}"
 spec:
-  targets:
-  - name: b
-  - name: c
-  - name: d
   peers:
   - mtls:
       mode: PERMISSIVE
