@@ -212,7 +212,11 @@ func TestMultiICPSFiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
+		diffSelect := "handler:*:prometheus"
+		got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+		if err != nil {
+			t.Errorf("error selecting from output manifest: %v", err)
+		}
 		diff := compare.YAMLCmp(got, want)
 		if diff != "" {
 			t.Errorf("`manifest generate` diff = %s", diff)
@@ -261,6 +265,15 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				t.Fatal(err)
 			}
 
+			diffSelect := "*:*:*"
+			if tt.diffSelect != "" {
+				diffSelect = tt.diffSelect
+				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				if err != nil {
+					t.Errorf("error selecting from output manifest: %v", err)
+				}
+			}
+
 			if tt.outputDir != "" {
 				got, err = util.ReadFilesWithFilter(tt.outputDir, func(fileName string) bool {
 					return strings.HasSuffix(fileName, ".yaml")
@@ -280,11 +293,6 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			want, err := readFile(outPath)
 			if err != nil {
 				t.Fatal(err)
-			}
-
-			diffSelect := "*:*:*"
-			if tt.diffSelect != "" {
-				diffSelect = tt.diffSelect
 			}
 
 			for _, v := range []bool{true, false} {
