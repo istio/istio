@@ -23,13 +23,13 @@ import (
 )
 
 const (
-	ingressHostCommand = `$(kubectl -n istio-system get service istio-ingressgateway \
+	ingressHostCom = `$(kubectl -n istio-system get service istio-ingressgateway \
 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')`
-	ingressPortCommand = `$(kubectl -n istio-system get service istio-ingressgateway \
+	ingressPortCom = `$(kubectl -n istio-system get service istio-ingressgateway \
 -o jsonpath='{.spec.ports[?(@.name=="tcp")].port}')`
-	minikubeIngressHostCommand = `$(kubectl -n istio-system get pod -l istio=ingressgateway \
+	minikubeIngressHostCom = `$(kubectl -n istio-system get pod -l istio=ingressgateway \
 -o jsonpath='{.items[0].status.hostIP}')`
-	minikubeIngressPortCommand = `$(kubectl -n istio-system get service istio-ingressgateway \
+	minikubeIngressPortCom = `$(kubectl -n istio-system get service istio-ingressgateway \
 -o jsonpath='{.spec.ports[?(@.name=="tcp")].nodePort}')`
 )
 
@@ -39,8 +39,8 @@ func TestRequestTimeouts(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioio.NewBuilder("tasks__traffic_management__request_timeouts").
 				Add(istioio.Script{Input: istioio.Path("../common/scripts/bookinfo.txt")}).
-				Add(script(ctx, "request_timeouts.txt")).
-				Add(script(ctx, "request_timeouts_delay.txt")).
+				Add(scripts(ctx, "request_timeouts.txt")).
+				Add(scripts(ctx, "request_timeouts_delay.txt")).
 				Defer(istioio.Script{
 					Input: istioio.Inline{
 						FileName: "cleanup.sh",
@@ -56,24 +56,24 @@ kubectl delete -f samples/sleep/sleep.yaml || true`,
 		})
 }
 
-func script(ctx framework.TestContext, filename string) istioio.Script {
+func scripts(ctx framework.TestContext, filename string) istioio.Script {
 	e := ctx.Environment().(*kube.Environment)
-	runtimeIngressHostCommand := ingressHostCommand
-	runtimeIngressPortCommand := ingressPortCommand
+	runtimeIngressHostCom := ingressHostCom
+	runtimeIngressPortCom := ingressPortCom
 	if e.Settings().Minikube {
-		runtimeIngressHostCommand = minikubeIngressHostCommand
-		runtimeIngressPortCommand = minikubeIngressPortCommand
+		runtimeIngressHostCom = minikubeIngressHostCom
+		runtimeIngressPortCom = minikubeIngressPortCom
 	}
 	return istioio.Script{
 		Input: istioio.Evaluate(istioio.Path("scripts/"+filename), map[string]interface{}{
-			"isSnippet":          false,
-			"ingressHostCommand": runtimeIngressHostCommand,
-			"ingressPortCommand": runtimeIngressPortCommand,
+			"isSnippet":      false,
+			"ingressHostCom": runtimeIngressHostCom,
+			"ingressPortCom": runtimeIngressPortCom,
 		}),
 		SnippetInput: istioio.Evaluate(istioio.Path("scripts/"+filename), map[string]interface{}{
-			"isSnippet":          true,
-			"ingressHostCommand": ingressHostCommand,
-			"ingressPortCommand": ingressPortCommand,
+			"isSnippet":      true,
+			"ingressHostCom": ingressHostCom,
+			"ingressPortCom": ingressPortCom,
 		}),
 	}
 }

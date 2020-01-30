@@ -20,8 +20,8 @@ set -o pipefail
 
 # Export HOST, PORT and URL
 # $snippet export_gateway_url_2.sh syntax="bash"
-$ export INGRESS_HOST={{ .ingressHostCommand }}
-$ export INGRESS_PORT={{ .ingressPortCommand }}
+$ export INGRESS_HOST={{ .ingressHostCom }}
+$ export INGRESS_PORT={{ .ingressPortCom }}
 $ export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
 # $endsnippet
 
@@ -43,6 +43,8 @@ spec:
     timeout: 0.5s
 EOF
 # $endsnippet
+
+istioctl experimental wait --for=distribution VirtualService reviews.default --timeout=60s
 
 echo "sending request delay to $INGRESS_HOST:$INGRESS_PORT"
 

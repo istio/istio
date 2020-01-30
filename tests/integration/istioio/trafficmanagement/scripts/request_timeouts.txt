@@ -20,8 +20,8 @@ set -o pipefail
 
 # Export HOST, PORT and URL
 # $snippet export_gateway_url_1.sh syntax="bash"
-$ export INGRESS_HOST={{ .ingressHostCommand }}
-$ export INGRESS_PORT={{ .ingressPortCommand }}
+$ export INGRESS_HOST={{ .ingressHostCom }}
+$ export INGRESS_PORT={{ .ingressPortCom }}
 $ export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
 # $endsnippet
 
@@ -42,6 +42,8 @@ spec:
         subset: v2
 EOF
 # $endsnippet
+
+istioctl experimental wait --for=distribution VirtualService reviews.default --timeout=60s
 
 # Step 2: Add a 2 second delay to calls to the ratings service
 # $snippet delay_ratings.sh syntax="bash"
@@ -64,6 +66,8 @@ spec:
         subset: v1
 EOF
 # $endsnippet
+
+istioctl experimental wait --for=distribution VirtualService ratings.default --timeout=60s
 
 echo "sending request to $GATEWAY_URL"
 
