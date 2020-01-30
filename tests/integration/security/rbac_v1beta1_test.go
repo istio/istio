@@ -359,7 +359,7 @@ func TestV1beta1_NegativeMatch(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "v1beta1-negative-match",
+				Prefix: "v1beta1-negative-match-1",
 				Inject: true,
 			})
 			ns2 := namespace.NewOrFail(t, ctx, namespace.Config{
@@ -404,7 +404,16 @@ func TestV1beta1_NegativeMatch(t *testing.T) {
 					ExpectAllowed: expectAllowed,
 				}
 			}
+
+			// a, b, c and d are in the same namespace and x is in a different namespace.
+			// a connects to b, c and d with mTLS.
+			// x connects to b and c with mTLS, to d with plain-text.
 			cases := []rbacUtil.TestCase{
+				// Test the policy with overlapped `paths` and `not_paths` on b.
+				// a and x should have the same results:
+				// - path with prefix `/prefix` should be denied explicitly.
+				// - path `/prefix/whitelist` should be excluded from the deny.
+				// - path `/allow` should be allowed implicitly.
 				newTestCase(a, b, "/prefix", false),
 				newTestCase(a, b, "/prefix/other", false),
 				newTestCase(a, b, "/prefix/whitelist", true),
@@ -413,10 +422,18 @@ func TestV1beta1_NegativeMatch(t *testing.T) {
 				newTestCase(x, b, "/prefix/other", false),
 				newTestCase(x, b, "/prefix/whitelist", true),
 				newTestCase(x, b, "/allow", true),
+
+				// Test the policy that denies other namespace on c.
+				// a should be allowed because it's from the same namespace.
+				// x should be denied because it's from a different namespace.
 				newTestCase(a, c, "/", true),
 				newTestCase(x, c, "/", false),
-				newTestCase(x, d, "/", false),
+
+				// Test the policy that denies plain-text traffic on d.
+				// a should be allowed because it's using mTLS.
+				// x should be denied because it's using plain-text.
 				newTestCase(a, d, "/", true),
+				newTestCase(x, d, "/", false),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
