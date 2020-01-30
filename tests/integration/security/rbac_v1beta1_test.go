@@ -352,3 +352,73 @@ func TestV1beta1_Deny(t *testing.T) {
 			rbacUtil.RunRBACTest(t, cases)
 		})
 }
+
+// TestV1beta1_Deny tests the authorization policy with negative match.
+func TestV1beta1_NegativeMatch(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-negative-match",
+				Inject: true,
+			})
+			ns2 := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-negative-match-2",
+				Inject: true,
+			})
+
+			args := map[string]string{
+				"Namespace":  ns.Name(),
+				"Namespace2": ns2.Name(),
+			}
+
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				g.ApplyConfigOrFail(t, ns, policy...)
+				return policy
+			}
+
+			policies := applyPolicy("testdata/rbac/v1beta1-negative-match.yaml.tmpl", nil)
+			defer g.DeleteConfigOrFail(t, nil, policies...)
+
+			var a, b, c, d, x echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
+				With(&x, util.EchoConfig("x", ns2, false, nil, g, p)).
+				BuildOrFail(t)
+
+			newTestCase := func(from, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: from,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase(a, b, "/prefix", false),
+				newTestCase(a, b, "/prefix/other", false),
+				newTestCase(a, b, "/prefix/whitelist", true),
+				newTestCase(a, b, "/allow", true),
+				newTestCase(x, b, "/prefix", false),
+				newTestCase(x, b, "/prefix/other", false),
+				newTestCase(x, b, "/prefix/whitelist", true),
+				newTestCase(x, b, "/allow", true),
+				newTestCase(a, c, "/", true),
+				newTestCase(x, c, "/", false),
+				newTestCase(x, d, "/", false),
+				newTestCase(a, d, "/", true),
+			}
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
