@@ -293,7 +293,9 @@ spec:
           requests:
             cpu: 10m
             memory: 10Mi
-      imagePullPolicy: IfNotPresent
+      # specify image pull policy if default behavior isn't satisfactory.  
+      # Default behavior: all latest or dev images will be Always else IfNotPresent. 
+      # imagePullPolicy: IfNotPresent
       certificates: []
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: false
