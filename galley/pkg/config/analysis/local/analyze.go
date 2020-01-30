@@ -98,6 +98,14 @@ type AnalysisResult struct {
 	ExecutedAnalyzers []string
 }
 
+// ReaderSource is a tuple of a io.Reader and filepath.
+type ReaderSource struct {
+	// Name is the name of the source (commonly the path to a file, but can be "-" for sources read from stdin or "" if completely synthetic).
+	Name string
+	// Reader is the reader instance to use.
+	Reader io.Reader
+}
+
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
@@ -218,21 +226,21 @@ func (sa *SourceAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSup
 }
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
-func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
+func (sa *SourceAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
 
 	var errs error
 
 	// If we encounter any errors reading or applying files, track them but attempt to continue
-	for i, r := range readers {
-		by, err := ioutil.ReadAll(r)
+	for _, r := range readers {
+		by, err := ioutil.ReadAll(r.Reader)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
 		}
 
-		if err = src.ApplyContent(string(i), string(by)); err != nil {
+		if err = src.ApplyContent(r.Name, string(by)); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -290,14 +298,14 @@ func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
 // and don't want to generate false positives because they aren't there.
 // Respect mesh config when deciding which default resources should be generated
 func (sa *SourceAnalyzer) AddDefaultResources() error {
-	var readers []io.Reader
+	var readers []ReaderSource
 
 	if sa.meshCfg.GetIngressControllerMode() != v1alpha1.MeshConfig_OFF {
 		ingressResources, err := getDefaultIstioIngressGateway(sa.istioNamespace.String(), sa.meshCfg.GetIngressService())
 		if err != nil {
 			return err
 		}
-		readers = append(readers, strings.NewReader(ingressResources))
+		readers = append(readers, ReaderSource{Reader: strings.NewReader(ingressResources)})
 	}
 
 	if len(readers) == 0 {
