@@ -42,10 +42,10 @@ spec:
 {{- if .Values.global.proxy.enableCoreDump }}
       initContainers:
         - name: enable-core-dump
-{{- if contains "/" .Values.global.proxy_init.image }}
-          image: "{{ .Values.global.proxy_init.image }}"
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image | default "proxy_init" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
 {{- end }}
 {{- if or (contains "dev" .Values.global.proxy.image) (contains "dev" .Values.global.tag) }}
           imagePullPolicy: Always
@@ -67,7 +67,11 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if or (contains "dev" .Values.global.proxy.image) (contains "dev" .Values.global.tag) }}
+          imagePullPolicy: Always
+{{- else if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
           ports:
             {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.port }}
