@@ -95,7 +95,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			if pod.DeletionTimestamp != nil {
 				// delete only if this pod was in the cache
 				if pc.podsByIP[ip] == key {
-					pc.deleteIp(ip)
+					pc.deleteIP(ip)
 				}
 				return nil
 			}
@@ -109,20 +109,20 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			default:
 				// delete if the pod switched to other states and is in the cache
 				if pc.podsByIP[ip] == key {
-					pc.deleteIp(ip)
+					pc.deleteIP(ip)
 				}
 			}
 		case model.EventDelete:
 			// delete only if this pod was in the cache
 			if pc.podsByIP[ip] == key {
-				pc.deleteIp(ip)
+				pc.deleteIP(ip)
 			}
 		}
 	}
 	return nil
 }
 
-func (pc *PodCache) deleteIp(ip string) {
+func (pc *PodCache) deleteIP(ip string) {
 	pod := pc.podsByIP[ip]
 	delete(pc.podsByIP, ip)
 	delete(pc.IPByPods, pod)
