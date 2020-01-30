@@ -16,6 +16,8 @@
 
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
+# This is a shellcheck false positive
+# shellcheck disable=SC2034
 ROOT=$(dirname "$WD")
 
 set -eux
