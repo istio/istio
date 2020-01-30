@@ -229,8 +229,8 @@ func TestNewTranslator(t *testing.T) {
 		{
 			name:         "version 1.6",
 			minorVersion: version.NewMinorVersion(1, 6),
-			wantVer:      "1.6",
-			wantErr:      false,
+			wantVer:      "1.5",
+			wantErr:      true,
 		},
 		{
 			name:         "version 1.99",
