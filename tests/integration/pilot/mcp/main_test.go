@@ -43,6 +43,7 @@ func TestMain(m *testing.M) {
 	meshCfg := mesh.DefaultMeshConfig()
 	framework.
 		NewSuite("mcp_test", m).
+		Skip("https://github.com/istio/istio/issues/17953").
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
