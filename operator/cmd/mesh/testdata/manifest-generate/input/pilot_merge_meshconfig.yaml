@@ -1,0 +1,15 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  hub: docker.io/istio
+  tag: 1.1.4
+  meshConfig:
+    rootNamespace: istio-control
+    mixerCheckServer: foo
+    defaultConfig:
+      proxyMetadata:
+        TERMINATION_DRAIN_DURATION_SECONDS: "120"
+  components:
+    pilot:
+      enabled: true
