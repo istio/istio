@@ -146,6 +146,26 @@ a:
 `,
 		},
 		{
+			desc:      "ExtendMoreThanOneLeafListEntry",
+			path:      `a.b.[1].list.[5]`,
+			value:     `v4`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v2
+    - v3_regex
+    - null
+    - null
+    - v4
+    name: n2
+`,
+		},
+		{
 			desc:      "ExtendNthListEntry",
 			path:      `a.b.[2].name`,
 			value:     `n3`,
@@ -160,6 +180,26 @@ a:
     - v2
     - v3_regex
     name: n2
+  - name: n3
+`,
+		},
+		{
+			desc:      "ExtendMoreThanOneListEntry",
+			path:      `a.b.[4].name`,
+			value:     `n3`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v2
+    - v3_regex
+    name: n2
+  - null
+  - null
   - name: n3
 `,
 		},
@@ -210,6 +250,21 @@ a:
 `,
 		},
 		{
+			desc:      "DeleteListEntryIndex",
+			path:      `a.b.[name:n2].list.[1]`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v3_regex
+    name: n2
+`,
+		},
+		{
 			desc:      "DeleteListEntryValueRegex",
 			path:      `a.b.[name:n2].list.[:v3]`,
 			wantFound: true,
@@ -223,6 +278,18 @@ a:
     - v2
     name: n2
 `,
+		},
+		{
+			desc:      "DeleteListLeafEntryBogusIndex",
+			path:      `a.b.[name:n2].list.[-200]`,
+			wantFound: false,
+			wantErr:   `path a.b.[name:n2].list.[-200]: element [-200] not found`,
+		},
+		{
+			desc:      "DeleteListEntryBogusIndex",
+			path:      `a.b.[1000000].list.[:v2]`,
+			wantFound: false,
+			wantErr:   `path a.b.[1000000].list.[:v2]: element [1000000] not found`,
 		},
 		{
 			desc:      "AddMapEntry",
@@ -271,6 +338,12 @@ a:
 			path:      `a.b.[].list`,
 			wantFound: false,
 			wantErr:   `path a.b.[].list: [] is not a valid value path element`,
+		},
+		{
+			desc:      "invalid index",
+			path:      `a.c.[n2].list.[:v3]`,
+			wantFound: false,
+			wantErr:   `path not found at element c in path a.c.[n2].list.[:v3]`,
 		},
 	}
 	for _, tt := range tests {
