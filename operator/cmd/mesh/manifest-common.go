@@ -46,11 +46,6 @@ var (
 
 func genApplyManifests(setOverlay []string, inFilename []string, force bool, dryRun bool, verbose bool,
 	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
-	overlayFromSet, err := MakeTreeFromSetList(setOverlay, force, l)
-	if err != nil {
-		return fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
-	}
-
 	opts := &kubectlcmd.Options{
 		DryRun:      dryRun,
 		Verbose:     verbose,
@@ -58,6 +53,14 @@ func genApplyManifests(setOverlay []string, inFilename []string, force bool, dry
 		WaitTimeout: waitTimeout,
 		Kubeconfig:  kubeConfigPath,
 		Context:     context,
+	}
+	if err := manifest.CheckK8sVersion(opts); err != nil {
+		l.logAndError(err)
+	}
+
+	overlayFromSet, err := MakeTreeFromSetList(setOverlay, force, l)
+	if err != nil {
+		return fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
 	}
 
 	kubeconfig, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context)
@@ -82,7 +85,7 @@ func genApplyManifests(setOverlay []string, inFilename []string, force bool, dry
 	gotError := false
 	skippedComponentMap := map[name.ComponentName]bool{}
 	for cn := range manifests {
-		enabledInSpec, err := name.IsComponentEnabledInSpec(cn, iops)
+		enabledInSpec, err := translate.IsComponentEnabledInSpec(cn, iops)
 		if err != nil {
 			l.logAndPrintf("failed to check if %s is enabled in IstioOperatorSpec: %v", cn, err)
 		}

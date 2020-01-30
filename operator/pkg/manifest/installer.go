@@ -25,6 +25,7 @@ import (
 	"time" // For kubeclient GCP auth
 
 	"github.com/ghodss/yaml"
+	goversion "github.com/hashicorp/go-version"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -50,8 +51,10 @@ import (
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	pkgversion "istio.io/istio/operator/pkg/version"
+	binversion "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 )
 
@@ -197,6 +200,40 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 		}
 	}
 	return nil
+}
+
+// Version runs the `kubectl version` and returns kubectl version and k8s server version
+func Version(opts *kubectlcmd.Options) (*goversion.Version, *goversion.Version, error) {
+	stdout, stderr, kubectlErr := kubectl.Version(opts)
+	if kubectlErr != nil && stderr != "" && strings.TrimSpace(stdout) == "" {
+		return nil, nil, fmt.Errorf("%s: %s", kubectlErr, stderr)
+	}
+	return parseKubectlVersion(stdout)
+}
+
+func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.Version, error) {
+	yamlObj := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(kubectlStdout), &yamlObj)
+	if err != nil {
+		return nil, nil, err
+	}
+	var errs util.Errors
+	var clientVersion, serverVersion *goversion.Version
+	cPath := util.ToYAMLPath("clientVersion.gitVersion")
+	cNode, cFound, err := tpath.GetFromTreePath(yamlObj, cPath)
+	errs = util.AppendErr(errs, err)
+	if cFound {
+		clientVersion, err = goversion.NewVersion(cNode.(string))
+		errs = util.AppendErr(errs, err)
+	}
+	sPath := util.ToYAMLPath("serverVersion.gitVersion")
+	sNode, sFound, err := tpath.GetFromTreePath(yamlObj, sPath)
+	errs = util.AppendErr(errs, err)
+	if sFound {
+		serverVersion, err = goversion.NewVersion(sNode.(string))
+		errs = util.AppendErr(errs, err)
+	}
+	return clientVersion, serverVersion, errs.ToError()
 }
 
 // ApplyAll applies all given manifests using kubectl client.
@@ -815,6 +852,40 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 	}
 
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
+}
+
+// CheckK8sVersion checks if the current client and server version is supported
+func CheckK8sVersion(opts *kubectlcmd.Options) error {
+	cK8sVer, sK8sVer, err := Version(opts)
+	if err != nil {
+		return fmt.Errorf("failed to read versions from client and cluster: %v", err)
+	}
+	compatibleMap, err := pkgversion.GetVersionCompatibleMap("", binversion.OperatorBinaryGoVersion)
+	if err != nil {
+		return err
+	}
+	return checkK8sVersion(compatibleMap, cK8sVer, sK8sVer)
+}
+
+// checkK8sVersion checks if the client and server versions are supported in CompatibilityMapping
+func checkK8sVersion(vmap *pkgversion.CompatibilityMapping, cVer, sVer *goversion.Version) error {
+	if cVer == nil {
+		return fmt.Errorf("failed to get k8s client version, please check if kubectl is correctly installed")
+	}
+	if sVer == nil {
+		return fmt.Errorf("failed to get k8s server version, please check if the k8s context is configured")
+	}
+	if vmap.K8sClientVersionRange != nil && !vmap.K8sClientVersionRange.Check(cVer) {
+		return fmt.Errorf("failed to meet the requirements of kubectl version for Istio %s: "+
+			"current kubectl version: %s, supported version range: %s",
+			binversion.OperatorCodeBaseVersion, cVer, vmap.K8sClientVersionRange)
+	}
+	if vmap.K8sServerVersionRange != nil && !vmap.K8sServerVersionRange.Check(sVer) {
+		return fmt.Errorf("failed to meet the requirements of k8s server version for Istio %s: "+
+			"current k8s server version: %s, supported version range: %s",
+			binversion.OperatorCodeBaseVersion, sVer, vmap.K8sServerVersionRange)
+	}
+	return nil
 }
 
 func logAndPrint(v ...interface{}) {

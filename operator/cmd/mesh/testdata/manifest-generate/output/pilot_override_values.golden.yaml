@@ -19,13 +19,13 @@ metadata:
   name: istio-pilot
   namespace: istio-control
 spec:
-  maxReplicas: 333
+  maxReplicas: 5
   metrics:
   - resource:
       name: cpu
-      targetAverageUtilization: 444
+      targetAverageUtilization: 80
     type: Resource
-  minReplicas: 222
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -529,8 +529,8 @@ data:
     replicaCount: 1
     resources:
       requests:
-        cpu: 500m
-        memory: 2048Mi
+        cpu: 222m
+        memory: 333Mi
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
     sidecar: false
@@ -726,11 +726,7 @@ spec:
           valueFrom:
             fieldRef:
               apiVersion: v1
-              fieldPath: new.path
-        - name: GODEBUG
-          value: gctrace=111
-        - name: NEW_VAR
-          value: new_value
+              fieldPath: metadata.name
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -763,13 +759,13 @@ spec:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 555
-          periodSeconds: 666
-          timeoutSeconds: 777
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
         resources:
           requests:
-            cpu: 888m
-            memory: 999Mi
+            cpu: 500m
+            memory: 2048Mi
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
@@ -790,8 +786,6 @@ spec:
         - mountPath: /var/lib/istio/validation
           name: validation
           readOnly: true
-      nodeSelector:
-        master: "true"
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -1812,8 +1806,10 @@ spec:
           filters:
           - name: envoy.filters.network.upstream.metadata_exchange
             typed_config:
-              "@type": type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              protocol: istio-peer-exchange
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
     - applyTo: CLUSTER
       match:
         context: GATEWAY
@@ -1826,8 +1822,10 @@ spec:
           filters:
           - name: envoy.filters.network.upstream.metadata_exchange
             typed_config:
-              "@type": type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              protocol: istio-peer-exchange
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
 ---
 
 

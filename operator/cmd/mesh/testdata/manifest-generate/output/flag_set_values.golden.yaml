@@ -1,4 +1,4 @@
-# Resources for AddonComponents component
+# Resources for AddonComponents prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -8396,8 +8396,10 @@ spec:
           filters:
           - name: envoy.filters.network.upstream.metadata_exchange
             typed_config:
-              "@type": type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              protocol: istio-peer-exchange
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
     - applyTo: CLUSTER
       match:
         context: GATEWAY
@@ -8410,8 +8412,10 @@ spec:
           filters:
           - name: envoy.filters.network.upstream.metadata_exchange
             typed_config:
-              "@type": type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              protocol: istio-peer-exchange
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
 ---
 
 

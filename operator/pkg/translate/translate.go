@@ -412,7 +412,7 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.Ist
 	if t.ComponentMaps[cn] == nil {
 		return false, nil
 	}
-	return name.IsComponentEnabledInSpec(cn, iop)
+	return IsComponentEnabledInSpec(cn, iop)
 }
 
 // AllComponentsNames returns a slice of all components used in t.

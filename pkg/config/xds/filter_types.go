@@ -69,9 +69,4 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/thrift/rate_limit/v2alpha1"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/thrift/router/v2alpha1"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/udp/udp_proxy/v2alpha"
-
-	// TODO(gargnupur): Remove  this after https://github.com/envoyproxy/envoy/issues/9640
-	// is fixed. Pilot needs descriptors for metadata  exchange config so that it can be
-	// applied via EnvoyFilter.
-	_ "github.com/istio.io/proxy/src/envoy/tcp/metadata_exchange/config"
 )
