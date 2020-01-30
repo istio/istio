@@ -67,3 +67,14 @@ func convertHostToFQDN(namespace, host string) string {
 	}
 	return fqdn
 }
+
+// ConvertHostToFQDN returns the given host as a FQDN, if it isn't already.
+func ConvertHostToFQDN(namespace, host string) string {
+	fqdn := host
+	// Convert to FQDN only if host is not a wildcard or a FQDN
+	if !strings.HasPrefix(host, "*") &&
+		!strings.Contains(host, ".") {
+		fqdn = host + "." + namespace + "." + DefaultKubernetesDomain
+	}
+	return fqdn
+}
