@@ -17,7 +17,6 @@ package mesh
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -32,7 +31,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 	type args struct {
 		versionsURI string
 		binVersion  *goversion.Version
-		l           *Logger
 	}
 
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-versions")
@@ -45,8 +43,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 	goVer137, _ := goversion.NewVersion("1.3.7")
 	goVer1331, _ := goversion.NewVersion("1.3.3.1")
 	goVer1399, _ := goversion.NewVersion("1.3.9.9")
-
-	l := NewLogger(true, os.Stdout, os.Stderr)
 
 	b, err := ioutil.ReadFile(operatorVersionsFilePath)
 	if err != nil {
@@ -87,7 +83,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 			args: args{
 				versionsURI: operatorVersionsFilePath,
 				binVersion:  binversion.OperatorBinaryGoVersion,
-				l:           l,
 			},
 			want:    curCm,
 			wantErr: nil,
@@ -97,7 +92,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 			args: args{
 				versionsURI: nonexistentFilePath,
 				binVersion:  binversion.OperatorBinaryGoVersion,
-				l:           l,
 			},
 			want:    curCm,
 			wantErr: nil,
@@ -107,7 +101,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 			args: args{
 				versionsURI: testdataVersionsFilePath,
 				binVersion:  goVer133,
-				l:           l,
 			},
 			want:    ver133Cm,
 			wantErr: nil,
@@ -117,7 +110,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 			args: args{
 				versionsURI: testdataVersionsFilePath,
 				binVersion:  goVerNonexistent,
-				l:           l,
 			},
 			want: nil,
 			wantErr: fmt.Errorf("this operator version %s was not found in the version map",
@@ -128,7 +120,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 			args: args{
 				versionsURI: nonexistentFilePath,
 				binVersion:  goVerNonexistent,
-				l:           l,
 			},
 			want: nil,
 			wantErr: fmt.Errorf("this operator version %s was not found in the version map",
@@ -139,7 +130,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 			args: args{
 				versionsURI: testdataVersionsFilePath,
 				binVersion:  goVer1331,
-				l:           l,
 			},
 			want:    ver133Cm,
 			wantErr: nil,
@@ -149,7 +139,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 			args: args{
 				versionsURI: nonexistentFilePath,
 				binVersion:  goVer1331,
-				l:           l,
 			},
 			want:    ver133Cm,
 			wantErr: nil,
@@ -159,7 +148,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 			args: args{
 				versionsURI: testdataVersionsFilePath,
 				binVersion:  goVer1399,
-				l:           l,
 			},
 			want:    ver137Cm,
 			wantErr: nil,
@@ -169,7 +157,6 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 			args: args{
 				versionsURI: nonexistentFilePath,
 				binVersion:  goVer1399,
-				l:           l,
 			},
 			want:    ver137Cm,
 			wantErr: nil,
@@ -177,7 +164,7 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotErr := getVersionCompatibleMap(tt.args.versionsURI, tt.args.binVersion, tt.args.l)
+			got, gotErr := version.GetVersionCompatibleMap(tt.args.versionsURI, tt.args.binVersion)
 			if fmt.Sprintf("%v", got) != fmt.Sprintf("%v", tt.want) {
 				t.Errorf("got: %v, want: %v", got, tt.want)
 			}

@@ -3363,7 +3363,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 										Fields: map[string]*types.Value{
 											"@type": {
 												Kind: &types.Value_StringValue{
-													StringValue: "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
+													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
 												},
 											},
 										},
@@ -4181,6 +4181,32 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 						To: []*security_beta.Rule_To{
 							{
 								Operation: &security_beta.Operation{},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid ip and port",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									IpBlocks:    []string{"1.2.3.4", "ip1"},
+									NotIpBlocks: []string{"5.6.7.8", "ip2"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:    []string{"80", "port1"},
+									NotPorts: []string{"90", "port2"},
+								},
 							},
 						},
 					},
