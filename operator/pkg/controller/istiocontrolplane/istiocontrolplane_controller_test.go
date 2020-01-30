@@ -125,7 +125,7 @@ func testSwitchProfile(t *testing.T, c testCase) {
 	}
 	res, err := r.Reconcile(req)
 	if err != nil {
-		t.Fatalf("reconcile: (%v)", err)
+		t.Fatalf("%s: reconcile: (%v)", c.description, err)
 	}
 	// check IOP status
 	succeed, err := checkIOPStatus(cl, req.NamespacedName, c.initialProfile)
