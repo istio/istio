@@ -67,7 +67,7 @@ spec:
 {{- else }}
           image: "{{ .Values.pilot.hub | default .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.pilot.tag | default .Values.global.tag }}"
 {{- end }}
-{{- if or (contains "dev" .Values.global.pilot.image) (contains "dev" .Values.global.tag) (contains "dev" .Values.pilot.tag)}}
+{{- if or (contains "dev" .Values.global.pilot.image) (contains "dev" .Values.pilot.tag) (contains "dev" .Values.global.tag) }}
           imagePullPolicy: Always
 {{- else if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}

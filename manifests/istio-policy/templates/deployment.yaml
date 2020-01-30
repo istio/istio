@@ -65,7 +65,7 @@ spec:
 {{- else }}
         image: "{{ .Values.mixer.policy.hub | default .Values.global.hub }}/{{ .Values.mixer.policy.image }}:{{ .Values.mixer.policy.tag | default .Values.global.tag }}"
 {{- end }}
-{{- if or (contains "dev" .Values.global.policy.image) (contains "dev" .Values.global.tag) (contains "dev" .Values.policy.tag)}}
+{{- if or (contains "dev" .Values.global.policy.image) (contains "dev" .Values.policy.tag) (contains "dev" .Values.global.tag) }}
           imagePullPolicy: Always
 {{- else if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}

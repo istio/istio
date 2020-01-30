@@ -34,7 +34,7 @@ spec:
 {{- else }}
           image: "{{ .Values.nodeagent.hub | default .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.nodeagent.tag | default .Values.global.tag }}"
 {{- end }}
-{{- if or (contains "dev" .Values.global.nodeagent.image) (contains "dev" .Values.global.tag) (contains "dev" .Values.nodeagent.tag)}}
+{{- if or (contains "dev" .Values.global.nodeagent.image) (contains "dev" .Values.nodeagent.tag) (contains "dev" .Values.global.tag) }}
           imagePullPolicy: Always
 {{- else if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
