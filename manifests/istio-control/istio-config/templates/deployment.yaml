@@ -43,7 +43,7 @@ spec:
 {{- else }}
           image: "{{ .Values.galley.hub | default .Values.global.hub }}/{{ .Values.galley.image | default "galley" }}:{{ .Values.galley.tag | default .Values.global.tag }}"
 {{- end }}
-{{- if or (contains "dev" .Values.global.galley.image) (contains "dev" .Values.global.tag) ((contains "dev" .Values.galley.tag)) }}
+{{- if or (contains "dev" .Values.global.galley.image) (contains "dev" .Values.galley.tag) (contains "dev" .Values.global.tag) }}
           imagePullPolicy: Always
 {{- else if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}

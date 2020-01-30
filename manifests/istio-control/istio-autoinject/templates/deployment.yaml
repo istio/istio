@@ -45,7 +45,7 @@ spec:
 {{- else }}
           image: "{{ .Values.sidecarInjectorWebhook.hub | default .Values.global.hub }}/{{ .Values.sidecarInjectorWebhook.image | default "sidecar_injector" }}:{{ .Values.sidecarInjectorWebhook.tag | default .Values.global.tag }}"
 {{- end }}
-{{- if or (contains "dev" .Values.sidecarInjectorWebhook.image) (contains "dev" .Values.global.tag) (contains "dev" .Values.sidecarInjectorWebhook.tag) }}
+{{- if or (contains "dev" .Values.sidecarInjectorWebhook.image) (contains "dev" .Values.sidecarInjectorWebhook.tag) (contains "dev" .Values.global.tag) }}
           imagePullPolicy: Always
 {{- else if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
