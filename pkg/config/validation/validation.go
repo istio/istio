@@ -1603,6 +1603,15 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					}
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetNotIpBlocks()))
+					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetNotIpBlocks()))
+					errs = appendErrors(errs, security.CheckEmptyValues("Principals", src.Principals))
+					errs = appendErrors(errs, security.CheckEmptyValues("RequestPrincipals", src.RequestPrincipals))
+					errs = appendErrors(errs, security.CheckEmptyValues("Namespaces", src.Namespaces))
+					errs = appendErrors(errs, security.CheckEmptyValues("IpBlocks", src.IpBlocks))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotPrincipals", src.NotPrincipals))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotRequestPrincipals", src.NotRequestPrincipals))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotNamespaces", src.NotNamespaces))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotIpBlocks", src.NotIpBlocks))
 				}
 			}
 			if rule.To != nil && len(rule.To) == 0 {
@@ -1619,6 +1628,15 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					}
 					errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetPorts()))
 					errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetNotPorts()))
+					errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetNotPorts()))
+					errs = appendErrors(errs, security.CheckEmptyValues("Ports", op.Ports))
+					errs = appendErrors(errs, security.CheckEmptyValues("Methods", op.Methods))
+					errs = appendErrors(errs, security.CheckEmptyValues("Paths", op.Paths))
+					errs = appendErrors(errs, security.CheckEmptyValues("Hosts", op.Hosts))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotPorts", op.NotPorts))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotMethods", op.NotMethods))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotPaths", op.NotPaths))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotHosts", op.NotHosts))
 				}
 			}
 			for _, condition := range rule.GetWhen() {
