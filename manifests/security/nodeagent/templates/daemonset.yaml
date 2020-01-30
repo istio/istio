@@ -38,7 +38,7 @@ spec:
           imagePullPolicy: Always
 {{- else if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }} 
+{{- end }}
           args:
           {{- if .Values.global.logAsJson }}
             - --log_as_json
