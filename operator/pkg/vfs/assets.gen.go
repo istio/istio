@@ -251,6 +251,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -2692,7 +2693,7 @@ spec:
                                   format: string
                                   type: string
                                 clientCertificate:
-                                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                                  description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                                   format: string
                                   type: string
                                 mode:
@@ -2703,7 +2704,7 @@ spec:
                                   - ISTIO_MUTUAL
                                   type: string
                                 privateKey:
-                                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                                  description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                                   format: string
                                   type: string
                                 sni:
@@ -2727,7 +2728,7 @@ spec:
                             format: string
                             type: string
                           clientCertificate:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           mode:
@@ -2738,7 +2739,7 @@ spec:
                             - ISTIO_MUTUAL
                             type: string
                           privateKey:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           sni:
@@ -3131,7 +3132,7 @@ spec:
                             format: string
                             type: string
                           clientCertificate:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           mode:
@@ -3142,7 +3143,7 @@ spec:
                             - ISTIO_MUTUAL
                             type: string
                           privateKey:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           sni:
@@ -3166,7 +3167,7 @@ spec:
                       format: string
                       type: string
                     clientCertificate:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     mode:
@@ -3177,7 +3178,7 @@ spec:
                       - ISTIO_MUTUAL
                       type: string
                     privateKey:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     sni:
@@ -3572,7 +3573,7 @@ spec:
                       behavior.
                     properties:
                       caCertificates:
-                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       cipherSuites:
@@ -3614,11 +3615,11 @@ spec:
                         - ISTIO_MUTUAL
                         type: string
                       privateKey:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       serverCertificate:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       subjectAltNames:
@@ -4343,15 +4344,15 @@ spec:
                         type: string
                     type: object
                   mirror_percent:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     type: integer
                   mirrorPercent:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     type: integer
                   mirrorPercentage:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     properties:
                       value:
@@ -4959,7 +4960,7 @@ spec:
           properties:
             actions:
               description: The actions that will be executed when match evaluates
-                to `+"`"+`true`+"`"+`.
+                to ` + "`" + `true` + "`" + `.
               items:
                 properties:
                   handler:
@@ -5033,7 +5034,7 @@ spec:
                   properties:
                     attributeExpression:
                       description: Specifies an attribute expression to use to override
-                        the numerator in the `+"`"+`percent_sampled`+"`"+` field.
+                        the numerator in the ` + "`" + `percent_sampled` + "`" + ` field.
                       format: string
                       type: string
                     percentSampled:
@@ -5051,13 +5052,13 @@ spec:
                       type: object
                     useIndependentRandomness:
                       description: By default sampling will be based on the value
-                        of the request header `+"`"+`x-request-id`+"`"+`.
+                        of the request header ` + "`" + `x-request-id` + "`" + `.
                       type: boolean
                   type: object
                 rateLimit:
                   properties:
                     maxUnsampledEntries:
-                      description: Number of entries to allow during the `+"`"+`sampling_duration`+"`"+`
+                      description: Number of entries to allow during the ` + "`" + `sampling_duration` + "`" + `
                         before sampling is enforced.
                       format: int64
                       type: integer
@@ -6973,7 +6974,7 @@ spec:
             value: |
               {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+            value: "{{ $.Values.global.multiCluster.clusterName | default ` + "`" + `Kubernetes` + "`" + ` }}"
           volumeMounts:
           {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
@@ -8055,7 +8056,7 @@ spec:
             value: |
               {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+            value: "{{ $.Values.global.multiCluster.clusterName | default ` + "`" + `Kubernetes` + "`" + ` }}"
           volumeMounts:
 {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
@@ -8988,7 +8989,21 @@ rules:
   - nodes
   verbs:
   - get
-`)
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-cni-repair-role
+  labels:
+    app: istio-cni
+    release: {{ .Release.Name }}
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "delete", "patch", "update" ]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]`)
 
 func chartsIstioCniTemplatesClusterroleYamlBytes() ([]byte, error) {
 	return _chartsIstioCniTemplatesClusterroleYaml, nil
@@ -9020,6 +9035,22 @@ subjects:
 - kind: ServiceAccount
   name: istio-cni
   namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-cni-repair-rolebinding
+  namespace: {{ .Release.Namespace}}
+  labels:
+    k8s-app: istio-cni-repair
+subjects:
+- kind: ServiceAccount
+  name: istio-cni
+  namespace: {{ .Release.Namespace}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-cni-repair-role
 ---
 {{- if ne .Values.cni.psp_cluster_role "" }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -9171,6 +9202,36 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
+        - name: repair-cni
+            {{- if contains "/" .Values.cni.image }}
+          image: "{{ .Values.cni.image }}"
+            {{- else }}
+          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}"
+            {{- end }}
+          imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
+          command: ["/opt/cni/bin/istio-cni-repair"]
+          env:
+          - name: "REPAIR_NODE-NAME"
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: "REPAIR_LABEL-PODS"
+            value: "{{.Values.cni.repair.labelPods}}"
+          - name: "REPAIR_CREATE-EVENTS"
+            value: "{{.Values.cni.repair.createEvents}}"
+          # Set to true to enable pod deletion
+          - name: "REPAIR_DELETE-PODS"
+            value: "{{.Values.cni.repair.deletePods}}"
+          - name: "REPAIR_RUN-AS-DAEMON"
+            value: "true"
+          - name: "REPAIR_SIDECAR-ANNOTATION"
+            value: "sidecar.istio.io/status"
+          - name: "REPAIR_INIT-CONTAINER-NAME"
+            value: "istio-init"
+          - name: "REPAIR_BROKEN-POD-LABEL-KEY"
+            value: "{{.Values.cni.repair.brokenPodLabelKey}}"
+          - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
+            value: "{{.Values.cni.repair.brokenPodLabelValue}}"
       volumes:
         # Used to install CNI.
         - name: cni-bin-dir
@@ -9257,6 +9318,18 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
   # This can be used to bind a preexisting ClusterRole to the istio/cni ServiceAccount
   # e.g. if you use PodSecurityPolicies
   psp_cluster_role: ""
+
+  repair:
+    enabled: true
+    hub: gcr.io/istio-testing
+    tag: latest
+
+    labelPods: "true"
+    createEvents: "true"
+    deletePods: "true"
+
+    brokenPodLabelKey: "cni.istio.io/uninitialized"
+    brokenPodLabelValue: "true"
 `)
 
 func chartsIstioCniValuesYamlBytes() ([]byte, error) {
@@ -9313,7 +9386,7 @@ The new label is 'istio-env' and the value is the namespace where the injector i
 
 Note that it is possible to install a profile with only the injector app - using remote Pilot and MCP.
 
-`+"`"+``+"`"+``+"`"+`
+` + "`" + `` + "`" + `` + "`" + `
     # New style, using the istio-pilot11 profile
     kubectl create ns fortio
     kubectl label ns fortio istio-env=istio-control
@@ -9325,17 +9398,17 @@ Note that it is possible to install a profile with only the injector app - using
     # Old-style, using istio-system and Istio 1.0 or 1.1 default installations.
     kubectl create ns fortio-istio-system
     kubectl label ns fortio istio-injection=enabled
-`+"`"+``+"`"+``+"`"+`
+` + "`" + `` + "`" + `` + "`" + `
 
 # Uninstall
 
 After uninstalling, you should cleanup the global CRD using:
 
-`+"`"+``+"`"+``+"`"+`bash
+` + "`" + `` + "`" + `` + "`" + `bash
 
   kubectl delete MutatingWebhookConfiguration istio-sidecar-injector-istio-control
 
-`+"`"+``+"`"+``+"`"+`
+` + "`" + `` + "`" + `` + "`" + `
 
 Any app using the uninstalled istio-env label will no longer be auto-injected once the config is deleted.
 `)
@@ -9358,7 +9431,7 @@ func chartsIstioControlIstioAutoinjectNotesTxt() (*asset, error) {
 var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
-  {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
+  {{ if ne (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `NONE` + "`" + ` }}
   {{ if .Values.istio_cni.enabled -}}
   - name: istio-validation
   {{ else -}}
@@ -9378,28 +9451,28 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - "-u"
     - 1337
     - "-m"
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
     - "-i"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
     - "-x"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
     - "-b"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` ` + "`" + `*` + "`" + ` }}"
     - "-d"
-    - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-    {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
+    - "{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+    {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
     {{ end -}}
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+`) -}}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + `) -}}
     - "-k"
-    - "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+    - "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
     {{ end -}}
     {{ if .Values.istio_cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
     {{ end -}}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
   {{- if .Values.global.proxy_init.resources }}
     resources:
       {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
@@ -9441,7 +9514,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
     resources: {}
     securityContext:
       allowPrivilegeEscalation: true
@@ -9458,8 +9531,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{ end }}
   containers:
   - name: istio-proxy
-  {{- if contains "/" (annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image) }}
-    image: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image }}"
+  {{- if contains "/" (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image) }}
+    image: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image }}"
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
   {{- end }}
@@ -9478,16 +9551,16 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - "/usr/local/bin/envoy"
     - --serviceCluster
     {{ if ne "" (index .ObjectMeta.Labels "app") -}}
-    - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
+    - "{{ index .ObjectMeta.Labels ` + "`" + `app` + "`" + ` }}.$(POD_NAMESPACE)"
     {{ else -}}
-    - "{{ valueOrDefault .DeploymentMeta.Name `+"`"+`istio-proxy`+"`"+` }}.{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}"
+    - "{{ valueOrDefault .DeploymentMeta.Name ` + "`" + `istio-proxy` + "`" + ` }}.{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}"
     {{ end -}}
     - --drainDuration
     - "{{ formatDuration .ProxyConfig.DrainDuration }}"
     - --parentShutdownDuration
     - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
     - --discoveryAddress
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/discoveryAddress`+"`"+` .ProxyConfig.DiscoveryAddress }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/discoveryAddress` + "`" + ` .ProxyConfig.DiscoveryAddress }}"
   {{- if eq .Values.global.proxy.tracer "lightstep" }}
     - --lightstepAddress
     - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
@@ -9503,8 +9576,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - --datadogAgentAddress
     - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
   {{- end }}
-    - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
-    - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
+    - --proxyLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/logLevel` + "`" + ` .Values.global.proxy.logLevel}}
+    - --proxyComponentLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/componentLogLevel` + "`" + ` .Values.global.proxy.componentLogLevel}}
     - --connectTimeout
     - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
   {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -9536,7 +9609,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
-    - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort }}"
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -9572,8 +9645,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
         fieldRef:
           fieldPath: status.hostIP
   {{- if eq .Values.global.proxy.tracer "datadog" }}
-  {{- if isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+` }}
-  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+  {{- if isset .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + ` }}
+  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
     - name: {{ $key }}
       value: "{{ $value }}"
   {{- end }}
@@ -9593,7 +9666,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
         {{- end}}
         ]
     - name: ISTIO_META_CLUSTER_ID
-      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
+      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName ` + "`" + `Kubernetes` + "`" + ` }}"
     - name: ISTIO_META_POD_NAME
       valueFrom:
         fieldRef:
@@ -9603,7 +9676,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
         fieldRef:
           fieldPath: metadata.namespace
     - name: ISTIO_META_INTERCEPTION_MODE
-      value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
+      value: "{{ or (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + `) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
     - name: ISTIO_META_NETWORK
       value: "{{ .Values.global.network }}"
@@ -9624,9 +9697,9 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     {{ end }}
     {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
     - name: ISTIO_META_OWNER
-      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
+      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
     {{- end}}
-    {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - name: ISTIO_BOOTSTRAP_OVERRIDE
       value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
     {{- end }}
@@ -9653,8 +9726,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
       value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
     {{- end }}
-    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
-    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
+    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
       - name: {{ $key }}
         value: "{{ $value }}"
     {{- end }}
@@ -9663,25 +9736,25 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
-    {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
+    {{ if ne (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) ` + "`" + `0` + "`" + ` }}
     readinessProbe:
       httpGet:
         path: /healthz/ready
-        port: {{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}
-      initialDelaySeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/initialDelaySeconds`+"`"+` .Values.global.proxy.readinessInitialDelaySeconds }}
-      periodSeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/periodSeconds`+"`"+` .Values.global.proxy.readinessPeriodSeconds }}
-      failureThreshold: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/failureThreshold`+"`"+` .Values.global.proxy.readinessFailureThreshold }}
+        port: {{ annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort }}
+      initialDelaySeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/initialDelaySeconds` + "`" + ` .Values.global.proxy.readinessInitialDelaySeconds }}
+      periodSeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/periodSeconds` + "`" + ` .Values.global.proxy.readinessPeriodSeconds }}
+      failureThreshold: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/failureThreshold` + "`" + ` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+        {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
         add:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + ` -}}
         - NET_ADMIN
         {{- end }}
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + ` -}}
         - NET_BIND_SERVICE
         {{- end }}
         {{- end }}
@@ -9690,7 +9763,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
-      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+      {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -9698,13 +9771,13 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       runAsUser: 1337
       {{- end }}
     resources:
-      {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+      {{ if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
       requests:
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) -}}
+        cpu: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + ` }}"
         {{ end}}
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
+        memory: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + ` }}"
         {{ end }}
     {{ else -}}
   {{- if .Values.global.proxy.resources }}
@@ -9712,7 +9785,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- end }}
     {{  end -}}
     volumeMounts:
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
@@ -9726,17 +9799,17 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       name: lightstep-certs
       readOnly: true
     {{- end }}
-      {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+` }}
-      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+`) }}
+      {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + ` }}
+      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + `) }}
     - name: "{{  $index }}"
       {{ toYaml $value | indent 4 }}
       {{ end }}
       {{- end }}
   volumes:
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+  {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
   - name: custom-bootstrap-volume
     configMap:
-      name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
+      name: {{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + ` "" }}
   {{- end }}
   - emptyDir:
       medium: Memory
@@ -9749,8 +9822,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       {{ else -}}
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
-    {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
-    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
+    {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + ` }}
+    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + `) }}
   - name: "{{ $index }}"
     {{ toYaml $value | indent 2 }}
     {{ end }}
@@ -10728,13 +10801,13 @@ A cluster should have a single galley with validation enabled - usually the prod
 It is possible to enable validation on other environments as well - but each Galley will do its own
 validation, and a staging version may impact production validation.
 
-`+"`"+``+"`"+``+"`"+`yamml
+` + "`" + `` + "`" + `` + "`" + `yamml
 security:
     ...
     dnsCerts:
         ...
         istio-galley-service-account.MY_NAMESPACE: istio-galley.MY_NAMESPACE.svc
-`+"`"+``+"`"+``+"`"+`
+` + "`" + `` + "`" + `` + "`" + `
 `)
 
 func chartsIstioControlIstioConfigReadmeMdBytes() ([]byte, error) {
@@ -11784,7 +11857,7 @@ var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`# Conf
 template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
-  {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
+  {{ if ne (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `NONE` + "`" + ` }}
   {{ if .Values.istio_cni.enabled -}}
   - name: istio-validation
   {{ else -}}
@@ -11804,28 +11877,28 @@ template: |
     - "-u"
     - 1337
     - "-m"
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
     - "-i"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
     - "-x"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
     - "-b"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` ` + "`" + `*` + "`" + ` }}"
     - "-d"
-    - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-    {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
+    - "{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+    {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
     {{ end -}}
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+`) -}}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + `) -}}
     - "-k"
-    - "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+    - "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
     {{ end -}}
     {{ if .Values.istio_cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
     {{ end -}}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
   {{- if .Values.global.proxy_init.resources }}
     resources:
       {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
@@ -11867,7 +11940,7 @@ template: |
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
     resources: {}
     securityContext:
       allowPrivilegeEscalation: true
@@ -11884,8 +11957,8 @@ template: |
   {{ end }}
   containers:
   - name: istio-proxy
-  {{- if contains "/" (annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image) }}
-    image: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image }}"
+  {{- if contains "/" (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image) }}
+    image: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image }}"
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
   {{- end }}
@@ -11904,16 +11977,16 @@ template: |
     - "/usr/local/bin/envoy"
     - --serviceCluster
     {{ if ne "" (index .ObjectMeta.Labels "app") -}}
-    - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
+    - "{{ index .ObjectMeta.Labels ` + "`" + `app` + "`" + ` }}.$(POD_NAMESPACE)"
     {{ else -}}
-    - "{{ valueOrDefault .DeploymentMeta.Name `+"`"+`istio-proxy`+"`"+` }}.{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}"
+    - "{{ valueOrDefault .DeploymentMeta.Name ` + "`" + `istio-proxy` + "`" + ` }}.{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}"
     {{ end -}}
     - --drainDuration
     - "{{ formatDuration .ProxyConfig.DrainDuration }}"
     - --parentShutdownDuration
     - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
     - --discoveryAddress
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/discoveryAddress`+"`"+` .ProxyConfig.DiscoveryAddress }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/discoveryAddress` + "`" + ` .ProxyConfig.DiscoveryAddress }}"
   {{- if eq .Values.global.proxy.tracer "lightstep" }}
     - --lightstepAddress
     - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
@@ -11929,8 +12002,8 @@ template: |
     - --datadogAgentAddress
     - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
   {{- end }}
-    - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
-    - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
+    - --proxyLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/logLevel` + "`" + ` .Values.global.proxy.logLevel}}
+    - --proxyComponentLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/componentLogLevel` + "`" + ` .Values.global.proxy.componentLogLevel}}
     - --connectTimeout
     - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
   {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -11965,7 +12038,7 @@ template: |
     - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
-    - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort }}"
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -12011,8 +12084,8 @@ template: |
         fieldRef:
           fieldPath: status.hostIP
   {{- if eq .Values.global.proxy.tracer "datadog" }}
-  {{- if isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+` }}
-  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+  {{- if isset .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + ` }}
+  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
     - name: {{ $key }}
       value: "{{ $value }}"
   {{- end }}
@@ -12032,7 +12105,7 @@ template: |
         {{- end}}
         ]
     - name: ISTIO_META_CLUSTER_ID
-      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
+      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName ` + "`" + `Kubernetes` + "`" + ` }}"
     - name: ISTIO_META_POD_NAME
       valueFrom:
         fieldRef:
@@ -12042,7 +12115,7 @@ template: |
         fieldRef:
           fieldPath: metadata.namespace
     - name: ISTIO_META_INTERCEPTION_MODE
-      value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
+      value: "{{ or (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + `) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
     - name: ISTIO_META_NETWORK
       value: "{{ .Values.global.network }}"
@@ -12063,9 +12136,9 @@ template: |
     {{ end }}
     {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
     - name: ISTIO_META_OWNER
-      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
+      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
     {{- end}}
-    {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - name: ISTIO_BOOTSTRAP_OVERRIDE
       value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
     {{- end }}
@@ -12088,8 +12161,8 @@ template: |
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
       value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
     {{- end }}
-    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
-    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
+    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
       - name: {{ $key }}
         value: "{{ $value }}"
     {{- end }}
@@ -12098,25 +12171,25 @@ template: |
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
-    {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
+    {{ if ne (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) ` + "`" + `0` + "`" + ` }}
     readinessProbe:
       httpGet:
         path: /healthz/ready
-        port: {{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}
-      initialDelaySeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/initialDelaySeconds`+"`"+` .Values.global.proxy.readinessInitialDelaySeconds }}
-      periodSeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/periodSeconds`+"`"+` .Values.global.proxy.readinessPeriodSeconds }}
-      failureThreshold: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/failureThreshold`+"`"+` .Values.global.proxy.readinessFailureThreshold }}
+        port: {{ annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort }}
+      initialDelaySeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/initialDelaySeconds` + "`" + ` .Values.global.proxy.readinessInitialDelaySeconds }}
+      periodSeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/periodSeconds` + "`" + ` .Values.global.proxy.readinessPeriodSeconds }}
+      failureThreshold: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/failureThreshold` + "`" + ` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+        {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
         add:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + ` -}}
         - NET_ADMIN
         {{- end }}
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + ` -}}
         - NET_BIND_SERVICE
         {{- end }}
         {{- end }}
@@ -12126,7 +12199,7 @@ template: |
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
       fsGroup: 1337
-      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+      {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -12134,13 +12207,13 @@ template: |
       runAsUser: 1337
       {{- end }}
     resources:
-      {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+      {{ if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
       requests:
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) -}}
+        cpu: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + ` }}"
         {{ end}}
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
+        memory: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + ` }}"
         {{ end }}
     {{ else -}}
   {{- if .Values.global.proxy.resources }}
@@ -12152,7 +12225,7 @@ template: |
     - mountPath: /etc/istio/citadel-ca-cert
       name: citadel-ca-cert
     {{- end }}
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
@@ -12170,17 +12243,17 @@ template: |
       name: lightstep-certs
       readOnly: true
     {{- end }}
-      {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+` }}
-      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+`) }}
+      {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + ` }}
+      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + `) }}
     - name: "{{  $index }}"
       {{ toYaml $value | indent 4 }}
       {{ end }}
       {{- end }}
   volumes:
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+  {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
   - name: custom-bootstrap-volume
     configMap:
-      name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
+      name: {{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + ` "" }}
   {{- end }}
   - emptyDir:
       medium: Memory
@@ -12207,8 +12280,8 @@ template: |
       {{ else -}}
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
-    {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
-    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
+    {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + ` }}
+    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + `) }}
   - name: "{{ $index }}"
     {{ toYaml $value | indent 2 }}
     {{ end }}
@@ -12227,15 +12300,15 @@ template: |
       {{- end }}
   {{- end }}
   podRedirectAnnot:
-    sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
-    traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
-    traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
-    traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` (includeInboundPorts .Spec.Containers) }}"
-    traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-  {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
-    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+    sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
+    traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
+    traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
+    traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` (includeInboundPorts .Spec.Containers) }}"
+    traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+  {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne .Values.global.proxy.excludeOutboundPorts "") }}
+    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
   {{- end }}
-    traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+    traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
 `)
 
 func chartsIstioControlIstioDiscoveryFilesInjectionTemplateYamlBytes() ([]byte, error) {
@@ -32110,7 +32183,7 @@ var _chartsIstioTelemetryKialiValuesYaml = []byte(`#
 # addon kiali
 #
 kiali:
-  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
+  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be ` + "`" + `true` + "`" + `.
   replicaCount: 1
   hub: quay.io/kiali
   tag: v1.9
@@ -42140,29 +42213,29 @@ var _bindata = map[string]func() (*asset, error){
 	"examples/user-gateway/ingress-gateway-only.yaml":                                         examplesUserGatewayIngressGatewayOnlyYaml,
 	"examples/vm/values-istio-meshexpansion-gateways.yaml":                                    examplesVmValuesIstioMeshexpansionGatewaysYaml,
 	"examples/vm/values-istio-meshexpansion.yaml":                                             examplesVmValuesIstioMeshexpansionYaml,
-	"operator/Chart.yaml":                                                                     operatorChartYaml,
-	"operator/templates/clusterrole.yaml":                                                     operatorTemplatesClusterroleYaml,
-	"operator/templates/clusterrole_binding.yaml":                                             operatorTemplatesClusterrole_bindingYaml,
-	"operator/templates/crd.yaml":                                                             operatorTemplatesCrdYaml,
-	"operator/templates/deployment.yaml":                                                      operatorTemplatesDeploymentYaml,
-	"operator/templates/namespace.yaml":                                                       operatorTemplatesNamespaceYaml,
-	"operator/templates/service.yaml":                                                         operatorTemplatesServiceYaml,
-	"operator/templates/service_account.yaml":                                                 operatorTemplatesService_accountYaml,
-	"profiles/default.yaml":                                                                   profilesDefaultYaml,
-	"profiles/demo.yaml":                                                                      profilesDemoYaml,
-	"profiles/empty.yaml":                                                                     profilesEmptyYaml,
-	"profiles/minimal.yaml":                                                                   profilesMinimalYaml,
-	"profiles/remote.yaml":                                                                    profilesRemoteYaml,
-	"profiles/separate.yaml":                                                                  profilesSeparateYaml,
-	"translateConfig/reverseTranslateConfig-1.4.yaml":                                         translateconfigReversetranslateconfig14Yaml,
-	"translateConfig/reverseTranslateConfig-1.5.yaml":                                         translateconfigReversetranslateconfig15Yaml,
-	"translateConfig/reverseTranslateConfig-1.6.yaml":                                         translateconfigReversetranslateconfig16Yaml,
-	"translateConfig/translate-ICP-IOP-1.5.yaml":                                              translateconfigTranslateIcpIop15Yaml,
-	"translateConfig/translateConfig-1.3.yaml":                                                translateconfigTranslateconfig13Yaml,
-	"translateConfig/translateConfig-1.4.yaml":                                                translateconfigTranslateconfig14Yaml,
-	"translateConfig/translateConfig-1.5.yaml":                                                translateconfigTranslateconfig15Yaml,
-	"translateConfig/translateConfig-1.6.yaml":                                                translateconfigTranslateconfig16Yaml,
-	"versions.yaml":                                                                           versionsYaml,
+	"operator/Chart.yaml":                             operatorChartYaml,
+	"operator/templates/clusterrole.yaml":             operatorTemplatesClusterroleYaml,
+	"operator/templates/clusterrole_binding.yaml":     operatorTemplatesClusterrole_bindingYaml,
+	"operator/templates/crd.yaml":                     operatorTemplatesCrdYaml,
+	"operator/templates/deployment.yaml":              operatorTemplatesDeploymentYaml,
+	"operator/templates/namespace.yaml":               operatorTemplatesNamespaceYaml,
+	"operator/templates/service.yaml":                 operatorTemplatesServiceYaml,
+	"operator/templates/service_account.yaml":         operatorTemplatesService_accountYaml,
+	"profiles/default.yaml":                           profilesDefaultYaml,
+	"profiles/demo.yaml":                              profilesDemoYaml,
+	"profiles/empty.yaml":                             profilesEmptyYaml,
+	"profiles/minimal.yaml":                           profilesMinimalYaml,
+	"profiles/remote.yaml":                            profilesRemoteYaml,
+	"profiles/separate.yaml":                          profilesSeparateYaml,
+	"translateConfig/reverseTranslateConfig-1.4.yaml": translateconfigReversetranslateconfig14Yaml,
+	"translateConfig/reverseTranslateConfig-1.5.yaml": translateconfigReversetranslateconfig15Yaml,
+	"translateConfig/reverseTranslateConfig-1.6.yaml": translateconfigReversetranslateconfig16Yaml,
+	"translateConfig/translate-ICP-IOP-1.5.yaml":      translateconfigTranslateIcpIop15Yaml,
+	"translateConfig/translateConfig-1.3.yaml":        translateconfigTranslateconfig13Yaml,
+	"translateConfig/translateConfig-1.4.yaml":        translateconfigTranslateconfig14Yaml,
+	"translateConfig/translateConfig-1.5.yaml":        translateconfigTranslateconfig15Yaml,
+	"translateConfig/translateConfig-1.6.yaml":        translateconfigTranslateconfig16Yaml,
+	"versions.yaml":                                   versionsYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -42206,355 +42279,355 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"charts": &bintree{nil, map[string]*bintree{
-		"base": &bintree{nil, map[string]*bintree{
-			"Chart.yaml": &bintree{chartsBaseChartYaml, map[string]*bintree{}},
-			"files": &bintree{nil, map[string]*bintree{
-				"crd-all.gen.yaml": &bintree{chartsBaseFilesCrdAllGenYaml, map[string]*bintree{}},
-				"crd-mixer.yaml":   &bintree{chartsBaseFilesCrdMixerYaml, map[string]*bintree{}},
+	"charts": {nil, map[string]*bintree{
+		"base": {nil, map[string]*bintree{
+			"Chart.yaml": {chartsBaseChartYaml, map[string]*bintree{}},
+			"files": {nil, map[string]*bintree{
+				"crd-all.gen.yaml": {chartsBaseFilesCrdAllGenYaml, map[string]*bintree{}},
+				"crd-mixer.yaml":   {chartsBaseFilesCrdMixerYaml, map[string]*bintree{}},
 			}},
-			"kustomization.yaml": &bintree{chartsBaseKustomizationYaml, map[string]*bintree{}},
-			"templates": &bintree{nil, map[string]*bintree{
-				"clusterrole.yaml":        &bintree{chartsBaseTemplatesClusterroleYaml, map[string]*bintree{}},
-				"clusterrolebinding.yaml": &bintree{chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-				"crds.yaml":               &bintree{chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
-				"endpoints.yaml":          &bintree{chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
-				"namespaces.yaml":         &bintree{chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
-				"serviceaccount.yaml":     &bintree{chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
-				"services.yaml":           &bintree{chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
+			"kustomization.yaml": {chartsBaseKustomizationYaml, map[string]*bintree{}},
+			"templates": {nil, map[string]*bintree{
+				"clusterrole.yaml":        {chartsBaseTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrolebinding.yaml": {chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+				"crds.yaml":               {chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
+				"endpoints.yaml":          {chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
+				"namespaces.yaml":         {chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
+				"serviceaccount.yaml":     {chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
+				"services.yaml":           {chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
 			}},
-			"values.yaml": &bintree{chartsBaseValuesYaml, map[string]*bintree{}},
+			"values.yaml": {chartsBaseValuesYaml, map[string]*bintree{}},
 		}},
-		"gateways": &bintree{nil, map[string]*bintree{
-			"istio-egress": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsGatewaysIstioEgressChartYaml, map[string]*bintree{}},
-				"NOTES.txt":  &bintree{chartsGatewaysIstioEgressNotesTxt, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":            &bintree{chartsGatewaysIstioEgressTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl":             &bintree{chartsGatewaysIstioEgressTemplates_helpersTpl, map[string]*bintree{}},
-					"autoscale.yaml":           &bintree{chartsGatewaysIstioEgressTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"deployment.yaml":          &bintree{chartsGatewaysIstioEgressTemplatesDeploymentYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml": &bintree{chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"preconfigured.yaml":       &bintree{chartsGatewaysIstioEgressTemplatesPreconfiguredYaml, map[string]*bintree{}},
-					"service.yaml":             &bintree{chartsGatewaysIstioEgressTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":      &bintree{chartsGatewaysIstioEgressTemplatesServiceaccountYaml, map[string]*bintree{}},
+		"gateways": {nil, map[string]*bintree{
+			"istio-egress": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsGatewaysIstioEgressChartYaml, map[string]*bintree{}},
+				"NOTES.txt":  {chartsGatewaysIstioEgressNotesTxt, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":            {chartsGatewaysIstioEgressTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":             {chartsGatewaysIstioEgressTemplates_helpersTpl, map[string]*bintree{}},
+					"autoscale.yaml":           {chartsGatewaysIstioEgressTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"deployment.yaml":          {chartsGatewaysIstioEgressTemplatesDeploymentYaml, map[string]*bintree{}},
+					"poddisruptionbudget.yaml": {chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+					"preconfigured.yaml":       {chartsGatewaysIstioEgressTemplatesPreconfiguredYaml, map[string]*bintree{}},
+					"service.yaml":             {chartsGatewaysIstioEgressTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      {chartsGatewaysIstioEgressTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsGatewaysIstioEgressValuesYaml, map[string]*bintree{}},
+				"values.yaml": {chartsGatewaysIstioEgressValuesYaml, map[string]*bintree{}},
 			}},
-			"istio-ingress": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsGatewaysIstioIngressChartYaml, map[string]*bintree{}},
-				"NOTES.txt":  &bintree{chartsGatewaysIstioIngressNotesTxt, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":            &bintree{chartsGatewaysIstioIngressTemplates_affinityTpl, map[string]*bintree{}},
-					"addongateway.yaml":        &bintree{chartsGatewaysIstioIngressTemplatesAddongatewayYaml, map[string]*bintree{}},
-					"autoscale.yaml":           &bintree{chartsGatewaysIstioIngressTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"certificate.yaml":         &bintree{chartsGatewaysIstioIngressTemplatesCertificateYaml, map[string]*bintree{}},
-					"deployment.yaml":          &bintree{chartsGatewaysIstioIngressTemplatesDeploymentYaml, map[string]*bintree{}},
-					"gateway.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesGatewayYaml, map[string]*bintree{}},
-					"hosts.yaml":               &bintree{chartsGatewaysIstioIngressTemplatesHostsYaml, map[string]*bintree{}},
-					"meshexpansion.yaml":       &bintree{chartsGatewaysIstioIngressTemplatesMeshexpansionYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml": &bintree{chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"preconfigured.yaml":       &bintree{chartsGatewaysIstioIngressTemplatesPreconfiguredYaml, map[string]*bintree{}},
-					"role.yaml":                &bintree{chartsGatewaysIstioIngressTemplatesRoleYaml, map[string]*bintree{}},
-					"rolebindings.yaml":        &bintree{chartsGatewaysIstioIngressTemplatesRolebindingsYaml, map[string]*bintree{}},
-					"service.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":      &bintree{chartsGatewaysIstioIngressTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"sidecar.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesSidecarYaml, map[string]*bintree{}},
+			"istio-ingress": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsGatewaysIstioIngressChartYaml, map[string]*bintree{}},
+				"NOTES.txt":  {chartsGatewaysIstioIngressNotesTxt, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":            {chartsGatewaysIstioIngressTemplates_affinityTpl, map[string]*bintree{}},
+					"addongateway.yaml":        {chartsGatewaysIstioIngressTemplatesAddongatewayYaml, map[string]*bintree{}},
+					"autoscale.yaml":           {chartsGatewaysIstioIngressTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"certificate.yaml":         {chartsGatewaysIstioIngressTemplatesCertificateYaml, map[string]*bintree{}},
+					"deployment.yaml":          {chartsGatewaysIstioIngressTemplatesDeploymentYaml, map[string]*bintree{}},
+					"gateway.yaml":             {chartsGatewaysIstioIngressTemplatesGatewayYaml, map[string]*bintree{}},
+					"hosts.yaml":               {chartsGatewaysIstioIngressTemplatesHostsYaml, map[string]*bintree{}},
+					"meshexpansion.yaml":       {chartsGatewaysIstioIngressTemplatesMeshexpansionYaml, map[string]*bintree{}},
+					"poddisruptionbudget.yaml": {chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+					"preconfigured.yaml":       {chartsGatewaysIstioIngressTemplatesPreconfiguredYaml, map[string]*bintree{}},
+					"role.yaml":                {chartsGatewaysIstioIngressTemplatesRoleYaml, map[string]*bintree{}},
+					"rolebindings.yaml":        {chartsGatewaysIstioIngressTemplatesRolebindingsYaml, map[string]*bintree{}},
+					"service.yaml":             {chartsGatewaysIstioIngressTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      {chartsGatewaysIstioIngressTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"sidecar.yaml":             {chartsGatewaysIstioIngressTemplatesSidecarYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsGatewaysIstioIngressValuesYaml, map[string]*bintree{}},
-			}},
-		}},
-		"istio-cni": &bintree{nil, map[string]*bintree{
-			"Chart.yaml": &bintree{chartsIstioCniChartYaml, map[string]*bintree{}},
-			"templates": &bintree{nil, map[string]*bintree{
-				"clusterrole.yaml":        &bintree{chartsIstioCniTemplatesClusterroleYaml, map[string]*bintree{}},
-				"clusterrolebinding.yaml": &bintree{chartsIstioCniTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-				"configmap-cni.yaml":      &bintree{chartsIstioCniTemplatesConfigmapCniYaml, map[string]*bintree{}},
-				"daemonset.yaml":          &bintree{chartsIstioCniTemplatesDaemonsetYaml, map[string]*bintree{}},
-				"serviceaccount.yaml":     &bintree{chartsIstioCniTemplatesServiceaccountYaml, map[string]*bintree{}},
-			}},
-			"values.yaml": &bintree{chartsIstioCniValuesYaml, map[string]*bintree{}},
-		}},
-		"istio-control": &bintree{nil, map[string]*bintree{
-			"istio-autoinject": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioControlIstioAutoinjectChartYaml, map[string]*bintree{}},
-				"NOTES.txt":  &bintree{chartsIstioControlIstioAutoinjectNotesTxt, map[string]*bintree{}},
-				"files": &bintree{nil, map[string]*bintree{
-					"injection-template.yaml": &bintree{chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml, map[string]*bintree{}},
-				}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":                   &bintree{chartsIstioControlIstioAutoinjectTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl":                    &bintree{chartsIstioControlIstioAutoinjectTemplates_helpersTpl, map[string]*bintree{}},
-					"clusterrole.yaml":                &bintree{chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml":         &bintree{chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap.yaml":                  &bintree{chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml":                 &bintree{chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml, map[string]*bintree{}},
-					"mutatingwebhook.yaml":            &bintree{chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml":        &bintree{chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml":                    &bintree{chartsIstioControlIstioAutoinjectTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":             &bintree{chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"sidecar-injector-configmap.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml, map[string]*bintree{}},
-				}},
-				"values.yaml": &bintree{chartsIstioControlIstioAutoinjectValuesYaml, map[string]*bintree{}},
-			}},
-			"istio-config": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioControlIstioConfigChartYaml, map[string]*bintree{}},
-				"OWNERS":     &bintree{chartsIstioControlIstioConfigOwners, map[string]*bintree{}},
-				"README.md":  &bintree{chartsIstioControlIstioConfigReadmeMd, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":                            &bintree{chartsIstioControlIstioConfigTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl":                             &bintree{chartsIstioControlIstioConfigTemplates_helpersTpl, map[string]*bintree{}},
-					"clusterrole.yaml":                         &bintree{chartsIstioControlIstioConfigTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml":                  &bintree{chartsIstioControlIstioConfigTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap-envoy.yaml":                     &bintree{chartsIstioControlIstioConfigTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
-					"configmap-mesh.yaml":                      &bintree{chartsIstioControlIstioConfigTemplatesConfigmapMeshYaml, map[string]*bintree{}},
-					"configmap.yaml":                           &bintree{chartsIstioControlIstioConfigTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml":                          &bintree{chartsIstioControlIstioConfigTemplatesDeploymentYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml":                 &bintree{chartsIstioControlIstioConfigTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml":                             &bintree{chartsIstioControlIstioConfigTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":                      &bintree{chartsIstioControlIstioConfigTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"validatingwebhookconfiguration-noop.yaml": &bintree{chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYaml, map[string]*bintree{}},
-					"validatingwebhookconfiguration.yaml.tpl":  &bintree{chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl, map[string]*bintree{}},
-				}},
-				"values.yaml": &bintree{chartsIstioControlIstioConfigValuesYaml, map[string]*bintree{}},
-			}},
-			"istio-discovery": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioControlIstioDiscoveryChartYaml, map[string]*bintree{}},
-				"NOTES.txt":  &bintree{chartsIstioControlIstioDiscoveryNotesTxt, map[string]*bintree{}},
-				"files": &bintree{nil, map[string]*bintree{
-					"injection-template.yaml": &bintree{chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml, map[string]*bintree{}},
-				}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":                            &bintree{chartsIstioControlIstioDiscoveryTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl":                             &bintree{chartsIstioControlIstioDiscoveryTemplates_helpersTpl, map[string]*bintree{}},
-					"autoscale.yaml":                           &bintree{chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"clusterrole-galley-disable-webhook.yaml":  &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, map[string]*bintree{}},
-					"clusterrole.yaml":                         &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml":                  &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap-envoy.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
-					"configmap-jwks.yaml":                      &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml, map[string]*bintree{}},
-					"configmap-validation.yaml":                &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml, map[string]*bintree{}},
-					"configmap.yaml":                           &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml":                          &bintree{chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml, map[string]*bintree{}},
-					"enable-mesh-mtls.yaml":                    &bintree{chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml, map[string]*bintree{}},
-					"istiod-injector-configmap.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml, map[string]*bintree{}},
-					"mutatingwebhook.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml":                 &bintree{chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml":                             &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":                      &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"telemetryv2_1.4.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml, map[string]*bintree{}},
-					"telemetryv2_1.5.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml, map[string]*bintree{}},
-					"telemetryv2_1.6.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml, map[string]*bintree{}},
-					"validatingwebhookconfiguration-noop.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml, map[string]*bintree{}},
-					"validation-template.yaml.tpl":             &bintree{chartsIstioControlIstioDiscoveryTemplatesValidationTemplateYamlTpl, map[string]*bintree{}},
-				}},
-				"values.yaml": &bintree{chartsIstioControlIstioDiscoveryValuesYaml, map[string]*bintree{}},
+				"values.yaml": {chartsGatewaysIstioIngressValuesYaml, map[string]*bintree{}},
 			}},
 		}},
-		"istio-policy": &bintree{nil, map[string]*bintree{
-			"Chart.yaml": &bintree{chartsIstioPolicyChartYaml, map[string]*bintree{}},
-			"templates": &bintree{nil, map[string]*bintree{
-				"_affinity.tpl":            &bintree{chartsIstioPolicyTemplates_affinityTpl, map[string]*bintree{}},
-				"_helpers.tpl":             &bintree{chartsIstioPolicyTemplates_helpersTpl, map[string]*bintree{}},
-				"autoscale.yaml":           &bintree{chartsIstioPolicyTemplatesAutoscaleYaml, map[string]*bintree{}},
-				"clusterrole.yaml":         &bintree{chartsIstioPolicyTemplatesClusterroleYaml, map[string]*bintree{}},
-				"clusterrolebinding.yaml":  &bintree{chartsIstioPolicyTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-				"config.yaml":              &bintree{chartsIstioPolicyTemplatesConfigYaml, map[string]*bintree{}},
-				"deployment.yaml":          &bintree{chartsIstioPolicyTemplatesDeploymentYaml, map[string]*bintree{}},
-				"poddisruptionbudget.yaml": &bintree{chartsIstioPolicyTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-				"service.yaml":             &bintree{chartsIstioPolicyTemplatesServiceYaml, map[string]*bintree{}},
-				"serviceaccount.yaml":      &bintree{chartsIstioPolicyTemplatesServiceaccountYaml, map[string]*bintree{}},
+		"istio-cni": {nil, map[string]*bintree{
+			"Chart.yaml": {chartsIstioCniChartYaml, map[string]*bintree{}},
+			"templates": {nil, map[string]*bintree{
+				"clusterrole.yaml":        {chartsIstioCniTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrolebinding.yaml": {chartsIstioCniTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+				"configmap-cni.yaml":      {chartsIstioCniTemplatesConfigmapCniYaml, map[string]*bintree{}},
+				"daemonset.yaml":          {chartsIstioCniTemplatesDaemonsetYaml, map[string]*bintree{}},
+				"serviceaccount.yaml":     {chartsIstioCniTemplatesServiceaccountYaml, map[string]*bintree{}},
 			}},
-			"values.yaml": &bintree{chartsIstioPolicyValuesYaml, map[string]*bintree{}},
+			"values.yaml": {chartsIstioCniValuesYaml, map[string]*bintree{}},
 		}},
-		"istio-telemetry": &bintree{nil, map[string]*bintree{
-			"grafana": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioTelemetryGrafanaChartYaml, map[string]*bintree{}},
-				"dashboards": &bintree{nil, map[string]*bintree{
-					"citadel-dashboard.json":           &bintree{chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson, map[string]*bintree{}},
-					"galley-dashboard.json":            &bintree{chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson, map[string]*bintree{}},
-					"istio-mesh-dashboard.json":        &bintree{chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson, map[string]*bintree{}},
-					"istio-performance-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson, map[string]*bintree{}},
-					"istio-service-dashboard.json":     &bintree{chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson, map[string]*bintree{}},
-					"istio-workload-dashboard.json":    &bintree{chartsIstioTelemetryGrafanaDashboardsIstioWorkloadDashboardJson, map[string]*bintree{}},
-					"mixer-dashboard.json":             &bintree{chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson, map[string]*bintree{}},
-					"pilot-dashboard.json":             &bintree{chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson, map[string]*bintree{}},
+		"istio-control": {nil, map[string]*bintree{
+			"istio-autoinject": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsIstioControlIstioAutoinjectChartYaml, map[string]*bintree{}},
+				"NOTES.txt":  {chartsIstioControlIstioAutoinjectNotesTxt, map[string]*bintree{}},
+				"files": {nil, map[string]*bintree{
+					"injection-template.yaml": {chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml, map[string]*bintree{}},
 				}},
-				"fix_datasources.sh": &bintree{chartsIstioTelemetryGrafanaFix_datasourcesSh, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":             &bintree{chartsIstioTelemetryGrafanaTemplates_affinityTpl, map[string]*bintree{}},
-					"configmap-dashboards.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesConfigmapDashboardsYaml, map[string]*bintree{}},
-					"configmap.yaml":            &bintree{chartsIstioTelemetryGrafanaTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml":           &bintree{chartsIstioTelemetryGrafanaTemplatesDeploymentYaml, map[string]*bintree{}},
-					"grafana-policy.yaml":       &bintree{chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml, map[string]*bintree{}},
-					"pvc.yaml":                  &bintree{chartsIstioTelemetryGrafanaTemplatesPvcYaml, map[string]*bintree{}},
-					"service.yaml":              &bintree{chartsIstioTelemetryGrafanaTemplatesServiceYaml, map[string]*bintree{}},
-					"tests": &bintree{nil, map[string]*bintree{
-						"test-grafana-connection.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesTestsTestGrafanaConnectionYaml, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":                   {chartsIstioControlIstioAutoinjectTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":                    {chartsIstioControlIstioAutoinjectTemplates_helpersTpl, map[string]*bintree{}},
+					"clusterrole.yaml":                {chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml":         {chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"configmap.yaml":                  {chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":                 {chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml, map[string]*bintree{}},
+					"mutatingwebhook.yaml":            {chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml, map[string]*bintree{}},
+					"poddisruptionbudget.yaml":        {chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+					"service.yaml":                    {chartsIstioControlIstioAutoinjectTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":             {chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"sidecar-injector-configmap.yaml": {chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml, map[string]*bintree{}},
+				}},
+				"values.yaml": {chartsIstioControlIstioAutoinjectValuesYaml, map[string]*bintree{}},
+			}},
+			"istio-config": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsIstioControlIstioConfigChartYaml, map[string]*bintree{}},
+				"OWNERS":     {chartsIstioControlIstioConfigOwners, map[string]*bintree{}},
+				"README.md":  {chartsIstioControlIstioConfigReadmeMd, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":                            {chartsIstioControlIstioConfigTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":                             {chartsIstioControlIstioConfigTemplates_helpersTpl, map[string]*bintree{}},
+					"clusterrole.yaml":                         {chartsIstioControlIstioConfigTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml":                  {chartsIstioControlIstioConfigTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"configmap-envoy.yaml":                     {chartsIstioControlIstioConfigTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
+					"configmap-mesh.yaml":                      {chartsIstioControlIstioConfigTemplatesConfigmapMeshYaml, map[string]*bintree{}},
+					"configmap.yaml":                           {chartsIstioControlIstioConfigTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":                          {chartsIstioControlIstioConfigTemplatesDeploymentYaml, map[string]*bintree{}},
+					"poddisruptionbudget.yaml":                 {chartsIstioControlIstioConfigTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+					"service.yaml":                             {chartsIstioControlIstioConfigTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":                      {chartsIstioControlIstioConfigTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"validatingwebhookconfiguration-noop.yaml": {chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYaml, map[string]*bintree{}},
+					"validatingwebhookconfiguration.yaml.tpl":  {chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl, map[string]*bintree{}},
+				}},
+				"values.yaml": {chartsIstioControlIstioConfigValuesYaml, map[string]*bintree{}},
+			}},
+			"istio-discovery": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsIstioControlIstioDiscoveryChartYaml, map[string]*bintree{}},
+				"NOTES.txt":  {chartsIstioControlIstioDiscoveryNotesTxt, map[string]*bintree{}},
+				"files": {nil, map[string]*bintree{
+					"injection-template.yaml": {chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml, map[string]*bintree{}},
+				}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":  {chartsIstioControlIstioDiscoveryTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":   {chartsIstioControlIstioDiscoveryTemplates_helpersTpl, map[string]*bintree{}},
+					"autoscale.yaml": {chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"clusterrole-galley-disable-webhook.yaml":  {chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, map[string]*bintree{}},
+					"clusterrole.yaml":                         {chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml":                  {chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"configmap-envoy.yaml":                     {chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
+					"configmap-jwks.yaml":                      {chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml, map[string]*bintree{}},
+					"configmap-validation.yaml":                {chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml, map[string]*bintree{}},
+					"configmap.yaml":                           {chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":                          {chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml, map[string]*bintree{}},
+					"enable-mesh-mtls.yaml":                    {chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml, map[string]*bintree{}},
+					"istiod-injector-configmap.yaml":           {chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml, map[string]*bintree{}},
+					"mutatingwebhook.yaml":                     {chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, map[string]*bintree{}},
+					"poddisruptionbudget.yaml":                 {chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+					"service.yaml":                             {chartsIstioControlIstioDiscoveryTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":                      {chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"telemetryv2_1.4.yaml":                     {chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml, map[string]*bintree{}},
+					"telemetryv2_1.5.yaml":                     {chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml, map[string]*bintree{}},
+					"telemetryv2_1.6.yaml":                     {chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml, map[string]*bintree{}},
+					"validatingwebhookconfiguration-noop.yaml": {chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml, map[string]*bintree{}},
+					"validation-template.yaml.tpl":             {chartsIstioControlIstioDiscoveryTemplatesValidationTemplateYamlTpl, map[string]*bintree{}},
+				}},
+				"values.yaml": {chartsIstioControlIstioDiscoveryValuesYaml, map[string]*bintree{}},
+			}},
+		}},
+		"istio-policy": {nil, map[string]*bintree{
+			"Chart.yaml": {chartsIstioPolicyChartYaml, map[string]*bintree{}},
+			"templates": {nil, map[string]*bintree{
+				"_affinity.tpl":            {chartsIstioPolicyTemplates_affinityTpl, map[string]*bintree{}},
+				"_helpers.tpl":             {chartsIstioPolicyTemplates_helpersTpl, map[string]*bintree{}},
+				"autoscale.yaml":           {chartsIstioPolicyTemplatesAutoscaleYaml, map[string]*bintree{}},
+				"clusterrole.yaml":         {chartsIstioPolicyTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrolebinding.yaml":  {chartsIstioPolicyTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+				"config.yaml":              {chartsIstioPolicyTemplatesConfigYaml, map[string]*bintree{}},
+				"deployment.yaml":          {chartsIstioPolicyTemplatesDeploymentYaml, map[string]*bintree{}},
+				"poddisruptionbudget.yaml": {chartsIstioPolicyTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+				"service.yaml":             {chartsIstioPolicyTemplatesServiceYaml, map[string]*bintree{}},
+				"serviceaccount.yaml":      {chartsIstioPolicyTemplatesServiceaccountYaml, map[string]*bintree{}},
+			}},
+			"values.yaml": {chartsIstioPolicyValuesYaml, map[string]*bintree{}},
+		}},
+		"istio-telemetry": {nil, map[string]*bintree{
+			"grafana": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsIstioTelemetryGrafanaChartYaml, map[string]*bintree{}},
+				"dashboards": {nil, map[string]*bintree{
+					"citadel-dashboard.json":           {chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson, map[string]*bintree{}},
+					"galley-dashboard.json":            {chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson, map[string]*bintree{}},
+					"istio-mesh-dashboard.json":        {chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson, map[string]*bintree{}},
+					"istio-performance-dashboard.json": {chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson, map[string]*bintree{}},
+					"istio-service-dashboard.json":     {chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson, map[string]*bintree{}},
+					"istio-workload-dashboard.json":    {chartsIstioTelemetryGrafanaDashboardsIstioWorkloadDashboardJson, map[string]*bintree{}},
+					"mixer-dashboard.json":             {chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson, map[string]*bintree{}},
+					"pilot-dashboard.json":             {chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson, map[string]*bintree{}},
+				}},
+				"fix_datasources.sh": {chartsIstioTelemetryGrafanaFix_datasourcesSh, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":             {chartsIstioTelemetryGrafanaTemplates_affinityTpl, map[string]*bintree{}},
+					"configmap-dashboards.yaml": {chartsIstioTelemetryGrafanaTemplatesConfigmapDashboardsYaml, map[string]*bintree{}},
+					"configmap.yaml":            {chartsIstioTelemetryGrafanaTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":           {chartsIstioTelemetryGrafanaTemplatesDeploymentYaml, map[string]*bintree{}},
+					"grafana-policy.yaml":       {chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml, map[string]*bintree{}},
+					"pvc.yaml":                  {chartsIstioTelemetryGrafanaTemplatesPvcYaml, map[string]*bintree{}},
+					"service.yaml":              {chartsIstioTelemetryGrafanaTemplatesServiceYaml, map[string]*bintree{}},
+					"tests": {nil, map[string]*bintree{
+						"test-grafana-connection.yaml": {chartsIstioTelemetryGrafanaTemplatesTestsTestGrafanaConnectionYaml, map[string]*bintree{}},
 					}},
 				}},
-				"values.yaml": &bintree{chartsIstioTelemetryGrafanaValuesYaml, map[string]*bintree{}},
+				"values.yaml": {chartsIstioTelemetryGrafanaValuesYaml, map[string]*bintree{}},
 			}},
-			"kiali": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioTelemetryKialiChartYaml, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":           &bintree{chartsIstioTelemetryKialiTemplates_affinityTpl, map[string]*bintree{}},
-					"clusterrole.yaml":        &bintree{chartsIstioTelemetryKialiTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml": &bintree{chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap.yaml":          &bintree{chartsIstioTelemetryKialiTemplatesConfigmapYaml, map[string]*bintree{}},
-					"demosecret.yaml":         &bintree{chartsIstioTelemetryKialiTemplatesDemosecretYaml, map[string]*bintree{}},
-					"deployment.yaml":         &bintree{chartsIstioTelemetryKialiTemplatesDeploymentYaml, map[string]*bintree{}},
-					"service.yaml":            &bintree{chartsIstioTelemetryKialiTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":     &bintree{chartsIstioTelemetryKialiTemplatesServiceaccountYaml, map[string]*bintree{}},
+			"kiali": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsIstioTelemetryKialiChartYaml, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":           {chartsIstioTelemetryKialiTemplates_affinityTpl, map[string]*bintree{}},
+					"clusterrole.yaml":        {chartsIstioTelemetryKialiTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml": {chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"configmap.yaml":          {chartsIstioTelemetryKialiTemplatesConfigmapYaml, map[string]*bintree{}},
+					"demosecret.yaml":         {chartsIstioTelemetryKialiTemplatesDemosecretYaml, map[string]*bintree{}},
+					"deployment.yaml":         {chartsIstioTelemetryKialiTemplatesDeploymentYaml, map[string]*bintree{}},
+					"service.yaml":            {chartsIstioTelemetryKialiTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":     {chartsIstioTelemetryKialiTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsIstioTelemetryKialiValuesYaml, map[string]*bintree{}},
+				"values.yaml": {chartsIstioTelemetryKialiValuesYaml, map[string]*bintree{}},
 			}},
-			"mixer-telemetry": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioTelemetryMixerTelemetryChartYaml, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":            &bintree{chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl, map[string]*bintree{}},
-					"autoscale.yaml":           &bintree{chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"clusterrole.yaml":         &bintree{chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml":  &bintree{chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"config.yaml":              &bintree{chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml, map[string]*bintree{}},
-					"configmap-envoy.yaml":     &bintree{chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
-					"deployment.yaml":          &bintree{chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml":             &bintree{chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":      &bintree{chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"stackdriver.yaml":         &bintree{chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml, map[string]*bintree{}},
+			"mixer-telemetry": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsIstioTelemetryMixerTelemetryChartYaml, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":            {chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl, map[string]*bintree{}},
+					"autoscale.yaml":           {chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"clusterrole.yaml":         {chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml":  {chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"config.yaml":              {chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml, map[string]*bintree{}},
+					"configmap-envoy.yaml":     {chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
+					"deployment.yaml":          {chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml, map[string]*bintree{}},
+					"poddisruptionbudget.yaml": {chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+					"service.yaml":             {chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      {chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"stackdriver.yaml":         {chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsIstioTelemetryMixerTelemetryValuesYaml, map[string]*bintree{}},
+				"values.yaml": {chartsIstioTelemetryMixerTelemetryValuesYaml, map[string]*bintree{}},
 			}},
-			"prometheus": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioTelemetryPrometheusChartYaml, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":            &bintree{chartsIstioTelemetryPrometheusTemplates_affinityTpl, map[string]*bintree{}},
-					"clusterrole.yaml":         &bintree{chartsIstioTelemetryPrometheusTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebindings.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml, map[string]*bintree{}},
-					"configmap.yaml":           &bintree{chartsIstioTelemetryPrometheusTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml":          &bintree{chartsIstioTelemetryPrometheusTemplatesDeploymentYaml, map[string]*bintree{}},
-					"ingress.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesIngressYaml, map[string]*bintree{}},
-					"service.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":      &bintree{chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"tests": &bintree{nil, map[string]*bintree{
-						"test-prometheus-connection.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml, map[string]*bintree{}},
+			"prometheus": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsIstioTelemetryPrometheusChartYaml, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":            {chartsIstioTelemetryPrometheusTemplates_affinityTpl, map[string]*bintree{}},
+					"clusterrole.yaml":         {chartsIstioTelemetryPrometheusTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebindings.yaml": {chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml, map[string]*bintree{}},
+					"configmap.yaml":           {chartsIstioTelemetryPrometheusTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":          {chartsIstioTelemetryPrometheusTemplatesDeploymentYaml, map[string]*bintree{}},
+					"ingress.yaml":             {chartsIstioTelemetryPrometheusTemplatesIngressYaml, map[string]*bintree{}},
+					"service.yaml":             {chartsIstioTelemetryPrometheusTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      {chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"tests": {nil, map[string]*bintree{
+						"test-prometheus-connection.yaml": {chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml, map[string]*bintree{}},
 					}},
 				}},
-				"values.yaml": &bintree{chartsIstioTelemetryPrometheusValuesYaml, map[string]*bintree{}},
+				"values.yaml": {chartsIstioTelemetryPrometheusValuesYaml, map[string]*bintree{}},
 			}},
-			"prometheus-operator": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorChartYaml, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":        &bintree{chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl, map[string]*bintree{}},
-					"prometheus.yaml":      &bintree{chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml, map[string]*bintree{}},
-					"servicemonitors.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml, map[string]*bintree{}},
+			"prometheus-operator": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsIstioTelemetryPrometheusOperatorChartYaml, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":        {chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl, map[string]*bintree{}},
+					"prometheus.yaml":      {chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml, map[string]*bintree{}},
+					"servicemonitors.yaml": {chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorValuesYaml, map[string]*bintree{}},
+				"values.yaml": {chartsIstioTelemetryPrometheusOperatorValuesYaml, map[string]*bintree{}},
 			}},
-			"tracing": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioTelemetryTracingChartYaml, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":              &bintree{chartsIstioTelemetryTracingTemplates_affinityTpl, map[string]*bintree{}},
-					"deployment-jaeger.yaml":     &bintree{chartsIstioTelemetryTracingTemplatesDeploymentJaegerYaml, map[string]*bintree{}},
-					"deployment-opencensus.yaml": &bintree{chartsIstioTelemetryTracingTemplatesDeploymentOpencensusYaml, map[string]*bintree{}},
-					"deployment-zipkin.yaml":     &bintree{chartsIstioTelemetryTracingTemplatesDeploymentZipkinYaml, map[string]*bintree{}},
-					"pvc.yaml":                   &bintree{chartsIstioTelemetryTracingTemplatesPvcYaml, map[string]*bintree{}},
-					"service-jaeger.yaml":        &bintree{chartsIstioTelemetryTracingTemplatesServiceJaegerYaml, map[string]*bintree{}},
-					"service.yaml":               &bintree{chartsIstioTelemetryTracingTemplatesServiceYaml, map[string]*bintree{}},
+			"tracing": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsIstioTelemetryTracingChartYaml, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":              {chartsIstioTelemetryTracingTemplates_affinityTpl, map[string]*bintree{}},
+					"deployment-jaeger.yaml":     {chartsIstioTelemetryTracingTemplatesDeploymentJaegerYaml, map[string]*bintree{}},
+					"deployment-opencensus.yaml": {chartsIstioTelemetryTracingTemplatesDeploymentOpencensusYaml, map[string]*bintree{}},
+					"deployment-zipkin.yaml":     {chartsIstioTelemetryTracingTemplatesDeploymentZipkinYaml, map[string]*bintree{}},
+					"pvc.yaml":                   {chartsIstioTelemetryTracingTemplatesPvcYaml, map[string]*bintree{}},
+					"service-jaeger.yaml":        {chartsIstioTelemetryTracingTemplatesServiceJaegerYaml, map[string]*bintree{}},
+					"service.yaml":               {chartsIstioTelemetryTracingTemplatesServiceYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsIstioTelemetryTracingValuesYaml, map[string]*bintree{}},
+				"values.yaml": {chartsIstioTelemetryTracingValuesYaml, map[string]*bintree{}},
 			}},
 		}},
-		"istiocoredns": &bintree{nil, map[string]*bintree{
-			"Chart.yaml": &bintree{chartsIstiocorednsChartYaml, map[string]*bintree{}},
-			"templates": &bintree{nil, map[string]*bintree{
-				"_affinity.tpl":           &bintree{chartsIstiocorednsTemplates_affinityTpl, map[string]*bintree{}},
-				"clusterrole.yaml":        &bintree{chartsIstiocorednsTemplatesClusterroleYaml, map[string]*bintree{}},
-				"clusterrolebinding.yaml": &bintree{chartsIstiocorednsTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-				"configmap.yaml":          &bintree{chartsIstiocorednsTemplatesConfigmapYaml, map[string]*bintree{}},
-				"deployment.yaml":         &bintree{chartsIstiocorednsTemplatesDeploymentYaml, map[string]*bintree{}},
-				"service.yaml":            &bintree{chartsIstiocorednsTemplatesServiceYaml, map[string]*bintree{}},
-				"serviceaccount.yaml":     &bintree{chartsIstiocorednsTemplatesServiceaccountYaml, map[string]*bintree{}},
+		"istiocoredns": {nil, map[string]*bintree{
+			"Chart.yaml": {chartsIstiocorednsChartYaml, map[string]*bintree{}},
+			"templates": {nil, map[string]*bintree{
+				"_affinity.tpl":           {chartsIstiocorednsTemplates_affinityTpl, map[string]*bintree{}},
+				"clusterrole.yaml":        {chartsIstiocorednsTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrolebinding.yaml": {chartsIstiocorednsTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+				"configmap.yaml":          {chartsIstiocorednsTemplatesConfigmapYaml, map[string]*bintree{}},
+				"deployment.yaml":         {chartsIstiocorednsTemplatesDeploymentYaml, map[string]*bintree{}},
+				"service.yaml":            {chartsIstiocorednsTemplatesServiceYaml, map[string]*bintree{}},
+				"serviceaccount.yaml":     {chartsIstiocorednsTemplatesServiceaccountYaml, map[string]*bintree{}},
 			}},
-			"values.yaml": &bintree{chartsIstiocorednsValuesYaml, map[string]*bintree{}},
+			"values.yaml": {chartsIstiocorednsValuesYaml, map[string]*bintree{}},
 		}},
-		"security": &bintree{nil, map[string]*bintree{
-			"citadel": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsSecurityCitadelChartYaml, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"NOTES.txt":                &bintree{chartsSecurityCitadelTemplatesNotesTxt, map[string]*bintree{}},
-					"_affinity.tpl":            &bintree{chartsSecurityCitadelTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl":             &bintree{chartsSecurityCitadelTemplates_helpersTpl, map[string]*bintree{}},
-					"clusterrole.yaml":         &bintree{chartsSecurityCitadelTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml":  &bintree{chartsSecurityCitadelTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"deployment.yaml":          &bintree{chartsSecurityCitadelTemplatesDeploymentYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml": &bintree{chartsSecurityCitadelTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml":             &bintree{chartsSecurityCitadelTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":      &bintree{chartsSecurityCitadelTemplatesServiceaccountYaml, map[string]*bintree{}},
+		"security": {nil, map[string]*bintree{
+			"citadel": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsSecurityCitadelChartYaml, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"NOTES.txt":                {chartsSecurityCitadelTemplatesNotesTxt, map[string]*bintree{}},
+					"_affinity.tpl":            {chartsSecurityCitadelTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":             {chartsSecurityCitadelTemplates_helpersTpl, map[string]*bintree{}},
+					"clusterrole.yaml":         {chartsSecurityCitadelTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml":  {chartsSecurityCitadelTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"deployment.yaml":          {chartsSecurityCitadelTemplatesDeploymentYaml, map[string]*bintree{}},
+					"poddisruptionbudget.yaml": {chartsSecurityCitadelTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+					"service.yaml":             {chartsSecurityCitadelTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      {chartsSecurityCitadelTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsSecurityCitadelValuesYaml, map[string]*bintree{}},
+				"values.yaml": {chartsSecurityCitadelValuesYaml, map[string]*bintree{}},
 			}},
-			"nodeagent": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsSecurityNodeagentChartYaml, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":           &bintree{chartsSecurityNodeagentTemplates_affinityTpl, map[string]*bintree{}},
-					"clusterrole.yaml":        &bintree{chartsSecurityNodeagentTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml": &bintree{chartsSecurityNodeagentTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"daemonset.yaml":          &bintree{chartsSecurityNodeagentTemplatesDaemonsetYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":     &bintree{chartsSecurityNodeagentTemplatesServiceaccountYaml, map[string]*bintree{}},
+			"nodeagent": {nil, map[string]*bintree{
+				"Chart.yaml": {chartsSecurityNodeagentChartYaml, map[string]*bintree{}},
+				"templates": {nil, map[string]*bintree{
+					"_affinity.tpl":           {chartsSecurityNodeagentTemplates_affinityTpl, map[string]*bintree{}},
+					"clusterrole.yaml":        {chartsSecurityNodeagentTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml": {chartsSecurityNodeagentTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"daemonset.yaml":          {chartsSecurityNodeagentTemplatesDaemonsetYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":     {chartsSecurityNodeagentTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsSecurityNodeagentValuesYaml, map[string]*bintree{}},
+				"values.yaml": {chartsSecurityNodeagentValuesYaml, map[string]*bintree{}},
 			}},
 		}},
 	}},
-	"examples": &bintree{nil, map[string]*bintree{
-		"googleca": &bintree{nil, map[string]*bintree{
-			"values-istio-google-ca.yaml": &bintree{examplesGooglecaValuesIstioGoogleCaYaml, map[string]*bintree{}},
+	"examples": {nil, map[string]*bintree{
+		"googleca": {nil, map[string]*bintree{
+			"values-istio-google-ca.yaml": {examplesGooglecaValuesIstioGoogleCaYaml, map[string]*bintree{}},
 		}},
-		"multicluster": &bintree{nil, map[string]*bintree{
-			"values-istio-multicluster-gateways.yaml": &bintree{examplesMulticlusterValuesIstioMulticlusterGatewaysYaml, map[string]*bintree{}},
-			"values-istio-multicluster-primary.yaml":  &bintree{examplesMulticlusterValuesIstioMulticlusterPrimaryYaml, map[string]*bintree{}},
+		"multicluster": {nil, map[string]*bintree{
+			"values-istio-multicluster-gateways.yaml": {examplesMulticlusterValuesIstioMulticlusterGatewaysYaml, map[string]*bintree{}},
+			"values-istio-multicluster-primary.yaml":  {examplesMulticlusterValuesIstioMulticlusterPrimaryYaml, map[string]*bintree{}},
 		}},
-		"user-gateway": &bintree{nil, map[string]*bintree{
-			"ingress-gateway-only.yaml": &bintree{examplesUserGatewayIngressGatewayOnlyYaml, map[string]*bintree{}},
+		"user-gateway": {nil, map[string]*bintree{
+			"ingress-gateway-only.yaml": {examplesUserGatewayIngressGatewayOnlyYaml, map[string]*bintree{}},
 		}},
-		"vm": &bintree{nil, map[string]*bintree{
-			"values-istio-meshexpansion-gateways.yaml": &bintree{examplesVmValuesIstioMeshexpansionGatewaysYaml, map[string]*bintree{}},
-			"values-istio-meshexpansion.yaml":          &bintree{examplesVmValuesIstioMeshexpansionYaml, map[string]*bintree{}},
-		}},
-	}},
-	"operator": &bintree{nil, map[string]*bintree{
-		"Chart.yaml": &bintree{operatorChartYaml, map[string]*bintree{}},
-		"templates": &bintree{nil, map[string]*bintree{
-			"clusterrole.yaml":         &bintree{operatorTemplatesClusterroleYaml, map[string]*bintree{}},
-			"clusterrole_binding.yaml": &bintree{operatorTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
-			"crd.yaml":                 &bintree{operatorTemplatesCrdYaml, map[string]*bintree{}},
-			"deployment.yaml":          &bintree{operatorTemplatesDeploymentYaml, map[string]*bintree{}},
-			"namespace.yaml":           &bintree{operatorTemplatesNamespaceYaml, map[string]*bintree{}},
-			"service.yaml":             &bintree{operatorTemplatesServiceYaml, map[string]*bintree{}},
-			"service_account.yaml":     &bintree{operatorTemplatesService_accountYaml, map[string]*bintree{}},
+		"vm": {nil, map[string]*bintree{
+			"values-istio-meshexpansion-gateways.yaml": {examplesVmValuesIstioMeshexpansionGatewaysYaml, map[string]*bintree{}},
+			"values-istio-meshexpansion.yaml":          {examplesVmValuesIstioMeshexpansionYaml, map[string]*bintree{}},
 		}},
 	}},
-	"profiles": &bintree{nil, map[string]*bintree{
-		"default.yaml":  &bintree{profilesDefaultYaml, map[string]*bintree{}},
-		"demo.yaml":     &bintree{profilesDemoYaml, map[string]*bintree{}},
-		"empty.yaml":    &bintree{profilesEmptyYaml, map[string]*bintree{}},
-		"minimal.yaml":  &bintree{profilesMinimalYaml, map[string]*bintree{}},
-		"remote.yaml":   &bintree{profilesRemoteYaml, map[string]*bintree{}},
-		"separate.yaml": &bintree{profilesSeparateYaml, map[string]*bintree{}},
+	"operator": {nil, map[string]*bintree{
+		"Chart.yaml": {operatorChartYaml, map[string]*bintree{}},
+		"templates": {nil, map[string]*bintree{
+			"clusterrole.yaml":         {operatorTemplatesClusterroleYaml, map[string]*bintree{}},
+			"clusterrole_binding.yaml": {operatorTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
+			"crd.yaml":                 {operatorTemplatesCrdYaml, map[string]*bintree{}},
+			"deployment.yaml":          {operatorTemplatesDeploymentYaml, map[string]*bintree{}},
+			"namespace.yaml":           {operatorTemplatesNamespaceYaml, map[string]*bintree{}},
+			"service.yaml":             {operatorTemplatesServiceYaml, map[string]*bintree{}},
+			"service_account.yaml":     {operatorTemplatesService_accountYaml, map[string]*bintree{}},
+		}},
 	}},
-	"translateConfig": &bintree{nil, map[string]*bintree{
-		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},
-		"reverseTranslateConfig-1.5.yaml": &bintree{translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
-		"reverseTranslateConfig-1.6.yaml": &bintree{translateconfigReversetranslateconfig16Yaml, map[string]*bintree{}},
-		"translate-ICP-IOP-1.5.yaml":      &bintree{translateconfigTranslateIcpIop15Yaml, map[string]*bintree{}},
-		"translateConfig-1.3.yaml":        &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
-		"translateConfig-1.4.yaml":        &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
-		"translateConfig-1.5.yaml":        &bintree{translateconfigTranslateconfig15Yaml, map[string]*bintree{}},
-		"translateConfig-1.6.yaml":        &bintree{translateconfigTranslateconfig16Yaml, map[string]*bintree{}},
+	"profiles": {nil, map[string]*bintree{
+		"default.yaml":  {profilesDefaultYaml, map[string]*bintree{}},
+		"demo.yaml":     {profilesDemoYaml, map[string]*bintree{}},
+		"empty.yaml":    {profilesEmptyYaml, map[string]*bintree{}},
+		"minimal.yaml":  {profilesMinimalYaml, map[string]*bintree{}},
+		"remote.yaml":   {profilesRemoteYaml, map[string]*bintree{}},
+		"separate.yaml": {profilesSeparateYaml, map[string]*bintree{}},
 	}},
-	"versions.yaml": &bintree{versionsYaml, map[string]*bintree{}},
+	"translateConfig": {nil, map[string]*bintree{
+		"reverseTranslateConfig-1.4.yaml": {translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},
+		"reverseTranslateConfig-1.5.yaml": {translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
+		"reverseTranslateConfig-1.6.yaml": {translateconfigReversetranslateconfig16Yaml, map[string]*bintree{}},
+		"translate-ICP-IOP-1.5.yaml":      {translateconfigTranslateIcpIop15Yaml, map[string]*bintree{}},
+		"translateConfig-1.3.yaml":        {translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
+		"translateConfig-1.4.yaml":        {translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
+		"translateConfig-1.5.yaml":        {translateconfigTranslateconfig15Yaml, map[string]*bintree{}},
+		"translateConfig-1.6.yaml":        {translateconfigTranslateconfig16Yaml, map[string]*bintree{}},
+	}},
+	"versions.yaml": {versionsYaml, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory
