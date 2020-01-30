@@ -25,38 +25,57 @@ $ kubectl -n istio-io-circuitbreaker exec {{ .inputTerminalFlag }} $FORTIO_POD -
 200 OK
 # $endsnippet
 
+# check_percentage_bounds take 4 arguments as input. It must be invoked as follows
+#
+# $ check_percentage_bounds <percentage-lower-bound-200> <percentage-upper-bound-200> \
+#                           <percentage-upper-bound-503> <percentage-upper-bound-503>
+#
+# Percentage of requests with status 200 must be between "percentage-lower-bound-200" and
+# "percentage-upper-bound-200" inclusive. Same for 503. If bounds are breached then the
+# function exits with status 1
 function check_percentage_bounds() {
-    local lower_bounds=( ["200"]=${1:-"100"}  ["503"]=${3:-"0"} )
-    local upper_bounds=( ["200"]=${2:-"100"}  ["503"]=${4:-"0"} )
+  local lower_bounds=( ["200"]=${1:-"100"}  ["503"]=${3:-"0"} )
+  local upper_bounds=( ["200"]=${2:-"100"}  ["503"]=${4:-"0"} )
 
-    readarray -t code_lines < <(grep -E "^Code ([1-5][0-9]{2,}) : [0-9]+ \(([0-9\.]+) %\)$")
-    
-    for code_line in "${code_lines[@]}"; do
-        local status_code=$(echo $code_line | cut -d' ' -f2)
-        local percentage_req=$(echo $code_line | cut -d' ' -f5 | sed "s/[\(]//g")
-        
-        local is_lower_bound_breached=$(bc <<< "scale=2; $percentage_req < ${lower_bounds[$status_code]}")
-        local is_upper_bound_breached=$(bc <<< "scale=2; $percentage_req > ${upper_bounds[$status_code]}")
+  readarray -t code_lines < <(grep -E "^Code ([1-5][0-9]{2,}) : [0-9]+ \(([0-9\.]+) %\)$")
+  
+  for code_line in "${code_lines[@]}"; do
+    local status_code=$(echo $code_line | cut -d' ' -f2)
+    local percentage_req=$(echo $code_line | cut -d' ' -f5 | sed "s/[\(]//g")
+  
+    local is_lower_bound_breached=$(bc <<< "scale=2; $percentage_req < ${lower_bounds[$status_code]}")
+    local is_upper_bound_breached=$(bc <<< "scale=2; $percentage_req > ${upper_bounds[$status_code]}")
  
-        if (($is_lower_bound_breached || $is_upper_bound_breached)); then
-            echo "percentage_req=$percentage_req for status=$status_code bounds breached"
-            exit 1
-        fi
-    done
+    if (($is_lower_bound_breached || $is_upper_bound_breached)); then
+      echo "percentage_requests=$percentage_req for status=$status_code bounds breached"
+      exit 1
+    fi
+  done
 }
 
-# $snippet almost_trip_circuit_breaker.sh syntax="bash"
+function verify_circuit_breaking() {
+  local fortio_output=`cat` # preserve output
+
+  echo "$fortio_output" | check_percentage_bounds $1 $2 $3 $4
+  if (($? != 0)); then
+    exit 1;
+  fi
+
+  echo "$fortio_output"
+}
+
+# $snippet almost_trip_circuit_breaker.sh syntax="bash" outputis="text"
 $ kubectl -n istio-io-circuitbreaker exec {{ .inputTerminalFlag }} $FORTIO_POD -c fortio /usr/bin/fortio -- \
     load -c 2 -qps 0 -n 20 -loglevel warning http://httpbin:8000/get {{ .beforeCircuitBreakVerify }}
 # $endsnippet
 
 
-# $snippet trip_circuit_breaker.sh syntax="bash"
+# $snippet trip_circuit_breaker.sh syntax="bash" outputis="text"
 $ kubectl -n istio-io-circuitbreaker exec {{ .inputTerminalFlag }} $FORTIO_POD -c fortio /usr/bin/fortio -- \
     load -c 3 -qps 0 -n 30 -loglevel warning http://httpbin:8000/get {{ .afterCircuitBreakVerify }}
 # $endsnippet
 
-# $snippet print_statistics_after_tripping.sh syntax="bash"
+# $snippet print_statistics_after_tripping.sh syntax="bash" outputis="text"
 $ kubectl -n istio-io-circuitbreaker exec {{ .inputTerminalFlag }} $FORTIO_POD -c istio-proxy -- \
-    pilot-agent request GET stats | grep httpbin | grep pending
+    pilot-agent request GET stats | grep httpbin | grep pending {{ .outputRedirectionCmd }}
 # $endsnippet

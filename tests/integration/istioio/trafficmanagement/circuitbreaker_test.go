@@ -30,15 +30,17 @@ func TestCircuitBreaker(t *testing.T) {
 				istioio.Script{
 					Input: istioio.Evaluate(istioio.Path("scripts/trip_circuitbreaker.txt"), map[string]interface{}{
 						"isSnippet":                false,
-						"inputTerminalFlag":        "-i",
-						"beforeCircuitBreakVerify": "| check_percentage_bounds 80 100 0 20",
-						"afterCircuitBreakVerify":  "| check_percentage_bounds 25 75 25 75",
+						"inputTerminalFlag":        "",
+						"beforeCircuitBreakVerify": " 2>&1 | verify_circuit_breaking 80 100 0 20",
+						"afterCircuitBreakVerify":  " 2>&1 | verify_circuit_breaking 25 75 25 75",
+						"outputRedirectionCmd":     "2>&1",
 					}),
 					SnippetInput: istioio.Evaluate(istioio.Path("scripts/trip_circuitbreaker.txt"), map[string]interface{}{
 						"isSnippet":                true,
 						"inputTerminalFlag":        "-it",
 						"beforeCircuitBreakVerify": "",
 						"afterCircuitBreakVerify":  "",
+						"outputRedirectionCmd":     "",
 					}),
 				}).
 			Defer(istioio.Script{Input: istioio.Path("scripts/circuitbreaker_test_cleanup.txt")}).
