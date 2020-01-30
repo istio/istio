@@ -3094,6 +3094,7 @@ spec:
                         - REMOVE
                         - INSERT_BEFORE
                         - INSERT_AFTER
+                        - INSERT_FIRST
                         type: string
                       value:
                         description: The JSON config of the object being patched.

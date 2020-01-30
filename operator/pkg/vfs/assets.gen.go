@@ -3413,6 +3413,7 @@ spec:
                         - REMOVE
                         - INSERT_BEFORE
                         - INSERT_AFTER
+                        - INSERT_FIRST
                         type: string
                       value:
                         description: The JSON config of the object being patched.
@@ -14402,8 +14403,10 @@ spec:
           filters:
           - name: envoy.filters.network.upstream.metadata_exchange
             typed_config:
-              "@type": type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              protocol: istio-peer-exchange
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
     - applyTo: CLUSTER
       match:
         context: GATEWAY
@@ -14416,8 +14419,10 @@ spec:
           filters:
           - name: envoy.filters.network.upstream.metadata_exchange
             typed_config:
-              "@type": type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              protocol: istio-peer-exchange
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
 ---
 {{- if .Values.telemetry.v2.prometheus.enabled }}
 apiVersion: networking.istio.io/v1alpha3
