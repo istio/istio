@@ -16,6 +16,8 @@
 
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
+# This is a shellcheck false positive
+# shellcheck disable=SC2034
 ROOT=$(dirname "$WD")
 
 set -eux
@@ -53,6 +55,7 @@ version: ${VERSION}
 docker: ${DOCKER_HUB}
 directory: ${WORK_DIR}
 dependencies:
+${DEPENDENCIES:-$(cat <<EOD
   istio:
     localpath: ${ROOT}
   cni:
@@ -83,6 +86,9 @@ dependencies:
   tools:
     git: https://github.com/istio/tools
     branch: release-1.4
+EOD
+)}
+${PROXY_OVERRIDE:-}
 EOF
 )
 
