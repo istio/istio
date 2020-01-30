@@ -292,6 +292,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 		delOpts := opts
+		delOpts.Output = ""
 		delOpts.ExtraArgs = []string{"--selector", componentLabel}
 		stdoutDel, stderrDel, err := kubectl.Delete(stdoutGet, &delOpts)
 		stdout += "\n" + stdoutDel
