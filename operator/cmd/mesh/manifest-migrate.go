@@ -108,7 +108,8 @@ func translateFunc(values []byte, force bool, l *Logger) error {
 	}
 
 	// Not IstioControlPlane, try Helm values.yaml.
-	ts, err := translate.NewReverseTranslator(binversion.OperatorBinaryVersion.MinorVersion)
+	mvs := binversion.OperatorBinaryVersion.MinorVersion
+	ts, err := translate.NewReverseTranslator(mvs)
 	if err != nil {
 		return fmt.Errorf("error creating values.yaml translator: %s", err)
 	}
@@ -116,10 +117,11 @@ func translateFunc(values []byte, force bool, l *Logger) error {
 	// verify the input schema first
 	inputVals := &iopv1alpha1.Values{}
 	err = util.UnmarshalValuesWithJSONPB(string(values), inputVals, force)
+	vs := fmt.Sprintf("releaese-%s.%d", mvs.MajorVersion, mvs.Minor)
 	if err != nil {
 		return fmt.Errorf("the input values.yaml fail validation: %v \n"+
-			"check against https://github.com/istio/istio/blob/master/operator/pkg/apis/istio/v1alpha1/values_types.proto for schema\n"+
-			"or run the command with --force flag to ignore the error", err)
+			"check against https://github.com/istio/istio/blob/%s/operator/pkg/apis/istio/v1alpha1/values_types.proto for schema\n"+
+			"or run the command with --force flag to ignore the error", err, vs)
 	}
 
 	translatedIOPS, err := ts.TranslateFromValueToSpec(values, force)
@@ -131,7 +133,6 @@ func translateFunc(values []byte, force bool, l *Logger) error {
 
 	ms := jsonpb.Marshaler{}
 	gotString, err := ms.MarshalToString(isCP)
-	l.logAndError("there is a known issue about the proto tag above, check https://github.com/istio/istio/issues/19735 for more details.\n\n")
 	if err != nil {
 		return fmt.Errorf("error marshaling translated IstioOperator: %s", err)
 	}

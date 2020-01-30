@@ -2163,6 +2163,8 @@ message KialiConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   Resources resources = 17 [deprecated=true];
+
+  string prometheusAddr = 18 [deprecated=true];
 }
 
 message Values {

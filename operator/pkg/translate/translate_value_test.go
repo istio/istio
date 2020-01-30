@@ -225,13 +225,14 @@ components:
         rollingUpdate:
           maxSurge: 4
           maxUnavailable: 1
+addonComponents:
+   coreDNS:
+      enabled: true
 values:
   global:
     policyNamespace: istio-policy
     telemetryNamespace: istio-telemetry
   certmanager:
-    enabled: true
-  istiocoredns:
     enabled: true
 `,
 		},

@@ -56,23 +56,16 @@ const (
 	// Addon root component
 	AddonComponentName ComponentName = "AddonComponents"
 
-	// Legacy addon components
-	PrometheusComponentName ComponentName = "Prometheus"
-	KialiComponentName      ComponentName = "Kiali"
-	GrafanaComponentName    ComponentName = "Grafana"
-	TracingComponentName    ComponentName = "Tracing"
-	CoreDNSComponentName    ComponentName = "Istiocoredns"
-
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
 
 	// Component names used in old versions
-	InjectorComponentName        ComponentName = "Injector"
-	SidecarInjectorComponentName ComponentName = "SidecarInjector"
-	IngressGatewayComponentName  ComponentName = "IngressGateway"
-	EgressGatewayComponentName   ComponentName = "EgressGateway"
-	NodeAgentComponentName       ComponentName = "NodeAgent"
+	InjectorComponentName       ComponentName = "Injector"
+	CertManagerComponentName    ComponentName = "CertManager"
+	IngressGatewayComponentName ComponentName = "IngressGateway"
+	EgressGatewayComponentName  ComponentName = "EgressGateway"
+	NodeAgentComponentName      ComponentName = "NodeAgent"
 )
 
 var (
@@ -87,20 +80,12 @@ var (
 	}
 	DeprecatedNames = []ComponentName{
 		InjectorComponentName,
-		SidecarInjectorComponentName,
 		NodeAgentComponentName,
+		CertManagerComponentName,
 	}
-	AllLegacyAddonComponentNames = []ComponentName{
-		PrometheusComponentName,
-		KialiComponentName,
-		GrafanaComponentName,
-		TracingComponentName,
-		CoreDNSComponentName,
-	}
-	allComponentNamesMap         = make(map[ComponentName]bool)
-	deprecatedComponentNamesMap  = make(map[ComponentName]bool)
-	LegacyAddonComponentNamesMap = make(map[ComponentName]bool)
-	LegacyAddonComponentPathMap  = make(map[string]string)
+
+	allComponentNamesMap        = make(map[ComponentName]bool)
+	deprecatedComponentNamesMap = make(map[ComponentName]bool)
 )
 
 func init() {
@@ -140,11 +125,6 @@ func (cn ComponentName) IsGateway() bool {
 // IsAddon reports whether cn is an addon component.
 func (cn ComponentName) IsAddon() bool {
 	return cn == AddonComponentName
-}
-
-// IsLegacyAddonComponent reports whether cn is an legacy addonComponent name.
-func (cn ComponentName) IsLegacyAddonComponent() bool {
-	return LegacyAddonComponentNamesMap[cn]
 }
 
 // NamespaceFromValue gets the namespace value in helm value.yaml tree.

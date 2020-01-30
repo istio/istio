@@ -16,6 +16,7 @@ package translate
 
 import (
 	"fmt"
+	"strings"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
@@ -23,6 +24,35 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	binversion "istio.io/istio/operator/version"
 )
+
+const (
+	// Legacy addon components
+	PrometheusComponentName name.ComponentName = "Prometheus"
+	KialiComponentName      name.ComponentName = "Kiali"
+	GrafanaComponentName    name.ComponentName = "Grafana"
+	TracingComponentName    name.ComponentName = "Tracing"
+	CoreDNSComponentName    name.ComponentName = "Istiocoredns"
+)
+
+var (
+	LegacyAddonComponentPathMap  = make(map[string]string)
+	AllLegacyAddonComponentNames = []name.ComponentName{
+		PrometheusComponentName,
+		KialiComponentName,
+		GrafanaComponentName,
+		TracingComponentName,
+		CoreDNSComponentName,
+	}
+)
+
+func init() {
+	for _, n := range AllLegacyAddonComponentNames {
+		cn := strings.ToLower(string(n))
+		valuePath := fmt.Sprintf("values.%s.enabled", cn)
+		iopPath := fmt.Sprintf("addonComponents.%s.enabled", cn)
+		LegacyAddonComponentPathMap[valuePath] = iopPath
+	}
+}
 
 // IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.
 // IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.

@@ -258,8 +258,6 @@ pilot:
     ingressService: istio-ingressgateway
     ingressControllerMode: "OFF"
     ingressClass: istio
-  telemetry:
-    enabled: true
   policy:
     enabled: false
   useMCP: true
@@ -442,7 +440,6 @@ kiali:
     viewOnlyMode: false 
     grafanaURL:  
     jaegerURL:  
-  prometheusAddr: http://prometheus:9090
   createDemoSecret: false
   security:
     enabled: true
@@ -523,7 +520,6 @@ global:
     protocolDetectionTimeout: 10ms
     privileged: false
     enableCoreDump: false
-    enableCoreDumpImage: ubuntu:xenial
     statusPort: 15020
     readinessInitialDelaySeconds: 1
     readinessPeriodSeconds: 2

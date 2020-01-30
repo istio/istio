@@ -65,9 +65,9 @@ var (
 		name.CNIComponentName:                true,
 	}
 
-	gatewayPathMapping = map[string]string{
-		"gateways.istio-ingressgateway": "Components.IngressGateways",
-		"gateways.istio-egressgateway":  "Components.EgressGateways",
+	gatewayPathMapping = map[string]name.ComponentName{
+		"gateways.istio-ingressgateway": name.IngressComponentName,
+		"gateways.istio-egressgateway":  name.EgressComponentName,
 	}
 )
 
@@ -86,7 +86,7 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 
 	for cn, cm := range ts.ComponentMaps {
 		// we use dedicated translateGateway for gateway instead
-		if !skipTranslate[cn] && !cn.IsGateway() {
+		if !skipTranslate[cn] && !cn.IsDeprecatedName() && !cn.IsGateway() {
 			t.ValuesToComponentName[cm.ToHelmValuesTreeRoot] = cn
 		}
 	}
@@ -97,11 +97,11 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) error {
 	outputMapping := make(map[string]*Translation)
 	for valKey, componentName := range t.ValuesToComponentName {
-		cnEnabled, pathExist, err := IsComponentEnabledFromValue(valKey, valueTree)
+		cnEnabled, _, err := IsComponentEnabledFromValue(componentName, valueTree)
 		if err != nil {
 			return err
 		}
-		if !cnEnabled || !pathExist {
+		if !cnEnabled {
 			scope.Debugf("Component:%s disabled, skip k8s mapping", componentName)
 			continue
 		}
@@ -125,7 +125,7 @@ func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) err
 
 	gwOutputMapping := make(map[string]*Translation)
 	for valKey, componentName := range gatewayPathMapping {
-		cnEnabled, _, err := IsComponentEnabledFromValue(valKey, valueTree)
+		cnEnabled, _, err := IsComponentEnabledFromValue(componentName, valueTree)
 		if err != nil {
 			return err
 		}
@@ -236,8 +236,8 @@ func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSp
 // setEnablementFromValue translates the enablement value of components in the values.yaml
 // tree, based on feature/component inheritance relationship.
 func (t *ReverseTranslator) setEnablementFromValue(valueSpec map[string]interface{}, root map[string]interface{}) error {
-	for cnv, cni := range t.ValuesToComponentName {
-		enabled, pathExist, err := IsComponentEnabledFromValue(cnv, valueSpec)
+	for _, cni := range t.ValuesToComponentName {
+		enabled, pathExist, err := IsComponentEnabledFromValue(cni, valueSpec)
 		if err != nil {
 			return err
 		}
@@ -259,19 +259,12 @@ func (t *ReverseTranslator) setEnablementFromValue(valueSpec map[string]interfac
 		}
 	}
 
-	// remove mapping for addon components as they are needed only for enablement
-	for cnv, cni := range t.ValuesToComponentName {
-		if !cni.IsCoreComponent() && !cni.IsGateway() {
-			delete(t.ValuesToComponentName, cnv)
-		}
-	}
-
 	return nil
 }
 
 // translateGateway handles translation for gateways specific configuration
-func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, root map[string]interface{}, inPath string, outPath string) error {
-	enabled, pathExist, err := IsComponentEnabledFromValue(inPath, valueSpec)
+func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, root map[string]interface{}, inPath string, outPath name.ComponentName) error {
+	enabled, pathExist, err := IsComponentEnabledFromValue(outPath, valueSpec)
 	if err != nil {
 		return err
 	}
@@ -283,7 +276,7 @@ func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, r
 	gwSpecs[0] = gwSpec
 	gwSpec["enabled"] = enabled
 	gwSpec["name"] = util.ToYAMLPath(inPath)[1]
-	outCP := util.ToYAMLPath(outPath)
+	outCP := util.ToYAMLPath("Components." + string(outPath))
 
 	if enabled {
 		err = t.translateK8sTree(valueSpec, gwSpec, t.GatewayKubernetesMapping)

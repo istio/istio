@@ -4,6 +4,15 @@ metadata:
   creationTimestamp: null
 spec:
   components:
+    pilot:
+      k8s:
+        nodeSelector:
+          scalers.istio: dedicated
+        tolerations:
+        - effect: NoSchedule
+          key: scalers.istio
+          operator: Equal
+          value: dedicated
     policy:
       enabled: false
     telemetry:
@@ -29,17 +38,9 @@ spec:
     pilot:
       autoscaleMax: 20
       autoscaleMin: 20
-      nodeSelector:
-        scalers:
-          istio: dedicated
       podAntiAffinityTermLabelSelector:
       - key: istio
         operator: In
         topologyKey: kubernetes.io/hostname
         values: pilot
-      tolerations:
-      - effect: NoSchedule
-        key: scalers.istio
-        operator: Equal
-        value: dedicated
 
