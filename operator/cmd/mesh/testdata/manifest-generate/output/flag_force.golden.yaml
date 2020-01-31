@@ -678,7 +678,6 @@ spec:
             name: istiod
             optional: true
         image: gcr.io/istio-testing/pilot:latest
-        imagePullPolicy: IfNotPresent
         name: discovery
         ports:
         - containerPort: 8080
@@ -802,7 +801,6 @@ data:
         "enableTracing": true,
         "enabled": false,
         "hub": "gcr.io/istio-testing",
-        "imagePullPolicy": "IfNotPresent",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {

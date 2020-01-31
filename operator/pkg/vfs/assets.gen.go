@@ -38022,7 +38022,9 @@ spec:
         command:
         - /usr/local/bin/plugin
         image: {{ .Values.istiocoredns.coreDNSPluginImage }}
-        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
         ports:
         - containerPort: 8053
           name: dns-grpc
