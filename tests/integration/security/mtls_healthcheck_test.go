@@ -37,7 +37,7 @@ func TestMtlsHealthCheck(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.ClaimOrFail(t, ctx, "healthcheck")
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "healthcheck", Inject: true})
 			for _, testCase := range []struct {
 				name    string
 				rewrite bool
