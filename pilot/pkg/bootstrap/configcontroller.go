@@ -41,7 +41,6 @@ import (
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
-	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	configz "istio.io/istio/pkg/mcp/configz/client"
@@ -167,11 +166,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 		}
 		conns = append(conns, conn)
 		s.mcpController(mcpOptions, conn, reporter, &clients, &configStores)
-
-		// create MCP SyntheticServiceEntryController
-		if resourceContains(configSource.SubscribedResources, meshconfig.Resource_SERVICE_REGISTRY) {
-			s.sseMCPController(args, conn, reporter, &clients, &configStores)
-		}
 	}
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -207,15 +201,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 
 	s.ConfigStores = append(s.ConfigStores, configStores...)
 	return nil
-}
-
-func resourceContains(resources []meshconfig.Resource, resource meshconfig.Resource) bool {
-	for _, r := range resources {
-		if r == resource {
-			return true
-		}
-	}
-	return false
 }
 
 func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSource) (grpc.DialOption, error) {
@@ -303,36 +288,6 @@ func (s *Server) mcpController(
 	configz.Register(mcpClient)
 	*clients = append(*clients, mcpClient)
 	*configStores = append(*configStores, mcpController)
-}
-
-func (s *Server) sseMCPController(args *PilotArgs,
-	conn *grpc.ClientConn,
-	reporter monitoring.Reporter,
-	clients *[]*sink.Client,
-	configStores *[]model.ConfigStoreCache) {
-	clientNodeID := "SSEMCP"
-	sseOptions := &serviceentry.Options{
-		ClusterID:    s.clusterID,
-		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-		XDSUpdater:   s.EnvoyXdsServer,
-	}
-	ctl := serviceentry.NewSyntheticServiceEntryController(sseOptions)
-	incrementalSinkOptions := &sink.Options{
-		CollectionOptions: []sink.CollectionOptions{
-			{
-				Name:        collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String(),
-				Incremental: true,
-			},
-		},
-		Updater:  ctl,
-		ID:       clientNodeID,
-		Reporter: reporter,
-	}
-	incSrcClient := mcpapi.NewResourceSourceClient(conn)
-	incMcpClient := sink.NewClient(incSrcClient, incrementalSinkOptions)
-	configz.Register(incMcpClient)
-	*clients = append(*clients, incMcpClient)
-	*configStores = append(*configStores, ctl)
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {

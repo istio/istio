@@ -2507,12 +2507,6 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	return nil
 }
 
-// ValidateSyntheticServiceEntry validates a synthetic service entry.
-var ValidateSyntheticServiceEntry = registerValidateFunc("ValidateSyntheticServiceEntry",
-	func(_, _ string, config proto.Message) (errs error) {
-		return ValidateServiceEntry("", "", config)
-	})
-
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 	func(_, _ string, config proto.Message) (errs error) {
