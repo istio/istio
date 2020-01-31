@@ -232,8 +232,8 @@ global:
         cpu: 10m
         memory: 10Mi
 
-  # specify image pull policy if default behavior isn't satisfactory.  
-  # Default behavior: all latest or dev images will be Always else IfNotPresent. 
+  # Specify image pull policy if default behavior isn't desired.
+  # Default behavior: latest images will be Always else IfNotPresent.
   # imagePullPolicy: IfNotPresent
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
