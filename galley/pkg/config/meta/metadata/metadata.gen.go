@@ -614,6 +614,7 @@ snapshots:
   - name: "localAnalysis"
     strategy: immediate
     collections:
+      - "istio/authentication/v1alpha1/policies"
       - "istio/rbac/v1alpha1/servicerolebindings"
       - "istio/rbac/v1alpha1/serviceroles"
       - "istio/mesh/v1alpha1/MeshConfig"
