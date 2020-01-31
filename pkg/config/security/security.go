@@ -90,7 +90,19 @@ func ParseJwksURI(jwksURI string) (JwksInfo, error) {
 	return info, nil
 }
 
+func CheckEmptyValues(key string, values []string) error {
+	for _, value := range values {
+		if value == "" {
+			return fmt.Errorf("empty value not allowed, found in %s", key)
+		}
+	}
+	return nil
+}
+
 func ValidateAttribute(key string, values []string) error {
+	if err := CheckEmptyValues(key, values); err != nil {
+		return err
+	}
 	switch {
 	case hasPrefix(key, attrRequestHeader):
 		return validateMapKey(key)
