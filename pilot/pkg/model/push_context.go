@@ -926,8 +926,7 @@ func (ps *PushContext) updateContext(
 
 	for k := range pushReq.ConfigTypesUpdated {
 		switch k {
-		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
-			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind():
+		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
 			servicesChanged = true
 		case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 			destinationRulesChanged = true

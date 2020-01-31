@@ -226,7 +226,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		if err != nil {
 			return nil, fmt.Errorf("enableCA: %v", err)
 		}
-
+		err = s.initPublicKey()
+		if err != nil {
+			return nil, fmt.Errorf("init public key: %v", err)
+		}
 	}
 
 	// initDNSListener() must be called after the createCA()
@@ -763,7 +766,7 @@ func (s *Server) initEventHandlers() error {
 // add a GRPC listener using DNS-based certificates. Will be used for Galley, injection and CA signing.
 func (s *Server) initDNSListener(args *PilotArgs) error {
 	istiodAddr := features.IstiodService.Get()
-	if istiodAddr == "" || s.kubeClient == nil {
+	if s.ca == nil || istiodAddr == "" || s.kubeClient == nil {
 		// Feature disabled
 		return nil
 	}

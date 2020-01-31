@@ -17,7 +17,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
 	"sort"
@@ -44,20 +43,24 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
+// AnalyzerFoundIssuesError indicates that at least one analyzer found problems.
 type AnalyzerFoundIssuesError struct{}
+
+// FileParseError indicates a provided file was unable to be parsed.
 type FileParseError struct{}
 
 const (
-	NoIssuesString   = "\u2714 No validation issues found."
-	FoundIssueString = "Analyzers found issues."
-	FileParseString  = "Some files couldn't be parsed."
-	LogOutput        = "log"
-	JSONOutput       = "json"
-	YamlOutput       = "yaml"
+	FileParseString = "Some files couldn't be parsed."
+	LogOutput       = "log"
+	JSONOutput      = "json"
+	YamlOutput      = "yaml"
 )
 
 func (f AnalyzerFoundIssuesError) Error() string {
-	return fmt.Sprintf("%s\nSee %s for more information about causes and resolutions.", FoundIssueString, diag.DocPrefix)
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Analyzers found issues when analyzing %s.\n", analyzeTargetAsString()))
+	sb.WriteString(fmt.Sprintf("See %s for more information about causes and resolutions.", diag.DocPrefix))
+	return sb.String()
 }
 
 func (f FileParseError) Error() string {
@@ -65,16 +68,17 @@ func (f FileParseError) Error() string {
 }
 
 var (
-	listAnalyzers   bool
-	useKube         bool
-	failureLevel    = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
-	outputLevel     = messageThreshold{diag.Info}    // messages at least this level will be included in the output
-	colorize        bool
-	msgOutputFormat string
-	meshCfgFile     string
-	allNamespaces   bool
-	suppress        []string
-	analysisTimeout time.Duration
+	listAnalyzers     bool
+	useKube           bool
+	failureLevel      = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
+	outputLevel       = messageThreshold{diag.Info}    // messages at least this level will be included in the output
+	colorize          bool
+	msgOutputFormat   string
+	meshCfgFile       string
+	selectedNamespace string
+	allNamespaces     bool
+	suppress          []string
+	analysisTimeout   time.Duration
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -140,7 +144,7 @@ istioctl analyze -L
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
-			selectedNamespace := handlers.HandleNamespace(namespace, defaultNamespace)
+			selectedNamespace = handlers.HandleNamespace(namespace, defaultNamespace)
 
 			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
 			if allNamespaces {
@@ -221,11 +225,7 @@ istioctl analyze -L
 
 			// Maybe output details about which analyzers ran
 			if verbose {
-				if allNamespaces {
-					fmt.Fprintln(cmd.ErrOrStderr(), "Analyzed resources in all namespaces")
-				} else {
-					fmt.Fprintln(cmd.ErrOrStderr(), "Analyzed resources in namespace:", selectedNamespace)
-				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "Analyzed resources in %s\n", analyzeTargetAsString())
 
 				if len(result.SkippedAnalyzers) > 0 {
 					fmt.Fprintln(cmd.ErrOrStderr(), "Skipped analyzers:")
@@ -256,14 +256,15 @@ istioctl analyze -L
 				// Print validation message output, or a line indicating that none were found
 				if len(outputMessages) == 0 {
 					if parseErrors == 0 {
-						fmt.Fprintln(cmd.ErrOrStderr(), NoIssuesString)
+						fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", analyzeTargetAsString())
 					} else {
 						fileOrFiles := "files"
 						if parseErrors == 1 {
 							fileOrFiles = "file"
 						}
 						fmt.Fprintf(cmd.ErrOrStderr(),
-							"No validation issues found (but %d %s could not be parsed)\n",
+							"No validation issues found when analyzing %s (but %d %s could not be parsed).\n",
+							analyzeTargetAsString(),
 							parseErrors,
 							fileOrFiles,
 						)
@@ -326,11 +327,12 @@ istioctl analyze -L
 	return analysisCmd
 }
 
-func gatherFiles(args []string) ([]io.Reader, error) {
-	var readers []io.Reader
-	var r *os.File
+func gatherFiles(args []string) ([]local.ReaderSource, error) {
+	var readers []local.ReaderSource
 	var err error
 	for _, f := range args {
+		var r *os.File
+
 		if f == "-" {
 			if isatty.IsTerminal(os.Stdin.Fd()) {
 				fmt.Fprint(os.Stderr, "Reading from stdin:\n")
@@ -343,7 +345,7 @@ func gatherFiles(args []string) ([]io.Reader, error) {
 			}
 			runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
 		}
-		readers = append(readers, r)
+		readers = append(readers, local.ReaderSource{Name: f, Reader: r})
 	}
 	return readers, nil
 }
@@ -459,4 +461,11 @@ func AnalyzersAsString(analyzers []analysis.Analyzer) string {
 		}
 	}
 	return b.String()
+}
+
+func analyzeTargetAsString() string {
+	if allNamespaces {
+		return "all namespaces"
+	}
+	return fmt.Sprintf("namespace: %s", selectedNamespace)
 }

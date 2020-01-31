@@ -40,8 +40,7 @@ import (
 
 var (
 	// Precompute these filters as an optimization
-	blackholeAnyMarshalling    *listener.Filter
-	blackholeStructMarshalling *listener.Filter
+	blackholeFilter *listener.Filter
 
 	dummyServiceInstance = &model.ServiceInstance{
 		Service:     &model.Service{},
@@ -53,7 +52,7 @@ var (
 )
 
 func init() {
-	blackholeAnyMarshalling = newBlackholeFilter()
+	blackholeFilter = newBlackholeFilter()
 }
 
 // A stateful listener builder
@@ -276,15 +275,11 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		for _, ip := range node.IPAddresses {
 			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
 		}
-		blackhole := blackholeStructMarshalling
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			blackhole = blackholeAnyMarshalling
-		}
 		filterChains = append([]*listener.FilterChain{{
 			FilterChainMatch: &listener.FilterChainMatch{
 				PrefixRanges: cidrRanges,
 			},
-			Filters: []*listener.Filter{blackhole},
+			Filters: []*listener.Filter{blackholeFilter},
 		}}, filterChains...)
 	}
 

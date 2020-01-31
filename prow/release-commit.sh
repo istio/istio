@@ -50,6 +50,7 @@ version: ${VERSION}
 docker: ${DOCKER_HUB}
 directory: ${WORK_DIR}
 dependencies:
+${DEPENDENCIES:-$(cat <<EOD
   istio:
     localpath: ${ROOT}
   cni:
@@ -80,6 +81,9 @@ dependencies:
   tools:
     git: https://github.com/istio/tools
     branch: master
+EOD
+)}
+${PROXY_OVERRIDE:-}
 EOF
 )
 

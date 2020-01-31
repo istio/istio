@@ -61,7 +61,8 @@ func (s *Server) initCertController(args *PilotArgs) error {
 
 	meshConfig := s.environment.Mesh()
 	if meshConfig.GetCertificates() == nil || len(meshConfig.GetCertificates()) == 0 {
-		log.Info("No certificates specified, skipping DNS certificate controller")
+		// TODO: if the provider is set to Citadel, use that instead of k8s so the API is still preserved.
+		log.Info("No certificates specified, skipping K8S DNS certificate controller")
 		return nil
 	}
 
@@ -110,13 +111,6 @@ func (s *Server) initCertController(args *PilotArgs) error {
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
 func (s *Server) initDNSCerts(hostname string) error {
-	if _, err := os.Stat(dnsKeyFile); err == nil {
-		// Existing certificate mounted by user. Skip self-signed certificate generation.
-		// Use this with an existing CA - the expectation is that the cert will match the
-		// DNS name in DiscoveryAddress.
-		return nil
-	}
-
 	parts := strings.Split(hostname, ".")
 	if len(parts) < 2 {
 		return fmt.Errorf("invalid hostname %s, should contain at least service name and namespace", hostname)
@@ -142,8 +136,6 @@ func (s *Server) initDNSCerts(hostname string) error {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
-
-		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
 		log.Infof("Generating Citadel-signed cert for %v", names)
 		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
@@ -192,8 +184,8 @@ func (s *Server) initDNSCerts(hostname string) error {
 		}
 
 	} else {
-		log.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
-		err = fmt.Errorf("invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
+		log.Infof("User specified certs: %v", features.PilotCertProvider.Get())
+		return nil
 	}
 	if err != nil {
 		return err
