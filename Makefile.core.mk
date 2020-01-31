@@ -351,7 +351,9 @@ go-gen:
 gen-charts:
 	@operator/scripts/run_update_charts.sh
 
-gen: go-gen mirror-licenses format update-crds gen-charts
+include operator/operator.mk
+
+gen: go-gen mirror-licenses format update-crds gen-charts operator-proto icp-proto
 
 gen-check: gen check-clean-repo
 
@@ -535,7 +537,7 @@ common-racetest: ${BUILD_DEPS}
 #-----------------------------------------------------------------------------
 .PHONY: clean
 
-clean:
+clean: operator-clean
 	rm -rf $(DIRS_TO_CLEAN)
 	rm -f $(FILES_TO_CLEAN)
 

@@ -1,4 +1,4 @@
-# Copyright 2019 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CONTAINER_OPTIONS=--mount type=volume,source=istio-installer-cache,destination=${GOPATH}/src/istio.io --net=host
+from distutils.core import setup
 
-# this repo is on the container plan by default
-BUILD_WITH_CONTAINER ?= 1
+setup(
+    name='Istio Operator API",
+    version='0.1.0',
+    packages=['operator_api', ],
+    license='Apache License 2.0',
+    long_description=open('operator_api/Readme.md').read(),
+p
+)
