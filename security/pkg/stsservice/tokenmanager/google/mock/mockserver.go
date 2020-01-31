@@ -294,7 +294,7 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 	ms.numGetAccessTokenCalls++
 	want := ms.expectedAccessTokenRequest
 	fakeErr := ms.generateAccessTokenError
-	tokenLife := time.Now().Add(time.Duration(ms.accessTokenLife)*time.Second)
+	tokenLife := time.Now().Add(time.Duration(ms.accessTokenLife) * time.Second)
 	token := ms.accessToken
 	if ms.enableDynamicAccessToken {
 		token += time.Now().String()
