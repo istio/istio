@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -29,6 +30,8 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/pki/util"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -191,15 +194,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initServiceControllers(args); err != nil {
 		return nil, fmt.Errorf("service controllers: %v", err)
 	}
-	if err := s.initDiscoveryService(args); err != nil {
-		return nil, fmt.Errorf("discovery service: %v", err)
-	}
-	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
-		return nil, fmt.Errorf("monitor: %v", err)
-	}
-	if err := s.initClusterRegistries(args); err != nil {
-		return nil, fmt.Errorf("cluster registries: %v", err)
-	}
 
 	// Options based on the current 'defaults' in istio.
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
@@ -233,6 +227,15 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// because initDNSListener() may use a Citadel generated cert.
 	if err := s.initDNSListener(args); err != nil {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
+	}
+	if err := s.initDiscoveryService(args); err != nil {
+		return nil, fmt.Errorf("discovery service: %v", err)
+	}
+	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
+		return nil, fmt.Errorf("monitor: %v", err)
+	}
+	if err := s.initClusterRegistries(args); err != nil {
+		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
 	// common https server for webhooks (e.g. injection, validation)
@@ -418,7 +421,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// Will be deprecated once Istiod mode is stable.
 	if args.DiscoveryOptions.SecureGrpcAddr != "" {
 		// create secure grpc server
-		if err := s.initSecureGrpcServer(args.KeepaliveOptions); err != nil {
+		if err := s.initSecureGrpcServer(args.KeepaliveOptions, args.Namespace, args.ServiceAccountName); err != nil {
 			return fmt.Errorf("secure grpc server: %s", err)
 		}
 		// create secure grpc listener
@@ -501,43 +504,93 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.EnvoyXdsServer.Register(s.grpcServer)
 }
 
+func (s *Server) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
+	id := spiffe.MustGenSpiffeURI(saNamespace, saName)
+
+	options := util.CertOptions{
+		Host:       id,
+		RSAKeySize: 2048,
+	}
+
+	csrPEM, keyPEM, err := util.GenCSR(options)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	certChainPEM := s.ca.GetCAKeyCertBundle().GetCertChainPem()
+	certPEM, signErr := s.ca.Sign(csrPEM, strings.Split(id, ","), time.Hour, false)
+	if signErr != nil {
+		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr)
+	}
+	certPEM = append(certPEM, certChainPEM...)
+
+	return certPEM, keyPEM, nil
+}
+
+func (s *Server) getSpiffeeCert(namespace, san string) (*tls.Certificate, *credentials.TransportCredentials, string, error) {
+	certDir := features.CertDir
+	if certDir == "" {
+		certDir = PilotCertDir
+	}
+	ca := path.Join(certDir, constants.RootCertFilename)
+	key := path.Join(certDir, constants.KeyFilename)
+	cert := path.Join(certDir, constants.CertChainFilename)
+
+	// Use existing file mounted certificates
+	if fileExists(ca) && fileExists(key) && fileExists(cert) {
+		log.Infof("Using file mounted certificates")
+		tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to load %s and %s: %v", cert, key, err)
+		}
+
+		// TODO: parse the file to determine expiration date. Restart listener before expiration
+		certificate, err := tls.LoadX509KeyPair(cert, key)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to load certificate: %v", err)
+		}
+		return &certificate, &tlsCreds, ca, nil
+	}
+	log.Infof("Generating a certificate for secure gRPC (%s/%s)", san, namespace)
+
+	genCert, genKey, err := s.generateKeyAndCert(san, namespace)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to generate certificate: %v", err)
+	}
+
+	certificate, err := tls.X509KeyPair(genCert, genKey)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to load certificate: %v", err)
+	}
+	tlsCreds := credentials.NewServerTLSFromCert(&certificate)
+	return &certificate, &tlsCreds, s.caBundlePath, nil
+}
+
 // initialize secureGRPCServer
-func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
+func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options, namespace string, san string) error {
 	certDir := features.CertDir
 	if certDir == "" {
 		certDir = PilotCertDir
 	}
 
-	ca := path.Join(certDir, constants.RootCertFilename)
-	key := path.Join(certDir, constants.KeyFilename)
-	cert := path.Join(certDir, constants.CertChainFilename)
-
-	tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
-	// certs not ready yet.
+	certificate, tlsCreds, ca, err := s.getSpiffeeCert(namespace, san)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get certs for secure listener: %v", err)
 	}
-
-	// TODO: parse the file to determine expiration date. Restart listener before expiration
-	certificate, err := tls.LoadX509KeyPair(cert, key)
-	if err != nil {
-		return err
-	}
-
 	caCert, err := ioutil.ReadFile(ca)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read ca file at %v: %v", ca, err)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
 	opts := s.grpcServerOptions(options)
-	opts = append(opts, grpc.Creds(tlsCreds))
+	opts = append(opts, grpc.Creds(*tlsCreds))
 	s.secureGRPCServer = grpc.NewServer(opts...)
 	s.EnvoyXdsServer.Register(s.secureGRPCServer)
 	s.secureHTTPServer = &http.Server{
 		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{certificate},
+			Certificates: []tls.Certificate{*certificate},
 			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 				// For now accept any certs - pilot is not authenticating the caller, TLS used for
 				// privacy
@@ -791,4 +844,14 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 	}
 
 	return nil
+}
+
+func fileExists(path string) bool {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false
+	} else if err != nil {
+		log.Errorf("error checking file path %v", path)
+		return false
+	}
+	return true
 }
