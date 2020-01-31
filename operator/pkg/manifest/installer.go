@@ -223,8 +223,9 @@ func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.V
 	cNode, cFound, err := tpath.GetFromTreePath(yamlObj, cPath)
 	errs = util.AppendErr(errs, err)
 	if cFound {
-		if c, err := pkgversion.TagToVersionString(cNode.(string)); err == nil {
-			clientVersion, err = goversion.NewVersion(c)
+		var cVer string
+		if cVer, err = pkgversion.TagToVersionString(cNode.(string)); err == nil {
+			clientVersion, err = goversion.NewVersion(cVer)
 		}
 		errs = util.AppendErr(errs, err)
 	}
@@ -232,8 +233,9 @@ func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.V
 	sNode, sFound, err := tpath.GetFromTreePath(yamlObj, sPath)
 	errs = util.AppendErr(errs, err)
 	if sFound {
-		if s, err := pkgversion.TagToVersionString(sNode.(string)); err == nil {
-			serverVersion, err = goversion.NewVersion(s)
+		var sVer string
+		if sVer, err = pkgversion.TagToVersionString(sNode.(string)); err == nil {
+			serverVersion, err = goversion.NewVersion(sVer)
 		}
 		errs = util.AppendErr(errs, err)
 	}
