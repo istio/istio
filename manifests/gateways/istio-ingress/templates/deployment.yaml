@@ -47,9 +47,7 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
 {{- end }}
-{{- if or (contains "dev" .Values.global.proxy.image) (contains "dev" .Values.global.tag) }}
-          imagePullPolicy: Always
-{{- else if .Values.global.imagePullPolicy }}
+{{- if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- end }}
           command:
@@ -68,9 +66,7 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ $gateway.sds.image }}:{{ .Values.global.tag }}"
 {{- end }}
-{{- if or (contains "dev" $gateway.sds.image) (contains "dev" .Values.global.tag) }}
-          imagePullPolicy: Always
-{{- else if .Values.global.imagePullPolicy }}
+{{- if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- end }}
           resources:
@@ -99,9 +95,7 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
 {{- end }}
-{{- if or (contains "dev" .Values.global.proxy.image) (contains "dev" .Values.global.tag) }}
-          imagePullPolicy: Always
-{{- else if .Values.global.imagePullPolicy }}
+{{- if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- end }}
           ports:
