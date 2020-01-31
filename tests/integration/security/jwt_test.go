@@ -15,8 +15,6 @@
 package security
 
 import (
-	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -716,33 +714,10 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			for _, c := range ingTestCases {
 				t.Run(c.Name, func(t *testing.T) {
 					retry.UntilSuccessOrFail(t, func() error {
-						return checkIngress(ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
+						return authn.CheckIngress(ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
 					},
 						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 				})
 			}
 		})
-}
-
-func checkIngress(ingr ingress.Instance, host string, path string, token string, expectResponseCode int) error {
-	endpointAddress := ingr.HTTPAddress()
-	opts := ingress.CallOptions{
-		Host:     host,
-		Path:     path,
-		CallType: ingress.PlainText,
-		Address:  endpointAddress,
-	}
-	if len(token) != 0 {
-		opts.Headers = http.Header{
-			"Authorization": []string{
-				fmt.Sprintf("Bearer %s", token),
-			},
-		}
-	}
-	response, err := ingr.Call(opts)
-
-	if response.Code != expectResponseCode {
-		return fmt.Errorf("got response code %d, err %s", response.Code, err)
-	}
-	return nil
 }
