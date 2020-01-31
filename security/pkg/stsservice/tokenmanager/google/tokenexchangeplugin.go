@@ -309,7 +309,7 @@ func (p *Plugin) generateSTSResp(atResp *accessTokenResponse) ([]byte, error) {
 	// Default token life time is 3600 seconds
 	var expireInSec int64 = 3600
 	if err != nil {
-		pluginLog.Errorf("Failed to unmarshal timestamp %s from access token response, " +
+		pluginLog.Errorf("Failed to unmarshal timestamp %s from access token response, "+
 			"fall back to use default lifetime (3600 seconds): %v", atResp.ExpireTime, err)
 	} else {
 		expireInSec = int64(exp.Sub(time.Now()).Seconds())
