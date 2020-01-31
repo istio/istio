@@ -41301,6 +41301,8 @@ var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   operatorVersionRange: ">=1.5.0,<1.6.0"
   supportedIstioVersions: ">=1.4.0, <1.6"
   recommendedIstioVersions: 1.5.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"
 `)
 
 func versionsYamlBytes() ([]byte, error) {
