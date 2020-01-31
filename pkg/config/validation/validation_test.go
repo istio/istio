@@ -5858,7 +5858,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.PeerAuthentication{
 				PortLevelMtls: map[uint32]*security_beta.PeerAuthentication_MutualTLS{
-					8080: &security_beta.PeerAuthentication_MutualTLS{
+					8080: {
 						Mode: security_beta.PeerAuthentication_MutualTLS_UNSET,
 					},
 				},
