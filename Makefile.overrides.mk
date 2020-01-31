@@ -30,6 +30,8 @@ $(PHONYS):
 	@$(MAKE) $@
 endif
 
+CONTAINER_OPTIONS=--mount type=volume,source=istio-installer-cache,destination=${GOPATH}/src/istio.io --net=host
+
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
 .PHONY: istioctl-install
