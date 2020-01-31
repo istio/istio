@@ -34,14 +34,14 @@ func TestValidateOptions(t *testing.T) {
 		{
 			name: "initial backoff too small",
 			setExtraOptions: func() {
-				workloadSdsCacheOptions.InitialBackoff = 9
+				workloadSdsCacheOptions.InitialBackoffInMilliSec = 9
 			},
 			errorMsg: "initial backoff should be within range 10 to 120000",
 		},
 		{
 			name: "initial backoff too large",
 			setExtraOptions: func() {
-				workloadSdsCacheOptions.InitialBackoff = 120001
+				workloadSdsCacheOptions.InitialBackoffInMilliSec = 120001
 			},
 			errorMsg: "initial backoff should be within range 10 to 120000",
 		},
@@ -73,7 +73,7 @@ func TestValidateOptions(t *testing.T) {
 
 		// Set the valid options as the base for the testing.
 		workloadSdsCacheOptions = cache.Options{
-			InitialBackoff: 10,
+			InitialBackoffInMilliSec: 2000,
 		}
 		serverOptions = sds.Options{
 			EnableIngressGatewaySDS: true,
