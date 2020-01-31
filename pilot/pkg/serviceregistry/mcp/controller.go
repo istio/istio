@@ -71,6 +71,7 @@ type controller struct {
 
 // NewController provides a new Controller controller
 func NewController(options *Options) Controller {
+	//TODO: remove after galley sse is removed
 	// Filter out synthetic service entries.
 	supportedSchemas := collections.Pilot.Remove(collections.IstioNetworkingV1Alpha3SyntheticServiceentries)
 	synced := make(map[string]bool)

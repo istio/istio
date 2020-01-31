@@ -1,0 +1,57 @@
+# The following policy denies access to "internal.company.com" and path "/private"
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-policy
+  namespace: "{{ .RootNamespace }}"
+spec:
+  action: DENY
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+  rules:
+    - to:
+        - operation:
+            hosts: ["internal.company.com"]
+        - operation:
+            paths: ["/private"]
+---
+
+# The following gateway allows request to "*.company.com"
+
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: test-ingress
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.company.com"
+---
+
+# The following virtual service routes requests to workload b
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: test-vs
+  namespace: {{ .Namespace }}
+spec:
+  hosts:
+  - "*.company.com"
+  gateways:
+  - test-ingress
+  http:
+  - route:
+    - destination:
+        host: b
+        port:
+          number: 80
