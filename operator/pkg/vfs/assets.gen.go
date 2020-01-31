@@ -31637,14 +31637,14 @@ spec:
           httpGet:
             path: {{ .Values.kiali.contextPath }}/healthz
             port: 20001
-            scheme:  {{ if .Values.kiali.security.enabled }} 'HTTPS' {{ else }} 'HTTP' {{ end }}
+            scheme: {{ if .Values.kiali.security.enabled }}'HTTPS'{{ else }}'HTTP'{{ end }}
           initialDelaySeconds: 5
           periodSeconds: 30
         livenessProbe:
           httpGet:
             path: {{ .Values.kiali.contextPath }}/healthz
             port: 20001
-            scheme:  {{ if .Values.kiali.security.enabled }} 'HTTPS' {{ else }} 'HTTP' {{ end }}
+            scheme: {{ if .Values.kiali.security.enabled }}'HTTPS'{{ else }}'HTTP'{{ end }}
           initialDelaySeconds: 5
           periodSeconds: 30
         env:
@@ -39642,7 +39642,32 @@ spec:
             maxUnavailable: "25%"
 
     egressGateways:
-
+    - name: istio-egressgateway
+      enabled: false
+      k8s:
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-ingressgateway
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                targetAverageUtilization: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: "100%"
+            maxUnavailable: "25%"
     # Istio CNI feature
     cni:
       enabled: false

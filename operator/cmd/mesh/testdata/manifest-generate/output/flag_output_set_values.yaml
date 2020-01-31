@@ -5754,7 +5754,7 @@ metadata:
     release: istio
 ---
 
-# Resources for Addon component
+# Resources for AddonComponents prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
