@@ -36,8 +36,8 @@ protoc_gen_python_plugin := $(protoc_gen_python_prefix):$(repo_dir)/$(python_out
 # protoc_gen_docs
 ########################
 
-protoc_gen_docs_plugin := --docs_out=warnings=true,dictionary=$(repo_dir)/dictionaries/en-US,custom_word_list=$(repo_dir)/dictionaries/custom.txt,mode=html_fragment_with_front_matter:$(repo_dir)/
-protoc_gen_docs_plugin_per_file := --docs_out=warnings=true,dictionary=$(repo_dir)/dictionaries/en-US,custom_word_list=$(repo_dir)/dictionaries/custom.txt,per_file=true,mode=html_fragment_with_front_matter:$(repo_dir)/
+protoc_gen_docs_plugin := --docs_out=warnings=true,dictionary=$(repo_dir)/operator/dictionaries/en-US,custom_word_list=$(repo_dir)/operator/dictionaries/custom.txt,mode=html_fragment_with_front_matter:$(repo_dir)/
+protoc_gen_docs_plugin_per_file := --docs_out=warnings=true,dictionary=$(repo_dir)/operator/dictionaries/en-US,custom_word_list=$(repo_dir)/operator/dictionaries/custom.txt,per_file=true,mode=html_fragment_with_front_matter:$(repo_dir)/
 
 ########################
 
