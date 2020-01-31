@@ -1122,18 +1122,6 @@ func TestController_ExternalNameService(t *testing.T) {
 					MeshExternal: true,
 					Resolution:   model.DNSLB,
 				},
-				{
-					Hostname: kube.ServiceHostname("svc5", "nsA", domainSuffix),
-					Ports: model.PortList{
-						&model.Port{
-							Name:     "tcp-port",
-							Port:     8083,
-							Protocol: protocol.TCP,
-						},
-					},
-					MeshExternal: true,
-					Resolution:   model.DNSLB,
-				},
 			}
 
 			svcList, _ := controller.Services()
