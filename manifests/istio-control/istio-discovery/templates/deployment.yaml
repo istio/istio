@@ -87,7 +87,7 @@ spec:
 {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.istiod.enabled }}
           - --secureGrpcAddr=:15011
 {{- else }}
-          - --secureGrpcAddr=""
+          - --secureGrpcAddr=
 {{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}

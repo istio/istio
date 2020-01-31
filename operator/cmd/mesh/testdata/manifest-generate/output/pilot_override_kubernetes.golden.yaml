@@ -63,7 +63,7 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr=""
+        - --secureGrpcAddr=
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 60m
