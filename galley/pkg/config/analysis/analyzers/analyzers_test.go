@@ -16,7 +16,6 @@ package analyzers
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -502,13 +501,13 @@ func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*lo
 	}
 
 	// Gather test files
-	var files []io.Reader
+	var files []local.ReaderSource
 	for _, f := range tc.inputFiles {
 		of, err := os.Open(f)
 		if err != nil {
 			return nil, fmt.Errorf("error opening test file: %q", f)
 		}
-		files = append(files, of)
+		files = append(files, local.ReaderSource{Name: f, Reader: of})
 	}
 
 	// Include resources from test files
