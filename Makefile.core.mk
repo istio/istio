@@ -355,6 +355,9 @@ gen: go-gen mirror-licenses format update-crds gen-charts
 
 gen-check: gen check-clean-repo
 
+operator-proto:
+	cd operator && $(MAKE) -e -f Makefile.core.mk $@
+
 #-----------------------------------------------------------------------------
 # Target: go build
 #-----------------------------------------------------------------------------
