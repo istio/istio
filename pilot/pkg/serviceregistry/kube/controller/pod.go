@@ -50,7 +50,7 @@ func newPodCache(ch cacheHandler, c *Controller) *PodCache {
 		cacheHandler: ch,
 		c:            c,
 		podsByIP:     make(map[string]string),
-		IPByPods: make(map[string]string),
+		IPByPods:     make(map[string]string),
 	}
 
 	ch.handler.Append(out.event)
