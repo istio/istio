@@ -946,7 +946,8 @@ func (ps *PushContext) updateContext(
 			authzChanged = true
 		case collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(),
 			collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(),
-			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
+			collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
 			authnChanged = true
 		}
 	}

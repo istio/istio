@@ -57,6 +57,8 @@ type AuthenticationPolicies struct {
 	// Maps from namespace to the v1beta1 authentication policies.
 	requestAuthentications map[string][]Config
 
+	peerAuthentications map[string][]Config
+
 	// Maps from namespace to mTLS mode.
 	namespaceMTLSMode map[string]MutualTLSMode
 
@@ -68,6 +70,7 @@ type AuthenticationPolicies struct {
 func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
 	policy := &AuthenticationPolicies{
 		requestAuthentications: map[string][]Config{},
+		peerAuthentications:    map[string][]Config{},
 		namespaceMTLSMode:      map[string]MutualTLSMode{},
 		rootNamespace:          env.Mesh().GetRootNamespace(),
 	}
@@ -77,7 +80,11 @@ func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
 		policy.addRequestAuthentication(configs)
 	}
 
-	// TODO(diemtvu): populate mTLS mode from mesh config and namespace labels.
+	if configs, err := env.List(collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+		sortConfigByCreationTime(configs)
+		policy.addPeerAuthentication(configs)
+	}
+
 	return policy
 }
 
@@ -88,18 +95,52 @@ func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config)
 	}
 }
 
+func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
+	for _, config := range configs {
+		policy.peerAuthentications[config.Namespace] =
+			append(policy.peerAuthentications[config.Namespace], config)
+	}
+}
+
 // GetJwtPoliciesForWorkload returns a list of JWT policies matching to labels.
 func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
 	workloadLabels labels.Collection) []*Config {
+	extractor := func(cfg *Config) map[string]string {
+		return cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
+	}
+	return getConfigsForWorkload(policy.requestAuthentications, policy.rootNamespace, extractor, namespace, workloadLabels)
+}
+
+// GetPeerAuthenticationsForWorkload returns a list of peer authentication policies matching to labels.
+func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespace string,
+	workloadLabels labels.Collection) []*Config {
+	extractor := func(cfg *Config) map[string]string {
+		return cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
+	}
+	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, extractor, namespace, workloadLabels)
+}
+
+// GetRootNamespace return root namespace that is tracked by the policy object.
+func (policy *AuthenticationPolicies) GetRootNamespace() string {
+	return policy.rootNamespace
+}
+
+type extractSelector func(*Config) map[string]string
+
+func getConfigsForWorkload(configsByNamespace map[string][]Config,
+	rootNamespace string,
+	extractor extractSelector,
+	namespace string,
+	workloadLabels labels.Collection) []*Config {
 	configs := make([]*Config, 0)
 	lookupInNamespaces := []string{namespace}
-	if namespace != policy.rootNamespace {
+	if namespace != rootNamespace {
 		// Only check the root namespace if the (workload) namespace is not already the root namespace
 		// to avoid double inclusion.
-		lookupInNamespaces = append(lookupInNamespaces, policy.rootNamespace)
+		lookupInNamespaces = append(lookupInNamespaces, rootNamespace)
 	}
 	for _, ns := range lookupInNamespaces {
-		if nsConfig, ok := policy.requestAuthentications[ns]; ok {
+		if nsConfig, ok := configsByNamespace[ns]; ok {
 			for idx := range nsConfig {
 				cfg := &nsConfig[idx]
 				if ns != cfg.Namespace {
@@ -107,8 +148,7 @@ func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string
 					log.Warnf("Seeing config %s with namespace %s in map entry for %s. Ignored", cfg.Name, cfg.Namespace, ns)
 					continue
 				}
-				spec := cfg.Spec.(*v1beta1.RequestAuthentication)
-				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+				selector := labels.Instance(extractor(cfg))
 				if workloadLabels.IsSupersetOf(selector) {
 					configs = append(configs, cfg)
 				}
