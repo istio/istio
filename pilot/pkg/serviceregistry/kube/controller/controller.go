@@ -621,6 +621,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		if !f {
 			return nil, fmt.Errorf("failed to find model service for %v", hostname)
 		}
+
+		tps := make(map[int]*model.Port)
 		for _, port := range svc.Spec.Ports {
 			svcPort, f := modelService.Ports.Get(port.Name)
 			if !f {
@@ -630,22 +632,34 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			if err != nil {
 				return nil, fmt.Errorf("failed to find target port for %v: %v", proxy.ID, err)
 			}
-			// Construct the ServiceInstance
-			out = append(out, &model.ServiceInstance{
-				Service:     modelService,
-				ServicePort: svcPort,
-				Endpoint: &model.IstioEndpoint{
-					Address:         proxy.IPAddresses[0],
-					EndpointPort:    uint32(targetPort),
-					ServicePortName: svcPort.Name,
-					// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
-					Labels:         proxy.WorkloadLabels[0],
-					ServiceAccount: svcAccount,
-					Network:        c.endpointNetwork(proxy.IPAddresses[0]),
-					Locality:       util.LocalityToString(proxy.Locality),
-					Attributes:     model.ServiceAttributes{Name: svc.Name, Namespace: svc.Namespace},
-				},
-			})
+			// Dedupe the target ports here - Service might have configured multiple ports to the same target port,
+			// we will have to create only one ingress listener/cluster per port so that we do not endup complaining about
+			// listener conflicts.
+			if _, exists := tps[targetPort]; !exists {
+				tps[targetPort] = svcPort
+			}
+		}
+
+		for port, svcPort := range tps {
+			// consider multiple IP scenarios
+			for _, ip := range proxy.IPAddresses {
+				// Construct the ServiceInstance
+				out = append(out, &model.ServiceInstance{
+					Service:     modelService,
+					ServicePort: svcPort,
+					Endpoint: &model.IstioEndpoint{
+						Address:         ip,
+						EndpointPort:    uint32(port),
+						ServicePortName: svcPort.Name,
+						// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
+						Labels:         proxy.WorkloadLabels[0],
+						ServiceAccount: svcAccount,
+						Network:        c.endpointNetwork(proxy.IPAddresses[0]),
+						Locality:       util.LocalityToString(proxy.Locality),
+						Attributes:     model.ServiceAttributes{Name: svc.Name, Namespace: svc.Namespace},
+					},
+				})
+			}
 		}
 	}
 	return out, nil
@@ -696,6 +710,9 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 			log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
 			continue
 		}
+		// Dedupe the target ports here - Service might have configured multiple ports to the same target port,
+		// we will have to create only one ingress listener/cluster per port so that we do not endup complaining about
+		// listener conflicts.
 		if _, exists = tps[portNum]; !exists {
 			tps[portNum] = svcPort
 		}
