@@ -7227,8 +7227,7 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr
-        - ""
+        - --secureGrpcAddr=:15011
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
@@ -7248,6 +7247,11 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.serviceAccountName
         - name: PILOT_TRACE_SAMPLING
           value: "1"
         - name: CONFIG_NAMESPACE
@@ -7338,6 +7342,10 @@ spec:
       - configMap:
           name: pilot-envoy-config
         name: pilot-envoy-config
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.istio-pilot-service-account
 ---
 
 
@@ -7374,7 +7382,7 @@ data:
         "certificates": [],
         "configNamespace": "istio-system",
         "configValidation": true,
-        "controlPlaneSecurityEnabled": false,
+        "controlPlaneSecurityEnabled": true,
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
           "enabled": true
