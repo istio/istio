@@ -214,7 +214,7 @@ func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamesp
 	}
 }
 
-// TODO support native environment. Blocked by #13177 because the listeners for native use static
+// TODO support native environment for registry only/gateway. Blocked by #13177 because the listeners for native use static
 // routes and this test relies on the dynamic routes sent through pilot to allow external traffic.
 
 // Expected is a map of protocol -> expected response codes
@@ -269,7 +269,9 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				t.Errorf("failed to apply service entries: %v", err)
 			}
 
-			createGateway(t, appsNamespace, serviceNamespace, g)
+			if _, kube := ctx.Environment().(*kube.Environment); kube {
+				createGateway(t, appsNamespace, serviceNamespace, g)
+			}
 			if err := WaitUntilNotCallable(client, dest); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)
 			}
