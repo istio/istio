@@ -20,5 +20,4 @@ setup(
     packages=['operator_api', ],
     license='Apache License 2.0',
     long_description=open('operator_api/Readme.md').read(),
-p
 )
