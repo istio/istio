@@ -15,9 +15,11 @@
 pwd := $(shell pwd)
 TMPDIR := $(shell mktemp -d)
 
+.PHONY: icp-proto operator-proto operator-clean
+
 repo_dir := .
 out_path = ${TMPDIR}
-protoc = protoc -Icommon-protos -I.
+protoc = protoc -Icommon-protos -Ioperator
 
 go_plugin_prefix := --go_out=plugins=grpc,
 go_plugin := $(go_plugin_prefix):$(out_path)
@@ -49,9 +51,9 @@ icp_v1alpha2_openapi := $(icp_v1alpha2_protos:.proto=.json)
 
 $(icp_v1alpha2_pb_gos) $(icp_v1alpha2_pb_docs) $(icp_v1alpha2_pb_pythons): $(icp_v1alpha2_protos)
 	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(icp_v1alpha2_path) $(protoc_gen_python_plugin) $^
-	@cp -r ${TMPDIR}/operator/pkg/* pkg/
-	@rm -fr ${TMPDIR}/operator/pkg
-	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(icp_v1alpha2_path)/istiocontrolplane_types.pb.go
+	cp -r ${TMPDIR}/pkg/* operator/pkg/
+	rm -fr ${TMPDIR}/pkg
+	go run $(repo_dir)/operator/pkg/apis/istio/fixup_structs/main.go -f $(icp_v1alpha2_path)/istiocontrolplane_types.pb.go
 	@sed -i 's|<key,value,effect>|\&lt\;key,value,effect\&gt\;|g' $(icp_v1alpha2_path)/v1alpha2.pb.html
 	@sed -i 's|<operator>|\&lt\;operator\&gt\;|g' $(icp_v1alpha2_path)/v1alpha2.pb.html
 
@@ -64,10 +66,9 @@ v1alpha1_openapi := $(v1alpha1_protos:.proto=.json)
 
 $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons): $(v1alpha1_protos)
 	$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(v1alpha1_path) $(protoc_gen_python_plugin) $^
-	ls -lR ${TMPDIR}
-	cp -r ${TMPDIR}/operator/pkg/* operator/pkg/
-	rm -fr ${TMPDIR}/operator/pkg
-	go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(v1alpha1_path)/values_types.pb.go
+	cp -r ${TMPDIR}/pkg/* operator/pkg/
+	rm -fr ${TMPDIR}/pkg
+	go run $(repo_dir)/operator/pkg/apis/istio/fixup_structs/main.go -f $(v1alpha1_path)/values_types.pb.go
 
 icp-proto: $(icp_v1alpha2_pb_gos) $(icp_v1alpha2_pb_docs) $(icp_v1alpha2_pb_pythons)
 

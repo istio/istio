@@ -136,6 +136,7 @@
 package v1alpha2
 
 import (
+	"encoding/json"
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
