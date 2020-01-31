@@ -54,10 +54,14 @@ type PathContext struct {
 // String implements the Stringer interface.
 func (nc *PathContext) String() string {
 	ret := "\n--------------- NodeContext ------------------\n"
-	ret += fmt.Sprintf("Parent.Node=\n%s\n", pretty.Sprint(nc.Parent.Node))
-	ret += fmt.Sprintf("KeyToChild=%v\n", nc.Parent.KeyToChild)
+	if nc.Parent != nil {
+		ret += fmt.Sprintf("Parent.Node=\n%s\n", pretty.Sprint(nc.Parent.Node))
+		ret += fmt.Sprintf("KeyToChild=%v\n", nc.Parent.KeyToChild)
+	}
+
 	ret += fmt.Sprintf("Node=\n%s\n", pretty.Sprint(nc.Node))
 	ret += "----------------------------------------------\n"
+
 	return ret
 }
 
@@ -92,6 +96,25 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	// form :matching_value in the case of a leaf list, or a matching key:value in the case of a non-leaf list.
 	if lst, ok := ncNode.([]interface{}); ok {
 		scope.Debug("list type")
+		if util.IsNPathElement(pe) {
+			idx, err := util.PathN(pe)
+			if err != nil {
+				return nil, false, fmt.Errorf("path %s, index %s: %s", fullPath, pe, err)
+			}
+			var foundNode interface{}
+			if idx >= len(lst) {
+				foundNode = make(map[string]interface{})
+			} else {
+				foundNode = lst[idx]
+			}
+			nn := &PathContext{
+				Parent: nc,
+				Node:   foundNode,
+			}
+			nc.KeyToChild = idx
+			return getPathContext(nn, fullPath, remainPath[1:], createMissing)
+		}
+
 		for idx, le := range lst {
 			// non-leaf list, expect to match item by key:value.
 			if lm, ok := le.(map[interface{}]interface{}); ok {
@@ -217,6 +240,7 @@ func mergeConditional(newVal, originalVal interface{}, merge bool) (interface{},
 	if err != nil {
 		return nil, err
 	}
+
 	if util.IsMap(originalVal) {
 		// For JSON compatibility
 		out := make(map[string]interface{})
@@ -253,40 +277,96 @@ func WritePathContext(nc *PathContext, value interface{}, merge bool) error {
 			}
 		}
 	default:
-		switch {
-		case isSliceOrPtrInterface(nc.Parent.Node):
+		return setPathContext(nc, value, merge)
+	}
+
+	return nil
+}
+
+// setPathContext writes the given value to the Node in the given PathContext,
+// enlarging all PathContext lists to ensure all indexes are valid.
+func setPathContext(nc *PathContext, value interface{}, merge bool) error {
+	err := setValueContext(nc, value, merge)
+	if err != nil {
+		return err
+	}
+
+	// If the path included insertions, process them now
+	if nc.Parent.Parent == nil {
+		return nil
+	}
+	return setPathContext(nc.Parent, nc.Parent.Node, false) // note: tail recursive
+}
+
+// setValueContext writes the given value to the Node in the given PathContext.
+// If setting the value requires growing the final slice, grows it.
+func setValueContext(nc *PathContext, value interface{}, merge bool) error {
+	switch parentNode := nc.Parent.Node.(type) {
+	case *interface{}:
+		switch vParentNode := (*parentNode).(type) {
+		case []interface{}:
 			idx := nc.Parent.KeyToChild.(int)
 			if idx == -1 {
-				scope.Debug("insert")
-
-			} else {
-				scope.Debugf("update index %d\n", idx)
-				merged, err := mergeConditional(value, nc.Node, merge)
-				if err != nil {
-					return err
-				}
-				return util.UpdateSlicePtr(nc.Parent.Node, idx, merged)
+				// Treat -1 as insert-at-end of list
+				idx = len(vParentNode)
 			}
+
+			if idx >= len(vParentNode) {
+				newElements := make([]interface{}, idx-len(vParentNode)+1)
+				vParentNode = append(vParentNode, newElements...)
+				*parentNode = vParentNode
+			}
+
+			merged, err := mergeConditional(value, nc.Node, merge)
+			if err != nil {
+				return err
+			}
+
+			vParentNode[idx] = merged
+			nc.Node = merged
 		default:
-			if isMapOrInterface(nc.Parent.Node) {
-				switch {
-				case isSliceOrPtrInterface(nc.Node):
-					if err := util.AppendToSlicePtr(nc.Node, value); err != nil {
-						return err
-					}
-					return util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, nc.Node)
-				case isMapOrInterface(nc.Node):
-					merged, err := mergeConditional(value, nc.Node, merge)
+			return fmt.Errorf("don't know about vtype %T", vParentNode)
+		}
+	case map[string]interface{}:
+		key := nc.Parent.KeyToChild.(string)
+
+		if ncNode, ok := nc.Node.(*interface{}); ok {
+			switch vNcNode := (*ncNode).(type) {
+			case []interface{}:
+				switch value.(type) {
+				case map[string]interface{}:
+					// the value is a map, and the node is a slice
+					mergedValue := append(vNcNode, value)
+					parentNode[key] = mergedValue
+				case *interface{}:
+					merged, err := mergeConditional(value, vNcNode, merge)
 					if err != nil {
 						return err
 					}
-					return util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, merged)
+
+					parentNode[key] = merged
+					nc.Node = merged
 				default:
-					scope.Debug("leaf update")
-					return util.InsertIntoMap(nc.Parent.Node, nc.Parent.KeyToChild, value)
+					// the value is an basic JSON type (int, float, string, bool)
+					value = append(vNcNode, value)
+					parentNode[key] = value
+					nc.Node = value
 				}
+			default:
+				return fmt.Errorf("don't know about vnc type %T", vNcNode)
 			}
+		} else {
+			// the value is an basic JSON type (int, float, string, bool); or a map[string]interface{}
+			parentNode[key] = value
+			nc.Node = value
 		}
+	// TODO `map[interface{}]interface{}` is used by tests in operator/cmd/mesh, we should add our own tests
+	case map[interface{}]interface{}:
+		key := nc.Parent.KeyToChild.(string)
+		parentNode[key] = value
+		nc.Node = value
+	default:
+		return fmt.Errorf("don't know about type %T", parentNode)
 	}
 
 	return nil
