@@ -235,10 +235,12 @@
 // profiles/separate.yaml
 // translateConfig/reverseTranslateConfig-1.4.yaml
 // translateConfig/reverseTranslateConfig-1.5.yaml
+// translateConfig/reverseTranslateConfig-1.6.yaml
 // translateConfig/translate-ICP-IOP-1.5.yaml
 // translateConfig/translateConfig-1.3.yaml
 // translateConfig/translateConfig-1.4.yaml
 // translateConfig/translateConfig-1.5.yaml
+// translateConfig/translateConfig-1.6.yaml
 // versions.yaml
 package vfs
 
@@ -14686,6 +14688,62 @@ spec:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-metadata-exchange-1.6
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener: {}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.metadata_exchange
+          config:
+            protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.6.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+---
 {{- if .Values.telemetry.v2.prometheus.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -14795,6 +14853,104 @@ spec:
                     local:
                       inline_string: envoy.wasm.stats
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-stats-filter-1.6
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+---
+
 {{- end }}
 
 {{- if .Values.telemetry.v2.stackdriver.enabled }}
@@ -31777,14 +31933,14 @@ spec:
           httpGet:
             path: {{ .Values.kiali.contextPath }}/healthz
             port: 20001
-            scheme:  {{ if .Values.kiali.security.enabled }} 'HTTPS' {{ else }} 'HTTP' {{ end }}
+            scheme: {{ if .Values.kiali.security.enabled }}'HTTPS'{{ else }}'HTTP'{{ end }}
           initialDelaySeconds: 5
           periodSeconds: 30
         livenessProbe:
           httpGet:
             path: {{ .Values.kiali.contextPath }}/healthz
             port: 20001
-            scheme:  {{ if .Values.kiali.security.enabled }} 'HTTPS' {{ else }} 'HTTP' {{ end }}
+            scheme: {{ if .Values.kiali.security.enabled }}'HTTPS'{{ else }}'HTTP'{{ end }}
           initialDelaySeconds: 5
           periodSeconds: 30
         env:
@@ -40759,6 +40915,38 @@ func translateconfigReversetranslateconfig15Yaml() (*asset, error) {
 	return a, nil
 }
 
+var _translateconfigReversetranslateconfig16Yaml = []byte(`kubernetesPatternMapping:
+  "{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env"
+  "{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec"
+  "{{.ValueComponentName}}.imagePullPolicy":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy"
+  "{{.ValueComponentName}}.nodeSelector":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.NodeSelector"
+  "{{.ValueComponentName}}.tolerations":           "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Tolerations"
+  "{{.ValueComponentName}}.podDisruptionBudget":   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodDisruptionBudget"
+  "{{.ValueComponentName}}.podAnnotations":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodAnnotations"
+  "{{.ValueComponentName}}.priorityClassName":     "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PriorityClassName"
+  "{{.ValueComponentName}}.readinessProbe":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReadinessProbe"
+  "{{.ValueComponentName}}.replicaCount":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReplicaCount"
+  "{{.ValueComponentName}}.resources":             "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Resources"
+  "{{.ValueComponentName}}.rollingMaxSurge":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy"
+  "{{.ValueComponentName}}.rollingMaxUnavailable": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy"
+  "{{.ValueComponentName}}.serviceAnnotations":    "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ServiceAnnotations"
+`)
+
+func translateconfigReversetranslateconfig16YamlBytes() ([]byte, error) {
+	return _translateconfigReversetranslateconfig16Yaml, nil
+}
+
+func translateconfigReversetranslateconfig16Yaml() (*asset, error) {
+	bytes, err := translateconfigReversetranslateconfig16YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/reverseTranslateConfig-1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _translateconfigTranslateIcpIop15Yaml = []byte(`trafficManagement.components.pilot: components.pilot
 policy.components.policy: components.policy
 telemetry.components.telemetry: components.telemetry
@@ -41436,6 +41624,171 @@ func translateconfigTranslateconfig15Yaml() (*asset, error) {
 	return a, nil
 }
 
+var _translateconfigTranslateconfig16Yaml = []byte(`apiMapping:
+  Hub:
+    outPath: "global.hub"
+  Tag:
+    outPath: "global.tag"
+  K8SDefaults:
+    outPath: "global.resources"
+  DefaultNamespace:
+    outPath: "global.istioNamespace"
+kubernetesMapping:
+  "Components.{{.ComponentName}}.K8S.Affinity":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
+  "Components.{{.ComponentName}}.K8S.Env":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env"
+  "Components.{{.ComponentName}}.K8S.HpaSpec":
+    outPath: "[HorizontalPodAutoscaler:{{.ResourceName}}].spec"
+  "Components.{{.ComponentName}}.K8S.ImagePullPolicy":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy"
+  "Components.{{.ComponentName}}.K8S.NodeSelector":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector"
+  "Components.{{.ComponentName}}.K8S.PodDisruptionBudget":
+    outPath: "[PodDisruptionBudget:{{.ResourceName}}].spec"
+  "Components.{{.ComponentName}}.K8S.PodAnnotations":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations"
+  "Components.{{.ComponentName}}.K8S.PriorityClassName":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName."
+  "Components.{{.ComponentName}}.K8S.ReadinessProbe":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe"
+  "Components.{{.ComponentName}}.K8S.ReplicaCount":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.replicas"
+  "Components.{{.ComponentName}}.K8S.Resources":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources"
+  "Components.{{.ComponentName}}.K8S.Strategy":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.strategy"
+  "Components.{{.ComponentName}}.K8S.Tolerations":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"
+  "Components.{{.ComponentName}}.K8S.ServiceAnnotations":
+    outPath: "[Service:{{.ResourceName}}].metadata.annotations"
+  "Components.{{.ComponentName}}.K8S.Service":
+    outPath: "[Service:{{.ResourceName}}].spec"
+globalNamespaces:
+  Pilot:      "istioNamespace"
+  Galley:     "configNamespace"
+  Telemetry:  "telemetryNamespace"
+  Policy:     "policyNamespace"
+  Prometheus: "prometheusNamespace"
+  Citadel:    "securityNamespace"
+
+componentMaps:
+  Base:
+    ToHelmValuesTreeRoot: "global"
+    HelmSubdir:           "base"
+  Pilot:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-pilot"
+    ContainerName:        "discovery"
+    HelmSubdir:           "istio-control/istio-discovery"
+    ToHelmValuesTreeRoot: "pilot"
+  Galley:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-galley"
+    ContainerName:        "galley"
+    HelmSubdir:           "istio-control/istio-config"
+    ToHelmValuesTreeRoot: "galley"
+  SidecarInjector:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-sidecar-injector"
+    ContainerName:        "sidecar-injector-webhook"
+    HelmSubdir:           "istio-control/istio-autoinject"
+    ToHelmValuesTreeRoot: "sidecarInjectorWebhook"
+  Policy:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-policy"
+    ContainerName:        "mixer"
+    HelmSubdir:           "istio-policy"
+    ToHelmValuesTreeRoot: "mixer.policy"
+  Telemetry:
+    ResourceType:        "Deployment"
+    ResourceName:         "istio-telemetry"
+    ContainerName:        "mixer"
+    HelmSubdir:           "istio-telemetry/mixer-telemetry"
+    ToHelmValuesTreeRoot: "mixer.telemetry"
+  Citadel:
+    ResourceType:        "Deployment"
+    ResourceName:         "istio-citadel"
+    ContainerName:        "citadel"
+    HelmSubdir:           "security/citadel"
+    ToHelmValuesTreeRoot: "security"
+  NodeAgent:
+    ResourceType:         "DaemonSet"
+    ResourceName:         "istio-nodeagent"
+    ContainerName:        "nodeagent"
+    HelmSubdir:           "security/nodeagent"
+    ToHelmValuesTreeRoot: "nodeagent"
+  IngressGateways:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-ingressgateway"
+    ContainerName:        "istio-proxy"
+    HelmSubdir:           "gateways/istio-ingress"
+    ToHelmValuesTreeRoot: "gateways.istio-ingressgateway"
+  EgressGateways:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-egressgateway"
+    ContainerName:        "istio-proxy"
+    HelmSubdir:           "gateways/istio-egress"
+    ToHelmValuesTreeRoot: "gateways.istio-egressgateway"
+  Cni:
+    ResourceType:         "DaemonSet"
+    ResourceName:         "istio-cni-node"
+    ContainerName:        "install-cni"
+    HelmSubdir:           "istio-cni"
+    ToHelmValuesTreeRoot: "cni"
+  CoreDNS:
+    ResourceType:         "Deployment"
+    ResourceName:         "istiocoredns"
+    ContainerName:        "coredns"
+    HelmSubdir:           "istiocoredns"
+    ToHelmValuesTreeRoot: "istiocoredns"
+  Tracing:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-tracing"
+    ContainerName:        "jaeger"
+    HelmSubdir:           "istio-telemetry/tracing"
+    ToHelmValuesTreeRoot: "tracing.jaeger"
+  PrometheusOperator:
+    ResourceType:         "Deployment"
+    ResourceName:         "prometheus"
+    ContainerName:        "prometheus"
+    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    ToHelmValuesTreeRoot: "prometheus"
+  Kiali:
+    ResourceType:         "Deployment"
+    ResourceName:         "kiali"
+    ContainerName:        "kiali"
+    HelmSubdir:           "istio-telemetry/kiali"
+    ToHelmValuesTreeRoot: "kiali"
+  Grafana:
+    ResourceType:        "Deployment"
+    ResourceName:         "grafana"
+    ContainerName:        "grafana"
+    HelmSubdir:           "istio-telemetry/grafana"
+    ToHelmValuesTreeRoot: "grafana"
+  Prometheus:
+    ResourceType:         "Deployment"
+    ResourceName:         "prometheus"
+    ContainerName:        "prometheus"
+    HelmSubdir:           "istio-telemetry/prometheus"
+    ToHelmValuesTreeRoot: "prometheus"
+`)
+
+func translateconfigTranslateconfig16YamlBytes() ([]byte, error) {
+	return _translateconfigTranslateconfig16Yaml, nil
+}
+
+func translateconfigTranslateconfig16Yaml() (*asset, error) {
+	bytes, err := translateconfigTranslateconfig16YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/translateConfig-1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   supportedIstioVersions: 1.3.0
   recommendedIstioVersions: 1.3.0
@@ -41788,10 +42141,12 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/separate.yaml":                                                                  profilesSeparateYaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                         translateconfigReversetranslateconfig14Yaml,
 	"translateConfig/reverseTranslateConfig-1.5.yaml":                                         translateconfigReversetranslateconfig15Yaml,
+	"translateConfig/reverseTranslateConfig-1.6.yaml":                                         translateconfigReversetranslateconfig16Yaml,
 	"translateConfig/translate-ICP-IOP-1.5.yaml":                                              translateconfigTranslateIcpIop15Yaml,
 	"translateConfig/translateConfig-1.3.yaml":                                                translateconfigTranslateconfig13Yaml,
 	"translateConfig/translateConfig-1.4.yaml":                                                translateconfigTranslateconfig14Yaml,
 	"translateConfig/translateConfig-1.5.yaml":                                                translateconfigTranslateconfig15Yaml,
+	"translateConfig/translateConfig-1.6.yaml":                                                translateconfigTranslateconfig16Yaml,
 	"versions.yaml":                                                                           versionsYaml,
 }
 
@@ -42180,10 +42535,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.5.yaml": &bintree{translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
+		"reverseTranslateConfig-1.6.yaml": &bintree{translateconfigReversetranslateconfig16Yaml, map[string]*bintree{}},
 		"translate-ICP-IOP-1.5.yaml":      &bintree{translateconfigTranslateIcpIop15Yaml, map[string]*bintree{}},
 		"translateConfig-1.3.yaml":        &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
 		"translateConfig-1.4.yaml":        &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
 		"translateConfig-1.5.yaml":        &bintree{translateconfigTranslateconfig15Yaml, map[string]*bintree{}},
+		"translateConfig-1.6.yaml":        &bintree{translateconfigTranslateconfig16Yaml, map[string]*bintree{}},
 	}},
 	"versions.yaml": &bintree{versionsYaml, map[string]*bintree{}},
 }}

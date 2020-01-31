@@ -329,6 +329,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 		delOpts := opts
+		delOpts.Output = ""
 		delOpts.ExtraArgs = []string{"--selector", componentLabel}
 		stdoutDel, stderrDel, err := kubectl.Delete(stdoutGet, &delOpts)
 		stdout += "\n" + stdoutDel
@@ -434,7 +435,7 @@ func applyObjects(objs object.K8sObjects, opts *kubectlcmd.Options, stdout, stde
 		return stdout, stderr, nil
 	}
 
-	objs.Sort(defaultObjectOrder())
+	objs.Sort(DefaultObjectOrder())
 
 	mns, err := objs.JSONManifest()
 	if err != nil {
@@ -458,7 +459,8 @@ func buildComponentApplyOutput(stdout string, stderr string, objects object.K8sO
 	}
 }
 
-func defaultObjectOrder() func(o *object.K8sObject) int {
+// DefaultObjectOrder is default sorting function used to sort k8s objects.
+func DefaultObjectOrder() func(o *object.K8sObject) int {
 	return func(o *object.K8sObject) int {
 		gk := o.Group + "/" + o.Kind
 		switch gk {
