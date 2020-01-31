@@ -4312,6 +4312,29 @@ spec:
                               format: string
                               type: string
                           type: object
+                        withoutHeaders:
+                          additionalProperties:
+                            oneOf:
+                            - required:
+                              - exact
+                            - required:
+                              - prefix
+                            - required:
+                              - regex
+                            properties:
+                              exact:
+                                format: string
+                                type: string
+                              prefix:
+                                format: string
+                                type: string
+                              regex:
+                                format: string
+                                type: string
+                            type: object
+                          description: withoutHeader has the same syntax with the
+                            header, but has opposite meaning.
+                          type: object
                       type: object
                     type: array
                   mirror:
@@ -5743,6 +5766,82 @@ spec:
               type: array
             selector:
               description: Optional.
+              properties:
+                matchLabels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
+          type: object
+      type: object
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    istio: security
+    release: istio
+  name: peerauthentications.security.istio.io
+spec:
+  group: security.istio.io
+  names:
+    categories:
+    - istio-io
+    - security-istio-io
+    kind: PeerAuthentication
+    listKind: PeerAuthenticationList
+    plural: peerauthentications
+    singular: peerauthentication
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: PeerAuthentication defines how traffic will be tunneled (or
+            not) to the sidecar.
+          properties:
+            mtls:
+              description: Mutual TLS settings for workload.
+              properties:
+                mode:
+                  description: Defines the mTLS mode used for peer authentication.
+                  enum:
+                  - UNSET
+                  - DISABLE
+                  - PERMISSIVE
+                  - STRICT
+                  type: string
+              type: object
+            portLevelMtls:
+              additionalProperties:
+                properties:
+                  mode:
+                    description: Defines the mTLS mode used for peer authentication.
+                    enum:
+                    - UNSET
+                    - DISABLE
+                    - PERMISSIVE
+                    - STRICT
+                    type: string
+                type: object
+              description: Port specific mutual TLS settings.
+              type: object
+            selector:
+              description: The selector determines the workloads to apply the ChannelAuthentication
+                on.
               properties:
                 matchLabels:
                   additionalProperties:
@@ -14709,6 +14808,62 @@ spec:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-metadata-exchange-1.6
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener: {}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.metadata_exchange
+          config:
+            protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.6.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+---
 {{- if .Values.telemetry.v2.prometheus.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -14818,6 +14973,104 @@ spec:
                     local:
                       inline_string: envoy.wasm.stats
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-stats-filter-1.6
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+---
+
 {{- end }}
 
 {{- if .Values.telemetry.v2.stackdriver.enabled }}
@@ -15107,8 +15360,7 @@ pilot:
 
   # This is used to set the source of configuration for
   # the associated address in configSource, if nothing is specificed
-  # the default MCP is assumed. The alternative option is SERVICE_REGISTRY
-  # which describes the source is only forwarding synthetic service entries
+  # the default MCP is assumed.
   configSource:
     subscribedResources: []
 

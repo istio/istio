@@ -16,17 +16,21 @@ package security
 
 import (
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
+	"istio.io/istio/tests/integration/security/util/authn"
 	"istio.io/istio/tests/integration/security/util/connection"
 	rbacUtil "istio.io/istio/tests/integration/security/util/rbac_util"
 )
@@ -350,5 +354,177 @@ func TestV1beta1_Deny(t *testing.T) {
 			defer g.DeleteConfigOrFail(t, rootNS{}, policyNSRoot...)
 
 			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestV1beta1_Deny tests the authorization policy with negative match.
+func TestV1beta1_NegativeMatch(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-negative-match-1",
+				Inject: true,
+			})
+			ns2 := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-negative-match-2",
+				Inject: true,
+			})
+
+			args := map[string]string{
+				"Namespace":  ns.Name(),
+				"Namespace2": ns2.Name(),
+			}
+
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				g.ApplyConfigOrFail(t, ns, policy...)
+				return policy
+			}
+
+			policies := applyPolicy("testdata/rbac/v1beta1-negative-match.yaml.tmpl", nil)
+			defer g.DeleteConfigOrFail(t, nil, policies...)
+
+			var a, b, c, d, x echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
+				With(&x, util.EchoConfig("x", ns2, false, nil, g, p)).
+				BuildOrFail(t)
+
+			newTestCase := func(from, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: from,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+
+			// a, b, c and d are in the same namespace and x is in a different namespace.
+			// a connects to b, c and d with mTLS.
+			// x connects to b and c with mTLS, to d with plain-text.
+			cases := []rbacUtil.TestCase{
+				// Test the policy with overlapped `paths` and `not_paths` on b.
+				// a and x should have the same results:
+				// - path with prefix `/prefix` should be denied explicitly.
+				// - path `/prefix/whitelist` should be excluded from the deny.
+				// - path `/allow` should be allowed implicitly.
+				newTestCase(a, b, "/prefix", false),
+				newTestCase(a, b, "/prefix/other", false),
+				newTestCase(a, b, "/prefix/whitelist", true),
+				newTestCase(a, b, "/allow", true),
+				newTestCase(x, b, "/prefix", false),
+				newTestCase(x, b, "/prefix/other", false),
+				newTestCase(x, b, "/prefix/whitelist", true),
+				newTestCase(x, b, "/allow", true),
+
+				// Test the policy that denies other namespace on c.
+				// a should be allowed because it's from the same namespace.
+				// x should be denied because it's from a different namespace.
+				newTestCase(a, c, "/", true),
+				newTestCase(x, c, "/", false),
+
+				// Test the policy that denies plain-text traffic on d.
+				// a should be allowed because it's using mTLS.
+				// x should be denied because it's using plain-text.
+				newTestCase(a, d, "/", true),
+				newTestCase(x, d, "/", false),
+			}
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestV1beta1_IngressGateway tests the authorization policy on ingress gateway.
+func TestV1beta1_IngressGateway(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-ingress-gateway",
+				Inject: true,
+			})
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": rootNamespace,
+			}
+
+			applyPolicy := func(filename string) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				g.ApplyConfigOrFail(t, nil, policy...)
+				return policy
+			}
+			policies := applyPolicy("testdata/rbac/v1beta1-ingress-gateway.yaml.tmpl")
+			defer g.DeleteConfigOrFail(t, nil, policies...)
+
+			var b echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				BuildOrFail(t)
+
+			var ingr ingress.Instance
+			var err error
+			if ingr, err = ingress.New(ctx, ingress.Config{
+				Istio: ist,
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			cases := []struct {
+				Name     string
+				Host     string
+				Path     string
+				WantCode int
+			}{
+				{
+					Name:     "allow www.company.com",
+					Host:     "www.company.com",
+					Path:     "/",
+					WantCode: 200,
+				},
+				{
+					Name:     "deny www.company.com/private",
+					Host:     "www.company.com",
+					Path:     "/private",
+					WantCode: 403,
+				},
+				{
+					Name:     "allow www.company.com/public",
+					Host:     "www.company.com",
+					Path:     "/public",
+					WantCode: 200,
+				},
+				{
+					Name:     "deny internal.company.com",
+					Host:     "internal.company.com",
+					Path:     "/",
+					WantCode: 403,
+				},
+				{
+					Name:     "deny internal.company.com/private",
+					Host:     "internal.company.com",
+					Path:     "/private",
+					WantCode: 403,
+				},
+			}
+
+			for _, tc := range cases {
+				t.Run(tc.Name, func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, func() error {
+						return authn.CheckIngress(ingr, tc.Host, tc.Path, "", tc.WantCode)
+					},
+						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+				},
+				)
+			}
 		})
 }

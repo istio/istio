@@ -439,10 +439,8 @@ operator-test:
 .PHONY: mixer-test
 mixer-test: mixer-racetest
 
-# Galley test is not using -race yet. See https://github.com/istio/istio/issues/20110
 .PHONY: galley-test
-galley-test:
-	go test ${T} ./galley/...
+galley-test: galley-racetest
 
 .PHONY: security-test
 security-test: security-racetest
