@@ -568,11 +568,6 @@ func (s *Server) getSpiffeeCert(namespace, san string) (*tls.Certificate, *crede
 
 // initialize secureGRPCServer
 func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options, namespace string, san string) error {
-	certDir := features.CertDir
-	if certDir == "" {
-		certDir = PilotCertDir
-	}
-
 	certificate, tlsCreds, ca, err := s.getSpiffeeCert(namespace, san)
 	if err != nil {
 		return fmt.Errorf("failed to get certs for secure listener: %v", err)
