@@ -27,6 +27,7 @@ import (
 
 const (
 	// Legacy addon components
+	// TODO: move this to versioned config file
 	PrometheusComponentName name.ComponentName = "Prometheus"
 	KialiComponentName      name.ComponentName = "Kiali"
 	GrafanaComponentName    name.ComponentName = "Grafana"

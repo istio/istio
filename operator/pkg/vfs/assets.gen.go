@@ -39200,7 +39200,7 @@ var _translateconfigTranslateconfig15Yaml = []byte(`apiMapping:
     outPath: "global.tag"
   K8SDefaults:
     outPath: "global.resources"
-  DefaultNamespace:
+  MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
   Revision:
     outPath: "global.revision"
@@ -39247,108 +39247,126 @@ componentMaps:
   Base:
     ToHelmValuesTreeRoot: "global"
     HelmSubdir:           "base"
+    SkipReverseTranslate: true
   Pilot:
     ResourceType:         "Deployment"
     ResourceName:         "istio-pilot"
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"
+    SkipReverseTranslate: false
   Galley:
     ResourceType:         "Deployment"
     ResourceName:         "istio-galley"
     ContainerName:        "galley"
     HelmSubdir:           "istio-control/istio-config"
     ToHelmValuesTreeRoot: "galley"
+    SkipReverseTranslate: false
   SidecarInjector:
     ResourceType:         "Deployment"
     ResourceName:         "istio-sidecar-injector"
     ContainerName:        "sidecar-injector-webhook"
     HelmSubdir:           "istio-control/istio-autoinject"
     ToHelmValuesTreeRoot: "sidecarInjectorWebhook"
+    SkipReverseTranslate: false
   Policy:
     ResourceType:         "Deployment"
     ResourceName:         "istio-policy"
     ContainerName:        "mixer"
     HelmSubdir:           "istio-policy"
     ToHelmValuesTreeRoot: "mixer.policy"
+    SkipReverseTranslate: false
   Telemetry:
     ResourceType:        "Deployment"
     ResourceName:         "istio-telemetry"
     ContainerName:        "mixer"
     HelmSubdir:           "istio-telemetry/mixer-telemetry"
     ToHelmValuesTreeRoot: "mixer.telemetry"
+    SkipReverseTranslate: false
   Citadel:
     ResourceType:        "Deployment"
     ResourceName:         "istio-citadel"
     ContainerName:        "citadel"
     HelmSubdir:           "security/citadel"
     ToHelmValuesTreeRoot: "security"
+    SkipReverseTranslate: false
   NodeAgent:
     ResourceType:         "DaemonSet"
     ResourceName:         "istio-nodeagent"
     ContainerName:        "nodeagent"
     HelmSubdir:           "security/nodeagent"
     ToHelmValuesTreeRoot: "nodeagent"
+    SkipReverseTranslate: false
   CertManager:
     ResourceType:        "Deployment"
     ResourceName:         "certmanager"
     ContainerName:        "certmanager"
     HelmSubdir:           "security/certmanager"
     ToHelmValuesTreeRoot: "certmanager"
+    SkipReverseTranslate: true
   IngressGateways:
     ResourceType:         "Deployment"
     ResourceName:         "istio-ingressgateway"
     ContainerName:        "istio-proxy"
     HelmSubdir:           "gateways/istio-ingress"
     ToHelmValuesTreeRoot: "gateways.istio-ingressgateway"
+    SkipReverseTranslate: false
   EgressGateways:
     ResourceType:         "Deployment"
     ResourceName:         "istio-egressgateway"
     ContainerName:        "istio-proxy"
     HelmSubdir:           "gateways/istio-egress"
     ToHelmValuesTreeRoot: "gateways.istio-egressgateway"
+    SkipReverseTranslate: false
   Cni:
     ResourceType:         "DaemonSet"
     ResourceName:         "istio-cni-node"
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
+    SkipReverseTranslate: false
   CoreDNS:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"
     HelmSubdir:           "istiocoredns"
     ToHelmValuesTreeRoot: "istiocoredns"
+    SkipReverseTranslate: false
   Tracing:
     ResourceType:         "Deployment"
     ResourceName:         "istio-tracing"
     ContainerName:        "jaeger"
     HelmSubdir:           "istio-telemetry/tracing"
     ToHelmValuesTreeRoot: "tracing.jaeger"
+    SkipReverseTranslate: false
   PrometheusOperator:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
     HelmSubdir:           "istio-telemetry/prometheus-operator"
     ToHelmValuesTreeRoot: "prometheus"
+    SkipReverseTranslate: true
   Kiali:
     ResourceType:         "Deployment"
     ResourceName:         "kiali"
     ContainerName:        "kiali"
     HelmSubdir:           "istio-telemetry/kiali"
     ToHelmValuesTreeRoot: "kiali"
+    SkipReverseTranslate: false
   Grafana:
     ResourceType:        "Deployment"
     ResourceName:         "grafana"
     ContainerName:        "grafana"
     HelmSubdir:           "istio-telemetry/grafana"
     ToHelmValuesTreeRoot: "grafana"
+    SkipReverseTranslate: false
   Prometheus:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
     HelmSubdir:           "istio-telemetry/prometheus"
     ToHelmValuesTreeRoot: "prometheus"
+    SkipReverseTranslate: false
 `)
 
 func translateconfigTranslateconfig15YamlBytes() ([]byte, error) {

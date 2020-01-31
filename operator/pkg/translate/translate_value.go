@@ -83,10 +83,9 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 	for valKey, outVal := range ts.APIMapping {
 		t.APIMapping[outVal.OutPath] = &Translation{valKey, nil}
 	}
-
 	for cn, cm := range ts.ComponentMaps {
 		// we use dedicated translateGateway for gateway instead
-		if !skipTranslate[cn] && !cn.IsDeprecatedName() && !cn.IsGateway() {
+		if !skipTranslate[cn] && !cm.SkipReverseTranslate && !cn.IsGateway() {
 			t.ValuesToComponentName[cm.ToHelmValuesTreeRoot] = cn
 		}
 	}
@@ -151,7 +150,9 @@ func NewReverseTranslator(minorVersion version.MinorVersion) (*ReverseTranslator
 	v := fmt.Sprintf("%s.%d", minorVersion.MajorVersion, minorVersion.Minor)
 	f := "translateConfig/reverseTranslateConfig-" + v + ".yaml"
 	b, err := vfs.ReadFile(f)
-
+	if err != nil {
+		return nil, fmt.Errorf("could not read translate configs: %v", err)
+	}
 	rt := &ReverseTranslator{}
 	err = yaml.Unmarshal(b, rt)
 	if err != nil {
