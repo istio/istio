@@ -685,7 +685,7 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{
 		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind(): {
+			collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count-1",

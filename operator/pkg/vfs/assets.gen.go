@@ -15239,8 +15239,7 @@ pilot:
 
   # This is used to set the source of configuration for
   # the associated address in configSource, if nothing is specificed
-  # the default MCP is assumed. The alternative option is SERVICE_REGISTRY
-  # which describes the source is only forwarding synthetic service entries
+  # the default MCP is assumed.
   configSource:
     subscribedResources: []
 
