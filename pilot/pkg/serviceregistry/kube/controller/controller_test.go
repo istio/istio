@@ -1019,6 +1019,33 @@ func TestController_Service(t *testing.T) {
 	}
 }
 
+func TestExternalNameServiceInstances(t *testing.T) {
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
+			defer controller.Stop()
+			createExternalNameService(controller, "svc5", "nsA",
+				[]int32{1, 2, 3}, "foo.co", t, fx.Events)
+
+			converted, err := controller.Services()
+			if err != nil || len(converted) != 1 {
+				t.Fatalf("failed to get services (%v): %v", converted, err)
+			}
+			instances, err := controller.InstancesByPort(converted[0], 1, labels.Collection{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(instances) != 1 {
+				t.Fatalf("expected 1 instance, got %v", instances)
+			}
+			if instances[0].ServicePort.Port != 1 {
+				t.Fatalf("expected port 1, got %v", instances[0].ServicePort.Port)
+			}
+		})
+	}
+}
+
 func TestController_ExternalNameService(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
@@ -1085,6 +1112,18 @@ func TestController_ExternalNameService(t *testing.T) {
 				},
 				{
 					Hostname: kube.ServiceHostname("svc4", "nsA", domainSuffix),
+					Ports: model.PortList{
+						&model.Port{
+							Name:     "tcp-port",
+							Port:     8083,
+							Protocol: protocol.TCP,
+						},
+					},
+					MeshExternal: true,
+					Resolution:   model.DNSLB,
+				},
+				{
+					Hostname: kube.ServiceHostname("svc5", "nsA", domainSuffix),
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
