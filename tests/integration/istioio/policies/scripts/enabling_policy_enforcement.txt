@@ -18,19 +18,6 @@ set -e
 set -u
 set -o pipefail
 
-POLICY_CHECK=$(kubectl -n istio-system get cm istio -o jsonpath="{@.data.mesh}" | grep disablePolicyChecks)
-
-# If policy enforcement is enabled (disablePolicyChecks is false), no further action is needed.
-isPolicyEnforcementEnable() {
-    set -f -- ${POLICY_CHECK}
-    if [ $1 == "disablePolicyChecks:" ] && [ $2 == "false" ]; then
-        exit 0
-    fi
-}
-
-# Invoke function to verify if policy enforcement is enabled
-isPolicyEnforcementEnable
-
 # $snippet check_policy_enforcement_status.sh syntax="bash"
 $ kubectl -n istio-system get cm istio -o jsonpath="{@.data.mesh}" | grep disablePolicyChecks
 # $verify
@@ -38,11 +25,8 @@ disablePolicyChecks: true
 # $endsnippet
 
 # $snippet update_config_for_policy_enforcement.sh syntax="bash"
-$ istioctl manifest apply --set values.global.disablePolicyChecks=false --set values.pilot.policy.enabled=true
+$ istioctl manifest apply --set values.global.disablePolicyChecks=false --set values.pilot.policy.enabled=true --wait
 # $endsnippet
-
-# wait for configuration to apply
-sleep 15
 
 # $snippet validate_policy_enforcement_status.sh syntax="bash"
 $ kubectl -n istio-system get cm istio -o jsonpath="{@.data.mesh}" | grep disablePolicyChecks
