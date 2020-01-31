@@ -17,7 +17,6 @@ package istiocontrolplane
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,10 +84,9 @@ func TestIOPController_SwitchProfile(t *testing.T) {
 			targetProfile:  "demo",
 		},
 	}
-	for i, c := range cases {
-		t.Run(strconv.Itoa(i)+":"+c.description, func(t *testing.T) {
-			testSwitchProfile(t, c)
-		})
+	for _, c := range cases {
+		helmreconciler.FlushObjectCaches()
+		testSwitchProfile(t, c)
 	}
 }
 func testSwitchProfile(t *testing.T, c testCase) {
@@ -127,7 +125,7 @@ func testSwitchProfile(t *testing.T, c testCase) {
 	}
 	res, err := r.Reconcile(req)
 	if err != nil {
-		t.Fatalf("reconcile: (%v)", err)
+		t.Fatalf("%s: reconcile: (%v)", c.description, err)
 	}
 	// check IOP status
 	succeed, err := checkIOPStatus(cl, req.NamespacedName, c.initialProfile)
