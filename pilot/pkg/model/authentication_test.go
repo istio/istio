@@ -458,9 +458,8 @@ func createTestConfigs() []*Config {
 		}),
 		createTestRequestAuthenticationResource("default", "foo", nil),
 		createTestRequestAuthenticationResource("default", "bar", nil),
-		createTestRequestAuthenticationResource("with-selector", "foo", selector))
-
-	configs = append(configs, createTestPeerAuthenticationResource("default", rootNamespace, nil),
+		createTestRequestAuthenticationResource("with-selector", "foo", selector),
+		createTestPeerAuthenticationResource("default", rootNamespace, nil),
 		createTestPeerAuthenticationResource("global-peer-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
 			MatchLabels: map[string]string{
 				"app":     "httpbin",
