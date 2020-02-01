@@ -115,6 +115,62 @@ func TestPodCache(t *testing.T) {
 	})
 }
 
+// Regression test for https://github.com/istio/istio/issues/20676
+func TestIPReuse(t *testing.T) {
+	c, fx := newFakeController(t)
+	defer c.Stop()
+	initTestEnv(t, c.client, fx)
+
+	cache.WaitForCacheSync(c.stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
+		c.services.informer.HasSynced, c.endpoints.informer.HasSynced)
+
+	createPod(t, c, "128.0.0.1", "pod")
+	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+
+	// Change the pod IP. This can happen if the pod moves to another node, for example.
+	createPod(t, c, "128.0.0.2", "pod")
+	if p, f := c.pods.getPodKey("128.0.0.2"); !f || p != "ns/pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+	if p, f := c.pods.getPodKey("128.0.0.1"); f {
+		t.Fatalf("expected no pod, got pod: %v", p)
+	}
+
+	// A new pod is created with the old IP. We should get new-pod, not pod
+	createPod(t, c, "128.0.0.1", "new-pod")
+	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/new-pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+
+	// A new pod is created with the same IP. In theory this should never happen, but maybe we miss an update somehow.
+	createPod(t, c, "128.0.0.1", "another-pod")
+	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/another-pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+
+	err := c.client.CoreV1().Pods("ns").Delete("another-pod", &metav1.DeleteOptions{})
+	if err != nil {
+		t.Fatalf("Cannot delete pod: %v", err)
+	}
+	if err := wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		if _, ok := c.pods.getPodKey("128.0.0.1"); ok {
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+}
+
+func createPod(t *testing.T, c *Controller, ip, name string) {
+	addPods(t, c, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
+	if err := waitForPod(c, ip); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func waitForPod(c *Controller, ip string) error {
 	return wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		c.pods.RLock()

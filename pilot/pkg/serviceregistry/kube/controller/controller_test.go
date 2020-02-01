@@ -1317,9 +1317,19 @@ func deleteExternalNameService(controller *Controller, name, namespace string, t
 
 func addPods(t *testing.T, controller *Controller, pods ...*coreV1.Pod) {
 	for _, pod := range pods {
-		newPod, err := controller.client.CoreV1().Pods(pod.Namespace).Create(pod)
-		if err != nil {
-			t.Errorf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
+		p, e := controller.client.CoreV1().Pods(pod.Namespace).Get(pod.Name, metaV1.GetOptions{})
+		var newPod *coreV1.Pod
+		var err error
+		if p == nil || e != nil {
+			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Create(pod)
+			if err != nil {
+				t.Errorf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
+			}
+		} else {
+			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Update(pod)
+			if err != nil {
+				t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
+			}
 		}
 		// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
 		// events - since PodIP will be "".
