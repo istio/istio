@@ -878,10 +878,10 @@ func CheckK8sVersion(opts *kubectlcmd.Options) error {
 // checkK8sVersion checks if the client and server versions are supported in CompatibilityMapping
 func checkK8sVersion(vmap *pkgversion.CompatibilityMapping, cVer, sVer *goversion.Version) error {
 	if cVer == nil {
-		return fmt.Errorf("failed to get k8s client version, please check if kubectl is correctly installed")
+		return fmt.Errorf("failed to get Kubernetes client version, please check if kubectl is correctly installed")
 	}
 	if sVer == nil {
-		return fmt.Errorf("failed to get k8s server version, please check if the k8s context is configured")
+		return fmt.Errorf("failed to get Kubernetes server version, please check if the k8s context is configured")
 	}
 	if vmap.K8sClientVersionRange != nil && !vmap.K8sClientVersionRange.Check(cVer) {
 		return fmt.Errorf("failed to meet the requirements of kubectl version for Istio %s: "+
