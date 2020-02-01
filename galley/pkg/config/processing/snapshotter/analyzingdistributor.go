@@ -106,7 +106,7 @@ func NewAnalyzingDistributor(s AnalyzingDistributorSettings) *AnalyzingDistribut
 // Distribute implements snapshotter.Distributor
 func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 	// Keep the most recent snapshot for each snapshot group we care about for analysis so we can combine them
-	// For analysis, we want default and synthetic, and we can safely combine them since they are disjoint.
+	// For analysis, we want default, and we can safely combine them since they are disjoint.
 	if d.isAnalysisSnapshot(name) {
 		d.snapshotsMu.Lock()
 		d.lastSnapshots[name] = s
