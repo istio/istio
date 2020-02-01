@@ -1808,11 +1808,7 @@ var _datasetSecurityV1beta1PeerauthenticationInvalidYaml = []byte(`apiVersion: "
 kind: "PeerAuthentication"
 metadata:
   name: invalid-peer-authentication
-spec:
-  selector:
-    matchLabels:
-      app: httpbin
-      version: v1`)
+spec:`)
 
 func datasetSecurityV1beta1PeerauthenticationInvalidYamlBytes() ([]byte, error) {
 	return _datasetSecurityV1beta1PeerauthenticationInvalidYaml, nil
