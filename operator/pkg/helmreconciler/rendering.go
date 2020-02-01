@@ -224,7 +224,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 
 	// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR crName and no
 	// other controller is allowed to work on at the same time.
-
+	var deployedObjects int
 	var changedObjects object.K8sObjects
 	var changedObjectKeys []string
 	allObjectsMap := make(map[string]bool)
@@ -236,6 +236,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		if co, ok := objectCache.cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
 			log.Infof("Object %s is unchanged, skip update.", oh)
+			deployedObjects++
 			continue
 		}
 		changedObjects = append(changedObjects, obj)
@@ -256,6 +257,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 			errs = append(errs, err)
 			continue
 		}
+		deployedObjects++
 		log.Infof("Adding object %s to cache.", obj.Hash())
 		// Update the cache with the latest object.
 		objectCache.cache[obj.Hash()] = obj
@@ -273,7 +275,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		delete(objectCache.cache, k)
 	}
 
-	return len(changedObjects), utilerrors.NewAggregate(errs)
+	return deployedObjects, utilerrors.NewAggregate(errs)
 }
 
 // ProcessObject creates or updates an object in the API server depending on whether it already exists.
