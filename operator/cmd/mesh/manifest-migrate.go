@@ -43,7 +43,7 @@ type manifestMigrateArgs struct {
 
 func addManifestMigrateFlags(cmd *cobra.Command, args *manifestMigrateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.namespace, "namespace", "n", defaultNamespace,
-		" Default namespace for output IstioOperator CustomResource")
+		"Default namespace for output IstioOperator custom resource")
 }
 
 func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.Command {

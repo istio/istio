@@ -30,7 +30,7 @@ settings (--set values.global.mtls.enabled=true). See documentation for more inf
 https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb/#IstioControlPlaneSpec`
 	skipConfirmationFlagHelpStr = `skipConfirmation determines whether the user is prompted for confirmation. 
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
-	filenameFlagHelpStr = `Path to file containing IstioOperator CustomResource
+	filenameFlagHelpStr = `Path to file containing IstioOperator custom resource
 This flag can be specified multiple times to overlay multiple files. Multiple files are overlaid in left to right order.`
 )
 

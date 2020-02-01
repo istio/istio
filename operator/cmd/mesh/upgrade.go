@@ -67,7 +67,7 @@ type upgradeArgs struct {
 // addUpgradeFlags adds upgrade related flags into cobra command
 func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename",
-		"f", nil, "Path to file containing IstioControlPlane CustomResource")
+		"f", nil, "Path to file containing IstioOperator custom resource")
 	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
 		"", "URI for operator versions to Istio versions map")
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig",
@@ -85,7 +85,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 		"Apply the upgrade without eligibility checks")
 }
 
-// Upgrade command upgrades Istio control plane in-place with eligibility checks
+// UpgradeCmd upgrades Istio control plane in-place with eligibility checks
 func UpgradeCmd() *cobra.Command {
 	macArgs := &upgradeArgs{}
 	rootArgs := &rootArgs{}

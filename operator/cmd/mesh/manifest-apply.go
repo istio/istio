@@ -61,7 +61,7 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "apply",
-		Short: "Generates and applies an Istio install manifest.",
+		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
 		Long:  "The apply subcommand generates an Istio install manifest and applies it to a cluster.",
 		Example: "istioctl manifest apply  # installs the default profile on the current Kubernetes cluster context\n" +
 			"istioctl manifest apply --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true\n" +
@@ -71,7 +71,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			// Warn users if they use `manifest apply` without any config args.
-			if len(maArgs.inFilename) == 0 && len(maArgs.set) == 0 && !maArgs.skipConfirmation {
+			if len(maArgs.inFilename) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
 				if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
 					cmd.Print("Cancelled.\n")
 					os.Exit(1)

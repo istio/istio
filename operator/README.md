@@ -137,8 +137,9 @@ dlv debug --headless --listen=:2345 --api-version=2 -- server
 
 The CLI and controller share the same API and codebase for generating manifests from the API. You can think of the
 controller as the CLI command `istioctl manifest apply` running in a loop in a pod in the cluster and using the config
-from the in-cluster IstioOperator CustomResource (CR).
+from the in-cluster IstioOperator custom resource (CR).
 There are two major differences:
+
 1. The controller does not accept any dynamic user config through flags. All user interaction is through the
 IstioOperator CR.
 1. The controller has additional logic that mirrors istioctl commands like upgrade, but is driven from the declarative
