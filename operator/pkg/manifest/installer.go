@@ -93,6 +93,21 @@ type ComponentApplyOutput struct {
 
 type CompositeOutput map[name.ComponentName]*ComponentApplyOutput
 
+// ComponentRemoveOutput is used to capture errors and stdout/stderr outputs for a command, per component.
+type ComponentRemoveOutput struct {
+	// Stdout is the stdout output.
+	Stdout string
+	// Stderr is the stderr output.
+	Stderr string
+	// Error is the error output.
+	Err error
+	// Manifest is the manifest removed from the cluster.
+	Manifest string
+}
+
+// CompositeRemoveOutput maps components to the output of 'kubectl delete' upon them
+type CompositeRemoveOutput map[name.ComponentName]*ComponentRemoveOutput
+
 type componentNameToListMap map[name.ComponentName][]name.ComponentName
 type componentTree map[name.ComponentName]interface{}
 
@@ -292,6 +307,7 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 	return out, nil
 }
 
+// ApplyManifest applies a manifest
 func ApplyManifest(componentName name.ComponentName, manifestStr, version string,
 	opts kubectlcmd.Options) (*ComponentApplyOutput, object.K8sObjects) {
 	stdout, stderr := "", ""
@@ -894,4 +910,114 @@ func logAndPrint(v ...interface{}) {
 	s := fmt.Sprintf(v[0].(string), v[1:]...)
 	scope.Infof(s)
 	fmt.Println(s)
+}
+
+// RemoveAll deletes all given manifests using kubectl client.
+func RemoveAll(manifests name.ManifestMap, version pkgversion.Version, opts *kubectlcmd.Options) (CompositeRemoveOutput, error) {
+	scope.Infof("Preparing manifests for these components:")
+	for c := range manifests {
+		scope.Infof("- %s", c)
+	}
+	scope.Infof("Component dependencies tree: \n%s", installTreeString())
+	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+		return nil, err
+	}
+	return removeRecursive(manifests, version, opts)
+}
+
+func removeRecursive(manifests name.ManifestMap, version pkgversion.Version, opts *kubectlcmd.Options) (CompositeRemoveOutput, error) {
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	out := CompositeRemoveOutput{}
+	allAppliedObjects := object.K8sObjects{}
+	for c, m := range manifests {
+		c := c
+		m := m
+		wg.Add(1)
+		go func() {
+			if s := dependencyWaitCh[c]; s != nil {
+				scope.Infof("%s is waiting on a prerequisite...", c)
+				<-s
+				scope.Infof("Prerequisite for %s has completed, proceeding with install.", c)
+			}
+			removeOut, removedObjects := RemoveManifest(c, strings.Join(m, helm.YAMLSeparator), version.String(), *opts)
+			mu.Lock()
+			out[c] = removeOut
+			allAppliedObjects = append(allAppliedObjects, removedObjects...)
+			mu.Unlock()
+
+			// We don't depend on components.  In the future we may (for example, to
+			// preserve controllers until they are no longer needed by resources).
+
+			// Signal all the components that depend on us.
+			for _, ch := range componentDependencies[c] {
+				scope.Infof("unblocking child %s.", ch)
+				dependencyWaitCh[ch] <- struct{}{}
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	return out, nil
+}
+
+// RemoveManifest applies a manifest
+func RemoveManifest(componentName name.ComponentName, manifestStr, version string,
+	opts kubectlcmd.Options) (*ComponentRemoveOutput, object.K8sObjects) {
+	stdout, stderr := "", ""
+	removedObjects := object.K8sObjects{}
+	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifestStr)
+	if err != nil {
+		return buildComponentRemoveOutput(stdout, stderr, removedObjects, err), removedObjects
+	}
+
+	logAndPrint("- Uninstalling manifest for component %s...", componentName)
+
+	// Delete namespaces
+	nsObjects := nsKindObjects(objects)
+	stdout, stderr, err = removeObjects(nsObjects, &opts, stdout, stderr)
+	if err != nil {
+		return buildComponentRemoveOutput(stdout, stderr, removedObjects, err), removedObjects
+	}
+	removedObjects = append(removedObjects, nsObjects...)
+
+	mark := "✔"
+	if err != nil {
+		mark = "✘"
+	}
+
+	logAndPrint("%s Finished removing manifest for component %s.", mark, componentName)
+	if err != nil {
+		return buildComponentRemoveOutput(stdout, stderr, removedObjects, err), removedObjects
+	}
+	return buildComponentRemoveOutput(stdout, stderr, removedObjects, err), removedObjects
+}
+
+func buildComponentRemoveOutput(stdout string, stderr string, objects object.K8sObjects, err error) *ComponentRemoveOutput {
+	manifest, _ := objects.YAMLManifest()
+	return &ComponentRemoveOutput{
+		Stdout:   stdout,
+		Stderr:   stderr,
+		Manifest: manifest,
+		Err:      err,
+	}
+}
+
+func removeObjects(objs object.K8sObjects, opts *kubectlcmd.Options, stdout, stderr string) (string, string, error) {
+	if len(objs) == 0 {
+		return stdout, stderr, nil
+	}
+
+	objs.Sort(DefaultObjectOrder())
+
+	mns, err := objs.JSONManifest()
+	if err != nil {
+		return stdout, stderr, err
+	}
+
+	stdoutApply, stderrApply, err := kubectl.Delete(mns, opts)
+	stdout += "\n" + stdoutApply
+	stderr += "\n" + stderrApply
+
+	return stdout, stderr, err
 }

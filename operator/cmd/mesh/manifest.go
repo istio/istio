@@ -31,6 +31,7 @@ func ManifestCmd() *cobra.Command {
 	macArgs := &manifestApplyArgs{}
 	mvArgs := &manifestVersionsArgs{}
 	mmcArgs := &manifestMigrateArgs{}
+	mucArgs := &manifestUninstallArgs{}
 
 	args := &rootArgs{}
 
@@ -39,6 +40,7 @@ func ManifestCmd() *cobra.Command {
 	mac := manifestApplyCmd(args, macArgs)
 	mvc := manifestVersionsCmd(args, mvArgs)
 	mmc := manifestMigrateCmd(args, mmcArgs)
+	muc := manifestUninstallCmd(args, mucArgs)
 
 	addFlags(mc, args)
 	addFlags(mgc, args)
@@ -46,18 +48,21 @@ func ManifestCmd() *cobra.Command {
 	addFlags(mac, args)
 	addFlags(mvc, args)
 	addFlags(mmc, args)
+	addFlags(muc, args)
 
 	addManifestGenerateFlags(mgc, mgcArgs)
 	addManifestDiffFlags(mdc, mdcArgs)
 	addManifestApplyFlags(mac, macArgs)
 	addManifestVersionsFlags(mvc, mvArgs)
 	addManifestMigrateFlags(mmc, mmcArgs)
+	addManifestUninstallFlags(muc, mucArgs)
 
 	mc.AddCommand(mgc)
 	mc.AddCommand(mdc)
 	mc.AddCommand(mac)
 	mc.AddCommand(mmc)
 	mc.AddCommand(mvc)
+	mc.AddCommand(muc)
 
 	return mc
 }

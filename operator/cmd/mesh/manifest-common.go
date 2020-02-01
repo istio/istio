@@ -234,3 +234,79 @@ func MakeTreeFromSetList(setOverlay []string, force bool, l *Logger) (string, er
 	}
 	return string(out), nil
 }
+
+func genUninstallManifests(setOverlay []string, inFilename []string, force bool, dryRun bool, verbose bool,
+	kubeConfigPath string, context string, l *Logger) error {
+	opts := &kubectlcmd.Options{
+		DryRun:     dryRun,
+		Verbose:    verbose,
+		Kubeconfig: kubeConfigPath,
+		Context:    context,
+	}
+	vopts := *opts
+	if err := manifest.CheckK8sVersion(&vopts); err != nil {
+		l.logAndError(err)
+	}
+
+	overlayFromSet, err := MakeTreeFromSetList(setOverlay, force, l)
+	if err != nil {
+		return fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
+	}
+
+	kubeconfig, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context)
+	if err != nil {
+		return err
+	}
+
+	manifests, iops, err := GenManifests(inFilename, overlayFromSet, force, kubeconfig, l)
+	if err != nil {
+		return fmt.Errorf("failed to generate manifest: %v", err)
+	}
+
+	for _, cn := range name.DeprecatedNames {
+		DeprecatedComponentManifest := fmt.Sprintf("# %s component has been deprecated.\n", cn)
+		manifests[cn] = append(manifests[cn], DeprecatedComponentManifest)
+	}
+
+	out, err := manifest.RemoveAll(manifests, version.OperatorBinaryVersion, opts)
+	if err != nil {
+		return fmt.Errorf("failed to uninstall manifest with kubectl client: %v", err)
+	}
+	gotError := false
+	skippedComponentMap := map[name.ComponentName]bool{}
+	for cn := range manifests {
+		enabledInSpec, err := translate.IsComponentEnabledInSpec(cn, iops)
+		if err != nil {
+			l.logAndPrintf("failed to check if %s is enabled in IstioOperatorSpec: %v", cn, err)
+		}
+		// Skip the output of a component when it is disabled
+		// and not pruned (indicated by applied manifest out[cn].Manifest).
+		if !enabledInSpec && out[cn].Err == nil && out[cn].Manifest == "" {
+			skippedComponentMap[cn] = true
+		}
+	}
+
+	for cn := range manifests {
+		if out[cn].Err != nil {
+			cs := fmt.Sprintf("Component %s - manifest apply returned the following errors:", cn)
+			l.logAndPrintf("\n%s", cs)
+			l.logAndPrint("Error: ", out[cn].Err, "\n")
+			gotError = true
+		} else if skippedComponentMap[cn] {
+			continue
+		}
+
+		if !ignoreError(out[cn].Stderr) {
+			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n", out[cn].Stdout, "\n")
+			gotError = true
+		}
+	}
+
+	if gotError {
+		l.logAndPrint("\n\n✘ Errors were logged during uninstall operation. Please check component installation logs above.\n")
+		return fmt.Errorf("errors were logged during uninstall operation")
+	}
+
+	l.logAndPrint("\n\n✔ Uninstall complete\n")
+	return nil
+}
