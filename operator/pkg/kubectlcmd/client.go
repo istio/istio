@@ -110,8 +110,10 @@ func (c *Client) GetConfigMap(name string, opts *Options) (string, string, error
 
 // Version runs the `kubectl version` and return stdout and stderr
 func (c *Client) Version(opts *Options) (string, string, error) {
-	opts.Output = "yaml"
-	return c.kubectl([]string{"version"}, opts)
+	verOpts := *opts
+	verOpts.Output = "yaml"
+	verOpts.DryRun = false
+	return c.kubectl([]string{"version"}, &verOpts)
 }
 
 // kubectl runs the `kubectl` command by specifying subcommands in subcmds with opts.
