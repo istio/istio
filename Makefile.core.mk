@@ -205,6 +205,7 @@ ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
 
+include operator/operator.mk
 
 .PHONY: default
 default: init build test
@@ -351,7 +352,7 @@ go-gen:
 gen-charts:
 	@operator/scripts/run_update_charts.sh
 
-gen: go-gen mirror-licenses format update-crds gen-charts
+gen: go-gen mirror-licenses format update-crds gen-charts operator-proto
 
 gen-check: gen check-clean-repo
 
