@@ -180,7 +180,7 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 		pluginLog.Errora("federated token response does not have access token", string(body))
 		return respData, errors.New("federated token response does not have access token. " + string(body))
 	}
-	pluginLog.Debug("successfully exchanged a federated token")
+	pluginLog.Infof("Federated token will expire in %d seconds", respData.ExpiresIn)
 	tokenReceivedTime := time.Now()
 	p.tokens.Store(federatedToken, stsservice.TokenInfo{
 		TokenType:  federatedToken,
@@ -304,8 +304,7 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 
 // generateSTSResp takes accessTokenResponse and generates StsResponseParameters in JSON.
 func (p *Plugin) generateSTSResp(atResp *accessTokenResponse) ([]byte, error) {
-	exp := time.Time{}
-	err := exp.UnmarshalJSON([]byte(atResp.ExpireTime))
+	exp, err := time.Parse(time.RFC3339Nano, atResp.ExpireTime)
 	// Default token life time is 3600 seconds
 	var expireInSec int64 = 3600
 	if err != nil {
@@ -321,6 +320,10 @@ func (p *Plugin) generateSTSResp(atResp *accessTokenResponse) ([]byte, error) {
 		ExpiresIn:       expireInSec,
 	}
 	statusJSON, err := json.MarshalIndent(stsRespParam, "", " ")
+	if pluginLog.DebugEnabled() {
+		stsRespParam.AccessToken = "redacted"
+		pluginLog.Infof("Populated STS response parameters: %+v", stsRespParam)
+	}
 	return statusJSON, err
 }
 
