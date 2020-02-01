@@ -83,6 +83,11 @@ func TestIOPController_SwitchProfile(t *testing.T) {
 			initialProfile: "default",
 			targetProfile:  "demo",
 		},
+		{
+			description:    "apply same profile twice",
+			initialProfile: "default",
+			targetProfile:  "default",
+		},
 	}
 	for _, c := range cases {
 		helmreconciler.FlushObjectCaches()
