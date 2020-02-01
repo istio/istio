@@ -34,6 +34,7 @@ const (
 	serviceRoleBindingFile = "testdata/servicerolebinding.yaml"
 	serviceRoleFile        = "testdata/servicerole.yaml"
 	invalidFile            = "testdata/invalid.yaml"
+	dirWithConfig          = "testdata/some-dir/"
 )
 
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
@@ -82,6 +83,49 @@ func TestFileOnly(t *testing.T) {
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, serviceRoleBindingFile, serviceRoleFile)
 			expectNoMessages(t, g, output)
 			g.Expect(err).To(BeNil())
+		})
+}
+
+func TestDirectoryWithoutRecursion(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			// Recursive is false, so we should only analyze
+			// testdata/some-dir/missing-gateway.yaml and get a
+			// SchemaValidationError (if we did recurse, we'd get a
+			// UnknownAnnotation as well).
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=false", dirWithConfig)
+			expectMessages(t, g, output, msg.SchemaValidationError)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+		})
+}
+
+func TestDirectoryWithRecursion(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			// Recursive is true, so we should see two errors (SchemaValidationError and UnknownAnnotation).
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
+			expectMessages(t, g, output, msg.SchemaValidationError, msg.UnknownAnnotation)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
 

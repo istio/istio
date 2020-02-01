@@ -80,6 +80,7 @@ var (
 	allNamespaces     bool
 	suppress          []string
 	analysisTimeout   time.Duration
+	recursive         bool
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -325,6 +326,8 @@ istioctl analyze -L
 			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
 	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
 		"the duration to wait before failing")
+	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
+		"If true, recurse into directories when a directory is provided as an argument")
 	return analysisCmd
 }
 
@@ -333,33 +336,45 @@ func gatherFiles(args []string) ([]local.ReaderSource, error) {
 	for _, f := range args {
 		var r *os.File
 
+		// Handle "-" as stdin as a special case.
 		if f == "-" {
 			if isatty.IsTerminal(os.Stdin.Fd()) {
 				fmt.Fprint(os.Stderr, "Reading from stdin:\n")
 			}
 			r = os.Stdin
-		} else {
-			fm, err := os.Stat(f)
+			readers = append(readers, local.ReaderSource{Name: f, Reader: r})
+			continue
+		}
+
+		fi, err := os.Stat(f)
+		if err != nil {
+			return nil, err
+		}
+
+		if fi.IsDir() {
+			dirReaders, err := gatherFilesInDirectory(f)
 			if err != nil {
 				return nil, err
 			}
-			if fm.IsDir() {
-				dirReaders, err := gatherFilesInDirectory(f)
-				if err != nil {
-					return nil, err
-				}
-				readers = append(readers, dirReaders...)
-			} else {
-				r, err = os.Open(f)
-				if err != nil {
-					return nil, err
-				}
-				runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
+			readers = append(readers, dirReaders...)
+		} else {
+			rs, err := gatherFile(f)
+			if err != nil {
+				return nil, err
 			}
+			readers = append(readers, rs)
 		}
-		readers = append(readers, local.ReaderSource{Name: f, Reader: r})
 	}
 	return readers, nil
+}
+
+func gatherFile(f string) (local.ReaderSource, error) {
+	r, err := os.Open(f)
+	if err != nil {
+		return local.ReaderSource{}, err
+	}
+	runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
+	return local.ReaderSource{Name: f, Reader: r}, nil
 }
 
 func gatherFilesInDirectory(dir string) ([]local.ReaderSource, error) {
@@ -369,7 +384,12 @@ func gatherFilesInDirectory(dir string) ([]local.ReaderSource, error) {
 		if err != nil {
 			return err
 		}
+		// If we encounter a directory, recurse only if the --recursve option
+		// was provided and the directory is not the same as dir.
 		if info.IsDir() {
+			if !recursive && dir != path {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
