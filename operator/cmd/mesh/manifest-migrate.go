@@ -109,6 +109,7 @@ func translateFunc(values []byte, force bool, l *Logger) error {
 
 	// Not IstioControlPlane, try Helm values.yaml.
 	mvs := binversion.OperatorBinaryVersion.MinorVersion
+	
 	ts, err := translate.NewReverseTranslator(mvs)
 	if err != nil {
 		return fmt.Errorf("error creating values.yaml translator: %s", err)
