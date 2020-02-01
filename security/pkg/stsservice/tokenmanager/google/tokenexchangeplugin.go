@@ -311,7 +311,7 @@ func (p *Plugin) generateSTSResp(atResp *accessTokenResponse) ([]byte, error) {
 		pluginLog.Errorf("Failed to unmarshal timestamp %s from access token response, "+
 			"fall back to use default lifetime (3600 seconds): %v", atResp.ExpireTime, err)
 	} else {
-		expireInSec = int64(exp.Sub(time.Now()).Seconds())
+		expireInSec = int64(time.Until(exp).Seconds())
 	}
 	stsRespParam := stsservice.StsResponseParameters{
 		AccessToken:     atResp.AccessToken,
