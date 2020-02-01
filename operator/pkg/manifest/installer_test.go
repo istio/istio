@@ -22,8 +22,8 @@ import (
 )
 
 func Test_parseKubectlVersion(t *testing.T) {
-	ver1170, _ := goversion.NewVersion("v1.17.0")
-	ver1157, _ := goversion.NewVersion("v1.15.7")
+	ver1170, _ := goversion.NewVersion("1.17.0")
+	ver1157, _ := goversion.NewVersion("1.15.7")
 	tests := []struct {
 		name          string
 		kubectlStdout string
