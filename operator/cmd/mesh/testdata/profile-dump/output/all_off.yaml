@@ -78,8 +78,6 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
     name: istio-ingressgateway
-  nodeAgent:
-    enabled: false
   pilot:
     enabled: false
     k8s:
@@ -544,8 +542,6 @@ values:
       reportBatchMaxTime: 1s
       sessionAffinityEnabled: false
       tolerations: []
-  nodeagent:
-    image: node-agent-k8s
   pilot:
     appNamespaces: []
     autoscaleEnabled: true
