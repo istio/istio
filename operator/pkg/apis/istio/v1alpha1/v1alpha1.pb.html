@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 91
+number_of_entries: 92
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -6797,8 +6797,10 @@ No
 </tr>
 <tr id="TracerConfig-stackdriver">
 <td><code>stackdriver</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td><code><a href="#TracerStackdriverConfig">TracerStackdriverConfig</a></code></td>
 <td>
+<p>Configuration for the stackdriver tracing service.</p>
+
 </td>
 <td>
 No
@@ -6887,6 +6889,67 @@ No
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 <p>Enables lightstep secure connection.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracerStackdriverConfig">TracerStackdriverConfig</h2>
+<section>
+<p>Configuration for the stackdriver tracing service.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracerStackdriverConfig-debug">
+<td><code>debug</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>enables trace output to stdout.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracerStackdriverConfig-maxNumberOfAttributes">
+<td><code>maxNumberOfAttributes</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>The global default max number of attributes per span.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracerStackdriverConfig-maxNumberOfAnnotations">
+<td><code>maxNumberOfAnnotations</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>The global default max number of annotation events per span.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracerStackdriverConfig-maxNumberOfMessageEvents">
+<td><code>maxNumberOfMessageEvents</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>The global default max number of message events per span.</p>
 
 </td>
 <td>
@@ -7911,6 +7974,11 @@ No
 </tr>
 <tr id="tracer-datadog">
 <td><code>datadog</code></td>
+<td>
+</td>
+</tr>
+<tr id="tracer-stackdriver">
+<td><code>stackdriver</code></td>
 <td>
 </td>
 </tr>
