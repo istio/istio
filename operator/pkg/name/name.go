@@ -66,7 +66,7 @@ const (
 	InjectorComponentName       ComponentName = "Injector"
 	IngressGatewayComponentName ComponentName = "IngressGateway"
 	EgressGatewayComponentName  ComponentName = "EgressGateway"
-	NodeAgentComponentName       ComponentName = "NodeAgent"
+	NodeAgentComponentName      ComponentName = "NodeAgent"
 )
 
 var (
