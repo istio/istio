@@ -267,6 +267,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
 		return nil
 	})
+	if err := s.initNamespaceController(); err != nil {
+		return nil, fmt.Errorf("namespace controller: %v", err)
+	}
 
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
@@ -841,6 +844,24 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 		return err
 	}
 
+	return nil
+}
+
+func (s *Server) initNamespaceController() error {
+	if s.kubeClient == nil {
+		log.Infof("Skipping namespace controller, no kube client configured.")
+		return nil
+	}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		nc, err := NewNamespaceController(s.ca, s.kubeClient.CoreV1(), s.environment.Watcher)
+		if err != nil {
+			log.Warnf("failed to start namespace controller: %v", err)
+		} else {
+			nc.Run(stop)
+			log.Info("namespace controller has started")
+		}
+		return nil
+	})
 	return nil
 }
 

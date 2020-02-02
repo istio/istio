@@ -31,97 +31,7 @@ import (
 const (
 	configMapName = "test-configmap-name"
 	namespaceName = "test-ns"
-	dataName      = "test-data-name"
 )
-
-func TestInsertDataToConfigMap(t *testing.T) {
-	gvr := schema.GroupVersionResource{
-		Resource: "configmaps",
-		Version:  "v1",
-	}
-	testCases := map[string]struct {
-		namespace         string
-		existingConfigMap *v1.ConfigMap
-		data              string
-		expectedActions   []ktesting.Action
-		expectedErr       string
-		client            *fake.Clientset
-	}{
-		"non-existing ConfigMap": {
-			existingConfigMap: nil,
-			data:              "test-data",
-			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvr, namespaceName, configMapName),
-				ktesting.NewCreateAction(gvr, namespaceName, createConfigMap(namespaceName,
-					configMapName, map[string]string{
-						dataName: "test-data"})),
-			},
-			expectedErr: "",
-		},
-		"existing ConfigMap": {
-			namespace:         namespaceName,
-			existingConfigMap: createConfigMap(namespaceName, configMapName, map[string]string{}),
-			data:              "test-data",
-			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvr, namespaceName, configMapName),
-				ktesting.NewUpdateAction(gvr, namespaceName, createConfigMap(namespaceName, configMapName,
-					map[string]string{dataName: "test-data"})),
-			},
-			expectedErr: "",
-		},
-		"namespace not specified": {
-			namespace:         "",
-			existingConfigMap: createConfigMap("", configMapName, map[string]string{}),
-			data:              "test-data",
-			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvr, namespaceName, configMapName),
-				ktesting.NewUpdateAction(gvr, namespaceName, createConfigMap("", configMapName,
-					map[string]string{dataName: "test-data"})),
-			},
-			expectedErr: "",
-		},
-		"creation failure for ConfigMap": {
-			existingConfigMap: nil,
-			data:              "test-data",
-			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvr, namespaceName, configMapName),
-				ktesting.NewCreateAction(gvr, namespaceName, createConfigMap(namespaceName, configMapName,
-					map[string]string{dataName: "test-data"})),
-			},
-			expectedErr: fmt.Sprintf("error when creating configmap %v: no permission to create configmap",
-				configMapName),
-			client: creatConfigMapDisabledClient(),
-		},
-	}
-
-	for id, tc := range testCases {
-		var client *fake.Clientset
-		if tc.client == nil {
-			client = fake.NewSimpleClientset()
-		} else {
-			client = tc.client
-		}
-		if tc.existingConfigMap != nil {
-			if _, err := client.CoreV1().ConfigMaps(tc.namespace).Create(tc.existingConfigMap); err != nil {
-				t.Errorf("test case [%s]: failed to create configmap %v", id, err)
-			}
-		}
-		client.ClearActions()
-		err := InsertDataToConfigMap(client.CoreV1(), tc.namespace, tc.data, configMapName,
-			dataName)
-		if err != nil && err.Error() != tc.expectedErr {
-			t.Errorf("test case [%s]: actual error (%s) different from expected error (%s).",
-				id, err.Error(), tc.expectedErr)
-		}
-		if err == nil {
-			if tc.expectedErr != "" {
-				t.Errorf("test case [%s]: expecting error %s but got no error", id, tc.expectedErr)
-			} else if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
-				t.Errorf("test case [%s]: %v", id, err)
-			}
-		}
-	}
-}
 
 func TestInsertDataToConfigMapWithRetry(t *testing.T) {
 	gvr := schema.GroupVersionResource{
@@ -131,51 +41,50 @@ func TestInsertDataToConfigMapWithRetry(t *testing.T) {
 	testCases := map[string]struct {
 		namespace         string
 		existingConfigMap *v1.ConfigMap
-		data              string
+		data              map[string]string
 		expectedActions   []ktesting.Action
 		expectedErr       string
 		client            *fake.Clientset
 	}{
 		"non-existing ConfigMap": {
 			existingConfigMap: nil,
-			data:              "test-data",
+			data:              map[string]string{"test-key": "test-value"},
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(gvr, namespaceName, configMapName),
-				ktesting.NewCreateAction(gvr, namespaceName, createConfigMap(namespaceName,
-					configMapName, map[string]string{
-						dataName: "test-data"})),
+				ktesting.NewCreateAction(gvr, namespaceName, createConfigMap(namespaceName, configMapName,
+					map[string]string{"test-key": "test-value"})),
 			},
 			expectedErr: "",
 		},
 		"existing ConfigMap": {
 			namespace:         namespaceName,
 			existingConfigMap: createConfigMap(namespaceName, configMapName, map[string]string{}),
-			data:              "test-data",
+			data:              map[string]string{"test-key1": "test-value1", "test-key2": "test-value2"},
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(gvr, namespaceName, configMapName),
 				ktesting.NewUpdateAction(gvr, namespaceName, createConfigMap(namespaceName, configMapName,
-					map[string]string{dataName: "test-data"})),
+					map[string]string{"test-key1": "test-value1", "test-key2": "test-value2"})),
 			},
 			expectedErr: "",
 		},
 		"namespace not specified": {
 			namespace:         "",
 			existingConfigMap: createConfigMap("", configMapName, map[string]string{}),
-			data:              "test-data",
+			data:              map[string]string{"test-key": "test-value"},
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(gvr, namespaceName, configMapName),
 				ktesting.NewUpdateAction(gvr, namespaceName, createConfigMap("", configMapName,
-					map[string]string{dataName: "test-data"})),
+					map[string]string{"test-key": "test-value"})),
 			},
 			expectedErr: "",
 		},
 		"creation failure for ConfigMap": {
 			existingConfigMap: nil,
-			data:              "test-data",
+			data:              map[string]string{"test-key": "test-value"},
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(gvr, namespaceName, configMapName),
 				ktesting.NewCreateAction(gvr, namespaceName, createConfigMap(namespaceName, configMapName,
-					map[string]string{dataName: "test-data"})),
+					map[string]string{"test-key": "test-value"})),
 			},
 			expectedErr: fmt.Sprintf("error when creating configmap %v: no permission to create configmap",
 				configMapName),
@@ -196,8 +105,8 @@ func TestInsertDataToConfigMapWithRetry(t *testing.T) {
 			}
 		}
 		client.ClearActions()
-		err := InsertDataToConfigMapWithRetry(client.CoreV1(), tc.namespace, tc.data, configMapName,
-			dataName, 1*time.Second, 2*time.Second)
+		err := InsertDataToConfigMapWithRetry(client.CoreV1(), tc.namespace, configMapName,
+			tc.data, 1*time.Second, 2*time.Second)
 		if err != nil && err.Error() != tc.expectedErr {
 			t.Errorf("test case [%s]: actual error (%s) different from expected error (%s).",
 				id, err.Error(), tc.expectedErr)

@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"text/template"
@@ -64,6 +65,7 @@ const (
 	trustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
 	localHostIPv4      = "127.0.0.1"
 	localHostIPv6      = "[::1]"
+	istioConfigPath    = "./etc/istio/config"
 )
 
 // TODO: Move most of this to pkg.
@@ -221,7 +223,10 @@ var (
 				tlsClientCertChain, tlsClientKey, tlsClientRootCert,
 			}
 
-			proxyConfig := mesh.DefaultProxyConfig()
+			proxyConfig, err := getDefaultProxyConfig()
+			if err != nil {
+				return err
+			}
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
@@ -566,6 +571,23 @@ var (
 		},
 	}
 )
+
+func getDefaultProxyConfig() (meshconfig.ProxyConfig, error) {
+	p := filepath.Join(istioConfigPath, constants.MeshConfigNamespaceConfigMapDataName)
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		log.Infof("Mesh Config file not found, using defaults")
+		return mesh.DefaultProxyConfig(), nil
+	}
+	m, err := mesh.ReadMeshConfig(p)
+	if err != nil {
+		return meshconfig.ProxyConfig{}, fmt.Errorf("failed to read mesh config: %v", err)
+	}
+	proxyconfig := m.GetDefaultConfig()
+	if proxyconfig == nil {
+		return meshconfig.ProxyConfig{}, fmt.Errorf("nil proxy config: %v", m)
+	}
+	return *proxyconfig, nil
+}
 
 // dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {

@@ -174,8 +174,8 @@ spec:
             cpu: 100m
             memory: 128Mi
         volumeMounts:
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        - mountPath: /etc/istio/config
+          name: istio-config
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
@@ -191,8 +191,8 @@ spec:
       serviceAccountName: istio-egressgateway-service-account
       volumes:
       - configMap:
-          name: istio-ca-root-cert
-        name: citadel-ca-cert
+          name: istio-config
+        name: istio-config
       - name: istio-token
         projected:
           sources:

@@ -33,7 +33,7 @@ import (
 // value: the value of the data to insert.
 // configName: the name of the configmap.
 // dataName: the name of the data in the configmap.
-func InsertDataToConfigMap(client corev1.ConfigMapsGetter, namespace, value, configName, dataName string) error {
+func InsertDataToConfigMap(client corev1.ConfigMapsGetter, namespace, configName string, data map[string]string) error {
 	configmap, err := client.ConfigMaps(namespace).Get(configName, metav1.GetOptions{})
 	exists := true
 	if err != nil {
@@ -51,7 +51,9 @@ func InsertDataToConfigMap(client corev1.ConfigMapsGetter, namespace, value, con
 			return fmt.Errorf("error when getting configmap %v: %v", configName, err)
 		}
 	}
-	configmap.Data[dataName] = value
+	for k, v := range data {
+		configmap.Data[k] = v
+	}
 	if exists {
 		if _, err = client.ConfigMaps(namespace).Update(configmap); err != nil {
 			return fmt.Errorf("error when updating configmap %v: %v", configName, err)
@@ -73,11 +75,11 @@ func InsertDataToConfigMap(client corev1.ConfigMapsGetter, namespace, value, con
 // dataName: the name of the data in the configmap.
 // retryInterval: the retry interval.
 // timeout: the timeout for the retry.
-func InsertDataToConfigMapWithRetry(client corev1.ConfigMapsGetter, namespace, value,
-	configName, dataName string, retryInterval, timeout time.Duration) error {
+func InsertDataToConfigMapWithRetry(client corev1.ConfigMapsGetter, namespace,
+	configName string, data map[string]string, retryInterval, timeout time.Duration) error {
 	start := time.Now()
 	for {
-		err := InsertDataToConfigMap(client, namespace, value, configName, dataName)
+		err := InsertDataToConfigMap(client, namespace, configName, data)
 		if err == nil {
 			return nil
 		}

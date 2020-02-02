@@ -159,8 +159,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          - mountPath: /etc/istio/config
+            name: istio-config
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
@@ -177,9 +177,9 @@ spec:
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
       volumes:
-      - name: citadel-ca-cert
+      - name: istio-config
         configMap:
-          name: istio-ca-root-cert
+          name: istio-config
       - name: ingressgatewaysdsudspath
         emptyDir: {}
       - name: istio-token

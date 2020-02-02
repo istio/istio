@@ -117,6 +117,10 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 	return &defaultConfig, nil
 }
 
+func MarshalMeshConfig(m *meshconfig.MeshConfig) (string, error) {
+	return gogoprotomarshal.ToYAML(m)
+}
+
 // ApplyMeshConfigDefaults returns a new MeshConfig decoded from the
 // input YAML with defaults applied to omitted configuration values.
 func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {

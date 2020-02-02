@@ -215,14 +215,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopC
 		log.Warnf("Failed to start GRPC server with error: %v", serverErr)
 	}
 	log.Info("Istiod CA has started")
-
-	nc, err := NewNamespaceController(ca, s.kubeClient.CoreV1())
-	if err != nil {
-		log.Warnf("failed to start istiod namespace controller, error: %v", err)
-	} else {
-		nc.Run(stopCh)
-		log.Info("istiod namespace controller has started")
-	}
 }
 
 type jwtAuthenticator struct {

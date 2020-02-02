@@ -87,5 +87,6 @@ const (
 	IstioMeshGateway = "mesh"
 
 	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
-	CACertNamespaceConfigMapDataName = "ca-cert-ns.pem"
+	CACertNamespaceConfigMapDataName     = "ca-cert-ns.pem"
+	MeshConfigNamespaceConfigMapDataName = "mesh.yaml"
 )

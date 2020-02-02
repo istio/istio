@@ -77,7 +77,7 @@ var (
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 
 	// CitadelCACertPath is the directory for Citadel CA certificate.
-	CitadelCACertPath = "./etc/istio/citadel-ca-cert"
+	CitadelCACertPath = "./etc/istio/config"
 )
 
 const (

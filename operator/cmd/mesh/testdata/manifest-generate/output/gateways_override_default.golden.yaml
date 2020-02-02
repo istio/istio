@@ -640,8 +640,8 @@ spec:
             cpu: 111m
             memory: 222Mi
         volumeMounts:
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        - mountPath: /etc/istio/config
+          name: istio-config
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
@@ -659,8 +659,8 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
       - configMap:
-          name: istio-ca-root-cert
-        name: citadel-ca-cert
+          name: istio-config
+        name: istio-config
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token

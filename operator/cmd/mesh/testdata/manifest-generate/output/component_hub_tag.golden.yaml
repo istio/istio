@@ -6563,8 +6563,8 @@ spec:
             cpu: 100m
             memory: 128Mi
         volumeMounts:
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        - mountPath: /etc/istio/config
+          name: istio-config
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
@@ -6582,8 +6582,8 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
       - configMap:
-          name: istio-ca-root-cert
-        name: citadel-ca-cert
+          name: istio-config
+        name: istio-config
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token
@@ -8107,10 +8107,8 @@ data:
       {{- end }}
         {{  end -}}
         volumeMounts:
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
-        {{- end }}
+        - mountPath: /etc/istio/config
+          name: istio-config
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
@@ -8153,11 +8151,9 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      - name: istio-config
         configMap:
-          name: istio-ca-root-cert
-      {{- end }}
+          name: istio-config
       - name: istio-certs
         secret:
           optional: true
