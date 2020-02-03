@@ -107,13 +107,13 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - "*.gateway.com"
+    - "some-external-site.com"
   - port:
       number: 443
       name: https
       protocol: TLS
     hosts:
-    - "*.gateway.com"
+    - "some-external-site.com"
     tls:
       mode: PASSTHROUGH
 
@@ -124,7 +124,7 @@ metadata:
   name: route-via-egressgateway
 spec:
   hosts:
-    - "*.gateway.com"
+    - "some-external-site.com"
   gateways:
   - istio-egressgateway
   - mesh
@@ -293,7 +293,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				{
 					name:     "HTTP Traffic Egress",
 					portName: "http",
-					host:     "foo.gateway.com",
+					host:     "some-external-site.com",
 					gateway:  true,
 				},
 				// TODO add HTTPS through gateway
