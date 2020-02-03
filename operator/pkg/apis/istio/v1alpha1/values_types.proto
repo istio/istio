@@ -602,7 +602,10 @@ message GlobalConfig {
   // Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   string jwtPolicy = 57;
 
-  // The next available key is 58
+  // Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.
+  google.protobuf.BoolValue SecretVolumeMtlsCertsEnabled = 4;
+
+  // The next available key is 59
 }
 
 
