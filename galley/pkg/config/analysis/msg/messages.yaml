@@ -218,3 +218,18 @@ messages:
         type: int
       - name: targetPort
         type: string
+
+  - name: "JwtFailureDueToInvalidServicePortPrefix"
+    code: IST0119
+    level: Warning
+    description: "Authentication policy with JWT targets Service with invalid port specification."
+    template: "Authentication policy with JWT targets Service with invalid port specification (port: %d, name: %s, protocol: %s, targetPort: %s)."
+    args:
+      - name: port
+        type: int
+      - name: portName
+        type: string
+      - name: protocol
+        type: string
+      - name: targetPort
+        type: string
