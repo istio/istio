@@ -1208,21 +1208,26 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
 		}
 	}
-	// convert to transport socket matcher if the mode was auto detected
-	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
-		transportSocket := cluster.TransportSocket
-		cluster.TransportSocket = nil
-		cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
-			{
-				Name: "tlsMode-" + model.IstioMutualTLSModeLabel,
-				Match: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
+
+	// For headless service, discover type will be `Cluster_ORIGINAL_DST`, and corresponding LbPolicy is `Cluster_CLUSTER_PROVIDED`
+	// Apply auto mtls to clusters excluding these kind of headless service
+	if cluster.LbPolicy != apiv2.Cluster_CLUSTER_PROVIDED {
+		// convert to transport socket matcher if the mode was auto detected
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
+			transportSocket := cluster.TransportSocket
+			cluster.TransportSocket = nil
+			cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
+				{
+					Name: "tlsMode-" + model.IstioMutualTLSModeLabel,
+					Match: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
+						},
 					},
+					TransportSocket: transportSocket,
 				},
-				TransportSocket: transportSocket,
-			},
-			defaultTransportSocketMatch,
+				defaultTransportSocketMatch,
+			}
 		}
 	}
 }

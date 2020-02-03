@@ -18,12 +18,14 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
+
+	util2 "k8s.io/kubectl/pkg/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
-	kubectl "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
@@ -40,6 +42,27 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
+
+// ObjectCache is a cache of objects.
+type ObjectCache struct {
+	// cache is a cache keyed by object Hash() function.
+	cache map[string]*object.K8sObject
+	mu    *sync.RWMutex
+}
+
+var (
+	// objectCaches holds the latest copy of each object applied by the controller, keyed by the IstioOperator CR name
+	// and the object Hash() function.
+	objectCaches   = make(map[string]*ObjectCache)
+	objectCachesMu sync.RWMutex
+)
+
+// FlushObjectCaches flushes all K8s object caches.
+func FlushObjectCaches() {
+	objectCachesMu.Lock()
+	defer objectCachesMu.Unlock()
+	objectCaches = make(map[string]*ObjectCache)
+}
 
 func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, error) {
 	iop, ok := in.GetInputConfig().(*valuesv1alpha1.IstioOperator)
@@ -174,20 +197,89 @@ func unmarshalAndValidateIOPSpec(iopsYAML string) (*v1alpha1.IstioOperatorSpec, 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
 func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error) {
 	var errs []error
-	log.Infof("Processing resources from manifest: %s", manifest.Name)
-	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
+	crName := h.instance.Name + "-" + manifest.Name
+	log.Infof("Processing resources from manifest: %s for CR %s", manifest.Name, crName)
+	allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 	if err != nil {
 		return 0, err
 	}
-	for _, obj := range objects {
-		err = h.ProcessObject(manifest.Name, obj.UnstructuredObject())
-		if err != nil {
-			errs = append(errs, err)
+
+	objectCachesMu.Lock()
+
+	// Create and/or get the cache corresponding to the CR crName we're processing. Per crName partitioning is required to
+	// prune the cache to remove any objects not in the manifest generated for a given CR.
+	if objectCaches[crName] == nil {
+		objectCaches[crName] = &ObjectCache{
+			cache: make(map[string]*object.K8sObject),
+			mu:    &sync.RWMutex{},
 		}
 	}
-	return len(objects), utilerrors.NewAggregate(errs)
+	objectCache := objectCaches[crName]
+
+	objectCachesMu.Unlock()
+
+	// Ensure that for a given CR crName only one control loop uses the per-crName cache at any time.
+	objectCache.mu.Lock()
+	defer objectCache.mu.Unlock()
+
+	// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR crName and no
+	// other controller is allowed to work on at the same time.
+	var deployedObjects int
+	var changedObjects object.K8sObjects
+	var changedObjectKeys []string
+	allObjectsMap := make(map[string]bool)
+
+	// Check which objects in the manifest have changed from those in the cache.
+	for _, obj := range allObjects {
+		oh := obj.Hash()
+		allObjectsMap[oh] = true
+		if co, ok := objectCache.cache[oh]; ok && obj.Equal(co) {
+			// Object is in the cache and unchanged.
+			log.Infof("Object %s is unchanged, skip update.", oh)
+			deployedObjects++
+			continue
+		}
+		changedObjects = append(changedObjects, obj)
+		changedObjectKeys = append(changedObjectKeys, oh)
+	}
+
+	if len(changedObjectKeys) > 0 {
+		log.Infof("Changed object list: \n - %s", strings.Join(changedObjectKeys, "\n - "))
+	} else {
+		log.Infof("No objects changed for this component.")
+	}
+
+	// For each changed object, write it to the API server.
+	for _, obj := range changedObjects {
+		err = h.ProcessObject(manifest.Name, obj.UnstructuredObject())
+		if err != nil {
+			log.Error(err.Error())
+			errs = append(errs, err)
+			continue
+		}
+		deployedObjects++
+		log.Infof("Adding object %s to cache.", obj.Hash())
+		// Update the cache with the latest object.
+		objectCache.cache[obj.Hash()] = obj
+	}
+
+	// Prune anything not in the manifest out of the cache.
+	var removeKeys []string
+	for k := range objectCache.cache {
+		if !allObjectsMap[k] {
+			removeKeys = append(removeKeys, k)
+		}
+	}
+	for _, k := range removeKeys {
+		log.Infof("Pruning object %s from cache.", k)
+		delete(objectCache.cache, k)
+	}
+
+	return deployedObjects, utilerrors.NewAggregate(errs)
 }
 
+// ProcessObject creates or updates an object in the API server depending on whether it already exists.
+// It mutates obj.
 func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstructured) error {
 	if obj.GetKind() == "List" {
 		allErrors := []error{}
@@ -205,58 +297,22 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 		return utilerrors.NewAggregate(allErrors)
 	}
 
-	mutatedObj, err := h.customizer.Listener().BeginResource(chartName, obj)
-	if err != nil {
-		log.Errorf("error preprocessing object: %s", err)
-		return err
-	}
-
-	err = kubectl.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
+	err := util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
 	if err != nil {
 		log.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(mutatedObj.GetObjectKind().GroupVersionKind())
-	objectKey, _ := client.ObjectKeyFromObject(mutatedObj)
+	receiver.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+	objectKey, _ := client.ObjectKeyFromObject(obj)
 
-	var patch Patch
-
-	err = h.client.Get(context.TODO(), objectKey, receiver)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Infof("creating resource: %s", objectKey)
-			err = h.client.Create(context.TODO(), mutatedObj)
-			if err == nil {
-				// special handling
-				if err = h.customizer.Listener().ResourceCreated(mutatedObj); err != nil {
-					log.Errorf("unexpected error occurred during postprocessing of new resource: %s", err)
-				}
-			} else {
-				listenerErr := h.customizer.Listener().ResourceError(mutatedObj, err)
-				if listenerErr != nil {
-					log.Errorf("unexpected error occurred invoking ResourceError on listener: %s", listenerErr)
-				}
-			}
-		}
-	} else if h.needUpdateAndPrune {
-		if patch, err = h.CreatePatch(receiver, mutatedObj); err == nil && patch != nil {
-			log.Info("updating existing resource")
-			mutatedObj, err = patch.Apply()
-			if err == nil {
-				if err = h.customizer.Listener().ResourceUpdated(mutatedObj, receiver); err != nil {
-					log.Errorf("unexpected error occurred during postprocessing of updated resource: %s", err)
-				}
-			} else {
-				listenerErr := h.customizer.Listener().ResourceError(obj, err)
-				if listenerErr != nil {
-					log.Errorf("unexpected error occurred invoking ResourceError on listener: %s", listenerErr)
-				}
-			}
-		}
-	}
-	if err != nil {
-		log.Errorf("error occurred reconciling resource: %s", err)
+	if err = h.client.Get(context.TODO(), objectKey, receiver); apierrors.IsNotFound(err) {
+		log.Infof("creating resource: %s", objectKey)
+		return h.client.Create(context.TODO(), obj)
+	} else if err == nil {
+		log.Infof("updating resource: %s", objectKey)
+		obj.SetResourceVersion(receiver.GetResourceVersion())
+		return h.client.Update(context.TODO(), obj)
 	}
 	return err
 }

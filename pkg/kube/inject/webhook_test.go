@@ -632,6 +632,11 @@ func TestWebhookInject(t *testing.T) {
 			inputFile: "TestWebhookInject_mtls_not_ready.yaml",
 			wantFile:  "TestWebhookInject_mtls_not_ready.patch",
 		},
+		{
+			inputFile:    "TestWebhookInject_validationOrder.yaml",
+			wantFile:     "TestWebhookInject_validationOrder.patch",
+			templateFile: "TestWebhookInject_validationOrder_template.yaml",
+		},
 	}
 
 	for i, c := range cases {
