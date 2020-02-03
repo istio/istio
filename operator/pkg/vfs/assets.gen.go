@@ -205,6 +205,7 @@
 // charts/security/citadel/templates/service.yaml
 // charts/security/citadel/templates/serviceaccount.yaml
 // charts/security/citadel/values.yaml
+// charts/security/nodeagent/templates/daemonset.yaml
 // examples/multicluster/values-istio-multicluster-gateways.yaml
 // examples/multicluster/values-istio-multicluster-primary.yaml
 // examples/user-gateway/ingress-gateway-only.yaml
@@ -38801,6 +38802,98 @@ func chartsSecurityCitadelValuesYaml() (*asset, error) {
 	return a, nil
 }
 
+var _chartsSecurityNodeagentTemplatesDaemonsetYaml = []byte(`apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: istio-nodeagent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-nodeagent
+    istio: nodeagent
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      istio: nodeagent
+  template:
+    metadata:
+      labels:
+        app: istio-nodeagent
+        istio: nodeagent
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        {{- if .Values.nodeagent.podAnnotations }}
+{{ toYaml .Values.nodeagent.podAnnotations | indent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: istio-nodeagent-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: nodeagent
+{{- if contains "/" .Values.nodeagent.image }}
+          image: "{{ .Values.nodeagent.image }}"
+{{- else }}
+          image: "{{ .Values.nodeagent.hub | default .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.nodeagent.tag | default .Values.global.tag }}"
+{{- end }}
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
+          args:
+          {{- if .Values.global.logAsJson }}
+            - --log_as_json
+          {{- end }}
+          volumeMounts:
+            - mountPath: /var/run/sds
+              name: sdsudspath
+          env:
+          {{- if .Values.nodeagent.env }}
+          {{- range $key, $val := .Values.nodeagent.env }}
+            - name: {{ $key }}
+              value: "{{ $val }}"
+          {{- end }}
+          {{- end }}
+            - name: "TRUST_DOMAIN"
+              value: "{{ .Values.global.trustDomain }}"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      volumes:
+        - name: sdsudspath
+          hostPath:
+            path: /var/run/sds
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.nodeagent.tolerations }}
+      tolerations:
+{{ toYaml .Values.nodeagent.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
+  updateStrategy:
+    type: RollingUpdate
+`)
+
+func chartsSecurityNodeagentTemplatesDaemonsetYamlBytes() ([]byte, error) {
+	return _chartsSecurityNodeagentTemplatesDaemonsetYaml, nil
+}
+
+func chartsSecurityNodeagentTemplatesDaemonsetYaml() (*asset, error) {
+	bytes, err := chartsSecurityNodeagentTemplatesDaemonsetYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/security/nodeagent/templates/daemonset.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -41737,6 +41830,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/security/citadel/templates/service.yaml":                                          chartsSecurityCitadelTemplatesServiceYaml,
 	"charts/security/citadel/templates/serviceaccount.yaml":                                   chartsSecurityCitadelTemplatesServiceaccountYaml,
 	"charts/security/citadel/values.yaml":                                                     chartsSecurityCitadelValuesYaml,
+	"charts/security/nodeagent/templates/daemonset.yaml":                                      chartsSecurityNodeagentTemplatesDaemonsetYaml,
 	"examples/multicluster/values-istio-multicluster-gateways.yaml":                           examplesMulticlusterValuesIstioMulticlusterGatewaysYaml,
 	"examples/multicluster/values-istio-multicluster-primary.yaml":                            examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
 	"examples/user-gateway/ingress-gateway-only.yaml":                                         examplesUserGatewayIngressGatewayOnlyYaml,
@@ -42096,6 +42190,11 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"serviceaccount.yaml":      &bintree{chartsSecurityCitadelTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsSecurityCitadelValuesYaml, map[string]*bintree{}},
+			}},
+			"nodeagent": &bintree{nil, map[string]*bintree{
+				"templates": &bintree{nil, map[string]*bintree{
+					"daemonset.yaml": &bintree{chartsSecurityNodeagentTemplatesDaemonsetYaml, map[string]*bintree{}},
+				}},
 			}},
 		}},
 	}},
