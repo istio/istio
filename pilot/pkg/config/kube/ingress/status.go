@@ -98,8 +98,11 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		ingressService:      mesh.IngressService,
 	}
 
-	l.AddRunFunction(st.queue.Run)
-	l.AddRunFunction(st.runUpdateStatus)
+	l.AddRunFunction(func(stop <-chan struct{}) {
+		log.Infof("Starting ingress status controller")
+		go st.queue.Run(stop)
+		go st.runUpdateStatus(stop)
+	})
 
 	return &st, nil
 }
