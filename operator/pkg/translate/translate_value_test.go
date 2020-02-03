@@ -193,8 +193,6 @@ mixer:
     enabled: true
 pilot:
   enabled: true
-nodeagent:
-  enabled: true
 istiocoredns:
   enabled: true
 gateways:
@@ -234,8 +232,6 @@ configManagement:
 security:
   components:
     certManager:
-      enabled: true
-    nodeAgent:
       enabled: true
   enabled: true
 coreDNS:

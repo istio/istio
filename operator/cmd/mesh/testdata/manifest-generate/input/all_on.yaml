@@ -16,8 +16,6 @@ spec:
       enabled: true
     citadel:
       enabled: true
-    nodeAgent:
-      enabled: false
     galley:
       enabled: true
     cni:

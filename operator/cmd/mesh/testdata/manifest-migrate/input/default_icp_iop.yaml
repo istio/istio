@@ -141,8 +141,6 @@ spec:
               maxUnavailable: "25%"
       certManager:
         enabled: false
-      nodeAgent:
-        enabled: false
 
   # Config management feature
   configManagement:
@@ -462,9 +460,6 @@ spec:
       hub: quay.io/jetstack
       tag: v0.6.2
       image: cert-manager-controller
-
-    nodeagent:
-      image: node-agent-k8s
 
     gateways:
       istio-egressgateway:

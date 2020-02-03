@@ -87,8 +87,6 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
       name: istio-ingressgateway
-    nodeAgent:
-      enabled: false
     pilot:
       enabled: true
       k8s:
@@ -531,8 +529,6 @@ spec:
         sessionAffinityEnabled: false
         tolerations: []
         useMCP: true
-    nodeagent:
-      image: node-agent-k8s
     pilot:
       appNamespaces: []
       autoscaleEnabled: true

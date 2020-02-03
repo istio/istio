@@ -2143,7 +2143,7 @@ message Values {
 
   MixerConfig mixer = 8;
 
-  NodeAgentConfig nodeagent = 9;
+  NodeAgentConfig nodeagent = 9 [deprecated=true];
 
   PilotConfig pilot = 10;
 

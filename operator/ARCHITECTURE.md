@@ -100,8 +100,6 @@ security:
   components:
     namespace: istio-security
     citadel:
-    nodeAgent:
-      namespace: istio-security-nodeagent
 policy:
   components:
     policy:
@@ -113,8 +111,6 @@ the resulting namespaces will be:
 | --------- | :-------- |
 policy | istio-system
 citadel | istio-security
-nodeAgent | istio-security-nodeagent
-
 These rules are expressed in code in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L246) package.
 

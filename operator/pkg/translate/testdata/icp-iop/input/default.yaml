@@ -134,8 +134,6 @@ spec:
               maxUnavailable: "25%"
       certManager:
         enabled: false
-      nodeAgent:
-        enabled: false
 
   # Config management feature
   configManagement:

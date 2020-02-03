@@ -6616,8 +6616,6 @@ spec:
         - "*/*"
 ---
 
-# NodeAgent component is disabled.
-
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:

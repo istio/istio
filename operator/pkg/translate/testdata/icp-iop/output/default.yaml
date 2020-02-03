@@ -87,8 +87,6 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
       name: istio-ingressgateway
-    nodeAgent:
-      enabled: false
     pilot:
       enabled: true
       k8s:
