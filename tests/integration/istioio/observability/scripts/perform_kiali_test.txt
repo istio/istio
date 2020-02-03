@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+# Copyright 2020 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+# Setup port-forwarding to Kiali pod as it is not accessible from outside
+# the cluster, but commands are run from outside the cluster.
+function setup_kiali_port_forwarding() {
+  local local_port=$1
+  local kiali_pod=$(kubectl get pod -l app=kiali -n istio-system | grep 'kiali' | head -1 | awk '{ print $1 }')
+  local kiali_port=$(kubectl get service kiali -n istio-system -o jsonpath='{.spec.ports[?(@.name=="http-kiali")].targetPort}')
+
+  echo "Setting up port-forwarding for Kiali at local port $local_port"
+  kubectl port-forward $kiali_pod $local_port:$kiali_port -n istio-system &
+  KIALI_PORT_FORWARD_PID=$!
+  KIALI_LOCAL_URL="http://localhost:$local_port/kiali/api"
+}
+
+function cleanup_kiali_port_forwarding() {
+  local exit_code=$?
+  echo "Exited with $exit_code"
+  echo "Stopping port-forward for Kiali"
+  if [ -z $KIALI_PORT_FORWARD_PID ]; then
+    echo 'It seems that Kiali port-forward PID is not set up properly'
+    kill -9 $(netstat -ntpl | grep '127.0.0.1:8888' | awk '{ print $7 }' | cut -d'/' -f1)
+  else
+    kill -9 $KIALI_PORT_FORWARD_PID
+  fi
+  exit $exit_code
+}
+
+echo "Setting up port forwarding from 8888 to Kiali's API port"
+setup_kiali_port_forwarding 8888 # TODO: Pick a random unused port
+
+echo "Register clean up task for Kiali port-forward on exit"
+trap cleanup_kiali_port_forwarding EXIT
+
+# Allow port-forwarding to be setup in the background
+sleep 4
+
+# Login to Kiali using demo secret and save the token
+echo "Obtain token for accessing Kiali API"
+DEMO_SECRET='YWRtaW46YWRtaW4='
+API_TOKEN=$(curl -H "Authorization: Basic $DEMO_SECRET" $KIALI_LOCAL_URL/authenticate | jq -r '.token')
+if [ -z $API_TOKEN ]; then
+  echo 'Failed to obtain auth token for Kiali'
+  exit 1
+fi
+
+# Attaches JWT obtained from Kiali and send
+# API request to Kiali 
+function curl_with_kiali_cred() {
+  local api_path=$1
+  curl -H "Authorization: Bearer $API_TOKEN" $KIALI_LOCAL_URL/$api_path
+}
+
+echo "Checking Kiali state. Make sure it is running"
+KIALI_STATE=$(curl_with_kiali_cred status | jq -r '.status."Kiali state"') 
+if [ $KIALI_STATE != "running" ]; then 
+  echo "kiali is not running. So no point in proceeding further"
+  exit 1; 
+fi
+
+# # Get ingress host and port
+echo "Determine ingress host and port"
+export INGRESS_HOST={{ .ingressHostCommand }}
+export INGRESS_PORT={{ .ingressPortCommand }}
+export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
+echo "Ingress gateway URL = $GATEWAY_URL"
+
+# # Send a few requests to bookinfo application
+echo "Send a few requests to bookinfo application"
+for i in {1..20}; do
+  STATUS_CODE=$(curl -w '%{http_code}' http://$GATEWAY_URL/productpage)
+  if (($STATUS_CODE != 200)); then
+    echo "expected status 200, but got $STATUS_CODE"
+    exit 1
+  fi
+done
+
+# TODO: Write Kiali tests after this.

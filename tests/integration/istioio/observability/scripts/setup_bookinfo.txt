@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+
+# Copyright 2020 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+# $snippet automatic_sidecar_injection.sh syntax="bash"
+$ kubectl create namespace istio-io-bookinfo
+$ kubectl label namespace istio-io-bookinfo istio-injection=enabled
+# $endsnippet
+
+# $snippet deploy_bookinfo_application.sh syntax="bash"
+$ kubectl apply -f @samples/bookinfo/platform/kube/bookinfo.yaml@ -n istio-io-bookinfo
+# $endsnippet
+
+# $snippet verify_service.sh syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl get services -n istio-io-bookinfo
+# $verify verifier="lineRegex"
+NAME *TYPE *CLUSTER-IP *EXTERNAL-IP *PORT\(S\) *AGE
+details *ClusterIP *[0-9.]* *.none. *9080/TCP
+productpage *ClusterIP *[0-9.]* *.none. *9080/TCP
+ratings *ClusterIP *[0-9.]* *.none. *9080/TCP
+reviews *ClusterIP *[0-9.]* *.none. *9080/TCP
+# $endsnippet
+
+kubectl wait --for=condition=available deployment --all --timeout=300s --namespace istio-io-bookinfo
+kubectl wait --for=condition=Ready pod --all --timeout=300s --namespace istio-io-bookinfo
+
+# $snippet verify_pods.sh syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl get pods -n istio-io-bookinfo
+# $verify verifier="lineRegex"
+NAME *READY *STATUS *RESTARTS *AGE
+details-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+productpage-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+ratings-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+reviews-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+reviews-v2-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+reviews-v3-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+# $endsnippet
+
+# $snippet check_bookinfo_running.sh outputis="text"
+$ kubectl exec {{ .inputTerminalFlag }} $(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}' -n istio-io-bookinfo) \
+    -n istio-io-bookinfo -c ratings -- curl productpage:9080/productpage {{ .redirectToStdout }} | grep -o "<title>.*</title>"
+# $verify
+<title>Simple Bookstore App</title>
+# $endsnippet
+
+# $snippet deploy_bookinfo_ingressgateway.sh
+$ kubectl apply -f @samples/bookinfo/networking/bookinfo-gateway.yaml@ -n istio-io-bookinfo
+# $verify
+gateway.networking.istio.io/bookinfo-gateway created
+virtualservice.networking.istio.io/bookinfo created
+# $endsnippet
+
+# Get ingress host and port
+export INGRESS_HOST={{ .ingressHostCommand }}
+export INGRESS_PORT={{ .ingressPortCommand }}
+export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
+
+echo "Bookinfo app is accessible at http://${GATEWAY_URL}/productpage"
+
+# TODO: Find a better way to reduce flakiness of this test
+# How to make sure that pilot has updated ingress proxy rules?
+sleep 10;
+
+# $snippet confirm_bookinfo_is_accessible_outside.sh
+$ curl -s http://${GATEWAY_URL}/productpage | grep -o "<title>.*</title>"
+# $verify
+<title>Simple Bookstore App</title>
+# $endsnippet
+
+# $snippet deploy_destination_rule_for_subsets.sh
+$ kubectl apply -f @samples/bookinfo/networking/destination-rule-all.yaml@ -n istio-io-bookinfo
+# $verify
+destinationrule.networking.istio.io/productpage created
+destinationrule.networking.istio.io/reviews created
+destinationrule.networking.istio.io/ratings created
+destinationrule.networking.istio.io/details created
+# $endsnippet
