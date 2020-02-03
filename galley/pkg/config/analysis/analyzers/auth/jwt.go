@@ -85,11 +85,13 @@ func (j *JwtAnalyzer) analyzeServiceTarget(r *resource.Instance, ctx analysis.Co
 	policy := r.Message.(*v1alpha1.Policy)
 	ns := r.Metadata.FullName.Namespace
 
+	// nolint: staticcheck
 	for _, origin := range policy.Origins {
 		if origin.GetJwt() == nil {
 			continue
 		}
 
+		// nolint: staticcheck
 		for _, target := range policy.GetTargets() {
 			fqdn := util.ConvertHostToFQDN(ns, target.GetName())
 			svc, ok := nsm[fqdn]

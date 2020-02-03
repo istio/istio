@@ -88,7 +88,8 @@ var testGrid = []testCase{
 			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-without-specified-ports.namespace-port-missing-prefix"},
 			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-udp-target-port.namespace-with-non-tcp-protocol"},
 			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-invalid-named-target-port.namespace-with-invalid-named-port"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-valid-named-target-port-invalid-protocol.namespace-with-valid-named-port-invalid-protocol"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix,
+				"Policy policy-with-valid-named-target-port-invalid-protocol.namespace-with-valid-named-port-invalid-protocol"},
 		},
 	},
 	{
