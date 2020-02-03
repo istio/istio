@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/istio/operator/pkg/tpath"
+
 	util2 "k8s.io/kubectl/pkg/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -106,7 +108,7 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 	profile := iop.Profile
 
 	// This contains the IstioOperator CR.
-	baseCRYAML, err := helm.ReadProfileYAML(profile)
+	baseIOPYAML, err := helm.ReadProfileYAML(profile)
 	if err != nil {
 		return nil, fmt.Errorf("could not read the profile values for %s: %s", profile, err)
 	}
@@ -121,15 +123,10 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 		if err != nil {
 			return nil, fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
 		}
-		baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
+		baseIOPYAML, err = util.OverlayYAML(defaultYAML, baseIOPYAML)
 		if err != nil {
 			return nil, fmt.Errorf("could not overlay the profile over the default %s: %s", profile, err)
 		}
-	}
-
-	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML)
-	if err != nil {
-		return nil, err
 	}
 
 	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
@@ -141,13 +138,17 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 		if err != nil {
 			return nil, err
 		}
-		baseYAML, err = util.OverlayYAML(baseYAML, buildHubTagOverlayYAML)
+		baseIOPYAML, err = util.OverlayYAML(baseIOPYAML, buildHubTagOverlayYAML)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	overlayYAML, err := util.MarshalWithJSONPB(iop)
+	if err != nil {
+		return nil, err
+	}
+	baseYAML, err := tpath.GetSpecSubtree(baseIOPYAML)
 	if err != nil {
 		return nil, err
 	}
@@ -162,23 +163,19 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 
 // unmarshalAndValidateIOP unmarshals the IstioOperator in the crYAML string and validates it.
 // If successful, it returns both a struct and string YAML representations of the IstioOperatorSpec embedded in iop.
-func unmarshalAndValidateIOP(crYAML string) (*v1alpha1.IstioOperatorSpec, string, error) {
+func unmarshalAndValidateIOP(iopYAML string) (*valuesv1alpha1.IstioOperator, error) {
 	// TODO: add GroupVersionKind handling as appropriate.
-	if crYAML == "" {
-		return &v1alpha1.IstioOperatorSpec{}, "", nil
+	if iopYAML == "" {
+		return &valuesv1alpha1.IstioOperator{}, nil
 	}
-	iops, _, err := istiomanifest.ParseK8SYAMLToIstioOperatorSpec(crYAML)
+	iop, _, err := istiomanifest.ParseK8SYAMLToIstioOperator(iopYAML)
 	if err != nil {
-		return nil, "", fmt.Errorf("could not parse the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)
+		return nil, fmt.Errorf("could not parse the overlay file: %s\n\nOriginal YAML:\n%s", err, iopYAML)
 	}
-	if errs := validate.CheckIstioOperatorSpec(iops, false); len(errs) != 0 {
-		return nil, "", fmt.Errorf("input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s", errs, crYAML)
+	if errs := validate.CheckIstioOperatorSpec(iop.Spec, false); len(errs) != 0 {
+		return nil, fmt.Errorf("input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s", errs, iopYAML)
 	}
-	iopsYAML, err := util.MarshalWithJSONPB(iops)
-	if err != nil {
-		return nil, "", fmt.Errorf("could not marshal: %s", err)
-	}
-	return iops, iopsYAML, nil
+	return iop, nil
 }
 
 // unmarshalAndValidateIOPSpec unmarshals the IstioOperatorSpec in the iopsYAML string and validates it.

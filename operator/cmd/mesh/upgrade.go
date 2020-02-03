@@ -22,6 +22,7 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 
+	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/hooks"
 	"istio.io/istio/operator/pkg/manifest"
@@ -48,7 +49,7 @@ const (
 )
 
 type upgradeArgs struct {
-	// inFilename is an array of paths to the input IstioOperator CR files.
+	// inFilenames is an array of paths to the input IstioOperator CR files.
 	inFilename []string
 	// versionsURI is a URI pointing to a YAML formatted versions mapping.
 	versionsURI string
@@ -119,7 +120,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
 	// Generate IOPS objects
-	targetIOPSYaml, targetIOPS, err := genIOPS(args.inFilename, "", "", "", args.force, kubeClient.Config, l)
+	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilename, "", args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilename, err)
 	}
@@ -136,7 +137,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 
 	// Get Istio control plane namespace
 	//TODO(elfinhe): support components distributed in multiple namespaces
-	istioNamespace := targetIOPS.MeshConfig.RootNamespace
+	istioNamespace := iop.Namespace(targetIOPS)
 
 	// Read the current Istio version from the the cluster
 	currentVersion, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
@@ -145,14 +146,14 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI)
+	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI, l)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
 	}
 	l.logAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
 
-	// Read the overridden IOPS from args.inFilename
+	// Read the overridden IOPS from args.inFilenames
 	overrideIOPSYaml := ""
 	if args.inFilename != nil {
 		overrideIOPSYaml, err = ReadLayeredYAMLs(args.inFilename)
@@ -161,10 +162,10 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		}
 	}
 
-	// Generates IOPS for args.inFilename IOP specs yaml. Param force is set to true to
+	// Generates IOPS for args.inFilenames IOP specs yaml. Param force is set to true to
 	// skip the validation because the code only has the validation proto for the
 	// target version.
-	currentIOPSYaml, _, err := genIOPS(args.inFilename, "", "", currentVersion, true, kubeClient.Config, l)
+	currentIOPSYaml, _, err := GenerateConfig(args.inFilename, "", true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file: %s for the current version: %s, error: %v",
 			args.inFilename, currentVersion, err)
@@ -185,8 +186,8 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		return fmt.Errorf("failed in pre-upgrade hooks, error: %v", errs.ToError())
 	}
 
-	// Apply the Istio Control Plane specs reading from inFilename to the cluster
-	err = genApplyManifests(nil, args.inFilename, args.force, rootArgs.dryRun,
+	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
+	err = ApplyManifests(nil, args.inFilename, args.force, rootArgs.dryRun,
 		rootArgs.verbose, args.kubeConfigPath, args.context, args.wait, upgradeWaitSecWhenApply, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
@@ -244,7 +245,7 @@ func waitForConfirmation(skipConfirmation bool, l *Logger) {
 }
 
 // checkSupportedVersions checks if the upgrade cur -> tar is supported by the tool
-func checkSupportedVersions(cur, tar, versionsURI string) error {
+func checkSupportedVersions(cur, tar, versionsURI string, l *Logger) error {
 	tarGoVersion, err := goversion.NewVersion(tar)
 	if err != nil {
 		return fmt.Errorf("failed to parse the target version: %v", tar)

@@ -10,7 +10,7 @@ data:
       configPath: /etc/istio/proxy
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istio-pilot.istio-control.svc:15012
+      discoveryAddress: istio-pilot.istio-system.svc:15012
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
@@ -19,7 +19,7 @@ data:
       serviceCluster: istio-proxy
       tracing:
         zipkin:
-          address: zipkin.istio-control:9411
+          address: zipkin.istio-system:9411
     disableMixerHttpReports: true
     disablePolicyChecks: true
     enableAutoMtls: false
@@ -67,7 +67,7 @@ data:
     keepaliveMaxServerConnectionAge: 30m
     meshNetworks:
       networks: {}
-    namespace: istio-control
+    namespace: istio-system
     nodeSelector: {}
     plugins: []
     podAnnotations: {}
@@ -92,5 +92,5 @@ metadata:
   labels:
     release: istio
   name: istio
-  namespace: istio-control
+  namespace: istio-system
 ---

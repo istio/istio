@@ -39829,11 +39829,11 @@ func operatorTemplatesService_accountYaml() (*asset, error) {
 
 var _profilesDefaultYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
+metadata:
+  namespace: istio-system
 spec:
   hub: gcr.io/istio-testing
   tag: latest
-  meshConfig:
-    rootNamespace: istio-system
 
   # Traffic management feature
   components:
@@ -40047,6 +40047,7 @@ spec:
   # Global values passed through to helm global.yaml.
   values:
     global:
+      istioNamespace: istio-system
       istiod:
         enabled: true
       logging:
@@ -41037,7 +41038,6 @@ values.kiali.enabled: addonComponents.kiali.enabled
 values.prometheus.enabled: addonComponents.prometheus.enabled
 values.tracing.enabled: addonComponents.tracing.enabled
 
-defaultNamespace: meshConfig.rootNamespace
 values: values
 unvalidatedValues: unvalidatedValues
 hub: hub
@@ -41907,8 +41907,6 @@ var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   operatorVersionRange: ">=1.5.0,<1.6.0"
   supportedIstioVersions: ">=1.4.0, <1.6"
   recommendedIstioVersions: 1.5.0
-  k8sClientVersionRange: ">=1.14"
-  k8sServerVersionRange: ">=1.14"
 `)
 
 func versionsYamlBytes() ([]byte, error) {
