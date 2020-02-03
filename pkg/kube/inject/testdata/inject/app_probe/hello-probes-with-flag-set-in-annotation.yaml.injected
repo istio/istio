@@ -152,7 +152,7 @@ spec:
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -212,7 +212,7 @@ spec:
         - -d
         - "15020"
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:
