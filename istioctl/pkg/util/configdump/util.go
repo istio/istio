@@ -40,7 +40,7 @@ func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (any.Any, error) {
 		}
 	}
 	if dumpAny.TypeUrl == "" {
-		return any.Any{}, fmt.Errorf("config dump has no route %s", sectionTypeURL)
+		return any.Any{}, fmt.Errorf("config dump has no configuration type %s", sectionTypeURL)
 	}
 
 	return dumpAny, nil

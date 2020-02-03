@@ -24,6 +24,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 const (
@@ -58,16 +59,31 @@ func (l *ListenerFilter) Verify(listener *xdsapi.Listener) bool {
 	return true
 }
 
+// retrieveListenerType classifies a Listener as HTTP|TCP|HTTP+TCP|UNKNOWN
 func retrieveListenerType(l *xdsapi.Listener) string {
+	nHTTP := 0
+	nTCP := 0
 	for _, filterChain := range l.GetFilterChains() {
 		for _, filter := range filterChain.GetFilters() {
 			if filter.Name == HTTPListener {
-				return "HTTP"
+				nHTTP++
 			} else if filter.Name == TCPListener {
-				return "TCP"
+				if !strings.Contains(string(filter.GetTypedConfig().GetValue()), util.BlackHoleCluster) {
+					nTCP++
+				}
 			}
 		}
 	}
+
+	if nHTTP > 0 {
+		if nTCP == 0 {
+			return "HTTP"
+		}
+		return "HTTP+TCP"
+	} else if nTCP > 0 {
+		return "TCP"
+	}
+
 	return "UNKNOWN"
 }
 
