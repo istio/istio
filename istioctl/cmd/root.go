@@ -86,6 +86,9 @@ func GetRootCmd(args []string) *cobra.Command {
 debug and diagnose their Istio mesh.
 `,
 		PersistentPreRunE: istioPersistentPreRunE,
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: true,
+		},
 	}
 
 	rootCmd.SetArgs(args)
