@@ -43,13 +43,20 @@ type LeaderElection struct {
 }
 
 // Run will start leader election, calling all runFns when we become the leader.
-func (l *LeaderElection) Run(stop <-chan struct{}) error {
+func (l *LeaderElection) Run(stop <-chan struct{}, onComplete func()) error {
 	le, err := l.create()
 	if err != nil {
 		return fmt.Errorf("failed to create leader election: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	go le.Run(ctx)
+	go func() {
+		le.Run(ctx)
+		// Register that we have finished leader election
+		// In practice, this typically means we are exiting the process, and should drop our lock
+		if onComplete != nil {
+			onComplete()
+		}
+	}()
 	go func() {
 		<-stop
 		cancel()

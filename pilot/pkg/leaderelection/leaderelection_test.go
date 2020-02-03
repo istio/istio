@@ -30,7 +30,7 @@ func createElection(t *testing.T, name string, expectLeader bool, client kuberne
 		gotLeader <- struct{}{}
 	})
 	stop := make(chan struct{})
-	if err := l.Run(stop); err != nil {
+	if err := l.Run(stop, nil); err != nil {
 		t.Fatal(err)
 	}
 

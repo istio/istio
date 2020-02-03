@@ -153,6 +153,11 @@ type Server struct {
 	webhookCertMu sync.Mutex
 	webhookCert   *tls.Certificate
 	jwtPath       string
+
+	// requiredTerminations keeps track of components that should block server exit if they are not stopped
+	// This allows important cleanup tasks to be completed.
+	// Note: this is still best effort; a process can die at any time.
+	requiredTerminations sync.WaitGroup
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -273,7 +278,12 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	})
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		return s.leaderElection.Run(stop)
+		// We mark this as a required termination as an optimization. Without this, when we exit the lock is
+		// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
+		s.requiredTerminations.Add(1)
+		return s.leaderElection.Run(stop, func() {
+			s.requiredTerminations.Done()
+		})
 	})
 
 	// TODO: don't run this if galley is started, one ctlz is enough
@@ -345,6 +355,12 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	s.cleanupOnStop(stop)
 
 	return nil
+}
+
+// WaitUntilCompletion waits for everything marked as a "required termination" to complete.
+// This should be called before exiting.
+func (s *Server) WaitUntilCompletion() {
+	s.requiredTerminations.Wait()
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
@@ -698,10 +714,10 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 				s.secureGRPCServerDNS.Stop()
 				_ = s.secureHTTPServerDNS.Close()
 			} else {
-				s.secureGRPCServerDNS.GracefulStop()
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				_ = s.secureHTTPServerDNS.Shutdown(ctx)
+				s.secureGRPCServerDNS.Stop()
 			}
 		}()
 		return nil
