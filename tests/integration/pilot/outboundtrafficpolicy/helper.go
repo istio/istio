@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -91,6 +92,92 @@ spec:
     - "{{.ImportNamespace}}/*"
     - "istio-system/*"
 `
+
+	Gateway = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-egressgateway
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "some-external-site.com"
+  - port:
+      number: 443
+      name: https
+      protocol: TLS
+    hosts:
+    - "some-external-site.com"
+    tls:
+      mode: PASSTHROUGH
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route-via-egressgateway
+spec:
+  hosts:
+    - "some-external-site.com"
+  gateways:
+  - istio-egressgateway
+  - mesh
+  http:
+    - match:
+      - gateways:
+        - mesh # from sidecars, route to egress gateway service
+        port: 80
+      route:
+      - destination:
+          host: istio-egressgateway.istio-system.svc.cluster.local
+          port:
+            number: 80
+        weight: 100
+    - match:
+      - gateways:
+        - istio-egressgateway
+        port: 80
+      route:
+      - destination:
+          host: destination.{{.AppNamespace}}.svc.cluster.local
+          port:
+            number: 80
+        weight: 100
+      headers:
+        request:
+          add:
+            handled-by-egress-gateway: "true"
+    - match:
+      - gateways:
+        - mesh # from sidecars, route to egress gateway service
+        port: 443
+      route:
+      - destination:
+          host: istio-egressgateway.istio-system.svc.cluster.local
+          port:
+            number: 443
+        weight: 100
+    - match:
+      - gateways:
+        - istio-egressgateway
+        port: 443
+      route:
+      - destination:
+          host: destination.{{.AppNamespace}}.svc.cluster.local
+          port:
+            number: 443
+        weight: 100
+      headers:
+        request:
+          add:
+            handled-by-egress-gateway: "true"
+`
 )
 
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
@@ -110,7 +197,24 @@ func createSidecarScope(t *testing.T, appsNamespace namespace.Instance, serviceN
 	}
 }
 
-// TODO support native environment. Blocked by #13177 because the listeners for native use static
+// We want to test "external" traffic. To do this without actually hitting an external endpoint,
+// we can import only the service namespace, so the apps are not known
+func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamespace namespace.Instance, g galley.Instance) {
+	tmpl, err := template.New("Gateway").Parse(Gateway)
+	if err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name()}); err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+	if err := g.ApplyConfig(serviceNamespace, buf.String()); err != nil {
+		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
+	}
+}
+
+// TODO support native environment for registry only/gateway. Blocked by #13177 because the listeners for native use static
 // routes and this test relies on the dynamic routes sent through pilot to allow external traffic.
 
 // Expected is a map of protocol -> expected response codes
@@ -165,6 +269,9 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				t.Errorf("failed to apply service entries: %v", err)
 			}
 
+			if _, kube := ctx.Environment().(*kube.Environment); kube {
+				createGateway(t, appsNamespace, serviceNamespace, g)
+			}
 			if err := WaitUntilNotCallable(client, dest); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)
 			}
@@ -172,6 +279,8 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 			cases := []struct {
 				name     string
 				portName string
+				host     string
+				gateway  bool
 			}{
 				{
 					name:     "HTTP Traffic",
@@ -181,24 +290,47 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 					name:     "HTTPS Traffic",
 					portName: "https",
 				},
+				{
+					name:     "HTTP Traffic Egress",
+					portName: "http",
+					host:     "some-external-site.com",
+					gateway:  true,
+				},
+				// TODO add HTTPS through gateway
 			}
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
+					if _, kube := ctx.Environment().(*kube.Environment); !kube && tc.gateway {
+						t.Skip("Cannot run gateway in native environment.")
+					}
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := client.Call(echo.CallOptions{
 							Target:   dest,
 							PortName: tc.portName,
 							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"Host": {tc.host},
+							},
 						})
-						if err != nil && len(expected[tc.portName]) != 0 {
+
+						key := tc.portName
+						if tc.gateway {
+							key += "_egress"
+						}
+						if err != nil && len(expected[key]) != 0 {
 							return fmt.Errorf("request failed: %v", err)
 						}
 						codes := make([]string, 0, len(resp))
 						for _, r := range resp {
 							codes = append(codes, r.Code)
 						}
-						if !reflect.DeepEqual(codes, expected[tc.portName]) {
-							return fmt.Errorf("got codes %v, expected %v", codes, expected[tc.portName])
+						if !reflect.DeepEqual(codes, expected[key]) {
+							return fmt.Errorf("got codes %v, expected %v", codes, expected[key])
+						}
+						for _, r := range resp {
+							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+							}
 						}
 						return nil
 					}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
