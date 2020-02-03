@@ -22,6 +22,7 @@ import (
 )
 
 func TestGetFederatedToken(t *testing.T) {
+	GKEClusterURL = mock.FakeGKEClusterURL
 	r := NewPlugin()
 
 	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
