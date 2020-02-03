@@ -6471,6 +6471,10 @@ spec:
           requests:
             cpu: 500m
             memory: 2048Mi
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
@@ -6710,6 +6714,12 @@ data:
             "cacertPath": "",
             "secure": true
           },
+          "stackdriver": {
+            "debug": false,
+            "maxNumberOfAnnotations": 200,
+            "maxNumberOfAttributes": 200,
+            "maxNumberOfMessageEvents": 200
+          },
           "zipkin": {
             "address": ""
           }
@@ -6809,7 +6819,6 @@ data:
       {{- end }}
         securityContext:
           allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
-          privileged: {{ .Values.global.proxy.privileged }}
           capabilities:
         {{- if not .Values.istio_cni.enabled }}
             add:
@@ -6818,16 +6827,11 @@ data:
         {{- end }}
             drop:
             - ALL
+          privileged: {{ .Values.global.proxy.privileged }}
           readOnlyRootFilesystem: false
-        {{- if not .Values.istio_cni.enabled }}
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
-        {{- else }}
           runAsGroup: 1337
-          runAsUser: 1337
           runAsNonRoot: true
-        {{- end }}
+          runAsUser: 1337
         restartPolicy: Always
       {{ end -}}
       {{- if eq .Values.global.proxy.enableCoreDump true }}
