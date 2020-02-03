@@ -408,7 +408,12 @@ func getTestAuthenticationPolicies(configs []*Config, t *testing.T) *Authenticat
 		IstioConfigStore: MakeIstioStore(configStore),
 		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
 	}
-	return initAuthenticationPolicies(environment)
+	authnPolicy, err := initAuthenticationPolicies(environment)
+	if err != nil {
+		t.Fatalf("getTestAuthenticationPolicies %v", err)
+	}
+
+	return authnPolicy
 }
 
 func createTestRequestAuthenticationResource(name string, namespace string, selector *selectorpb.WorkloadSelector) *Config {

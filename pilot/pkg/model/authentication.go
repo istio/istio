@@ -59,33 +59,35 @@ type AuthenticationPolicies struct {
 
 	peerAuthentications map[string][]Config
 
-	// Maps from namespace to mTLS mode.
-	namespaceMTLSMode map[string]MutualTLSMode
-
 	rootNamespace string
 }
 
 // initAuthenticationPolicies creates a new AuthenticationPolicies struct and populates with the
 // authentication policies in the mesh environment.
-func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
+func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, error) {
 	policy := &AuthenticationPolicies{
 		requestAuthentications: map[string][]Config{},
 		peerAuthentications:    map[string][]Config{},
-		namespaceMTLSMode:      map[string]MutualTLSMode{},
 		rootNamespace:          env.Mesh().GetRootNamespace(),
 	}
 
-	if configs, err := env.List(collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+	if configs, err := env.List(
+		collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
 		sortConfigByCreationTime(configs)
 		policy.addRequestAuthentication(configs)
+	} else {
+		return nil, err
 	}
 
-	if configs, err := env.List(collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+	if configs, err := env.List(
+		collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
 		sortConfigByCreationTime(configs)
 		policy.addPeerAuthentication(configs)
+	} else {
+		return nil, err
 	}
 
-	return policy
+	return policy, nil
 }
 
 func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config) {
@@ -105,19 +107,13 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
 // GetJwtPoliciesForWorkload returns a list of JWT policies matching to labels.
 func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
 	workloadLabels labels.Collection) []*Config {
-	extractor := func(cfg *Config) map[string]string {
-		return cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
-	}
-	return getConfigsForWorkload(policy.requestAuthentications, policy.rootNamespace, extractor, namespace, workloadLabels)
+	return getConfigsForWorkload(policy.requestAuthentications, policy.rootNamespace, namespace, workloadLabels)
 }
 
 // GetPeerAuthenticationsForWorkload returns a list of peer authentication policies matching to labels.
 func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespace string,
 	workloadLabels labels.Collection) []*Config {
-	extractor := func(cfg *Config) map[string]string {
-		return cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
-	}
-	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, extractor, namespace, workloadLabels)
+	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, namespace, workloadLabels)
 }
 
 // GetRootNamespace return root namespace that is tracked by the policy object.
@@ -125,11 +121,8 @@ func (policy *AuthenticationPolicies) GetRootNamespace() string {
 	return policy.rootNamespace
 }
 
-type extractSelector func(*Config) map[string]string
-
 func getConfigsForWorkload(configsByNamespace map[string][]Config,
 	rootNamespace string,
-	extractor extractSelector,
 	namespace string,
 	workloadLabels labels.Collection) []*Config {
 	configs := make([]*Config, 0)
@@ -148,7 +141,16 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 					log.Warnf("Seeing config %s with namespace %s in map entry for %s. Ignored", cfg.Name, cfg.Namespace, ns)
 					continue
 				}
-				selector := labels.Instance(extractor(cfg))
+				var selector labels.Instance
+				switch cfg.Type {
+				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind():
+					selector = labels.Instance(cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels())
+				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind():
+					selector = labels.Instance(cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels())
+				default:
+					log.Warnf("Not support authentication type %q", cfg.Type)
+					continue
+				}
 				if workloadLabels.IsSupersetOf(selector) {
 					configs = append(configs, cfg)
 				}
