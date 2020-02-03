@@ -663,41 +663,127 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 }
 
-func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
+func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 	pod1 := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 	testCases := []struct {
 		name    string
 		pods    []*coreV1.Pod
 		ips     []string
-		ports   []int32
+		ports   []coreV1.ServicePort
 		wantNum int
 	}{
 		{
-			name:    "multiple proxy ips single port",
-			pods:    []*coreV1.Pod{pod1},
-			ips:     []string{"128.0.0.1", "192.168.2.6"},
-			ports:   []int32{8080},
+			name: "multiple proxy ips single port",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1", "192.168.2.6"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "tcp-port",
+					Port:       8080,
+					Protocol:   "http",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+			},
 			wantNum: 2,
 		},
 		{
-			name:    "single proxy ip single port",
-			pods:    []*coreV1.Pod{pod1},
-			ips:     []string{"128.0.0.1"},
-			ports:   []int32{8080},
+			name: "single proxy ip single port",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "tcp-port",
+					Port:       8080,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+			},
 			wantNum: 1,
 		},
 		{
-			name:    "multiple proxy ips multiple ports",
-			pods:    []*coreV1.Pod{pod1},
-			ips:     []string{"128.0.0.1", "192.168.2.6"},
-			ports:   []int32{8080, 9090},
+			name: "multiple proxy ips multiple ports",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1", "192.168.2.6"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "tcp-port",
+					Port:       8080,
+					Protocol:   "http",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+				{
+					Name:       "tcp-port",
+					Port:       9090,
+					Protocol:   "http",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 9090},
+				},
+			},
 			wantNum: 4,
 		},
 		{
-			name:    "single proxy ip multiple ports",
-			pods:    []*coreV1.Pod{pod1},
-			ips:     []string{"128.0.0.1"},
-			ports:   []int32{8080, 9090},
+			name: "single proxy ip multiple ports same target port with different protocols",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "tcp-port",
+					Port:       8080,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+				{
+					Name:       "http-port",
+					Port:       9090,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+			},
+			wantNum: 2,
+		},
+		{
+			name: "single proxy ip multiple ports same target port with overlapping protocols",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "http-7442",
+					Port:       7442,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
+				},
+				{
+					Name:       "tcp-8443",
+					Port:       8443,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
+				},
+				{
+					Name:       "http-7557",
+					Port:       7557,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
+				},
+			},
+			wantNum: 2,
+		},
+		{
+			name: "single proxy ip multiple ports",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "tcp-port",
+					Port:       8080,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+				{
+					Name:       "http-port",
+					Port:       9090,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 9090},
+				},
+			},
 			wantNum: 2,
 		},
 	}
@@ -716,11 +802,12 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 					}
 				}
 
-				createService(controller, "svc1", "nsa",
+				createServiceWithTargetPorts(controller, "svc1", "nsa",
 					map[string]string{
 						annotation.AlphaKubernetesServiceAccounts.Name: "acct4",
 						annotation.AlphaCanonicalServiceAccounts.Name:  "acctvm2@gserviceaccount2.com"},
 					c.ports, map[string]string{"app": "test-app"}, t)
+
 				ev := fx.Wait("service")
 				if ev == nil {
 					t.Fatal("Timeout creating service")
@@ -730,7 +817,7 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 					t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
 				}
 				if len(serviceInstances) != c.wantNum {
-					t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %q, want %q", len(serviceInstances), c.wantNum)
+					t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %d, want %d", len(serviceInstances), c.wantNum)
 				}
 			})
 		}
@@ -1332,6 +1419,28 @@ func updateEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 	if _, err := controller.client.DiscoveryV1alpha1().EndpointSlices(namespace).Update(endpointSlice); err != nil {
 		t.Errorf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
+	}
+}
+
+func createServiceWithTargetPorts(controller *Controller, name, namespace string, annotations map[string]string,
+	svcPorts []coreV1.ServicePort, selector map[string]string, t *testing.T) {
+	service := &coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotations,
+		},
+		Spec: coreV1.ServiceSpec{
+			ClusterIP: "10.0.0.1", // FIXME: generate?
+			Ports:     svcPorts,
+			Selector:  selector,
+			Type:      coreV1.ServiceTypeClusterIP,
+		},
+	}
+
+	_, err := controller.client.CoreV1().Services(namespace).Create(service)
+	if err != nil {
+		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
 	}
 }
 
