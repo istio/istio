@@ -17,6 +17,7 @@ RUN apt-get update && \
       iproute2 \
       iputils-ping \
       knot-dnsutils \
+      libcap2-bin \
       netcat \
       tcpdump \
       net-tools \

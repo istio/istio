@@ -56,7 +56,12 @@ func cleanup(dryRun bool) {
 	defer func() {
 		for _, cmd := range []string{constants.IPTABLESSAVE, constants.IP6TABLESSAVE} {
 			// iptables-save is best efforts
-			_ = ext.Run(cmd)
+			_ = ext.Run(
+				cmd,
+				// Limit saving to only the tables actually used in Istio. This prevents iptables-restore from trying to
+				// read /proc/net/ip_tables_names, which requires uid/gid 0.
+				"--table="+constants.MANGLE,
+				"--table="+constants.NAT)
 		}
 	}()
 

@@ -130,11 +130,7 @@ func (rb *IptablesBuilderImpl) constructIptablesRestoreContents(tableRulesMap ma
 }
 
 func (rb *IptablesBuilderImpl) buildRestore(rules []*Rule) string {
-	tableRulesMap := map[string][]string{
-		constants.FILTER: {},
-		constants.NAT:    {},
-		constants.MANGLE: {},
-	}
+	tableRulesMap := make(map[string][]string, 2)
 
 	chainTableLookupMap := make(map[string]struct{})
 	for _, r := range rules {
