@@ -6012,36 +6012,6 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: instances.config.istio.io
-  labels:
-    app: mixer
-    package: instance
-    istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: instance
-    plural: instances
-    singular: instance
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
   name: templates.config.istio.io
   labels:
     app: mixer
@@ -6058,36 +6028,6 @@ spec:
     kind: template
     plural: templates
     singular: template
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: handlers.config.istio.io
-  labels:
-    app: mixer
-    package: handler
-    istio: mixer-handler
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: handler
-    plural: handlers
-    singular: handler
     categories:
     - istio-io
     - policy-istio-io
@@ -13490,8 +13430,12 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-          - --secureGrpcAddr
-          - ""
+
+{{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.istiod.enabled }}
+          - --secureGrpcAddr=:15011
+{{- else }}
+          - --secureGrpcAddr=
+{{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
@@ -13533,6 +13477,11 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.serviceAccountName
           {{- if .Values.pilot.env }}
           {{- range $key, $val := .Values.pilot.env }}
           - name: {{ $key }}
@@ -13589,7 +13538,7 @@ spec:
             mountPath: /var/lib/istio/validation
             readOnly: true
           {{- end }}
-{{- if .Values.global.controlPlaneSecurityEnabled }}
+{{- if and .Values.global.controlPlaneSecurityEnabled (not .Values.global.istiod.enabled) }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
@@ -14548,6 +14497,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -14977,6 +14931,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -33436,7 +33395,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   compiledAdapter: kubernetesenv
-  params:
+  params: {}
     # when running from mixer root, use the following config after adding a
     # symbolic link to a kubernetes config file via:
     #
@@ -40177,7 +40136,7 @@ spec:
       # imagePullPolicy: IfNotPresent
       certificates: []
       operatorManageWebhooks: false
-      controlPlaneSecurityEnabled: false
+      controlPlaneSecurityEnabled: true
       disablePolicyChecks: true
       policyCheckFailOpen: false
       enableTracing: true

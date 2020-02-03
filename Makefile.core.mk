@@ -205,6 +205,7 @@ ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
 
+include operator/operator.mk
 
 .PHONY: default
 default: init build test
@@ -335,7 +336,7 @@ lint-go-split:
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
 
-lint: lint-python lint-copyright-banner lint-scripts lint-go-split lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
+lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
@@ -351,7 +352,7 @@ go-gen:
 gen-charts:
 	@operator/scripts/run_update_charts.sh
 
-gen: go-gen mirror-licenses format update-crds gen-charts
+gen: go-gen mirror-licenses format update-crds gen-charts operator-proto
 
 gen-check: gen check-clean-repo
 

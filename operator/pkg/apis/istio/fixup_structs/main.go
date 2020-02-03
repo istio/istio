@@ -124,7 +124,7 @@ func main() {
 				anonymous[st] = true
 				subs[st] = strings.ReplaceAll(subs[st], "_ ", "")
 			}
-			for !strings.HasPrefix(lines[i], "var xxx_messageInfo_") {
+			for i < len(lines)-2 && !strings.HasPrefix(lines[i], "var xxx_messageInfo_") {
 				i++
 			}
 			tmp = append(tmp, lines[i+1])

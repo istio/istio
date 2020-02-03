@@ -643,8 +643,7 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr
-        - ""
+        - --secureGrpcAddr=
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
@@ -664,6 +663,11 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.serviceAccountName
         - name: PILOT_TRACE_SAMPLING
           value: "1"
         - name: CONFIG_NAMESPACE
@@ -1869,6 +1873,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
+  namespace: istio-system
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -2162,6 +2167,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
+  namespace: istio-system
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER

@@ -1519,6 +1519,7 @@ enum tracer {
   zipkin = 0;
   lightstep = 1;
   datadog = 2;
+  stackdriver = 3;
 }
 
 message EnvoyAccessLogConfig {
@@ -1818,7 +1819,8 @@ message TracerConfig {
   // Configuration for the zipkin tracing service.
   TracerZipkinConfig zipkin = 3;
 
-  TypeMapStringInterface stackdriver = 4;
+  // Configuration for the stackdriver tracing service.
+  TracerStackdriverConfig stackdriver = 4;
 }
 
 // Configuration for the datadog tracing service.
@@ -1848,6 +1850,21 @@ message TracerZipkinConfig {
   //
   // Example: <zipkin-collector-service>.<zipkin-collector-namespace>:941
   string address = 1;
+}
+
+// Configuration for the stackdriver tracing service.
+message TracerStackdriverConfig {
+  // enables trace output to stdout.
+  google.protobuf.BoolValue debug = 1;
+
+  // The global default max number of attributes per span.
+  uint32 maxNumberOfAttributes = 2;
+
+  // The global default max number of annotation events per span.
+  uint32 maxNumberOfAnnotations = 3;
+
+  // The global default max number of message events per span.
+  uint32 maxNumberOfMessageEvents = 4;
 }
 
 // Configurations for different tracing system to be installed.
