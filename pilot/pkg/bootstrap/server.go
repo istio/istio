@@ -147,6 +147,8 @@ type Server struct {
 	// nil if injection disabled
 	injectionWebhook *inject.Webhook
 
+	leaderElection *LeaderElection
+
 	webhookCertMu sync.Mutex
 	webhookCert   *tls.Certificate
 	jwtPath       string
@@ -177,6 +179,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("kube client: %v", err)
 	}
+	s.initLeaderElection(args)
 	fileWatcher := filewatcher.NewWatcher()
 	if err := s.initMeshConfiguration(args, fileWatcher); err != nil {
 		return nil, fmt.Errorf("mesh: %v", err)
@@ -266,6 +269,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
 		return nil
+	})
+
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		return s.leaderElection.Run(stop)
 	})
 
 	// TODO: don't run this if galley is started, one ctlz is enough
@@ -842,6 +849,12 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 	}
 
 	return nil
+}
+
+func (s *Server) initLeaderElection(args *PilotArgs) {
+	if s.kubeClient != nil {
+		s.leaderElection = NewLeaderElection(args.Namespace, args.PodName, s.kubeClient)
+	}
 }
 
 func fileExists(path string) bool {
