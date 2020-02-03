@@ -42,6 +42,7 @@ type LeaderElection struct {
 	client    kubernetes.Interface
 }
 
+// Run will start leader election, calling all runFns when we become the leader.
 func (l *LeaderElection) Run(stop <-chan struct{}) error {
 	le, err := l.create()
 	if err != nil {
@@ -96,6 +97,8 @@ func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
 	})
 }
 
+// AddRunFunction registers a function to run when we are the leader. These will be run asynchronously.
+// To avoid running when not a leader, functions should respect the stop channel.
 func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) {
 	l.runFns = append(l.runFns, f)
 }
