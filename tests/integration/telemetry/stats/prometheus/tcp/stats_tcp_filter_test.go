@@ -37,9 +37,7 @@ import (
 )
 
 const (
-	metadataExchangeFilterConfig = "testdata/metadata_exchange_tcp_filter.yaml"
-	statsFilterConfig            = "testdata/stats_filter.yaml"
-	cleanupFilterConfig          = "testdata/cleanup.yaml"
+	cleanupFilterConfig = "testdata/cleanup.yaml"
 )
 
 var (
@@ -70,32 +68,18 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 			)
 
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
-			// TODO(gargnupur): Use istioctl to install metadata exchange and stats filters.
-			mxc, err := file.AsString(metadataExchangeFilterConfig)
-			if err != nil {
-				t.Errorf("unable to load config %s, err:%v", metadataExchangeFilterConfig, err)
-			}
-			stats, err := file.AsString(statsFilterConfig)
-			if err != nil {
-				t.Errorf("unable to load config %s, err:%v", statsFilterConfig, err)
-			}
-
 			cleanup, err := file.AsString(cleanupFilterConfig)
 			if err != nil {
-				t.Errorf("unable to load config %s, err:%v", metadataExchangeFilterConfig, err)
+				t.Errorf("unable to load config %s, err:%v", cleanupFilterConfig, err)
 			}
 
 			g.ApplyConfigOrFail(
 				t,
 				systemNM,
-				mxc,
-				stats,
 				cleanup,
 			)
 			defer g.DeleteConfig(
 				systemNM,
-				mxc,
-				stats,
 				cleanup,
 			)
 
