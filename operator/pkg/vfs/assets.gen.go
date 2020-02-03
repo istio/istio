@@ -33084,7 +33084,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   compiledAdapter: kubernetesenv
-  params:
+  params: {}
     # when running from mixer root, use the following config after adding a
     # symbolic link to a kubernetes config file via:
     #
