@@ -58,7 +58,6 @@ type Suite struct {
 	mRun    mRunFn
 	osExit  func(int)
 	labels  label.Set
-	retries int
 
 	setupFns []resource.SetupFn
 
