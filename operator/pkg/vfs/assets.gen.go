@@ -40133,7 +40133,7 @@ spec:
             memory: 10Mi
       # Specify image pull policy if default behavior isn't desired.
       # Default behavior: latest images will be Always else IfNotPresent.
-      # imagePullPolicy: IfNotPresent
+      imagePullPolicy: ""
       certificates: []
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
