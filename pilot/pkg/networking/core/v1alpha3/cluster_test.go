@@ -2267,7 +2267,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				proxy: proxy,
 				push:  push,
 			}
-			applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
+			applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx, proxy)
 
 			if test.expectTransportSocket && opts.cluster.TransportSocket == nil ||
 				!test.expectTransportSocket && opts.cluster.TransportSocket != nil {
