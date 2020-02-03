@@ -104,11 +104,17 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
 {{- if not .Values.security.selfSigned }}
           volumeMounts:
           - name: cacerts
             mountPath: /etc/cacerts
             readOnly: true
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: cacerts
         secret:
