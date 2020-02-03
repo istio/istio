@@ -17,9 +17,9 @@ package deprecation
 import (
 	"fmt"
 
+	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/rbac/v1alpha1"
-	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
