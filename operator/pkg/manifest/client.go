@@ -16,9 +16,13 @@ package manifest
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 
 	"github.com/docker/distribution/reference"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/operator/pkg/util"
@@ -27,8 +31,9 @@ import (
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type Client struct {
-	Config *rest.Config
-	*rest.RESTClient
+	Config        *rest.Config
+	restClient    *rest.RESTClient
+	dynamicClient dynamic.Interface
 }
 
 // ComponentVersion is a pair of component name and version
@@ -49,6 +54,7 @@ type ExecClient interface {
 	GetPods(namespace string, params map[string]string) (*v1.PodList, error)
 	PodsForSelector(namespace, labelSelector string) (*v1.PodList, error)
 	ConfigMapForSelector(namespace, labelSelector string) (*v1.ConfigMapList, error)
+	GetGroupVersionResource(group, version, resource, ns, name string) (*unstructured.UnstructuredList, error)
 }
 
 // NewClient is the constructor for the client wrapper
@@ -61,7 +67,11 @@ func NewClient(kubeconfig, configContext string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{config, restClient}, nil
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic client: %v", err)
+	}
+	return &Client{Config: config, restClient: restClient, dynamicClient: dynamicClient}, nil
 }
 
 // GetIstioVersions gets the version for each Istio component
@@ -144,7 +154,7 @@ func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodL
 
 // GetPods retrieves the pod objects for Istio deployments
 func (client *Client) GetPods(namespace string, params map[string]string) (*v1.PodList, error) {
-	req := client.Get().
+	req := client.restClient.Get().
 		Resource("pods").
 		Namespace(namespace)
 	for k, v := range params {
@@ -163,10 +173,24 @@ func (client *Client) GetPods(namespace string, params map[string]string) (*v1.P
 }
 
 func (client *Client) ConfigMapForSelector(namespace, labelSelector string) (*v1.ConfigMapList, error) {
-	cmGet := client.Get().Resource("configmaps").Namespace(namespace).Param("labelSelector", labelSelector)
+	cmGet := client.restClient.Get().Resource("configmaps").Namespace(namespace).Param("labelSelector", labelSelector)
 	obj, err := cmGet.Do().Get()
 	if err != nil {
 		return nil, fmt.Errorf("failed retrieving configmap: %v", err)
 	}
 	return obj.(*v1.ConfigMapList), nil
+}
+
+func (client *Client) GetGroupVersionResource(group string, version string, resource string, ns string, name string) (*unstructured.UnstructuredList, error) {
+	dynamicClient := client.dynamicClient
+	groupVersionResource := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+	var fieldSelector string
+	if name != "" {
+		fieldSelector = fmt.Sprintf("metadata.name=%s", name)
+	}
+	ul, err := dynamicClient.Resource(groupVersionResource).Namespace(ns).List(metav1.ListOptions{FieldSelector: fieldSelector})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource: %s of name: %s, group: %s, version: %s: %v",resource, name, group, version, err)
+	}
+	return ul, nil
 }

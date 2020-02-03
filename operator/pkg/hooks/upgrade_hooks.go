@@ -20,18 +20,29 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-version"
 
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
+const (
+	configAPIGroup   = "config.istio.io"
+	configAPIVersion = "v1alpha2"
+	instanceResource = "instances"
+	ruleResource     = "rules"
+	handlerResource  = "handlers"
+	istioNamespace   = "istio-system"
+)
+
 // hook is a callout function that may be called during an upgrade to check state or modify the cluster.
 // hooks should only be used for version-specific actions.
-type hook func(kubeClient manifest.ExecClient, sourceIOPS, targetIOPS *v1alpha1.IstioOperatorSpec) util.Errors
+type hook func(kubeClient manifest.ExecClient, params HookCommonParams) util.Errors
 type hooks []hook
 
 // hookVersionMapping is a mapping between a hashicorp/go-version formatted constraints for the source and target
@@ -44,10 +55,11 @@ type hookVersionMapping struct {
 
 // HookCommonParams is a set of common params passed to all hooks.
 type HookCommonParams struct {
-	SourceVer  string
-	TargetVer  string
-	SourceIOPS *v1alpha1.IstioOperatorSpec
-	TargetIOPS *v1alpha1.IstioOperatorSpec
+	SourceVer                string
+	TargetVer                string
+	DefaultTelemetryManifest map[string]*object.K8sObject
+	SourceIOPS               *v1alpha1.IstioOperatorSpec
+	TargetIOPS               *v1alpha1.IstioOperatorSpec
 }
 
 var (
@@ -57,12 +69,25 @@ var (
 		{
 			sourceVersionConstraint: ">=1.3",
 			targetVersionConstraint: ">=1.3",
-			hooks:                   []hook{checkInitCrdJobs},
+			hooks:                   []hook{checkInitCrdJobs, checkMixerTelemetry},
 		},
 	}
 	// postUpgradeHooks is a list of hook version constraint pairs mapping to a slide of corresponding hooks to run
 	// before upgrade.
 	postUpgradeHooks []hookVersionMapping
+
+	// TODO: add full list
+	CRKindNamesMap = map[string][]string{
+		"instance": {"requestsize", "requestcount, requestduration", "attributes"},
+		"rule":     {"promhttp", "kubeattrgenrulerule"},
+		"handler":  {"prometheus", "kubernetesenv"},
+	}
+
+	KindResourceMap = map[string]string{
+		"instance": "instances",
+		"rule":     "rules",
+		"handler":  "handlers",
+	}
 )
 
 func RunPreUpgradeHooks(kubeClient manifest.ExecClient, hc *HookCommonParams, dryRun bool) util.Errors {
@@ -102,7 +127,7 @@ func runUpgradeHooks(hml []hookVersionMapping, kubeClient manifest.ExecClient, h
 		}
 		for _, hf := range h.hooks {
 			log.Infof("Running hook %s", hf)
-			errs = util.AppendErrs(errs, hf(kubeClient, hc.SourceIOPS, hc.TargetIOPS))
+			errs = util.AppendErrs(errs, hf(kubeClient, *hc))
 		}
 	}
 	return errs
@@ -145,8 +170,52 @@ func checkConstraint(verStr, constraintStr string) (bool, error) {
 	return constraint.Check(ver), nil
 }
 
-func checkInitCrdJobs(kubeClient manifest.ExecClient, currentIOPS, _ *v1alpha1.IstioOperatorSpec) util.Errors {
-	pl, err := kubeClient.PodsForSelector(iop.Namespace(currentIOPS), "")
+// checkMixerTelemetry compares default mixer telemetry configs with in-cluster configs
+func checkMixerTelemetry(kubeClient manifest.ExecClient, params HookCommonParams) util.Errors {
+	nkMap := params.DefaultTelemetryManifest
+	for kind, names := range CRKindNamesMap {
+		for _, name := range names {
+			uls, err := kubeClient.GetGroupVersionResource(configAPIGroup, configAPIVersion, KindResourceMap[kind], istioNamespace, name)
+			if err != nil {
+				return util.NewErrs(err)
+			}
+			if len(uls.Items) == 0 {
+				// Do we need to return error for this case
+				log.Warnf("default config kind: %s, name: %s does not exist in cluster", kind, name)
+				continue
+			}
+			nkKey := name + ":" + kind
+			msMap, ok := nkMap[nkKey]
+			if !ok {
+				continue
+			}
+			item := uls.Items[0]
+			spec, ok := item.UnstructuredContent()["spec"].(map[string]interface{})
+			if !ok {
+				return util.NewErrs(fmt.Errorf("failed to get spec from unstructured item"+
+					" of kind: %s, name: %s", kind, name))
+			}
+			specYAML, err := yaml.Marshal(spec)
+			if err != nil {
+				return util.NewErrs(fmt.Errorf("failed to marshal spec of kind: %s, name: %s", kind, name))
+			}
+
+			msYAML, err := msMap.YAML()
+			if err != nil {
+				return util.NewErrs(err)
+			}
+			diff := util.YAMLDiff(string(specYAML), string(msYAML))
+			if diff != "" {
+				return util.NewErrs(fmt.Errorf("customized config exists for kind: %s, name: %s,"+
+					" diff is: %s. please check existing mixer config first before upgrade", kind, name, diff))
+			}
+		}
+	}
+	return nil
+}
+
+func checkInitCrdJobs(kubeClient manifest.ExecClient, params HookCommonParams) util.Errors {
+	pl, err := kubeClient.PodsForSelector(params.SourceIOPS.MeshConfig.RootNamespace, "")
 	if err != nil {
 		return util.NewErrs(fmt.Errorf("failed to list pods: %v", err))
 	}

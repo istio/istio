@@ -26,6 +26,8 @@ import (
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/hooks"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
@@ -144,7 +146,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	if err != nil && !args.force {
 		return fmt.Errorf("failed to read the current Istio version, error: %v", err)
 	}
-
+	
 	// Check if the upgrade currentVersion -> targetVersion is supported
 	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI)
 	if err != nil && !args.force {
@@ -174,12 +176,18 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 
 	waitForConfirmation(args.skipConfirmation, l)
 
+	nkMap, err := generateDefaultTelemetryManifest(l)
+	if err != nil {
+		return fmt.Errorf("failed to generate default manifest for telemetry: %v", err)
+	}
+
 	// Run pre-upgrade hooks
 	hparams := &hooks.HookCommonParams{
-		SourceVer:  currentVersion,
-		TargetVer:  targetVersion,
-		SourceIOPS: targetIOPS,
-		TargetIOPS: targetIOPS,
+		SourceVer:                currentVersion,
+		TargetVer:                targetVersion,
+		DefaultTelemetryManifest: nkMap,
+		SourceIOPS:               targetIOPS,
+		TargetIOPS:               targetIOPS,
 	}
 	errs := hooks.RunPreUpgradeHooks(kubeClient, hparams, rootArgs.dryRun)
 	if len(errs) != 0 && !args.force {
@@ -266,6 +274,21 @@ func checkSupportedVersions(cur, tar, versionsURI string) error {
 	}
 
 	return nil
+}
+
+func generateDefaultTelemetryManifest(l *Logger) (map[string]*object.K8sObject, error) {
+	setOverlay := []string{"components.telemetry.enabled=true"}
+	overlay, err := MakeTreeFromSetList(setOverlay, false, l)
+	manifestMap, _, err := GenManifests(nil, overlay, false, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifestMap[name.TelemetryComponentName][0])
+	if err != nil {
+		return nil, err
+	}
+	return k8sObjects.ToNameKindMap(), nil
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
