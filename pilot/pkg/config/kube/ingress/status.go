@@ -119,7 +119,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		OnStartedLeading: func(ctx context.Context) {
 			log.Infof("I am the new status update leader")
 			go st.queue.Run(ctx.Done())
-			go st.runUpdateStatus(ctx)
+			go st.runUpdateStatus(ctx.Done())
 		},
 		OnStoppedLeading: func() {
 			log.Infof("I am not status update leader anymore")
@@ -174,7 +174,7 @@ func (s *StatusSyncer) onEvent() error {
 	return s.updateStatus(sliceToStatus(addrs))
 }
 
-func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
+func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 	if _, err := s.runningAddresses(ingressNamespace); err != nil {
 		log.Warna("Missing ingress, skip status updates")
 		err = wait.PollUntil(10*time.Second, func() (bool, error) {
@@ -182,7 +182,7 @@ func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
 				return false, nil
 			}
 			return true, nil
-		}, ctx.Done())
+		}, stop)
 		if err != nil {
 			log.Warna("Error waiting for ingress")
 			return
@@ -191,7 +191,7 @@ func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
 	err := wait.PollUntil(updateInterval, func() (bool, error) {
 		s.queue.Push(s.onEvent)
 		return false, nil
-	}, ctx.Done())
+	}, stop)
 
 	if err != nil {
 		log.Errorf("Stop requested")
