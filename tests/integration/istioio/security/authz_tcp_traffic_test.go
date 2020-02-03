@@ -43,20 +43,19 @@ func TestAuthzTCPTraffic(t *testing.T) {
 					Input: istioio.Inline{
 						FileName: "enable_mtls.sh",
 						Value: `
-istioctl manifest apply --set values.global.mtls.auto=true --set values.global.mtls.enabled=true`,
+istioctl manifest apply --set values.global.mtls.auto=true --set values.global.mtls.enabled=true -w`,
 					},
 				}).
-				Add(istioio.MultiPodWait("istio-system")).
 				Add(istioio.Script{Input: istioio.Path("../common/scripts/bookinfo.txt")}).
 				Add(script(ctx, "authz_tcp_traffic.txt")).
 				Defer(
-					istioio.Script{Input: istioio.Path("authz_tcp_traffic_cleanup.txt")},
+					istioio.Script{Input: istioio.Path("scripts/authz_tcp_traffic_cleanup.txt")},
 					istioio.Script{Input: istioio.Path("../common/scripts/bookinfo-cleanup.txt")},
 					istioio.Script{
 						Input: istioio.Inline{
 							FileName: "disable_mtls.sh",
 							Value: `
-istioctl manifest apply --set values.global.mtls.auto=true --set values.global.mtls.enabled=false`,
+istioctl manifest apply --set values.global.mtls.auto=true --set values.global.mtls.enabled=false -w`,
 						},
 					},
 				).

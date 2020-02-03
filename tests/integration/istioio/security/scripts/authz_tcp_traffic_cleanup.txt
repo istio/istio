@@ -20,11 +20,10 @@ set -o pipefail
 
 # Clean up authz policy and monogodb workload
 # $snippet authz-cleanup.sh syntax="bash"
-$kubectl delete @authorizationpolicy.security.istio.io/deny-all@
-$kubectl delete @authorizationpolicy.security.istio.io/bookinfo-ratings-v2@
-
-$kubectl delete -f @samples/bookinfo/platform/kube/bookinfo-ratings-v2.yaml@
-$kubectl delete -f @samples/bookinfo/networking/destination-rule-all-mtls.yaml@
-$kubectl delete -f @samples/bookinfo/networking/virtual-service-ratings-db.yaml@
-$kubectl delete -f @samples/bookinfo/platform/kube/bookinfo-db.yaml@
+$ kubectl delete authorizationpolicy.security.istio.io/deny-all || true
+$ kubectl delete authorizationpolicy.security.istio.io/bookinfo-ratings-v2 || true
+$ kubectl delete -f @samples/bookinfo/platform/kube/bookinfo-ratings-v2.yaml@ || true
+$ kubectl delete -f @samples/bookinfo/networking/destination-rule-all-mtls.yaml@ || true
+$ kubectl delete -f @samples/bookinfo/networking/virtual-service-ratings-db.yaml@ || true
+$ kubectl delete -f @samples/bookinfo/platform/kube/bookinfo-db.yaml@ || true
 # $endsnippet

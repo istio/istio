@@ -36,7 +36,7 @@ $ kubectl apply -f @samples/bookinfo/networking/destination-rule-all-mtls.yaml@
 # $endsnippet
 
 # wait for destination rules to propagate
-sleep 5s
+istioctl experimental wait --for=distribution DestinationRule productpage.default
 
 # Step 3: update the reviews workload to only use the v2 of the ratings workload
 # $snippet update-reviews-v2.sh syntax="bash" outputis="text"
@@ -56,7 +56,7 @@ $ kubectl apply -f @samples/bookinfo/platform/kube/bookinfo-db.yaml@
 # $endsnippet
 
 # wait for mongodb instance to start
-sleep 10s
+istioctl experimental wait --for=distribution Deployment mongodb.default
 
 # Step 6: Verify that the Book Reviews section shows the review
 # $snippet verify_book_reviews_2.sh syntax="bash"

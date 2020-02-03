@@ -42,3 +42,5 @@ virtualservice.networking.istio.io/reviews created
 virtualservice.networking.istio.io/ratings created
 virtualservice.networking.istio.io/details created
 # $endsnippet
+
+istioctl experimental wait --for=distribution VirtualService productpage.default --timeout=120s
