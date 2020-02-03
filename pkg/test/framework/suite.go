@@ -53,11 +53,12 @@ type mRunFn func() int
 
 // Suite allows the test author to specify suite-related metadata and do setup in a fluent-style, before commencing execution.
 type Suite struct {
-	testID string
-	skip   string
-	mRun   mRunFn
-	osExit func(int)
-	labels label.Set
+	testID  string
+	skip    string
+	mRun    mRunFn
+	osExit  func(int)
+	labels  label.Set
+	retries int
 
 	setupFns []resource.SetupFn
 
@@ -229,13 +230,21 @@ func (s *Suite) run() (errLevel int) {
 		scopes.CI.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
 	}()
 
-	scopes.CI.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
-	errLevel = s.mRun()
-	if errLevel == 0 {
-		scopes.CI.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
-	} else {
-		scopes.CI.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
-			ctx.Settings().TestID, errLevel)
+	attempt := 0
+	for attempt <= ctx.settings.Retries {
+		attempt++
+		scopes.CI.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
+		errLevel = s.mRun()
+		if errLevel == 0 {
+			scopes.CI.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
+			break
+		} else {
+			scopes.CI.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
+				ctx.Settings().TestID, errLevel)
+			if attempt <= ctx.settings.Retries {
+				scopes.CI.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
+			}
+		}
 	}
 
 	return

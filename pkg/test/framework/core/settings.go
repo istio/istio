@@ -54,6 +54,10 @@ type Settings struct {
 	// os.TempDir() will be used.
 	BaseDir string
 
+	// The number of times to retry failed tests.
+	// This should not be depended on as a primary means for reducing test flakes.
+	Retries int
+
 	// The label selector that the user has specified.
 	SelectorString string
 
