@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -79,6 +80,7 @@ var (
 	allNamespaces     bool
 	suppress          []string
 	analysisTimeout   time.Duration
+	recursive         bool
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -107,10 +109,13 @@ func Analyze() *cobra.Command {
 istioctl analyze
 
 # Analyze the current live cluster, simulating the effect of applying additional yaml files
-istioctl analyze a.yaml b.yaml
+istioctl analyze a.yaml b.yaml my-app-config/
+
+# Analyze the current live cluster, simulating the effect of applying a directory of config recursively
+istioctl analyze --recursive my-istio-config/
 
 # Analyze yaml files without connecting to a live cluster
-istioctl analyze --use-kube=false a.yaml b.yaml
+istioctl analyze --use-kube=false a.yaml b.yaml my-app-config/
 
 # Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
 istioctl analyze -S "IST0103=Pod mypod.testing"
@@ -324,30 +329,82 @@ istioctl analyze -L
 			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
 	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
 		"the duration to wait before failing")
+	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
+		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
 	return analysisCmd
 }
 
 func gatherFiles(args []string) ([]local.ReaderSource, error) {
 	var readers []local.ReaderSource
-	var err error
 	for _, f := range args {
 		var r *os.File
 
+		// Handle "-" as stdin as a special case.
 		if f == "-" {
 			if isatty.IsTerminal(os.Stdin.Fd()) {
 				fmt.Fprint(os.Stderr, "Reading from stdin:\n")
 			}
 			r = os.Stdin
-		} else {
-			r, err = os.Open(f)
+			readers = append(readers, local.ReaderSource{Name: f, Reader: r})
+			continue
+		}
+
+		fi, err := os.Stat(f)
+		if err != nil {
+			return nil, err
+		}
+
+		if fi.IsDir() {
+			dirReaders, err := gatherFilesInDirectory(f)
 			if err != nil {
 				return nil, err
 			}
-			runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
+			readers = append(readers, dirReaders...)
+		} else {
+			rs, err := gatherFile(f)
+			if err != nil {
+				return nil, err
+			}
+			readers = append(readers, rs)
 		}
-		readers = append(readers, local.ReaderSource{Name: f, Reader: r})
 	}
 	return readers, nil
+}
+
+func gatherFile(f string) (local.ReaderSource, error) {
+	r, err := os.Open(f)
+	if err != nil {
+		return local.ReaderSource{}, err
+	}
+	runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
+	return local.ReaderSource{Name: f, Reader: r}, nil
+}
+
+func gatherFilesInDirectory(dir string) ([]local.ReaderSource, error) {
+	var readers []local.ReaderSource
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// If we encounter a directory, recurse only if the --recursve option
+		// was provided and the directory is not the same as dir.
+		if info.IsDir() {
+			if !recursive && dir != path {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		r, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
+		readers = append(readers, local.ReaderSource{Name: path, Reader: r})
+		return nil
+	})
+	return readers, err
 }
 
 func colorPrefix(m diag.Message) string {
