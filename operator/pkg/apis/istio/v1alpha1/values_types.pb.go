@@ -4,7 +4,6 @@
 package v1alpha1
 
 import (
-	"encoding/json"
 	fmt "fmt"
 	protobuf "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
