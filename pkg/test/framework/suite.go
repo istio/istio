@@ -53,11 +53,11 @@ type mRunFn func() int
 
 // Suite allows the test author to specify suite-related metadata and do setup in a fluent-style, before commencing execution.
 type Suite struct {
-	testID  string
-	skip    string
-	mRun    mRunFn
-	osExit  func(int)
-	labels  label.Set
+	testID string
+	skip   string
+	mRun   mRunFn
+	osExit func(int)
+	labels label.Set
 
 	setupFns []resource.SetupFn
 
