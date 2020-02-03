@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/istio/security/pkg/stsservice"
@@ -59,10 +58,11 @@ type Plugin struct {
 	// map key is token type, map value is tokenInfo.
 	tokens           sync.Map
 	gCPProjectNumber string
+	gKEClusterURL    string
 }
 
 // CreateTokenManagerPlugin creates a plugin that fetches token from a Google OAuth 2.0 authorization server.
-func CreateTokenManagerPlugin(trustDomain string, gCPProjectNumber string) (*Plugin, error) {
+func CreateTokenManagerPlugin(trustDomain string, gCPProjectNumber, gKEClusterURL string) (*Plugin, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		pluginLog.Errorf("Failed to get SystemCertPool: %v", err)
@@ -79,6 +79,7 @@ func CreateTokenManagerPlugin(trustDomain string, gCPProjectNumber string) (*Plu
 		},
 		trustDomain:      trustDomain,
 		gCPProjectNumber: gCPProjectNumber,
+		gKEClusterURL:    gKEClusterURL,
 	}
 	return p, nil
 }
@@ -121,13 +122,14 @@ func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequest
 	if len(parameters.Scope) != 0 {
 		reqScope = parameters.Scope
 	}
+	aud := fmt.Sprintf("identitynamespace:%s:%s", p.trustDomain, p.gKEClusterURL)
 	query := map[string]string{
-		"audience":           p.trustDomain,
+		"audience":           aud,
 		"grantType":          parameters.GrantType,
 		"requestedTokenType": tokenType,
 		"subjectTokenType":   parameters.SubjectTokenType,
 		"subjectToken":       parameters.SubjectToken,
-		"Scope":              reqScope,
+		"scope":              reqScope,
 	}
 	jsonQuery, _ := json.Marshal(query)
 	req, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
@@ -178,7 +180,7 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 		pluginLog.Errora("federated token response does not have access token", string(body))
 		return respData, errors.New("federated token response does not have access token. " + string(body))
 	}
-	pluginLog.Debug("successfully exchanged a federated token")
+	pluginLog.Infof("Federated token will expire in %d seconds", respData.ExpiresIn)
 	tokenReceivedTime := time.Now()
 	p.tokens.Store(federatedToken, stsservice.TokenInfo{
 		TokenType:  federatedToken,
@@ -220,8 +222,8 @@ type accessTokenRequest struct {
 }
 
 type accessTokenResponse struct {
-	AccessToken string            `json:"accessToken"`
-	ExpireTime  duration.Duration `json:"expireTime"`
+	AccessToken string `json:"accessToken"`
+	ExpireTime  string `json:"expireTime"`
 }
 
 // constructFederatedTokenRequest returns an HTTP request for access token.
@@ -237,7 +239,10 @@ type accessTokenResponse struct {
 //  ],
 // }
 func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) *http.Request {
-	query := accessTokenRequest{}
+	// Request for access token with a lifetime of 3600 seconds.
+	query := accessTokenRequest{
+		LifeTime: duration.Duration{Seconds: 3600},
+	}
 	query.Scope = append(query.Scope, scope)
 
 	jsonQuery, _ := json.Marshal(query)
@@ -290,25 +295,35 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 		return respData, errors.New("access token response does not have access token. " + string(body))
 	}
 	pluginLog.Debug("successfully exchanged an access token")
-	tokenReceivedTime := time.Now()
-	expireTime, _ := ptypes.Duration(&respData.ExpireTime)
 	p.tokens.Store(accessToken, stsservice.TokenInfo{
 		TokenType:  accessToken,
-		IssueTime:  tokenReceivedTime.String(),
-		ExpireTime: tokenReceivedTime.Add(expireTime).String()})
+		IssueTime:  time.Now().String(),
+		ExpireTime: respData.ExpireTime})
 	return respData, nil
 }
 
 // generateSTSResp takes accessTokenResponse and generates StsResponseParameters in JSON.
 func (p *Plugin) generateSTSResp(atResp *accessTokenResponse) ([]byte, error) {
-	expireTime, _ := ptypes.Duration(&atResp.ExpireTime)
+	exp, err := time.Parse(time.RFC3339Nano, atResp.ExpireTime)
+	// Default token life time is 3600 seconds
+	var expireInSec int64 = 3600
+	if err != nil {
+		pluginLog.Errorf("Failed to unmarshal timestamp %s from access token response, "+
+			"fall back to use default lifetime (3600 seconds): %v", atResp.ExpireTime, err)
+	} else {
+		expireInSec = int64(time.Until(exp).Seconds())
+	}
 	stsRespParam := stsservice.StsResponseParameters{
 		AccessToken:     atResp.AccessToken,
 		IssuedTokenType: tokenType,
 		TokenType:       "Bearer",
-		ExpiresIn:       int64(expireTime.Seconds()),
+		ExpiresIn:       expireInSec,
 	}
 	statusJSON, err := json.MarshalIndent(stsRespParam, "", " ")
+	if pluginLog.DebugEnabled() {
+		stsRespParam.AccessToken = "redacted"
+		pluginLog.Infof("Populated STS response parameters: %+v", stsRespParam)
+	}
 	return statusJSON, err
 }
 

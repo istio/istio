@@ -184,7 +184,7 @@ func (s *Server) sendSuccessfulResponse(w http.ResponseWriter, tokenData []byte)
 	if _, err := w.Write(tokenData); err != nil {
 		stsServerLog.Errorf("failure in sending STS success response: %v", err)
 	}
-	stsServerLog.Debugf("sent out STS success response: %v", tokenData)
+	stsServerLog.Debug("sent out STS success response")
 }
 
 // DumpStsStatus handles requests for dumping STS status, including STS requests being served,
