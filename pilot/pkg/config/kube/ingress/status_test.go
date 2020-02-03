@@ -128,7 +128,7 @@ func makeStatusSyncer(t *testing.T, client kubernetes.Interface) (*StatusSyncer,
 	// Restore env settings
 	defer setAndRestoreEnv(t, oldEnvs)
 
-	return NewStatusSyncer(&m, client, testNamespace, kubecontroller.Options{
+	return NewStatusSyncer(&m, client, kubecontroller.Options{
 		WatchedNamespace: testNamespace,
 		ResyncPeriod:     resync,
 	})
