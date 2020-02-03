@@ -94,6 +94,9 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
   {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
           - name: istio-certs

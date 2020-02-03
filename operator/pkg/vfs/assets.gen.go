@@ -10317,6 +10317,9 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
   {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
           - name: istio-certs
@@ -12520,6 +12523,9 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -15264,6 +15270,9 @@ spec:
           runAsUser: 1337
           runAsGroup: 1337
           runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
         volumeMounts:
 {{- if .Values.global.useMCP }}
         - name: istio-certs
@@ -32982,6 +32991,9 @@ spec:
           runAsUser: 1337
           runAsGroup: 1337
           runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
         volumeMounts:
 {{- if .Values.global.useMCP }}
         - name: istio-certs
@@ -37613,6 +37625,9 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
 {{- if not .Values.security.selfSigned }}
           volumeMounts:
           - name: cacerts
