@@ -694,7 +694,7 @@ func TestOptions(t *testing.T) {
 		},
 		{
 			testName: "sts_port",
-			key:      "stsPort",
+			key:      "sts_port",
 			option:   option.STSPort(555555),
 			expected: 555555,
 		},
