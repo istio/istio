@@ -110,11 +110,12 @@ func TestV1beta1_JWT(t *testing.T) {
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
 
-			var a, b, c echo.Instance
+			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -147,6 +148,24 @@ func TestV1beta1_JWT(t *testing.T) {
 				newTestCase(b, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
 				newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
 				newTestCase(c, "[NoJWT]", "", "/somePath", true),
+
+				// Test condition "request.auth.principal" on path "/valid-jwt".
+				newTestCase(d, "[NoJWT]", "", "/valid-jwt", false),
+				newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/valid-jwt", true),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/valid-jwt", true),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/valid-jwt", true),
+
+				// Test condition "request.auth.presenter" on suffix "/presenter".
+				newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/presenter", false),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
+
+				// Test condition "request.auth.audiences" on suffix "/audiences".
+				newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
