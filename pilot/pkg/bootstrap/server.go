@@ -220,10 +220,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		if err != nil {
 			return nil, fmt.Errorf("enableCA: %v", err)
 		}
-		err = s.initPublicKey()
-		if err != nil {
-			return nil, fmt.Errorf("init public key: %v", err)
-		}
 	}
 
 	// initDNSListener() must be called after the createCA()
