@@ -9,23 +9,23 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
+  name: istio-pilot
+  namespace: istio-control
   labels:
     app: pilot
     release: istio
-  name: istio-pilot
-  namespace: istio-control
 spec:
-  maxReplicas: 333
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 444
-    type: Resource
-  minReplicas: 222
+  maxReplicas: 5
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: istio-pilot
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
 ---
 
 
@@ -577,7 +577,7 @@ metadata:
     app: pilot
     istio: pilot
     release: istio
-  name: istio-pilot
+  name: istiod
   namespace: istio-control
 spec:
   selector:

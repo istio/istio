@@ -52,7 +52,7 @@ func TestHashNameKind(t *testing.T) {
 		want string
 	}{
 		{"CalculateHashNameKindForObjectWithNormalCharacter", "Service", "ingressgateway", "Service:ingressgateway"},
-		{"CalculateHashNameKindForObjectWithDash", "Deployment", "istio-pilot", "Deployment:istio-pilot"},
+		{"CalculateHashNameKindForObjectWithDash", "Deployment", "istio-pilot", "Deployment:istiod"},
 		{"CalculateHashNameKindForObjectWithDot", "ConfigMap", "my.config", "ConfigMap:my.config"},
 	}
 

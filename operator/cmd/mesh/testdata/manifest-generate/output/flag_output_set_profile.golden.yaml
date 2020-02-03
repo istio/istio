@@ -5784,23 +5784,23 @@ metadata:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
+  name: istio-pilot
+  namespace: istio-system
   labels:
     app: pilot
     release: istio
-  name: istio-pilot
-  namespace: istio-system
 spec:
   maxReplicas: 5
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: istio-pilot
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
 ---
 
 
@@ -6352,7 +6352,7 @@ metadata:
     app: pilot
     istio: pilot
     release: istio
-  name: istio-pilot
+  name: istiod
   namespace: istio-system
 spec:
   selector:
@@ -6368,10 +6368,7 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: pilot
-        chart: pilot
-        heritage: Tiller
         istio: pilot
-        release: istio
     spec:
       affinity:
         nodeAffinity:

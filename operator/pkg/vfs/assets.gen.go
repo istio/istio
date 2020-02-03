@@ -40193,7 +40193,7 @@ componentMaps:
     HelmSubdir:           "base"
   Pilot:
     ResourceType:         "Deployment"
-    ResourceName:         "istio-pilot"
+    ResourceName:         "istiod"
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"
@@ -40364,7 +40364,7 @@ componentMaps:
     HelmSubdir:           "base"
   Pilot:
     ResourceType:         "Deployment"
-    ResourceName:         "istio-pilot"
+    ResourceName:         "istiod"
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"
