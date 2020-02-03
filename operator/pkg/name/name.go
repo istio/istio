@@ -42,7 +42,7 @@ const (
 	TelemetryComponentName ComponentName = "Telemetry"
 	CitadelComponentName   ComponentName = "Citadel"
 
-	CNIComponentName       ComponentName = "Cni"
+	CNIComponentName ComponentName = "Cni"
 
 	// Gateway components
 	IngressComponentName ComponentName = "IngressGateways"
@@ -67,7 +67,7 @@ const (
 	SidecarInjectorComponentName ComponentName = "SidecarInjector"
 	IngressGatewayComponentName  ComponentName = "IngressGateway"
 	EgressGatewayComponentName   ComponentName = "EgressGateway"
-	NodeAgentComponentName      ComponentName = "NodeAgent"
+	NodeAgentComponentName       ComponentName = "NodeAgent"
 )
 
 var (
