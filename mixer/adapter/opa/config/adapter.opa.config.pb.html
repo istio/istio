@@ -24,8 +24,8 @@ that provides sophisticated access control mechanisms.</p>
   - |+
     package mixerauthz
     policy = [
-      &lbrace;
-        &quot;rule&quot;: &lbrace;
+      {
+        &quot;rule&quot;: {
           &quot;verbs&quot;: [
             &quot;storage.buckets.get&quot;
           ],
@@ -38,7 +38,7 @@ that provides sophisticated access control mechanisms.</p>
 
     default allow = false
 
-    allow = true &lbrace;
+    allow = true {
       rule = policy[_].rule
       input.subject.user = rule.users[_]
       input.action.method = rule.verbs[_]
