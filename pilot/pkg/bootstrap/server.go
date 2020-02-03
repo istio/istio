@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
@@ -147,7 +148,7 @@ type Server struct {
 	// nil if injection disabled
 	injectionWebhook *inject.Webhook
 
-	leaderElection *LeaderElection
+	leaderElection *leaderelection.LeaderElection
 
 	webhookCertMu sync.Mutex
 	webhookCert   *tls.Certificate
@@ -850,7 +851,7 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 
 func (s *Server) initLeaderElection(args *PilotArgs) {
 	if s.kubeClient != nil {
-		s.leaderElection = NewLeaderElection(args.Namespace, args.PodName, s.kubeClient)
+		s.leaderElection = leaderelection.NewLeaderElection(args.Namespace, args.PodName, s.kubeClient)
 	}
 }
 
