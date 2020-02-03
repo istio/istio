@@ -2438,7 +2438,6 @@ spec:
                                 description: enable locality load balancing, this
                                   is DestinationRule-level and will override mesh
                                   wide settings in entirety.
-                                nullable: true
                                 type: boolean
                               failover:
                                 description: 'Optional: only failover or distribute
@@ -2471,7 +2470,6 @@ spec:
                           consecutive5xxErrors:
                             description: Number of 5xx errors before a host is ejected
                               from the connection pool.
-                            nullable: true
                             type: integer
                           consecutiveErrors:
                             format: int32
@@ -2479,7 +2477,6 @@ spec:
                           consecutiveGatewayErrors:
                             description: Number of gateway errors before a host is
                               ejected from the connection pool.
-                            nullable: true
                             type: integer
                           interval:
                             description: Time interval between ejection sweep analysis.
@@ -2627,7 +2624,6 @@ spec:
                                       description: enable locality load balancing,
                                         this is DestinationRule-level and will override
                                         mesh wide settings in entirety.
-                                      nullable: true
                                       type: boolean
                                     failover:
                                       description: 'Optional: only failover or distribute
@@ -2660,7 +2656,6 @@ spec:
                                 consecutive5xxErrors:
                                   description: Number of 5xx errors before a host
                                     is ejected from the connection pool.
-                                  nullable: true
                                   type: integer
                                 consecutiveErrors:
                                   format: int32
@@ -2668,7 +2663,6 @@ spec:
                                 consecutiveGatewayErrors:
                                   description: Number of gateway errors before a host
                                     is ejected from the connection pool.
-                                  nullable: true
                                   type: integer
                                 interval:
                                   description: Time interval between ejection sweep
@@ -2886,7 +2880,6 @@ spec:
                         enabled:
                           description: enable locality load balancing, this is DestinationRule-level
                             and will override mesh wide settings in entirety.
-                          nullable: true
                           type: boolean
                         failover:
                           description: 'Optional: only failover or distribute can
@@ -2919,7 +2912,6 @@ spec:
                     consecutive5xxErrors:
                       description: Number of 5xx errors before a host is ejected from
                         the connection pool.
-                      nullable: true
                       type: integer
                     consecutiveErrors:
                       format: int32
@@ -2927,7 +2919,6 @@ spec:
                     consecutiveGatewayErrors:
                       description: Number of gateway errors before a host is ejected
                         from the connection pool.
-                      nullable: true
                       type: integer
                     interval:
                       description: Time interval between ejection sweep analysis.
@@ -3073,7 +3064,6 @@ spec:
                                 description: enable locality load balancing, this
                                   is DestinationRule-level and will override mesh
                                   wide settings in entirety.
-                                nullable: true
                                 type: boolean
                               failover:
                                 description: 'Optional: only failover or distribute
@@ -3106,7 +3096,6 @@ spec:
                           consecutive5xxErrors:
                             description: Number of 5xx errors before a host is ejected
                               from the connection pool.
-                            nullable: true
                             type: integer
                           consecutiveErrors:
                             format: int32
@@ -3114,7 +3103,6 @@ spec:
                           consecutiveGatewayErrors:
                             description: Number of gateway errors before a host is
                               ejected from the connection pool.
-                            nullable: true
                             type: integer
                           interval:
                             description: Time interval between ejection sweep analysis.
@@ -4009,7 +3997,6 @@ spec:
                     description: Cross-Origin Resource Sharing policy (CORS).
                     properties:
                       allowCredentials:
-                        nullable: true
                         type: boolean
                       allowHeaders:
                         items:
@@ -4331,12 +4318,10 @@ spec:
                   mirror_percent:
                     description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
                       field.
-                    nullable: true
                     type: integer
                   mirrorPercent:
                     description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
                       field.
-                    nullable: true
                     type: integer
                   mirrorPercentage:
                     description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
