@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	// DefaultProfileFilename is the name of the default profile yaml file.
-	DefaultProfileFilename = "default.yaml"
+	// DefaultProfileValuesFilename is the file with values for the default profile.
+	DefaultProfileValuesFilename = "default-values.yaml"
 
 	chartsRoot   = "charts"
 	profilesRoot = "profiles"
@@ -133,7 +133,7 @@ func (h *VFSRenderer) loadChart() error {
 
 func BuiltinProfileToFilename(name string) string {
 	if name == "" {
-		return DefaultProfileFilename
+		return DefaultProfileValuesFilename
 	}
 	return name + ".yaml"
 }

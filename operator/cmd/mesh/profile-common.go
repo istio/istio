@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"strings"
 
 	"path/filepath"
 
@@ -89,11 +90,8 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string,
 		if err != nil {
 			return "", nil, err
 		}
-		if helm.IsDefaultProfile(profile) {
-			profile = filepath.Join(pkgPath, helm.ProfilesFilePath, helm.DefaultProfileFilename)
-		} else {
-			profile = filepath.Join(pkgPath, helm.ProfilesFilePath, profile+YAMLSuffix)
-		}
+
+		profile = filepath.Join(pkgPath, helm.ProfilesFilePath, profile+YAMLSuffix)
 	}
 
 	// This contains the IstioOperator CR.
@@ -102,20 +100,18 @@ func genIOPS(inFilename []string, profile, setOverlayYAML, ver string,
 		return "", nil, fmt.Errorf("could not read the profile values for %s: %s", profile, err)
 	}
 
-	if !helm.IsDefaultProfile(profile) {
-		// Profile definitions are relative to the default profile, so read that first.
-		dfn, err := helm.DefaultFilenameForProfile(profile)
-		if err != nil {
-			return "", nil, err
-		}
-		defaultYAML, err := helm.ReadProfileYAML(dfn)
-		if err != nil {
-			return "", nil, fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
-		}
-		baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
-		if err != nil {
-			return "", nil, fmt.Errorf("could not overlay the profile over the default %s: %s", profile, err)
-		}
+	// Profile definitions are relative to the default values, so read that first.
+	dfn, err := helm.DefaultFilenameForProfile(profile)
+	if err != nil {
+		return "", nil, err
+	}
+	defaultYAML, err := helm.ReadProfileYAML(dfn)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
+	}
+	baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not overlay the profile over the default %s: %s", profile, err)
 	}
 
 	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML, force)
@@ -229,18 +225,29 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 }
 
 func genProfile(helmValues bool, inFilename []string, profile, setOverlayYAML,
-	configPath string, force bool, kubeConfig *rest.Config, l *Logger) (string, error) {
+	configPath string, force bool, kubeConfig *rest.Config, l *Logger, displayFull bool) (string, error) {
 	finalYAML, finalIOPS, err := genIOPS(inFilename, profile, setOverlayYAML, "", force, kubeConfig, l)
 	if err != nil {
 		return "", err
 	}
 
-	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
-	if err != nil {
-		return "", err
+	if displayFull {
+		full := `apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:` //
+
+		finalYAML = "\n" + finalYAML
+		indented := strings.ReplaceAll(finalYAML, "\n", "\n  ")
+
+		return full + indented, nil
 	}
 
 	if helmValues {
+		t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
+		if err != nil {
+			return "", err
+		}
+
 		finalYAML, err = t.TranslateHelmValues(finalIOPS, "")
 		if err != nil {
 			return "", err

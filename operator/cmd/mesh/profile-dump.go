@@ -27,6 +27,8 @@ type profileDumpArgs struct {
 	helmValues bool
 	// configPath sets the root node for the subtree to display the config for.
 	configPath string
+	// If set, display the profile as a valid IstioOperator API.
+	displayFullResource bool
 }
 
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
@@ -35,6 +37,8 @@ func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree")
 	cmd.PersistentFlags().BoolVarP(&args.helmValues, "helm-values", "", false,
 		"If set, dumps the Helm values that IstioControlPlaceSpec is translated to before manifests are rendered")
+	cmd.PersistentFlags().BoolVarP(&args.displayFullResource, "full", "", false,
+		"If set, display the profile as the full valid IstioOperator API")
 }
 
 func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command {
@@ -68,7 +72,7 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 	}
 	// For profile dump, we may not have access to the kube cluster, so don't rely on kubeconfig
 	// TODO: support optional kubeconfig reading
-	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, profile, "", pdArgs.configPath, true, nil, l)
+	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, profile, "", pdArgs.configPath, true, nil, l, pdArgs.displayFullResource)
 	if err != nil {
 		return err
 	}

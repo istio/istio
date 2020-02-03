@@ -201,7 +201,7 @@ func getCRAndNamespaceFromFile(filePath string, kubeconfig *rest.Config, l *Logg
 		return "", "", nil
 	}
 
-	mergedYAML, err := genProfile(false, []string{filePath}, "", "", "", true, kubeconfig, l)
+	mergedYAML, err := genProfile(false, []string{filePath}, "", "", "", true, kubeconfig, l, false)
 	if err != nil {
 		return "", "", err
 	}

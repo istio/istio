@@ -149,6 +149,7 @@ func ParseK8SYAMLToIstioOperatorSpec(yml string) (*v1alpha1.IstioOperatorSpec, *
 	}
 	spec, ok := o.UnstructuredObject().Object["spec"]
 	if !ok {
+		fmt.Printf("%+v\n", o.UnstructuredObject())
 		return nil, nil, fmt.Errorf("spec is missing from IstioOperator YAML")
 	}
 	y, err := yaml.Marshal(spec)

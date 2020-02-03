@@ -23,8 +23,9 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/operator/pkg/util"
 )
 
 func initLogsOrExit(args *rootArgs) {
@@ -127,7 +128,13 @@ func refreshGoldenFiles() bool {
 func ReadLayeredYAMLs(filenames []string) (string, error) {
 	var ly string
 	for _, fn := range filenames {
-		b, err := ioutil.ReadFile(strings.TrimSpace(fn))
+		var b []byte
+		var err error
+		if fn == "-" {
+			b, err = ioutil.ReadAll(os.Stdin)
+		} else {
+			b, err = ioutil.ReadFile(strings.TrimSpace(fn))
+		}
 		if err != nil {
 			return "", err
 		}

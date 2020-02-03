@@ -180,7 +180,7 @@ func renderTemplate(tmpl string, ts interface{}) (string, error) {
 func DefaultFilenameForProfile(profile string) (string, error) {
 	switch {
 	case util.IsFilePath(profile):
-		return filepath.Join(filepath.Dir(profile), DefaultProfileFilename), nil
+		return filepath.Join(filepath.Dir(profile), DefaultProfileValuesFilename), nil
 	default:
 		if _, ok := ProfileNames[profile]; ok || profile == "" {
 			return DefaultProfileString, nil
@@ -191,7 +191,7 @@ func DefaultFilenameForProfile(profile string) (string, error) {
 
 // IsDefaultProfile reports whether the given profile is the default profile.
 func IsDefaultProfile(profile string) bool {
-	return profile == "" || profile == DefaultProfileString || filepath.Base(profile) == DefaultProfileFilename
+	return profile == "" || profile == DefaultProfileString || filepath.Base(profile) == DefaultProfileValuesFilename
 }
 
 func readFile(path string) (string, error) {

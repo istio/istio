@@ -349,27 +349,17 @@ values:
       enableCoreDump: false
       envoyAccessLogService:
         enabled: false
-        host: null
-        port: null
       envoyMetricsService:
         enabled: false
-        host: null
-        port: null
         tcpKeepalive:
           interval: 10s
           probes: 3
           time: 10s
         tlsSettings:
-          caCertificates: null
-          clientCertificate: null
           mode: DISABLE
-          privateKey: null
-          sni: null
           subjectAltNames: []
       envoyStatsd:
         enabled: false
-        host: null
-        port: null
       excludeIPRanges: ""
       excludeInboundPorts: ""
       excludeOutboundPorts: ""
@@ -435,7 +425,6 @@ values:
     datasources:
       datasources.yaml:
         apiVersion: 1
-        datasources: null
     enabled: false
     env: {}
     envSecrets: {}
@@ -443,11 +432,9 @@ values:
       repository: grafana/grafana
       tag: 6.5.2
     ingress:
-      annotations: null
       enabled: false
       hosts:
       - grafana.local
-      tls: null
     nodeSelector: {}
     persist: false
     podAntiAffinityLabelSelector: []
@@ -461,8 +448,6 @@ values:
     service:
       annotations: {}
       externalPort: 3000
-      loadBalancerIP: null
-      loadBalancerSourceRanges: null
       name: http
       type: ClusterIP
     storageClassName: ""
@@ -476,8 +461,6 @@ values:
     contextPath: /kiali
     createDemoSecret: false
     dashboard:
-      grafanaURL: null
-      jaegerURL: null
       passphraseKey: passphrase
       secretName: kiali
       usernameKey: username
@@ -485,15 +468,12 @@ values:
     enabled: false
     hub: quay.io/kiali
     ingress:
-      annotations: null
       enabled: false
       hosts:
       - kiali.local
-      tls: null
     nodeSelector: {}
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-    prometheusNamespace: null
     replicaCount: 1
     security:
       cert_file: /kiali-cert/cert-chain.pem
@@ -555,7 +535,6 @@ values:
     configNamespace: istio-config
     cpu:
       targetAverageUtilization: 80
-    deploymentLabels: null
     enableProtocolSniffingForInbound: false
     enableProtocolSniffingForOutbound: true
     env: {}
@@ -580,11 +559,9 @@ values:
     enabled: true
     hub: docker.io/prom
     ingress:
-      annotations: null
       enabled: false
       hosts:
       - prometheus.local
-      tls: null
     nodeSelector: {}
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
@@ -627,10 +604,7 @@ values:
   tracing:
     enabled: false
     ingress:
-      annotations: null
       enabled: false
-      hosts: null
-      tls: null
     jaeger:
       accessMode: ReadWriteMany
       hub: docker.io/jaegertracing

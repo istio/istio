@@ -225,6 +225,7 @@
 // operator/templates/namespace.yaml
 // operator/templates/service.yaml
 // operator/templates/service_account.yaml
+// profiles/default-values.yaml
 // profiles/default.yaml
 // profiles/demo.yaml
 // profiles/empty.yaml
@@ -39459,7 +39460,7 @@ func operatorTemplatesService_accountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDefaultYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesDefaultValuesYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   hub: gcr.io/istio-testing
@@ -40176,6 +40177,26 @@ spec:
     version: ""
     clusterResources: true
 `)
+
+func profilesDefaultValuesYamlBytes() ([]byte, error) {
+	return _profilesDefaultValuesYaml, nil
+}
+
+func profilesDefaultValuesYaml() (*asset, error) {
+	bytes, err := profilesDefaultValuesYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "profiles/default-values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _profilesDefaultYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: default`)
 
 func profilesDefaultYamlBytes() ([]byte, error) {
 	return _profilesDefaultYaml, nil
@@ -41597,6 +41618,7 @@ var _bindata = map[string]func() (*asset, error){
 	"operator/templates/namespace.yaml":                                                       operatorTemplatesNamespaceYaml,
 	"operator/templates/service.yaml":                                                         operatorTemplatesServiceYaml,
 	"operator/templates/service_account.yaml":                                                 operatorTemplatesService_accountYaml,
+	"profiles/default-values.yaml":                                                            profilesDefaultValuesYaml,
 	"profiles/default.yaml":                                                                   profilesDefaultYaml,
 	"profiles/demo.yaml":                                                                      profilesDemoYaml,
 	"profiles/empty.yaml":                                                                     profilesEmptyYaml,
@@ -41982,11 +42004,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{
-		"default.yaml": &bintree{profilesDefaultYaml, map[string]*bintree{}},
-		"demo.yaml":    &bintree{profilesDemoYaml, map[string]*bintree{}},
-		"empty.yaml":   &bintree{profilesEmptyYaml, map[string]*bintree{}},
-		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
-		"remote.yaml":  &bintree{profilesRemoteYaml, map[string]*bintree{}},
+		"default-values.yaml": &bintree{profilesDefaultValuesYaml, map[string]*bintree{}},
+		"default.yaml":        &bintree{profilesDefaultYaml, map[string]*bintree{}},
+		"demo.yaml":           &bintree{profilesDemoYaml, map[string]*bintree{}},
+		"empty.yaml":          &bintree{profilesEmptyYaml, map[string]*bintree{}},
+		"minimal.yaml":        &bintree{profilesMinimalYaml, map[string]*bintree{}},
+		"remote.yaml":         &bintree{profilesRemoteYaml, map[string]*bintree{}},
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},
