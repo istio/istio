@@ -7574,6 +7574,7 @@ data:
         "enableTracing": true,
         "enabled": true,
         "hub": "istio-spec.hub",
+        "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {

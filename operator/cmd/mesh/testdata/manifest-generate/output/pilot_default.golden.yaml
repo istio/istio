@@ -802,6 +802,7 @@ data:
         "enableTracing": true,
         "enabled": false,
         "hub": "docker.io/istio",
+        "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-control",
         "istiod": {

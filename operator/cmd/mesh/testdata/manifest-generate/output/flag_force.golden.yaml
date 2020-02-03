@@ -805,6 +805,7 @@ data:
         "enableTracing": true,
         "enabled": false,
         "hub": "gcr.io/istio-testing",
+        "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {

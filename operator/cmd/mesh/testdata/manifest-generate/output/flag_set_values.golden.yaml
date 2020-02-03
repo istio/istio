@@ -7429,6 +7429,7 @@ data:
         "enableTracing": true,
         "enabled": true,
         "hub": "gcr.io/istio-testing",
+        "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
