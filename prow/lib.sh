@@ -70,6 +70,7 @@ function build_images() {
 }
 
 function kind_load_images() {
+  return
   NAME="${1:-istio-testing}"
 
   # If HUB starts with "docker.io/" removes that part so that filtering and loading below works
@@ -143,6 +144,12 @@ function setup_kind_cluster() {
       CONFIG=./prow/config/trustworthy-jwt.yaml
     fi
   fi
+  reg_name='kind-registry'
+  running="$(docker inspect -f '{{.State.Running}}' "${reg_name}")"
+  if [ "${running}" != 'true' ]
+  then
+    docker run -d --restart=always -p "5000:5000" --name "${reg_name}" registry:2
+  fi
 
   # Create KinD cluster
   if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
@@ -150,6 +157,12 @@ function setup_kind_cluster() {
     exit 1
   fi
 
+  ip_fmt='{{.NetworkSettings.IPAddress}}'
+  cmd="echo $(docker inspect -f "${ip_fmt}" "${reg_name}") registry >> /etc/hosts"
+  for node in $(kind get nodes --name "${1:-kind}")
+  do
+    docker exec "${node}" sh -c "${cmd}"
+  done
   kubectl apply -f ./prow/config/metrics
 }
 

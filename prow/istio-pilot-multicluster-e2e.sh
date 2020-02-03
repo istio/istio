@@ -54,7 +54,7 @@ kind get kubeconfig --name remote --internal > "${CLUSTERREG_DIR}"/remote
 # shellcheck disable=SC2064
 trap "cleanup_kind_cluster local; cleanup_kind_cluster remote" EXIT
 
-export HUB=istio-testing
+export HUB=localhost:5000
 export TAG=istio-testing
 
 time build_images
@@ -73,6 +73,7 @@ time kind_load_images remote
 
 # Set up cluster registry
 setup_cluster_reg
+export HUB=registry:5000
 
 ./prow/e2e-kind-suite.sh \
   --skip-setup --skip-cleanup --skip-build \

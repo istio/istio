@@ -82,7 +82,7 @@ E2E_ARGS+=("--use_local_cluster")
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 E2E_ARGS+=("--image_pull_policy" "IfNotPresent")
 
-export HUB=${HUB:-"istio-testing"}
+export HUB=${HUB:-"localhost:5000"}
 export TAG="${TAG:-"istio-testing"}"
 
 make init
@@ -99,5 +99,6 @@ fi
 if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
    cni_run_daemon_kind
 fi
+export HUB=${HUB:-"registry:5000"}
 
 time make with_junit_report E2E_ARGS="${E2E_ARGS[*]}" TARGET="${SINGLE_TEST}" ${VARIANT:+ VARIANT="${VARIANT}"}
