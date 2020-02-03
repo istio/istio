@@ -109,10 +109,13 @@ func Analyze() *cobra.Command {
 istioctl analyze
 
 # Analyze the current live cluster, simulating the effect of applying additional yaml files
-istioctl analyze a.yaml b.yaml config/
+istioctl analyze a.yaml b.yaml my-app-config/
+
+# Analyze the current live cluster, simulating the effect of applying a directory of config recursively
+istioctl analyze --recursive my-istio-config/
 
 # Analyze yaml files without connecting to a live cluster
-istioctl analyze --use-kube=false a.yaml b.yaml config/
+istioctl analyze --use-kube=false a.yaml b.yaml my-app-config/
 
 # Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
 istioctl analyze -S "IST0103=Pod mypod.testing"
@@ -327,7 +330,7 @@ istioctl analyze -L
 	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
 		"the duration to wait before failing")
 	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
-		"If true, recurse into directories when a directory is provided as an argument")
+		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
 	return analysisCmd
 }
 
