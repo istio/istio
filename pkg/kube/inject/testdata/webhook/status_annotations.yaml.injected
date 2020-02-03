@@ -143,8 +143,8 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        - mountPath: /etc/istio/config
+          name: istio-config
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
@@ -206,8 +206,8 @@ spec:
               expirationSeconds: 43200
               path: istio-token
       - configMap:
-          name: istio-ca-root-cert
-        name: citadel-ca-cert
+          name: istio-config
+        name: istio-config
       - name: istio-certs
         secret:
           optional: true
