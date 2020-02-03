@@ -9,8 +9,6 @@
 # Galley component is disabled.
 
 
-# NodeAgent component is disabled.
-
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -1881,6 +1879,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
+  namespace: istio-system
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -2174,6 +2173,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
+  namespace: istio-system
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
