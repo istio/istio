@@ -47,4 +47,4 @@ iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 0 -
 iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 0 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 0 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
-iptables-save 
+iptables-save --table=mangle --table=nat
