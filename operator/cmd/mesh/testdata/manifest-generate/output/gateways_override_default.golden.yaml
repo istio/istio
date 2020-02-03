@@ -835,8 +835,6 @@ spec:
         - "*/*"
 ---
 
-# NodeAgent component is disabled.
-
 # Pilot component is disabled.
 
 # Policy component is disabled.
