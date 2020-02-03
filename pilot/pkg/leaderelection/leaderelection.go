@@ -1,4 +1,4 @@
-package bootstrap
+package leaderelection
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"istio.io/pkg/log"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -14,6 +13,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+
+	"istio.io/pkg/log"
 )
 
 const (
@@ -74,6 +75,10 @@ func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
 		RenewDeadline: ttl / 2,
 		RetryPeriod:   ttl / 4,
 		Callbacks:     callbacks,
+		// When Pilot exits, the lease will be dropped. This is more likely to lead to a case where
+		// to instances are both considered the leaders. As such, if this is intended to be use for mission-critical
+		// usages (rather than avoiding duplication of work), this may need to be re-evaluated.
+		ReleaseOnCancel: true,
 	})
 }
 
