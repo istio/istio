@@ -7449,6 +7449,10 @@ spec:
           requests:
             cpu: 500m
             memory: 2048Mi
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
