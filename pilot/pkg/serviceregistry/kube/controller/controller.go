@@ -658,7 +658,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 						// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
 						Labels:         proxy.WorkloadLabels[0],
 						ServiceAccount: svcAccount,
-						Network:        c.endpointNetwork(proxy.IPAddresses[0]),
+						Network:        c.endpointNetwork(ip),
 						Locality:       util.LocalityToString(proxy.Locality),
 						Attributes:     model.ServiceAttributes{Name: svc.Name, Namespace: svc.Namespace},
 					},
