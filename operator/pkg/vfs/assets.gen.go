@@ -205,14 +205,6 @@
 // charts/security/citadel/templates/service.yaml
 // charts/security/citadel/templates/serviceaccount.yaml
 // charts/security/citadel/values.yaml
-// charts/security/nodeagent/Chart.yaml
-// charts/security/nodeagent/templates/_affinity.tpl
-// charts/security/nodeagent/templates/clusterrole.yaml
-// charts/security/nodeagent/templates/clusterrolebinding.yaml
-// charts/security/nodeagent/templates/daemonset.yaml
-// charts/security/nodeagent/templates/serviceaccount.yaml
-// charts/security/nodeagent/values.yaml
-// examples/googleca/values-istio-google-ca.yaml
 // examples/multicluster/values-istio-multicluster-gateways.yaml
 // examples/multicluster/values-istio-multicluster-primary.yaml
 // examples/user-gateway/ingress-gateway-only.yaml
@@ -38761,426 +38753,6 @@ func chartsSecurityCitadelValuesYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsSecurityNodeagentChartYaml = []byte(`apiVersion: v1
-name: nodeagent
-version: 1.1.0
-appVersion: 1.1.0
-tillerVersion: ">=2.7.2"
-description: Helm chart for nodeagent deployment
-keywords:
-  - istio
-  - nodeagent
-sources:
-  - http://github.com/istio/istio
-engine: gotpl
-icon: https://istio.io/favicons/android-192x192.png
-`)
-
-func chartsSecurityNodeagentChartYamlBytes() ([]byte, error) {
-	return _chartsSecurityNodeagentChartYaml, nil
-}
-
-func chartsSecurityNodeagentChartYaml() (*asset, error) {
-	bytes, err := chartsSecurityNodeagentChartYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/nodeagent/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityNodeagentTemplates_affinityTpl = []byte(`{{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
-
-{{- define "nodeaffinity" }}
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityRequiredDuringScheduling" . }}
-    preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityPreferredDuringScheduling" . }}
-{{- end }}
-
-{{- define "nodeAffinityRequiredDuringScheduling" }}
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: beta.kubernetes.io/arch
-          operator: In
-          values:
-        {{- range $key, $val := .Values.global.arch }}
-          {{- if gt ($val | int) 0 }}
-          - {{ $key | quote }}
-          {{- end }}
-        {{- end }}
-        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.nodeagent.nodeSelector -}}
-        {{- range $key, $val := $nodeSelector }}
-        - key: {{ $key }}
-          operator: In
-          values:
-          - {{ $val | quote }}
-        {{- end }}
-{{- end }}
-
-{{- define "nodeAffinityPreferredDuringScheduling" }}
-  {{- range $key, $val := .Values.global.arch }}
-    {{- if gt ($val | int) 0 }}
-    - weight: {{ $val | int }}
-      preference:
-        matchExpressions:
-        - key: beta.kubernetes.io/arch
-          operator: In
-          values:
-          - {{ $key | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-
-{{- define "podAntiAffinity" }}
-{{- if or .Values.nodeagent.podAntiAffinityLabelSelector .Values.nodeagent.podAntiAffinityTermLabelSelector}}
-  podAntiAffinity:
-    {{- if .Values.nodeagent.podAntiAffinityLabelSelector }}
-    requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "podAntiAffinityRequiredDuringScheduling" . }}
-    {{- end }}
-    {{- if .Values.nodeagent.podAntiAffinityTermLabelSelector }}
-    preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "podAntiAffinityPreferredDuringScheduling" . }}
-    {{- end }}
-{{- end }}
-{{- end }}
-
-{{- define "podAntiAffinityRequiredDuringScheduling" }}
-    {{- range $index, $item := .Values.nodeagent.podAntiAffinityLabelSelector }}
-    - labelSelector:
-        matchExpressions:
-        - key: {{ $item.key }}
-          operator: {{ $item.operator }}
-          {{- if $item.values }}
-          values:
-          {{- $vals := split "," $item.values }}
-          {{- range $i, $v := $vals }}
-          - {{ $v | quote }}
-          {{- end }}
-          {{- end }}
-      topologyKey: {{ $item.topologyKey }}
-    {{- end }}
-{{- end }}
-
-{{- define "podAntiAffinityPreferredDuringScheduling" }}
-    {{- range $index, $item := .Values.nodeagent.podAntiAffinityTermLabelSelector }}
-    - podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-          - key: {{ $item.key }}
-            operator: {{ $item.operator }}
-            {{- if $item.values }}
-            values:
-            {{- $vals := split "," $item.values }}
-            {{- range $i, $v := $vals }}
-            - {{ $v | quote }}
-            {{- end }}
-            {{- end }}
-        topologyKey: {{ $item.topologyKey }}
-      weight: 100
-    {{- end }}
-{{- end }}
-`)
-
-func chartsSecurityNodeagentTemplates_affinityTplBytes() ([]byte, error) {
-	return _chartsSecurityNodeagentTemplates_affinityTpl, nil
-}
-
-func chartsSecurityNodeagentTemplates_affinityTpl() (*asset, error) {
-	bytes, err := chartsSecurityNodeagentTemplates_affinityTplBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/nodeagent/templates/_affinity.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityNodeagentTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-nodeagent-{{ .Release.Namespace }}
-  labels:
-    app: istio-nodeagent
-    release: {{ .Release.Name }}
-rules:
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["get"]
-`)
-
-func chartsSecurityNodeagentTemplatesClusterroleYamlBytes() ([]byte, error) {
-	return _chartsSecurityNodeagentTemplatesClusterroleYaml, nil
-}
-
-func chartsSecurityNodeagentTemplatesClusterroleYaml() (*asset, error) {
-	bytes, err := chartsSecurityNodeagentTemplatesClusterroleYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/nodeagent/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityNodeagentTemplatesClusterrolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-nodeagent-{{ .Release.Namespace }}
-  labels:
-    app: istio-nodeagent
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-nodeagent-{{ .Release.Namespace }}
-subjects:
-  - kind: ServiceAccount
-    name: istio-nodeagent-service-account
-    namespace: {{ .Release.Namespace }}
-`)
-
-func chartsSecurityNodeagentTemplatesClusterrolebindingYamlBytes() ([]byte, error) {
-	return _chartsSecurityNodeagentTemplatesClusterrolebindingYaml, nil
-}
-
-func chartsSecurityNodeagentTemplatesClusterrolebindingYaml() (*asset, error) {
-	bytes, err := chartsSecurityNodeagentTemplatesClusterrolebindingYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/nodeagent/templates/clusterrolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityNodeagentTemplatesDaemonsetYaml = []byte(`apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: istio-nodeagent
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istio-nodeagent
-    istio: nodeagent
-    release: {{ .Release.Name }}
-spec:
-  selector:
-    matchLabels:
-      istio: nodeagent
-  template:
-    metadata:
-      labels:
-        app: istio-nodeagent
-        istio: nodeagent
-        release: {{ .Release.Name }}
-      annotations:
-        sidecar.istio.io/inject: "false"
-        {{- if .Values.nodeagent.podAnnotations }}
-{{ toYaml .Values.nodeagent.podAnnotations | indent 8 }}
-        {{- end }}
-    spec:
-      serviceAccountName: istio-nodeagent-service-account
-{{- if .Values.global.priorityClassName }}
-      priorityClassName: "{{ .Values.global.priorityClassName }}"
-{{- end }}
-      containers:
-        - name: nodeagent
-{{- if contains "/" .Values.nodeagent.image }}
-          image: "{{ .Values.nodeagent.image }}"
-{{- else }}
-          image: "{{ .Values.nodeagent.hub | default .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.nodeagent.tag | default .Values.global.tag }}"
-{{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
-          args:
-          {{- if .Values.global.logAsJson }}
-            - --log_as_json
-          {{- end }}
-          volumeMounts:
-            - mountPath: /var/run/sds
-              name: sdsudspath
-          env:
-          {{- if .Values.nodeagent.env }}
-          {{- range $key, $val := .Values.nodeagent.env }}
-            - name: {{ $key }}
-              value: "{{ $val }}"
-          {{- end }}
-          {{- end }}
-            - name: "TRUST_DOMAIN"
-              value: "{{ .Values.global.trustDomain }}"
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-      volumes:
-        - name: sdsudspath
-          hostPath:
-            path: /var/run/sds
-      affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
-      {{- include "podAntiAffinity" . | indent 6 }}
-{{- if .Values.nodeagent.tolerations }}
-      tolerations:
-{{ toYaml .Values.nodeagent.tolerations | indent 6 }}
-{{- else if .Values.global.defaultTolerations }}
-      tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
-{{- end }}
-  updateStrategy:
-    type: RollingUpdate
-`)
-
-func chartsSecurityNodeagentTemplatesDaemonsetYamlBytes() ([]byte, error) {
-	return _chartsSecurityNodeagentTemplatesDaemonsetYaml, nil
-}
-
-func chartsSecurityNodeagentTemplatesDaemonsetYaml() (*asset, error) {
-	bytes, err := chartsSecurityNodeagentTemplatesDaemonsetYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/nodeagent/templates/daemonset.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityNodeagentTemplatesServiceaccountYaml = []byte(`apiVersion: v1
-kind: ServiceAccount
-{{- if .Values.global.imagePullSecrets }}
-imagePullSecrets:
-{{- range .Values.global.imagePullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- end }}
-metadata:
-  name: istio-nodeagent-service-account
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istio-nodeagent
-    release: {{ .Release.Name }}
-`)
-
-func chartsSecurityNodeagentTemplatesServiceaccountYamlBytes() ([]byte, error) {
-	return _chartsSecurityNodeagentTemplatesServiceaccountYaml, nil
-}
-
-func chartsSecurityNodeagentTemplatesServiceaccountYaml() (*asset, error) {
-	bytes, err := chartsSecurityNodeagentTemplatesServiceaccountYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/nodeagent/templates/serviceaccount.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityNodeagentValuesYaml = []byte(`#
-# nodeagent configuration
-#
-nodeagent:
-  enabled: false
-  hub: ""
-  tag: ""
-  image: node-agent-k8s
-  env:
-    # name of authentication provider.
-    CA_PROVIDER: ""
-    # CA endpoint.
-    CA_ADDR: ""  
-    # names of authentication provider's plugins.
-    PLUGINS: ""
-
-  nodeSelector: {}
-  tolerations: []
-  podAnnotations: {}
-
-  # Specify the pod anti-affinity that allows you to constrain which nodes
-  # your pod is eligible to be scheduled based on labels on pods that are
-  # already running on the node rather than based on labels on nodes.
-  # There are currently two types of anti-affinity:
-  #    "requiredDuringSchedulingIgnoredDuringExecution"
-  #    "preferredDuringSchedulingIgnoredDuringExecution"
-  # which denote "hard" vs. "soft" requirements, you can define your values
-  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
-  # correspondingly.
-  # For example:
-  # podAntiAffinityLabelSelector:
-  # - key: security
-  #   operator: In
-  #   values: S1,S2
-  #   topologyKey: "kubernetes.io/hostname"
-  # This pod anti-affinity rule says that the pod requires not to be scheduled
-  # onto a node if that node is already running a pod with label having key
-  # "security" and value "S1".
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
-`)
-
-func chartsSecurityNodeagentValuesYamlBytes() ([]byte, error) {
-	return _chartsSecurityNodeagentValuesYaml, nil
-}
-
-func chartsSecurityNodeagentValuesYaml() (*asset, error) {
-	bytes, err := chartsSecurityNodeagentValuesYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/nodeagent/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _examplesGooglecaValuesIstioGoogleCaYaml = []byte(`apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  security:
-    components:
-      nodeAgent:
-        enabled: true
-  values:
-    global:
-      controlPlaneSecurityEnabled: true
-      mtls:
-        enabled: true
-      sds:
-        enabled: true
-        udsPath: "unix:/var/run/sds/uds_path"
-        token:
-          aud: "istio-ca"
-      useMCP: true
-    nodeagent:
-      image: node-agent-k8s
-      env:
-        CA_PROVIDER: "GoogleCA"
-        CA_ADDR: "meshca.googleapis.com:443"
-        PLUGINS: "GoogleTokenExchange"
-        GKE_CLUSTER_URL: ""
-`)
-
-func examplesGooglecaValuesIstioGoogleCaYamlBytes() ([]byte, error) {
-	return _examplesGooglecaValuesIstioGoogleCaYaml, nil
-}
-
-func examplesGooglecaValuesIstioGoogleCaYaml() (*asset, error) {
-	bytes, err := examplesGooglecaValuesIstioGoogleCaYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "examples/googleca/values-istio-google-ca.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -39898,9 +39470,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-    nodeAgent:
-      enabled: false
-
   # Config management feature
     galley:
       enabled: false
@@ -40222,9 +39791,6 @@ spec:
       enableNamespacesByDefault: true
       dnsCerts:
         istio-pilot-service-account.istio-control: istio-pilot.istio-control
-
-    nodeagent:
-      image: node-agent-k8s
 
     gateways:
       istio-egressgateway:
@@ -40659,8 +40225,6 @@ spec:
       enabled: false
     citadel:
       enabled: false
-    nodeAgent:
-      enabled: false
     galley:
       enabled: false
     cni:
@@ -40722,8 +40286,6 @@ spec:
     sidecarInjector:
       enabled: false
     citadel:
-      enabled: false
-    nodeAgent:
       enabled: false
     galley:
       enabled: false
@@ -40788,8 +40350,6 @@ spec:
     sidecarInjector:
       enabled: false
     citadel:
-      enabled: false
-    nodeAgent:
       enabled: false
     galley:
       enabled: false
@@ -42127,14 +41687,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/security/citadel/templates/service.yaml":                                          chartsSecurityCitadelTemplatesServiceYaml,
 	"charts/security/citadel/templates/serviceaccount.yaml":                                   chartsSecurityCitadelTemplatesServiceaccountYaml,
 	"charts/security/citadel/values.yaml":                                                     chartsSecurityCitadelValuesYaml,
-	"charts/security/nodeagent/Chart.yaml":                                                    chartsSecurityNodeagentChartYaml,
-	"charts/security/nodeagent/templates/_affinity.tpl":                                       chartsSecurityNodeagentTemplates_affinityTpl,
-	"charts/security/nodeagent/templates/clusterrole.yaml":                                    chartsSecurityNodeagentTemplatesClusterroleYaml,
-	"charts/security/nodeagent/templates/clusterrolebinding.yaml":                             chartsSecurityNodeagentTemplatesClusterrolebindingYaml,
-	"charts/security/nodeagent/templates/daemonset.yaml":                                      chartsSecurityNodeagentTemplatesDaemonsetYaml,
-	"charts/security/nodeagent/templates/serviceaccount.yaml":                                 chartsSecurityNodeagentTemplatesServiceaccountYaml,
-	"charts/security/nodeagent/values.yaml":                                                   chartsSecurityNodeagentValuesYaml,
-	"examples/googleca/values-istio-google-ca.yaml":                                           examplesGooglecaValuesIstioGoogleCaYaml,
 	"examples/multicluster/values-istio-multicluster-gateways.yaml":                           examplesMulticlusterValuesIstioMulticlusterGatewaysYaml,
 	"examples/multicluster/values-istio-multicluster-primary.yaml":                            examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
 	"examples/user-gateway/ingress-gateway-only.yaml":                                         examplesUserGatewayIngressGatewayOnlyYaml,
@@ -42495,23 +42047,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				}},
 				"values.yaml": &bintree{chartsSecurityCitadelValuesYaml, map[string]*bintree{}},
 			}},
-			"nodeagent": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsSecurityNodeagentChartYaml, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":           &bintree{chartsSecurityNodeagentTemplates_affinityTpl, map[string]*bintree{}},
-					"clusterrole.yaml":        &bintree{chartsSecurityNodeagentTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml": &bintree{chartsSecurityNodeagentTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"daemonset.yaml":          &bintree{chartsSecurityNodeagentTemplatesDaemonsetYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":     &bintree{chartsSecurityNodeagentTemplatesServiceaccountYaml, map[string]*bintree{}},
-				}},
-				"values.yaml": &bintree{chartsSecurityNodeagentValuesYaml, map[string]*bintree{}},
-			}},
 		}},
 	}},
 	"examples": &bintree{nil, map[string]*bintree{
-		"googleca": &bintree{nil, map[string]*bintree{
-			"values-istio-google-ca.yaml": &bintree{examplesGooglecaValuesIstioGoogleCaYaml, map[string]*bintree{}},
-		}},
 		"multicluster": &bintree{nil, map[string]*bintree{
 			"values-istio-multicluster-gateways.yaml": &bintree{examplesMulticlusterValuesIstioMulticlusterGatewaysYaml, map[string]*bintree{}},
 			"values-istio-multicluster-primary.yaml":  &bintree{examplesMulticlusterValuesIstioMulticlusterPrimaryYaml, map[string]*bintree{}},
