@@ -191,7 +191,7 @@
 // charts/security/citadel/templates/service.yaml
 // charts/security/citadel/templates/serviceaccount.yaml
 // charts/security/citadel/values.yaml
-// charts/security/nodeagent/templates/daemonset.yaml
+// examples/customresource/istio_v1alpha1_istiooperator_cr.yaml
 // examples/multicluster/values-istio-multicluster-gateways.yaml
 // examples/multicluster/values-istio-multicluster-primary.yaml
 // examples/user-gateway/ingress-gateway-only.yaml
@@ -37849,94 +37849,28 @@ func chartsSecurityCitadelValuesYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsSecurityNodeagentTemplatesDaemonsetYaml = []byte(`apiVersion: apps/v1
-kind: DaemonSet
+var _examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml = []byte(`---
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 metadata:
-  name: istio-nodeagent
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istio-nodeagent
-    istio: nodeagent
-    release: {{ .Release.Name }}
+  namespace: istio-system
+  name: example-istiocontrolplane
 spec:
-  selector:
-    matchLabels:
-      istio: nodeagent
-  template:
-    metadata:
-      labels:
-        app: istio-nodeagent
-        istio: nodeagent
-        release: {{ .Release.Name }}
-      annotations:
-        sidecar.istio.io/inject: "false"
-        {{- if .Values.nodeagent.podAnnotations }}
-{{ toYaml .Values.nodeagent.podAnnotations | indent 8 }}
-        {{- end }}
-    spec:
-      serviceAccountName: istio-nodeagent-service-account
-{{- if .Values.global.priorityClassName }}
-      priorityClassName: "{{ .Values.global.priorityClassName }}"
-{{- end }}
-      containers:
-        - name: nodeagent
-{{- if contains "/" .Values.nodeagent.image }}
-          image: "{{ .Values.nodeagent.image }}"
-{{- else }}
-          image: "{{ .Values.nodeagent.hub | default .Values.global.hub }}/{{ .Values.nodeagent.image }}:{{ .Values.nodeagent.tag | default .Values.global.tag }}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
-          args:
-          {{- if .Values.global.logAsJson }}
-            - --log_as_json
-          {{- end }}
-          volumeMounts:
-            - mountPath: /var/run/sds
-              name: sdsudspath
-          env:
-          {{- if .Values.nodeagent.env }}
-          {{- range $key, $val := .Values.nodeagent.env }}
-            - name: {{ $key }}
-              value: "{{ $val }}"
-          {{- end }}
-          {{- end }}
-            - name: "TRUST_DOMAIN"
-              value: "{{ .Values.global.trustDomain }}"
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-      volumes:
-        - name: sdsudspath
-          hostPath:
-            path: /var/run/sds
-      affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
-      {{- include "podAntiAffinity" . | indent 6 }}
-{{- if .Values.nodeagent.tolerations }}
-      tolerations:
-{{ toYaml .Values.nodeagent.tolerations | indent 6 }}
-{{- else if .Values.global.defaultTolerations }}
-      tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
-{{- end }}
-  updateStrategy:
-    type: RollingUpdate
+  profile: demo
+...
 `)
 
-func chartsSecurityNodeagentTemplatesDaemonsetYamlBytes() ([]byte, error) {
-	return _chartsSecurityNodeagentTemplatesDaemonsetYaml, nil
+func examplesCustomresourceIstio_v1alpha1_istiooperator_crYamlBytes() ([]byte, error) {
+	return _examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml, nil
 }
 
-func chartsSecurityNodeagentTemplatesDaemonsetYaml() (*asset, error) {
-	bytes, err := chartsSecurityNodeagentTemplatesDaemonsetYamlBytes()
+func examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml() (*asset, error) {
+	bytes, err := examplesCustomresourceIstio_v1alpha1_istiooperator_crYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/security/nodeagent/templates/daemonset.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "examples/customresource/istio_v1alpha1_istiooperator_cr.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -38337,7 +38271,6 @@ spec:
   group: install.istio.io
   names:
     kind: IstioOperator
-    listKind: IstioOperatorList
     plural: istiooperators
     singular: istiooperator
     shortNames:
@@ -38371,7 +38304,7 @@ spec:
             https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
           type: object
   versions:
-  - name: v1alpha2
+  - name: v1alpha1
     served: true
     storage: true
 ---
@@ -40856,7 +40789,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/security/citadel/templates/service.yaml":                                          chartsSecurityCitadelTemplatesServiceYaml,
 	"charts/security/citadel/templates/serviceaccount.yaml":                                   chartsSecurityCitadelTemplatesServiceaccountYaml,
 	"charts/security/citadel/values.yaml":                                                     chartsSecurityCitadelValuesYaml,
-	"charts/security/nodeagent/templates/daemonset.yaml":                                      chartsSecurityNodeagentTemplatesDaemonsetYaml,
+	"examples/customresource/istio_v1alpha1_istiooperator_cr.yaml":                            examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml,
 	"examples/multicluster/values-istio-multicluster-gateways.yaml":                           examplesMulticlusterValuesIstioMulticlusterGatewaysYaml,
 	"examples/multicluster/values-istio-multicluster-primary.yaml":                            examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
 	"examples/user-gateway/ingress-gateway-only.yaml":                                         examplesUserGatewayIngressGatewayOnlyYaml,
@@ -41209,6 +41142,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		}},
 	}},
 	"examples": &bintree{nil, map[string]*bintree{
+		"customresource": &bintree{nil, map[string]*bintree{
+			"istio_v1alpha1_istiooperator_cr.yaml": &bintree{examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml, map[string]*bintree{}},
+		}},
 		"multicluster": &bintree{nil, map[string]*bintree{
 			"values-istio-multicluster-gateways.yaml": &bintree{examplesMulticlusterValuesIstioMulticlusterGatewaysYaml, map[string]*bintree{}},
 			"values-istio-multicluster-primary.yaml":  &bintree{examplesMulticlusterValuesIstioMulticlusterPrimaryYaml, map[string]*bintree{}},
