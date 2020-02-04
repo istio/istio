@@ -134,8 +134,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType) *http_conn.
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
-	// return a.alphaApplier.InboundFilterChain(sdsUdsPath, node)
-	// beta mTLS policy (PeerAuthentication) is not used for this workload, fallback to alpha policy.
+	// If beta mTLS policy (PeerAuthentication) is not used for this workload, fallback to alpha policy.
 	if a.consolidatedPeerPolicy == nil && a.hasAlphaMTLSPolicy {
 		authnLog.Debug("InboundFilterChain: fallback to alpha policy applier")
 		return a.alphaApplier.InboundFilterChain(sdsUdsPath, node)
@@ -332,7 +331,8 @@ func GetMutualTLSMode(peer *v1beta1.PeerAuthentication) model.MutualTLSMode {
 // GetMostSpecificScopeConfig returns the config with the most specific scope, i.e config with
 // non-empty selector should be preferred over those without, one in non-root namespace should be
 // preferred over those in root namespace. Where there are more than one config in the same
-// scope, pick the one with stronger security (STRICT > PERMISSIVE > DISABLE).
+// scope, pick the one with stronger security (STRICT > PERMISSIVE > DISABLE). In a tie, the first
+// in the list will be used (typically, the list is passed in sorted order).
 // The input configs is assumed to be a short list of configs that should be considerred for an
 // workload.
 func GetMostSpecificScopeConfig(rootNamespace string, configs []*model.Config) *model.Config {
@@ -351,7 +351,7 @@ func GetMostSpecificScopeConfig(rootNamespace string, configs []*model.Config) *
 		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
 			level += 2
 		}
-		if isStronger(spec, configByScope[level]) {
+		if isStrictlyStronger(spec, configByScope[level]) {
 			configByScope[level] = cfg
 		}
 	}
@@ -365,7 +365,7 @@ func GetMostSpecificScopeConfig(rootNamespace string, configs []*model.Config) *
 	return nil
 }
 
-func isStronger(spec *v1beta1.PeerAuthentication, cfg *model.Config) bool {
+func isStrictlyStronger(spec *v1beta1.PeerAuthentication, cfg *model.Config) bool {
 	if cfg == nil {
 		return true
 	}
