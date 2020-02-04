@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -543,7 +542,7 @@ var (
 				PodIP:               podIP,
 				SDSUDSPath:          sdsUDSPath,
 				SDSTokenPath:        sdsTokenPath,
-				STSPort:             strconv.Itoa(stsPort),
+				STSPort:             stsPort,
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,

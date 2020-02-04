@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -87,7 +88,7 @@ type Config struct {
 	PodIP               net.IP
 	SDSUDSPath          string
 	SDSTokenPath        string
-	STSPort             string
+	STSPort             int
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 	OutlierLogPath      string
@@ -415,7 +416,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
 func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
-	sdsEnabled bool, stsPort string) (*model.NodeMetadata, map[string]interface{}, error) {
+	sdsEnabled bool, stsPort int) (*model.NodeMetadata, map[string]interface{}, error) {
 	meta := &model.NodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
@@ -450,8 +451,8 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	}
 
 	// Add STS port into node metadata if it is not 0.
-	if stsPort != "0" {
-		meta.StsPort = stsPort
+	if stsPort != 0 {
+		meta.StsPort = strconv.Itoa(stsPort)
 	}
 
 	return meta, untypedMeta, nil
