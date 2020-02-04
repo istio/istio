@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	electionId = "istio-leader"
+	electionID        = "istio-leader"
+	recorderComponent = "istio-leader-elector"
 )
 
 type LeaderElection struct {
@@ -79,11 +80,11 @@ func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
 	broadcaster := record.NewBroadcaster()
 	hostname, _ := os.Hostname()
 	recorder := broadcaster.NewRecorder(scheme.Scheme, coreV1.EventSource{
-		Component: "istio-leader-elector",
+		Component: recorderComponent,
 		Host:      hostname,
 	})
 	lock := resourcelock.ConfigMapLock{
-		ConfigMapMeta: metaV1.ObjectMeta{Namespace: l.namespace, Name: electionId},
+		ConfigMapMeta: metaV1.ObjectMeta{Namespace: l.namespace, Name: electionID},
 		Client:        l.client.CoreV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
 			Identity:      l.name,
