@@ -10268,9 +10268,10 @@ spec:
           {{- if .Values.global.logAsJson }}
             - --log_as_json
           {{- end }}
-          {{/*securityContext:*/}}
-              {{/*runAsUser: 1337*/}}
-              {{/*runAsGroup: 1337*/}}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -10305,6 +10306,8 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: config-volume
         configMap:
@@ -11322,6 +11325,10 @@ spec:
           - --validation.tls.privateKey=/etc/dnscerts/key.pem
           - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
 {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           volumeMounts:
   {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
           - name: istio-certs
@@ -11419,7 +11426,8 @@ spec:
           - name: envoy-config
             mountPath: /var/lib/istio/galley/envoy
 {{- end }}
-
+      securityContext:
+        fsGroup: 1337
       volumes:
   {{- if or .Values.global.controlPlaneSecurityEnabled (and .Values.global.configValidation (not .Values.global.istiod.enabled)) }}
       - name: istio-certs
@@ -13535,6 +13543,10 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -15769,6 +15781,8 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: istio-certs
         secret:
@@ -15869,6 +15883,10 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
+        securityContext:
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
         volumeMounts:
 {{- if .Values.global.useMCP }}
         - name: istio-certs
@@ -33495,6 +33513,8 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: istio-certs
         secret:
@@ -33598,6 +33618,10 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
+        securityContext:
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
         volumeMounts:
 {{- if .Values.global.useMCP }}
         - name: istio-certs
@@ -38220,11 +38244,17 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
 {{- if not .Values.security.selfSigned }}
           volumeMounts:
           - name: cacerts
             mountPath: /etc/cacerts
             readOnly: true
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: cacerts
         secret:
