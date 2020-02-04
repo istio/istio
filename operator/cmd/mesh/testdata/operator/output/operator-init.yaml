@@ -189,7 +189,7 @@ spec:
         - name: istio-operator
           image: foo.io/istio/operator:1.2.3
           command:
-          - istio-operator
+          - operator
           - server
           imagePullPolicy: IfNotPresent
           resources:
