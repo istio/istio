@@ -958,7 +958,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 			"targetPort overrides service port",
 			&pilot_model.Proxy{
 				ServiceInstances: []*pilot_model.ServiceInstance{
-					&pilot_model.ServiceInstance{
+					{
 						Service: &pilot_model.Service{
 							Hostname: "test",
 						},
