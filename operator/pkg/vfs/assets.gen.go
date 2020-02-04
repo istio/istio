@@ -2438,7 +2438,6 @@ spec:
                                 description: enable locality load balancing, this
                                   is DestinationRule-level and will override mesh
                                   wide settings in entirety.
-                                nullable: true
                                 type: boolean
                               failover:
                                 description: 'Optional: only failover or distribute
@@ -2471,7 +2470,6 @@ spec:
                           consecutive5xxErrors:
                             description: Number of 5xx errors before a host is ejected
                               from the connection pool.
-                            nullable: true
                             type: integer
                           consecutiveErrors:
                             format: int32
@@ -2479,7 +2477,6 @@ spec:
                           consecutiveGatewayErrors:
                             description: Number of gateway errors before a host is
                               ejected from the connection pool.
-                            nullable: true
                             type: integer
                           interval:
                             description: Time interval between ejection sweep analysis.
@@ -2627,7 +2624,6 @@ spec:
                                       description: enable locality load balancing,
                                         this is DestinationRule-level and will override
                                         mesh wide settings in entirety.
-                                      nullable: true
                                       type: boolean
                                     failover:
                                       description: 'Optional: only failover or distribute
@@ -2660,7 +2656,6 @@ spec:
                                 consecutive5xxErrors:
                                   description: Number of 5xx errors before a host
                                     is ejected from the connection pool.
-                                  nullable: true
                                   type: integer
                                 consecutiveErrors:
                                   format: int32
@@ -2668,7 +2663,6 @@ spec:
                                 consecutiveGatewayErrors:
                                   description: Number of gateway errors before a host
                                     is ejected from the connection pool.
-                                  nullable: true
                                   type: integer
                                 interval:
                                   description: Time interval between ejection sweep
@@ -2886,7 +2880,6 @@ spec:
                         enabled:
                           description: enable locality load balancing, this is DestinationRule-level
                             and will override mesh wide settings in entirety.
-                          nullable: true
                           type: boolean
                         failover:
                           description: 'Optional: only failover or distribute can
@@ -2919,7 +2912,6 @@ spec:
                     consecutive5xxErrors:
                       description: Number of 5xx errors before a host is ejected from
                         the connection pool.
-                      nullable: true
                       type: integer
                     consecutiveErrors:
                       format: int32
@@ -2927,7 +2919,6 @@ spec:
                     consecutiveGatewayErrors:
                       description: Number of gateway errors before a host is ejected
                         from the connection pool.
-                      nullable: true
                       type: integer
                     interval:
                       description: Time interval between ejection sweep analysis.
@@ -3073,7 +3064,6 @@ spec:
                                 description: enable locality load balancing, this
                                   is DestinationRule-level and will override mesh
                                   wide settings in entirety.
-                                nullable: true
                                 type: boolean
                               failover:
                                 description: 'Optional: only failover or distribute
@@ -3106,7 +3096,6 @@ spec:
                           consecutive5xxErrors:
                             description: Number of 5xx errors before a host is ejected
                               from the connection pool.
-                            nullable: true
                             type: integer
                           consecutiveErrors:
                             format: int32
@@ -3114,7 +3103,6 @@ spec:
                           consecutiveGatewayErrors:
                             description: Number of gateway errors before a host is
                               ejected from the connection pool.
-                            nullable: true
                             type: integer
                           interval:
                             description: Time interval between ejection sweep analysis.
@@ -4009,7 +3997,6 @@ spec:
                     description: Cross-Origin Resource Sharing policy (CORS).
                     properties:
                       allowCredentials:
-                        nullable: true
                         type: boolean
                       allowHeaders:
                         items:
@@ -4331,12 +4318,10 @@ spec:
                   mirror_percent:
                     description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
                       field.
-                    nullable: true
                     type: integer
                   mirrorPercent:
                     description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
                       field.
-                    nullable: true
                     type: integer
                   mirrorPercentage:
                     description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
@@ -10283,9 +10268,10 @@ spec:
           {{- if .Values.global.logAsJson }}
             - --log_as_json
           {{- end }}
-          {{/*securityContext:*/}}
-              {{/*runAsUser: 1337*/}}
-              {{/*runAsGroup: 1337*/}}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -10320,6 +10306,8 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: config-volume
         configMap:
@@ -11337,6 +11325,10 @@ spec:
           - --validation.tls.privateKey=/etc/dnscerts/key.pem
           - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
 {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           volumeMounts:
   {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
           - name: istio-certs
@@ -11434,7 +11426,8 @@ spec:
           - name: envoy-config
             mountPath: /var/lib/istio/galley/envoy
 {{- end }}
-
+      securityContext:
+        fsGroup: 1337
       volumes:
   {{- if or .Values.global.controlPlaneSecurityEnabled (and .Values.global.configValidation (not .Values.global.istiod.enabled)) }}
       - name: istio-certs
@@ -12294,6 +12287,16 @@ template: |
       - {{ render . }}
       {{- end }}
   {{- end }}
+  podRedirectAnnot:
+    sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
+    traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
+    traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
+    traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` (includeInboundPorts .Spec.Containers) }}"
+    traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
+  {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
+    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+  {{- end }}
+    traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
 `)
 
 func chartsIstioControlIstioDiscoveryFilesInjectionTemplateYamlBytes() ([]byte, error) {
@@ -13456,8 +13459,12 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-          - --secureGrpcAddr
-          - ""
+
+{{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.istiod.enabled }}
+          - --secureGrpcAddr=:15011
+{{- else }}
+          - --secureGrpcAddr=
+{{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
@@ -13499,6 +13506,11 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.serviceAccountName
           {{- if .Values.pilot.env }}
           {{- range $key, $val := .Values.pilot.env }}
           - name: {{ $key }}
@@ -13531,6 +13543,10 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -13555,7 +13571,7 @@ spec:
             mountPath: /var/lib/istio/validation
             readOnly: true
           {{- end }}
-{{- if .Values.global.controlPlaneSecurityEnabled }}
+{{- if and .Values.global.controlPlaneSecurityEnabled (not .Values.global.istiod.enabled) }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
@@ -14537,6 +14553,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -15765,6 +15786,8 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: istio-certs
         secret:
@@ -15865,6 +15888,10 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
+        securityContext:
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
         volumeMounts:
 {{- if .Values.global.useMCP }}
         - name: istio-certs
@@ -33491,6 +33518,8 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: istio-certs
         secret:
@@ -33594,6 +33623,10 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
+        securityContext:
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
         volumeMounts:
 {{- if .Values.global.useMCP }}
         - name: istio-certs
@@ -38216,11 +38249,17 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
 {{- if not .Values.security.selfSigned }}
           volumeMounts:
           - name: cacerts
             mountPath: /etc/cacerts
             readOnly: true
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: cacerts
         secret:
@@ -39757,7 +39796,7 @@ spec:
       imagePullPolicy: IfNotPresent
       certificates: []
       operatorManageWebhooks: false
-      controlPlaneSecurityEnabled: false
+      controlPlaneSecurityEnabled: true
       disablePolicyChecks: true
       policyCheckFailOpen: false
       enableTracing: true

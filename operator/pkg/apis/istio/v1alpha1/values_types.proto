@@ -1519,6 +1519,7 @@ enum tracer {
   zipkin = 0;
   lightstep = 1;
   datadog = 2;
+  stackdriver = 3;
 }
 
 message EnvoyAccessLogConfig {
