@@ -68,7 +68,7 @@ spec:
         image: "{{ .Values.mixer.policy.hub | default .Values.global.hub }}/{{ .Values.mixer.policy.image }}:{{ .Values.mixer.policy.tag | default .Values.global.tag }}"
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- end }}
         ports:
         - containerPort: 9091
