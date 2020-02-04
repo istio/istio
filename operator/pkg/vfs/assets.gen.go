@@ -8978,6 +8978,7 @@ rules:
   verbs:
   - get
 ---
+{{- if .Values.cni.repair.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -8991,7 +8992,8 @@ rules:
   verbs: ["get", "list", "watch", "delete", "patch", "update" ]
 - apiGroups: [""]
   resources: ["events"]
-  verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]`)
+  verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]
+{{- end }}`)
 
 func chartsIstioCniTemplatesClusterroleYamlBytes() ([]byte, error) {
 	return _chartsIstioCniTemplatesClusterroleYaml, nil
@@ -9024,6 +9026,7 @@ subjects:
   name: istio-cni
   namespace: {{ .Release.Namespace }}
 ---
+{{- if .Values.cni.repair.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -9039,6 +9042,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: istio-cni-repair-role
+{{- end }}
 ---
 {{- if ne .Values.cni.psp_cluster_role "" }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -9192,13 +9196,17 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
+{{- if .Values.cni.repair.enabled }}
         - name: repair-cni
-            {{- if contains "/" .Values.cni.image }}
+{{- if contains "/" .Values.cni.image }}
           image: "{{ .Values.cni.image }}"
-            {{- else }}
+{{- else }}
           image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}"
-            {{- end }}
+{{- end }}
+{{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
+{{- end }}
+
           command: ["/opt/cni/bin/istio-cni-repair"]
           env:
           - name: "REPAIR_NODE-NAME"
@@ -9222,6 +9230,7 @@ spec:
             value: "{{.Values.cni.repair.brokenPodLabelKey}}"
           - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
             value: "{{.Values.cni.repair.brokenPodLabelValue}}"
+{{- end }}
       volumes:
         # Used to install CNI.
         - name: cni-bin-dir

@@ -6362,6 +6362,7 @@ spec:
         - name: repair-cni
           image: "component.cni.hub/install-cni:component.cni.tag"
           imagePullPolicy: Always
+
           command: ["/opt/cni/bin/istio-cni-repair"]
           env:
           - name: "REPAIR_NODE-NAME"

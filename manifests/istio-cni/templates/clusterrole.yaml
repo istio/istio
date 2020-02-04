@@ -13,6 +13,7 @@ rules:
   verbs:
   - get
 ---
+{{- if .Values.cni.repair.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -27,3 +28,4 @@ rules:
 - apiGroups: [""]
   resources: ["events"]
   verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]
+{{- end }}

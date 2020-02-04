@@ -84,7 +84,7 @@ message CNIRepairConfig {
 
   string hub = 2;
 
-  StringOrNumber tag = 3;
+  TypeInterface tag = 3;
 
   string image = 4;
 
