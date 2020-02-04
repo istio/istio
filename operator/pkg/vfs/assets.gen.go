@@ -41134,11 +41134,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				}},
 				"values.yaml": &bintree{chartsSecurityCitadelValuesYaml, map[string]*bintree{}},
 			}},
-			"nodeagent": &bintree{nil, map[string]*bintree{
-				"templates": &bintree{nil, map[string]*bintree{
-					"daemonset.yaml": &bintree{chartsSecurityNodeagentTemplatesDaemonsetYaml, map[string]*bintree{}},
-				}},
-			}},
 		}},
 	}},
 	"examples": &bintree{nil, map[string]*bintree{
