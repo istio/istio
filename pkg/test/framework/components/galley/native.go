@@ -24,17 +24,15 @@ import (
 	"syscall"
 	"time"
 
-	"istio.io/pkg/appsignals"
-
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/appsignals"
 )
 
 var (
@@ -106,7 +104,6 @@ func (c *nativeComponent) ClearConfig() (err error) {
 		return err
 	}
 
-	err = c.applyAttributeManifest()
 	return
 }
 
@@ -260,10 +257,6 @@ func (c *nativeComponent) reset() error {
 		return err
 	}
 
-	if err = c.applyAttributeManifest(); err != nil {
-		return err
-	}
-
 	return c.restart()
 }
 
@@ -331,20 +324,6 @@ func (c *nativeComponent) Close() (err error) {
 
 	scopes.Framework.Debugf("%s close complete (err:%v)", c.id, err)
 	return
-}
-
-func (c *nativeComponent) applyAttributeManifest() error {
-	helmExtractDir, err := c.context.CreateTmpDirectory("helm-mixer-attribute-extract")
-	if err != nil {
-		return err
-	}
-
-	m, err := deployment.ExtractAttributeManifest(helmExtractDir)
-	if err != nil {
-		return err
-	}
-
-	return c.ApplyConfig(nil, m)
 }
 
 func applyNamespace(ns namespace.Instance, yamlText string) (out string, err error) {
