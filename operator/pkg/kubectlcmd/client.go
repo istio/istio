@@ -152,7 +152,7 @@ func (c *Client) kubectl(subcmds []string, opts *Options) (string, string, error
 		if opts.Verbose {
 			cmdStr += "\n" + opts.Stdin
 		} else {
-			cmdStr += " <use --verbose to see stdin string> \n"
+			cmdStr += " <use --verbose to see stdin string> "
 		}
 	}
 
@@ -161,7 +161,7 @@ func (c *Client) kubectl(subcmds []string, opts *Options) (string, string, error
 		return "", "", nil
 	}
 
-	scope.Infof("running command:\n%s\n", cmdStr)
+	scope.Infof("running command: %s", cmdStr)
 	err := c.cmdSite.Run(cmd)
 	csError := util.ConsolidateLog(stderr.String())
 

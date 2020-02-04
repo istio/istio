@@ -123,11 +123,11 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_values",
-			diffSelect: "Deployment:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod",
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istio-pilot, Service:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod, Service:*:istio-pilot",
 		},
 		{
 			desc:       "pilot_merge_meshconfig",

@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time" // For kubeclient GCP auth
@@ -385,18 +386,45 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	appliedObjects = append(appliedObjects, crdObjects...)
 
 	// Apply all remaining objects.
-	nonNsCrdObjects := objectsNotInLists(objects, nsObjects, crdObjects)
-	stdout, stderr, err = applyObjects(nonNsCrdObjects, &opts, stdout, stderr)
+	// We sort them by namespace so that we can pass the `-n` to the apply command. This is required for prune to work
+	// See https://github.com/kubernetes/kubernetes/issues/87756 for details
+	namespaces, nonNsCrdObjectsByNamespace := splitByNamespace(objectsNotInLists(objects, nsObjects, crdObjects))
+	var applyErr error
+	for _, ns := range namespaces {
+		nonNsCrdObjects := nonNsCrdObjectsByNamespace[ns]
+		nsOpts := opts
+		nsOpts.Namespace = ns
+		stdout, stderr, err = applyObjects(nonNsCrdObjects, &nsOpts, stdout, stderr)
+		if err != nil {
+			applyErr = fmt.Errorf("error applying object to %v: %v: %v", ns, err, applyErr)
+		}
+		appliedObjects = append(appliedObjects, nonNsCrdObjects...)
+	}
 	mark := "✔"
-	if err != nil {
+	if applyErr != nil {
 		mark = "✘"
 	}
 	logAndPrint("%s Finished applying manifest for component %s.", mark, componentName)
-	if err != nil {
+	if applyErr != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	appliedObjects = append(appliedObjects, nonNsCrdObjects...)
 	return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
+}
+
+// Split objects by namespace, and return a sorted list of keys defining the order they should be applied
+func splitByNamespace(objs object.K8sObjects) ([]string, map[string]object.K8sObjects) {
+	res := map[string]object.K8sObjects{}
+	order := []string{}
+	for _, obj := range objs {
+		if _, f := res[obj.Namespace]; !f {
+			order = append(order, obj.Namespace)
+		}
+		res[obj.Namespace] = append(res[obj.Namespace], obj)
+	}
+	// Sort in alphabetical order. The key thing here is that the clusterwide resources are applied first.
+	// Clusterwide resources have no namespace, so they are sorted first.
+	sort.Strings(order)
+	return order, res
 }
 
 func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {

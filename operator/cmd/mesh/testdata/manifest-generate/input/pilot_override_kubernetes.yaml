@@ -13,7 +13,7 @@ spec:
       k8s:
         overlays:
           - kind: Deployment
-            name: istio-pilot
+            name: istiod
             patches:
               - path: spec.template.spec.containers.[name:discovery].args.[30m]
                 value: "60m" # OVERRIDDEN
