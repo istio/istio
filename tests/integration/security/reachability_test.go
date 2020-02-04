@@ -41,6 +41,23 @@ func TestReachability(t *testing.T) {
 
 			testCases := []reachability.TestCase{
 				{
+					ConfigFile:          "beta-global-mtls-on.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						if src == rctx.Naked && opts.Target == rctx.Naked {
+							// naked->naked should always succeed.
+							return true
+						}
+
+						// If one of the two endpoints is naked, expect failure.
+						return src != rctx.Naked && opts.Target != rctx.Naked
+					},
+				},
+				{
 					ConfigFile:          "global-mtls-on.yaml",
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
@@ -58,12 +75,34 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
+					ConfigFile:          "beta-global-mtls-permissive.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the naked app.
+						return opts.Target != rctx.Naked
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+				},
+				{
 					ConfigFile:          "global-mtls-permissive.yaml",
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the naked app.
 						return opts.Target != rctx.Naked
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+				},
+				{
+					ConfigFile: "beta-global-mtls-off.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
