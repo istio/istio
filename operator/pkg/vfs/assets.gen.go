@@ -7963,11 +7963,13 @@ spec:
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
-{{- if .Values.global.istiod.enabled }}
+{{- if or .Values.global.istiod.enabled $gateway.sds.enabled }}
           - name: "ISTIO_META_USER_SDS"
             value: "true"
+{{- if .Values.global.istiod.enabled }}
           - name: CA_ADDR
             value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+{{- end }}
 {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -8022,10 +8024,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- if $gateway.sds.enabled }}
-          - name: ISTIO_META_USER_SDS
-            value: "true"
-          {{- end }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: {{ $val }}
