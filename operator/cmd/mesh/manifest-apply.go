@@ -103,7 +103,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool, verbose bool,
 	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
 
-	ysf, err := yAMLFromSetFlags(setOverlay, force, l)
+	ysf, err := yamlFromSetFlags(setOverlay, force, l)
 	if err != nil {
 		return err
 	}

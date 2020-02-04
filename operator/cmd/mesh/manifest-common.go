@@ -45,9 +45,9 @@ func ignoreError(stderr string) bool {
 	return trimmedStdErr == ""
 }
 
-// yAMLFromSetFlags takes a slice of --set flag key-value pairs and returns a YAML tree representation.
+// yamlFromSetFlags takes a slice of --set flag key-value pairs and returns a YAML tree representation.
 // If force is set, validation errors cause warning messages to be written to logger rather than causing error.
-func yAMLFromSetFlags(setOverlay []string, force bool, l *Logger) (string, error) {
+func yamlFromSetFlags(setOverlay []string, force bool, l *Logger) (string, error) {
 	out, err := makeTreeFromSetList(setOverlay)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)

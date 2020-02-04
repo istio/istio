@@ -77,7 +77,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) e
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	ysf, err := yAMLFromSetFlags(mgArgs.set, mgArgs.force, l)
+	ysf, err := yamlFromSetFlags(mgArgs.set, mgArgs.force, l)
 	if err != nil {
 		return err
 	}
