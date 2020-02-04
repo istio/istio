@@ -946,7 +946,8 @@ func (ps *PushContext) updateContext(
 			authzChanged = true
 		case collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(),
 			collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(),
-			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
+			collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
 			authnChanged = true
 		}
 	}
@@ -1091,7 +1092,10 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 // Caches list of authentication policies
 func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 	// Init beta policy.
-	ps.AuthnBetaPolicies = initAuthenticationPolicies(env)
+	var initBetaPolicyErro error
+	if ps.AuthnBetaPolicies, initBetaPolicyErro = initAuthenticationPolicies(env); initBetaPolicyErro != nil {
+		return initBetaPolicyErro
+	}
 
 	// Processing alpha policy. This will be removed after beta API released.
 	authNPolicies, err := env.List(collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(), NamespaceAll)

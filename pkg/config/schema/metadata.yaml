@@ -142,6 +142,11 @@ collections:
     group: "security.istio.io"
     pilot: true
 
+  - name: "istio/security/v1beta1/peerauthentications"
+    kind: "PeerAuthentication"
+    group: "security.istio.io"
+    pilot: true
+
   ### K8s collections ###
 
   # Built-in K8s collections
@@ -274,6 +279,10 @@ collections:
     kind: "RequestAuthentication"
     group: "security.istio.io"
 
+  - name: "k8s/security.istio.io/v1beta1/peerauthentications"
+    kind: "PeerAuthentication"
+    group: "security.istio.io"
+
 # The snapshots to generate
 snapshots:
   # Used by Galley to distribute configuration.
@@ -305,6 +314,7 @@ snapshots:
       - "istio/rbac/v1alpha1/serviceroles"
       - "istio/security/v1beta1/authorizationpolicies"
       - "istio/security/v1beta1/requestauthentications"
+      - "istio/security/v1beta1/peerauthentications"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
 
@@ -550,6 +560,15 @@ resources:
     protoPackage: "istio.io/api/security/v1beta1"
     description: "describes the request authentication."
 
+  - kind: "PeerAuthentication"
+    plural: "peerauthentications"
+    group: "security.istio.io"
+    version: "v1beta1"
+    proto: "istio.security.v1beta1.PeerAuthentication"
+    protoPackage: "istio.io/api/security/v1beta1"
+    validate: "ValidatePeerAuthentication"
+    description: "describes the peer authentication."
+
   - kind: "rule"
     plural: "rules"
     group: "config.istio.io"
@@ -618,6 +637,7 @@ transforms:
       "k8s/rbac.istio.io/v1alpha1/serviceroles": "istio/rbac/v1alpha1/serviceroles"
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
       "k8s/security.istio.io/v1beta1/requestauthentications": "istio/security/v1beta1/requestauthentications"
+      "k8s/security.istio.io/v1beta1/peerauthentications": "istio/security/v1beta1/peerauthentications"
       "k8s/apps/v1/deployments": "k8s/apps/v1/deployments"
       "k8s/core/v1/namespaces": "k8s/core/v1/namespaces"
       "k8s/core/v1/pods": "k8s/core/v1/pods"

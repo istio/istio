@@ -1717,6 +1717,28 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	return
 }
 
+// ValidatePeerAuthentication checks that peer authentication spec is well-formed.
+var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthentication",
+	func(name, namespace string, msg proto.Message) error {
+		in, ok := msg.(*security_beta.PeerAuthentication)
+		if !ok {
+			return errors.New("cannot cast to PeerAuthentication")
+		}
+
+		var errs error
+		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
+		if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
+			errs = appendErrors(errs, fmt.Errorf("default peer authentication cannot have workload selector"))
+		} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
+			errs = appendErrors(errs,
+				fmt.Errorf("peer authentication with empty workload selector must be named %q", constants.DefaultAuthenticationPolicyName))
+		}
+
+		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
+
+		return errs
+	})
+
 // ValidateServiceRole checks that ServiceRole is well-formed.
 var ValidateServiceRole = registerValidateFunc("ValidateServiceRole",
 	func(_, _ string, msg proto.Message) error {

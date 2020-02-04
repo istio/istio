@@ -54,6 +54,8 @@
 // dataset/rbac-v1alpha1-ServiceRoleBinding-valid.yaml
 // dataset/security-v1beta1-AuthorizationPolicy-invalid.yaml
 // dataset/security-v1beta1-AuthorizationPolicy-valid.yaml
+// dataset/security-v1beta1-PeerAuthentication-invalid.yaml
+// dataset/security-v1beta1-PeerAuthentication-valid.yaml
 // dataset/security-v1beta1-RequestAuthentication-invalid.yaml
 // dataset/security-v1beta1-RequestAuthentication-valid.yaml
 package validation
@@ -1802,6 +1804,59 @@ func datasetSecurityV1beta1AuthorizationpolicyValidYaml() (*asset, error) {
 	return a, nil
 }
 
+var _datasetSecurityV1beta1PeerauthenticationInvalidYaml = []byte(`apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: invalid-peer-authentication
+spec:
+`)
+
+func datasetSecurityV1beta1PeerauthenticationInvalidYamlBytes() ([]byte, error) {
+	return _datasetSecurityV1beta1PeerauthenticationInvalidYaml, nil
+}
+
+func datasetSecurityV1beta1PeerauthenticationInvalidYaml() (*asset, error) {
+	bytes, err := datasetSecurityV1beta1PeerauthenticationInvalidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/security-v1beta1-PeerAuthentication-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetSecurityV1beta1PeerauthenticationValidYaml = []byte(`apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: valid-peer-authentication
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  mtls:
+    mode: PERMISSIVE
+  peerLevelMtls:
+    8080:
+      mode: STRICT
+`)
+
+func datasetSecurityV1beta1PeerauthenticationValidYamlBytes() ([]byte, error) {
+	return _datasetSecurityV1beta1PeerauthenticationValidYaml, nil
+}
+
+func datasetSecurityV1beta1PeerauthenticationValidYaml() (*asset, error) {
+	bytes, err := datasetSecurityV1beta1PeerauthenticationValidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/security-v1beta1-PeerAuthentication-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _datasetSecurityV1beta1RequestauthenticationInvalidYaml = []byte(`apiVersion: "security.istio.io/v1beta1"
 kind: "RequestAuthentication"
 metadata:
@@ -1964,6 +2019,8 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/rbac-v1alpha1-ServiceRoleBinding-valid.yaml":         datasetRbacV1alpha1ServicerolebindingValidYaml,
 	"dataset/security-v1beta1-AuthorizationPolicy-invalid.yaml":   datasetSecurityV1beta1AuthorizationpolicyInvalidYaml,
 	"dataset/security-v1beta1-AuthorizationPolicy-valid.yaml":     datasetSecurityV1beta1AuthorizationpolicyValidYaml,
+	"dataset/security-v1beta1-PeerAuthentication-invalid.yaml":    datasetSecurityV1beta1PeerauthenticationInvalidYaml,
+	"dataset/security-v1beta1-PeerAuthentication-valid.yaml":      datasetSecurityV1beta1PeerauthenticationValidYaml,
 	"dataset/security-v1beta1-RequestAuthentication-invalid.yaml": datasetSecurityV1beta1RequestauthenticationInvalidYaml,
 	"dataset/security-v1beta1-RequestAuthentication-valid.yaml":   datasetSecurityV1beta1RequestauthenticationValidYaml,
 }
@@ -2064,6 +2121,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"rbac-v1alpha1-ServiceRoleBinding-valid.yaml":         &bintree{datasetRbacV1alpha1ServicerolebindingValidYaml, map[string]*bintree{}},
 		"security-v1beta1-AuthorizationPolicy-invalid.yaml":   &bintree{datasetSecurityV1beta1AuthorizationpolicyInvalidYaml, map[string]*bintree{}},
 		"security-v1beta1-AuthorizationPolicy-valid.yaml":     &bintree{datasetSecurityV1beta1AuthorizationpolicyValidYaml, map[string]*bintree{}},
+		"security-v1beta1-PeerAuthentication-invalid.yaml":    &bintree{datasetSecurityV1beta1PeerauthenticationInvalidYaml, map[string]*bintree{}},
+		"security-v1beta1-PeerAuthentication-valid.yaml":      &bintree{datasetSecurityV1beta1PeerauthenticationValidYaml, map[string]*bintree{}},
 		"security-v1beta1-RequestAuthentication-invalid.yaml": &bintree{datasetSecurityV1beta1RequestauthenticationInvalidYaml, map[string]*bintree{}},
 		"security-v1beta1-RequestAuthentication-valid.yaml":   &bintree{datasetSecurityV1beta1RequestauthenticationValidYaml, map[string]*bintree{}},
 	}},
