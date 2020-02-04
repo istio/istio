@@ -585,6 +585,14 @@ func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *ro
 		out.Headers = append(out.Headers, &matcher)
 	}
 
+	if util.IsIstioVersionGE14(node) {
+		for name, stringMatch := range in.WithoutHeaders {
+			matcher := translateHeaderMatch(name, stringMatch, node)
+			matcher.InvertMatch = true
+			out.Headers = append(out.Headers, &matcher)
+		}
+	}
+
 	// guarantee ordering of headers
 	sort.Slice(out.Headers, func(i, j int) bool {
 		return out.Headers[i].Name < out.Headers[j].Name
@@ -668,10 +676,32 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) route.Que
 	return out
 }
 
+// isCatchAllHeaderMatch determines if the given header is matched with all strings or not.
+// Currently, if the regex has "*" value, it returns true
+func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
+	catchall := false
+
+	if in == nil {
+		return true
+	}
+
+	switch m := in.MatchType.(type) {
+	case *networking.StringMatch_Regex:
+		catchall = m.Regex == "*"
+	}
+
+	return catchall
+}
+
 // translateHeaderMatch translates to HeaderMatcher
 func translateHeaderMatch(name string, in *networking.StringMatch, node *model.Proxy) route.HeaderMatcher {
 	out := route.HeaderMatcher{
 		Name: name,
+	}
+
+	if isCatchAllHeaderMatch(in) {
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_PresentMatch{PresentMatch: true}
+		return out
 	}
 
 	switch m := in.MatchType.(type) {
