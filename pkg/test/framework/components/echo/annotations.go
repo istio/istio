@@ -36,8 +36,8 @@ type Annotation struct {
 }
 
 var (
-	SidecarInject                         = workloadAnnotation(annotation.SidecarInject.Name, "true")
-	SidecarRewriteAppHTTPProbers          = workloadAnnotation(annotation.SidecarRewriteAppHTTPProbers.Name, "")
+	SidecarInject                = workloadAnnotation(annotation.SidecarInject.Name, "true")
+	SidecarRewriteAppHTTPProbers = workloadAnnotation(annotation.SidecarRewriteAppHTTPProbers.Name, "")
 )
 
 type AnnotationValue struct {

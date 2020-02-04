@@ -104,6 +104,7 @@ func (c *nativeComponent) ClearConfig() (err error) {
 		return err
 	}
 
+	err = c.applyAttributeManifest()
 	return
 }
 
@@ -257,6 +258,9 @@ func (c *nativeComponent) reset() error {
 		return err
 	}
 
+	if err = c.applyAttributeManifest(); err != nil {
+		return err
+	}
 	return c.restart()
 }
 
@@ -324,6 +328,70 @@ func (c *nativeComponent) Close() (err error) {
 
 	scopes.Framework.Debugf("%s close complete (err:%v)", c.id, err)
 	return
+}
+
+func (c *nativeComponent) applyAttributeManifest() error {
+	return c.ApplyConfig(nil, `
+apiVersion: "config.istio.io/v1alpha2"
+kind: attributemanifest
+metadata:
+  name: kubernetes
+  namespace: istio-system
+spec:
+  attributes:
+    source.ip:
+      valueType: IP_ADDRESS
+    source.labels:
+      valueType: STRING_MAP
+    source.metadata:
+      valueType: STRING_MAP
+    source.name:
+      valueType: STRING
+    source.namespace:
+      valueType: STRING
+    source.owner:
+      valueType: STRING
+    source.serviceAccount:
+      valueType: STRING
+    source.services:
+      valueType: STRING
+    source.workload.uid:
+      valueType: STRING
+    source.workload.name:
+      valueType: STRING
+    source.workload.namespace:
+      valueType: STRING
+    destination.ip:
+      valueType: IP_ADDRESS
+    destination.labels:
+      valueType: STRING_MAP
+    destination.metadata:
+      valueType: STRING_MAP
+    destination.owner:
+      valueType: STRING
+    destination.name:
+      valueType: STRING
+    destination.container.name:
+      valueType: STRING
+    destination.namespace:
+      valueType: STRING
+    destination.service.uid:
+      valueType: STRING
+    destination.service.name:
+      valueType: STRING
+    destination.service.namespace:
+      valueType: STRING
+    destination.service.host:
+      valueType: STRING
+    destination.serviceAccount:
+      valueType: STRING
+    destination.workload.uid:
+      valueType: STRING
+    destination.workload.name:
+      valueType: STRING
+    destination.workload.namespace:
+      valueType: STRING
+`)
 }
 
 func applyNamespace(ns namespace.Instance, yamlText string) (out string, err error) {
