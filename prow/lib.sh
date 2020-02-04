@@ -165,7 +165,7 @@ function setup_kind_cluster() {
   done
   kubectl apply -f ./prow/config/metrics
 
-  export DOCKER_CLI_EXPERIMENTAL=true
+  export DOCKER_CLI_EXPERIMENTAL=enabled
   if ! docker buildx ls | grep -q container-builder; then
     docker buildx create --driver-opt network=host --use --name container-builder
   fi
