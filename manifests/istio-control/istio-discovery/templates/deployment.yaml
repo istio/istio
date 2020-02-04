@@ -248,7 +248,7 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
-          {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.SecretVolumeMtlsCerts }}
+          {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           # TODO: Pilot needs to read from the local file when using the mounted key and cert.
           volumeMounts:
@@ -305,7 +305,7 @@ spec:
       - name: pilot-envoy-config
         configMap:
           name: pilot-envoy-config{{ .Values.version }}
-  {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.SecretVolumeMtlsCerts }}
+  {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
       # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       # TODO: Pilot needs to read from the local file when using the mounted key and cert.
       - name: istio-certs

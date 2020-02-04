@@ -385,7 +385,7 @@ template: |
     - mountPath: /var/run/secrets/tokens
       name: istio-token
     {{- end }}
-    {{- if .Values.global.SecretVolumeMtlsCerts }}
+    {{- if .Values.global.mountMtlsCerts }}
     # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
     - mountPath: /etc/certs/
       name: istio-certs
@@ -426,7 +426,7 @@ template: |
     configMap:
       name: istio-ca-root-cert
   {{- end }}
-  {{- if .Values.global.SecretVolumeMtlsCerts }}
+  {{- if .Values.global.mountMtlsCerts }}
   # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
   - name: istio-certs
     secret:

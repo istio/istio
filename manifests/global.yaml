@@ -241,7 +241,7 @@ global:
   controlPlaneSecurityEnabled: true
 
   # Use the user-specified, secret volume mounted key and certs for Pilot and workloads.
-  SecretVolumeMtlsCerts: false
+  mountMtlsCerts: false
 
   # disablePolicyChecks disables mixer policy checks.
   # if mixer.policy.enabled==true then disablePolicyChecks has affect.

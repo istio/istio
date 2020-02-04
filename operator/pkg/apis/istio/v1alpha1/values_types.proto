@@ -603,7 +603,7 @@ message GlobalConfig {
   string jwtPolicy = 57;
 
   // Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.
-  google.protobuf.BoolValue SecretVolumeMtlsCertsEnabled = 4;
+  google.protobuf.BoolValue mountMtlsCerts = 58;
 
   // The next available key is 59
 }

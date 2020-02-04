@@ -304,7 +304,7 @@ spec:
             mountPath: /var/run/ingress_gateway
           {{- end }}
 {{- end }}
-          {{- if .Values.global.SecretVolumeMtlsCerts }}
+          {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
@@ -342,7 +342,7 @@ spec:
         emptyDir: {}
       {{- end }}
 {{- end }}
-      {{- if .Values.global.SecretVolumeMtlsCerts }}
+      {{- if .Values.global.mountMtlsCerts }}
       # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
