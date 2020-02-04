@@ -482,7 +482,15 @@ func escapeJSONPointerValue(in string) string {
 // adds labels to the target spec, will not overwrite label's value if it already exists
 func addLabels(target map[string]string, added map[string]string) []rfc6902PatchOperation {
 	patches := []rfc6902PatchOperation{}
-	for key, value := range added {
+
+	var addedKeys []string
+	for key := range added {
+		addedKeys = append(addedKeys, key)
+	}
+	sort.Strings(addedKeys)
+
+	for _, key := range addedKeys {
+		value := added[key]
 		patch := rfc6902PatchOperation{
 			Op:    "add",
 			Path:  "/metadata/labels/" + escapeJSONPointerValue(key),
@@ -539,7 +547,9 @@ func updateAnnotation(target map[string]string, added map[string]string) (patch 
 	return patch
 }
 
-func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotations map[string]string, sic *SidecarInjectionSpec) ([]byte, error) {
+func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotations map[string]string, sic *SidecarInjectionSpec,
+	workloadName string) ([]byte, error) {
+
 	var patch []rfc6902PatchOperation
 
 	// Remove any containers previously injected by kube-inject using
@@ -581,13 +591,33 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
-	patch = append(patch, addLabels(pod.Labels, map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel})...)
+	canonicalSvc := extractCanonicalSerivceLabel(pod.Labels, workloadName)
+	patch = append(patch, addLabels(pod.Labels, map[string]string{
+		model.TLSModeLabelName:               model.IstioMutualTLSModeLabel,
+		model.IstioCanonicalServiceLabelName: canonicalSvc})...)
 
 	if rewrite {
 		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
 	}
 
 	return json.Marshal(patch)
+}
+
+func extractCanonicalSerivceLabel(podLabels map[string]string, workloadName string) string {
+
+	if svc, ok := podLabels[model.IstioCanonicalServiceLabelName]; ok {
+		return svc
+	}
+
+	if svc, ok := podLabels["app.kubernetes.io/name"]; ok {
+		return svc
+	}
+
+	if svc, ok := podLabels["app"]; ok {
+		return svc
+	}
+
+	return workloadName
 }
 
 // Retain deprecated hardcoded container and volumes names to aid in
@@ -729,7 +759,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		annotations[k] = v
 	}
 
-	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
+	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec, deployMeta.Name)
 	if err != nil {
 		handleError(fmt.Sprintf("AdmissionResponse: err=%v spec=%v\n", err, spec))
 		return toAdmissionResponse(err)

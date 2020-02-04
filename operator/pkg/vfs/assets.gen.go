@@ -6836,6 +6836,9 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
         {{- if .Values.global.istiod.enabled }}
           - --controlPlaneAuthPolicy
           - NONE
@@ -7911,6 +7914,9 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
           {{- if .Values.global.istiod.enabled }}
           - --controlPlaneAuthPolicy
           - NONE
@@ -7963,11 +7969,13 @@ spec:
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
-{{- if .Values.global.istiod.enabled }}
+{{- if or .Values.global.istiod.enabled $gateway.sds.enabled }}
           - name: "ISTIO_META_USER_SDS"
             value: "true"
+{{- if .Values.global.istiod.enabled }}
           - name: CA_ADDR
             value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+{{- end }}
 {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -8022,10 +8030,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- if $gateway.sds.enabled }}
-          - name: ISTIO_META_USER_SDS
-            value: "true"
-          {{- end }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: {{ $val }}
@@ -8473,20 +8477,25 @@ metadata:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
-   workloadLabels:
-     istio: ingressgateway
-   filters:
-   - listenerMatch:
-       portNumber: 15443
-       listenerType: GATEWAY
-     insertPosition:
-       index: AFTER
-       relativeTo: envoy.filters.network.sni_cluster
-     filterName: envoy.filters.network.tcp_cluster_rewrite
-     filterType: NETWORK
-     filterConfig:
-       cluster_pattern: "\\.global$"
-       cluster_replacement: ".svc.{{ .Values.global.proxy.clusterDomain }}"       
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        portNumber: 15443
+        filterChain:
+          filter:
+            name: "envoy.filters.network.sni_cluster"
+    patch:
+      operation: INSERT_AFTER
+      value:
+        name: "envoy.filters.network.tcp_cluster_rewrite"
+        config:
+          cluster_pattern: "\\.global$"
+          cluster_replacement: ".svc.{{ .Values.global.proxy.clusterDomain }}"
 ---
 ## To ensure all traffic to *.global is using mTLS
 apiVersion: networking.istio.io/v1alpha3
@@ -11083,6 +11092,9 @@ template: |
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
     - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
+  {{- end }}
+  {{- if .Values.global.sts.servicePort }}
+    - --stsPort={{ .Values.global.sts.servicePort }}
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -38879,6 +38891,8 @@ spec:
         udsPath: ""
         token:
           aud: istio-ca
+      sts:
+        servicePort: 0
       meshNetworks: {}
       localityLbSetting:
         enabled: true

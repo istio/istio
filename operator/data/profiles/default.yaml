@@ -338,6 +338,8 @@ spec:
         udsPath: ""
         token:
           aud: istio-ca
+      sts:
+        servicePort: 0
       meshNetworks: {}
       localityLbSetting:
         enabled: true
