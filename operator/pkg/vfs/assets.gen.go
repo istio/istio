@@ -48,21 +48,7 @@
 // charts/istio-cni/templates/daemonset.yaml
 // charts/istio-cni/templates/serviceaccount.yaml
 // charts/istio-cni/values.yaml
-// charts/istio-control/istio-autoinject/Chart.yaml
-// charts/istio-control/istio-autoinject/NOTES.txt
 // charts/istio-control/istio-autoinject/files/injection-template.yaml
-// charts/istio-control/istio-autoinject/templates/_affinity.tpl
-// charts/istio-control/istio-autoinject/templates/_helpers.tpl
-// charts/istio-control/istio-autoinject/templates/clusterrole.yaml
-// charts/istio-control/istio-autoinject/templates/clusterrolebinding.yaml
-// charts/istio-control/istio-autoinject/templates/configmap.yaml
-// charts/istio-control/istio-autoinject/templates/deployment.yaml
-// charts/istio-control/istio-autoinject/templates/mutatingwebhook.yaml
-// charts/istio-control/istio-autoinject/templates/poddisruptionbudget.yaml
-// charts/istio-control/istio-autoinject/templates/service.yaml
-// charts/istio-control/istio-autoinject/templates/serviceaccount.yaml
-// charts/istio-control/istio-autoinject/templates/sidecar-injector-configmap.yaml
-// charts/istio-control/istio-autoinject/values.yaml
 // charts/istio-control/istio-config/Chart.yaml
 // charts/istio-control/istio-config/OWNERS
 // charts/istio-control/istio-config/README.md
@@ -244,6 +230,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -2685,7 +2672,7 @@ spec:
                                   format: string
                                   type: string
                                 clientCertificate:
-                                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                                  description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                                   format: string
                                   type: string
                                 mode:
@@ -2696,7 +2683,7 @@ spec:
                                   - ISTIO_MUTUAL
                                   type: string
                                 privateKey:
-                                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                                  description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                                   format: string
                                   type: string
                                 sni:
@@ -2720,7 +2707,7 @@ spec:
                             format: string
                             type: string
                           clientCertificate:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           mode:
@@ -2731,7 +2718,7 @@ spec:
                             - ISTIO_MUTUAL
                             type: string
                           privateKey:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           sni:
@@ -3124,7 +3111,7 @@ spec:
                             format: string
                             type: string
                           clientCertificate:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           mode:
@@ -3135,7 +3122,7 @@ spec:
                             - ISTIO_MUTUAL
                             type: string
                           privateKey:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           sni:
@@ -3159,7 +3146,7 @@ spec:
                       format: string
                       type: string
                     clientCertificate:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     mode:
@@ -3170,7 +3157,7 @@ spec:
                       - ISTIO_MUTUAL
                       type: string
                     privateKey:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     sni:
@@ -3565,7 +3552,7 @@ spec:
                       behavior.
                     properties:
                       caCertificates:
-                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       cipherSuites:
@@ -3607,11 +3594,11 @@ spec:
                         - ISTIO_MUTUAL
                         type: string
                       privateKey:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       serverCertificate:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       subjectAltNames:
@@ -4336,15 +4323,15 @@ spec:
                         type: string
                     type: object
                   mirror_percent:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     type: integer
                   mirrorPercent:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     type: integer
                   mirrorPercentage:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     properties:
                       value:
@@ -4952,7 +4939,7 @@ spec:
           properties:
             actions:
               description: The actions that will be executed when match evaluates
-                to `+"`"+`true`+"`"+`.
+                to ` + "`" + `true` + "`" + `.
               items:
                 properties:
                   handler:
@@ -5026,7 +5013,7 @@ spec:
                   properties:
                     attributeExpression:
                       description: Specifies an attribute expression to use to override
-                        the numerator in the `+"`"+`percent_sampled`+"`"+` field.
+                        the numerator in the ` + "`" + `percent_sampled` + "`" + ` field.
                       format: string
                       type: string
                     percentSampled:
@@ -5044,13 +5031,13 @@ spec:
                       type: object
                     useIndependentRandomness:
                       description: By default sampling will be based on the value
-                        of the request header `+"`"+`x-request-id`+"`"+`.
+                        of the request header ` + "`" + `x-request-id` + "`" + `.
                       type: boolean
                   type: object
                 rateLimit:
                   properties:
                     maxUnsampledEntries:
-                      description: Number of entries to allow during the `+"`"+`sampling_duration`+"`"+`
+                      description: Number of entries to allow during the ` + "`" + `sampling_duration` + "`" + `
                         before sampling is enforced.
                       format: int64
                       type: integer
@@ -6970,7 +6957,7 @@ spec:
             value: |
               {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+            value: "{{ $.Values.global.multiCluster.clusterName | default ` + "`" + `Kubernetes` + "`" + ` }}"
           volumeMounts:
           {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
@@ -8058,7 +8045,7 @@ spec:
             value: |
               {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+            value: "{{ $.Values.global.multiCluster.clusterName | default ` + "`" + `Kubernetes` + "`" + ` }}"
           volumeMounts:
 {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
@@ -9279,91 +9266,10 @@ func chartsIstioCniValuesYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioAutoinjectChartYaml = []byte(`apiVersion: v1
-name: istio-autoinject
-version: 1.1.0
-appVersion: 1.1.0
-tillerVersion: ">=2.7.2"
-description: Helm chart for sidecar injector webhook deployment
-keywords:
-  - istio
-  - sidecarInjectorWebhook
-  - autoinject
-sources:
-  - http://github.com/istio/istio
-engine: gotpl
-icon: https://istio.io/favicons/android-192x192.png
-`)
-
-func chartsIstioControlIstioAutoinjectChartYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectChartYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectChartYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectChartYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectNotesTxt = []byte(`Sidecar injector (optional): if disabled, manual injection or other tools need to be used.
-
-Sidecar injection in each profile can be selected by labeling the namespace with the appropriate profile.
-
-The new label is 'istio-env' and the value is the namespace where the injector is installed.
-
-Note that it is possible to install a profile with only the injector app - using remote Pilot and MCP.
-
-`+"`"+``+"`"+``+"`"+`
-    # New style, using the istio-pilot11 profile
-    kubectl create ns fortio
-    kubectl label ns fortio istio-env=istio-control
-
-    # Second pilot profile
-    kubectl create ns fortio-test
-    kubectl label ns fortio istio-env=istio-master
-
-    # Old-style, using istio-system and Istio 1.0 or 1.1 default installations.
-    kubectl create ns fortio-istio-system
-    kubectl label ns fortio istio-injection=enabled
-`+"`"+``+"`"+``+"`"+`
-
-# Uninstall
-
-After uninstalling, you should cleanup the global CRD using:
-
-`+"`"+``+"`"+``+"`"+`bash
-
-  kubectl delete MutatingWebhookConfiguration istio-sidecar-injector-istio-control
-
-`+"`"+``+"`"+``+"`"+`
-
-Any app using the uninstalled istio-env label will no longer be auto-injected once the config is deleted.
-`)
-
-func chartsIstioControlIstioAutoinjectNotesTxtBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectNotesTxt, nil
-}
-
-func chartsIstioControlIstioAutoinjectNotesTxt() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectNotesTxtBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/NOTES.txt", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
-  {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
+  {{ if ne (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `NONE` + "`" + ` }}
   {{ if .Values.istio_cni.enabled -}}
   - name: istio-validation
   {{ else -}}
@@ -9383,28 +9289,28 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - "-u"
     - 1337
     - "-m"
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
     - "-i"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
     - "-x"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
     - "-b"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` ` + "`" + `*` + "`" + ` }}"
     - "-d"
-    - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-    {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
+    - "{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+    {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
     {{ end -}}
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+`) -}}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + `) -}}
     - "-k"
-    - "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+    - "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
     {{ end -}}
     {{ if .Values.istio_cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
     {{ end -}}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
   {{- if .Values.global.proxy_init.resources }}
     resources:
       {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
@@ -9440,7 +9346,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
     resources: {}
     securityContext:
       allowPrivilegeEscalation: true
@@ -9457,8 +9363,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{ end }}
   containers:
   - name: istio-proxy
-  {{- if contains "/" (annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image) }}
-    image: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image }}"
+  {{- if contains "/" (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image) }}
+    image: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image }}"
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
   {{- end }}
@@ -9477,16 +9383,16 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - "/usr/local/bin/envoy"
     - --serviceCluster
     {{ if ne "" (index .ObjectMeta.Labels "app") -}}
-    - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
+    - "{{ index .ObjectMeta.Labels ` + "`" + `app` + "`" + ` }}.$(POD_NAMESPACE)"
     {{ else -}}
-    - "{{ valueOrDefault .DeploymentMeta.Name `+"`"+`istio-proxy`+"`"+` }}.{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}"
+    - "{{ valueOrDefault .DeploymentMeta.Name ` + "`" + `istio-proxy` + "`" + ` }}.{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}"
     {{ end -}}
     - --drainDuration
     - "{{ formatDuration .ProxyConfig.DrainDuration }}"
     - --parentShutdownDuration
     - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
     - --discoveryAddress
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/discoveryAddress`+"`"+` .ProxyConfig.DiscoveryAddress }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/discoveryAddress` + "`" + ` .ProxyConfig.DiscoveryAddress }}"
   {{- if eq .Values.global.proxy.tracer "lightstep" }}
     - --lightstepAddress
     - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
@@ -9502,8 +9408,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - --datadogAgentAddress
     - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
   {{- end }}
-    - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
-    - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
+    - --proxyLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/logLevel` + "`" + ` .Values.global.proxy.logLevel}}
+    - --proxyComponentLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/componentLogLevel` + "`" + ` .Values.global.proxy.componentLogLevel}}
     - --connectTimeout
     - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
   {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -9535,7 +9441,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
-    - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort }}"
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -9571,8 +9477,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
         fieldRef:
           fieldPath: status.hostIP
   {{- if eq .Values.global.proxy.tracer "datadog" }}
-  {{- if isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+` }}
-  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+  {{- if isset .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + ` }}
+  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
     - name: {{ $key }}
       value: "{{ $value }}"
   {{- end }}
@@ -9592,7 +9498,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
         {{- end}}
         ]
     - name: ISTIO_META_CLUSTER_ID
-      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
+      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName ` + "`" + `Kubernetes` + "`" + ` }}"
     - name: ISTIO_META_POD_NAME
       valueFrom:
         fieldRef:
@@ -9602,7 +9508,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
         fieldRef:
           fieldPath: metadata.namespace
     - name: ISTIO_META_INTERCEPTION_MODE
-      value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
+      value: "{{ or (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + `) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
     - name: ISTIO_META_NETWORK
       value: "{{ .Values.global.network }}"
@@ -9623,9 +9529,9 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     {{ end }}
     {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
     - name: ISTIO_META_OWNER
-      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
+      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
     {{- end}}
-    {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - name: ISTIO_BOOTSTRAP_OVERRIDE
       value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
     {{- end }}
@@ -9652,8 +9558,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
       value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
     {{- end }}
-    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
-    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
+    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
       - name: {{ $key }}
         value: "{{ $value }}"
     {{- end }}
@@ -9662,25 +9568,25 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
-    {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
+    {{ if ne (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) ` + "`" + `0` + "`" + ` }}
     readinessProbe:
       httpGet:
         path: /healthz/ready
-        port: {{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}
-      initialDelaySeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/initialDelaySeconds`+"`"+` .Values.global.proxy.readinessInitialDelaySeconds }}
-      periodSeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/periodSeconds`+"`"+` .Values.global.proxy.readinessPeriodSeconds }}
-      failureThreshold: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/failureThreshold`+"`"+` .Values.global.proxy.readinessFailureThreshold }}
+        port: {{ annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort }}
+      initialDelaySeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/initialDelaySeconds` + "`" + ` .Values.global.proxy.readinessInitialDelaySeconds }}
+      periodSeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/periodSeconds` + "`" + ` .Values.global.proxy.readinessPeriodSeconds }}
+      failureThreshold: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/failureThreshold` + "`" + ` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+        {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
         add:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + ` -}}
         - NET_ADMIN
         {{- end }}
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + ` -}}
         - NET_BIND_SERVICE
         {{- end }}
         {{- end }}
@@ -9689,7 +9595,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
-      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+      {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -9697,13 +9603,13 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       runAsUser: 1337
       {{- end }}
     resources:
-      {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+      {{ if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
       requests:
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) -}}
+        cpu: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + ` }}"
         {{ end}}
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
+        memory: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + ` }}"
         {{ end }}
     {{ else -}}
   {{- if .Values.global.proxy.resources }}
@@ -9711,7 +9617,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- end }}
     {{  end -}}
     volumeMounts:
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
@@ -9725,17 +9631,17 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       name: lightstep-certs
       readOnly: true
     {{- end }}
-      {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+` }}
-      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+`) }}
+      {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + ` }}
+      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + `) }}
     - name: "{{  $index }}"
       {{ toYaml $value | indent 4 }}
       {{ end }}
       {{- end }}
   volumes:
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+  {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
   - name: custom-bootstrap-volume
     configMap:
-      name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
+      name: {{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + ` "" }}
   {{- end }}
   - emptyDir:
       medium: Memory
@@ -9748,8 +9654,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       {{ else -}}
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
-    {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
-    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
+    {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + ` }}
+    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + `) }}
   - name: "{{ $index }}"
     {{ toYaml $value | indent 2 }}
     {{ end }}
@@ -9780,882 +9686,6 @@ func chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml() (*asset, erro
 	}
 
 	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/files/injection-template.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplates_affinityTpl = []byte(`{{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
-
-{{- define "nodeaffinity" }}
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityRequiredDuringScheduling" . }}
-    preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityPreferredDuringScheduling" . }}
-{{- end }}
-
-{{- define "nodeAffinityRequiredDuringScheduling" }}
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: beta.kubernetes.io/arch
-          operator: In
-          values:
-        {{- range $key, $val := .Values.global.arch }}
-          {{- if gt ($val | int) 0 }}
-          - {{ $key | quote }}
-          {{- end }}
-        {{- end }}
-        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.sidecarInjectorWebhook.nodeSelector -}}
-        {{- range $key, $val := $nodeSelector }}
-        - key: {{ $key }}
-          operator: In
-          values:
-          - {{ $val | quote }}
-        {{- end }}
-{{- end }}
-
-{{- define "nodeAffinityPreferredDuringScheduling" }}
-  {{- range $key, $val := .Values.global.arch }}
-    {{- if gt ($val | int) 0 }}
-    - weight: {{ $val | int }}
-      preference:
-        matchExpressions:
-        - key: beta.kubernetes.io/arch
-          operator: In
-          values:
-          - {{ $key | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-
-{{- define "podAntiAffinity" }}
-{{- if or .Values.sidecarInjectorWebhook.podAntiAffinityLabelSelector .Values.sidecarInjectorWebhook.podAntiAffinityTermLabelSelector}}
-  podAntiAffinity:
-    {{- if .Values.sidecarInjectorWebhook.podAntiAffinityLabelSelector }}
-    requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "podAntiAffinityRequiredDuringScheduling" . }}
-    {{- end }}
-    {{- if .Values.sidecarInjectorWebhook.podAntiAffinityTermLabelSelector }}
-    preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "podAntiAffinityPreferredDuringScheduling" . }}
-    {{- end }}
-{{- end }}
-{{- end }}
-
-{{- define "podAntiAffinityRequiredDuringScheduling" }}
-    {{- range $index, $item := .Values.sidecarInjectorWebhook.podAntiAffinityLabelSelector }}
-    - labelSelector:
-        matchExpressions:
-        - key: {{ $item.key }}
-          operator: {{ $item.operator }}
-          {{- if $item.values }}
-          values:
-          {{- $vals := split "," $item.values }}
-          {{- range $i, $v := $vals }}
-          - {{ $v | quote }}
-          {{- end }}
-          {{- end }}
-      topologyKey: {{ $item.topologyKey }}
-    {{- end }}
-{{- end }}
-
-{{- define "podAntiAffinityPreferredDuringScheduling" }}
-    {{- range $index, $item := .Values.sidecarInjectorWebhook.podAntiAffinityTermLabelSelector }}
-    - podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-          - key: {{ $item.key }}
-            operator: {{ $item.operator }}
-            {{- if $item.values }}
-            values:
-            {{- $vals := split "," $item.values }}
-            {{- range $i, $v := $vals }}
-            - {{ $v | quote }}
-            {{- end }}
-            {{- end }}
-        topologyKey: {{ $item.topologyKey }}
-      weight: 100
-    {{- end }}
-{{- end }}
-`)
-
-func chartsIstioControlIstioAutoinjectTemplates_affinityTplBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplates_affinityTpl, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplates_affinityTpl() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplates_affinityTplBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/_affinity.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplates_helpersTpl = []byte(`{{/* vim: set filetype=mustache: */}}
-{{/*
-Expand the name of the chart.
-*/}}
-{{- define "sidecar-injector.name" -}}
-{{- default .Chart.Name .Values.sidecarInjectorWebhook.nameOverride | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-If release name contains chart name it will be used as a full name.
-*/}}
-{{- define "sidecar-injector.fullname" -}}
-{{- if .Values.sidecarInjectorWebhook.fullnameOverride -}}
-{{- .Values.sidecarInjectorWebhook.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- $name := default .Chart.Name .Values.sidecarInjectorWebhook.nameOverride -}}
-{{- if contains $name .Release.Name -}}
-{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "sidecar-injector.chart" -}}
-{{- .Chart.Name | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-`)
-
-func chartsIstioControlIstioAutoinjectTemplates_helpersTplBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplates_helpersTpl, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplates_helpersTpl() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplates_helpersTplBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/_helpers.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-sidecar-injector-{{ .Release.Namespace }}
-  labels:
-    app: sidecar-injector
-    release: {{ .Release.Name }}
-    istio: sidecar-injector
-rules:
-- apiGroups: [""]
-  resources: ["configmaps"]
-  resourceNames: ["istio-sidecar-injector"]
-  verbs: ["get", "list", "watch"]
-{{- if not .Values.global.operatorManageWebhooks }}
-- apiGroups: ["admissionregistration.k8s.io"]
-  resources: ["mutatingwebhookconfigurations"]
-  resourceNames: ["istio-sidecar-injector", "istio-sidecar-injector-{{.Release.Namespace}}"]
-  verbs: ["get", "list", "watch", "patch"]
-{{- end }}`)
-
-func chartsIstioControlIstioAutoinjectTemplatesClusterroleYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplatesClusterroleYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-sidecar-injector-admin-role-binding-{{ .Release.Namespace }}
-  labels:
-    app: sidecar-injector
-    release: {{ .Release.Name }}
-    istio: sidecar-injector
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-sidecar-injector-{{ .Release.Namespace }}
-subjects:
-  - kind: ServiceAccount
-    name: istio-sidecar-injector-service-account
-    namespace: {{ .Release.Namespace }}
-`)
-
-func chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/clusterrolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml = []byte(`apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: injector-mesh
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-data:
-  # This is the 'mesh' config, loaded by the sidecar injector.
-  # It is a different configmap from pilot to allow a-la-carte install of the injector and follow the model
-  # of reducing blast-radius of config changes and avoiding globals.
-
-  # Note that injector uses a subset of the mesh config only - for clarity this is only generating the
-  # required config, i.e. the defaultConfig section. See injection-template .ProxyConfig settings.
-
-
-  mesh: |-
-    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
-    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
-    sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
-
-    defaultConfig:
-      #
-      # TCP connection timeout between Envoy & the application, and between Envoys.
-      connectTimeout: 10s
-      #
-      ### ADVANCED SETTINGS #############
-      # Where should envoy's configuration be stored in the istio-proxy container
-      configPath: "/etc/istio/proxy"
-      # The pseudo service name used for Envoy.
-      serviceCluster: istio-proxy
-      # These settings that determine how long an old Envoy
-      # process should be kept alive after an occasional reload.
-      drainDuration: 45s
-      parentShutdownDuration: 1m0s
-      #
-      # Port where Envoy listens (on local host) for admin commands
-      # You can exec into the istio-proxy container in a pod and
-      # curl the admin port (curl http://localhost:15000/) to obtain
-      # diagnostic information from Envoy. See
-      # https://lyft.github.io/envoy/docs/operations/admin.html
-      # for more details
-      proxyAdminPort: 15000
-      #
-      # Set concurrency to a specific number to control the number of Proxy worker threads.
-      # If set to 0 (default), then start worker thread for each CPU thread/core.
-      concurrency: {{ .Values.global.proxy.concurrency }}
-      #
-      {{- if eq .Values.global.proxy.tracer "lightstep" }}
-      tracing:
-        lightstep:
-          # Address of the LightStep Satellite pool
-          address: {{ .Values.global.tracer.lightstep.address }}
-          # Access Token used to communicate with the Satellite pool
-          accessToken: {{ .Values.global.tracer.lightstep.accessToken }}
-          # Whether communication with the Satellite pool should be secure
-          secure: {{ .Values.global.tracer.lightstep.secure }}
-          # Path to the file containing the cacert to use when verifying TLS
-          cacertPath: {{ .Values.global.tracer.lightstep.cacertPath }}
-      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
-      tracing:
-        zipkin:
-          # Address of the Zipkin collector
-        {{- if .Values.global.tracer.zipkin.address }}
-          address: {{ .Values.global.tracer.zipkin.address }}
-        {{- else }}
-          address: zipkin.{{ .Values.global.telemetryNamespace }}:9411
-        {{- end }}
-      {{- else if eq .Values.global.proxy.tracer "datadog" }}
-      tracing:
-        datadog:
-          # Address of the DataDog Agent
-          address: {{ .Values.global.tracer.datadog.address }}
-      {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
-      tracing:
-        stackdriver:
-          # enables trace output to stdout.
-          debug: {{ $.Values.global.tracer.stackdriver.debug }}
-        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
-          # The global default max number of attributes per span.
-          maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
-        {{- end }}
-        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
-          # The global default max number of annotation events per span.
-          maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
-        {{- end }}
-        {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
-          # The global default max number of message events per span.
-          maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
-        {{- end }}
-      {{- end }}
-
-    {{- $defPilotHostname := printf "istio-pilot%s.%s" .Values.version .Values.global.configNamespace }}
-    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
-
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
-      #
-      # Mutual TLS authentication between sidecars and istio control plane.
-      controlPlaneAuthPolicy: MUTUAL_TLS
-      #
-      # Address where istio Pilot service is running
-      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-      discoveryAddress: {{ $defPilotHostname }}:15011
-      {{- else }}
-      discoveryAddress: {{ $pilotAddress }}:15011
-      {{- end }}
-    {{- else }}
-      #
-      # Mutual TLS authentication between sidecars and istio control plane.
-      controlPlaneAuthPolicy: NONE
-      #
-      # Address where istio Pilot service is running
-      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-      discoveryAddress: {{ $defPilotHostname }}:15010
-      {{- else }}
-      discoveryAddress: {{ $pilotAddress }}:15010
-      {{- end }}
-    {{- end }}
----
-`)
-
-func chartsIstioControlIstioAutoinjectTemplatesConfigmapYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplatesConfigmapYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/configmap.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: istio-sidecar-injector
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: sidecarInjectorWebhook
-    release: {{ .Release.Name }}
-    istio: sidecar-injector
-spec:
-{{- if .Values.sidecarInjectorWebhook.replicaCount }}
-  replicas: {{ .Values.sidecarInjectorWebhook.replicaCount }}
-{{- end }}
-  selector:
-    matchLabels:
-      istio: sidecar-injector
-  strategy:
-    rollingUpdate:
-      maxSurge: {{ .Values.sidecarInjectorWebhook.rollingMaxSurge }}
-      maxUnavailable: {{ .Values.sidecarInjectorWebhook.rollingMaxUnavailable }}
-  template:
-    metadata:
-      labels:
-        app: sidecarInjectorWebhook
-        istio: sidecar-injector
-{{- if eq .Release.Namespace "istio-system"}}
-        heritage: Tiller
-        release: istio
-        chart: sidecarInjectorWebhook
-{{- end }}
-      annotations:
-        sidecar.istio.io/inject: "false"
-        {{- if .Values.sidecarInjectorWebhook.podAnnotations }}
-{{ toYaml .Values.sidecarInjectorWebhook.podAnnotations | indent 8 }}
-        {{- end }}
-    spec:
-      serviceAccountName: istio-sidecar-injector-service-account
-{{- if .Values.global.priorityClassName }}
-      priorityClassName: "{{ .Values.global.priorityClassName }}"
-{{- end }}
-      containers:
-        - name: sidecar-injector-webhook
-{{- if contains "/" .Values.sidecarInjectorWebhook.image }}
-          image: "{{ .Values.sidecarInjectorWebhook.image }}"
-{{- else }}
-          image: "{{ .Values.sidecarInjectorWebhook.hub | default .Values.global.hub }}/{{ .Values.sidecarInjectorWebhook.image | default "sidecar_injector" }}:{{ .Values.sidecarInjectorWebhook.tag | default .Values.global.tag }}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
-          args:
-            - --caCertFile=/etc/istio/certs/root-cert.pem
-            - --tlsCertFile=/etc/istio/certs/cert-chain.pem
-            - --tlsKeyFile=/etc/istio/certs/key.pem
-            - --injectConfig=/etc/istio/inject/config
-            - --meshConfig=/etc/istio/config/mesh
-            - --port=9443
-            - --healthCheckInterval=2s
-            - --healthCheckFile=/tmp/health
-{{- if or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled}}
-            - --reconcileWebhookConfig=false
-{{- else }}
-            - --reconcileWebhookConfig=true
-{{- end }}
-                  {{- if eq .Release.Namespace "istio-system"}}
-            - --webhookConfigName=istio-sidecar-injector
-                  {{ else }}
-            - --webhookConfigName=istio-sidecar-injector-{{ .Release.Namespace }}
-                  {{- end }}
-            - --log_output_level=debug
-          {{- if .Values.global.logAsJson }}
-            - --log_as_json
-          {{- end }}
-          securityContext:
-            runAsUser: 1337
-            runAsGroup: 1337
-            runAsNonRoot: true
-          volumeMounts:
-          - name: config-volume
-            mountPath: /etc/istio/config
-            readOnly: true
-          - name: certs
-            mountPath: /etc/istio/certs
-            readOnly: true
-          - name: inject-config
-            mountPath: /etc/istio/inject
-            readOnly: true
-          livenessProbe:
-            exec:
-              command:
-                - /usr/local/bin/sidecar-injector
-                - probe
-                - --probe-path=/tmp/health
-                - --interval=4s
-            initialDelaySeconds: 4
-            periodSeconds: 4
-          readinessProbe:
-            exec:
-              command:
-                - /usr/local/bin/sidecar-injector
-                - probe
-                - --probe-path=/tmp/health
-                - --interval=4s
-            initialDelaySeconds: 4
-            periodSeconds: 4
-          resources:
-{{- if .Values.sidecarInjectorWebhook.resources }}
-{{ toYaml .Values.sidecarInjectorWebhook.resources | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 12 }}
-{{- end }}
-      securityContext:
-        fsGroup: 1337
-      volumes:
-      - name: config-volume
-        configMap:
-          name: injector-mesh
-      - name: certs
-        secret:
-{{- if .Values.sidecarInjectorWebhook.selfSigned }}
-          secretName: istio-sidecar-injector-self-signed
-{{- else if .Values.global.certificates }}
-          secretName: dns.istio-sidecar-injector-service-account
-{{- else }}
-          secretName: istio.istio-sidecar-injector-service-account
-{{- end }}
-      - name: inject-config
-        configMap:
-          name: istio-sidecar-injector
-          items:
-          - key: config
-            path: config
-          - key: values
-            path: values
-      affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
-      {{- include "podAntiAffinity" . | indent 6 }}
-{{- if .Values.sidecarInjectorWebhook.tolerations }}
-      tolerations:
-{{ toYaml .Values.sidecarInjectorWebhook.tolerations | indent 6 }}
-{{- else if .Values.global.defaultTolerations }}
-      tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
-{{- end }}
-`)
-
-func chartsIstioControlIstioAutoinjectTemplatesDeploymentYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplatesDeploymentYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml = []byte(`{{- $ca := genCA "istio-sidecar-injector-ca-{{ .Release.Namespace }}" 3650 }}
-{{- if not .Values.global.operatorManageWebhooks }}
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
-metadata:
-        {{- if eq .Release.Namespace "istio-system"}}
-  name: istio-sidecar-injector
-        {{ else }}
-  name: istio-sidecar-injector-{{ .Release.Namespace }}
-        {{- end }}
-  labels:
-    app: sidecar-injector
-    release: {{ .Release.Name }}
-webhooks:
-  - name: sidecar-injector.istio.io
-    clientConfig:
-      service:
-        name: istio-sidecar-injector
-        namespace: {{ .Release.Namespace }}
-        path: "/inject"
-{{- if .Values.sidecarInjectorWebhook.selfSigned }}
-      caBundle: {{ $ca.Cert | b64enc }}
-{{- else }}
-      caBundle: ""
-{{- end }}
-    rules:
-      - operations: [ "CREATE" ]
-        apiGroups: [""]
-        apiVersions: ["v1"]
-        resources: ["pods"]
-    failurePolicy: Fail
-    namespaceSelector:
-{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
-      matchExpressions:
-      - key: name
-        operator: NotIn
-        values:
-        - {{ .Release.Namespace }}
-      - key: istio-injection
-        operator: NotIn
-        values:
-        - disabled
-      - key: istio-env
-        operator: DoesNotExist
-{{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
-      matchLabels:
-        istio-injection: enabled
-{{- else }}
-      matchLabels:
-        istio-env: {{ .Release.Namespace }}
-{{- end }}
-{{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
-    objectSelector:
-{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
-      matchExpressions:
-      - key: "sidecar.istio.io/inject"
-        operator: NotIn
-        values:
-        - "false"
-{{- else }}
-      matchLabels:
-        "sidecar.istio.io/inject": "true"
-{{- end }}
-{{- end }}
-{{- end }}
----
-{{- if .Values.sidecarInjectorWebhook.selfSigned }}
-  {{- $cn := "istio-sidecar-injector" }}
-  {{- $altName1 := printf "%s.%s" $cn .Release.Namespace }}
-  {{- $altName2 := printf "%s.%s.svc" $cn .Release.Namespace }}
-  {{- $altNames := (list $altName1 $altName2) }}
-  {{- $cert := genSignedCert $cn nil $altNames 3650 $ca }}
-apiVersion: v1
-kind: Secret
-metadata:
-  name: istio-sidecar-injector-self-signed
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: sidecar-injector
-    release: {{ .Release.Name }}
-type: Opaque
-data:
-  root-cert.pem: {{ $ca.Cert | b64enc }}
-  cert-chain.pem: {{ $cert.Cert | b64enc }}
-  key.pem: {{ $cert.Key | b64enc }}
-{{- end }}
-`)
-
-func chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/mutatingwebhook.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-sidecar-injector
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: sidecar-injector
-    release: {{ .Release.Name }}
-    istio: sidecar-injector
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: sidecar-injector
-      release: {{ .Release.Name }}
-      istio: sidecar-injector
-{{- end }}
-`)
-
-func chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/poddisruptionbudget.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplatesServiceYaml = []byte(`apiVersion: v1
-kind: Service
-metadata:
-  name: istio-sidecar-injector
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: sidecarInjectorWebhook
-    release: {{ .Release.Name }}
-    istio: sidecar-injector
-spec:
-  ports:
-  - port: 443
-    targetPort: 9443
-  selector:
-    istio: sidecar-injector
-`)
-
-func chartsIstioControlIstioAutoinjectTemplatesServiceYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplatesServiceYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplatesServiceYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplatesServiceYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml = []byte(`apiVersion: v1
-kind: ServiceAccount
-{{- if .Values.global.imagePullSecrets }}
-imagePullSecrets:
-{{- range .Values.global.imagePullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- end }}
-metadata:
-  name: istio-sidecar-injector-service-account
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: sidecarInjectorWebhook
-    release: {{ .Release.Name }}
-    istio: sidecar-injector
-`)
-
-func chartsIstioControlIstioAutoinjectTemplatesServiceaccountYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplatesServiceaccountYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/serviceaccount.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml = []byte(`{{- if not .Values.global.omitSidecarInjectorConfigMap }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-sidecar-injector
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-    app: sidecar-injector
-    istio: sidecar-injector
-data:
-  values: |-
-    {{ .Values | toJson }}
-
-  config: |-
-    policy: {{ .Values.global.proxy.autoInject }}
-    alwaysInjectSelector:
-{{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
-    neverInjectSelector:
-{{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
-{{ .Files.Get "files/injection-template.yaml" | trim | indent 4 }}
-    injectedAnnotations:
-    {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
-      "{{ $key }}": "{{ $val }}"
-    {{- end }}
-
-{{- end }}
-`)
-
-func chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/templates/sidecar-injector-configmap.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioAutoinjectValuesYaml = []byte(`sidecarInjectorWebhook:
-  # sidecar-injector webhook configuration.
-  # If down, new pods will fail to start or restart for a short time, but they will
-  # retry.
-  replicaCount: 1
-  rollingMaxSurge: 100%
-  rollingMaxUnavailable: 25%
-
-  hub: ""
-  tag: ""
-  image: sidecar_injector
-
-  # This enables injection of sidecar in all namespaces,
-  # with the exception of namespaces with "istio-injection:disabled" annotation
-  # Only one environment should have this enabled.
-  enableNamespacesByDefault: false
-
-  # If true, webhook or istioctl injector will rewrite PodSpec for liveness
-  # health check to redirect request to sidecar. This makes liveness check work
-  # even when mTLS is enabled.
-  rewriteAppHTTPProbe: false
-
-  # If true, a self-signed CA will created in order to issue a certificate that
-  # will be used to authenticate the workload respondible for handling
-  # the sidecar-injector webhook.
-  selfSigned: false
-
-  nodeSelector: {}
-  tolerations: []
-  podAnnotations: {}
-
-  # injectedAnnotations are additional annotations that will be added to the pod spec after injection
-  # This is primarily to support PSP annotations. For example, if you defined a PSP with the annotations:
-  #
-  # annotations:
-  #   apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
-  #   apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
-  #
-  # The PSP controller would add corresponding annotations to the pod spec for each container. However, this happens before
-  # the inject adds additional containers, so we must specify them explicitly here. With the above example, we could specify:
-  # injectedAnnotations:
-  #   container.apparmor.security.beta.kubernetes.io/istio-init: runtime/default
-  #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
-  injectedAnnotations: {}
-  lifecycle: {}
-
-  # If set, will use the value as injection label. The value must match the 'release' label of the injector,
-  # except when 1.2 istio-injection label is used, which must be set to "enabled".
-  injectLabel: istio-injection
-
-  # Specify the pod anti-affinity that allows you to constrain which nodes
-  # your pod is eligible to be scheduled based on labels on pods that are
-  # already running on the node rather than based on labels on nodes.
-  # There are currently two types of anti-affinity:
-  #    "requiredDuringSchedulingIgnoredDuringExecution"
-  #    "preferredDuringSchedulingIgnoredDuringExecution"
-  # which denote "hard" vs. "soft" requirements, you can define your values
-  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
-  # correspondingly.
-  # For example:
-  # podAntiAffinityLabelSelector:
-  # - key: security
-  #   operator: In
-  #   values: S1,S2
-  #   topologyKey: "kubernetes.io/hostname"
-  # This pod anti-affinity rule says that the pod requires not to be scheduled
-  # onto a node if that node is already running a pod with label having key
-  # "security" and value "S1".
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
-
-  # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
-  # always skip the injection on pods that match that label selector, regardless of the global policy.
-  # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
-  neverInjectSelector: []
-  alwaysInjectSelector: []
-
-  resources: {}
-
-  # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
-  # It is disabled by default since this function will only work after k8s v1.15.
-  objectSelector:
-    enabled: false
-    autoInject: true
-
-# If set, no iptable init will be added. It assumes CNI is installed.
-# TODO: rename to 'enableIptables' or add 'interceptionMode: CNI'
-istio_cni:
-  enabled: false
-`)
-
-func chartsIstioControlIstioAutoinjectValuesYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioAutoinjectValuesYaml, nil
-}
-
-func chartsIstioControlIstioAutoinjectValuesYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioAutoinjectValuesYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-autoinject/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -10732,13 +9762,13 @@ A cluster should have a single galley with validation enabled - usually the prod
 It is possible to enable validation on other environments as well - but each Galley will do its own
 validation, and a staging version may impact production validation.
 
-`+"`"+``+"`"+``+"`"+`yamml
+` + "`" + `` + "`" + `` + "`" + `yamml
 security:
     ...
     dnsCerts:
         ...
         istio-galley-service-account.MY_NAMESPACE: istio-galley.MY_NAMESPACE.svc
-`+"`"+``+"`"+``+"`"+`
+` + "`" + `` + "`" + `` + "`" + `
 `)
 
 func chartsIstioControlIstioConfigReadmeMdBytes() ([]byte, error) {
@@ -11797,7 +10827,7 @@ var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`# Conf
 template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
-  {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
+  {{ if ne (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `NONE` + "`" + ` }}
   {{ if .Values.istio_cni.enabled -}}
   - name: istio-validation
   {{ else -}}
@@ -11817,28 +10847,28 @@ template: |
     - "-u"
     - 1337
     - "-m"
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
     - "-i"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
     - "-x"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
     - "-b"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` ` + "`" + `*` + "`" + ` }}"
     - "-d"
-    - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-    {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
+    - "{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+    {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
     {{ end -}}
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+`) -}}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + `) -}}
     - "-k"
-    - "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+    - "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
     {{ end -}}
     {{ if .Values.istio_cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
     {{ end -}}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
   {{- if .Values.global.proxy_init.resources }}
     resources:
       {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
@@ -11874,7 +10904,7 @@ template: |
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
     resources: {}
     securityContext:
       allowPrivilegeEscalation: true
@@ -11891,8 +10921,8 @@ template: |
   {{ end }}
   containers:
   - name: istio-proxy
-  {{- if contains "/" (annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image) }}
-    image: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image }}"
+  {{- if contains "/" (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image) }}
+    image: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image }}"
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
   {{- end }}
@@ -11911,16 +10941,16 @@ template: |
     - "/usr/local/bin/envoy"
     - --serviceCluster
     {{ if ne "" (index .ObjectMeta.Labels "app") -}}
-    - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
+    - "{{ index .ObjectMeta.Labels ` + "`" + `app` + "`" + ` }}.$(POD_NAMESPACE)"
     {{ else -}}
-    - "{{ valueOrDefault .DeploymentMeta.Name `+"`"+`istio-proxy`+"`"+` }}.{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}"
+    - "{{ valueOrDefault .DeploymentMeta.Name ` + "`" + `istio-proxy` + "`" + ` }}.{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}"
     {{ end -}}
     - --drainDuration
     - "{{ formatDuration .ProxyConfig.DrainDuration }}"
     - --parentShutdownDuration
     - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
     - --discoveryAddress
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/discoveryAddress`+"`"+` .ProxyConfig.DiscoveryAddress }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/discoveryAddress` + "`" + ` .ProxyConfig.DiscoveryAddress }}"
   {{- if eq .Values.global.proxy.tracer "lightstep" }}
     - --lightstepAddress
     - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
@@ -11936,8 +10966,8 @@ template: |
     - --datadogAgentAddress
     - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
   {{- end }}
-    - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
-    - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
+    - --proxyLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/logLevel` + "`" + ` .Values.global.proxy.logLevel}}
+    - --proxyComponentLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/componentLogLevel` + "`" + ` .Values.global.proxy.componentLogLevel}}
     - --connectTimeout
     - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
   {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -11972,7 +11002,7 @@ template: |
     - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
-    - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort }}"
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -12018,8 +11048,8 @@ template: |
         fieldRef:
           fieldPath: status.hostIP
   {{- if eq .Values.global.proxy.tracer "datadog" }}
-  {{- if isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+` }}
-  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+  {{- if isset .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + ` }}
+  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
     - name: {{ $key }}
       value: "{{ $value }}"
   {{- end }}
@@ -12039,7 +11069,7 @@ template: |
         {{- end}}
         ]
     - name: ISTIO_META_CLUSTER_ID
-      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
+      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName ` + "`" + `Kubernetes` + "`" + ` }}"
     - name: ISTIO_META_POD_NAME
       valueFrom:
         fieldRef:
@@ -12049,7 +11079,7 @@ template: |
         fieldRef:
           fieldPath: metadata.namespace
     - name: ISTIO_META_INTERCEPTION_MODE
-      value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
+      value: "{{ or (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + `) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
     - name: ISTIO_META_NETWORK
       value: "{{ .Values.global.network }}"
@@ -12070,9 +11100,9 @@ template: |
     {{ end }}
     {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
     - name: ISTIO_META_OWNER
-      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
+      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
     {{- end}}
-    {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - name: ISTIO_BOOTSTRAP_OVERRIDE
       value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
     {{- end }}
@@ -12095,8 +11125,8 @@ template: |
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
       value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
     {{- end }}
-    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
-    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
+    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
       - name: {{ $key }}
         value: "{{ $value }}"
     {{- end }}
@@ -12105,25 +11135,25 @@ template: |
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
-    {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
+    {{ if ne (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) ` + "`" + `0` + "`" + ` }}
     readinessProbe:
       httpGet:
         path: /healthz/ready
-        port: {{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}
-      initialDelaySeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/initialDelaySeconds`+"`"+` .Values.global.proxy.readinessInitialDelaySeconds }}
-      periodSeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/periodSeconds`+"`"+` .Values.global.proxy.readinessPeriodSeconds }}
-      failureThreshold: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/failureThreshold`+"`"+` .Values.global.proxy.readinessFailureThreshold }}
+        port: {{ annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort }}
+      initialDelaySeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/initialDelaySeconds` + "`" + ` .Values.global.proxy.readinessInitialDelaySeconds }}
+      periodSeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/periodSeconds` + "`" + ` .Values.global.proxy.readinessPeriodSeconds }}
+      failureThreshold: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/failureThreshold` + "`" + ` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+        {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
         add:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + ` -}}
         - NET_ADMIN
         {{- end }}
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + ` -}}
         - NET_BIND_SERVICE
         {{- end }}
         {{- end }}
@@ -12133,7 +11163,7 @@ template: |
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
       fsGroup: 1337
-      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+      {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -12141,13 +11171,13 @@ template: |
       runAsUser: 1337
       {{- end }}
     resources:
-      {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+      {{ if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
       requests:
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) -}}
+        cpu: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + ` }}"
         {{ end}}
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
+        memory: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + ` }}"
         {{ end }}
     {{ else -}}
   {{- if .Values.global.proxy.resources }}
@@ -12159,7 +11189,7 @@ template: |
     - mountPath: /etc/istio/citadel-ca-cert
       name: citadel-ca-cert
     {{- end }}
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
@@ -12177,17 +11207,17 @@ template: |
       name: lightstep-certs
       readOnly: true
     {{- end }}
-      {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+` }}
-      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+`) }}
+      {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + ` }}
+      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + `) }}
     - name: "{{  $index }}"
       {{ toYaml $value | indent 4 }}
       {{ end }}
       {{- end }}
   volumes:
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+  {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
   - name: custom-bootstrap-volume
     configMap:
-      name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
+      name: {{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + ` "" }}
   {{- end }}
   - emptyDir:
       medium: Memory
@@ -12214,8 +11244,8 @@ template: |
       {{ else -}}
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
-    {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
-    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
+    {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + ` }}
+    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + `) }}
   - name: "{{ $index }}"
     {{ toYaml $value | indent 2 }}
     {{ end }}
@@ -12234,15 +11264,15 @@ template: |
       {{- end }}
   {{- end }}
   podRedirectAnnot:
-    sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
-    traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
-    traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
-    traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` (includeInboundPorts .Spec.Containers) }}"
-    traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-  {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
-    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+    sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
+    traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
+    traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
+    traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` (includeInboundPorts .Spec.Containers) }}"
+    traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+  {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne .Values.global.proxy.excludeOutboundPorts "") }}
+    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
   {{- end }}
-    traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+    traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
 `)
 
 func chartsIstioControlIstioDiscoveryFilesInjectionTemplateYamlBytes() ([]byte, error) {
@@ -32139,7 +31169,7 @@ var _chartsIstioTelemetryKialiValuesYaml = []byte(`#
 # addon kiali
 #
 kiali:
-  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
+  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be ` + "`" + `true` + "`" + `.
   replicaCount: 1
   hub: quay.io/kiali
   tag: v1.9
@@ -39642,16 +38672,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Auto injection feature
-    sidecarInjector:
-      enabled: false
-      k8s:
-        replicaCount: 1
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
   # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -40047,10 +39067,8 @@ spec:
             mountPath: /etc/istio/ingressgateway-ca-certs
 
     sidecarInjectorWebhook:
-      image: sidecar_injector
       enableNamespacesByDefault: false
       rewriteAppHTTPProbe: false
-      selfSigned: false
       injectLabel: istio-injection
       objectSelector:
         enabled: false
@@ -41696,21 +40714,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-cni/templates/daemonset.yaml":                                               chartsIstioCniTemplatesDaemonsetYaml,
 	"charts/istio-cni/templates/serviceaccount.yaml":                                          chartsIstioCniTemplatesServiceaccountYaml,
 	"charts/istio-cni/values.yaml":                                                            chartsIstioCniValuesYaml,
-	"charts/istio-control/istio-autoinject/Chart.yaml":                                        chartsIstioControlIstioAutoinjectChartYaml,
-	"charts/istio-control/istio-autoinject/NOTES.txt":                                         chartsIstioControlIstioAutoinjectNotesTxt,
 	"charts/istio-control/istio-autoinject/files/injection-template.yaml":                     chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml,
-	"charts/istio-control/istio-autoinject/templates/_affinity.tpl":                           chartsIstioControlIstioAutoinjectTemplates_affinityTpl,
-	"charts/istio-control/istio-autoinject/templates/_helpers.tpl":                            chartsIstioControlIstioAutoinjectTemplates_helpersTpl,
-	"charts/istio-control/istio-autoinject/templates/clusterrole.yaml":                        chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml,
-	"charts/istio-control/istio-autoinject/templates/clusterrolebinding.yaml":                 chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml,
-	"charts/istio-control/istio-autoinject/templates/configmap.yaml":                          chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml,
-	"charts/istio-control/istio-autoinject/templates/deployment.yaml":                         chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml,
-	"charts/istio-control/istio-autoinject/templates/mutatingwebhook.yaml":                    chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml,
-	"charts/istio-control/istio-autoinject/templates/poddisruptionbudget.yaml":                chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml,
-	"charts/istio-control/istio-autoinject/templates/service.yaml":                            chartsIstioControlIstioAutoinjectTemplatesServiceYaml,
-	"charts/istio-control/istio-autoinject/templates/serviceaccount.yaml":                     chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml,
-	"charts/istio-control/istio-autoinject/templates/sidecar-injector-configmap.yaml":         chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml,
-	"charts/istio-control/istio-autoinject/values.yaml":                                       chartsIstioControlIstioAutoinjectValuesYaml,
 	"charts/istio-control/istio-config/Chart.yaml":                                            chartsIstioControlIstioConfigChartYaml,
 	"charts/istio-control/istio-config/OWNERS":                                                chartsIstioControlIstioConfigOwners,
 	"charts/istio-control/istio-config/README.md":                                             chartsIstioControlIstioConfigReadmeMd,
@@ -41859,29 +40863,29 @@ var _bindata = map[string]func() (*asset, error){
 	"examples/user-gateway/ingress-gateway-only.yaml":                                         examplesUserGatewayIngressGatewayOnlyYaml,
 	"examples/vm/values-istio-meshexpansion-gateways.yaml":                                    examplesVmValuesIstioMeshexpansionGatewaysYaml,
 	"examples/vm/values-istio-meshexpansion.yaml":                                             examplesVmValuesIstioMeshexpansionYaml,
-	"operator/Chart.yaml":                                                                     operatorChartYaml,
-	"operator/templates/clusterrole.yaml":                                                     operatorTemplatesClusterroleYaml,
-	"operator/templates/clusterrole_binding.yaml":                                             operatorTemplatesClusterrole_bindingYaml,
-	"operator/templates/crd.yaml":                                                             operatorTemplatesCrdYaml,
-	"operator/templates/deployment.yaml":                                                      operatorTemplatesDeploymentYaml,
-	"operator/templates/namespace.yaml":                                                       operatorTemplatesNamespaceYaml,
-	"operator/templates/service.yaml":                                                         operatorTemplatesServiceYaml,
-	"operator/templates/service_account.yaml":                                                 operatorTemplatesService_accountYaml,
-	"profiles/default.yaml":                                                                   profilesDefaultYaml,
-	"profiles/demo.yaml":                                                                      profilesDemoYaml,
-	"profiles/empty.yaml":                                                                     profilesEmptyYaml,
-	"profiles/minimal.yaml":                                                                   profilesMinimalYaml,
-	"profiles/remote.yaml":                                                                    profilesRemoteYaml,
-	"profiles/separate.yaml":                                                                  profilesSeparateYaml,
-	"translateConfig/reverseTranslateConfig-1.4.yaml":                                         translateconfigReversetranslateconfig14Yaml,
-	"translateConfig/reverseTranslateConfig-1.5.yaml":                                         translateconfigReversetranslateconfig15Yaml,
-	"translateConfig/reverseTranslateConfig-1.6.yaml":                                         translateconfigReversetranslateconfig16Yaml,
-	"translateConfig/translate-ICP-IOP-1.5.yaml":                                              translateconfigTranslateIcpIop15Yaml,
-	"translateConfig/translateConfig-1.3.yaml":                                                translateconfigTranslateconfig13Yaml,
-	"translateConfig/translateConfig-1.4.yaml":                                                translateconfigTranslateconfig14Yaml,
-	"translateConfig/translateConfig-1.5.yaml":                                                translateconfigTranslateconfig15Yaml,
-	"translateConfig/translateConfig-1.6.yaml":                                                translateconfigTranslateconfig16Yaml,
-	"versions.yaml":                                                                           versionsYaml,
+	"operator/Chart.yaml":                             operatorChartYaml,
+	"operator/templates/clusterrole.yaml":             operatorTemplatesClusterroleYaml,
+	"operator/templates/clusterrole_binding.yaml":     operatorTemplatesClusterrole_bindingYaml,
+	"operator/templates/crd.yaml":                     operatorTemplatesCrdYaml,
+	"operator/templates/deployment.yaml":              operatorTemplatesDeploymentYaml,
+	"operator/templates/namespace.yaml":               operatorTemplatesNamespaceYaml,
+	"operator/templates/service.yaml":                 operatorTemplatesServiceYaml,
+	"operator/templates/service_account.yaml":         operatorTemplatesService_accountYaml,
+	"profiles/default.yaml":                           profilesDefaultYaml,
+	"profiles/demo.yaml":                              profilesDemoYaml,
+	"profiles/empty.yaml":                             profilesEmptyYaml,
+	"profiles/minimal.yaml":                           profilesMinimalYaml,
+	"profiles/remote.yaml":                            profilesRemoteYaml,
+	"profiles/separate.yaml":                          profilesSeparateYaml,
+	"translateConfig/reverseTranslateConfig-1.4.yaml": translateconfigReversetranslateconfig14Yaml,
+	"translateConfig/reverseTranslateConfig-1.5.yaml": translateconfigReversetranslateconfig15Yaml,
+	"translateConfig/reverseTranslateConfig-1.6.yaml": translateconfigReversetranslateconfig16Yaml,
+	"translateConfig/translate-ICP-IOP-1.5.yaml":      translateconfigTranslateIcpIop15Yaml,
+	"translateConfig/translateConfig-1.3.yaml":        translateconfigTranslateconfig13Yaml,
+	"translateConfig/translateConfig-1.4.yaml":        translateconfigTranslateconfig14Yaml,
+	"translateConfig/translateConfig-1.5.yaml":        translateconfigTranslateconfig15Yaml,
+	"translateConfig/translateConfig-1.6.yaml":        translateconfigTranslateconfig16Yaml,
+	"versions.yaml":                                   versionsYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -41996,25 +41000,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		}},
 		"istio-control": &bintree{nil, map[string]*bintree{
 			"istio-autoinject": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioControlIstioAutoinjectChartYaml, map[string]*bintree{}},
-				"NOTES.txt":  &bintree{chartsIstioControlIstioAutoinjectNotesTxt, map[string]*bintree{}},
 				"files": &bintree{nil, map[string]*bintree{
 					"injection-template.yaml": &bintree{chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml, map[string]*bintree{}},
 				}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":                   &bintree{chartsIstioControlIstioAutoinjectTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl":                    &bintree{chartsIstioControlIstioAutoinjectTemplates_helpersTpl, map[string]*bintree{}},
-					"clusterrole.yaml":                &bintree{chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml":         &bintree{chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap.yaml":                  &bintree{chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml":                 &bintree{chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml, map[string]*bintree{}},
-					"mutatingwebhook.yaml":            &bintree{chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml":        &bintree{chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml":                    &bintree{chartsIstioControlIstioAutoinjectTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":             &bintree{chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"sidecar-injector-configmap.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml, map[string]*bintree{}},
-				}},
-				"values.yaml": &bintree{chartsIstioControlIstioAutoinjectValuesYaml, map[string]*bintree{}},
 			}},
 			"istio-config": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioControlIstioConfigChartYaml, map[string]*bintree{}},
@@ -42044,9 +41032,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"injection-template.yaml": &bintree{chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml, map[string]*bintree{}},
 				}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":                            &bintree{chartsIstioControlIstioDiscoveryTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl":                             &bintree{chartsIstioControlIstioDiscoveryTemplates_helpersTpl, map[string]*bintree{}},
-					"autoscale.yaml":                           &bintree{chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"_affinity.tpl":  &bintree{chartsIstioControlIstioDiscoveryTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":   &bintree{chartsIstioControlIstioDiscoveryTemplates_helpersTpl, map[string]*bintree{}},
+					"autoscale.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
 					"clusterrole-galley-disable-webhook.yaml":  &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, map[string]*bintree{}},
 					"clusterrole.yaml":                         &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml, map[string]*bintree{}},
 					"clusterrolebinding.yaml":                  &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
