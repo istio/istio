@@ -19,6 +19,7 @@ spec:
       labels:
         app: hello
         security.istio.io/tlsMode: disabled
+        service.istio.io/canonical-name: hello
         tier: backend
         track: stable
     spec:
