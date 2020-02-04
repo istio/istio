@@ -7072,19 +7072,6 @@ subjects:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio-mesh-galley
-  namespace: istio-system
-  labels:
-    release: istio
-data:
-  mesh: |-
-    {}
----
-
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
   namespace: istio-system
   name: galley-envoy-config
   labels:
@@ -7171,6 +7158,19 @@ data:
                 trusted_ca:
                   filename: /etc/certs/root-cert.pem
             require_client_certificate: true
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-mesh-galley
+  namespace: istio-system
+  labels:
+    release: istio
+data:
+  mesh: |-
+    {}
 ---
 
 
