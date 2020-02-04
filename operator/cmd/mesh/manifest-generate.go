@@ -107,7 +107,8 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) e
 // representation of path-values passed through the --set flag.
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
-func GenManifests(inFilename []string, setOverlayYAML string, force bool, kubeConfig *rest.Config, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
+func GenManifests(inFilename []string, setOverlayYAML string, force bool,
+	kubeConfig *rest.Config, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
 	mergedYAML, _, err := GenerateConfig(inFilename, setOverlayYAML, force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err

@@ -84,7 +84,7 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 	if err != nil {
 		return "", "", err
 	}
-	if err := validate.ValidateIOP(fileOverlayIOP); err != nil {
+	if err := validate.ValidIOP(fileOverlayIOP); err != nil {
 		if !force {
 			return "", "", fmt.Errorf("validation errors (use --force to override): \n%s", err)
 		}
@@ -115,7 +115,8 @@ func profileFromSetOverlay(yml string) string {
 
 // genIOPSFromProfile generates an IstioOperatorSpec from the given profile name or path, and overlay YAMLs from user
 // files and the --set flag. If successful, it returns an IstioOperatorSpec string and struct.
-func genIOPSFromProfile(profile, fileOverlayYAML, setOverlayYAML string, skipValidation bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+func genIOPSFromProfile(profile, fileOverlayYAML, setOverlayYAML string, skipValidation bool,
+	kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
 	outYAML, err := getProfileYAML(profile)
 	if err != nil {
 		return "", nil, err

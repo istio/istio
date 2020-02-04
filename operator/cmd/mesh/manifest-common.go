@@ -52,7 +52,7 @@ func yAMLFromSetFlags(setOverlay []string, force bool, l *Logger) (string, error
 	if err != nil {
 		return "", fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
 	}
-	if err := validate.ValidateIOPYAML(out); err != nil {
+	if err := validate.ValidIOPYAML(out); err != nil {
 		if !force {
 			return "", fmt.Errorf("validation errors (use --force to override): \n%s", err)
 		}

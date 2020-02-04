@@ -34,7 +34,6 @@ import (
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/component/controlplane"
 	"istio.io/istio/operator/pkg/helm"
-	istiomanifest "istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
@@ -159,23 +158,6 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 		return nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
 	return unmarshalAndValidateIOPSpec(mergedYAML)
-}
-
-// unmarshalAndValidateIOP unmarshals the IstioOperator in the crYAML string and validates it.
-// If successful, it returns both a struct and string YAML representations of the IstioOperatorSpec embedded in iop.
-func unmarshalAndValidateIOP(iopYAML string) (*valuesv1alpha1.IstioOperator, error) {
-	// TODO: add GroupVersionKind handling as appropriate.
-	if iopYAML == "" {
-		return &valuesv1alpha1.IstioOperator{}, nil
-	}
-	iop, _, err := istiomanifest.ParseK8SYAMLToIstioOperator(iopYAML)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse the overlay file: %s\n\nOriginal YAML:\n%s", err, iopYAML)
-	}
-	if errs := validate.CheckIstioOperatorSpec(iop.Spec, false); len(errs) != 0 {
-		return nil, fmt.Errorf("input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s", errs, iopYAML)
-	}
-	return iop, nil
 }
 
 // unmarshalAndValidateIOPSpec unmarshals the IstioOperatorSpec in the iopsYAML string and validates it.

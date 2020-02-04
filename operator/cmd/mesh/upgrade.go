@@ -245,7 +245,7 @@ func waitForConfirmation(skipConfirmation bool, l *Logger) {
 }
 
 // checkSupportedVersions checks if the upgrade cur -> tar is supported by the tool
-func checkSupportedVersions(cur, tar, versionsURI string, l *Logger) error {
+func checkSupportedVersions(cur, tar, versionsURI string) error {
 	tarGoVersion, err := goversion.NewVersion(tar)
 	if err != nil {
 		return fmt.Errorf("failed to parse the target version: %v", tar)

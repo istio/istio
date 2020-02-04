@@ -281,8 +281,8 @@ func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 	return iop, nil
 }
 
-// ValidateIOPYAML validates the iopYAML strings, which should contain IstioOperator YAML.
-func ValidateIOPYAML(iopYAML string) error {
+// ValidIOPYAML validates the iopYAML strings, which should contain IstioOperator YAML.
+func ValidIOPYAML(iopYAML string) error {
 	if strings.TrimSpace(iopYAML) == "" {
 		return nil
 	}
@@ -290,11 +290,11 @@ func ValidateIOPYAML(iopYAML string) error {
 	if err != nil {
 		return err
 	}
-	return ValidateIOP(iop)
+	return ValidIOP(iop)
 }
 
-// ValidateIOPYAML validates the given IstioOperator object.
-func ValidateIOP(iop *v1alpha1.IstioOperator) error {
+// ValidIOPYAML validates the given IstioOperator object.
+func ValidIOP(iop *v1alpha1.IstioOperator) error {
 	errs := CheckIstioOperatorSpec(iop.Spec, false)
 	return errs.ToError()
 }
