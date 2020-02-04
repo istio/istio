@@ -309,7 +309,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 	}
 }
 
-// GetMutualTLSMode retuns the MutualTLSMode enum corresponding to the given peer authentiation policy.
+// GetMutualTLSMode returns the MutualTLSMode enum corresponding to the given peer authentiation policy.
 // If the input authentication is nil, returns MTLSPermissive.
 func GetMutualTLSMode(peer *v1beta1.PeerAuthentication) model.MutualTLSMode {
 	if peer == nil || peer.Mtls == nil {
@@ -330,7 +330,7 @@ func GetMutualTLSMode(peer *v1beta1.PeerAuthentication) model.MutualTLSMode {
 }
 
 // GetMostSpecificScopeConfig returns the config with the most specific scope, i.e config with
-// non-emtpy selector should be preferred over those without, one in non-root namespace should be
+// non-empty selector should be preferred over those without, one in non-root namespace should be
 // preferred over those in root namespace. Where there are more than one config in the same
 // scope, pick the one with stronger security (STRICT > PERMISSIVE > DISABLE).
 // The input configs is assumed to be a short list of configs that should be considerred for an
