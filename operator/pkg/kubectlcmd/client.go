@@ -108,6 +108,14 @@ func (c *Client) GetConfigMap(name string, opts *Options) (string, string, error
 	return c.kubectl([]string{"get", "cm", name}, opts)
 }
 
+// Version runs the `kubectl version` and return stdout and stderr
+func (c *Client) Version(opts *Options) (string, string, error) {
+	verOpts := *opts
+	verOpts.Output = "yaml"
+	verOpts.DryRun = false
+	return c.kubectl([]string{"version"}, &verOpts)
+}
+
 // kubectl runs the `kubectl` command by specifying subcommands in subcmds with opts.
 func (c *Client) kubectl(subcmds []string, opts *Options) (string, string, error) {
 	hasStdin := strings.TrimSpace(opts.Stdin) != ""
@@ -144,7 +152,7 @@ func (c *Client) kubectl(subcmds []string, opts *Options) (string, string, error
 		if opts.Verbose {
 			cmdStr += "\n" + opts.Stdin
 		} else {
-			cmdStr += " <use --verbose to see stdin string> \n"
+			cmdStr += " <use --verbose to see stdin string> "
 		}
 	}
 
@@ -153,7 +161,7 @@ func (c *Client) kubectl(subcmds []string, opts *Options) (string, string, error
 		return "", "", nil
 	}
 
-	scope.Infof("running command:\n%s\n", cmdStr)
+	scope.Infof("running command: %s", cmdStr)
 	err := c.cmdSite.Run(cmd)
 	csError := util.ConsolidateLog(stderr.String())
 

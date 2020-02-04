@@ -37,6 +37,7 @@ var (
 	FakeTrustDomain    = "FakeTrustDomain"
 	FakeSubjectToken   = "FakeSubjectToken"
 	FakeProjectNum     = "1234567"
+	FakeGKEClusterURL  = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
 )
 
 type federatedTokenRequest struct {
@@ -45,7 +46,7 @@ type federatedTokenRequest struct {
 	RequestedTokenType string `json:"requestedTokenType"`
 	SubjectTokenType   string `json:"subjectTokenType"`
 	SubjectToken       string `json:"subjectToken"`
-	Scope              string `json:"Scope"`
+	Scope              string `json:"scope"`
 }
 
 type federatedTokenResponse struct {
@@ -56,15 +57,15 @@ type federatedTokenResponse struct {
 }
 
 type accessTokenRequest struct {
-	Name      string            `json:"Name"`
-	Delegates []string          `json:"Delegates"` // nolint: structcheck, unused
-	Scope     []string          `json:"Scope"`
+	Name      string            `json:"name"`
+	Delegates []string          `json:"delegates"` // nolint: structcheck, unused
+	Scope     []string          `json:"scope"`
 	LifeTime  duration.Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
 type accessTokenResponse struct {
-	AccessToken string            `json:"accessToken"`
-	ExpireTime  duration.Duration `json:"expireTime"`
+	AccessToken string `json:"accessToken"`
+	ExpireTime  string `json:"expireTime"`
 }
 
 // AuthorizationServer mocks google secure token server.
@@ -105,9 +106,9 @@ func StartNewServer(t *testing.T, conf Config) (*AuthorizationServer, error) {
 	if conf.SubjectToken != "" {
 		st = conf.SubjectToken
 	}
-	td := FakeTrustDomain
+	aud := fmt.Sprintf("identitynamespace:%s:%s", FakeTrustDomain, FakeGKEClusterURL)
 	if conf.TrustDomain != "" {
-		td = conf.TrustDomain
+		aud = fmt.Sprintf("identitynamespace:%s:%s", conf.TrustDomain, FakeGKEClusterURL)
 	}
 	token := FakeAccessToken
 	if conf.AccessToken != "" {
@@ -116,7 +117,7 @@ func StartNewServer(t *testing.T, conf Config) (*AuthorizationServer, error) {
 	server := &AuthorizationServer{
 		t: t,
 		expectedFederatedTokenRequest: federatedTokenRequest{
-			Audience:           td,
+			Audience:           aud,
 			GrantType:          "urn:ietf:params:oauth:grant-type:token-exchange",
 			RequestedTokenType: "urn:ietf:params:oauth:token-type:access_token",
 			SubjectTokenType:   "urn:ietf:params:oauth:token-type:jwt",
@@ -293,7 +294,7 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 	ms.numGetAccessTokenCalls++
 	want := ms.expectedAccessTokenRequest
 	fakeErr := ms.generateAccessTokenError
-	tokenLifeInSec := ms.accessTokenLife
+	tokenLife := time.Now().Add(time.Duration(ms.accessTokenLife) * time.Second)
 	token := ms.accessToken
 	if ms.enableDynamicAccessToken {
 		token += time.Now().String()
@@ -328,11 +329,11 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	tokenLife.Format(time.RFC3339)
+	lifeJSON, _ := tokenLife.MarshalJSON()
 	resp := accessTokenResponse{
 		AccessToken: token,
-		ExpireTime: duration.Duration{
-			Seconds: int64(tokenLifeInSec),
-		},
+		ExpireTime:  string(lifeJSON),
 	}
 
 	_ = json.NewEncoder(w).Encode(resp)

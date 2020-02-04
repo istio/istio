@@ -64,5 +64,5 @@ ip6tables -t filter -F INPUT
 ip6tables -t filter -A INPUT -m state --state ESTABLISHED -j ACCEPT
 ip6tables -t filter -A INPUT -i lo -d ::1 -j ACCEPT
 ip6tables -t filter -A INPUT -j REJECT
-iptables-save 
-ip6tables-save 
+iptables-save --table=mangle --table=nat
+ip6tables-save --table=mangle --table=nat

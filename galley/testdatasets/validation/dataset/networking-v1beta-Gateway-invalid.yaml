@@ -1,0 +1,11 @@
+# Routes TCP traffic through the ingressgateway Gateway to service A.
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: invalid-gateway
+spec:
+  selector:
+    # DO NOT CHANGE THESE LABELS
+    # The ingressgateway is defined in install/kubernetes/helm/istio/values.yaml
+    # with these labels
+    istio: ingressgateway

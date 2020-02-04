@@ -584,6 +584,12 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	// host set.
 	hostsFromGateways := map[string]struct{}{}
 
+	// MergedGateway will be nil when there are no configs in the
+	// system during initial installation.
+	if proxy.MergedGateway == nil {
+		return nil
+	}
+
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		gateways[gw] = true
 	}
@@ -926,8 +932,7 @@ func (ps *PushContext) updateContext(
 
 	for k := range pushReq.ConfigTypesUpdated {
 		switch k {
-		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
-			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind():
+		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
 			servicesChanged = true
 		case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 			destinationRulesChanged = true
@@ -947,7 +952,8 @@ func (ps *PushContext) updateContext(
 			authzChanged = true
 		case collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(),
 			collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(),
-			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
+			collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
 			authnChanged = true
 		}
 	}
@@ -1092,7 +1098,10 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 // Caches list of authentication policies
 func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 	// Init beta policy.
-	ps.AuthnBetaPolicies = initAuthenticationPolicies(env)
+	var initBetaPolicyErro error
+	if ps.AuthnBetaPolicies, initBetaPolicyErro = initAuthenticationPolicies(env); initBetaPolicyErro != nil {
+		return initBetaPolicyErro
+	}
 
 	// Processing alpha policy. This will be removed after beta API released.
 	authNPolicies, err := env.List(collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(), NamespaceAll)

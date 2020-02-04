@@ -35,15 +35,14 @@ type ComponentName string
 const (
 	// IstioComponent names corresponding to the IstioOperator proto component names. Must be the same, since these
 	// are used for struct traversal.
-	IstioBaseComponentName       ComponentName = "Base"
-	PilotComponentName           ComponentName = "Pilot"
-	GalleyComponentName          ComponentName = "Galley"
-	SidecarInjectorComponentName ComponentName = "SidecarInjector"
-	PolicyComponentName          ComponentName = "Policy"
-	TelemetryComponentName       ComponentName = "Telemetry"
-	CitadelComponentName         ComponentName = "Citadel"
-	NodeAgentComponentName       ComponentName = "NodeAgent"
-	CNIComponentName             ComponentName = "Cni"
+	IstioBaseComponentName ComponentName = "Base"
+	PilotComponentName     ComponentName = "Pilot"
+	GalleyComponentName    ComponentName = "Galley"
+	PolicyComponentName    ComponentName = "Policy"
+	TelemetryComponentName ComponentName = "Telemetry"
+	CitadelComponentName   ComponentName = "Citadel"
+
+	CNIComponentName ComponentName = "Cni"
 
 	// Gateway components
 	IngressComponentName ComponentName = "IngressGateways"
@@ -64,9 +63,11 @@ const (
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
 
 	// Component names used in old versions
-	InjectorComponentName       ComponentName = "Injector"
-	IngressGatewayComponentName ComponentName = "IngressGateway"
-	EgressGatewayComponentName  ComponentName = "EgressGateway"
+	InjectorComponentName        ComponentName = "Injector"
+	SidecarInjectorComponentName ComponentName = "SidecarInjector"
+	IngressGatewayComponentName  ComponentName = "IngressGateway"
+	EgressGatewayComponentName   ComponentName = "EgressGateway"
+	NodeAgentComponentName       ComponentName = "NodeAgent"
 )
 
 var (
@@ -74,15 +75,15 @@ var (
 		IstioBaseComponentName,
 		PilotComponentName,
 		GalleyComponentName,
-		SidecarInjectorComponentName,
 		PolicyComponentName,
 		TelemetryComponentName,
 		CitadelComponentName,
-		NodeAgentComponentName,
 		CNIComponentName,
 	}
 	DeprecatedNames = []ComponentName{
 		InjectorComponentName,
+		SidecarInjectorComponentName,
+		NodeAgentComponentName,
 	}
 	AllLegacyAddonComponentNames = []ComponentName{
 		PrometheusComponentName,
@@ -95,21 +96,6 @@ var (
 	deprecatedComponentNamesMap  = make(map[ComponentName]bool)
 	LegacyAddonComponentNamesMap = make(map[ComponentName]bool)
 	LegacyAddonComponentPathMap  = make(map[string]string)
-
-	// ComponentNameToHelmComponentPath defines mapping from component name to helm component root path.
-	// TODO: merge this with the componentMaps defined in translateConfig
-	ComponentNameToHelmComponentPath = map[ComponentName]string{
-		PilotComponentName:           "pilot",
-		GalleyComponentName:          "galley",
-		SidecarInjectorComponentName: "sidecarInjectorWebhook",
-		PolicyComponentName:          "mixer.policy",
-		TelemetryComponentName:       "mixer.telemetry",
-		CitadelComponentName:         "security",
-		NodeAgentComponentName:       "nodeagent",
-		IngressComponentName:         "gateways.istio-ingressgateway",
-		EgressComponentName:          "gateways.istio-egressgateway",
-		CNIComponentName:             "cni",
-	}
 )
 
 func init() {
@@ -154,76 +140,6 @@ func (cn ComponentName) IsAddon() bool {
 // IsLegacyAddonComponent reports whether cn is an legacy addonComponent name.
 func (cn ComponentName) IsLegacyAddonComponent() bool {
 	return LegacyAddonComponentNamesMap[cn]
-}
-
-// IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.
-// IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.
-// TODO: remove extra validations when comfort level is high enough.
-func IsComponentEnabledInSpec(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (bool, error) {
-	// for Istio components, check whether override path exist in values part first then ISCP.
-	valuePath := ComponentNameToHelmComponentPath[componentName]
-	enabled, pathExist, err := IsComponentEnabledFromValue(valuePath, controlPlaneSpec.Values)
-	// only return value when path exists
-	if err == nil && pathExist {
-		return enabled, nil
-	}
-	if componentName == IngressComponentName {
-		return len(controlPlaneSpec.Components.IngressGateways) != 0, nil
-	}
-	if componentName == EgressComponentName {
-		return len(controlPlaneSpec.Components.EgressGateways) != 0, nil
-	}
-	if componentName == AddonComponentName {
-		for _, ac := range controlPlaneSpec.AddonComponents {
-			if ac.Enabled != nil && ac.Enabled.Value {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-
-	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Enabled")
-	if err != nil {
-		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for component=%s: %s",
-			componentName, err)
-	}
-	if !found || componentNodeI == nil {
-		return false, nil
-	}
-	componentNode, ok := componentNodeI.(*v1alpha1.BoolValueForPB)
-	if !ok {
-		return false, fmt.Errorf("component %s enabled has bad type %T, expect *v1alpha1.BoolValueForPB", componentName, componentNodeI)
-	}
-	if componentNode == nil {
-		return false, nil
-	}
-	return componentNode.Value, nil
-}
-
-// IsComponentEnabledFromValue get whether component is enabled in helm value.yaml tree.
-// valuePath points to component path in the values tree.
-func IsComponentEnabledFromValue(valuePath string, valueSpec map[string]interface{}) (enabled bool, pathExist bool, err error) {
-	enabledPath := valuePath + ".enabled"
-	enableNodeI, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(enabledPath))
-	if err != nil {
-		return false, false, fmt.Errorf("error finding component enablement path: %s in helm value.yaml tree", enabledPath)
-	}
-	if !found {
-		// Some components do not specify enablement should be treated as enabled if the root node in the component subtree exists.
-		_, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
-		if err != nil {
-			return false, false, err
-		}
-		if found {
-			return true, false, nil
-		}
-		return false, false, nil
-	}
-	enableNode, ok := enableNodeI.(bool)
-	if !ok {
-		return false, true, fmt.Errorf("node at valuePath %s has bad type %T, expect bool", enabledPath, enableNodeI)
-	}
-	return enableNode, true, nil
 }
 
 // NamespaceFromValue gets the namespace value in helm value.yaml tree.
