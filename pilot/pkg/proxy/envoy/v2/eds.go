@@ -505,13 +505,18 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	egdsUpdates := egdsGroup.accept(istioEndpoints)
 
 	groupBuildTime := time.Since(t0)
+	egdsBuildTime.Record(float64(groupBuildTime.Milliseconds()))
 
 	if egdsUpdates != nil {
 		adsLog.Debugf("endpoints for service(%s) updated, endpoint count: %d, egds upadted/total: %d/%d, time: %s",
 			serviceName, len(istioEndpoints), len(egdsUpdates), egdsGroup.GroupCount, groupBuildTime)
+
+		egdsChangeRatio.Record(float64(len(egdsUpdates)) / float64(egdsGroup.GroupCount))
 	} else {
 		adsLog.Debugf("endpoints for service(%s) updated, endpoint count: %d, egds resharded, total: %d, time: %s",
 			serviceName, len(istioEndpoints), egdsGroup.GroupCount, groupBuildTime)
+
+		egdsChangeRatio.Record(1)
 	}
 
 	ep.mutex.Unlock()

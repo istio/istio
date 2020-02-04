@@ -151,6 +151,20 @@ var (
 	)
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
+	egdsBuildTime = monitoring.NewDistribution(
+		"pilot_egds_build_time",
+		"Time in milliseconds, the cost of egds computation time for each service update.",
+		[]float64{50, 100, 200, 500, 1000, 2000, 5000},
+	)
+
+	// only supported dimension is millis, unfortunately. default to unitdimensionless.
+	egdsChangeRatio = monitoring.NewDistribution(
+		"pilot_egds_change_ratio",
+		"Time in milliseconds, the ratio of egds affected when service endpoints updated.",
+		[]float64{.2, .3, .4, .5, .6, .7, .8},
+	)
+
+	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
 		"Delay in seconds between config change and a proxy receiving all required configuration.",
@@ -206,6 +220,7 @@ func init() {
 		edsReject,
 		ldsReject,
 		rdsReject,
+		egdsReject,
 		edsInstances,
 		edsAllLocalityEndpoints,
 		rdsExpiredNonce,
@@ -221,5 +236,6 @@ func init() {
 		totalXDSInternalErrors,
 		inboundUpdates,
 		pushTriggers,
+		egdsBuildTime,
 	)
 }
