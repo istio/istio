@@ -841,7 +841,5 @@ spec:
 
 # Policy component is disabled.
 
-# SidecarInjector component is disabled.
-
 # Telemetry component is disabled.
 

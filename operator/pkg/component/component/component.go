@@ -97,8 +97,6 @@ func NewComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewPilotComponent(opts)
 	case name.GalleyComponentName:
 		component = NewGalleyComponent(opts)
-	case name.SidecarInjectorComponentName:
-		component = NewSidecarInjectorComponent(opts)
 	case name.PolicyComponentName:
 		component = NewPolicyComponent(opts)
 	case name.TelemetryComponentName:
@@ -443,50 +441,6 @@ func (c *GalleyComponent) ResourceName() string {
 
 // Namespace implements the IstioComponent interface.
 func (c *GalleyComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// SidecarInjectorComponent is the pilot component.
-type SidecarInjectorComponent struct {
-	*CommonComponentFields
-}
-
-// NewSidecarInjectorComponent creates a new PilotComponent and returns a pointer to it.
-func NewSidecarInjectorComponent(opts *Options) *SidecarInjectorComponent {
-	cn := name.SidecarInjectorComponentName
-	return &SidecarInjectorComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *SidecarInjectorComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *SidecarInjectorComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *SidecarInjectorComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *SidecarInjectorComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *SidecarInjectorComponent) Namespace() string {
 	return c.CommonComponentFields.Namespace
 }
 
