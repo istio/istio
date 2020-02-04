@@ -733,6 +733,10 @@ func TestHelmInject(t *testing.T) {
 			wantFile:  "deploymentconfig.yaml.injected",
 		},
 		{
+			inputFile: "deploymentconfig-with-canonical-service-label.yaml",
+			wantFile:  "deploymentconfig-with-canonical-service-label.yaml.injected",
+		},
+		{
 			inputFile: "deploymentconfig-multi.yaml",
 			wantFile:  "deploymentconfig-multi.yaml.injected",
 		},
@@ -1321,6 +1325,11 @@ func TestRunAndServe(t *testing.T) {
       "value": {
          "security.istio.io/tlsMode": "istio"
       }
+    },
+    {
+      "op": "add",
+      "path": "/metadata/labels/service.istio.io~1canonical-name",
+      "value": "test"
     }
 ]`)
 

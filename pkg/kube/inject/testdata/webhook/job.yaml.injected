@@ -13,6 +13,7 @@ spec:
       creationTimestamp: null
       labels:
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: pi
       name: pi
     spec:
       containers:
