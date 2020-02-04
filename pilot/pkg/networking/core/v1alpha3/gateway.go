@@ -60,6 +60,24 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	errs := &multierror.Error{}
 	listeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
 	for portNumber, servers := range mergedGateway.Servers {
+		var si *model.ServiceInstance
+		services := make(map[host.Name]struct{}, len(node.ServiceInstances))
+		for _, w := range node.ServiceInstances {
+			if w.ServicePort.Port == int(portNumber) {
+				if si == nil {
+					si = w
+				}
+				services[w.Service.Hostname] = struct{}{}
+			}
+		}
+		if len(services) != 1 {
+			log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
+				len(services), portNumber, services)
+		}
+		// if we found a ServiceInstance with matching ServicePort, listen on TargetPort
+		if si != nil && si.Endpoint != nil {
+			portNumber = si.Endpoint.EndpointPort
+		}
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 		opts := buildListenerOpts{
@@ -124,21 +142,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			}
 		}
 		// end shady logic
-
-		var si *model.ServiceInstance
-		services := make(map[host.Name]struct{}, len(node.ServiceInstances))
-		for _, w := range node.ServiceInstances {
-			if w.Endpoint.EndpointPort == portNumber {
-				if si == nil {
-					si = w
-				}
-				services[w.Service.Hostname] = struct{}{}
-			}
-		}
-		if len(services) != 1 {
-			log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
-				len(services), portNumber, services)
-		}
 
 		pluginParams := &plugin.InputParams{
 			ListenerProtocol:           listenerProtocol,
