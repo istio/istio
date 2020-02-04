@@ -164,6 +164,12 @@ function setup_kind_cluster() {
     docker exec "${node}" sh -c "${cmd}"
   done
   kubectl apply -f ./prow/config/metrics
+
+  export DOCKER_CLI_EXPERIMENTAL=true
+  if ! docker buildx ls | grep -q container-builder; then
+    docker buildx create --driver-opt network=host --use --name container-builder
+  fi
+  docker buildx use container-builder
 }
 
 function cni_run_daemon_kind() {
