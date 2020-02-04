@@ -82,7 +82,7 @@ func CreateTokenManager(tokenManagerType string, config Config) stsservice.Token
 		if projectInfo := getGcpProjectNumber(); len(projectInfo.Number) > 0 {
 			gKEClusterURL := fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
 				projectInfo.id, projectInfo.clusterLocation, projectInfo.cluster)
-			if p, err := google.CreateTokenManagerPlugin(config.TrustDomain, projectInfo.Number, gKEClusterURL); err != nil {
+			if p, err := google.CreateTokenManagerPlugin(config.TrustDomain, projectInfo.Number, gKEClusterURL); err == nil {
 				tm.plugin = p
 			}
 		}
