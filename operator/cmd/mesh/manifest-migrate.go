@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/validate"
 	binversion "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 )
@@ -115,10 +116,8 @@ func translateFunc(values []byte, force bool, l *Logger) error {
 	}
 
 	// verify the input schema first
-	inputVals := &iopv1alpha1.Values{}
-	err = util.UnmarshalValuesWithJSONPB(string(values), inputVals, force)
-	vs := fmt.Sprintf("releaese-%s.%d", mvs.MajorVersion, mvs.Minor)
-	if err != nil {
+	if errs := validate.CheckValuesString(values); len(errs) != 0 {
+		vs := fmt.Sprintf("releaese-%s.%d", mvs.MajorVersion, mvs.Minor)
 		return fmt.Errorf("the input values.yaml fail validation: %v \n"+
 			"check against https://github.com/istio/istio/blob/%s/operator/pkg/apis/istio/v1alpha1/values_types.proto for schema\n"+
 			"or run the command with --force flag to ignore the error", err, vs)
