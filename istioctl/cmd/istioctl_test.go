@@ -49,24 +49,16 @@ type testCase struct {
 func TestBadParse(t *testing.T) {
 	// unknown flags should be a command parse
 	rootCmd := GetRootCmd([]string{"--unknown-flag"})
+
+	// we should propagate to subcommands
+	rootCmd = GetRootCmd([]string{"x", "analyze", "--unknown-flag"})
 	fErr := rootCmd.Execute()
 
 	switch fErr.(type) {
 	case CommandParseError:
 		// do nothing
 	default:
-		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
-	}
-
-	// we should propagate to subcommands
-	rootCmd = GetRootCmd([]string{"x", "analyze", "--unknown-flag"})
-	fErr = rootCmd.Execute()
-
-	switch fErr.(type) {
-	case CommandParseError:
-		// do nothing
-	default:
-		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
+		t.Errorf("Expected a CommandParseError, but got %v", fErr)
 	}
 
 	// all of the subcommands
@@ -77,7 +69,7 @@ func TestBadParse(t *testing.T) {
 	case CommandParseError:
 		// do nothing
 	default:
-		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
+		t.Errorf("Expected a CommandParseError, but got %v", fErr)
 	}
 }
 
