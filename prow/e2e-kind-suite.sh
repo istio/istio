@@ -99,6 +99,6 @@ fi
 if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
    cni_run_daemon_kind
 fi
-export HUB=${HUB:-"registry:5000"}
+export HUB="registry:5000"
 
 time make with_junit_report E2E_ARGS="${E2E_ARGS[*]}" TARGET="${SINGLE_TEST}" ${VARIANT:+ VARIANT="${VARIANT}"}

@@ -95,6 +95,6 @@ if [[ "${VARIANT:-}" != "" ]]; then
   export TAG="${TAG}-${VARIANT}"
 fi
 
-export HUB=${HUB:-"registry:5000"}
+export HUB="registry:5000"
 
 make "${PARAMS[*]}"
