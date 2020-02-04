@@ -68,7 +68,6 @@ test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
 test.integration.istioio.kube.presubmit: istioctl | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/istioio/... -timeout 30m \
 	--istio.test.select -postsubmit,-flaky \
-	--istio.test.kube.operator=false \
 	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
