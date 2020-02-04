@@ -147,7 +147,6 @@ spec:
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
         - containerPort: 80
@@ -244,7 +243,6 @@ spec:
       serviceAccountName: kiali-service-account
       containers:
       - image: "quay.io/kiali/kiali:v1.9"
-        imagePullPolicy: IfNotPresent
         name: kiali
         command:
         - "/opt/kiali/kiali"

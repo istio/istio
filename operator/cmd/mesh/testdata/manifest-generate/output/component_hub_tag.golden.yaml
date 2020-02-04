@@ -321,7 +321,6 @@ spec:
       containers:
         - name: prometheus
           image: "docker.io/prom/prometheus:v2.15.1"
-          imagePullPolicy: IfNotPresent
           args:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
@@ -6528,7 +6527,6 @@ spec:
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         image: istio-spec.hub/proxyv2:istio-spec.tag
-        imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
         - containerPort: 15020
@@ -7432,7 +7430,6 @@ spec:
             name: istiod
             optional: true
         image: component.pilot.hub/pilot:component.pilot.tag
-        imagePullPolicy: IfNotPresent
         name: discovery
         ports:
         - containerPort: 8080
@@ -7564,7 +7561,7 @@ data:
         "enableTracing": true,
         "enabled": true,
         "hub": "istio-spec.hub",
-        "imagePullPolicy": "IfNotPresent",
+        "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {

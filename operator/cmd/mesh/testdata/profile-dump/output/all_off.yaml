@@ -296,7 +296,7 @@ values:
     disablePolicyChecks: true
     enableHelmTest: false
     enableTracing: true
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: ""
     imagePullSecrets: []
     istiod:
       enabled: true

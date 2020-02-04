@@ -57,7 +57,9 @@ spec:
 {{- else }}
           image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}"
 {{- end }}
+{{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
+{{- end }}
           command: ["/install-cni.sh"]
           env:
 {{- if .Values.cni.cniConfFileName }}

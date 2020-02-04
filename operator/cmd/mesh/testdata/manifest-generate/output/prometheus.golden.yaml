@@ -321,7 +321,6 @@ spec:
       containers:
         - name: prometheus
           image: "docker.io/prom/prometheus:v2.15.1"
-          imagePullPolicy: IfNotPresent
           args:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
