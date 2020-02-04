@@ -112,7 +112,7 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         image: gcr.io/istio-release/proxyv2:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -172,7 +172,7 @@ spec:
         - -d
         - "123"
         image: gcr.io/istio-release/proxy_init:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:

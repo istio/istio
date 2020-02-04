@@ -681,7 +681,6 @@ spec:
             name: istiod
             optional: true
         image: docker.io/istio/pilot:1.1.4
-        imagePullPolicy: IfNotPresent
         name: discovery
         ports:
         - containerPort: 8080
@@ -811,7 +810,7 @@ data:
         "enableTracing": true,
         "enabled": false,
         "hub": "docker.io/istio",
-        "imagePullPolicy": "IfNotPresent",
+        "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-control",
         "istiod": {

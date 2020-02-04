@@ -181,7 +181,6 @@ spec:
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
         - containerPort: 15020
@@ -474,7 +473,6 @@ spec:
       containers:
         - name: istio-proxy
           image: "gcr.io/istio-testing/proxyv2:latest"
-          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
             - containerPort: 80
