@@ -159,7 +159,7 @@ function setup_kind_cluster() {
 
   ip_fmt='{{.NetworkSettings.IPAddress}}'
   cmd="echo $(docker inspect -f "${ip_fmt}" "${reg_name}") registry >> /etc/hosts"
-  for node in $(kind get nodes --name "${1:-kind}")
+  for node in $(kind get nodes --name="${NAME}")
   do
     docker exec "${node}" sh -c "${cmd}"
   done
