@@ -27,6 +27,40 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
         tolerations: []
+    egressGateways:
+    - enabled: true
+      k8s:
+        env:
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-istio-egressgateway
+        nodeSelector: {}
+        podAnnotations: {}
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        serviceAnnotations: {}
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations: []
+      name: istio-egressgateway
     galley:
       enabled: true
       k8s:
@@ -40,6 +74,40 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
         tolerations: []
+    ingressGateways:
+    - enabled: true
+      k8s:
+        env:
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-istio-ingressgateway
+        nodeSelector: {}
+        podAnnotations: {}
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        serviceAnnotations: {}
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations: []
+      name: istio-ingressgateway
     pilot:
       enabled: true
       k8s:
@@ -152,15 +220,8 @@ spec:
       podAntiAffinityTermLabelSelector: []
     gateways:
       istio-egressgateway:
-        autoscaleEnabled: true
-        autoscaleMax: 5
-        autoscaleMin: 1
         connectTimeout: 10s
-        cpu:
-          targetAverageUtilization: 80
         drainDuration: 45s
-        env:
-          iSTIO_META_ROUTER_MODE: sni-dnat
         podAntiAffinityLabelSelector: []
         podAntiAffinityTermLabelSelector: []
         ports:
@@ -171,15 +232,6 @@ spec:
         - name: tls
           port: 15443
           targetPort: 15443
-        resources:
-          limits:
-            cpu: 2000m
-            memory: 256Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        rollingMaxSurge: 100%
-        rollingMaxUnavailable: 25%
         secretVolumes:
         - mountPath: /etc/istio/egressgateway-certs
           name: egressgateway-certs
@@ -187,22 +239,14 @@ spec:
         - mountPath: /etc/istio/egressgateway-ca-certs
           name: egressgateway-ca-certs
           secretName: istio-egressgateway-ca-certs
-        tolerations: []
         type: ClusterIP
         zvpn:
           enabled: true
           suffix: global
       istio-ingressgateway:
         applicationPorts: ""
-        autoscaleEnabled: true
-        autoscaleMax: 5
-        autoscaleMin: 1
-        cpu:
-          targetAverageUtilization: 80
         debug: info
         domain: ""
-        env:
-          iSTIO_META_ROUTER_MODE: sni-dnat
         externalIPs: []
         loadBalancerIP: ""
         loadBalancerSourceRanges: []
@@ -243,6 +287,7 @@ spec:
           port: 15443
           targetPort: 15443
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         resources:
           limits:
@@ -253,6 +298,8 @@ spec:
             memory: 128Mi
         rollingMaxSurge: 100%
         rollingMaxUnavailable: 25%
+=======
+>>>>>>> resolve conflict
         sds:
           enabled: false
           image: node-agent-k8s
@@ -297,7 +344,6 @@ spec:
             port: 15032
             tls: false
         telemetry_domain_name: ""
-        tolerations: []
         type: LoadBalancer
         zvpn:
           enabled: true

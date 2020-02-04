@@ -38,9 +38,14 @@ type ReverseTranslator struct {
 	// KubernetesMapping defines actual k8s mappings generated from KubernetesPatternMapping before each translation.
 	KubernetesMapping map[string]*Translation `yaml:"kubernetesMapping,omitempty"`
 	// GatewayKubernetesMapping defines actual k8s mappings for gateway components generated from KubernetesPatternMapping before each translation.
-	GatewayKubernetesMapping map[string]*Translation `yaml:"GatewayKubernetesMapping,omitempty"`
+	GatewayKubernetesMapping gatewayKubernetesMapping `yaml:"GatewayKubernetesMapping,omitempty"`
 	// ValuesToComponentName defines mapping from value path to component name in API paths.
 	ValuesToComponentName map[string]name.ComponentName `yaml:"valuesToComponentName,omitempty"`
+}
+
+type gatewayKubernetesMapping struct {
+	ingressMapping map[string]*Translation
+	egressMapping  map[string]*Translation
 }
 
 var (
@@ -122,7 +127,8 @@ func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) err
 
 	t.KubernetesMapping = outputMapping
 
-	gwOutputMapping := make(map[string]*Translation)
+	igwOutputMapping := make(map[string]*Translation)
+	egwOutputMapping := make(map[string]*Translation)
 	for valKey, componentName := range gatewayPathMapping {
 		cnEnabled, _, err := IsComponentEnabledFromValue(componentName, valueTree)
 		if err != nil {
@@ -132,16 +138,20 @@ func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) err
 			scope.Debugf("Component:%s disabled, skip k8s mapping", componentName)
 			continue
 		}
+		mapping := igwOutputMapping
+		if componentName == name.EgressComponentName {
+			mapping = egwOutputMapping
+		}
 		for K8SValKey, outPathTmpl := range t.KubernetesPatternMapping {
 			newKey, err := renderComponentName(K8SValKey, valKey)
 			if err != nil {
 				return err
 			}
 			newP := util.PathFromString(outPathTmpl)
-			gwOutputMapping[newKey] = &Translation{newP[len(newP)-2:].String(), nil}
+			mapping[newKey] = &Translation{newP[len(newP)-2:].String(), nil}
 		}
 	}
-	t.GatewayKubernetesMapping = gwOutputMapping
+	t.GatewayKubernetesMapping = gatewayKubernetesMapping{ingressMapping: igwOutputMapping, egressMapping: egwOutputMapping}
 	return nil
 }
 
@@ -219,11 +229,9 @@ func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSp
 	}
 
 	// translate for gateway
-	for vp, iop := range gatewayPathMapping {
-		err = t.translateGateway(valueTree, cpSpecTree, vp, iop)
-		if err != nil {
-			return fmt.Errorf("error when translating %s from value.yaml tree: %v", vp, err.Error())
-		}
+	err = t.translateGateway(valueTree, cpSpecTree)
+	if err != nil {
+		return fmt.Errorf("error when translating gateway from value.yaml tree: %v", err.Error())
 	}
 
 	// translate remaining untranslated paths into component values
@@ -264,30 +272,36 @@ func (t *ReverseTranslator) setEnablementFromValue(valueSpec map[string]interfac
 }
 
 // translateGateway handles translation for gateways specific configuration
-func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, root map[string]interface{}, inPath string, outPath name.ComponentName) error {
-	enabled, pathExist, err := IsComponentEnabledFromValue(outPath, valueSpec)
-	if err != nil {
-		return err
-	}
-	if !pathExist {
-		return nil
-	}
-	gwSpecs := make([]map[string]interface{}, 1)
-	gwSpec := make(map[string]interface{})
-	gwSpecs[0] = gwSpec
-	gwSpec["enabled"] = enabled
-	gwSpec["name"] = util.ToYAMLPath(inPath)[1]
-	outCP := util.ToYAMLPath("Components." + string(outPath))
-
-	if enabled {
-		err = t.translateK8sTree(valueSpec, gwSpec, t.GatewayKubernetesMapping)
+func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, root map[string]interface{}) error {
+	for inPath, outPath := range gatewayPathMapping {
+		enabled, pathExist, err := IsComponentEnabledFromValue(outPath, valueSpec)
 		if err != nil {
 			return err
 		}
-	}
-	err = tpath.WriteNode(root, outCP, gwSpecs)
-	if err != nil {
-		return err
+		if !pathExist && !enabled {
+			return nil
+		}
+		gwSpecs := make([]map[string]interface{}, 1)
+		gwSpec := make(map[string]interface{})
+		gwSpecs[0] = gwSpec
+		gwSpec["enabled"] = enabled
+		gwSpec["name"] = util.ToYAMLPath(inPath)[1]
+		outCP := util.ToYAMLPath("Components." + string(outPath))
+
+		if enabled {
+			mapping := t.GatewayKubernetesMapping.ingressMapping
+			if outPath == name.EgressComponentName {
+				mapping = t.GatewayKubernetesMapping.egressMapping
+			}
+			err = t.translateK8sTree(valueSpec, gwSpec, mapping)
+			if err != nil {
+				return err
+			}
+		}
+		err = tpath.WriteNode(root, outCP, gwSpecs)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

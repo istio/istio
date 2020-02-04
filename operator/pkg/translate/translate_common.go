@@ -26,6 +26,7 @@ import (
 )
 
 var (
+	// LegacyAddonComponentPathMap defines reverse translation mapping for legacy addon component names.
 	LegacyAddonComponentPathMap = make(map[string]string)
 )
 

@@ -19,8 +19,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/pkg/log"
-
 	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
@@ -29,6 +27,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/vfs"
 	binversion "istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -83,9 +82,11 @@ var (
 		CitadelComponentName,
 		CNIComponentName,
 	}
-	allComponentNamesMap        = make(map[ComponentName]bool)
+	allComponentNamesMap = make(map[ComponentName]bool)
+	// DeprecatedComponentNamesMap defines the istio component name used in old versions.
 	DeprecatedComponentNamesMap = make(map[ComponentName]bool)
-	AddonComponentNamesMap      = make(map[ComponentName]bool)
+	// AddonComponentNamesMap defines the component name for addon components names used in old versions.
+	AddonComponentNamesMap = make(map[ComponentName]bool)
 )
 
 func init() {
