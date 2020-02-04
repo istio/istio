@@ -571,12 +571,12 @@ func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
 				switch cond.Type {
 				case apiextensionsv1beta1.Established:
 					if cond.Status == apiextensionsv1beta1.ConditionTrue {
-						scope.Infof("established CRD %q", crdName)
+						scope.Infof("established CRD %s", crdName)
 						continue descriptor
 					}
 				case apiextensionsv1beta1.NamesAccepted:
 					if cond.Status == apiextensionsv1beta1.ConditionFalse {
-						scope.Warnf("name conflict: %v", cond.Reason)
+						scope.Warnf("name conflict for %v: %v", crdName, cond.Reason)
 					}
 				}
 			}

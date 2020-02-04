@@ -132,7 +132,6 @@ spec:
   group: install.istio.io
   names:
     kind: IstioOperator
-    listKind: IstioOperatorList
     plural: istiooperators
     singular: istiooperator
     shortNames:
@@ -166,7 +165,7 @@ spec:
             https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
           type: object
   versions:
-  - name: v1alpha2
+  - name: v1alpha1
     served: true
     storage: true
 ---

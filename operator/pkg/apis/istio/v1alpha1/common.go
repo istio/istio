@@ -15,8 +15,6 @@
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	"github.com/golang/protobuf/jsonpb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -45,5 +43,3 @@ func FromInt(val int) IntOrStringForPB {
 func FromString(val string) IntOrStringForPB {
 	return IntOrStringForPB{intstr.FromString(val)}
 }
-
-type JSONNumber json.Number
