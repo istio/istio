@@ -57,7 +57,7 @@ type ProxyConfig struct {
 	PodIP               net.IP
 	SDSUDSPath          string
 	SDSTokenPath        string
-	STSPort             int
+	STSPort             string
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 	OutlierLogPath      string
