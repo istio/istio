@@ -963,7 +963,6 @@ data:
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
         "enabled": false,
-        "image": "sidecar_injector",
         "injectLabel": "istio-injection",
         "injectedAnnotations": {},
         "namespace": "istio-control",
@@ -972,8 +971,7 @@ data:
           "autoInject": true,
           "enabled": false
         },
-        "rewriteAppHTTPProbe": false,
-        "selfSigned": false
+        "rewriteAppHTTPProbe": false
       }
     }
 
@@ -2279,8 +2277,6 @@ webhooks:
 ---
 
 # Policy component is disabled.
-
-# SidecarInjector component is disabled.
 
 # Telemetry component is disabled.
 

@@ -10,8 +10,6 @@
 
 # Policy component is disabled.
 
-# SidecarInjector component is disabled.
-
 # Resources for Telemetry component
 
 apiVersion: autoscaling/v2beta1
