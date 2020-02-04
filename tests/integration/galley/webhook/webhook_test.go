@@ -72,13 +72,13 @@ func TestWebhook(t *testing.T) {
 			// Verify that scaling up/down doesn't modify webhook configuration
 			ctx.NewSubTest("scaling").
 				Run(func(t framework.TestContext) {
-					startGen := getVwcGeneration(vwcName, t, env)
+					startGen := getVwcGeneration(t, env)
 
 					// Scale up
 					scaleDeployment(istioNs, deployName, 2, t, env)
 					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
 					time.Sleep(sleepDelay)
-					gen := getVwcGeneration(vwcName, t, env)
+					gen := getVwcGeneration(t, env)
 					if gen != startGen {
 						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up to 2")
 					}
@@ -87,7 +87,7 @@ func TestWebhook(t *testing.T) {
 					scaleDeployment(istioNs, deployName, 0, t, env)
 					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
 					time.Sleep(sleepDelay)
-					gen = getVwcGeneration(vwcName, t, env)
+					gen = getVwcGeneration(t, env)
 					if gen != startGen {
 						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale down to zero")
 					}
@@ -96,7 +96,7 @@ func TestWebhook(t *testing.T) {
 					scaleDeployment(istioNs, deployName, 1, t, env)
 					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
 					time.Sleep(sleepDelay)
-					gen = getVwcGeneration(vwcName, t, env)
+					gen = getVwcGeneration(t, env)
 					if gen != startGen {
 						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up back to 1")
 					}
