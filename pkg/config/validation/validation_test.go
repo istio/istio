@@ -5803,3 +5803,75 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		})
 	}
 }
+
+func TestValidatePeerAuthentication(t *testing.T) {
+	cases := []struct {
+		name       string
+		configName string
+		in         proto.Message
+		valid      bool
+	}{
+		{
+			name:       "empty spec",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in:         &security_beta.PeerAuthentication{},
+			valid:      true,
+		},
+		{
+			name:       "empty mtls",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.PeerAuthentication{
+				Selector: &api.WorkloadSelector{},
+			},
+			valid: true,
+		},
+		{
+			name:       "empty spec with non default name",
+			configName: someName,
+			in:         &security_beta.PeerAuthentication{},
+			valid:      false,
+		},
+		{
+			name:       "default name with non empty selector",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.PeerAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "unset mode",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.PeerAuthentication{
+				Mtls: &security_beta.PeerAuthentication_MutualTLS{
+					Mode: security_beta.PeerAuthentication_MutualTLS_UNSET,
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "port level",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.PeerAuthentication{
+				PortLevelMtls: map[uint32]*security_beta.PeerAuthentication_MutualTLS{
+					8080: {
+						Mode: security_beta.PeerAuthentication_MutualTLS_UNSET,
+					},
+				},
+			},
+			valid: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidatePeerAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
+				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
+			}
+		})
+	}
+}
