@@ -126,7 +126,7 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -188,7 +188,7 @@ spec:
         - -k
         - net1
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:

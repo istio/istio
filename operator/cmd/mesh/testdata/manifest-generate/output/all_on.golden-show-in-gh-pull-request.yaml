@@ -89,7 +89,6 @@ spec:
       containers:
       - name: coredns
         image: coredns/coredns:1.6.2
-        imagePullPolicy: IfNotPresent
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
         - name: config-volume
@@ -121,7 +120,6 @@ spec:
         command:
         - /usr/local/bin/plugin
         image: istio/coredns-plugin:0.2-istio-1.1
-        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8053
           name: dns-grpc
@@ -567,7 +565,6 @@ spec:
       containers:
         - name: prometheus
           image: "docker.io/prom/prometheus:v2.15.1"
-          imagePullPolicy: IfNotPresent
           args:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
@@ -6556,7 +6553,6 @@ spec:
         - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
           value: "true"
         image: gcr.io/istio-testing/citadel:latest
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /version
@@ -6693,7 +6689,6 @@ spec:
       containers:
         - name: istio-proxy
           image: "gcr.io/istio-testing/proxyv2:latest"
-          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
             - containerPort: 443
@@ -7314,7 +7309,6 @@ spec:
         - --validation-port=9443
         - --log_output_level=default:info
         image: gcr.io/istio-testing/galley:latest
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
             command:
@@ -7379,7 +7373,6 @@ spec:
               apiVersion: v1
               fieldPath: status.podIP
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
         - containerPort: 9902
@@ -7546,7 +7539,6 @@ spec:
       containers:
         - name: istio-proxy
           image: "gcr.io/istio-testing/proxyv2:latest"
-          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
             - containerPort: 80
@@ -8522,7 +8514,6 @@ spec:
             name: istiod
             optional: true
         image: gcr.io/istio-testing/pilot:latest
-        imagePullPolicy: IfNotPresent
         name: discovery
         ports:
         - containerPort: 8080
@@ -8654,7 +8645,7 @@ data:
         "enableTracing": true,
         "enabled": true,
         "hub": "gcr.io/istio-testing",
-        "imagePullPolicy": "IfNotPresent",
+        "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
@@ -10279,7 +10270,6 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         image: gcr.io/istio-testing/mixer:latest
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /version
@@ -10332,7 +10322,6 @@ spec:
               apiVersion: v1
               fieldPath: status.podIP
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
         - containerPort: 15004
@@ -11759,7 +11748,6 @@ spec:
         - name: GOMAXPROCS
           value: "6"
         image: gcr.io/istio-testing/mixer:latest
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /version
@@ -11816,7 +11804,6 @@ spec:
               apiVersion: v1
               fieldPath: status.podIP
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
         - containerPort: 15004
