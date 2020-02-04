@@ -584,6 +584,12 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	// host set.
 	hostsFromGateways := map[string]struct{}{}
 
+	// MergedGateway will be nil when there are no configs in the
+	// system during initial installation.
+	if proxy.MergedGateway == nil {
+		return nil
+	}
+
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		gateways[gw] = true
 	}
