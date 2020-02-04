@@ -398,6 +398,8 @@ values:
       token:
         aud: istio-ca
       udsPath: ""
+    sts:
+      servicePort: 0
     tracer:
       datadog:
         address: $(HOST_IP):8126

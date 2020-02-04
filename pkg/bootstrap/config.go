@@ -92,6 +92,7 @@ type Config struct {
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
+	StsPort             int
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -122,7 +123,8 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath))
+		option.OutlierLogPath(cfg.OutlierLogPath),
+		option.STSPort(cfg.StsPort))
 
 	// Support passing extra info from node environment as metadata
 	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""

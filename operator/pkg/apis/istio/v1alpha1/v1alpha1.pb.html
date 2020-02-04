@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 92
+number_of_entries: 93
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -2039,6 +2039,17 @@ No
 <td>
 <p>Configure the policy for validating JWT.
 Currently, two options are supported: &ldquo;third-party-jwt&rdquo; and &ldquo;first-party-jwt&rdquo;.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-sts">
+<td><code>sts</code></td>
+<td><code><a href="#STSConfig">STSConfig</a></code></td>
+<td>
+<p>Specifies the configuration for Security Token Service.</p>
 
 </td>
 <td>
@@ -5685,6 +5696,34 @@ No
 <tr id="SDSConfig-token" class="deprecated ">
 <td><code>token</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="STSConfig">STSConfig</h2>
+<section>
+<p>Configuration for Security Token Service (STS) server.</p>
+
+<p>See https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="STSConfig-servicePort">
+<td><code>servicePort</code></td>
+<td><code>uint32</code></td>
 <td>
 </td>
 <td>

@@ -469,6 +469,10 @@ global:
     token:
       aud: istio-ca
 
+  sts:
+    # The service port used by Security Token Service (STS) server to handle token exchange requests.
+    # Setting this port to a non-zero value enables STS server.
+    servicePort: 0
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #
