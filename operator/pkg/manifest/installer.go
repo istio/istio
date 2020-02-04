@@ -568,7 +568,7 @@ func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 	}
 
 	if canSkipCrdWait(stdout) {
-		scope.Info("Skipping CRD wait")
+		scope.Info("Skipping CRD wait, no changes detected")
 		return nil
 	}
 	scope.Info("Waiting for CRDs to be applied.")
