@@ -78,8 +78,6 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
     name: istio-ingressgateway
-  nodeAgent:
-    enabled: false
   pilot:
     enabled: false
     k8s:
@@ -150,12 +148,6 @@ components:
     enabled: false
   sidecarInjector:
     enabled: false
-    k8s:
-      replicaCount: 1
-      strategy:
-        rollingUpdate:
-          maxSurge: 100%
-          maxUnavailable: 25%
   telemetry:
     enabled: false
     k8s:
@@ -304,7 +296,7 @@ values:
     disablePolicyChecks: true
     enableHelmTest: false
     enableTracing: true
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: ""
     imagePullSecrets: []
     istiod:
       enabled: true
@@ -406,6 +398,8 @@ values:
       token:
         aud: istio-ca
       udsPath: ""
+    sts:
+      servicePort: 0
     tracer:
       datadog:
         address: $(HOST_IP):8126
@@ -414,6 +408,11 @@ values:
         address: ""
         cacertPath: ""
         secure: true
+      stackdriver:
+        debug: false
+        maxNumberOfAnnotations: 200
+        maxNumberOfAttributes: 200
+        maxNumberOfMessageEvents: 200
       zipkin:
         address: ""
     trustDomain: cluster.local
@@ -544,8 +543,6 @@ values:
       reportBatchMaxTime: 1s
       sessionAffinityEnabled: false
       tolerations: []
-  nodeagent:
-    image: node-agent-k8s
   pilot:
     appNamespaces: []
     autoscaleEnabled: true
@@ -603,13 +600,11 @@ values:
     selfSigned: true
   sidecarInjectorWebhook:
     enableNamespacesByDefault: false
-    image: sidecar_injector
     injectLabel: istio-injection
     objectSelector:
       autoInject: true
       enabled: false
     rewriteAppHTTPProbe: false
-    selfSigned: false
   telemetry:
     enabled: true
     v1:

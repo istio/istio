@@ -2197,6 +2197,91 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 }
 
+func TestApplyUpstreamTLSSettings(t *testing.T) {
+	tlsSettings := &networking.TLSSettings{
+		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+		CaCertificates:    constants.DefaultRootCert,
+		ClientCertificate: constants.DefaultCertChain,
+		PrivateKey:        constants.DefaultKey,
+		SubjectAltNames:   []string{"custom.foo.com"},
+		Sni:               "custom.foo.com",
+	}
+
+	tests := []struct {
+		name     string
+		mtlsCtx  mtlsContextType
+		LbPolicy apiv2.Cluster_LbPolicy
+		tls      *networking.TLSSettings
+
+		expectTransportSocket      bool
+		expectTransportSocketMatch bool
+	}{
+		{
+			name:                       "user specified without tls",
+			mtlsCtx:                    userSupplied,
+			LbPolicy:                   apiv2.Cluster_ROUND_ROBIN,
+			tls:                        nil,
+			expectTransportSocket:      false,
+			expectTransportSocketMatch: false,
+		},
+		{
+			name:                       "user specified with tls",
+			mtlsCtx:                    userSupplied,
+			LbPolicy:                   apiv2.Cluster_ROUND_ROBIN,
+			tls:                        tlsSettings,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+		},
+		{
+			name:                       "auto detect with tls",
+			mtlsCtx:                    autoDetected,
+			LbPolicy:                   apiv2.Cluster_ROUND_ROBIN,
+			tls:                        tlsSettings,
+			expectTransportSocket:      false,
+			expectTransportSocketMatch: true,
+		},
+		{
+			name:                       "auto detect with tls",
+			mtlsCtx:                    autoDetected,
+			LbPolicy:                   apiv2.Cluster_CLUSTER_PROVIDED,
+			tls:                        tlsSettings,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+		},
+	}
+
+	proxy := &model.Proxy{
+		Type:         model.SidecarProxy,
+		Metadata:     &model.NodeMetadata{},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
+	}
+	push := model.NewPushContext()
+	push.Mesh = &meshconfig.MeshConfig{}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			opts := &buildClusterOpts{
+				cluster: &apiv2.Cluster{
+					LbPolicy: test.LbPolicy,
+				},
+				proxy: proxy,
+				push:  push,
+			}
+			applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx, proxy)
+
+			if test.expectTransportSocket && opts.cluster.TransportSocket == nil ||
+				!test.expectTransportSocket && opts.cluster.TransportSocket != nil {
+				t.Errorf("Expected TransportSocket %v", test.expectTransportSocket)
+			}
+			if test.expectTransportSocketMatch && opts.cluster.TransportSocketMatches == nil ||
+				!test.expectTransportSocketMatch && opts.cluster.TransportSocketMatches != nil {
+				t.Errorf("Expected TransportSocketMatch %v", test.expectTransportSocketMatch)
+			}
+		})
+	}
+
+}
+
 // Helper function to extract TLS context from a cluster
 func getTLSContext(t *testing.T, c *apiv2.Cluster) *envoy_api_v2_auth.UpstreamTlsContext {
 	t.Helper()
