@@ -639,7 +639,6 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 
 	errPoll := wait.Poll(2*time.Second, opts.WaitTimeout, func() (bool, error) {
 		pods := []v1.Pod{}
-		services := []v1.Service{}
 		deployments := []deployment{}
 		namespaces := []v1.Namespace{}
 
@@ -712,12 +711,6 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 					return false, err
 				}
 				pods = append(pods, list...)
-			case "Service":
-				svc, err := cs.CoreV1().Services(o.Namespace).Get(o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				services = append(services, *svc)
 			}
 		}
 		isReady := namespacesReady(namespaces) && podsReady(pods) && deploymentsReady(deployments)

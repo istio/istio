@@ -145,7 +145,7 @@ func scaleDeployment(namespace, deployment string, replicas int, t test.Failer, 
 	}
 }
 
-func getVwcGeneration(vwcName string, t test.Failer, env *kube.Environment) int64 {
+func getVwcGeneration(t test.Failer, env *kube.Environment) int64 {
 	t.Helper()
 
 	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)

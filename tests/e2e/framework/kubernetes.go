@@ -61,7 +61,6 @@ const (
 	istioIngressLabel              = "ingress"
 	istioIngressGatewayServiceName = "istio-ingressgateway"
 	istioIngressGatewayLabel       = "ingressgateway"
-	istioEgressGatewayServiceName  = "istio-egressgateway"
 	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
 	ingressCertsName               = "istio-ingress-certs"
 	maxDeploymentRolloutTime       = 960 * time.Second
