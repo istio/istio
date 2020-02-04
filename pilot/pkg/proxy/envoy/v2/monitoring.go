@@ -237,5 +237,6 @@ func init() {
 		inboundUpdates,
 		pushTriggers,
 		egdsBuildTime,
+		egdsChangeRatio,
 	)
 }
