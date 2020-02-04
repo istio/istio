@@ -1520,6 +1520,10 @@ message ProxyConfig {
   string connectTimeout = 30;
 
   google.protobuf.Duration parentShutdownDuration = 32;
+
+  string enableCoreDumpImage = 33 [deprecated=true];
+
+  string outlierLogPath = 34;
 }
 
 // Specifies which tracer to use.
@@ -1527,7 +1531,6 @@ enum tracer {
   zipkin = 0;
   lightstep = 1;
   datadog = 2;
-  stackdriver = 3;
 }
 
 message EnvoyAccessLogConfig {
@@ -2132,6 +2135,8 @@ message KialiConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   Resources resources = 17 [deprecated=true];
+
+  string prometheusAddr = 18 [deprecated=true];
 }
 
 message Values {

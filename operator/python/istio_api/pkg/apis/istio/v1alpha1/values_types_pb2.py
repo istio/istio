@@ -24,7 +24,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='v1alpha1',
   syntax='proto3',
   serialized_options=_b('Z\010v1alpha1'),
-  serialized_pb=_b('\n*pkg/apis/istio/v1alpha1/values_types.proto\x12\x08v1alpha1\x1a\x1egoogle/protobuf/duration.proto\x1a\"k8s.io/api/core/v1/generated.proto\x1a@github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto\"\xb6\x01\n\x12\x41\x64\x64onIngressConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05hosts\x18\x02 \x03(\t\x12\x35\n\x0b\x61nnotations\x18\x03 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12-\n\x03tls\x18\x04 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\";\n\nArchConfig\x12\r\n\x05\x61md64\x18\x01 \x01(\r\x12\x0f\n\x07ppc64le\x18\x02 \x01(\r\x12\r\n\x05s390x\x18\x03 \x01(\r\"\xd3\x02\n\tCNIConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0b\n\x03hub\x18\x02 \x01(\t\x12$\n\x03tag\x18\x03 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\r\n\x05image\x18\x04 \x01(\t\x12\x12\n\npullPolicy\x18\x05 \x01(\t\x12\x11\n\tcniBinDir\x18\x06 \x01(\t\x12\x12\n\ncniConfDir\x18\x07 \x01(\t\x12\x17\n\x0f\x63niConfFileName\x18\x08 \x01(\t\x12\x19\n\x11\x65xcludeNamespaces\x18\t \x03(\t\x12<\n\x0epodAnnotations\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x18\n\x10psp_cluster_role\x18\x0b \x01(\t\x12\x10\n\x08logLevel\x18\x0c \x01(\t\">\n\x1a\x43PUTargetUtilizationConfig\x12 \n\x18targetAverageUtilization\x18\x01 \x01(\x05\"\xd7\x05\n\x11\x43\x65rtManagerConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0b\n\x03hub\x18\x02 \x01(\t\x12$\n\x03tag\x18\x03 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\r\n\x05image\x18\x04 \x01(\t\x12\x18\n\x0creplicaCount\x18\x05 \x01(\rB\x02\x18\x01\x12\r\n\x05\x65mail\x18\x06 \x01(\t\x12\x11\n\textraArgs\x18\x07 \x03(\t\x12:\n\x0cnodeSelector\x18\x08 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12*\n\tresources\x18\t \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x14\n\x0cpodDnsPolicy\x18\n \x01(\t\x12\x36\n\x0cpodDnsConfig\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0c \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x0f \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x37\n\tpodLabels\x18\x10 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\"\xd1\x01\n\tResources\x12/\n\x06limits\x18\x01 \x03(\x0b\x32\x1f.v1alpha1.Resources.LimitsEntry\x12\x33\n\x08requests\x18\x02 \x03(\x0b\x32!.v1alpha1.Resources.RequestsEntry\x1a-\n\x0bLimitsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\rRequestsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xae\x05\n\rCoreDNSConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x63oreDNSImage\x18\x02 \x01(\t\x12\x12\n\ncoreDNSTag\x18\x03 \x01(\t\x12\x1a\n\x12\x63oreDNSPluginImage\x18\x04 \x01(\t\x12:\n\x0cnodeSelector\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x18\n\x0creplicaCount\x18\x06 \x01(\rB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12*\n\tresources\x18\x08 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\t \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\n \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0b \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x0c \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\"O\n DefaultPodDisruptionBudgetConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"M\n\x16\x44\x65\x66\x61ultResourcesConfig\x12\x33\n\x08requests\x18\x01 \x01(\x0b\x32!.v1alpha1.ResourcesRequestsConfig\"\xe4\t\n\x13\x45gressGatewayConfig\x12\x34\n\x10\x61utoscaleEnabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x61utoscaleMax\x18\x02 \x01(\r\x12\x14\n\x0c\x61utoscaleMin\x18\x03 \x01(\r\x12\x16\n\x0e\x63onnectTimeout\x18\x04 \x01(\t\x12\x35\n\x03\x63pu\x18\x05 \x01(\x0b\x32$.v1alpha1.CPUTargetUtilizationConfigB\x02\x18\x01\x12\x30\n\rdrainDuration\x18\x06 \x01(\x0b\x32\x19.google.protobuf.Duration\x12+\n\x07\x65nabled\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x03\x65nv\x18\x08 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12-\n\x06labels\x18\t \x01(\x0b\x32\x1d.v1alpha1.GatewayLabelsConfig\x12:\n\x0cnodeSelector\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0c \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12$\n\x05ports\x18\x0e \x03(\x0b\x32\x15.v1alpha1.PortsConfig\x12*\n\tresources\x18\x0f \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12-\n\rsecretVolumes\x18\x10 \x03(\x0b\x32\x16.v1alpha1.SecretVolume\x12<\n\x12serviceAnnotations\x18\x11 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x0c\n\x04type\x18\x12 \x01(\t\x12%\n\x04zvpn\x18\x13 \x01(\x0b\x32\x17.v1alpha1.ZeroVPNConfig\x12@\n\x0btolerations\x18\x14 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\x15 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\x16 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12>\n\rconfigVolumes\x18\x17 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x45\n\x14\x61\x64\x64itionalContainers\x18\x18 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\"\xcc\x01\n\x12\x45nvoyMetricsConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0c\n\x04host\x18\x02 \x01(\t\x12\x0c\n\x04port\x18\x03 \x01(\x05\x12\x35\n\x0btlsSettings\x18\x04 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x36\n\x0ctcpKeepalive\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"\xfa\x06\n\x0cGalleyConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05image\x18\x02 \x01(\t\x12.\n\x04mesh\x18\x03 \x03(\x0b\x32 .v1alpha1.GalleyConfig.MeshEntry\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x04 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x05 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x18\n\x0creplicaCount\x18\x06 \x01(\rB\x02\x18\x01\x12*\n\tresources\x18\x07 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x32\n\x0e\x65nableAnalysis\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12;\n\x0frollingMaxSurge\x18\t \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\n \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12@\n\x0btolerations\x18\x0b \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12>\n\x16\x65nableServiceDiscovery\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.BoolValueB\x02\x18\x01\x12:\n\x0cnodeSelector\x18\r \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x0e \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x0b\n\x03hub\x18\x0f \x01(\t\x12$\n\x03tag\x18\x10 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x1a+\n\tMeshEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"1\n\x13GatewayLabelsConfig\x12\x0b\n\x03\x61pp\x18\x01 \x01(\t\x12\r\n\x05istio\x18\x02 \x01(\t\"\xb7\x01\n\x0eGatewaysConfig\x12:\n\x13istio_egressgateway\x18\x01 \x01(\x0b\x32\x1d.v1alpha1.EgressGatewayConfig\x12+\n\x07\x65nabled\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12<\n\x14istio_ingressgateway\x18\x04 \x01(\x0b\x32\x1e.v1alpha1.IngressGatewayConfig\"\xbd\x13\n\x0cGlobalConfig\x12\"\n\x04\x61rch\x18\x01 \x01(\x0b\x32\x14.v1alpha1.ArchConfig\x12=\n\x0c\x63\x65rtificates\x18( \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x17\n\x0f\x63onfigNamespace\x18\x02 \x01(\t\x12\x1b\n\x13\x63onfigRootNamespace\x18\x32 \x01(\t\x12\x34\n\x10\x63onfigValidation\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12?\n\x1b\x63ontrolPlaneSecurityEnabled\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\'\n\x1f\x64\x65\x66\x61ultConfigVisibilitySettings\x18\x34 \x03(\t\x12\x41\n\x13\x64\x65\x66\x61ultNodeSelector\x18\x06 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12R\n\x1a\x64\x65\x66\x61ultPodDisruptionBudget\x18\x07 \x01(\x0b\x32*.v1alpha1.DefaultPodDisruptionBudgetConfigB\x02\x18\x01\x12\x37\n\x13\x64isablePolicyChecks\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12>\n\x10\x64\x65\x66\x61ultResources\x18\t \x01(\x0b\x32 .v1alpha1.DefaultResourcesConfigB\x02\x18\x01\x12G\n\x12\x64\x65\x66\x61ultTolerations\x18\x37 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x32\n\x0e\x65nableHelmTest\x18\n \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x31\n\renableTracing\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0b\n\x03hub\x18\x0c \x01(\t\x12\x17\n\x0fimagePullPolicy\x18\r \x01(\t\x12\x41\n\x10imagePullSecrets\x18% \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x16\n\x0eistioNamespace\x18\x0e \x01(\t\x12;\n\x11localityLbSetting\x18\x0f \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x35\n\nk8sIngress\x18\x10 \x01(\x0b\x32!.v1alpha1.KubernetesIngressConfig\x12-\n\tlogAsJson\x18$ \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12.\n\x07logging\x18\x11 \x01(\x0b\x32\x1d.v1alpha1.GlobalLoggingConfig\x12\x34\n\rmeshExpansion\x18\x12 \x01(\x0b\x32\x1d.v1alpha1.MeshExpansionConfig\x12\x0e\n\x06meshID\x18\x35 \x01(\t\x12\x36\n\x0cmeshNetworks\x18\x13 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x16\n\x0emonitoringPort\x18\x14 \x01(\r\x12\"\n\x04mtls\x18\x15 \x01(\x0b\x32\x14.v1alpha1.MTLSConfig\x12\x32\n\x0cmultiCluster\x18\x16 \x01(\x0b\x32\x1c.v1alpha1.MultiClusterConfig\x12\x0f\n\x07network\x18\' \x01(\t\x12\x1e\n\x16podDNSSearchNamespaces\x18+ \x03(\t\x12@\n\x1comitSidecarInjectorConfigMap\x18& \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x30\n\x0coneNamespace\x18\x17 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12:\n\x16operatorManageWebhooks\x18) \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x44\n\x15outboundTrafficPolicy\x18\x18 \x01(\x0b\x32%.v1alpha1.OutboundTrafficPolicyConfig\x12\x37\n\x13policyCheckFailOpen\x18\x19 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x17\n\x0fpolicyNamespace\x18\x1a \x01(\t\x12\x1d\n\x11priorityClassName\x18\x1b \x01(\tB\x02\x18\x01\x12\x1b\n\x13prometheusNamespace\x18\x33 \x01(\t\x12$\n\x05proxy\x18\x1c \x01(\x0b\x32\x15.v1alpha1.ProxyConfig\x12,\n\tproxyInit\x18\x1d \x01(\x0b\x32\x19.v1alpha1.ProxyInitConfig\x12 \n\x03sds\x18\x1e \x01(\x0b\x32\x13.v1alpha1.SDSConfig\x12$\n\x03tag\x18\x1f \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\x1a\n\x12telemetryNamespace\x18  \x01(\t\x12&\n\x06tracer\x18! \x01(\x0b\x32\x16.v1alpha1.TracerConfig\x12\x13\n\x0btrustDomain\x18\" \x01(\t\x12\x1a\n\x12trustDomainAliases\x18* \x03(\t\x12*\n\x06useMCP\x18# \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12/\n\x0bistioRemote\x18, \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12<\n\x18\x63reateRemoteSvcEndpoints\x18- \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12@\n\x1cremotePilotCreateSvcEndpoint\x18. \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x1b\n\x13remotePolicyAddress\x18/ \x01(\t\x12\x1a\n\x12remotePilotAddress\x18\x30 \x01(\t\x12\x1e\n\x16remoteTelemetryAddress\x18\x31 \x01(\t\x12&\n\x06istiod\x18\x36 \x01(\x0b\x32\x16.v1alpha1.IstiodConfig\x12\x19\n\x11pilotCertProvider\x18\x38 \x01(\t\x12\x11\n\tjwtPolicy\x18\x39 \x01(\t\x12 \n\x03sts\x18: \x01(\x0b\x32\x13.v1alpha1.STSConfig\" \n\tSTSConfig\x12\x13\n\x0bservicePort\x18\x01 \x01(\r\";\n\x0cIstiodConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"$\n\x13GlobalLoggingConfig\x12\r\n\x05level\x18\x01 \x01(\t\"\xee\x0f\n\x14IngressGatewayConfig\x12\x34\n\x10\x61utoscaleEnabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x61utoscaleMax\x18\x02 \x01(\r\x12\x14\n\x0c\x61utoscaleMin\x18\x03 \x01(\r\x12\x16\n\x0e\x63onnectTimeout\x18\x04 \x01(\t\x12\x35\n\x03\x63pu\x18\x05 \x01(\x0b\x32$.v1alpha1.CPUTargetUtilizationConfigB\x02\x18\x01\x12\x31\n\rcustomService\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05\x64\x65\x62ug\x18\x07 \x01(\t\x12\x0e\n\x06\x64omain\x18\x08 \x01(\t\x12\x30\n\rdrainDuration\x18\t \x01(\x0b\x32\x19.google.protobuf.Duration\x12+\n\x07\x65nabled\x18\n \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x03\x65nv\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x13\n\x0b\x65xternalIPs\x18\x0c \x03(\t\x12.\n\nk8sIngress\x18\r \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x33\n\x0fk8sIngressHttps\x18\x0e \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x06labels\x18\x0f \x01(\x0b\x32\x1d.v1alpha1.GatewayLabelsConfig\x12\x16\n\x0eloadBalancerIP\x18\x10 \x01(\t\x12 \n\x18loadBalancerSourceRanges\x18\x11 \x03(\t\x12\x31\n\x12meshExpansionPorts\x18\x12 \x03(\x0b\x32\x15.v1alpha1.PortsConfig\x12:\n\x0cnodeSelector\x18\x13 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x14 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x15 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x16 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12$\n\x05ports\x18\x17 \x03(\x0b\x32\x15.v1alpha1.PortsConfig\x12\x18\n\x0creplicaCount\x18\x18 \x01(\rB\x02\x18\x01\x12\x37\n\tresources\x18\x19 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12.\n\x03sds\x18\x1a \x01(\x0b\x32!.v1alpha1.IngressGatewaySdsConfig\x12-\n\rsecretVolumes\x18\x1b \x03(\x0b\x32\x16.v1alpha1.SecretVolume\x12<\n\x12serviceAnnotations\x18\x1c \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x0c\n\x04type\x18\x1d \x01(\t\x12\x30\n\x04zvpn\x18\x1e \x01(\x0b\x32\".v1alpha1.IngressGatewayZvpnConfig\x12;\n\x0frollingMaxSurge\x18\x1f \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18  \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x18\n\x10\x61pplicationPorts\x18! \x01(\t\x12\x1d\n\x15\x65xternalTrafficPolicy\x18\" \x01(\t\x12@\n\x0btolerations\x18# \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12=\n\x0cingressPorts\x18$ \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x45\n\x14\x61\x64\x64itionalContainers\x18% \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12>\n\rconfigVolumes\x18& \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x30\n\x0c\x63\x65rtificates\x18\' \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\'\n\x03tls\x18( \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x42\n\x18telemetry_addon_gateways\x18) \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x36\n\x05hosts\x18* \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x1d\n\x15telemetry_domain_name\x18+ \x01(\t\"\x81\x01\n\x17IngressGatewaySdsConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05image\x18\x02 \x01(\t\x12*\n\tresources\x18\x03 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\"W\n\x18IngressGatewayZvpnConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0e\n\x06suffix\x18\x02 \x01(\t\"N\n\x1fKubernetesEnvMixerAdapterConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\x8c\x01\n\x17KubernetesIngressConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12/\n\x0b\x65nableHttps\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x13\n\x0bgatewayName\x18\x03 \x01(\t\"L\n\x12LoadSheddingConfig\x12\x18\n\x10latencyThreshold\x18\x01 \x01(\t\x12\x1c\n\x04mode\x18\x02 \x01(\x0e\x32\x0e.v1alpha1.mode\"c\n\nMTLSConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12(\n\x04\x61uto\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"n\n\x13MeshExpansionConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12*\n\x06useILB\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xc0\x02\n\x1cMixerTelemetryAdaptersConfig\x12@\n\rkubernetesenv\x18\x01 \x01(\x0b\x32).v1alpha1.KubernetesEnvMixerAdapterConfig\x12:\n\nprometheus\x18\x02 \x01(\x0b\x32&.v1alpha1.PrometheusMixerAdapterConfig\x12\x30\n\x05stdio\x18\x03 \x01(\x0b\x32!.v1alpha1.StdioMixerAdapterConfig\x12<\n\x0bstackdriver\x18\x04 \x01(\x0b\x32\'.v1alpha1.StackdriverMixerAdapterConfig\x12\x32\n\x0euseAdapterCRDs\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xbd\x02\n\x19MixerPolicyAdaptersConfig\x12@\n\rkubernetesenv\x18\x01 \x01(\x0b\x32).v1alpha1.KubernetesEnvMixerAdapterConfig\x12:\n\nprometheus\x18\x02 \x01(\x0b\x32&.v1alpha1.PrometheusMixerAdapterConfig\x12\x30\n\x05stdio\x18\x03 \x01(\x0b\x32!.v1alpha1.StdioMixerAdapterConfig\x12<\n\x0bstackdriver\x18\x04 \x01(\x0b\x32\'.v1alpha1.StackdriverMixerAdapterConfig\x12\x32\n\x0euseAdapterCRDs\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xa7\x01\n\x0bMixerConfig\x12+\n\x06policy\x18\x01 \x01(\x0b\x32\x1b.v1alpha1.MixerPolicyConfig\x12\x31\n\ttelemetry\x18\x02 \x01(\x0b\x32\x1e.v1alpha1.MixerTelemetryConfig\x12\x38\n\x08\x61\x64\x61pters\x18\x03 \x01(\x0b\x32&.v1alpha1.MixerTelemetryAdaptersConfig\"\xe9\x07\n\x11MixerPolicyConfig\x12\x34\n\x10\x61utoscaleEnabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x61utoscaleMax\x18\x02 \x01(\r\x12\x14\n\x0c\x61utoscaleMin\x18\x03 \x01(\r\x12\x35\n\x03\x63pu\x18\x04 \x01(\x0b\x32$.v1alpha1.CPUTargetUtilizationConfigB\x02\x18\x01\x12+\n\x07\x65nabled\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05image\x18\x06 \x01(\t\x12<\n\x0epodAnnotations\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x18\n\x0creplicaCount\x18\x08 \x01(\rB\x02\x18\x01\x12\x35\n\x08\x61\x64\x61pters\x18\t \x01(\x0b\x32#.v1alpha1.MixerPolicyAdaptersConfig\x12:\n\x16sessionAffinityEnabled\x18\n \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12*\n\tresources\x18\x0b \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\x0c \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\r \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x0f \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12:\n\x0cnodeSelector\x18\x10 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12-\n\x03\x65nv\x18\x11 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12@\n\x0btolerations\x18\x12 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x0b\n\x03hub\x18\x13 \x01(\t\x12$\n\x03tag\x18\x14 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\"\xd0\x08\n\x14MixerTelemetryConfig\x12\x34\n\x10\x61utoscaleEnabled\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x61utoscaleMax\x18\x03 \x01(\r\x12\x14\n\x0c\x61utoscaleMin\x18\x04 \x01(\r\x12\x35\n\x03\x63pu\x18\x05 \x01(\x0b\x32$.v1alpha1.CPUTargetUtilizationConfigB\x02\x18\x01\x12+\n\x07\x65nabled\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x03\x65nv\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\r\n\x05image\x18\x08 \x01(\t\x12\x32\n\x0cloadshedding\x18\t \x01(\x0b\x32\x1c.v1alpha1.LoadSheddingConfig\x12:\n\x0cnodeSelector\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x18\n\x0creplicaCount\x18\x0c \x01(\rB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\x0f \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\x10 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12*\n\x06useMCP\x18\x11 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x1a\n\x12reportBatchMaxTime\x18\x12 \x01(\t\x12\x1d\n\x15reportBatchMaxEntries\x18\x13 \x01(\r\x12*\n\tresources\x18\r \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12:\n\x16sessionAffinityEnabled\x18\x0e \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x14 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x15 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\x16 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x0b\n\x03hub\x18\x17 \x01(\t\x12$\n\x03tag\x18\x18 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\"V\n\x12MultiClusterConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x13\n\x0b\x63lusterName\x18\x02 \x01(\t\"\x95\x04\n\x0fNodeAgentConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x03\x65nv\x18\x02 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\r\n\x05image\x18\x03 \x01(\t\x12:\n\x0cnodeSelector\x18\x04 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\x05 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x06 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x07 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x08 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x0b\n\x03hub\x18\t \x01(\t\x12$\n\x03tag\x18\n \x01(\x0b\x32\x17.v1alpha1.TypeInterface\"\x81\x01\n\x1bOutboundTrafficPolicyConfig\x12\x38\n\x04mode\x18\x02 \x01(\x0e\x32*.v1alpha1.OutboundTrafficPolicyConfig.Mode\"(\n\x04Mode\x12\r\n\tALLOW_ANY\x10\x00\x12\x11\n\rREGISTRY_ONLY\x10\x01\"\x97\r\n\x0bPilotConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x34\n\x10\x61utoscaleEnabled\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x61utoscaleMin\x18\x03 \x01(\r\x12\x14\n\x0c\x61utoscaleMax\x18\x04 \x01(\r\x12\x18\n\x0creplicaCount\x18\x05 \x01(\rB\x02\x18\x01\x12\r\n\x05image\x18\x06 \x01(\t\x12+\n\x07sidecar\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x15\n\rtraceSampling\x18\x08 \x01(\x01\x12*\n\tresources\x18\t \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x17\n\x0f\x63onfigNamespace\x18\n \x01(\t\x12\x35\n\x03\x63pu\x18\x0b \x01(\x0b\x32$.v1alpha1.CPUTargetUtilizationConfigB\x02\x18\x01\x12:\n\x0cnodeSelector\x18\x0c \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x42\n\x1fkeepaliveMaxServerConnectionAge\x18\r \x01(\x0b\x32\x19.google.protobuf.Duration\x12:\n\x10\x64\x65ploymentLabels\x18\x0e \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x36\n\x0cmeshNetworks\x18\x0f \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x10 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x11 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12-\n\tconfigMap\x18\x12 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x07ingress\x18\x13 \x01(\x0b\x32\x1c.v1alpha1.PilotIngressConfig\x12*\n\x06useMCP\x18\x14 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x03\x65nv\x18\x15 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12+\n\x06policy\x18\x16 \x01(\x0b\x32\x1b.v1alpha1.PilotPolicyConfig\x12;\n\x0frollingMaxSurge\x18\x18 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\x19 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12@\n\x0btolerations\x18\x1a \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12>\n\rappNamespaces\x18\x1b \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x45\n!enableProtocolSniffingForOutbound\x18\x1c \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x44\n enableProtocolSniffingForInbound\x18\x1d \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12<\n\x0epodAnnotations\x18\x1e \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x31\n\x0c\x63onfigSource\x18\x1f \x01(\x0b\x32\x1b.v1alpha1.PilotConfigSource\x12\x1f\n\x17jwksResolverExtraRootCA\x18  \x01(\t\x12\x38\n\x07plugins\x18! \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x0b\n\x03hub\x18\" \x01(\t\x12$\n\x03tag\x18# \x01(\x0b\x32\x17.v1alpha1.TypeInterface\"\x82\x01\n\x12PilotIngressConfig\x12\x16\n\x0eingressService\x18\x01 \x01(\t\x12>\n\x15ingressControllerMode\x18\x02 \x01(\x0e\x32\x1f.v1alpha1.ingressControllerMode\x12\x14\n\x0cingressClass\x18\x03 \x01(\t\"@\n\x11PilotPolicyConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\x90\x01\n\x0fTelemetryConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\'\n\x02v1\x18\x02 \x01(\x0b\x32\x1b.v1alpha1.TelemetryV1Config\x12\'\n\x02v2\x18\x03 \x01(\x0b\x32\x1b.v1alpha1.TelemetryV2Config\"@\n\x11TelemetryV1Config\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xb8\x01\n\x11TelemetryV2Config\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x39\n\nprometheus\x18\x02 \x01(\x0b\x32%.v1alpha1.TelemetryV2PrometheusConfig\x12;\n\x0bstackdriver\x18\x03 \x01(\x0b\x32&.v1alpha1.TelemetryV2StackDriverConfig\"J\n\x1bTelemetryV2PrometheusConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\x90\x02\n\x1cTelemetryV2StackDriverConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12+\n\x07logging\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12.\n\nmonitoring\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12,\n\x08topology\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x38\n\x0e\x63onfigOverride\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"0\n\x11PilotConfigSource\x12\x1b\n\x13subscribedResources\x18\x01 \x03(\t\"O\n\x0bPortsConfig\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\x12\x10\n\x08nodePort\x18\x03 \x01(\x05\x12\x12\n\ntargetPort\x18\x04 \x01(\x05\"\xa5\x07\n\x10PrometheusConfig\x12<\n\x18\x63reatePrometheusResource\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12+\n\x07\x65nabled\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x18\n\x0creplicaCount\x18\x03 \x01(\rB\x02\x18\x01\x12\x0b\n\x03hub\x18\x04 \x01(\t\x12$\n\x03tag\x18\x05 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\x11\n\tretention\x18\x06 \x01(\t\x12:\n\x0cnodeSelector\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x31\n\x0escrapeInterval\x18\x08 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x13\n\x0b\x63ontextPath\x18\t \x01(\t\x12-\n\x07ingress\x18\n \x01(\x0b\x32\x1c.v1alpha1.AddonIngressConfig\x12\x32\n\x07service\x18\x0b \x01(\x0b\x32!.v1alpha1.PrometheusServiceConfig\x12\x34\n\x08security\x18\x0c \x01(\x0b\x32\".v1alpha1.PrometheusSecurityConfig\x12@\n\x0btolerations\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x0f \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12*\n\tresources\x18\x10 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12@\n\x0b\x64\x61tasources\x18\x11 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x12 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x11\n\x05image\x18\x13 \x01(\tB\x02\x18\x01\"\x85\x01\n\x1cPrometheusMixerAdapterConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x38\n\x15metricsExpiryDuration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\"G\n\x18PrometheusSecurityConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\x8d\x01\n\x17PrometheusServiceConfig\x12\x35\n\x0b\x61nnotations\x18\x01 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12;\n\x08nodePort\x18\x02 \x01(\x0b\x32).v1alpha1.PrometheusServiceNodePortConfig\"\\\n\x1fPrometheusServiceNodePortConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0c\n\x04port\x18\x02 \x01(\r\"\xfa\x08\n\x0bProxyConfig\x12+\n\x07\x65nabled\x18# \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x15\n\raccessLogFile\x18\x01 \x01(\t\x12\x17\n\x0f\x61\x63\x63\x65ssLogFormat\x18\x02 \x01(\t\x12\x36\n\x11\x61\x63\x63\x65ssLogEncoding\x18\x03 \x01(\x0e\x32\x1b.v1alpha1.accessLogEncoding\x12\x12\n\nautoInject\x18\x04 \x01(\t\x12\x15\n\rclusterDomain\x18\x05 \x01(\t\x12\x19\n\x11\x63omponentLogLevel\x18\x06 \x01(\t\x12\x13\n\x0b\x63oncurrency\x18\x07 \x01(\r\x12\x31\n\x0e\x64nsRefreshRate\x18\x08 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x32\n\x0e\x65nableCoreDump\x18\t \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x39\n\x13\x65nvoyMetricsService\x18\n \x01(\x0b\x32\x1c.v1alpha1.EnvoyMetricsConfig\x12\x31\n\x0b\x65nvoyStatsd\x18\x0b \x01(\x0b\x32\x1c.v1alpha1.EnvoyMetricsConfig\x12\x1b\n\x13\x65xcludeInboundPorts\x18\x0c \x01(\t\x12\x17\n\x0f\x65xcludeIPRanges\x18\r \x01(\t\x12\r\n\x05image\x18\x0e \x01(\t\x12\x1b\n\x13includeInboundPorts\x18\x0f \x01(\t\x12\x17\n\x0fincludeIPRanges\x18\x10 \x01(\t\x12\x1a\n\x12kubevirtInterfaces\x18\x11 \x01(\t\x12\x10\n\x08logLevel\x18\x12 \x01(\t\x12.\n\nprivileged\x18\x13 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12$\n\x1creadinessInitialDelaySeconds\x18\x14 \x01(\r\x12\x1e\n\x16readinessPeriodSeconds\x18\x15 \x01(\r\x12!\n\x19readinessFailureThreshold\x18\x16 \x01(\r\x12\x12\n\nstatusPort\x18\x17 \x01(\r\x12*\n\tresources\x18\x18 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12 \n\x06tracer\x18\x19 \x01(\x0e\x32\x10.v1alpha1.tracer\x12 \n\x18protocolDetectionTimeout\x18\x1a \x01(\t\x12=\n\x15\x65nvoyAccessLogService\x18\x1b \x01(\x0b\x32\x1e.v1alpha1.EnvoyAccessLogConfig\x12\x1c\n\x14\x65xcludeOutboundPorts\x18\x1c \x01(\t\x12\x30\n\rdrainDuration\x18\x1d \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x16\n\x0e\x63onnectTimeout\x18\x1e \x01(\t\x12\x39\n\x16parentShutdownDuration\x18  \x01(\x0b\x32\x19.google.protobuf.Duration\"\xd1\x01\n\x14\x45nvoyAccessLogConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0c\n\x04host\x18\x02 \x01(\t\x12\x0c\n\x04port\x18\x03 \x01(\t\x12\x38\n\x0btlsSettings\x18\x04 \x01(\x0b\x32#.v1alpha1.EnvoyAccessLogtlsSettings\x12\x36\n\x0ctcpKeepalive\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"\x96\x01\n\x19\x45nvoyAccessLogtlsSettings\x12\x0c\n\x04mode\x18\x01 \x01(\t\x12\x19\n\x11\x63lientCertificate\x18\x02 \x01(\t\x12\x12\n\nprivateKey\x18\x03 \x01(\t\x12\x16\n\x0e\x63\x61\x43\x65rtificates\x18\x04 \x01(\t\x12\x0b\n\x03sni\x18\x05 \x01(\t\x12\x17\n\x0fsubjectAltNames\x18\x06 \x03(\t\"L\n\x0fProxyInitConfig\x12\r\n\x05image\x18\x01 \x01(\t\x12*\n\tresources\x18\x05 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\"6\n\x17ResourcesRequestsConfig\x12\x0b\n\x03\x63pu\x18\x01 \x01(\t\x12\x0e\n\x06memory\x18\x02 \x01(\t\"\xf7\x01\n\tSDSConfig\x12/\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValueB\x02\x18\x01\x12\x13\n\x07udsPath\x18\x02 \x01(\tB\x02\x18\x01\x12\x34\n\x0cuseNormalJwt\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.BoolValueB\x02\x18\x01\x12\x39\n\x11useTrustworthyJwt\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValueB\x02\x18\x01\x12\x33\n\x05token\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\"C\n\x0cSecretVolume\x12\x11\n\tmountPath\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x12\n\nsecretName\x18\x03 \x01(\t\"\x9d\x08\n\x0eSecurityConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x18\n\x0creplicaCount\x18\x02 \x01(\rB\x02\x18\x01\x12\r\n\x05image\x18\x03 \x01(\t\x12.\n\nselfSigned\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x13\n\x0btrustDomain\x18\x05 \x01(\t\x12\x38\n\x08\x64nsCerts\x18\x06 \x03(\x0b\x32&.v1alpha1.SecurityConfig.DnsCertsEntry\x12\x34\n\x10\x63reateMeshPolicy\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12=\n\x19\x65nableNamespacesByDefault\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x36\n\x12\x63itadelHealthCheck\x18\t \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12:\n\x0cnodeSelector\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12-\n\x03\x65nv\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12<\n\x0epodAnnotations\x18\x0c \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x17\n\x0fworkloadCertTtl\x18\r \x01(\t\x12@\n\x0btolerations\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12*\n\tresources\x18\x0f \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\x10 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\x11 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x12 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x13 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x1a/\n\rDnsCertsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"x\n\rServiceConfig\x12\x35\n\x0b\x61nnotations\x18\x01 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x14\n\x0c\x65xternalPort\x18\x02 \x01(\r\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x0c\n\x04type\x18\x12 \x01(\t\"\xaa\t\n\x15SidecarInjectorConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12=\n\x19\x65nableNamespacesByDefault\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05image\x18\x03 \x01(\t\x12\x0b\n\x03hub\x18\x04 \x01(\t\x12$\n\x03tag\x18\x05 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12:\n\x0cnodeSelector\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x44\n\x13neverInjectSelector\x18\x0b \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x45\n\x14\x61lwaysInjectSelector\x18\x0c \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x18\n\x0creplicaCount\x18\x0f \x01(\rB\x02\x18\x01\x12\x37\n\x13rewriteAppHTTPProbe\x18\x10 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12.\n\nselfSigned\x18\x11 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x13\n\x0binjectLabel\x18\x12 \x01(\t\x12=\n\x13injectedAnnotations\x18\x13 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12*\n\tresources\x18\x14 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x38\n\x0eobjectSelector\x18\x15 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12@\n\x0btolerations\x18\x16 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x33\n\tlifecycle\x18\x17 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12<\n\x0epodAnnotations\x18\x18 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\x19 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\x1a \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\"x\n\x17StdioMixerAdapterConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x30\n\x0coutputAsJson\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xb5\x03\n\x1dStackdriverMixerAdapterConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x04\x61uth\x18\x02 \x01(\x0b\x32\x1f.v1alpha1.StackdriverAuthConfig\x12\x31\n\x06tracer\x18\x03 \x01(\x0b\x32!.v1alpha1.StackdriverTracerConfig\x12\x37\n\x0c\x63ontextGraph\x18\x04 \x01(\x0b\x32!.v1alpha1.StackdriverContextGraph\x12\x46\n\x07logging\x18\x05 \x01(\x0b\x32\x35.v1alpha1.StackdriverMixerAdapterConfig.EnabledConfig\x12\x46\n\x07metrics\x18\x06 \x01(\x0b\x32\x35.v1alpha1.StackdriverMixerAdapterConfig.EnabledConfig\x1a<\n\rEnabledConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"w\n\x15StackdriverAuthConfig\x12\x32\n\x0e\x61ppCredentials\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0e\n\x06\x61piKey\x18\x02 \x01(\t\x12\x1a\n\x12serviceAccountPath\x18\x03 \x01(\t\"a\n\x17StackdriverTracerConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x19\n\x11sampleProbability\x18\x02 \x01(\r\"F\n\x17StackdriverContextGraph\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xd8\x01\n\x0cTracerConfig\x12.\n\x07\x64\x61tadog\x18\x01 \x01(\x0b\x32\x1d.v1alpha1.TracerDatadogConfig\x12\x32\n\tlightstep\x18\x02 \x01(\x0b\x32\x1f.v1alpha1.TracerLightStepConfig\x12,\n\x06zipkin\x18\x03 \x01(\x0b\x32\x1c.v1alpha1.TracerZipkinConfig\x12\x36\n\x0bstackdriver\x18\x04 \x01(\x0b\x32!.v1alpha1.TracerStackdriverConfig\"&\n\x13TracerDatadogConfig\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\"}\n\x15TracerLightStepConfig\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12\x13\n\x0b\x61\x63\x63\x65ssToken\x18\x02 \x01(\t\x12\x12\n\ncacertPath\x18\x03 \x01(\t\x12*\n\x06secure\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"%\n\x12TracerZipkinConfig\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\"\xa5\x01\n\x17TracerStackdriverConfig\x12)\n\x05\x64\x65\x62ug\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x1d\n\x15maxNumberOfAttributes\x18\x02 \x01(\r\x12\x1e\n\x16maxNumberOfAnnotations\x18\x03 \x01(\r\x12 \n\x18maxNumberOfMessageEvents\x18\x04 \x01(\r\"\xfb\x04\n\rTracingConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12/\n\x07ingress\x18\x02 \x01(\x0b\x32\x1e.v1alpha1.TracingIngressConfig\x12-\n\x06jaeger\x18\x03 \x01(\x0b\x32\x1d.v1alpha1.TracingJaegerConfig\x12:\n\x0cnodeSelector\x18\x04 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x10\n\x08provider\x18\x05 \x01(\t\x12(\n\x07service\x18\x06 \x01(\x0b\x32\x17.v1alpha1.ServiceConfig\x12-\n\x06zipkin\x18\x07 \x01(\x0b\x32\x1d.v1alpha1.TracingZipkinConfig\x12\x35\n\nopencensus\x18\x08 \x01(\x0b\x32!.v1alpha1.TracingOpencensusConfig\x12\x13\n\x0b\x63ontextPath\x18\t \x01(\t\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\x0f \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\"\x82\x02\n\x17TracingOpencensusConfig\x12\x0b\n\x03hub\x18\x01 \x01(\t\x12$\n\x03tag\x18\x02 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12=\n\texporters\x18\x03 \x01(\x0b\x32*.v1alpha1.TracingOpencensusExportersConfig\x12\x37\n\tresources\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x06 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\"Y\n TracingOpencensusExportersConfig\x12\x35\n\x0bstackdriver\x18\x01 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"\xb8\x01\n\x14TracingIngressConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x35\n\x0b\x61nnotations\x18\x02 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\r\n\x05hosts\x18\x03 \x03(\t\x12-\n\x03tls\x18\x04 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"\xf7\x02\n\x13TracingJaegerConfig\x12\x0b\n\x03hub\x18\x01 \x01(\t\x12$\n\x03tag\x18\x02 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\r\n\x05image\x18\n \x01(\t\x12\x33\n\x06memory\x18\x03 \x01(\x0b\x32#.v1alpha1.TracingJaegerMemoryConfig\x12\x17\n\x0fspanStorageType\x18\x04 \x01(\t\x12+\n\x07persist\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x18\n\x10storageClassName\x18\x06 \x01(\t\x12\x12\n\naccessMode\x18\x07 \x01(\t\x12\x37\n\tresources\x18\x08 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\t \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\"/\n\x19TracingJaegerMemoryConfig\x12\x12\n\nmax_traces\x18\x01 \x01(\r\"\xc8\x02\n\x13TracingZipkinConfig\x12\x0b\n\x03hub\x18\x01 \x01(\t\x12$\n\x03tag\x18\x02 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\r\n\x05image\x18\t \x01(\t\x12\x19\n\x11probeStartupDelay\x18\x03 \x01(\r\x12\x11\n\tqueryPort\x18\x04 \x01(\r\x12*\n\tresources\x18\x05 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x14\n\x0cjavaOptsHeap\x18\x06 \x01(\r\x12\x10\n\x08maxSpans\x18\x07 \x01(\r\x12/\n\x04node\x18\x08 \x01(\x0b\x32!.v1alpha1.TracingZipkinNodeConfig\x12<\n\x0epodAnnotations\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\"\'\n\x17TracingZipkinNodeConfig\x12\x0c\n\x04\x63pus\x18\x01 \x01(\r\"o\n\x13KialiSecurityConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x11\n\tcert_file\x18\x02 \x01(\t\x12\x18\n\x10private_key_file\x18\x03 \x01(\t\"\xdf\x01\n\x14KialiDashboardConfig\x12\x12\n\nsecretName\x18\x01 \x01(\t\x12\x13\n\x0busernameKey\x18\x02 \x01(\t\x12\x15\n\rpassphraseKey\x18\x03 \x01(\t\x12\x30\n\x0cviewOnlyMode\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x12\n\ngrafanaURL\x18\x05 \x01(\t\x12\x11\n\tjaegerURL\x18\x06 \x01(\t\x12.\n\x04\x61uth\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"\xbd\x01\n\x12KialiIngressConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x35\n\x0b\x61nnotations\x18\x02 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x34\n\x03tls\x18\x03 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\r\n\x05hosts\x18\x04 \x03(\t\"\xa7\x06\n\x0bKialiConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x34\n\x10\x63reateDemoSecret\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0b\n\x03hub\x18\x03 \x01(\t\x12$\n\x03tag\x18\x04 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\x18\n\x0creplicaCount\x18\x05 \x01(\rB\x02\x18\x01\x12\x1b\n\x13prometheusNamespace\x18\x06 \x01(\t\x12/\n\x08security\x18\x07 \x01(\x0b\x32\x1d.v1alpha1.KialiSecurityConfig\x12\x31\n\tdashboard\x18\x08 \x01(\x0b\x32\x1e.v1alpha1.KialiDashboardConfig\x12-\n\x07ingress\x18\t \x01(\x0b\x32\x1c.v1alpha1.KialiIngressConfig\x12\x13\n\x0b\x63ontextPath\x18\x0f \x01(\t\x12:\n\x0cnodeSelector\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0c \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x11\n\x05image\x18\x10 \x01(\tB\x02\x18\x01\x12*\n\tresources\x18\x11 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\"\xaf\x07\n\x06Values\x12\x30\n\x0b\x63\x65rtmanager\x18\x01 \x01(\x0b\x32\x1b.v1alpha1.CertManagerConfig\x12 \n\x03\x63ni\x18\x02 \x01(\x0b\x32\x13.v1alpha1.CNIConfig\x12-\n\x0cistiocoredns\x18\x03 \x01(\x0b\x32\x17.v1alpha1.CoreDNSConfig\x12&\n\x06galley\x18\x04 \x01(\x0b\x32\x16.v1alpha1.GalleyConfig\x12*\n\x08gateways\x18\x05 \x01(\x0b\x32\x18.v1alpha1.GatewaysConfig\x12&\n\x06global\x18\x06 \x01(\x0b\x32\x16.v1alpha1.GlobalConfig\x12\x31\n\x07grafana\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12$\n\x05mixer\x18\x08 \x01(\x0b\x32\x15.v1alpha1.MixerConfig\x12\x30\n\tnodeagent\x18\t \x01(\x0b\x32\x19.v1alpha1.NodeAgentConfigB\x02\x18\x01\x12$\n\x05pilot\x18\n \x01(\x0b\x32\x15.v1alpha1.PilotConfig\x12,\n\ttelemetry\x18\x17 \x01(\x0b\x32\x19.v1alpha1.TelemetryConfig\x12.\n\nprometheus\x18\x0b \x01(\x0b\x32\x1a.v1alpha1.PrometheusConfig\x12*\n\x08security\x18\x0c \x01(\x0b\x32\x18.v1alpha1.SecurityConfig\x12?\n\x16sidecarInjectorWebhook\x18\r \x01(\x0b\x32\x1f.v1alpha1.SidecarInjectorConfig\x12(\n\x07tracing\x18\x0e \x01(\x0b\x32\x17.v1alpha1.TracingConfig\x12$\n\x05kiali\x18\x0f \x01(\x0b\x32\x15.v1alpha1.KialiConfig\x12\x0f\n\x07version\x18\x10 \x01(\t\x12\x34\n\x10\x63lusterResources\x18\x11 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12<\n\x12prometheusOperator\x18\x12 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12&\n\tistio_cni\x18\x13 \x01(\x0b\x32\x13.v1alpha1.CNIConfig\x12-\n\tkustomize\x18\x14 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\x18\n\x16TypeMapStringInterface\"\x1f\n\x1dTypeSliceOfMapStringInterface\"\x16\n\x14TypeIntOrStringForPB\"L\n\rZeroVPNConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0e\n\x06suffix\x18\x02 \x01(\t\"\x0f\n\rTypeInterface*/\n\x04mode\x12\x0c\n\x08\x64isabled\x10\x00\x12\x0c\n\x08log_only\x10\x01\x12\x0b\n\x07\x65nforce\x10\x02*9\n\x15ingressControllerMode\x12\x0b\n\x07\x44\x45\x46\x41ULT\x10\x00\x12\n\n\x06STRICT\x10\x01\x12\x07\n\x03OFF\x10\x02*\'\n\x11\x61\x63\x63\x65ssLogEncoding\x12\x08\n\x04JSON\x10\x00\x12\x08\n\x04TEXT\x10\x01*A\n\x06tracer\x12\n\n\x06zipkin\x10\x00\x12\r\n\tlightstep\x10\x01\x12\x0b\n\x07\x64\x61tadog\x10\x02\x12\x0f\n\x0bstackdriver\x10\x03\x42\nZ\x08v1alpha1b\x06proto3')
+  serialized_pb=_b('\n*pkg/apis/istio/v1alpha1/values_types.proto\x12\x08v1alpha1\x1a\x1egoogle/protobuf/duration.proto\x1a\"k8s.io/api/core/v1/generated.proto\x1a@github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto\"\xb6\x01\n\x12\x41\x64\x64onIngressConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05hosts\x18\x02 \x03(\t\x12\x35\n\x0b\x61nnotations\x18\x03 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12-\n\x03tls\x18\x04 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\";\n\nArchConfig\x12\r\n\x05\x61md64\x18\x01 \x01(\r\x12\x0f\n\x07ppc64le\x18\x02 \x01(\r\x12\r\n\x05s390x\x18\x03 \x01(\r\"\xd3\x02\n\tCNIConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0b\n\x03hub\x18\x02 \x01(\t\x12$\n\x03tag\x18\x03 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\r\n\x05image\x18\x04 \x01(\t\x12\x12\n\npullPolicy\x18\x05 \x01(\t\x12\x11\n\tcniBinDir\x18\x06 \x01(\t\x12\x12\n\ncniConfDir\x18\x07 \x01(\t\x12\x17\n\x0f\x63niConfFileName\x18\x08 \x01(\t\x12\x19\n\x11\x65xcludeNamespaces\x18\t \x03(\t\x12<\n\x0epodAnnotations\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x18\n\x10psp_cluster_role\x18\x0b \x01(\t\x12\x10\n\x08logLevel\x18\x0c \x01(\t\">\n\x1a\x43PUTargetUtilizationConfig\x12 \n\x18targetAverageUtilization\x18\x01 \x01(\x05\"\xd7\x05\n\x11\x43\x65rtManagerConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0b\n\x03hub\x18\x02 \x01(\t\x12$\n\x03tag\x18\x03 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\r\n\x05image\x18\x04 \x01(\t\x12\x18\n\x0creplicaCount\x18\x05 \x01(\rB\x02\x18\x01\x12\r\n\x05\x65mail\x18\x06 \x01(\t\x12\x11\n\textraArgs\x18\x07 \x03(\t\x12:\n\x0cnodeSelector\x18\x08 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12*\n\tresources\x18\t \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x14\n\x0cpodDnsPolicy\x18\n \x01(\t\x12\x36\n\x0cpodDnsConfig\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0c \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x0f \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x37\n\tpodLabels\x18\x10 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\"\xd1\x01\n\tResources\x12/\n\x06limits\x18\x01 \x03(\x0b\x32\x1f.v1alpha1.Resources.LimitsEntry\x12\x33\n\x08requests\x18\x02 \x03(\x0b\x32!.v1alpha1.Resources.RequestsEntry\x1a-\n\x0bLimitsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\rRequestsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xae\x05\n\rCoreDNSConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x63oreDNSImage\x18\x02 \x01(\t\x12\x12\n\ncoreDNSTag\x18\x03 \x01(\t\x12\x1a\n\x12\x63oreDNSPluginImage\x18\x04 \x01(\t\x12:\n\x0cnodeSelector\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x18\n\x0creplicaCount\x18\x06 \x01(\rB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12*\n\tresources\x18\x08 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\t \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\n \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0b \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x0c \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\"O\n DefaultPodDisruptionBudgetConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"M\n\x16\x44\x65\x66\x61ultResourcesConfig\x12\x33\n\x08requests\x18\x01 \x01(\x0b\x32!.v1alpha1.ResourcesRequestsConfig\"\xe4\t\n\x13\x45gressGatewayConfig\x12\x34\n\x10\x61utoscaleEnabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x61utoscaleMax\x18\x02 \x01(\r\x12\x14\n\x0c\x61utoscaleMin\x18\x03 \x01(\r\x12\x16\n\x0e\x63onnectTimeout\x18\x04 \x01(\t\x12\x35\n\x03\x63pu\x18\x05 \x01(\x0b\x32$.v1alpha1.CPUTargetUtilizationConfigB\x02\x18\x01\x12\x30\n\rdrainDuration\x18\x06 \x01(\x0b\x32\x19.google.protobuf.Duration\x12+\n\x07\x65nabled\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x03\x65nv\x18\x08 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12-\n\x06labels\x18\t \x01(\x0b\x32\x1d.v1alpha1.GatewayLabelsConfig\x12:\n\x0cnodeSelector\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0c \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12$\n\x05ports\x18\x0e \x03(\x0b\x32\x15.v1alpha1.PortsConfig\x12*\n\tresources\x18\x0f \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12-\n\rsecretVolumes\x18\x10 \x03(\x0b\x32\x16.v1alpha1.SecretVolume\x12<\n\x12serviceAnnotations\x18\x11 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x0c\n\x04type\x18\x12 \x01(\t\x12%\n\x04zvpn\x18\x13 \x01(\x0b\x32\x17.v1alpha1.ZeroVPNConfig\x12@\n\x0btolerations\x18\x14 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\x15 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\x16 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12>\n\rconfigVolumes\x18\x17 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x45\n\x14\x61\x64\x64itionalContainers\x18\x18 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\"\xcc\x01\n\x12\x45nvoyMetricsConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0c\n\x04host\x18\x02 \x01(\t\x12\x0c\n\x04port\x18\x03 \x01(\x05\x12\x35\n\x0btlsSettings\x18\x04 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x36\n\x0ctcpKeepalive\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"\xfa\x06\n\x0cGalleyConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05image\x18\x02 \x01(\t\x12.\n\x04mesh\x18\x03 \x03(\x0b\x32 .v1alpha1.GalleyConfig.MeshEntry\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x04 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x05 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x18\n\x0creplicaCount\x18\x06 \x01(\rB\x02\x18\x01\x12*\n\tresources\x18\x07 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x32\n\x0e\x65nableAnalysis\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12;\n\x0frollingMaxSurge\x18\t \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\n \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12@\n\x0btolerations\x18\x0b \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12>\n\x16\x65nableServiceDiscovery\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.BoolValueB\x02\x18\x01\x12:\n\x0cnodeSelector\x18\r \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x0e \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x0b\n\x03hub\x18\x0f \x01(\t\x12$\n\x03tag\x18\x10 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x1a+\n\tMeshEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"1\n\x13GatewayLabelsConfig\x12\x0b\n\x03\x61pp\x18\x01 \x01(\t\x12\r\n\x05istio\x18\x02 \x01(\t\"\xb7\x01\n\x0eGatewaysConfig\x12:\n\x13istio_egressgateway\x18\x01 \x01(\x0b\x32\x1d.v1alpha1.EgressGatewayConfig\x12+\n\x07\x65nabled\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12<\n\x14istio_ingressgateway\x18\x04 \x01(\x0b\x32\x1e.v1alpha1.IngressGatewayConfig\"\xbd\x13\n\x0cGlobalConfig\x12\"\n\x04\x61rch\x18\x01 \x01(\x0b\x32\x14.v1alpha1.ArchConfig\x12=\n\x0c\x63\x65rtificates\x18( \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x17\n\x0f\x63onfigNamespace\x18\x02 \x01(\t\x12\x1b\n\x13\x63onfigRootNamespace\x18\x32 \x01(\t\x12\x34\n\x10\x63onfigValidation\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12?\n\x1b\x63ontrolPlaneSecurityEnabled\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\'\n\x1f\x64\x65\x66\x61ultConfigVisibilitySettings\x18\x34 \x03(\t\x12\x41\n\x13\x64\x65\x66\x61ultNodeSelector\x18\x06 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12R\n\x1a\x64\x65\x66\x61ultPodDisruptionBudget\x18\x07 \x01(\x0b\x32*.v1alpha1.DefaultPodDisruptionBudgetConfigB\x02\x18\x01\x12\x37\n\x13\x64isablePolicyChecks\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12>\n\x10\x64\x65\x66\x61ultResources\x18\t \x01(\x0b\x32 .v1alpha1.DefaultResourcesConfigB\x02\x18\x01\x12G\n\x12\x64\x65\x66\x61ultTolerations\x18\x37 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x32\n\x0e\x65nableHelmTest\x18\n \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x31\n\renableTracing\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0b\n\x03hub\x18\x0c \x01(\t\x12\x17\n\x0fimagePullPolicy\x18\r \x01(\t\x12\x41\n\x10imagePullSecrets\x18% \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x16\n\x0eistioNamespace\x18\x0e \x01(\t\x12;\n\x11localityLbSetting\x18\x0f \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x35\n\nk8sIngress\x18\x10 \x01(\x0b\x32!.v1alpha1.KubernetesIngressConfig\x12-\n\tlogAsJson\x18$ \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12.\n\x07logging\x18\x11 \x01(\x0b\x32\x1d.v1alpha1.GlobalLoggingConfig\x12\x34\n\rmeshExpansion\x18\x12 \x01(\x0b\x32\x1d.v1alpha1.MeshExpansionConfig\x12\x0e\n\x06meshID\x18\x35 \x01(\t\x12\x36\n\x0cmeshNetworks\x18\x13 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x16\n\x0emonitoringPort\x18\x14 \x01(\r\x12\"\n\x04mtls\x18\x15 \x01(\x0b\x32\x14.v1alpha1.MTLSConfig\x12\x32\n\x0cmultiCluster\x18\x16 \x01(\x0b\x32\x1c.v1alpha1.MultiClusterConfig\x12\x0f\n\x07network\x18\' \x01(\t\x12\x1e\n\x16podDNSSearchNamespaces\x18+ \x03(\t\x12@\n\x1comitSidecarInjectorConfigMap\x18& \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x30\n\x0coneNamespace\x18\x17 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12:\n\x16operatorManageWebhooks\x18) \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x44\n\x15outboundTrafficPolicy\x18\x18 \x01(\x0b\x32%.v1alpha1.OutboundTrafficPolicyConfig\x12\x37\n\x13policyCheckFailOpen\x18\x19 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x17\n\x0fpolicyNamespace\x18\x1a \x01(\t\x12\x1d\n\x11priorityClassName\x18\x1b \x01(\tB\x02\x18\x01\x12\x1b\n\x13prometheusNamespace\x18\x33 \x01(\t\x12$\n\x05proxy\x18\x1c \x01(\x0b\x32\x15.v1alpha1.ProxyConfig\x12,\n\tproxyInit\x18\x1d \x01(\x0b\x32\x19.v1alpha1.ProxyInitConfig\x12 \n\x03sds\x18\x1e \x01(\x0b\x32\x13.v1alpha1.SDSConfig\x12$\n\x03tag\x18\x1f \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\x1a\n\x12telemetryNamespace\x18  \x01(\t\x12&\n\x06tracer\x18! \x01(\x0b\x32\x16.v1alpha1.TracerConfig\x12\x13\n\x0btrustDomain\x18\" \x01(\t\x12\x1a\n\x12trustDomainAliases\x18* \x03(\t\x12*\n\x06useMCP\x18# \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12/\n\x0bistioRemote\x18, \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12<\n\x18\x63reateRemoteSvcEndpoints\x18- \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12@\n\x1cremotePilotCreateSvcEndpoint\x18. \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x1b\n\x13remotePolicyAddress\x18/ \x01(\t\x12\x1a\n\x12remotePilotAddress\x18\x30 \x01(\t\x12\x1e\n\x16remoteTelemetryAddress\x18\x31 \x01(\t\x12&\n\x06istiod\x18\x36 \x01(\x0b\x32\x16.v1alpha1.IstiodConfig\x12\x19\n\x11pilotCertProvider\x18\x38 \x01(\t\x12\x11\n\tjwtPolicy\x18\x39 \x01(\t\x12 \n\x03sts\x18: \x01(\x0b\x32\x13.v1alpha1.STSConfig\" \n\tSTSConfig\x12\x13\n\x0bservicePort\x18\x01 \x01(\r\";\n\x0cIstiodConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"$\n\x13GlobalLoggingConfig\x12\r\n\x05level\x18\x01 \x01(\t\"\xee\x0f\n\x14IngressGatewayConfig\x12\x34\n\x10\x61utoscaleEnabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x61utoscaleMax\x18\x02 \x01(\r\x12\x14\n\x0c\x61utoscaleMin\x18\x03 \x01(\r\x12\x16\n\x0e\x63onnectTimeout\x18\x04 \x01(\t\x12\x35\n\x03\x63pu\x18\x05 \x01(\x0b\x32$.v1alpha1.CPUTargetUtilizationConfigB\x02\x18\x01\x12\x31\n\rcustomService\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05\x64\x65\x62ug\x18\x07 \x01(\t\x12\x0e\n\x06\x64omain\x18\x08 \x01(\t\x12\x30\n\rdrainDuration\x18\t \x01(\x0b\x32\x19.google.protobuf.Duration\x12+\n\x07\x65nabled\x18\n \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x03\x65nv\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x13\n\x0b\x65xternalIPs\x18\x0c \x03(\t\x12.\n\nk8sIngress\x18\r \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x33\n\x0fk8sIngressHttps\x18\x0e \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x06labels\x18\x0f \x01(\x0b\x32\x1d.v1alpha1.GatewayLabelsConfig\x12\x16\n\x0eloadBalancerIP\x18\x10 \x01(\t\x12 \n\x18loadBalancerSourceRanges\x18\x11 \x03(\t\x12\x31\n\x12meshExpansionPorts\x18\x12 \x03(\x0b\x32\x15.v1alpha1.PortsConfig\x12:\n\x0cnodeSelector\x18\x13 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x14 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x15 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x16 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12$\n\x05ports\x18\x17 \x03(\x0b\x32\x15.v1alpha1.PortsConfig\x12\x18\n\x0creplicaCount\x18\x18 \x01(\rB\x02\x18\x01\x12\x37\n\tresources\x18\x19 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12.\n\x03sds\x18\x1a \x01(\x0b\x32!.v1alpha1.IngressGatewaySdsConfig\x12-\n\rsecretVolumes\x18\x1b \x03(\x0b\x32\x16.v1alpha1.SecretVolume\x12<\n\x12serviceAnnotations\x18\x1c \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x0c\n\x04type\x18\x1d \x01(\t\x12\x30\n\x04zvpn\x18\x1e \x01(\x0b\x32\".v1alpha1.IngressGatewayZvpnConfig\x12;\n\x0frollingMaxSurge\x18\x1f \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18  \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x18\n\x10\x61pplicationPorts\x18! \x01(\t\x12\x1d\n\x15\x65xternalTrafficPolicy\x18\" \x01(\t\x12@\n\x0btolerations\x18# \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12=\n\x0cingressPorts\x18$ \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x45\n\x14\x61\x64\x64itionalContainers\x18% \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12>\n\rconfigVolumes\x18& \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x30\n\x0c\x63\x65rtificates\x18\' \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\'\n\x03tls\x18( \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x42\n\x18telemetry_addon_gateways\x18) \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x36\n\x05hosts\x18* \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x1d\n\x15telemetry_domain_name\x18+ \x01(\t\"\x81\x01\n\x17IngressGatewaySdsConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05image\x18\x02 \x01(\t\x12*\n\tresources\x18\x03 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\"W\n\x18IngressGatewayZvpnConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0e\n\x06suffix\x18\x02 \x01(\t\"N\n\x1fKubernetesEnvMixerAdapterConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\x8c\x01\n\x17KubernetesIngressConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12/\n\x0b\x65nableHttps\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x13\n\x0bgatewayName\x18\x03 \x01(\t\"L\n\x12LoadSheddingConfig\x12\x18\n\x10latencyThreshold\x18\x01 \x01(\t\x12\x1c\n\x04mode\x18\x02 \x01(\x0e\x32\x0e.v1alpha1.mode\"c\n\nMTLSConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12(\n\x04\x61uto\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"n\n\x13MeshExpansionConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12*\n\x06useILB\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xc0\x02\n\x1cMixerTelemetryAdaptersConfig\x12@\n\rkubernetesenv\x18\x01 \x01(\x0b\x32).v1alpha1.KubernetesEnvMixerAdapterConfig\x12:\n\nprometheus\x18\x02 \x01(\x0b\x32&.v1alpha1.PrometheusMixerAdapterConfig\x12\x30\n\x05stdio\x18\x03 \x01(\x0b\x32!.v1alpha1.StdioMixerAdapterConfig\x12<\n\x0bstackdriver\x18\x04 \x01(\x0b\x32\'.v1alpha1.StackdriverMixerAdapterConfig\x12\x32\n\x0euseAdapterCRDs\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xbd\x02\n\x19MixerPolicyAdaptersConfig\x12@\n\rkubernetesenv\x18\x01 \x01(\x0b\x32).v1alpha1.KubernetesEnvMixerAdapterConfig\x12:\n\nprometheus\x18\x02 \x01(\x0b\x32&.v1alpha1.PrometheusMixerAdapterConfig\x12\x30\n\x05stdio\x18\x03 \x01(\x0b\x32!.v1alpha1.StdioMixerAdapterConfig\x12<\n\x0bstackdriver\x18\x04 \x01(\x0b\x32\'.v1alpha1.StackdriverMixerAdapterConfig\x12\x32\n\x0euseAdapterCRDs\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xa7\x01\n\x0bMixerConfig\x12+\n\x06policy\x18\x01 \x01(\x0b\x32\x1b.v1alpha1.MixerPolicyConfig\x12\x31\n\ttelemetry\x18\x02 \x01(\x0b\x32\x1e.v1alpha1.MixerTelemetryConfig\x12\x38\n\x08\x61\x64\x61pters\x18\x03 \x01(\x0b\x32&.v1alpha1.MixerTelemetryAdaptersConfig\"\xe9\x07\n\x11MixerPolicyConfig\x12\x34\n\x10\x61utoscaleEnabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x61utoscaleMax\x18\x02 \x01(\r\x12\x14\n\x0c\x61utoscaleMin\x18\x03 \x01(\r\x12\x35\n\x03\x63pu\x18\x04 \x01(\x0b\x32$.v1alpha1.CPUTargetUtilizationConfigB\x02\x18\x01\x12+\n\x07\x65nabled\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05image\x18\x06 \x01(\t\x12<\n\x0epodAnnotations\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x18\n\x0creplicaCount\x18\x08 \x01(\rB\x02\x18\x01\x12\x35\n\x08\x61\x64\x61pters\x18\t \x01(\x0b\x32#.v1alpha1.MixerPolicyAdaptersConfig\x12:\n\x16sessionAffinityEnabled\x18\n \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12*\n\tresources\x18\x0b \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\x0c \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\r \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x0f \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12:\n\x0cnodeSelector\x18\x10 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12-\n\x03\x65nv\x18\x11 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12@\n\x0btolerations\x18\x12 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x0b\n\x03hub\x18\x13 \x01(\t\x12$\n\x03tag\x18\x14 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\"\xd0\x08\n\x14MixerTelemetryConfig\x12\x34\n\x10\x61utoscaleEnabled\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x61utoscaleMax\x18\x03 \x01(\r\x12\x14\n\x0c\x61utoscaleMin\x18\x04 \x01(\r\x12\x35\n\x03\x63pu\x18\x05 \x01(\x0b\x32$.v1alpha1.CPUTargetUtilizationConfigB\x02\x18\x01\x12+\n\x07\x65nabled\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x03\x65nv\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\r\n\x05image\x18\x08 \x01(\t\x12\x32\n\x0cloadshedding\x18\t \x01(\x0b\x32\x1c.v1alpha1.LoadSheddingConfig\x12:\n\x0cnodeSelector\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x18\n\x0creplicaCount\x18\x0c \x01(\rB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\x0f \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\x10 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12*\n\x06useMCP\x18\x11 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x1a\n\x12reportBatchMaxTime\x18\x12 \x01(\t\x12\x1d\n\x15reportBatchMaxEntries\x18\x13 \x01(\r\x12*\n\tresources\x18\r \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12:\n\x16sessionAffinityEnabled\x18\x0e \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x14 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x15 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\x16 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x0b\n\x03hub\x18\x17 \x01(\t\x12$\n\x03tag\x18\x18 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\"V\n\x12MultiClusterConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x13\n\x0b\x63lusterName\x18\x02 \x01(\t\"\x95\x04\n\x0fNodeAgentConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x03\x65nv\x18\x02 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\r\n\x05image\x18\x03 \x01(\t\x12:\n\x0cnodeSelector\x18\x04 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\x05 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x06 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x07 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x08 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x0b\n\x03hub\x18\t \x01(\t\x12$\n\x03tag\x18\n \x01(\x0b\x32\x17.v1alpha1.TypeInterface\"\x81\x01\n\x1bOutboundTrafficPolicyConfig\x12\x38\n\x04mode\x18\x02 \x01(\x0e\x32*.v1alpha1.OutboundTrafficPolicyConfig.Mode\"(\n\x04Mode\x12\r\n\tALLOW_ANY\x10\x00\x12\x11\n\rREGISTRY_ONLY\x10\x01\"\x97\r\n\x0bPilotConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x34\n\x10\x61utoscaleEnabled\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x14\n\x0c\x61utoscaleMin\x18\x03 \x01(\r\x12\x14\n\x0c\x61utoscaleMax\x18\x04 \x01(\r\x12\x18\n\x0creplicaCount\x18\x05 \x01(\rB\x02\x18\x01\x12\r\n\x05image\x18\x06 \x01(\t\x12+\n\x07sidecar\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x15\n\rtraceSampling\x18\x08 \x01(\x01\x12*\n\tresources\x18\t \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x17\n\x0f\x63onfigNamespace\x18\n \x01(\t\x12\x35\n\x03\x63pu\x18\x0b \x01(\x0b\x32$.v1alpha1.CPUTargetUtilizationConfigB\x02\x18\x01\x12:\n\x0cnodeSelector\x18\x0c \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x42\n\x1fkeepaliveMaxServerConnectionAge\x18\r \x01(\x0b\x32\x19.google.protobuf.Duration\x12:\n\x10\x64\x65ploymentLabels\x18\x0e \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x36\n\x0cmeshNetworks\x18\x0f \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x10 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x11 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12-\n\tconfigMap\x18\x12 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x07ingress\x18\x13 \x01(\x0b\x32\x1c.v1alpha1.PilotIngressConfig\x12*\n\x06useMCP\x18\x14 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x03\x65nv\x18\x15 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12+\n\x06policy\x18\x16 \x01(\x0b\x32\x1b.v1alpha1.PilotPolicyConfig\x12;\n\x0frollingMaxSurge\x18\x18 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\x19 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12@\n\x0btolerations\x18\x1a \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12>\n\rappNamespaces\x18\x1b \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x45\n!enableProtocolSniffingForOutbound\x18\x1c \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x44\n enableProtocolSniffingForInbound\x18\x1d \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12<\n\x0epodAnnotations\x18\x1e \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x31\n\x0c\x63onfigSource\x18\x1f \x01(\x0b\x32\x1b.v1alpha1.PilotConfigSource\x12\x1f\n\x17jwksResolverExtraRootCA\x18  \x01(\t\x12\x38\n\x07plugins\x18! \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x0b\n\x03hub\x18\" \x01(\t\x12$\n\x03tag\x18# \x01(\x0b\x32\x17.v1alpha1.TypeInterface\"\x82\x01\n\x12PilotIngressConfig\x12\x16\n\x0eingressService\x18\x01 \x01(\t\x12>\n\x15ingressControllerMode\x18\x02 \x01(\x0e\x32\x1f.v1alpha1.ingressControllerMode\x12\x14\n\x0cingressClass\x18\x03 \x01(\t\"@\n\x11PilotPolicyConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\x90\x01\n\x0fTelemetryConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\'\n\x02v1\x18\x02 \x01(\x0b\x32\x1b.v1alpha1.TelemetryV1Config\x12\'\n\x02v2\x18\x03 \x01(\x0b\x32\x1b.v1alpha1.TelemetryV2Config\"@\n\x11TelemetryV1Config\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xb8\x01\n\x11TelemetryV2Config\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x39\n\nprometheus\x18\x02 \x01(\x0b\x32%.v1alpha1.TelemetryV2PrometheusConfig\x12;\n\x0bstackdriver\x18\x03 \x01(\x0b\x32&.v1alpha1.TelemetryV2StackDriverConfig\"J\n\x1bTelemetryV2PrometheusConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\x90\x02\n\x1cTelemetryV2StackDriverConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12+\n\x07logging\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12.\n\nmonitoring\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12,\n\x08topology\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x38\n\x0e\x63onfigOverride\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"0\n\x11PilotConfigSource\x12\x1b\n\x13subscribedResources\x18\x01 \x03(\t\"O\n\x0bPortsConfig\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\x12\x10\n\x08nodePort\x18\x03 \x01(\x05\x12\x12\n\ntargetPort\x18\x04 \x01(\x05\"\xa5\x07\n\x10PrometheusConfig\x12<\n\x18\x63reatePrometheusResource\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12+\n\x07\x65nabled\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x18\n\x0creplicaCount\x18\x03 \x01(\rB\x02\x18\x01\x12\x0b\n\x03hub\x18\x04 \x01(\t\x12$\n\x03tag\x18\x05 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\x11\n\tretention\x18\x06 \x01(\t\x12:\n\x0cnodeSelector\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x31\n\x0escrapeInterval\x18\x08 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x13\n\x0b\x63ontextPath\x18\t \x01(\t\x12-\n\x07ingress\x18\n \x01(\x0b\x32\x1c.v1alpha1.AddonIngressConfig\x12\x32\n\x07service\x18\x0b \x01(\x0b\x32!.v1alpha1.PrometheusServiceConfig\x12\x34\n\x08security\x18\x0c \x01(\x0b\x32\".v1alpha1.PrometheusSecurityConfig\x12@\n\x0btolerations\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x0f \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12*\n\tresources\x18\x10 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12@\n\x0b\x64\x61tasources\x18\x11 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x12 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x11\n\x05image\x18\x13 \x01(\tB\x02\x18\x01\"\x85\x01\n\x1cPrometheusMixerAdapterConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x38\n\x15metricsExpiryDuration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\"G\n\x18PrometheusSecurityConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\x8d\x01\n\x17PrometheusServiceConfig\x12\x35\n\x0b\x61nnotations\x18\x01 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12;\n\x08nodePort\x18\x02 \x01(\x0b\x32).v1alpha1.PrometheusServiceNodePortConfig\"\\\n\x1fPrometheusServiceNodePortConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0c\n\x04port\x18\x02 \x01(\r\"\xb3\t\n\x0bProxyConfig\x12+\n\x07\x65nabled\x18# \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x15\n\raccessLogFile\x18\x01 \x01(\t\x12\x17\n\x0f\x61\x63\x63\x65ssLogFormat\x18\x02 \x01(\t\x12\x36\n\x11\x61\x63\x63\x65ssLogEncoding\x18\x03 \x01(\x0e\x32\x1b.v1alpha1.accessLogEncoding\x12\x12\n\nautoInject\x18\x04 \x01(\t\x12\x15\n\rclusterDomain\x18\x05 \x01(\t\x12\x19\n\x11\x63omponentLogLevel\x18\x06 \x01(\t\x12\x13\n\x0b\x63oncurrency\x18\x07 \x01(\r\x12\x31\n\x0e\x64nsRefreshRate\x18\x08 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x32\n\x0e\x65nableCoreDump\x18\t \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x39\n\x13\x65nvoyMetricsService\x18\n \x01(\x0b\x32\x1c.v1alpha1.EnvoyMetricsConfig\x12\x31\n\x0b\x65nvoyStatsd\x18\x0b \x01(\x0b\x32\x1c.v1alpha1.EnvoyMetricsConfig\x12\x1b\n\x13\x65xcludeInboundPorts\x18\x0c \x01(\t\x12\x17\n\x0f\x65xcludeIPRanges\x18\r \x01(\t\x12\r\n\x05image\x18\x0e \x01(\t\x12\x1b\n\x13includeInboundPorts\x18\x0f \x01(\t\x12\x17\n\x0fincludeIPRanges\x18\x10 \x01(\t\x12\x1a\n\x12kubevirtInterfaces\x18\x11 \x01(\t\x12\x10\n\x08logLevel\x18\x12 \x01(\t\x12.\n\nprivileged\x18\x13 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12$\n\x1creadinessInitialDelaySeconds\x18\x14 \x01(\r\x12\x1e\n\x16readinessPeriodSeconds\x18\x15 \x01(\r\x12!\n\x19readinessFailureThreshold\x18\x16 \x01(\r\x12\x12\n\nstatusPort\x18\x17 \x01(\r\x12*\n\tresources\x18\x18 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12 \n\x06tracer\x18\x19 \x01(\x0e\x32\x10.v1alpha1.tracer\x12 \n\x18protocolDetectionTimeout\x18\x1a \x01(\t\x12=\n\x15\x65nvoyAccessLogService\x18\x1b \x01(\x0b\x32\x1e.v1alpha1.EnvoyAccessLogConfig\x12\x1c\n\x14\x65xcludeOutboundPorts\x18\x1c \x01(\t\x12\x30\n\rdrainDuration\x18\x1d \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x16\n\x0e\x63onnectTimeout\x18\x1e \x01(\t\x12\x39\n\x16parentShutdownDuration\x18  \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x1f\n\x13\x65nableCoreDumpImage\x18! \x01(\tB\x02\x18\x01\x12\x16\n\x0eoutlierLogPath\x18\" \x01(\t\"\xd1\x01\n\x14\x45nvoyAccessLogConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0c\n\x04host\x18\x02 \x01(\t\x12\x0c\n\x04port\x18\x03 \x01(\t\x12\x38\n\x0btlsSettings\x18\x04 \x01(\x0b\x32#.v1alpha1.EnvoyAccessLogtlsSettings\x12\x36\n\x0ctcpKeepalive\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"\x96\x01\n\x19\x45nvoyAccessLogtlsSettings\x12\x0c\n\x04mode\x18\x01 \x01(\t\x12\x19\n\x11\x63lientCertificate\x18\x02 \x01(\t\x12\x12\n\nprivateKey\x18\x03 \x01(\t\x12\x16\n\x0e\x63\x61\x43\x65rtificates\x18\x04 \x01(\t\x12\x0b\n\x03sni\x18\x05 \x01(\t\x12\x17\n\x0fsubjectAltNames\x18\x06 \x03(\t\"L\n\x0fProxyInitConfig\x12\r\n\x05image\x18\x01 \x01(\t\x12*\n\tresources\x18\x05 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\"6\n\x17ResourcesRequestsConfig\x12\x0b\n\x03\x63pu\x18\x01 \x01(\t\x12\x0e\n\x06memory\x18\x02 \x01(\t\"\xf7\x01\n\tSDSConfig\x12/\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValueB\x02\x18\x01\x12\x13\n\x07udsPath\x18\x02 \x01(\tB\x02\x18\x01\x12\x34\n\x0cuseNormalJwt\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.BoolValueB\x02\x18\x01\x12\x39\n\x11useTrustworthyJwt\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValueB\x02\x18\x01\x12\x33\n\x05token\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\"C\n\x0cSecretVolume\x12\x11\n\tmountPath\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x12\n\nsecretName\x18\x03 \x01(\t\"\x9d\x08\n\x0eSecurityConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x18\n\x0creplicaCount\x18\x02 \x01(\rB\x02\x18\x01\x12\r\n\x05image\x18\x03 \x01(\t\x12.\n\nselfSigned\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x13\n\x0btrustDomain\x18\x05 \x01(\t\x12\x38\n\x08\x64nsCerts\x18\x06 \x03(\x0b\x32&.v1alpha1.SecurityConfig.DnsCertsEntry\x12\x34\n\x10\x63reateMeshPolicy\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12=\n\x19\x65nableNamespacesByDefault\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x36\n\x12\x63itadelHealthCheck\x18\t \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12:\n\x0cnodeSelector\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12-\n\x03\x65nv\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12<\n\x0epodAnnotations\x18\x0c \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x17\n\x0fworkloadCertTtl\x18\r \x01(\t\x12@\n\x0btolerations\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12*\n\tresources\x18\x0f \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\x10 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\x11 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x12 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x13 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x1a/\n\rDnsCertsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"x\n\rServiceConfig\x12\x35\n\x0b\x61nnotations\x18\x01 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x14\n\x0c\x65xternalPort\x18\x02 \x01(\r\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x0c\n\x04type\x18\x12 \x01(\t\"\xaa\t\n\x15SidecarInjectorConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12=\n\x19\x65nableNamespacesByDefault\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\r\n\x05image\x18\x03 \x01(\t\x12\x0b\n\x03hub\x18\x04 \x01(\t\x12$\n\x03tag\x18\x05 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12:\n\x0cnodeSelector\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x44\n\x13neverInjectSelector\x18\x0b \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\x45\n\x14\x61lwaysInjectSelector\x18\x0c \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x18\n\x0creplicaCount\x18\x0f \x01(\rB\x02\x18\x01\x12\x37\n\x13rewriteAppHTTPProbe\x18\x10 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12.\n\nselfSigned\x18\x11 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x13\n\x0binjectLabel\x18\x12 \x01(\t\x12=\n\x13injectedAnnotations\x18\x13 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12*\n\tresources\x18\x14 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x38\n\x0eobjectSelector\x18\x15 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12@\n\x0btolerations\x18\x16 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x33\n\tlifecycle\x18\x17 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12<\n\x0epodAnnotations\x18\x18 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12;\n\x0frollingMaxSurge\x18\x19 \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\x12\x41\n\x15rollingMaxUnavailable\x18\x1a \x01(\x0b\x32\x1e.v1alpha1.TypeIntOrStringForPBB\x02\x18\x01\"x\n\x17StdioMixerAdapterConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x30\n\x0coutputAsJson\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xb5\x03\n\x1dStackdriverMixerAdapterConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12-\n\x04\x61uth\x18\x02 \x01(\x0b\x32\x1f.v1alpha1.StackdriverAuthConfig\x12\x31\n\x06tracer\x18\x03 \x01(\x0b\x32!.v1alpha1.StackdriverTracerConfig\x12\x37\n\x0c\x63ontextGraph\x18\x04 \x01(\x0b\x32!.v1alpha1.StackdriverContextGraph\x12\x46\n\x07logging\x18\x05 \x01(\x0b\x32\x35.v1alpha1.StackdriverMixerAdapterConfig.EnabledConfig\x12\x46\n\x07metrics\x18\x06 \x01(\x0b\x32\x35.v1alpha1.StackdriverMixerAdapterConfig.EnabledConfig\x1a<\n\rEnabledConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"w\n\x15StackdriverAuthConfig\x12\x32\n\x0e\x61ppCredentials\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0e\n\x06\x61piKey\x18\x02 \x01(\t\x12\x1a\n\x12serviceAccountPath\x18\x03 \x01(\t\"a\n\x17StackdriverTracerConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x19\n\x11sampleProbability\x18\x02 \x01(\r\"F\n\x17StackdriverContextGraph\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\xd8\x01\n\x0cTracerConfig\x12.\n\x07\x64\x61tadog\x18\x01 \x01(\x0b\x32\x1d.v1alpha1.TracerDatadogConfig\x12\x32\n\tlightstep\x18\x02 \x01(\x0b\x32\x1f.v1alpha1.TracerLightStepConfig\x12,\n\x06zipkin\x18\x03 \x01(\x0b\x32\x1c.v1alpha1.TracerZipkinConfig\x12\x36\n\x0bstackdriver\x18\x04 \x01(\x0b\x32!.v1alpha1.TracerStackdriverConfig\"&\n\x13TracerDatadogConfig\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\"}\n\x15TracerLightStepConfig\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12\x13\n\x0b\x61\x63\x63\x65ssToken\x18\x02 \x01(\t\x12\x12\n\ncacertPath\x18\x03 \x01(\t\x12*\n\x06secure\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"%\n\x12TracerZipkinConfig\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\"\xa5\x01\n\x17TracerStackdriverConfig\x12)\n\x05\x64\x65\x62ug\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x1d\n\x15maxNumberOfAttributes\x18\x02 \x01(\r\x12\x1e\n\x16maxNumberOfAnnotations\x18\x03 \x01(\r\x12 \n\x18maxNumberOfMessageEvents\x18\x04 \x01(\r\"\xfb\x04\n\rTracingConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12/\n\x07ingress\x18\x02 \x01(\x0b\x32\x1e.v1alpha1.TracingIngressConfig\x12-\n\x06jaeger\x18\x03 \x01(\x0b\x32\x1d.v1alpha1.TracingJaegerConfig\x12:\n\x0cnodeSelector\x18\x04 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12\x10\n\x08provider\x18\x05 \x01(\t\x12(\n\x07service\x18\x06 \x01(\x0b\x32\x17.v1alpha1.ServiceConfig\x12-\n\x06zipkin\x18\x07 \x01(\x0b\x32\x1d.v1alpha1.TracingZipkinConfig\x12\x35\n\nopencensus\x18\x08 \x01(\x0b\x32!.v1alpha1.TracingOpencensusConfig\x12\x13\n\x0b\x63ontextPath\x18\t \x01(\t\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\x0f \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\"\x82\x02\n\x17TracingOpencensusConfig\x12\x0b\n\x03hub\x18\x01 \x01(\t\x12$\n\x03tag\x18\x02 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12=\n\texporters\x18\x03 \x01(\x0b\x32*.v1alpha1.TracingOpencensusExportersConfig\x12\x37\n\tresources\x18\x05 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x06 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\"Y\n TracingOpencensusExportersConfig\x12\x35\n\x0bstackdriver\x18\x01 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"\xb8\x01\n\x14TracingIngressConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x35\n\x0b\x61nnotations\x18\x02 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\r\n\x05hosts\x18\x03 \x03(\t\x12-\n\x03tls\x18\x04 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"\xf7\x02\n\x13TracingJaegerConfig\x12\x0b\n\x03hub\x18\x01 \x01(\t\x12$\n\x03tag\x18\x02 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\r\n\x05image\x18\n \x01(\t\x12\x33\n\x06memory\x18\x03 \x01(\x0b\x32#.v1alpha1.TracingJaegerMemoryConfig\x12\x17\n\x0fspanStorageType\x18\x04 \x01(\t\x12+\n\x07persist\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x18\n\x10storageClassName\x18\x06 \x01(\t\x12\x12\n\naccessMode\x18\x07 \x01(\t\x12\x37\n\tresources\x18\x08 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\t \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\"/\n\x19TracingJaegerMemoryConfig\x12\x12\n\nmax_traces\x18\x01 \x01(\r\"\xc8\x02\n\x13TracingZipkinConfig\x12\x0b\n\x03hub\x18\x01 \x01(\t\x12$\n\x03tag\x18\x02 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\r\n\x05image\x18\t \x01(\t\x12\x19\n\x11probeStartupDelay\x18\x03 \x01(\r\x12\x11\n\tqueryPort\x18\x04 \x01(\r\x12*\n\tresources\x18\x05 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x14\n\x0cjavaOptsHeap\x18\x06 \x01(\r\x12\x10\n\x08maxSpans\x18\x07 \x01(\r\x12/\n\x04node\x18\x08 \x01(\x0b\x32!.v1alpha1.TracingZipkinNodeConfig\x12<\n\x0epodAnnotations\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\"\'\n\x17TracingZipkinNodeConfig\x12\x0c\n\x04\x63pus\x18\x01 \x01(\r\"o\n\x13KialiSecurityConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x11\n\tcert_file\x18\x02 \x01(\t\x12\x18\n\x10private_key_file\x18\x03 \x01(\t\"\xdf\x01\n\x14KialiDashboardConfig\x12\x12\n\nsecretName\x18\x01 \x01(\t\x12\x13\n\x0busernameKey\x18\x02 \x01(\t\x12\x15\n\rpassphraseKey\x18\x03 \x01(\t\x12\x30\n\x0cviewOnlyMode\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x12\n\ngrafanaURL\x18\x05 \x01(\t\x12\x11\n\tjaegerURL\x18\x06 \x01(\t\x12.\n\x04\x61uth\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\"\xbd\x01\n\x12KialiIngressConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x35\n\x0b\x61nnotations\x18\x02 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12\x34\n\x03tls\x18\x03 \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterface\x12\r\n\x05hosts\x18\x04 \x03(\t\"\xc3\x06\n\x0bKialiConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x34\n\x10\x63reateDemoSecret\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0b\n\x03hub\x18\x03 \x01(\t\x12$\n\x03tag\x18\x04 \x01(\x0b\x32\x17.v1alpha1.TypeInterface\x12\x18\n\x0creplicaCount\x18\x05 \x01(\rB\x02\x18\x01\x12\x1b\n\x13prometheusNamespace\x18\x06 \x01(\t\x12/\n\x08security\x18\x07 \x01(\x0b\x32\x1d.v1alpha1.KialiSecurityConfig\x12\x31\n\tdashboard\x18\x08 \x01(\x0b\x32\x1e.v1alpha1.KialiDashboardConfig\x12-\n\x07ingress\x18\t \x01(\x0b\x32\x1c.v1alpha1.KialiIngressConfig\x12\x13\n\x0b\x63ontextPath\x18\x0f \x01(\t\x12:\n\x0cnodeSelector\x18\n \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12<\n\x0epodAnnotations\x18\x0b \x01(\x0b\x32 .v1alpha1.TypeMapStringInterfaceB\x02\x18\x01\x12Q\n\x1cpodAntiAffinityLabelSelector\x18\x0c \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12U\n podAntiAffinityTermLabelSelector\x18\r \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12@\n\x0btolerations\x18\x0e \x01(\x0b\x32\'.v1alpha1.TypeSliceOfMapStringInterfaceB\x02\x18\x01\x12\x11\n\x05image\x18\x10 \x01(\tB\x02\x18\x01\x12*\n\tresources\x18\x11 \x01(\x0b\x32\x13.v1alpha1.ResourcesB\x02\x18\x01\x12\x1a\n\x0eprometheusAddr\x18\x12 \x01(\tB\x02\x18\x01\"\xaf\x07\n\x06Values\x12\x30\n\x0b\x63\x65rtmanager\x18\x01 \x01(\x0b\x32\x1b.v1alpha1.CertManagerConfig\x12 \n\x03\x63ni\x18\x02 \x01(\x0b\x32\x13.v1alpha1.CNIConfig\x12-\n\x0cistiocoredns\x18\x03 \x01(\x0b\x32\x17.v1alpha1.CoreDNSConfig\x12&\n\x06galley\x18\x04 \x01(\x0b\x32\x16.v1alpha1.GalleyConfig\x12*\n\x08gateways\x18\x05 \x01(\x0b\x32\x18.v1alpha1.GatewaysConfig\x12&\n\x06global\x18\x06 \x01(\x0b\x32\x16.v1alpha1.GlobalConfig\x12\x31\n\x07grafana\x18\x07 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12$\n\x05mixer\x18\x08 \x01(\x0b\x32\x15.v1alpha1.MixerConfig\x12\x30\n\tnodeagent\x18\t \x01(\x0b\x32\x19.v1alpha1.NodeAgentConfigB\x02\x18\x01\x12$\n\x05pilot\x18\n \x01(\x0b\x32\x15.v1alpha1.PilotConfig\x12,\n\ttelemetry\x18\x17 \x01(\x0b\x32\x19.v1alpha1.TelemetryConfig\x12.\n\nprometheus\x18\x0b \x01(\x0b\x32\x1a.v1alpha1.PrometheusConfig\x12*\n\x08security\x18\x0c \x01(\x0b\x32\x18.v1alpha1.SecurityConfig\x12?\n\x16sidecarInjectorWebhook\x18\r \x01(\x0b\x32\x1f.v1alpha1.SidecarInjectorConfig\x12(\n\x07tracing\x18\x0e \x01(\x0b\x32\x17.v1alpha1.TracingConfig\x12$\n\x05kiali\x18\x0f \x01(\x0b\x32\x15.v1alpha1.KialiConfig\x12\x0f\n\x07version\x18\x10 \x01(\t\x12\x34\n\x10\x63lusterResources\x18\x11 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12<\n\x12prometheusOperator\x18\x12 \x01(\x0b\x32 .v1alpha1.TypeMapStringInterface\x12&\n\tistio_cni\x18\x13 \x01(\x0b\x32\x13.v1alpha1.CNIConfig\x12-\n\tkustomize\x18\x14 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\"\x18\n\x16TypeMapStringInterface\"\x1f\n\x1dTypeSliceOfMapStringInterface\"\x16\n\x14TypeIntOrStringForPB\"L\n\rZeroVPNConfig\x12+\n\x07\x65nabled\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.BoolValue\x12\x0e\n\x06suffix\x18\x02 \x01(\t\"\x0f\n\rTypeInterface*/\n\x04mode\x12\x0c\n\x08\x64isabled\x10\x00\x12\x0c\n\x08log_only\x10\x01\x12\x0b\n\x07\x65nforce\x10\x02*9\n\x15ingressControllerMode\x12\x0b\n\x07\x44\x45\x46\x41ULT\x10\x00\x12\n\n\x06STRICT\x10\x01\x12\x07\n\x03OFF\x10\x02*\'\n\x11\x61\x63\x63\x65ssLogEncoding\x12\x08\n\x04JSON\x10\x00\x12\x08\n\x04TEXT\x10\x01*0\n\x06tracer\x12\n\n\x06zipkin\x10\x00\x12\r\n\tlightstep\x10\x01\x12\x0b\n\x07\x64\x61tadog\x10\x02\x42\nZ\x08v1alpha1b\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,k8s_dot_io_dot_api_dot_core_dot_v1_dot_generated__pb2.DESCRIPTOR,github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2.DESCRIPTOR,])
 
@@ -49,8 +49,8 @@ _MODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=28686,
-  serialized_end=28733,
+  serialized_start=28771,
+  serialized_end=28818,
 )
 _sym_db.RegisterEnumDescriptor(_MODE)
 
@@ -76,8 +76,8 @@ _INGRESSCONTROLLERMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=28735,
-  serialized_end=28792,
+  serialized_start=28820,
+  serialized_end=28877,
 )
 _sym_db.RegisterEnumDescriptor(_INGRESSCONTROLLERMODE)
 
@@ -99,8 +99,8 @@ _ACCESSLOGENCODING = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=28794,
-  serialized_end=28833,
+  serialized_start=28879,
+  serialized_end=28918,
 )
 _sym_db.RegisterEnumDescriptor(_ACCESSLOGENCODING)
 
@@ -123,15 +123,11 @@ _TRACER = _descriptor.EnumDescriptor(
       name='datadog', index=2, number=2,
       serialized_options=None,
       type=None),
-    _descriptor.EnumValueDescriptor(
-      name='stackdriver', index=3, number=3,
-      serialized_options=None,
-      type=None),
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=28835,
-  serialized_end=28900,
+  serialized_start=28920,
+  serialized_end=28968,
 )
 _sym_db.RegisterEnumDescriptor(_TRACER)
 
@@ -147,7 +143,6 @@ TEXT = 1
 zipkin = 0
 lightstep = 1
 datadog = 2
-stackdriver = 3
 
 
 _OUTBOUNDTRAFFICPOLICYCONFIG_MODE = _descriptor.EnumDescriptor(
@@ -4296,6 +4291,20 @@ _PROXYCONFIG = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='enableCoreDumpImage', full_name='v1alpha1.ProxyConfig.enableCoreDumpImage', index=32,
+      number=33, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\030\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='outlierLogPath', full_name='v1alpha1.ProxyConfig.outlierLogPath', index=33,
+      number=34, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -4309,7 +4318,7 @@ _PROXYCONFIG = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=18457,
-  serialized_end=19603,
+  serialized_end=19660,
 )
 
 
@@ -4367,8 +4376,8 @@ _ENVOYACCESSLOGCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=19606,
-  serialized_end=19815,
+  serialized_start=19663,
+  serialized_end=19872,
 )
 
 
@@ -4433,8 +4442,8 @@ _ENVOYACCESSLOGTLSSETTINGS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=19818,
-  serialized_end=19968,
+  serialized_start=19875,
+  serialized_end=20025,
 )
 
 
@@ -4471,8 +4480,8 @@ _PROXYINITCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=19970,
-  serialized_end=20046,
+  serialized_start=20027,
+  serialized_end=20103,
 )
 
 
@@ -4509,8 +4518,8 @@ _RESOURCESREQUESTSCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=20048,
-  serialized_end=20102,
+  serialized_start=20105,
+  serialized_end=20159,
 )
 
 
@@ -4568,8 +4577,8 @@ _SDSCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=20105,
-  serialized_end=20352,
+  serialized_start=20162,
+  serialized_end=20409,
 )
 
 
@@ -4613,8 +4622,8 @@ _SECRETVOLUME = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=20354,
-  serialized_end=20421,
+  serialized_start=20411,
+  serialized_end=20478,
 )
 
 
@@ -4651,8 +4660,8 @@ _SECURITYCONFIG_DNSCERTSENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=21430,
-  serialized_end=21477,
+  serialized_start=21487,
+  serialized_end=21534,
 )
 
 _SECURITYCONFIG = _descriptor.Descriptor(
@@ -4807,8 +4816,8 @@ _SECURITYCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=20424,
-  serialized_end=21477,
+  serialized_start=20481,
+  serialized_end=21534,
 )
 
 
@@ -4859,8 +4868,8 @@ _SERVICECONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=21479,
-  serialized_end=21599,
+  serialized_start=21536,
+  serialized_end=21656,
 )
 
 
@@ -5037,8 +5046,8 @@ _SIDECARINJECTORCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=21602,
-  serialized_end=22796,
+  serialized_start=21659,
+  serialized_end=22853,
 )
 
 
@@ -5075,8 +5084,8 @@ _STDIOMIXERADAPTERCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=22798,
-  serialized_end=22918,
+  serialized_start=22855,
+  serialized_end=22975,
 )
 
 
@@ -5106,8 +5115,8 @@ _STACKDRIVERMIXERADAPTERCONFIG_ENABLEDCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=23298,
-  serialized_end=23358,
+  serialized_start=23355,
+  serialized_end=23415,
 )
 
 _STACKDRIVERMIXERADAPTERCONFIG = _descriptor.Descriptor(
@@ -5171,8 +5180,8 @@ _STACKDRIVERMIXERADAPTERCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=22921,
-  serialized_end=23358,
+  serialized_start=22978,
+  serialized_end=23415,
 )
 
 
@@ -5216,8 +5225,8 @@ _STACKDRIVERAUTHCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=23360,
-  serialized_end=23479,
+  serialized_start=23417,
+  serialized_end=23536,
 )
 
 
@@ -5254,8 +5263,8 @@ _STACKDRIVERTRACERCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=23481,
-  serialized_end=23578,
+  serialized_start=23538,
+  serialized_end=23635,
 )
 
 
@@ -5285,8 +5294,8 @@ _STACKDRIVERCONTEXTGRAPH = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=23580,
-  serialized_end=23650,
+  serialized_start=23637,
+  serialized_end=23707,
 )
 
 
@@ -5337,8 +5346,8 @@ _TRACERCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=23653,
-  serialized_end=23869,
+  serialized_start=23710,
+  serialized_end=23926,
 )
 
 
@@ -5368,8 +5377,8 @@ _TRACERDATADOGCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=23871,
-  serialized_end=23909,
+  serialized_start=23928,
+  serialized_end=23966,
 )
 
 
@@ -5420,8 +5429,8 @@ _TRACERLIGHTSTEPCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=23911,
-  serialized_end=24036,
+  serialized_start=23968,
+  serialized_end=24093,
 )
 
 
@@ -5451,8 +5460,8 @@ _TRACERZIPKINCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=24038,
-  serialized_end=24075,
+  serialized_start=24095,
+  serialized_end=24132,
 )
 
 
@@ -5503,8 +5512,8 @@ _TRACERSTACKDRIVERCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=24078,
-  serialized_end=24243,
+  serialized_start=24135,
+  serialized_end=24300,
 )
 
 
@@ -5611,8 +5620,8 @@ _TRACINGCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=24246,
-  serialized_end=24881,
+  serialized_start=24303,
+  serialized_end=24938,
 )
 
 
@@ -5670,8 +5679,8 @@ _TRACINGOPENCENSUSCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=24884,
-  serialized_end=25142,
+  serialized_start=24941,
+  serialized_end=25199,
 )
 
 
@@ -5701,8 +5710,8 @@ _TRACINGOPENCENSUSEXPORTERSCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=25144,
-  serialized_end=25233,
+  serialized_start=25201,
+  serialized_end=25290,
 )
 
 
@@ -5753,8 +5762,8 @@ _TRACINGINGRESSCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=25236,
-  serialized_end=25420,
+  serialized_start=25293,
+  serialized_end=25477,
 )
 
 
@@ -5847,8 +5856,8 @@ _TRACINGJAEGERCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=25423,
-  serialized_end=25798,
+  serialized_start=25480,
+  serialized_end=25855,
 )
 
 
@@ -5878,8 +5887,8 @@ _TRACINGJAEGERMEMORYCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=25800,
-  serialized_end=25847,
+  serialized_start=25857,
+  serialized_end=25904,
 )
 
 
@@ -5972,8 +5981,8 @@ _TRACINGZIPKINCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=25850,
-  serialized_end=26178,
+  serialized_start=25907,
+  serialized_end=26235,
 )
 
 
@@ -6003,8 +6012,8 @@ _TRACINGZIPKINNODECONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=26180,
-  serialized_end=26219,
+  serialized_start=26237,
+  serialized_end=26276,
 )
 
 
@@ -6048,8 +6057,8 @@ _KIALISECURITYCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=26221,
-  serialized_end=26332,
+  serialized_start=26278,
+  serialized_end=26389,
 )
 
 
@@ -6121,8 +6130,8 @@ _KIALIDASHBOARDCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=26335,
-  serialized_end=26558,
+  serialized_start=26392,
+  serialized_end=26615,
 )
 
 
@@ -6173,8 +6182,8 @@ _KIALIINGRESSCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=26561,
-  serialized_end=26750,
+  serialized_start=26618,
+  serialized_end=26807,
 )
 
 
@@ -6304,6 +6313,13 @@ _KIALICONFIG = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=_b('\030\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='prometheusAddr', full_name='v1alpha1.KialiConfig.prometheusAddr', index=17,
+      number=18, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\030\001'), file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -6316,8 +6332,8 @@ _KIALICONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=26753,
-  serialized_end=27560,
+  serialized_start=26810,
+  serialized_end=27645,
 )
 
 
@@ -6487,8 +6503,8 @@ _VALUES = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=27563,
-  serialized_end=28506,
+  serialized_start=27648,
+  serialized_end=28591,
 )
 
 
@@ -6511,8 +6527,8 @@ _TYPEMAPSTRINGINTERFACE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=28508,
-  serialized_end=28532,
+  serialized_start=28593,
+  serialized_end=28617,
 )
 
 
@@ -6535,8 +6551,8 @@ _TYPESLICEOFMAPSTRINGINTERFACE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=28534,
-  serialized_end=28565,
+  serialized_start=28619,
+  serialized_end=28650,
 )
 
 
@@ -6559,8 +6575,8 @@ _TYPEINTORSTRINGFORPB = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=28567,
-  serialized_end=28589,
+  serialized_start=28652,
+  serialized_end=28674,
 )
 
 
@@ -6597,8 +6613,8 @@ _ZEROVPNCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=28591,
-  serialized_end=28667,
+  serialized_start=28676,
+  serialized_end=28752,
 )
 
 
@@ -6621,8 +6637,8 @@ _TYPEINTERFACE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=28669,
-  serialized_end=28684,
+  serialized_start=28754,
+  serialized_end=28769,
 )
 
 _ADDONINGRESSCONFIG.fields_by_name['enabled'].message_type = github_dot_com_dot_gogo_dot_protobuf_dot_protobuf_dot_google_dot_protobuf_dot_wrappers__pb2._BOOLVALUE
@@ -7875,6 +7891,7 @@ _PROMETHEUSCONFIG.fields_by_name['datasources']._options = None
 _PROMETHEUSCONFIG.fields_by_name['podAnnotations']._options = None
 _PROMETHEUSCONFIG.fields_by_name['image']._options = None
 _PROXYCONFIG.fields_by_name['resources']._options = None
+_PROXYCONFIG.fields_by_name['enableCoreDumpImage']._options = None
 _PROXYINITCONFIG.fields_by_name['resources']._options = None
 _SDSCONFIG.fields_by_name['enabled']._options = None
 _SDSCONFIG.fields_by_name['udsPath']._options = None
@@ -7918,5 +7935,6 @@ _KIALICONFIG.fields_by_name['podAntiAffinityTermLabelSelector']._options = None
 _KIALICONFIG.fields_by_name['tolerations']._options = None
 _KIALICONFIG.fields_by_name['image']._options = None
 _KIALICONFIG.fields_by_name['resources']._options = None
+_KIALICONFIG.fields_by_name['prometheusAddr']._options = None
 _VALUES.fields_by_name['nodeagent']._options = None
 # @@protoc_insertion_point(module_scope)
