@@ -109,7 +109,6 @@ var (
 			name.TelemetryComponentName,
 			name.GalleyComponentName,
 			name.CitadelComponentName,
-			name.NodeAgentComponentName,
 			name.SidecarInjectorComponentName,
 			name.CNIComponentName,
 			name.IngressComponentName,
