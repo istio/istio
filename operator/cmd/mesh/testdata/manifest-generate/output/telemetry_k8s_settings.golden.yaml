@@ -83,7 +83,6 @@ spec:
         - name: GOMAXPROCS
           value: "6"
         image: gcr.io/istio-testing/mixer:latest
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /version

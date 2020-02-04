@@ -20,6 +20,7 @@ spec:
       labels:
         app: hello
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: hello
         tier: backend
         track: stable
         version: v1
@@ -113,7 +114,7 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         image: gcr.io/istio-release/proxyv2:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -173,7 +174,7 @@ spec:
         - -d
         - "15020"
         image: gcr.io/istio-release/proxy_init:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:
@@ -238,6 +239,7 @@ spec:
       labels:
         app: hello
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: hello
         tier: backend
         track: stable
         version: v2
@@ -331,7 +333,7 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         image: gcr.io/istio-release/proxyv2:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -391,7 +393,7 @@ spec:
         - -d
         - "15020"
         image: gcr.io/istio-release/proxy_init:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:

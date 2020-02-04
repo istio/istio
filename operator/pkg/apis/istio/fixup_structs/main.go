@@ -69,9 +69,7 @@ var (
 		goFieldToken: "",
 	}
 
-	extraIncludes = []string{
-		"encoding/json",
-	}
+	extraIncludes = []string{}
 )
 
 func main() {
