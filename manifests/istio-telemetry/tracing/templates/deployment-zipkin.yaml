@@ -36,7 +36,9 @@ spec:
       containers:
         - name: zipkin
           image: "{{ .Values.tracing.zipkin.hub }}/{{ .Values.tracing.zipkin.image }}:{{ .Values.tracing.zipkin.tag }}"
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
           ports:
             - containerPort: {{ .Values.tracing.zipkin.queryPort }}
           livenessProbe:

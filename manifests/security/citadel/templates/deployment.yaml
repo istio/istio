@@ -36,7 +36,9 @@ spec:
       containers:
         - name: citadel
           image: "{{ .Values.global.hub }}/{{ .Values.security.image }}:{{ .Values.global.tag }}"
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
           args:
             {{- if .Values.global.sds.enabled }}
             - --sds-enabled=true

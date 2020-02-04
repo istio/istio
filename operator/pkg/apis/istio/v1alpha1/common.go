@@ -15,8 +15,6 @@
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	"istio.io/api/operator/v1alpha1"
 
 	"github.com/golang/protobuf/jsonpb"
@@ -80,5 +78,3 @@ func FromInt(val int) IntOrStringForPB {
 func FromString(val string) IntOrStringForPB {
 	return IntOrStringForPB{intstr.FromString(val)}
 }
-
-type JSONNumber json.Number

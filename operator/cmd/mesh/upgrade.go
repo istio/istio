@@ -146,7 +146,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI, l)
+	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)

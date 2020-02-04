@@ -148,12 +148,6 @@ components:
     enabled: false
   sidecarInjector:
     enabled: false
-    k8s:
-      replicaCount: 1
-      strategy:
-        rollingUpdate:
-          maxSurge: 100%
-          maxUnavailable: 25%
   telemetry:
     enabled: false
     k8s:
@@ -300,7 +294,7 @@ values:
     disablePolicyChecks: true
     enableHelmTest: false
     enableTracing: true
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: ""
     imagePullSecrets: []
     istioNamespace: istio-system
     istiod:
@@ -603,13 +597,11 @@ values:
     selfSigned: true
   sidecarInjectorWebhook:
     enableNamespacesByDefault: false
-    image: sidecar_injector
     injectLabel: istio-injection
     objectSelector:
       autoInject: true
       enabled: false
     rewriteAppHTTPProbe: false
-    selfSigned: false
   telemetry:
     enabled: true
     v1:
