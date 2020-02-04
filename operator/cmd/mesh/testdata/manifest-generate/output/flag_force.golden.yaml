@@ -6,8 +6,6 @@
 
 # Galley component is disabled.
 
-# NodeAgent component is disabled.
-
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -575,182 +573,195 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: istiod
+  namespace: istio-system
   labels:
     app: pilot
-    istio: pilot
     release: istio
-  name: istio-pilot
-  namespace: istio-system
+    istio: pilot
 spec:
-  selector:
-    matchLabels:
-      istio: pilot
   strategy:
     rollingUpdate:
       maxSurge: 100%
       maxUnavailable: 25%
+  selector:
+    matchLabels:
+      istio: pilot
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       labels:
         app: pilot
-        chart: pilot
-        heritage: Tiller
+        # Label used by the 'default' service. For versioned deployments we match with app and version.
+        # This avoids default deployment picking the canary
         istio: pilot
-        release: istio
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
-      containers:
-      - args:
-        - discovery
-        - --monitoringAddr=:15014
-        - --log_output_level=default:info
-        - --domain
-        - cluster.local
-        - --secureGrpcAddr
-        - ""
-        - --trust-domain=cluster.local
-        - --keepaliveMaxServerConnectionAge
-        - 30m
-        - --disable-install-crds=true
-        env:
-        - name: JWT_POLICY
-          value: third-party-jwt
-        - name: PILOT_CERT_PROVIDER
-          value: citadel
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: PILOT_TRACE_SAMPLING
-          value: "1"
-        - name: CONFIG_NAMESPACE
-          value: istio-config
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
-          value: "true"
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "false"
-        - name: ISTIOD_ADDR
-          value: istio-pilot.istio-system.svc:15012
-        - name: PILOT_EXTERNAL_GALLEY
-          value: "false"
-        envFrom:
-        - configMapRef:
-            name: istiod
-            optional: true
-        image: gcr.io/istio-testing/pilot:latest
-        imagePullPolicy: IfNotPresent
-        name: discovery
-        ports:
-        - containerPort: 8080
-        - containerPort: 15010
-        - containerPort: 15017
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
-        volumeMounts:
-        - mountPath: /etc/istio/config
-          name: config-volume
-        - mountPath: /var/run/secrets/tokens
-          name: istio-token
-          readOnly: true
-        - mountPath: /var/run/secrets/istio-dns
-          name: local-certs
-        - mountPath: /etc/cacerts
-          name: cacerts
-          readOnly: true
-        - mountPath: /var/lib/istio/inject
-          name: inject
-          readOnly: true
-        - mountPath: /var/lib/istio/local
-          name: istiod
-          readOnly: true
-        - mountPath: /var/lib/istio/validation
-          name: validation
-          readOnly: true
+      serviceAccountName: istio-pilot-service-account
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      containers:
+        - name: discovery
+          image: "gcr.io/istio-testing/pilot:latest"
+          args:
+          - "discovery"
+          - --monitoringAddr=:15014
+          - --log_output_level=default:info
+          - --domain
+          - cluster.local
+          - --secureGrpcAddr=
+          - --trust-domain=cluster.local
+          - --keepaliveMaxServerConnectionAge
+          - "30m"
+          # TODO: make default
+          - --disable-install-crds=true
+          ports:
+          - containerPort: 8080
+          - containerPort: 15010
+          - containerPort: 15017
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          envFrom:
+          # Allow an istiod configmap injecting user-specified env.
+          - configMapRef:
+              name: istiod
+              optional: true
+          env:
+          - name: JWT_POLICY
+            value: third-party-jwt
+          - name: PILOT_CERT_PROVIDER
+            value: citadel
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.serviceAccountName
+          - name: PILOT_TRACE_SAMPLING
+            value: "1"
+          - name: CONFIG_NAMESPACE
+            value: istio-config
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+            value: "true"
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+            value: "false"
+          - name: ISTIOD_ADDR
+            value: istio-pilot.istio-system.svc:15012
+          - name: PILOT_EXTERNAL_GALLEY
+            value: "false"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2048Mi
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+          - name: local-certs
+            mountPath: /var/run/secrets/istio-dns
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+          - name: inject
+            mountPath: /var/lib/istio/inject
+            readOnly: true
+          - name: istiod
+            mountPath: /var/lib/istio/local
+            readOnly: true
+          - name: validation
+            mountPath: /var/lib/istio/validation
+            readOnly: true
       volumes:
+      # Technically not needed on this pod - but it helps debugging/testing SDS
+      # Should be removed after everything works.
       - emptyDir:
           medium: Memory
         name: local-certs
       - name: istio-token
         projected:
           sources:
-          - serviceAccountToken:
-              audience: istio-ca
-              expirationSeconds: 43200
-              path: istio-token
-      - configMap:
+            - serviceAccountToken:
+                audience: istio-ca
+                expirationSeconds: 43200
+                path: istio-token
+      - name: istiod
+        configMap:
           name: istiod
           optional: true
-        name: istiod
+      # Optional: user-generated root
       - name: cacerts
         secret:
-          optional: true
           secretName: cacerts
-      - configMap:
+          optional: true
+      # Optional - image should have
+      - name: inject
+        configMap:
           name: istio-sidecar-injector
           optional: true
-        name: inject
-      - configMap:
+      - name: validation
+        configMap:
           name: istio-validation
           optional: true
-        name: validation
-      - configMap:
+
+      - name: config-volume
+        configMap:
           name: istio
-        name: config-volume
-      - configMap:
+      - name: pilot-envoy-config
+        configMap:
           name: pilot-envoy-config
-        name: pilot-envoy-config
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"
 ---
 
 
@@ -802,7 +813,7 @@ data:
         "enableTracing": true,
         "enabled": false,
         "hub": "gcr.io/istio-testing",
-        "imagePullPolicy": "IfNotPresent",
+        "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
@@ -934,6 +945,12 @@ data:
             "cacertPath": "",
             "secure": true
           },
+          "stackdriver": {
+            "debug": false,
+            "maxNumberOfAnnotations": 200,
+            "maxNumberOfAttributes": 200,
+            "maxNumberOfMessageEvents": 200
+          },
           "zipkin": {
             "address": ""
           }
@@ -948,7 +965,6 @@ data:
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
         "enabled": false,
-        "image": "sidecar_injector",
         "injectLabel": "istio-injection",
         "injectedAnnotations": {},
         "namespace": "istio-system",
@@ -957,8 +973,7 @@ data:
           "autoInject": true,
           "enabled": false
         },
-        "rewriteAppHTTPProbe": false,
-        "selfSigned": false
+        "rewriteAppHTTPProbe": false
       }
     }
 
@@ -1033,7 +1048,6 @@ data:
       {{- end }}
         securityContext:
           allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
-          privileged: {{ .Values.global.proxy.privileged }}
           capabilities:
         {{- if not .Values.istio_cni.enabled }}
             add:
@@ -1042,16 +1056,11 @@ data:
         {{- end }}
             drop:
             - ALL
+          privileged: {{ .Values.global.proxy.privileged }}
           readOnlyRootFilesystem: false
-        {{- if not .Values.istio_cni.enabled }}
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
-        {{- else }}
           runAsGroup: 1337
-          runAsUser: 1337
           runAsNonRoot: true
-        {{- end }}
+          runAsUser: 1337
         restartPolicy: Always
       {{ end -}}
       {{- if eq .Values.global.proxy.enableCoreDump true }}
@@ -1868,6 +1877,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
+  namespace: istio-system
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -2000,6 +2010,60 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  name: tcp-metadata-exchange-1.6
+  namespace: istio-system
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener: {}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.metadata_exchange
+          config:
+            protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.6.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
   name: stats-filter-1.6
   namespace: istio-system
 spec:
@@ -2103,6 +2167,106 @@ spec:
 ---
 
 
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-stats-filter-1.6
+  namespace: istio-system
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+---
+
+
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -2116,8 +2280,6 @@ webhooks:
 ---
 
 # Policy component is disabled.
-
-# SidecarInjector component is disabled.
 
 # Telemetry component is disabled.
 

@@ -6,13 +6,9 @@
 
 # Galley component is disabled.
 
-# NodeAgent component is disabled.
-
 # Pilot component is disabled.
 
 # Policy component is disabled.
-
-# SidecarInjector component is disabled.
 
 # Resources for Telemetry component
 
@@ -856,7 +852,7 @@ metadata:
     release: istio
 spec:
   compiledAdapter: kubernetesenv
-  params:
+  params: {}
     # when running from mixer root, use the following config after adding a
     # symbolic link to a kubernetes config file via:
     #
@@ -1337,7 +1333,6 @@ spec:
         - name: GOMAXPROCS
           value: "6"
         image: gcr.io/istio-testing/mixer:latest
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /version
@@ -1356,12 +1351,18 @@ spec:
           requests:
             cpu: 1000m
             memory: 1G
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /sock
           name: uds-socket
         - mountPath: /var/run/secrets/istio.io/telemetry/adapter
           name: telemetry-adapter-secret
           readOnly: true
+      securityContext:
+        fsGroup: 1337
       serviceAccountName: istio-mixer-service-account
       volumes:
       - name: istio-certs

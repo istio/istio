@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -27,6 +28,11 @@ const (
 	// KVSeparator is the separator between the key and value in a key/value path element,
 	KVSeparator     = string(kvSeparatorRune)
 	kvSeparatorRune = ':'
+
+	// MaxIndex is the maximum array index
+	MaxIndex = 65535
+	// InsertIndex is the index that means "insert" when setting values
+	InsertIndex = -1
 )
 
 var (
@@ -46,7 +52,14 @@ func PathFromString(path string) Path {
 	var r []string
 	for _, str := range pv {
 		if str != "" {
-			r = append(r, str)
+			// Is str of the form node[expr], convert to "node", "[expr]"?
+			nBracket := strings.IndexRune(str, '[')
+			if nBracket > 0 {
+				r = append(r, str[:nBracket], str[nBracket:])
+			} else {
+				// str is "[expr]" or "node"
+				r = append(r, str)
+			}
 		}
 	}
 	return r
@@ -97,10 +110,21 @@ func IsVPathElement(pe string) bool {
 		return false
 	}
 
-	return len(pe) > 0
+	return len(pe) > 1 && pe[0] == ':'
 }
 
-// Path KVreturns the key and value string parts of the entire key/value path element.
+// IsNPathElement report whether pe is an index path element.
+func IsNPathElement(pe string) bool {
+	pe, ok := RemoveBrackets(pe)
+	if !ok {
+		return false
+	}
+
+	n, err := strconv.Atoi(pe)
+	return err == nil && n <= MaxIndex && n >= InsertIndex
+}
+
+// PathKV returns the key and value string parts of the entire key/value path element.
 // It returns an error if pe is not a key/value path element.
 func PathKV(pe string) (k, v string, err error) {
 	if !IsKVPathElement(pe) {
@@ -114,11 +138,28 @@ func PathKV(pe string) (k, v string, err error) {
 // PathV returns the value string part of the entire value path element.
 // It returns an error if pe is not a value path element.
 func PathV(pe string) (string, error) {
-	if !IsVPathElement(pe) {
-		return "", fmt.Errorf("%s is not a valid value path element", pe)
+	// For :val, return the value only
+	if IsVPathElement(pe) {
+		v, _ := RemoveBrackets(pe)
+		return v[1:], nil
+	}
+
+	// For key:val, return the whole thing
+	v, _ := RemoveBrackets(pe)
+	if len(v) > 0 {
+		return v, nil
+	}
+	return "", fmt.Errorf("%s is not a valid value path element", pe)
+}
+
+// PathN returns the index part of the entire value path element.
+// It returns an error if pe is not an index path element.
+func PathN(pe string) (int, error) {
+	if !IsNPathElement(pe) {
+		return -1, fmt.Errorf("%s is not a valid index path element", pe)
 	}
 	v, _ := RemoveBrackets(pe)
-	return v, nil
+	return strconv.Atoi(v)
 }
 
 // RemoveBrackets removes the [] around pe and returns the resulting string. It returns false if pe is not surrounded

@@ -5,7 +5,7 @@ metadata:
     app: pilot
     istio: pilot
     release: istio
-  name: istio-pilot
+  name: istiod
   namespace: istio-control
 spec:
   selector:
@@ -63,8 +63,7 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr
-        - ""
+        - --secureGrpcAddr=
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 60m
@@ -84,6 +83,11 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.serviceAccountName
         - name: PILOT_TRACE_SAMPLING
           value: "1"
         - name: CONFIG_NAMESPACE
@@ -101,7 +105,6 @@ spec:
             name: istiod
             optional: true
         image: docker.io/istio/pilot:1.1.4
-        imagePullPolicy: IfNotPresent
         name: discovery
         ports:
         - containerPort: 1234
@@ -118,6 +121,10 @@ spec:
           requests:
             cpu: 500m
             memory: 2048Mi
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
