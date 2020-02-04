@@ -15,6 +15,7 @@ spec:
       labels:
         app: nginx
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: nginx
       name: nginx
     spec:
       containers:

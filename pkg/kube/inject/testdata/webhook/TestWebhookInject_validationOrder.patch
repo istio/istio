@@ -10,6 +10,15 @@
   },
   {
     "op": "add",
+    "path": "/spec/initContainers/0",
+    "value": {
+      "name": "istio-validation",
+      "image": "example.com/init:latest",
+      "resources": {}
+    }
+  },
+  {
+    "op": "add",
     "path": "/spec/containers/-",
     "value": {
       "name": "istio-proxy",
@@ -19,15 +28,13 @@
   },
   {
     "op": "add",
-    "path": "/spec/volumes",
-    "value": [
-      {
-        "name": "istio-envoy",
-        "emptyDir": {
-          "medium": "Memory"
-        }
+    "path": "/spec/volumes/-",
+    "value": {
+      "name": "istio-envoy",
+      "emptyDir": {
+        "medium": "Memory"
       }
-    ]
+    }
   },
   {
     "op": "add",
@@ -52,7 +59,7 @@
     "op": "add",
     "path": "/metadata/annotations",
     "value": {
-      "sidecar.istio.io/status": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+      "sidecar.istio.io/status": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\",\"istio-validation\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
     }
   },
   {
@@ -65,6 +72,6 @@
   {
     "op": "add",
     "path": "/metadata/labels/service.istio.io~1canonical-name",
-    "value": ""
+    "value": "something"
   }
 ]

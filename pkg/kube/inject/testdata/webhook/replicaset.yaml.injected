@@ -17,6 +17,7 @@ spec:
       labels:
         app: hello
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: hello
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
