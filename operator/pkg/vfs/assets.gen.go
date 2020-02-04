@@ -209,6 +209,8 @@
 // profiles/minimal.yaml
 // profiles/remote.yaml
 // profiles/separate.yaml
+// translateConfig/names-1.5.yaml
+// translateConfig/names-1.6.yaml
 // translateConfig/reverseTranslateConfig-1.4.yaml
 // translateConfig/reverseTranslateConfig-1.5.yaml
 // translateConfig/reverseTranslateConfig-1.6.yaml
@@ -38595,6 +38597,66 @@ func profilesSeparateYaml() (*asset, error) {
 	return a, nil
 }
 
+var _translateconfigNames15Yaml = []byte(`legacyAddonComponentNames:
+  - "Prometheus"
+  - "Kiali"
+  - "Grafana"
+  - "Tracing"
+  - "Istiocoredns"
+deprecatedComponentNames:
+  - "Injector"
+  - "CertManager"
+  - "IngressGateway"
+  - "EgressGateway"
+  - "NodeAgent"
+  - "SidecarInjector"
+
+`)
+
+func translateconfigNames15YamlBytes() ([]byte, error) {
+	return _translateconfigNames15Yaml, nil
+}
+
+func translateconfigNames15Yaml() (*asset, error) {
+	bytes, err := translateconfigNames15YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/names-1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _translateconfigNames16Yaml = []byte(`legacyAddonComponentNames:
+  - "Prometheus"
+  - "Kiali"
+  - "Grafana"
+  - "Tracing"
+  - "Istiocoredns"
+deprecatedComponentNames:
+  - "Injector"
+  - "CertManager"
+  - "IngressGateway"
+  - "EgressGateway"
+  - "NodeAgent"
+  - "SidecarInjector"`)
+
+func translateconfigNames16YamlBytes() ([]byte, error) {
+	return _translateconfigNames16Yaml, nil
+}
+
+func translateconfigNames16Yaml() (*asset, error) {
+	bytes, err := translateconfigNames16YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/names-1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _translateconfigReversetranslateconfig14Yaml = []byte(`kubernetesPatternMapping:
   "{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env"
   "{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec"
@@ -39254,49 +39316,44 @@ componentMaps:
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"
-    SkipReverseTranslate: false
   Galley:
     ResourceType:         "Deployment"
     ResourceName:         "istio-galley"
     ContainerName:        "galley"
     HelmSubdir:           "istio-control/istio-config"
     ToHelmValuesTreeRoot: "galley"
-    SkipReverseTranslate: false
   SidecarInjector:
     ResourceType:         "Deployment"
     ResourceName:         "istio-sidecar-injector"
     ContainerName:        "sidecar-injector-webhook"
     HelmSubdir:           "istio-control/istio-autoinject"
     ToHelmValuesTreeRoot: "sidecarInjectorWebhook"
-    SkipReverseTranslate: false
+    SkipReverseTranslate: true
   Policy:
     ResourceType:         "Deployment"
     ResourceName:         "istio-policy"
     ContainerName:        "mixer"
     HelmSubdir:           "istio-policy"
     ToHelmValuesTreeRoot: "mixer.policy"
-    SkipReverseTranslate: false
   Telemetry:
     ResourceType:        "Deployment"
     ResourceName:         "istio-telemetry"
     ContainerName:        "mixer"
     HelmSubdir:           "istio-telemetry/mixer-telemetry"
     ToHelmValuesTreeRoot: "mixer.telemetry"
-    SkipReverseTranslate: false
   Citadel:
     ResourceType:        "Deployment"
     ResourceName:         "istio-citadel"
     ContainerName:        "citadel"
     HelmSubdir:           "security/citadel"
     ToHelmValuesTreeRoot: "security"
-    SkipReverseTranslate: false
   NodeAgent:
     ResourceType:         "DaemonSet"
     ResourceName:         "istio-nodeagent"
     ContainerName:        "nodeagent"
     HelmSubdir:           "security/nodeagent"
     ToHelmValuesTreeRoot: "nodeagent"
-    SkipReverseTranslate: false
+    SkipReverseTranslate: true
   CertManager:
     ResourceType:        "Deployment"
     ResourceName:         "certmanager"
@@ -39310,35 +39367,30 @@ componentMaps:
     ContainerName:        "istio-proxy"
     HelmSubdir:           "gateways/istio-ingress"
     ToHelmValuesTreeRoot: "gateways.istio-ingressgateway"
-    SkipReverseTranslate: false
   EgressGateways:
     ResourceType:         "Deployment"
     ResourceName:         "istio-egressgateway"
     ContainerName:        "istio-proxy"
     HelmSubdir:           "gateways/istio-egress"
     ToHelmValuesTreeRoot: "gateways.istio-egressgateway"
-    SkipReverseTranslate: false
   Cni:
     ResourceType:         "DaemonSet"
     ResourceName:         "istio-cni-node"
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-    SkipReverseTranslate: false
   CoreDNS:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"
     HelmSubdir:           "istiocoredns"
     ToHelmValuesTreeRoot: "istiocoredns"
-    SkipReverseTranslate: false
   Tracing:
     ResourceType:         "Deployment"
     ResourceName:         "istio-tracing"
     ContainerName:        "jaeger"
     HelmSubdir:           "istio-telemetry/tracing"
     ToHelmValuesTreeRoot: "tracing.jaeger"
-    SkipReverseTranslate: false
   PrometheusOperator:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
@@ -39352,21 +39404,18 @@ componentMaps:
     ContainerName:        "kiali"
     HelmSubdir:           "istio-telemetry/kiali"
     ToHelmValuesTreeRoot: "kiali"
-    SkipReverseTranslate: false
   Grafana:
     ResourceType:        "Deployment"
     ResourceName:         "grafana"
     ContainerName:        "grafana"
     HelmSubdir:           "istio-telemetry/grafana"
     ToHelmValuesTreeRoot: "grafana"
-    SkipReverseTranslate: false
   Prometheus:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
     HelmSubdir:           "istio-telemetry/prometheus"
     ToHelmValuesTreeRoot: "prometheus"
-    SkipReverseTranslate: false
 `)
 
 func translateconfigTranslateconfig15YamlBytes() ([]byte, error) {
@@ -39445,84 +39494,74 @@ componentMaps:
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"
-    SkipReverseTranslate: false
   Galley:
     ResourceType:         "Deployment"
     ResourceName:         "istio-galley"
     ContainerName:        "galley"
     HelmSubdir:           "istio-control/istio-config"
     ToHelmValuesTreeRoot: "galley"
-    SkipReverseTranslate: false
   SidecarInjector:
     ResourceType:         "Deployment"
     ResourceName:         "istio-sidecar-injector"
     ContainerName:        "sidecar-injector-webhook"
     HelmSubdir:           "istio-control/istio-autoinject"
     ToHelmValuesTreeRoot: "sidecarInjectorWebhook"
-    SkipReverseTranslate: false
+    SkipReverseTranslate: true
   Policy:
     ResourceType:         "Deployment"
     ResourceName:         "istio-policy"
     ContainerName:        "mixer"
     HelmSubdir:           "istio-policy"
     ToHelmValuesTreeRoot: "mixer.policy"
-    SkipReverseTranslate: false
   Telemetry:
     ResourceType:        "Deployment"
     ResourceName:         "istio-telemetry"
     ContainerName:        "mixer"
     HelmSubdir:           "istio-telemetry/mixer-telemetry"
     ToHelmValuesTreeRoot: "mixer.telemetry"
-    SkipReverseTranslate: false
   Citadel:
     ResourceType:        "Deployment"
     ResourceName:         "istio-citadel"
     ContainerName:        "citadel"
     HelmSubdir:           "security/citadel"
     ToHelmValuesTreeRoot: "security"
-    SkipReverseTranslate: false
   NodeAgent:
     ResourceType:         "DaemonSet"
     ResourceName:         "istio-nodeagent"
     ContainerName:        "nodeagent"
     HelmSubdir:           "security/nodeagent"
     ToHelmValuesTreeRoot: "nodeagent"
-    SkipReverseTranslate: false
+    SkipReverseTranslate: true
   IngressGateways:
     ResourceType:         "Deployment"
     ResourceName:         "istio-ingressgateway"
     ContainerName:        "istio-proxy"
     HelmSubdir:           "gateways/istio-ingress"
     ToHelmValuesTreeRoot: "gateways.istio-ingressgateway"
-    SkipReverseTranslate: false
   EgressGateways:
     ResourceType:         "Deployment"
     ResourceName:         "istio-egressgateway"
     ContainerName:        "istio-proxy"
     HelmSubdir:           "gateways/istio-egress"
     ToHelmValuesTreeRoot: "gateways.istio-egressgateway"
-    SkipReverseTranslate: false
   Cni:
     ResourceType:         "DaemonSet"
     ResourceName:         "istio-cni-node"
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-    SkipReverseTranslate: false
   CoreDNS:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"
     HelmSubdir:           "istiocoredns"
     ToHelmValuesTreeRoot: "istiocoredns"
-    SkipReverseTranslate: false
   Tracing:
     ResourceType:         "Deployment"
     ResourceName:         "istio-tracing"
     ContainerName:        "jaeger"
     HelmSubdir:           "istio-telemetry/tracing"
     ToHelmValuesTreeRoot: "tracing.jaeger"
-    SkipReverseTranslate: false
   PrometheusOperator:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
@@ -39536,21 +39575,18 @@ componentMaps:
     ContainerName:        "kiali"
     HelmSubdir:           "istio-telemetry/kiali"
     ToHelmValuesTreeRoot: "kiali"
-    SkipReverseTranslate: false
   Grafana:
     ResourceType:        "Deployment"
     ResourceName:         "grafana"
     ContainerName:        "grafana"
     HelmSubdir:           "istio-telemetry/grafana"
     ToHelmValuesTreeRoot: "grafana"
-    SkipReverseTranslate: false
   Prometheus:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
     HelmSubdir:           "istio-telemetry/prometheus"
     ToHelmValuesTreeRoot: "prometheus"
-    SkipReverseTranslate: false
 `)
 
 func translateconfigTranslateconfig16YamlBytes() ([]byte, error) {
@@ -39894,6 +39930,8 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/minimal.yaml":                                                                   profilesMinimalYaml,
 	"profiles/remote.yaml":                                                                    profilesRemoteYaml,
 	"profiles/separate.yaml":                                                                  profilesSeparateYaml,
+	"translateConfig/names-1.5.yaml":                                                          translateconfigNames15Yaml,
+	"translateConfig/names-1.6.yaml":                                                          translateconfigNames16Yaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                         translateconfigReversetranslateconfig14Yaml,
 	"translateConfig/reverseTranslateConfig-1.5.yaml":                                         translateconfigReversetranslateconfig15Yaml,
 	"translateConfig/reverseTranslateConfig-1.6.yaml":                                         translateconfigReversetranslateconfig16Yaml,
@@ -40252,6 +40290,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"separate.yaml": &bintree{profilesSeparateYaml, map[string]*bintree{}},
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
+		"names-1.5.yaml":                  &bintree{translateconfigNames15Yaml, map[string]*bintree{}},
+		"names-1.6.yaml":                  &bintree{translateconfigNames16Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.5.yaml": &bintree{translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.6.yaml": &bintree{translateconfigReversetranslateconfig16Yaml, map[string]*bintree{}},

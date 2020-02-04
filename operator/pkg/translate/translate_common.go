@@ -25,29 +25,12 @@ import (
 	binversion "istio.io/istio/operator/version"
 )
 
-const (
-	// Legacy addon components
-	// TODO: move this to versioned config file
-	PrometheusComponentName name.ComponentName = "Prometheus"
-	KialiComponentName      name.ComponentName = "Kiali"
-	GrafanaComponentName    name.ComponentName = "Grafana"
-	TracingComponentName    name.ComponentName = "Tracing"
-	CoreDNSComponentName    name.ComponentName = "Istiocoredns"
-)
-
 var (
-	LegacyAddonComponentPathMap  = make(map[string]string)
-	AllLegacyAddonComponentNames = []name.ComponentName{
-		PrometheusComponentName,
-		KialiComponentName,
-		GrafanaComponentName,
-		TracingComponentName,
-		CoreDNSComponentName,
-	}
+	LegacyAddonComponentPathMap = make(map[string]string)
 )
 
 func init() {
-	for _, n := range AllLegacyAddonComponentNames {
+	for n, _ := range name.AddonComponentNamesMap {
 		cn := strings.ToLower(string(n))
 		valuePath := fmt.Sprintf("values.%s.enabled", cn)
 		iopPath := fmt.Sprintf("addonComponents.%s.enabled", cn)

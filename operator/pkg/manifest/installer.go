@@ -110,7 +110,6 @@ var (
 			name.TelemetryComponentName,
 			name.GalleyComponentName,
 			name.CitadelComponentName,
-			name.SidecarInjectorComponentName,
 			name.CNIComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,

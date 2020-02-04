@@ -40,8 +40,6 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
         tolerations: []
-    nodeAgent:
-      enabled: false
     pilot:
       enabled: true
       k8s:
@@ -91,16 +89,6 @@ spec:
             name: istio-policy
         nodeSelector: {}
         podAnnotations: {}
-        replicaCount: 1
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
-        tolerations: []
-    sidecarInjector:
-      enabled: true
-      k8s:
-        nodeSelector: {}
         replicaCount: 1
         strategy:
           rollingUpdate:
@@ -521,15 +509,6 @@ spec:
         reportBatchMaxTime: 1s
         sessionAffinityEnabled: false
         useMCP: true
-    nodeagent:
-      env:
-        cA_ADDR: ""
-        cA_PROVIDER: ""
-        plugins: ""
-      image: node-agent-k8s
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      tolerations: []
     pilot:
       appNamespaces: []
       configMap: true
@@ -592,13 +571,18 @@ spec:
     sidecarInjectorWebhook:
       alwaysInjectSelector: []
       enableNamespacesByDefault: false
+      enabled: true
       image: sidecar_injector
       injectLabel: istio-injection
       neverInjectSelector: []
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
+      replicaCount: 1
       rewriteAppHTTPProbe: false
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
       selfSigned: false
+      tolerations: []
     tracing:
       enabled: false
       ingress:

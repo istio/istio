@@ -207,11 +207,7 @@ components:
     enabled: true
   galley:
     enabled: true
-  nodeAgent:
-    enabled: true
   pilot:
-    enabled: true
-  sidecarInjector:
     enabled: true
   ingressGateways:
   - name: istio-ingressgateway
@@ -233,6 +229,8 @@ values:
     policyNamespace: istio-policy
     telemetryNamespace: istio-telemetry
   certmanager:
+    enabled: true
+  sidecarInjectorWebhook:
     enabled: true
 `,
 		},
