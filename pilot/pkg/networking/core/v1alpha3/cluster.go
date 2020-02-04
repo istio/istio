@@ -32,6 +32,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/security/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_v1alpha1_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	authn_v1beta1_applier "istio.io/istio/pilot/pkg/security/authn/v1beta1"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
@@ -210,8 +212,29 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			serviceMTLSMode := model.MTLSUnknown
 			if !service.MeshExternal {
 				// Only need the authentication MTLS mode when service is not external.
-				policy, _ := push.AuthenticationPolicyForWorkload(service, port)
-				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(policy)
+				// TODO: this check can be removed if we use policy to set EP metadata.
+
+				// This is an imperfect implementation for beta policy. This will work only if
+				// workload-specific policy is not used. A better solution will be implemented as of
+				// speaking, but for now, we want to keep this option so autoMtls won't be totally broken
+				// at the mesh & namespace level.
+				betaConfig := authn_v1beta1_applier.GetMostSpecificScopeConfig(
+					push.AuthnBetaPolicies.GetRootNamespace(),
+					push.AuthnBetaPolicies.GetPeerAuthenticationsForWorkload(service.Attributes.Namespace, labels.Collection{}))
+				if betaConfig != nil {
+					serviceMTLSMode = authn_v1beta1_applier.GetMutualTLSMode(
+						betaConfig.Spec.(*v1beta1.PeerAuthentication))
+				} else {
+					// Check alpha policy.
+					policy, _ := push.AuthenticationPolicyForWorkload(service, port)
+					if policy != nil {
+						serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(policy)
+					} else {
+						// If no policy (alpha nor beta) exist, treat it as PERMISSIVE. This is the same logic
+						// used on server side.
+						serviceMTLSMode = model.MTLSPermissive
+					}
+				}
 			}
 			clusters = append(clusters, defaultCluster)
 			destinationRule := castDestinationRuleOrDefault(destRule)
