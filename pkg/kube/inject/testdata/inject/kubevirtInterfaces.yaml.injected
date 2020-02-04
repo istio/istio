@@ -16,7 +16,7 @@ spec:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: "123"
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
         traffic.sidecar.istio.io/kubevirtInterfaces: net1
@@ -64,7 +64,7 @@ spec:
         - --dnsRefreshRate
         - 300s
         - --statusPort
-        - "123"
+        - "15020"
         - --trust-domain=cluster.local
         - --controlPlaneBootstrap=false
         - --concurrency
@@ -133,12 +133,12 @@ spec:
           name: http-envoy-prom
           protocol: TCP
         readinessProbe:
-          failureThreshold: 300
+          failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 123
-          initialDelaySeconds: 100
-          periodSeconds: 200
+            port: 15020
+          initialDelaySeconds: 1
+          periodSeconds: 2
         resources:
           limits:
             cpu: "2"
@@ -184,7 +184,7 @@ spec:
         - -b
         - '*'
         - -d
-        - "123"
+        - "15020"
         - -k
         - net1
         image: gcr.io/istio-testing/proxyv2:latest

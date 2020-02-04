@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init","enable-core-dump"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -148,7 +148,7 @@ spec:
             drop:
             - ALL
           privileged: false
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
@@ -204,27 +204,6 @@ spec:
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
-      - args:
-        - -c
-        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
-        command:
-        - /bin/sh
-        image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: Always
-        name: enable-core-dump
-        resources: {}
-        securityContext:
-          allowPrivilegeEscalation: true
-          capabilities:
-            add:
-            - SYS_ADMIN
-            drop:
-            - ALL
-          privileged: true
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory

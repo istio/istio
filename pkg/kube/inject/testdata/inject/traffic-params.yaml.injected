@@ -14,10 +14,9 @@ spec:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
-        traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
-        traffic.sidecar.istio.io/includeOutboundIPRanges: 127.0.0.1/24,10.96.0.1/24
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: traffic
@@ -59,6 +58,8 @@ spec:
         - NONE
         - --dnsRefreshRate
         - 300s
+        - --statusPort
+        - "15020"
         - --trust-domain=cluster.local
         - --controlPlaneBootstrap=false
         - --concurrency
@@ -123,6 +124,13 @@ spec:
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15020
+          initialDelaySeconds: 1
+          periodSeconds: 2
         resources:
           limits:
             cpu: "2"
@@ -162,13 +170,13 @@ spec:
         - -m
         - REDIRECT
         - -i
-        - 127.0.0.1/24,10.96.0.1/24
+        - '*'
         - -x
-        - 10.96.0.2/24,10.96.0.3/24
+        - ""
         - -b
         - '*'
         - -d
-        - 4,5,6
+        - "15020"
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-init
