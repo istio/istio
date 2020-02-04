@@ -35,14 +35,14 @@ type ComponentName string
 const (
 	// IstioComponent names corresponding to the IstioOperator proto component names. Must be the same, since these
 	// are used for struct traversal.
-	IstioBaseComponentName       ComponentName = "Base"
-	PilotComponentName           ComponentName = "Pilot"
-	GalleyComponentName          ComponentName = "Galley"
-	SidecarInjectorComponentName ComponentName = "SidecarInjector"
-	PolicyComponentName          ComponentName = "Policy"
-	TelemetryComponentName       ComponentName = "Telemetry"
-	CitadelComponentName         ComponentName = "Citadel"
-	CNIComponentName             ComponentName = "Cni"
+	IstioBaseComponentName ComponentName = "Base"
+	PilotComponentName     ComponentName = "Pilot"
+	GalleyComponentName    ComponentName = "Galley"
+	PolicyComponentName    ComponentName = "Policy"
+	TelemetryComponentName ComponentName = "Telemetry"
+	CitadelComponentName   ComponentName = "Citadel"
+
+	CNIComponentName ComponentName = "Cni"
 
 	// Gateway components
 	IngressComponentName ComponentName = "IngressGateways"
@@ -63,10 +63,11 @@ const (
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
 
 	// Component names used in old versions
-	InjectorComponentName       ComponentName = "Injector"
-	IngressGatewayComponentName ComponentName = "IngressGateway"
-	EgressGatewayComponentName  ComponentName = "EgressGateway"
-	NodeAgentComponentName      ComponentName = "NodeAgent"
+	InjectorComponentName        ComponentName = "Injector"
+	SidecarInjectorComponentName ComponentName = "SidecarInjector"
+	IngressGatewayComponentName  ComponentName = "IngressGateway"
+	EgressGatewayComponentName   ComponentName = "EgressGateway"
+	NodeAgentComponentName       ComponentName = "NodeAgent"
 )
 
 var (
@@ -74,7 +75,6 @@ var (
 		IstioBaseComponentName,
 		PilotComponentName,
 		GalleyComponentName,
-		SidecarInjectorComponentName,
 		PolicyComponentName,
 		TelemetryComponentName,
 		CitadelComponentName,
@@ -82,6 +82,7 @@ var (
 	}
 	DeprecatedNames = []ComponentName{
 		InjectorComponentName,
+		SidecarInjectorComponentName,
 		NodeAgentComponentName,
 	}
 	AllLegacyAddonComponentNames = []ComponentName{

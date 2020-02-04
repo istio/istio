@@ -138,16 +138,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Auto injection feature
-    sidecarInjector:
-      enabled: false
-      k8s:
-        replicaCount: 1
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
   # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -290,7 +280,9 @@ spec:
           requests:
             cpu: 10m
             memory: 10Mi
-      imagePullPolicy: IfNotPresent
+      # Specify image pull policy if default behavior isn't desired.
+      # Default behavior: latest images will be Always else IfNotPresent.
+      imagePullPolicy: ""
       certificates: []
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
@@ -307,6 +299,11 @@ spec:
           address: ""
         datadog:
           address: "$(HOST_IP):8126"
+        stackdriver:
+          debug: false
+          maxNumberOfAttributes: 200
+          maxNumberOfAnnotations: 200
+          maxNumberOfMessageEvents: 200
       mtls:
         enabled: false
         auto: true
@@ -536,10 +533,8 @@ spec:
             mountPath: /etc/istio/ingressgateway-ca-certs
 
     sidecarInjectorWebhook:
-      image: sidecar_injector
       enableNamespacesByDefault: false
       rewriteAppHTTPProbe: false
-      selfSigned: false
       injectLabel: istio-injection
       objectSelector:
         enabled: false

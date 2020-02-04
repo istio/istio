@@ -34,7 +34,6 @@ spec:
       containers:
         - name: istio-proxy
           image: "gcr.io/istio-testing/proxyv2:latest"
-          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
             - containerPort: 80
