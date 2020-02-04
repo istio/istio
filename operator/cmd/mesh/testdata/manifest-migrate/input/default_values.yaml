@@ -300,17 +300,6 @@ security:
   tolerations: []
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
-nodeagent:
-  enabled: false
-  image: node-agent-k8s
-  env:
-    CA_PROVIDER: ""
-    CA_ADDR: ""
-    Plugins: ""
-  nodeSelector: {}
-  tolerations: []
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
 grafana:
   enabled: false
   replicaCount: 1

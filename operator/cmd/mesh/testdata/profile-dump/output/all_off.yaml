@@ -78,8 +78,6 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
     name: istio-ingressgateway
-  nodeAgent:
-    enabled: false
   pilot:
     enabled: false
     k8s:
@@ -292,7 +290,7 @@ values:
       s390x: 2
     certificates: []
     configValidation: true
-    controlPlaneSecurityEnabled: false
+    controlPlaneSecurityEnabled: true
     defaultNodeSelector: {}
     defaultPodDisruptionBudget:
       enabled: true
@@ -413,6 +411,11 @@ values:
         address: ""
         cacertPath: ""
         secure: true
+      stackdriver:
+        debug: false
+        maxNumberOfAnnotations: 200
+        maxNumberOfAttributes: 200
+        maxNumberOfMessageEvents: 200
       zipkin:
         address: ""
     trustDomain: cluster.local
@@ -543,8 +546,6 @@ values:
       reportBatchMaxTime: 1s
       sessionAffinityEnabled: false
       tolerations: []
-  nodeagent:
-    image: node-agent-k8s
   pilot:
     appNamespaces: []
     autoscaleEnabled: true

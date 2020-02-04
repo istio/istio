@@ -105,6 +105,7 @@ var (
 		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ServiceRoleBinding"},
 		{Group: "security.istio.io", Version: "v1beta1", Kind: "AuthorizationPolicy"},
 		{Group: "security.istio.io", Version: "v1beta1", Kind: "RequestAuthentication"},
+		{Group: "security.istio.io", Version: "v1beta1", Kind: "PeerAuthentication"},
 	}
 
 	// ordered by which types should be deleted, first to last

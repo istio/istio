@@ -125,9 +125,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-    nodeAgent:
-      enabled: false
-
   # Config management feature
     galley:
       enabled: false
@@ -297,7 +294,7 @@ spec:
       imagePullPolicy: IfNotPresent
       certificates: []
       operatorManageWebhooks: false
-      controlPlaneSecurityEnabled: false
+      controlPlaneSecurityEnabled: true
       disablePolicyChecks: true
       policyCheckFailOpen: false
       enableTracing: true
@@ -311,6 +308,11 @@ spec:
           address: ""
         datadog:
           address: "$(HOST_IP):8126"
+        stackdriver:
+          debug: false
+          maxNumberOfAttributes: 200
+          maxNumberOfAnnotations: 200
+          maxNumberOfMessageEvents: 200
       mtls:
         enabled: false
         auto: true
@@ -450,9 +452,6 @@ spec:
       enableNamespacesByDefault: true
       dnsCerts:
         istio-pilot-service-account.istio-control: istio-pilot.istio-control
-
-    nodeagent:
-      image: node-agent-k8s
 
     gateways:
       istio-egressgateway:

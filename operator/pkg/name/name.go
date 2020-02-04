@@ -47,7 +47,6 @@ const (
 	PolicyComponentName          ComponentName = "Policy"
 	TelemetryComponentName       ComponentName = "Telemetry"
 	CitadelComponentName         ComponentName = "Citadel"
-	NodeAgentComponentName       ComponentName = "NodeAgent"
 	CNIComponentName             ComponentName = "Cni"
 
 	// Gateway components
@@ -72,6 +71,7 @@ const (
 	InjectorComponentName       ComponentName = "Injector"
 	IngressGatewayComponentName ComponentName = "IngressGateway"
 	EgressGatewayComponentName  ComponentName = "EgressGateway"
+	NodeAgentComponentName      ComponentName = "NodeAgent"
 )
 
 var (
@@ -83,11 +83,11 @@ var (
 		PolicyComponentName,
 		TelemetryComponentName,
 		CitadelComponentName,
-		NodeAgentComponentName,
 		CNIComponentName,
 	}
 	DeprecatedNames = []ComponentName{
 		InjectorComponentName,
+		NodeAgentComponentName,
 	}
 	AllLegacyAddonComponentNames = []ComponentName{
 		PrometheusComponentName,
