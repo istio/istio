@@ -926,11 +926,9 @@ data:
           }
         },
         "sds": {
-          "enabled": false,
           "token": {
             "aud": "istio-ca"
-          },
-          "udsPath": ""
+          }
         },
         "securityNamespace": "control-plane",
         "sts": {
