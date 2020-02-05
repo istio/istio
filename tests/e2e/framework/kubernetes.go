@@ -61,7 +61,6 @@ const (
 	istioIngressLabel              = "ingress"
 	istioIngressGatewayServiceName = "istio-ingressgateway"
 	istioIngressGatewayLabel       = "ingressgateway"
-	istioEgressGatewayServiceName  = "istio-egressgateway"
 	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
 	ingressCertsName               = "istio-ingress-certs"
 	maxDeploymentRolloutTime       = 960 * time.Second
@@ -365,19 +364,9 @@ func (k *KubeInfo) IstioSystemNamespace() string {
 	return k.Namespace
 }
 
-// IstioIngressService returns the service name for the ingress service
-func (k *KubeInfo) IstioIngressService() string {
-	return istioIngressServiceName
-}
-
 // IstioIngressGatewayService returns the service name for the ingress gateway service
 func (k *KubeInfo) IstioIngressGatewayService() string {
 	return istioIngressGatewayServiceName
-}
-
-// IstioEgressGatewayService returns the service name for the egress gateway service
-func (k *KubeInfo) IstioEgressGatewayService() string {
-	return istioEgressGatewayServiceName
 }
 
 // Setup Kubernetes pre-requisites for tests
@@ -429,16 +418,6 @@ func (k *KubeInfo) Setup() error {
 	return nil
 }
 
-// PilotHub exposes the Docker hub used for the pilot image.
-func (k *KubeInfo) PilotHub() string {
-	return *pilotHub
-}
-
-// PilotTag exposes the Docker tag used for the pilot image.
-func (k *KubeInfo) PilotTag() string {
-	return *pilotTag
-}
-
 // AppHub exposes the Docker hub used for the test application image.
 func (k *KubeInfo) AppHub() string {
 	return *appHub
@@ -447,16 +426,6 @@ func (k *KubeInfo) AppHub() string {
 // AppTag exposes the Docker tag used for the test application image.
 func (k *KubeInfo) AppTag() string {
 	return *appTag
-}
-
-// ProxyHub exposes the Docker hub used for the proxy image.
-func (k *KubeInfo) ProxyHub() string {
-	return *proxyHub
-}
-
-// ProxyTag exposes the Docker tag used for the proxy image.
-func (k *KubeInfo) ProxyTag() string {
-	return *proxyTag
 }
 
 // ImagePullPolicy exposes the pull policy override used for Docker images. May be "".
@@ -947,18 +916,6 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 	return nil
-}
-
-// DeployTiller deploys tiller in Istio mesh or returns error
-func (k *KubeInfo) DeployTiller() error {
-	// no need to deploy tiller when Istio is deployed using helm as Tiller is already deployed as part of it.
-	if *installer == helmInstallerName {
-		return nil
-	}
-
-	yamlDir := filepath.Join(istioInstallDir+"/"+helmInstallerName, helmServiceAccountFile)
-	baseHelmServiceAccountYaml := filepath.Join(k.ReleaseDir, yamlDir)
-	return k.deployTiller(baseHelmServiceAccountYaml)
 }
 
 func (k *KubeInfo) deployTiller(yamlFileName string) error {
