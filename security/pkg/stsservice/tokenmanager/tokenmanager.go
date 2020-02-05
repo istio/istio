@@ -42,17 +42,17 @@ type Config struct {
 	TrustDomain string
 }
 
-// GcpProjectInfo stores GCP project information, including project number,
+// GCPProjectInfo stores GCP project information, including project number,
 // project ID, cluster location, cluster name
-type GcpProjectInfo struct {
+type GCPProjectInfo struct {
 	Number          string
 	id              string
 	cluster         string
 	clusterLocation string
 }
 
-func getGcpProjectNumber() GcpProjectInfo {
-	info := GcpProjectInfo{}
+func getGCPProjectInfo() GCPProjectInfo {
+	info := GCPProjectInfo{}
 	if platform.IsGCP() {
 		md := platform.NewGCP().Metadata()
 		if projectNum, found := md[platform.GCPProjectNumber]; found {
@@ -79,10 +79,10 @@ func CreateTokenManager(tokenManagerType string, config Config) stsservice.Token
 	}
 	switch tokenManagerType {
 	case GoogleTokenExchange:
-		if projectInfo := getGcpProjectNumber(); len(projectInfo.Number) > 0 {
-			gKEClusterURL := fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
+		if projectInfo := getGCPProjectInfo(); len(projectInfo.Number) > 0 {
+			gkeClusterURL := fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
 				projectInfo.id, projectInfo.clusterLocation, projectInfo.cluster)
-			if p, err := google.CreateTokenManagerPlugin(config.TrustDomain, projectInfo.Number, gKEClusterURL); err == nil {
+			if p, err := google.CreateTokenManagerPlugin(config.TrustDomain, projectInfo.Number, gkeClusterURL); err == nil {
 				tm.plugin = p
 			}
 		}

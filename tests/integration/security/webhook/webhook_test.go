@@ -56,10 +56,7 @@ func TestWebhookManagement(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			cfg := inst.Settings()
-			if cfg.IsIstiodEnabled() {
-				ctx.Skip("TODO(github.com/istio/istio/issues/20289)")
-			}
+			ctx.Skip("TODO(github.com/istio/istio/issues/20289)")
 
 			// Test that webhook configurations are enabled through istioctl successfully.
 			args := []string{"experimental", "post-install", "webhook", "enable", "--validation", "--webhook-secret",

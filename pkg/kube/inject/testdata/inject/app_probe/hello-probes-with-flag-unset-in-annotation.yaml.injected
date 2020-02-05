@@ -16,7 +16,7 @@ spec:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/rewriteAppHTTPProbers: "false"
-        sidecar.istio.io/status: '{"version":"08dbe54376cfc7af6adee736e19a99a0a6a1b91feda34d0c4f1915c7a3afdf89","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"5b05f1e94a1773ad5a05dab973b32859bc859117958edd04d2ea4d432732bb62","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: 80,90
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'

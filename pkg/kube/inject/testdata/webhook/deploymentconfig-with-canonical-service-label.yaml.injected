@@ -1,28 +1,23 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: DeploymentConfig
 metadata:
   creationTimestamp: null
   name: hello
 spec:
   replicas: 7
-  selector:
-    matchLabels:
-      app: hello
-      tier: backend
-      track: stable
-  strategy: {}
+  revisionHistoryLimit: 2
+  selector: null
+  strategy:
+    type: Rolling
   template:
     metadata:
       annotations:
-        sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"5b05f1e94a1773ad5a05dab973b32859bc859117958edd04d2ea4d432732bb62","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-        traffic.sidecar.istio.io/includeInboundPorts: "80"
-        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: test-service-name
         tier: backend
         track: stable
     spec:
@@ -32,9 +27,6 @@ spec:
         ports:
         - containerPort: 80
           name: http
-        readinessProbe:
-          httpGet:
-            port: http
         resources: {}
       - args:
         - proxy
@@ -115,16 +107,9 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-            {"app":"hello","tier":"backend","track":"stable"}
-        - name: ISTIO_META_WORKLOAD_NAME
-          value: hello
-        - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_META_MESH_ID
           value: cluster.local
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: Always
         name: istio-proxy
         ports:
@@ -184,7 +169,7 @@ spec:
         - '*'
         - -d
         - "15020"
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: Always
         name: istio-init
         resources:
@@ -226,4 +211,5 @@ spec:
           optional: true
           secretName: istio.default
 status: {}
+
 ---
