@@ -50,7 +50,7 @@ const (
 
 type upgradeArgs struct {
 	// inFilenames is an array of paths to the input IstioOperator CR files.
-	inFilename []string
+	inFilenames []string
 	// versionsURI is a URI pointing to a YAML formatted versions mapping.
 	versionsURI string
 	// kubeConfigPath is the path to kube config file.
@@ -67,7 +67,7 @@ type upgradeArgs struct {
 
 // addUpgradeFlags adds upgrade related flags into cobra command
 func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
-	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename",
+	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename",
 		"f", nil, "Path to file containing IstioOperator custom resource")
 	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
 		"", "URI for operator versions to Istio versions map")
@@ -120,9 +120,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
 	// Generate IOPS objects
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilename, "", args.force, nil, l)
+	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, "", args.force, nil, l)
 	if err != nil {
-		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilename, err)
+		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilenames, err)
 	}
 
 	// Get the target version from the tag in the IOPS
@@ -155,20 +155,20 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 
 	// Read the overridden IOPS from args.inFilenames
 	overrideIOPSYaml := ""
-	if args.inFilename != nil {
-		overrideIOPSYaml, err = ReadLayeredYAMLs(args.inFilename)
+	if args.inFilenames != nil {
+		overrideIOPSYaml, err = ReadLayeredYAMLs(args.inFilenames)
 		if err != nil {
-			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilename, err)
+			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
 		}
 	}
 
 	// Generates IOPS for args.inFilenames IOP specs yaml. Param force is set to true to
 	// skip the validation because the code only has the validation proto for the
 	// target version.
-	currentIOPSYaml, _, err := GenerateConfig(args.inFilename, "", true, nil, l)
+	currentIOPSYaml, _, err := GenerateConfig(args.inFilenames, "", true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file: %s for the current version: %s, error: %v",
-			args.inFilename, currentVersion, err)
+			args.inFilenames, currentVersion, err)
 	}
 	checkUpgradeIOPS(currentIOPSYaml, targetIOPSYaml, overrideIOPSYaml, l)
 
@@ -187,7 +187,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(nil, args.inFilename, args.force, rootArgs.dryRun,
+	err = ApplyManifests(nil, args.inFilenames, args.force, rootArgs.dryRun,
 		rootArgs.verbose, args.kubeConfigPath, args.context, args.wait, upgradeWaitSecWhenApply, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)

@@ -76,9 +76,9 @@ func ICPToIOPVer(icp string, ver version.Version) (string, error) {
 	return ICPToIOP(icp, translations)
 }
 
-// UnmarshalIOPorICP takes a YAML string in either IstioControlPlane or IstioOperator formats and
+// UnmarshalIOPOrICP takes a YAML string in either IstioControlPlane or IstioOperator formats and
 // returns an IstioOperatorSpec struct and string if it is successful, performing any required translation.
-func UnmarshalIOPorICP(yml string) (*v1alpha1.IstioOperator, string, error) {
+func UnmarshalIOPOrICP(yml string) (*v1alpha1.IstioOperator, string, error) {
 	translated, tyml := ICPToIOPYAML(yml)
 	if translated {
 		yml = tyml

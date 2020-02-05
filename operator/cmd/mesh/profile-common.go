@@ -80,7 +80,7 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 		return "", "", err
 	}
 	var fileOverlayIOP *iopv1alpha1.IstioOperator
-	fileOverlayIOP, overlayYAML, err = translate.UnmarshalIOPorICP(y)
+	fileOverlayIOP, overlayYAML, err = translate.UnmarshalIOPOrICP(y)
 	if err != nil {
 		return "", "", err
 	}
