@@ -259,16 +259,6 @@ values:
       - name: tls
         port: 15443
         targetPort: 15443
-      sds:
-        enabled: false
-        image: node-agent-k8s
-        resources:
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
       secretVolumes:
       - mountPath: /etc/istio/ingressgateway-certs
         name: ingressgateway-certs
@@ -395,10 +385,8 @@ values:
           cpu: 10m
           memory: 10Mi
     sds:
-      enabled: false
       token:
         aud: istio-ca
-      udsPath: ""
     sts:
       servicePort: 0
     tracer:

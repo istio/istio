@@ -7816,36 +7816,6 @@ spec:
             privileged: true
 {{- end }}
       containers:
-{{- if and $gateway.sds.enabled (not .Values.global.istiod.enabled) }}
-        - name: ingress-sds
-{{- if contains "/" $gateway.sds.image }}
-          image: "{{ $gateway.sds.image }}"
-{{- else }}
-          image: "{{ .Values.global.hub }}/{{ $gateway.sds.image }}:{{ .Values.global.tag }}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
-          resources:
-{{- if $gateway.sds.resources }}
-{{ toYaml $gateway.sds.resources | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 12 }}
-{{- end }}
-          env:
-          - name: "ENABLE_WORKLOAD_SDS"
-            value: "false"
-          - name: "ENABLE_INGRESS_GATEWAY_SDS"
-            value: "true"
-          - name: "INGRESS_GATEWAY_NAMESPACE"
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          volumeMounts:
-          - name: ingressgatewaysdsudspath
-            mountPath: /var/run/ingress_gateway
-{{- end }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
@@ -7969,13 +7939,11 @@ spec:
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
-{{- if or .Values.global.istiod.enabled $gateway.sds.enabled }}
+{{- if .Values.global.istiod.enabled }}
           - name: "ISTIO_META_USER_SDS"
             value: "true"
-{{- if .Values.global.istiod.enabled }}
           - name: CA_ADDR
             value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-{{- end }}
 {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -8062,11 +8030,6 @@ spec:
 {{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-{{ else }}
-          {{- if $gateway.sds.enabled }}
-          - name: ingressgatewaysdsudspath
-            mountPath: /var/run/ingress_gateway
-          {{- end }}
 {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -8097,11 +8060,6 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
-{{- else }}
-      {{- if $gateway.sds.enabled }}
-      - name: ingressgatewaysdsudspath
-        emptyDir: {}
-      {{- end }}
 {{- end }}
       - name: istio-certs
         secret:
@@ -8535,7 +8493,7 @@ func chartsGatewaysIstioIngressTemplatesPreconfiguredYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioIngressTemplatesRoleYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- if or $gateway.sds.enabled .Values.global.istiod.enabled }}
+{{- if .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -8567,7 +8525,7 @@ func chartsGatewaysIstioIngressTemplatesRoleYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioIngressTemplatesRolebindingsYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- if or $gateway.sds.enabled .Values.global.istiod.enabled }}
+{{- if .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -8735,22 +8693,6 @@ var _chartsGatewaysIstioIngressValuesYaml = []byte(`# A-la-carte istio ingress g
 
 gateways:
   istio-ingressgateway:
-    #
-    # Secret Discovery Service (SDS) configuration for ingress gateway.
-    #
-    sds:
-      # If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
-      enabled: false
-      # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
-      # This server runs in the same pod as ingress gateway.
-      image: node-agent-k8s
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-        limits:
-          cpu: 2000m
-          memory: 1024Mi
     labels:
       app: istio-ingressgateway
       istio: ingressgateway
@@ -38888,8 +38830,6 @@ spec:
       outboundTrafficPolicy:
         mode: ALLOW_ANY
       sds:
-        enabled: false
-        udsPath: ""
         token:
           aud: istio-ca
       sts:
@@ -39034,16 +38974,6 @@ spec:
         zvpn:
           enabled: true
           suffix: global
-        sds:
-          enabled: false
-          image: node-agent-k8s
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
