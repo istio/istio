@@ -276,12 +276,17 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	if s.leaderElection != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
+			if err := s.leaderElection.Build(); err != nil {
+				return fmt.Errorf("leader election: %v", err)
+			}
 			// We mark this as a required termination as an optimization. Without this, when we exit the lock is
 			// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
 			s.requiredTerminations.Add(1)
-			return s.leaderElection.Run(stop, func() {
+			go func() {
+				s.leaderElection.Run(stop)
 				s.requiredTerminations.Done()
-			})
+			}()
+			return nil
 		})
 	}
 

@@ -41,28 +41,33 @@ type LeaderElection struct {
 	name      string
 	runFns    []func(stop <-chan struct{})
 	client    kubernetes.Interface
+	le        *leaderelection.LeaderElector
+	ttl       time.Duration
 }
 
 // Run will start leader election, calling all runFns when we become the leader.
-func (l *LeaderElection) Run(stop <-chan struct{}, onComplete func()) error {
-	le, err := l.create()
-	if err != nil {
-		return fmt.Errorf("failed to create leader election: %v", err)
+func (l *LeaderElection) Run(stop <-chan struct{}) {
+	if l.le == nil {
+		panic("Build() must be called before Run()")
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		le.Run(ctx)
-		// Register that we have finished leader election
-		// In practice, this typically means we are exiting the process, and should drop our lock
-		if onComplete != nil {
-			onComplete()
+	for {
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			<-stop
+			cancel()
+		}()
+		l.le.Run(ctx)
+		select {
+		case <-stop:
+			// We were told to stop explicitly. Exit now
+			return
+		default:
+			log.Errorf("Leader election lost. Trying again")
+			// Otherwise, we may have lost our lock. In practice, this is extremely rare; we need to have the lock, then lose it
+			// Typically this means something went wrong, such as API server downtime, etc
+			// If this does happen, we will start the cycle over again
 		}
-	}()
-	go func() {
-		<-stop
-		cancel()
-	}()
-	return nil
+	}
 }
 
 func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
@@ -91,16 +96,16 @@ func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
 			EventRecorder: recorder,
 		},
 	}
-	ttl := 30 * time.Second
 	return leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
 		Lock:          &lock,
-		LeaseDuration: ttl,
-		RenewDeadline: ttl / 2,
-		RetryPeriod:   ttl / 4,
+		LeaseDuration: l.ttl,
+		RenewDeadline: l.ttl / 2,
+		RetryPeriod:   l.ttl / 4,
 		Callbacks:     callbacks,
 		// When Pilot exits, the lease will be dropped. This is more likely to lead to a case where
 		// to instances are both considered the leaders. As such, if this is intended to be use for mission-critical
 		// usages (rather than avoiding duplication of work), this may need to be re-evaluated.
+		// TODO this should be true once https://github.com/kubernetes/kubernetes/issues/87800 is fixed
 		ReleaseOnCancel: true,
 	})
 }
@@ -111,6 +116,21 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) {
 	l.runFns = append(l.runFns, f)
 }
 
+func (l *LeaderElection) Build() error {
+	le, err := l.create()
+	if err != nil {
+		return fmt.Errorf("failed to create leader election: %v", err)
+	}
+	l.le = le
+	return nil
+}
+
 func NewLeaderElection(namespace, name string, client kubernetes.Interface) *LeaderElection {
-	return &LeaderElection{namespace: namespace, name: name, client: client}
+	return &LeaderElection{
+		namespace: namespace,
+		name:      name,
+		client:    client,
+		// Default to a 30s ttl. Overridable for tests
+		ttl: time.Second * 30,
+	}
 }
