@@ -9,23 +9,23 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
+  name: istio-pilot
+  namespace: control-plane
   labels:
     app: pilot
     release: istio
-  name: istio-pilot
-  namespace: control-plane
 spec:
   maxReplicas: 5
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: istio-pilot
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
 ---
 
 
@@ -405,8 +405,8 @@ metadata:
   namespace: control-plane
   labels:
     app: pilot
-    release: istio
     istio: pilot
+    release: istio
 spec:
   strategy:
     rollingUpdate:
@@ -419,8 +419,6 @@ spec:
     metadata:
       labels:
         app: pilot
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
