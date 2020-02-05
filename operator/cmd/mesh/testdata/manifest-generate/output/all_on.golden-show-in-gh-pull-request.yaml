@@ -6806,9 +6806,6 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
           - name: egressgateway-certs
             mountPath: "/etc/istio/egressgateway-certs"
             readOnly: true
@@ -6826,10 +6823,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      - name: istio-certs
-        secret:
-          secretName: istio.default
-          optional: true
       - name: egressgateway-certs
         secret:
           secretName: "istio-egressgateway-certs"
@@ -7671,9 +7664,6 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
 
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
           - name: ingressgateway-certs
             mountPath: "/etc/istio/ingressgateway-certs"
             readOnly: true
@@ -7693,10 +7683,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-ingressgateway-service-account
-          optional: true
       - name: ingressgateway-certs
         secret:
           secretName: "istio-ingressgateway-certs"
@@ -8563,10 +8549,6 @@ spec:
       - name: pilot-envoy-config
         configMap:
           name: pilot-envoy-config
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-pilot-service-account
-          optional: true
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
