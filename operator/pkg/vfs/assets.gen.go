@@ -30672,8 +30672,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.9.0
-appVersion: 1.9.0
+version: 1.13.0
+appVersion: 1.13.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -31284,7 +31284,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.9
+  tag: v1.13
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -38413,7 +38413,7 @@ spec:
         status:
           description: 'Status describes each of istio control plane component status at the current time.
             0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
-            More info: https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/v1alpha2.pb.html &
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
             https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
           type: object
   versions:
