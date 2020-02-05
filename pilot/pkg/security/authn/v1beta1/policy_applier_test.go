@@ -1289,6 +1289,11 @@ func TestOnInboundFilterChain(t *testing.T) {
 			peerPolicies: []*model.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
 							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 						},
@@ -1296,6 +1301,11 @@ func TestOnInboundFilterChain(t *testing.T) {
 				},
 				{
 					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
 							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 						},
@@ -1316,6 +1326,11 @@ func TestOnInboundFilterChain(t *testing.T) {
 			peerPolicies: []*model.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
 							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 						},
@@ -1323,6 +1338,11 @@ func TestOnInboundFilterChain(t *testing.T) {
 				},
 				{
 					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
 							Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
 						},
@@ -1431,16 +1451,37 @@ func TestOnInboundFilterChain(t *testing.T) {
 	}
 }
 
-func TestGetMostSpecificScopeConfig(t *testing.T) {
+func TestComposePeerAuthentication(t *testing.T) {
 	tests := []struct {
 		name    string
 		configs []*model.Config
 		want    *v1beta1.PeerAuthentication
 	}{
 		{
-			name:    "empty list",
+			name:    "no config",
 			configs: []*model.Config{},
 			want:    nil,
+		},
+		{
+			name: "mesh level",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "default",
+						Namespace: "root-namespace",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+			},
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+				},
+			},
 		},
 		{
 			name: "namespace level",
@@ -1478,84 +1519,11 @@ func TestGetMostSpecificScopeConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "workload specific",
+			name: "ignore non-empty selector in root namespace",
 			configs: []*model.Config{
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "default",
-						Namespace: "my-ns",
-					},
-					Spec: &v1beta1.PeerAuthentication{},
-				},
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "foo",
-						Namespace: "my-ns",
-					},
-					Spec: &v1beta1.PeerAuthentication{
-						Selector: &type_beta.WorkloadSelector{
-							MatchLabels: map[string]string{
-								"app": "foo",
-							},
-						},
-					},
-				},
-			},
-			want: &v1beta1.PeerAuthentication{
-				Selector: &type_beta.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "foo",
-					},
-				},
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
-			},
-		},
-		{
-			name: "workload specific from root config",
-			configs: []*model.Config{
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "default",
-						Namespace: "my-ns",
-					},
-					Spec: &v1beta1.PeerAuthentication{},
-				},
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "foo",
-						Namespace: "root-config",
-					},
-					Spec: &v1beta1.PeerAuthentication{
-						Selector: &type_beta.WorkloadSelector{
-							MatchLabels: map[string]string{
-								"app": "foo",
-							},
-						},
-						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
-						},
-					},
-				},
-			},
-			want: &v1beta1.PeerAuthentication{
-				Selector: &type_beta.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "foo",
-					},
-				},
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
-				},
-			},
-		},
-		{
-			name: "tie",
-			configs: []*model.Config{
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "one",
 						Namespace: "root-namespace",
 					},
 					Spec: &v1beta1.PeerAuthentication{
@@ -1566,6 +1534,90 @@ func TestGetMostSpecificScopeConfig(t *testing.T) {
 						},
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
 							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "workload vs namespace config",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "default",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "foo",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
+		},
+		{
+			name: "workload vs mesh config",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "default",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "default",
+						Namespace: "root-namespace",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+						},
+					},
+				},
+			},
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
+		},
+		{
+			name: "tie",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "one",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_UNSET,
 						},
 					},
 				},
@@ -1593,22 +1645,6 @@ func TestGetMostSpecificScopeConfig(t *testing.T) {
 					Spec: &v1beta1.PeerAuthentication{
 						Selector: &type_beta.WorkloadSelector{
 							MatchLabels: map[string]string{
-								"app": "foo",
-							},
-						},
-						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-						},
-					},
-				},
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "four",
-						Namespace: "my-ns",
-					},
-					Spec: &v1beta1.PeerAuthentication{
-						Selector: &type_beta.WorkloadSelector{
-							MatchLabels: map[string]string{
 								"stage": "prod",
 							},
 						},
@@ -1619,11 +1655,6 @@ func TestGetMostSpecificScopeConfig(t *testing.T) {
 				},
 			},
 			want: &v1beta1.PeerAuthentication{
-				Selector: &type_beta.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "foo",
-					},
-				},
 				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
 					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 				},
@@ -1666,7 +1697,7 @@ func TestGetMostSpecificScopeConfig(t *testing.T) {
 				},
 				{
 					ConfigMeta: model.ConfigMeta{
-						Name:      "two",
+						Name:      "foo",
 						Namespace: "my-ns",
 					},
 					Spec: &v1beta1.PeerAuthentication{
@@ -1679,11 +1710,6 @@ func TestGetMostSpecificScopeConfig(t *testing.T) {
 				},
 			},
 			want: &v1beta1.PeerAuthentication{
-				Selector: &type_beta.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "foo",
-					},
-				},
 				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
 					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 				},
@@ -1705,7 +1731,7 @@ func TestGetMostSpecificScopeConfig(t *testing.T) {
 				},
 				{
 					ConfigMeta: model.ConfigMeta{
-						Name:      "two",
+						Name:      "foo",
 						Namespace: "my-ns",
 					},
 					Spec: &v1beta1.PeerAuthentication{
@@ -1718,11 +1744,6 @@ func TestGetMostSpecificScopeConfig(t *testing.T) {
 				},
 			},
 			want: &v1beta1.PeerAuthentication{
-				Selector: &type_beta.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "foo",
-					},
-				},
 				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
 					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 				},
@@ -1755,7 +1776,7 @@ func TestGetMostSpecificScopeConfig(t *testing.T) {
 				},
 				{
 					ConfigMeta: model.ConfigMeta{
-						Name:      "two",
+						Name:      "foo",
 						Namespace: "my-ns",
 					},
 					Spec: &v1beta1.PeerAuthentication{
@@ -1768,21 +1789,311 @@ func TestGetMostSpecificScopeConfig(t *testing.T) {
 				},
 			},
 			want: &v1beta1.PeerAuthentication{
-				Selector: &type_beta.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "foo",
-					},
-				},
 				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
 					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+				},
+			},
+		},
+		{
+			name: "port level",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "default",
+						Namespace: "root-namespace",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "foo",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+							80: &v1beta1.PeerAuthentication_MutualTLS{
+								Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+				},
+				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+					80: &v1beta1.PeerAuthentication_MutualTLS{
+						Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+					},
+				},
+			},
+		},
+		{
+			name: "port level: overwrite",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "default",
+						Namespace: "root-namespace",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "foo",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+							80: &v1beta1.PeerAuthentication_MutualTLS{
+								Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+							},
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "bar",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+							80: &v1beta1.PeerAuthentication_MutualTLS{
+								Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+				},
+				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+					80: &v1beta1.PeerAuthentication_MutualTLS{
+						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+					},
+				},
+			},
+		},
+		{
+			name: "port level: addition",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "default",
+						Namespace: "root-namespace",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "foo",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+							80: &v1beta1.PeerAuthentication_MutualTLS{
+								Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+							},
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "bar",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+							70: &v1beta1.PeerAuthentication_MutualTLS{
+								Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+				},
+				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+					70: &v1beta1.PeerAuthentication_MutualTLS{
+						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+					},
+					80: &v1beta1.PeerAuthentication_MutualTLS{
+						Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+					},
+				},
+			},
+		},
+		{
+			name: "port level: inherit",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "default",
+						Namespace: "root-namespace",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "foo",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+							80: &v1beta1.PeerAuthentication_MutualTLS{},
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "bar",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+							70: &v1beta1.PeerAuthentication_MutualTLS{
+								Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+				},
+				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+					70: &v1beta1.PeerAuthentication_MutualTLS{
+						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+					},
+					80: &v1beta1.PeerAuthentication_MutualTLS{
+						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+					},
+				},
+			},
+		},
+		{
+			name: "port level: inherit from strongest",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "default",
+						Namespace: "root-namespace",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "foo",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+						},
+						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+							80: &v1beta1.PeerAuthentication_MutualTLS{
+								Mode: v1beta1.PeerAuthentication_MutualTLS_UNSET,
+							},
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:      "bar",
+						Namespace: "my-ns",
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						// UNSET workload level, which will be inherited from mesh (which is STRICT)
+					},
+				},
+			},
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+				},
+				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+					80: &v1beta1.PeerAuthentication_MutualTLS{
+						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+					},
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getMostSpecificScopeConfig("root-namespace", tt.configs); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getMostSpecificScopeConfig() = %v, want %v", got, tt.want)
+			if got := composePeerAuthentication("root-namespace", tt.configs); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("composePeerAuthentication() = %v, want %v", got, tt.want)
 			}
 		})
 	}

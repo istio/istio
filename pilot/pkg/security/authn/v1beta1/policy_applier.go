@@ -172,7 +172,7 @@ func NewPolicyApplier(rootNamespace string,
 		jwtPolicies:            jwtPolicies,
 		peerPolices:            peerPolicies,
 		processedJwtRules:      processedJwtRules,
-		consolidatedPeerPolicy: getMostSpecificScopeConfig(rootNamespace, peerPolicies),
+		consolidatedPeerPolicy: composePeerAuthentication(rootNamespace, peerPolicies),
 		alphaApplier:           alpha_applier.NewPolicyApplier(policy),
 		hasAlphaMTLSPolicy:     alpha_applier.GetMutualTLS(policy) != nil,
 	}
@@ -323,61 +323,119 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 	}
 }
 
-// getMostSpecificScopeConfig returns the config with the most specific scope, i.e config with
-// non-empty selector should be preferred over those without, one in non-root namespace should be
-// preferred over those in root namespace. Where there are more than one config in the same
-// scope, pick the one with stronger security (STRICT > PERMISSIVE > DISABLE). In a tie, the first
-// in the list will be used (typically, the list is passed in sorted order).
-// The input configs is assumed to be a short list of configs that should be considerred for an
-// workload.
-func getMostSpecificScopeConfig(rootNamespace string, configs []*model.Config) *v1beta1.PeerAuthentication {
-	// 0 - workload-specific config, define in the same namespace as workload (non-root namespace).
-	// 1 - workload-specific config, define in the root namespace.
-	// 2 - namespace level config (i.e config without selector, in non-root namespace)
-	// 3 - mesh level config (i.e config without selector, in root-namespace)
-	policiesByScope := make([][]*v1beta1.PeerAuthentication, 4)
+// composePeerAuthentication returns the effective PeerAuthentication given the list of applicable
+// configs. This list should contains at most 1 mesh-level and 1 namespace-level configs.
+// Workload-level configs should not be in root namespace (this should be guaranteed by the caller,
+// though they will be safely ignored in this function). If the input config list is empty, returns
+// nil which can be used to indicate no applicable (beta) policy exist in order to trigger fallback
+// to alpha policy. This can be simplified once we deprecate alpha policy.
+// If there is at least one applicable config, returns should be not nil, and is a combined policy
+// based on following rules:
+// - It should have the setting from the most narrow scope (i.e workload-level is  preferred over
+// namespace-level, which is preferred over mesh-level).
+// - When there are more than one policy in the same scope (i.e workload-level), the one with
+// stronger security (STRICT > PERMISSIVE > DISABLE) is preferred.
+// - In a tie, the first in the list will be used (typically, the list is passed in sorted order by
+// timestamp, so it's more or less the latest).
+// - Port-level setting will be combined in similar manner: if there are more than 1 policy define
+// port-level mTLS for the same port, the stronger one is used.
+// - UNSET will be replaced with the setting from the parrent. I.e UNSET port-level config will be
+// replaced with config from workload-level, UNSET in workload-level config will be replaced with
+// one in namespace-level and so on.
+func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v1beta1.PeerAuthentication {
+	var meshPolicy, namespacePolicy *v1beta1.PeerAuthentication
 
-	// configByScope := make([]*model.Config, 4)
+	// Track number of workload level policies for early return.
+	numWorkloadLevelPolicies := 0
 
+	// First round to find mesh and namespace level policy.
 	for _, cfg := range configs {
 		spec := cfg.Spec.(*v1beta1.PeerAuthentication)
-		level := 0
-		if cfg.Namespace == rootNamespace {
-			level = 1
-		}
-		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
-			level += 2
-		}
-		policiesByScope[level] = append(policiesByScope[level], spec)
-	}
-
-	parentMtls := &v1beta1.PeerAuthentication_MutualTLS{
-		Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-	}
-	var candidatePolicy *v1beta1.PeerAuthentication
-	// Consolidate policies in each scope, start with the mesh so we can handle inheritance.
-	for idx := range policiesByScope {
-		scopeLevel := len(policiesByScope) - idx - 1
-		policies := policiesByScope[scopeLevel]
-		var candidateForScope *v1beta1.PeerAuthentication
-		for _, policy := range policies {
-			if policy.Mtls == nil || policy.Mtls.Mode == v1beta1.PeerAuthentication_MutualTLS_UNSET {
-				policy.Mtls = parentMtls
-			}
-			if isStrictlyStronger(policy, candidateForScope) {
-				candidateForScope = policy
-			}
-		}
-		// Both scope level 0 and 1 are workload specific, they share the same parent scope (i.e namespace)
-		if scopeLevel > 1 && candidateForScope != nil {
-			parentMtls = candidateForScope.Mtls
-		}
-		if candidateForScope != nil {
-			candidatePolicy = candidateForScope
+		if cfg.Namespace == rootNamespace && spec.Selector == nil {
+			meshPolicy = spec
+		} else if spec.Selector == nil {
+			namespacePolicy = spec
+		} else if cfg.Namespace != rootNamespace {
+			numWorkloadLevelPolicies++
 		}
 	}
 
-	return candidatePolicy
+	if meshPolicy == nil && namespacePolicy == nil && numWorkloadLevelPolicies == 0 {
+		return nil
+	}
+
+	// Initial parentPolicy is set to a default policy if there is none.
+	parentPolicy := v1beta1.PeerAuthentication{
+		Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+			Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+		},
+	}
+
+	if meshPolicy != nil && meshPolicy.Mtls != nil && meshPolicy.Mtls.Mode != v1beta1.PeerAuthentication_MutualTLS_UNSET {
+		// Switch to to mesh mtls if it is defined.
+		parentPolicy.Mtls = meshPolicy.Mtls
+	}
+
+	if namespacePolicy != nil && namespacePolicy.Mtls != nil && namespacePolicy.Mtls.Mode != v1beta1.PeerAuthentication_MutualTLS_UNSET {
+		// Switch to to namespace mtls if it is defined.
+		parentPolicy.Mtls = namespacePolicy.Mtls
+	}
+
+	if numWorkloadLevelPolicies == 0 {
+		return &parentPolicy
+	}
+
+	consolidateWorkloadLevelPolicy := v1beta1.PeerAuthentication{
+		Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+			Mode: v1beta1.PeerAuthentication_MutualTLS_UNSET,
+		},
+	}
+
+	// Second round to handle workload level policies. For each policy:
+	// - If its workload-level mTLS is not defined or is UNSET, treat it as if it has the parent mTLS.
+	// - If the policy mTLS is "strictly stronger" than the consolidation, update the consolidation's
+	// mTLS to that.
+	// - If the policy has port-level mTLS and is "strictly stronger" than the one in consolidation
+	// (if exists), copy it to consolidation.
+	// - If the port-level mTLS is UNSET, mark the port and do another round of reconcile with workload level.
+	unsetPorts := make(map[uint32]bool)
+	for _, cfg := range configs {
+		spec := cfg.Spec.(*v1beta1.PeerAuthentication)
+		// Ignore namespace and mesh level policies. Also ignore policies defined in root namespace
+		// but have selector (only mesh-level policy can be defined in root namespace).
+		if cfg.Namespace == rootNamespace || spec.Selector == nil {
+			continue
+		}
+
+		if spec.Mtls != nil &&
+			spec.Mtls.Mode != v1beta1.PeerAuthentication_MutualTLS_UNSET &&
+			isStrictlyStronger(spec, &consolidateWorkloadLevelPolicy) {
+			consolidateWorkloadLevelPolicy.Mtls = spec.Mtls
+		} else {
+			consolidateWorkloadLevelPolicy.Mtls = parentPolicy.Mtls
+		}
+
+		for port, mtls := range spec.PortLevelMtls {
+			if consolidateWorkloadLevelPolicy.PortLevelMtls == nil {
+				consolidateWorkloadLevelPolicy.PortLevelMtls = make(map[uint32]*v1beta1.PeerAuthentication_MutualTLS)
+			}
+
+			if mtls.Mode == v1beta1.PeerAuthentication_MutualTLS_UNSET {
+				unsetPorts[port] = true
+				// mtls = consolidateWorkloadLevelPolicy.Mtls
+			} else if existing, exist := consolidateWorkloadLevelPolicy.PortLevelMtls[port]; !exist || getMutualTLSMode(mtls) > getMutualTLSMode(existing) {
+				consolidateWorkloadLevelPolicy.PortLevelMtls[port] = mtls
+			}
+		}
+	}
+
+	for port := range unsetPorts {
+		if existing, exist := consolidateWorkloadLevelPolicy.PortLevelMtls[port]; !exist || getMutualTLSMode(consolidateWorkloadLevelPolicy.Mtls) > getMutualTLSMode(existing) {
+			consolidateWorkloadLevelPolicy.PortLevelMtls[port] = consolidateWorkloadLevelPolicy.Mtls
+		}
+	}
+
+	return &consolidateWorkloadLevelPolicy
 }
 
 func isStrictlyStronger(left, right *v1beta1.PeerAuthentication) bool {
