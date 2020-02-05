@@ -2246,7 +2246,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			thriftProxies[i] = buildThriftProxy(opt.thriftOpts)
 
 			if pluginParams.Service != nil {
-				quotas = opts.push.IstioConfigStore.QuotaSpecByDestination(&model.ServiceInstance{
+				quotas = opts.push.QuotaSpecByDestination(&model.ServiceInstance{
 					Service: pluginParams.Service,
 				})
 			}

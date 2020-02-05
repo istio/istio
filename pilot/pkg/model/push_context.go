@@ -76,6 +76,10 @@ type PushContext struct {
 	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
+	// QuotaSpec has all quota specs
+	QuotaSpec []Config `json:"-"`
+	// QuotaSpecBindings has all quota bindings
+	QuotaSpecBinding []Config `json:"-"`
 
 	// VirtualService related
 	privateVirtualServicesByNamespace map[string][]Config
@@ -929,7 +933,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
 
 	for k := range pushReq.ConfigTypesUpdated {
 		switch k {
@@ -956,6 +960,9 @@ func (ps *PushContext) updateContext(
 			collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(),
 			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
 			authnChanged = true
+		case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(),
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
+			quotasChanged = true
 		}
 	}
 
@@ -1023,6 +1030,18 @@ func (ps *PushContext) updateContext(
 	} else {
 		ps.gatewaysByNamespace = oldPushContext.gatewaysByNamespace
 		ps.allGateways = oldPushContext.allGateways
+	}
+
+	if quotasChanged {
+		if err := ps.initQuotaSpecs(env); err != nil {
+			return err
+		}
+		if err := ps.initQuotaSpecBindings(env); err != nil {
+			return err
+		}
+	} else {
+		ps.QuotaSpec = oldPushContext.QuotaSpec
+		ps.QuotaSpecBinding = oldPushContext.QuotaSpecBinding
 	}
 
 	// Must be initialized in the end
@@ -1696,6 +1715,18 @@ func (ps *PushContext) initMeshNetworks() {
 	}
 }
 
+func (ps *PushContext) initQuotaSpecs(env *Environment) error {
+	var err error
+	ps.QuotaSpec, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
+	return err
+}
+
+func (ps *PushContext) initQuotaSpecBindings(env *Environment) error {
+	var err error
+	ps.QuotaSpecBinding, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
+	return err
+}
+
 func getNetworkRegistry(network *meshconfig.Network) string {
 	var registryName string
 	for _, eps := range network.Endpoints {
@@ -1737,4 +1768,8 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 	}
 
 	return nil
+}
+
+func (ps *PushContext) QuotaSpecByDestination(instance *ServiceInstance) []Config {
+	return filterQuotaSpecsByDestination(instance, ps.QuotaSpecBinding, ps.QuotaSpec)
 }
