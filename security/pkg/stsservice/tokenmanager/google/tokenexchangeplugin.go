@@ -52,24 +52,24 @@ var (
 
 // Plugin supports token exchange with Google OAuth 2.0 authorization server.
 type Plugin struct {
-	hTTPClient  *http.Client
+	httpClient  *http.Client
 	trustDomain string
 	// tokens is the cache for fetched tokens.
 	// map key is token type, map value is tokenInfo.
 	tokens           sync.Map
-	gCPProjectNumber string
-	gKEClusterURL    string
+	gcpProjectNumber string
+	gkeClusterURL    string
 }
 
 // CreateTokenManagerPlugin creates a plugin that fetches token from a Google OAuth 2.0 authorization server.
-func CreateTokenManagerPlugin(trustDomain string, gCPProjectNumber, gKEClusterURL string) (*Plugin, error) {
+func CreateTokenManagerPlugin(trustDomain string, gcpProjectNumber, gkeClusterURL string) (*Plugin, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		pluginLog.Errorf("Failed to get SystemCertPool: %v", err)
 		return nil, err
 	}
 	p := &Plugin{
-		hTTPClient: &http.Client{
+		httpClient: &http.Client{
 			Timeout: httpTimeOutInSec * time.Second,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
@@ -78,8 +78,8 @@ func CreateTokenManagerPlugin(trustDomain string, gCPProjectNumber, gKEClusterUR
 			},
 		},
 		trustDomain:      trustDomain,
-		gCPProjectNumber: gCPProjectNumber,
-		gKEClusterURL:    gKEClusterURL,
+		gcpProjectNumber: gcpProjectNumber,
+		gkeClusterURL:    gkeClusterURL,
 	}
 	return p, nil
 }
@@ -122,7 +122,7 @@ func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequest
 	if len(parameters.Scope) != 0 {
 		reqScope = parameters.Scope
 	}
-	aud := fmt.Sprintf("identitynamespace:%s:%s", p.trustDomain, p.gKEClusterURL)
+	aud := fmt.Sprintf("identitynamespace:%s:%s", p.trustDomain, p.gkeClusterURL)
 	query := map[string]string{
 		"audience":           aud,
 		"grantType":          parameters.GrantType,
@@ -194,7 +194,7 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, elapsedTime time.Duration, err error) {
 	start := time.Now()
 	for i := 0; i < maxRequestRetry; i++ {
-		resp, err = p.hTTPClient.Do(req)
+		resp, err = p.httpClient.Do(req)
 		if err != nil {
 			pluginLog.Errorf("failed to send out request: %v (response: %v)", err, resp)
 		}
@@ -246,7 +246,7 @@ func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenRespon
 	query.Scope = append(query.Scope, scope)
 
 	jsonQuery, _ := json.Marshal(query)
-	endpoint := fmt.Sprintf(accessTokenEndpoint, p.gCPProjectNumber)
+	endpoint := fmt.Sprintf(accessTokenEndpoint, p.gcpProjectNumber)
 	req, _ := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
 	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("Authorization", "Bearer "+fResp.AccessToken)
