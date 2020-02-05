@@ -7863,7 +7863,7 @@ spec:
 {{- end }}
           ports:
             {{- range $key, $val := $gateway.ports }}
-            - containerPort: {{ $val.port }}
+            - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
             {{- range $key, $val := $gateway.meshExpansionPorts }}
             - containerPort: {{ $val.port }}
@@ -8775,9 +8775,10 @@ gateways:
       targetPort: 15020
       name: status-port
     - port: 80
-      targetPort: 80
+      targetPort: 8080
       name: http2
     - port: 443
+      targetPort: 8443
       name: https
     - port: 15029
       targetPort: 15029
@@ -39077,9 +39078,10 @@ spec:
             targetPort: 15020
             name: status-port
           - port: 80
-            targetPort: 80
+            targetPort: 8080
             name: http2
           - port: 443
+            targetPort: 8443
             name: https
           - port: 15029
             targetPort: 15029
@@ -39104,7 +39106,7 @@ spec:
             targetPort: 8060
             name: tcp-citadel-grpc-tls
           - port: 853
-            targetPort: 853
+            targetPort: 8853
             name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs
