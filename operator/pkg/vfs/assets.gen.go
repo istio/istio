@@ -9408,6 +9408,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- end }}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+      privileged: {{ .Values.global.proxy.privileged }}
       capabilities:
     {{- if not .Values.istio_cni.enabled }}
         add:
@@ -9416,11 +9417,16 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     {{- end }}
         drop:
         - ALL
-      privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: false
+    {{- if not .Values.istio_cni.enabled }}
+      runAsGroup: 0
+      runAsNonRoot: false
+      runAsUser: 0
+    {{- else }}
       runAsGroup: 1337
-      runAsNonRoot: true
       runAsUser: 1337
+      runAsNonRoot: true
+    {{- end }}
     restartPolicy: Always
   {{ end -}}
   {{- if eq .Values.global.proxy.enableCoreDump true }}
@@ -10966,6 +10972,7 @@ template: |
   {{- end }}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+      privileged: {{ .Values.global.proxy.privileged }}
       capabilities:
     {{- if not .Values.istio_cni.enabled }}
         add:
@@ -10974,11 +10981,16 @@ template: |
     {{- end }}
         drop:
         - ALL
-      privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: false
+    {{- if not .Values.istio_cni.enabled }}
+      runAsGroup: 0
+      runAsNonRoot: false
+      runAsUser: 0
+    {{- else }}
       runAsGroup: 1337
-      runAsNonRoot: true
       runAsUser: 1337
+      runAsNonRoot: true
+    {{- end }}
     restartPolicy: Always
   {{ end -}}
   {{- if eq .Values.global.proxy.enableCoreDump true }}
