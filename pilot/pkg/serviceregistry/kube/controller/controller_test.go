@@ -25,6 +25,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	coreV1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -105,12 +106,14 @@ func NewFakeXDS() *FakeXdsUpdater {
 }
 
 func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, namespace string, entry []*model.IstioEndpoint) error {
-	select {
-	case fx.Events <- XdsEvent{Type: "eds", ID: hostname}:
-	default:
+	if len(entry) > 0 {
+		select {
+		case fx.Events <- XdsEvent{Type: "eds", ID: hostname}:
+		default:
+		}
+
 	}
 	return nil
-
 }
 
 // SvcUpdate is called when a service port mapping definition is updated.
@@ -756,9 +759,9 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	portNames := []string{"tcp-port"}
 	createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, t)
 	createEndpoints(controller, "svc2", "nsA", portNames, svc2Ips, t)
-	for i := 0; i < 2; i++ {
-		<-fx.Events
-	}
+
+	// We expect only one EDS update with Endpoints.
+	<-fx.Events
 
 	hostname := kube.ServiceHostname("svc1", "nsA", domainSuffix)
 	svc, err := controller.GetService(hostname)
@@ -1157,7 +1160,11 @@ func TestController_ExternalNameService(t *testing.T) {
 func createEndpoints(controller *Controller, name, namespace string, portNames, ips []string, t *testing.T) {
 	eas := make([]coreV1.EndpointAddress, 0)
 	for _, ip := range ips {
-		eas = append(eas, coreV1.EndpointAddress{IP: ip})
+		eas = append(eas, coreV1.EndpointAddress{IP: ip, TargetRef: &v1.ObjectReference{
+			Kind:      "Pod",
+			Name:      name,
+			Namespace: namespace,
+		}})
 	}
 
 	eps := make([]coreV1.EndpointPort, 0)
@@ -1429,8 +1436,18 @@ func TestEndpointUpdate(t *testing.T) {
 	controller, fx := newFakeController(t)
 	defer controller.Stop()
 
-	// 1. incremental eds for normal service endpoint update
+	pod1 := generatePod("128.0.0.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pods := []*coreV1.Pod{pod1}
+	addPods(t, controller, pods...)
+	for _, pod := range pods {
+		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+			t.Errorf("wait for pod err: %v", err)
+		}
+		// pod first time occur will trigger xds push
+		fx.Wait("xds")
+	}
 
+	// 1. incremental eds for normal service endpoint update
 	createService(controller, "svc1", "nsa", nil,
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	if ev := fx.Wait("service"); ev == nil {
@@ -1470,5 +1487,49 @@ func TestEndpointUpdate(t *testing.T) {
 	updateEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, t)
 	if ev := fx.Wait("xds"); ev == nil {
 		t.Errorf("Timeout xds push")
+	}
+}
+
+// Validates that when Pilot sees Endpoint before the corresponding Pod, it loads Pod from K8S and proceed.
+func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
+	// Setup kube caches
+	controller, fx := newFakeController(t)
+	defer controller.Stop()
+	pod1 := generatePod("172.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pod2 := generatePod("172.0.1.2", "pod2", "nsA", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
+
+	pods := []*coreV1.Pod{pod1, pod2}
+	nodes := []*coreV1.Node{
+		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"}),
+		generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2"}),
+	}
+	addNodes(t, controller, nodes...)
+	addPods(t, controller, pods...)
+	for _, pod := range pods {
+		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+			t.Errorf("wait for pod err: %v", err)
+		}
+		// pod first time occur will trigger xds push
+		fx.Wait("xds")
+	}
+
+	// Create Endpoints for pod1 and validate that EDS is triggered.
+	pod1Ips := []string{"172.0.1.1"}
+	portNames := []string{"tcp-port"}
+	createEndpoints(controller, "pod1", "nsA", portNames, pod1Ips, t)
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Errorf("Timeout incremental eds")
+	}
+
+	// Now delete pod2, from PodCache and send Endpoints. This simulates the case that endpoint comes
+	// when PodCache does not yet have entry for the pod.
+	controller.pods.event(pod2, model.EventDelete)
+
+	pod2Ips := []string{"172.0.1.2"}
+	createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)
+
+	// Validate that EDS is triggered with endpoints.
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Errorf("Timeout incremental eds")
 	}
 }
