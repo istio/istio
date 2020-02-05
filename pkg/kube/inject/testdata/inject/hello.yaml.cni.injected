@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-validation"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -181,9 +181,11 @@ spec:
         - '*'
         - -d
         - "15020"
+        - --run-validation
+        - --skip-rule-apply
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
-        name: istio-init
+        name: istio-validation
         resources:
           limits:
             cpu: 100m
@@ -194,9 +196,6 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
             drop:
             - ALL
           privileged: false
