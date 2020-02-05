@@ -1110,16 +1110,6 @@ func getAnnotations(d *appsv1.Deployment) map[string]string {
 	return d.Spec.Template.ObjectMeta.Annotations
 }
 
-func istioCerts(d *appsv1.Deployment) *corev1.Volume {
-	for i := 0; i < len(d.Spec.Template.Spec.Volumes); i++ {
-		v := &d.Spec.Template.Spec.Volumes[i]
-		if v.Name == "istio-certs" {
-			return v
-		}
-	}
-	return nil
-}
-
 func istioInit(d *appsv1.Deployment, t *testing.T) *corev1.Container {
 	t.Helper()
 	for i := 0; i < len(d.Spec.Template.Spec.InitContainers); i++ {
