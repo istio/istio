@@ -22,14 +22,21 @@ import (
 	"path"
 	"path/filepath"
 
-	"istio.io/istio/pkg/test/util/retry"
-
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/core/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+)
+
+func DefaultValidatingWebhookConfigurationName(config Config) string {
+	return fmt.Sprintf("istiod-%v", config.SystemNamespace)
+
+}
+
+const (
+	DefaultMutatingWebhookConfigurationName = "istio-sidecar-injector"
 )
 
 type operatorComponent struct {
@@ -104,7 +111,7 @@ func (i *operatorComponent) Dump() {
 	}
 }
 
-func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {
+func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {
 	scopes.CI.Infof("=== Istio Component Config ===")
 	scopes.CI.Infof("\n%s", cfg.String())
 	scopes.CI.Infof("================================")
@@ -145,9 +152,9 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 		"--skip-confirmation",
 		"--logtostderr",
 		"-f", iopFile,
-		"--force", // Blocked by https://github.com/istio/istio/issues/19009
 		"--set", "values.global.controlPlaneSecurityEnabled=false",
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
+		"--wait",
 	}
 	// If control plane values set, assume this includes the full set of values, and .Values is
 	// just for helm use case. Otherwise, include all values.
@@ -163,14 +170,9 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 	}
 
 	if !cfg.SkipWaitForValidationWebhook {
-		webhookService := "istio-galley"
-		if cfg.IsIstiodEnabled() {
-			webhookService = "istio-pilot"
-		}
-
 		// Wait for the validation webhook to come online before continuing.
-		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, webhookService); err != nil {
-			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, webhookService, err)
+		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-pilot"); err != nil {
+			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istio-pilot", err)
 			scopes.CI.Info(err.Error())
 			i.Dump()
 			return nil, err
@@ -182,12 +184,6 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 			i.Dump()
 			return nil, err
 		}
-	}
-
-	// TODO(https://github.com/istio/istio/issues/19602) use --wait
-	if _, err := env.WaitUntilPodsAreReady(env.NewPodFetch(cfg.SystemNamespace), retry.Timeout(cfg.DeployTimeout)); err != nil {
-		scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
-		return nil, err
 	}
 
 	return i, nil
