@@ -54,7 +54,7 @@ type v1beta1PolicyApplier struct {
 	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
 	processedJwtRules []*v1beta1.JWTRule
 
-	consolidatedPeerPolicy *model.Config
+	consolidatedPeerPolicy *v1beta1.PeerAuthentication
 
 	hasAlphaMTLSPolicy bool
 	alphaApplier       authn.PolicyApplier
@@ -141,7 +141,7 @@ func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model
 	}
 	effectiveMTLSMode := model.MTLSPermissive
 	if a.consolidatedPeerPolicy != nil {
-		effectiveMTLSMode = GetMutualTLSMode(a.consolidatedPeerPolicy.Spec.(*v1beta1.PeerAuthentication))
+		effectiveMTLSMode = getMutualTLSMode(a.consolidatedPeerPolicy.Mtls)
 	}
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v in %s mode", node.ID, effectiveMTLSMode)
 	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node)
@@ -172,7 +172,7 @@ func NewPolicyApplier(rootNamespace string,
 		jwtPolicies:            jwtPolicies,
 		peerPolices:            peerPolicies,
 		processedJwtRules:      processedJwtRules,
-		consolidatedPeerPolicy: GetMostSpecificScopeConfig(rootNamespace, peerPolicies),
+		consolidatedPeerPolicy: getMostSpecificScopeConfig(rootNamespace, peerPolicies),
 		alphaApplier:           alpha_applier.NewPolicyApplier(policy),
 		hasAlphaMTLSPolicy:     alpha_applier.GetMutualTLS(policy) != nil,
 	}
@@ -308,13 +308,10 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 	}
 }
 
-// GetMutualTLSMode returns the MutualTLSMode enum corresponding to the given peer authentication policy.
-// If the input authentication is nil, returns MTLSPermissive.
-func GetMutualTLSMode(peer *v1beta1.PeerAuthentication) model.MutualTLSMode {
-	if peer == nil || peer.Mtls == nil {
-		return model.MTLSPermissive
-	}
-	switch peer.Mtls.Mode {
+// getMutualTLSMode returns the MutualTLSMode enum corresponding peer MutualTLS settings.
+// Input cannot be nil.
+func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTLSMode {
+	switch mtls.Mode {
 	case v1beta1.PeerAuthentication_MutualTLS_DISABLE:
 		return model.MTLSDisable
 	case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE:
@@ -322,25 +319,25 @@ func GetMutualTLSMode(peer *v1beta1.PeerAuthentication) model.MutualTLSMode {
 	case v1beta1.PeerAuthentication_MutualTLS_STRICT:
 		return model.MTLSStrict
 	default:
-		// Should never reach here
-		log.Errorf("Unknown peer authentication %#v", peer)
 		return model.MTLSUnknown
 	}
 }
 
-// GetMostSpecificScopeConfig returns the config with the most specific scope, i.e config with
+// getMostSpecificScopeConfig returns the config with the most specific scope, i.e config with
 // non-empty selector should be preferred over those without, one in non-root namespace should be
 // preferred over those in root namespace. Where there are more than one config in the same
 // scope, pick the one with stronger security (STRICT > PERMISSIVE > DISABLE). In a tie, the first
 // in the list will be used (typically, the list is passed in sorted order).
 // The input configs is assumed to be a short list of configs that should be considerred for an
 // workload.
-func GetMostSpecificScopeConfig(rootNamespace string, configs []*model.Config) *model.Config {
+func getMostSpecificScopeConfig(rootNamespace string, configs []*model.Config) *v1beta1.PeerAuthentication {
 	// 0 - workload-specific config, define in the same namespace as workload (non-root namespace).
 	// 1 - workload-specific config, define in the root namespace.
 	// 2 - namespace level config (i.e config without selector, in non-root namespace)
 	// 3 - mesh level config (i.e config without selector, in root-namespace)
-	configByScope := make([]*model.Config, 4)
+	policiesByScope := make([][]*v1beta1.PeerAuthentication, 4)
+
+	// configByScope := make([]*model.Config, 4)
 
 	for _, cfg := range configs {
 		spec := cfg.Spec.(*v1beta1.PeerAuthentication)
@@ -351,24 +348,42 @@ func GetMostSpecificScopeConfig(rootNamespace string, configs []*model.Config) *
 		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
 			level += 2
 		}
-		if isStrictlyStronger(spec, configByScope[level]) {
-			configByScope[level] = cfg
+		policiesByScope[level] = append(policiesByScope[level], spec)
+	}
+
+	parentMtls := &v1beta1.PeerAuthentication_MutualTLS{
+		Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+	}
+	var candidatePolicy *v1beta1.PeerAuthentication
+	// Consolidate policies in each scope, start with the mesh so we can handle inheritance.
+	for idx := range policiesByScope {
+		scopeLevel := len(policiesByScope) - idx - 1
+		policies := policiesByScope[scopeLevel]
+		var candidateForScope *v1beta1.PeerAuthentication
+		for _, policy := range policies {
+			if policy.Mtls == nil || policy.Mtls.Mode == v1beta1.PeerAuthentication_MutualTLS_UNSET {
+				policy.Mtls = parentMtls
+			}
+			if isStrictlyStronger(policy, candidateForScope) {
+				candidateForScope = policy
+			}
+		}
+		// Both scope level 0 and 1 are workload specific, they share the same parent scope (i.e namespace)
+		if scopeLevel > 1 && candidateForScope != nil {
+			parentMtls = candidateForScope.Mtls
+		}
+		if candidateForScope != nil {
+			candidatePolicy = candidateForScope
 		}
 	}
 
-	for _, cfg := range configByScope {
-		if cfg != nil {
-			return cfg
-		}
-	}
-
-	return nil
+	return candidatePolicy
 }
 
-func isStrictlyStronger(spec *v1beta1.PeerAuthentication, cfg *model.Config) bool {
-	if cfg == nil {
+func isStrictlyStronger(left, right *v1beta1.PeerAuthentication) bool {
+	if right == nil {
 		return true
 	}
 
-	return GetMutualTLSMode(spec) > GetMutualTLSMode(cfg.Spec.(*v1beta1.PeerAuthentication))
+	return getMutualTLSMode(left.Mtls) > getMutualTLSMode(right.Mtls)
 }
