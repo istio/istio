@@ -3194,10 +3194,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -3641,10 +3641,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -3789,10 +3789,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -3915,10 +3915,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -4590,10 +4590,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -6811,6 +6811,9 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
         {{- if .Values.global.istiod.enabled }}
           - --controlPlaneAuthPolicy
           - NONE
@@ -7910,6 +7913,9 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
           {{- if .Values.global.istiod.enabled }}
           - --controlPlaneAuthPolicy
           - NONE
@@ -12026,6 +12032,9 @@ template: |
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
     - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
+  {{- end }}
+  {{- if .Values.global.sts.servicePort }}
+    - --stsPort={{ .Values.global.sts.servicePort }}
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -31188,8 +31197,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.9.0
-appVersion: 1.9.0
+version: 1.13.0
+appVersion: 1.13.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -31798,7 +31807,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.9
+  tag: v1.13
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -39864,6 +39873,8 @@ spec:
         udsPath: ""
         token:
           aud: istio-ca
+      sts:
+        servicePort: 0
       meshNetworks: {}
       localityLbSetting:
         enabled: true

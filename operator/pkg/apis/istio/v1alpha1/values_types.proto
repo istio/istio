@@ -602,9 +602,17 @@ message GlobalConfig {
   // Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   string jwtPolicy = 57;
 
-  // The next available key is 58
+  // Specifies the configuration for Security Token Service.
+  STSConfig sts = 58;
+  // The next available key is 59
 }
 
+// Configuration for Security Token Service (STS) server.
+//
+// See https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16
+message STSConfig {
+  uint32 servicePort = 1;
+}
 
 message IstiodConfig {
   // If enabled, all control plane functionality will be handled by a single deployment.

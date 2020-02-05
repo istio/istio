@@ -60,7 +60,16 @@
               }
             },
             "call_credentials": {
+            {{ if .sts_port }}
+            "sts_service": {
+              "token_exchange_service_uri": "http://localhost:{{ .stsPort }}/token",
+              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+              "scope": "https://www.googleapis.com/auth/cloud-platform",
+            }
+            {{ else }}
               "google_compute_engine": {}
+            {{ end }}
             }
           }
         }

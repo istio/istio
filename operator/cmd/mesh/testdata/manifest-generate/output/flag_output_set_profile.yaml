@@ -2924,10 +2924,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -3373,10 +3373,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -3522,10 +3522,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -3649,10 +3649,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -4325,10 +4325,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -6673,6 +6673,9 @@ data:
           "udsPath": ""
         },
         "securityNamespace": "istio-system",
+        "sts": {
+          "servicePort": 0
+        },
         "tag": "latest",
         "telemetryNamespace": "istio-system",
         "tracer": {
@@ -6916,6 +6919,9 @@ data:
       {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
         - --statusPort
         - "{{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}"
+      {{- end }}
+      {{- if .Values.global.sts.servicePort }}
+        - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
       {{- if .Values.global.trustDomain }}
         - --trust-domain={{ .Values.global.trustDomain }}
