@@ -1,16 +1,6 @@
 gateways:
   enabled: true
   istio-ingressgateway:
-    sds:
-      enabled: false
-      image: node-agent-k8s
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-        limits:
-          cpu: 2000m
-          memory: 1024Mi
     ports:
       - port: 15020
         targetPort: 15020

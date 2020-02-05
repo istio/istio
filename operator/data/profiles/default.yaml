@@ -334,8 +334,6 @@ spec:
       outboundTrafficPolicy:
         mode: ALLOW_ANY
       sds:
-        enabled: false
-        udsPath: ""
         token:
           aud: istio-ca
       sts:
@@ -480,16 +478,6 @@ spec:
         zvpn:
           enabled: true
           suffix: global
-        sds:
-          enabled: false
-          image: node-agent-k8s
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:

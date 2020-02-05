@@ -7670,7 +7670,6 @@ spec:
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -8765,11 +8764,9 @@ data:
           }
         },
         "sds": {
-          "enabled": false,
           "token": {
             "aud": "istio-ca"
-          },
-          "udsPath": ""
+          }
         },
         "securityNamespace": "istio-system",
         "sts": {
