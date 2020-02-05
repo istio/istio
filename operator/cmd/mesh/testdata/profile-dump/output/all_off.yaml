@@ -233,16 +233,17 @@ values:
         targetPort: 8060
       - name: tcp-dns-tls
         port: 853
-        targetPort: 853
+        targetPort: 8853
       ports:
       - name: status-port
         port: 15020
         targetPort: 15020
       - name: http2
         port: 80
-        targetPort: 80
+        targetPort: 8080
       - name: https
         port: 443
+        targetPort: 8443
       - name: kiali
         port: 15029
         targetPort: 15029
