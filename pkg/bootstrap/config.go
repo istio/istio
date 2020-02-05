@@ -87,10 +87,12 @@ type Config struct {
 	PodIP               net.IP
 	SDSUDSPath          string
 	SDSTokenPath        string
+	STSPort             int
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
+	StsPort             int
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -121,11 +123,12 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath))
+		option.OutlierLogPath(cfg.OutlierLogPath),
+		option.STSPort(cfg.StsPort))
 
 	// Support passing extra info from node environment as metadata
 	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""
-	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, sdsEnabled)
+	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, sdsEnabled, cfg.STSPort)
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +415,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
 func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
-	sdsEnabled bool) (*model.NodeMetadata, map[string]interface{}, error) {
+	sdsEnabled bool, stsPort int) (*model.NodeMetadata, map[string]interface{}, error) {
 	meta := &model.NodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
@@ -444,6 +447,11 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 		// sds is enabled
 		meta.SdsEnabled = true
 		meta.SdsTrustJwt = true
+	}
+
+	// Add STS port into node metadata if it is not 0.
+	if stsPort != 0 {
+		meta.StsPort = string(stsPort)
 	}
 
 	return meta, untypedMeta, nil

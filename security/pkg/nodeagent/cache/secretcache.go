@@ -34,6 +34,8 @@ import (
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -235,13 +237,15 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		sdsFromFile = true
 		ns, err = sc.generateKeyCertFromExistingFiles(existingCertChainFile, existingKeyFile, token, connKey)
 	}
+
 	if sdsFromFile {
 		if err != nil {
 			cacheLog.Errorf("%s failed to generate secret for proxy: %v, by loading from files",
 				conIDresourceNamePrefix, err)
 			return nil, err
 		}
-		sc.secrets.Store(connKey, *ns)
+		// This is not stored - envoy will refresh when the cert is about to expire.
+		cacheLog.Infoa("GenerateSecret from file", resourceName)
 		return ns, nil
 	}
 
@@ -256,6 +260,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 			return nil, err
 		}
 
+		cacheLog.Infoa("GenerateSecret ", resourceName)
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
@@ -289,6 +294,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		CreatedTime:  t,
 		Version:      t.String(),
 	}
+	cacheLog.Infoa("Loaded root cert from certificate", resourceName)
 	sc.secrets.Store(connKey, *ns)
 	cacheLog.Debugf("%s successfully generate secret for proxy", conIDresourceNamePrefix)
 	return ns, nil
@@ -823,7 +829,10 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 	time.Sleep(time.Duration(randomizedInitialBackOffInMS) * time.Millisecond)
 	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
 
-	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
+	// Assign a unique request ID for all the retries.
+	reqID := uuid.New().String()
+
+	conIDresourceNamePrefix := cacheLogPrefixWithReqID(connKey.ConnectionID, connKey.ResourceName, reqID)
 	startTime := time.Now()
 	var certChainPEM []string
 	exchangedToken := providedExchangedToken
@@ -836,12 +845,13 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", conIDresourceNamePrefix)
 			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-				ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		} else {
-			requestErrorString = fmt.Sprintf("%s token exchange", conIDresourceNamePrefix)
+			requestErrorString = fmt.Sprintf("%s TokExch", conIDresourceNamePrefix)
 			p := sc.configOptions.Plugins[0]
 			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
 		}
+		cacheLog.Debugf("%s", requestErrorString)
 
 		if err == nil {
 			break

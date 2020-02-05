@@ -87,8 +87,6 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
       name: istio-ingressgateway
-    nodeAgent:
-      enabled: false
     pilot:
       enabled: true
       k8s:
@@ -622,7 +620,7 @@ spec:
         persist: false
         spanStorageType: badger
         storageClassName: ""
-        tag: "1.14"
+        tag: "1.16"
       nodeSelector: {}
       opencensus:
         exporters:

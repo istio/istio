@@ -51,7 +51,6 @@ template: |
   {{- end }}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
-      privileged: {{ .Values.global.proxy.privileged }}
       capabilities:
     {{- if not .Values.istio_cni.enabled }}
         add:
@@ -60,16 +59,11 @@ template: |
     {{- end }}
         drop:
         - ALL
+      privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: false
-    {{- if not .Values.istio_cni.enabled }}
-      runAsGroup: 0
-      runAsNonRoot: false
-      runAsUser: 0
-    {{- else }}
       runAsGroup: 1337
-      runAsUser: 1337
       runAsNonRoot: true
-    {{- end }}
+      runAsUser: 1337
     restartPolicy: Always
   {{ end -}}
   {{- if eq .Values.global.proxy.enableCoreDump true }}
@@ -245,8 +239,6 @@ template: |
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-    - name: SDS_ENABLED
-      value: "{{ .Values.global.sds.enabled }}"
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
@@ -363,24 +355,9 @@ template: |
     {{- end }}
     - mountPath: /etc/istio/proxy
       name: istio-envoy
-    {{- if .Values.global.sds.enabled }}
-    - mountPath: /var/run/sds
-      name: sds-uds-path
-      readOnly: true
-    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-    - mountPath: /var/run/secrets/tokens
-      name: istio-token
-    {{- end }}
-    {{- if .Values.global.sds.customTokenDirectory }}
-    - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
-      name: custom-sds-token
-      readOnly: true
-    {{- end }}
-    {{- else }}
     - mountPath: /etc/certs/
       name: istio-certs
       readOnly: true
-    {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
       name: lightstep-certs
@@ -401,25 +378,6 @@ template: |
   - emptyDir:
       medium: Memory
     name: istio-envoy
-  {{- if .Values.global.sds.enabled }}
-  - name: sds-uds-path
-    hostPath:
-      path: /var/run/sds
-  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-  - name: istio-token
-    projected:
-      sources:
-      - serviceAccountToken:
-          path: istio-token
-          expirationSeconds: 43200
-          audience: {{ .Values.global.sds.token.aud }}
-  {{- end }}
-  {{- if .Values.global.sds.customTokenDirectory }}
-  - name: custom-sds-token
-    secret:
-      secretName: sdstokensecret
-  {{- end }}
-  {{- else }}
   - name: istio-certs
     secret:
       optional: true
@@ -434,7 +392,6 @@ template: |
     {{ toYaml $value | indent 2 }}
     {{ end }}
     {{ end }}
-  {{- end }}
   {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
   - name: lightstep-certs
     secret:

@@ -158,6 +158,7 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	fmt.Println("STS server is up.")
 
 	// Create a SDS server talking to the fake servers
+	stsclient.GKEClusterURL = msts.FakeGKEClusterURL
 	stsclient.SecureTokenEndpoint = mockSTSServer.URL + "/v1/identitybindingtoken"
 	arg := Options{
 		EnableIngressGatewaySDS: false,

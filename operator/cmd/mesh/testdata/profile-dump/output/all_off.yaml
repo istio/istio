@@ -78,8 +78,6 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
     name: istio-ingressgateway
-  nodeAgent:
-    enabled: false
   pilot:
     enabled: false
     k8s:
@@ -150,12 +148,6 @@ components:
     enabled: false
   sidecarInjector:
     enabled: false
-    k8s:
-      replicaCount: 1
-      strategy:
-        rollingUpdate:
-          maxSurge: 100%
-          maxUnavailable: 25%
   telemetry:
     enabled: false
     k8s:
@@ -241,16 +233,17 @@ values:
         targetPort: 8060
       - name: tcp-dns-tls
         port: 853
-        targetPort: 853
+        targetPort: 8853
       ports:
       - name: status-port
         port: 15020
         targetPort: 15020
       - name: http2
         port: 80
-        targetPort: 80
+        targetPort: 8080
       - name: https
         port: 443
+        targetPort: 8443
       - name: kiali
         port: 15029
         targetPort: 15029
@@ -294,7 +287,7 @@ values:
       s390x: 2
     certificates: []
     configValidation: true
-    controlPlaneSecurityEnabled: false
+    controlPlaneSecurityEnabled: true
     defaultNodeSelector: {}
     defaultPodDisruptionBudget:
       enabled: true
@@ -304,7 +297,7 @@ values:
     disablePolicyChecks: true
     enableHelmTest: false
     enableTracing: true
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: ""
     imagePullSecrets: []
     istiod:
       enabled: true
@@ -406,6 +399,8 @@ values:
       token:
         aud: istio-ca
       udsPath: ""
+    sts:
+      servicePort: 0
     tracer:
       datadog:
         address: $(HOST_IP):8126
@@ -414,6 +409,11 @@ values:
         address: ""
         cacertPath: ""
         secure: true
+      stackdriver:
+        debug: false
+        maxNumberOfAnnotations: 200
+        maxNumberOfAttributes: 200
+        maxNumberOfMessageEvents: 200
       zipkin:
         address: ""
     trustDomain: cluster.local
@@ -544,8 +544,6 @@ values:
       reportBatchMaxTime: 1s
       sessionAffinityEnabled: false
       tolerations: []
-  nodeagent:
-    image: node-agent-k8s
   pilot:
     appNamespaces: []
     autoscaleEnabled: true
@@ -603,13 +601,11 @@ values:
     selfSigned: true
   sidecarInjectorWebhook:
     enableNamespacesByDefault: false
-    image: sidecar_injector
     injectLabel: istio-injection
     objectSelector:
       autoInject: true
       enabled: false
     rewriteAppHTTPProbe: false
-    selfSigned: false
   telemetry:
     enabled: true
     v1:
@@ -639,7 +635,7 @@ values:
       persist: false
       spanStorageType: badger
       storageClassName: ""
-      tag: "1.14"
+      tag: "1.16"
     nodeSelector: {}
     opencensus:
       exporters:

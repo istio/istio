@@ -19,10 +19,10 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.5-dev
+VERSION ?= 1.6-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.5-dev.1
+BASE_VERSION ?= 1.6-dev.1
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -87,12 +87,19 @@ export ISTIO_BIN=$(GOBIN)
 export ISTIO_OUT:=$(TARGET_OUT)
 export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
 
-# LOCAL_OUT should include architecture where we are currently running versus the desired.
-# This is used when we need to run a build artifact.
+# LOCAL_OUT should point to architecture where we are currently running versus the desired.
+# This is used when we need to run a build artifact during tests or later as part of another
+# target. If we are running in the Linux build container on non Linux hosts, we add the
+# linux binaries to the build dependencies, BUILD_DEPS, which can be added to other targets
+# that would need the Linux binaries (ex. tests).
+BUILD_DEPS:=
 ifeq ($(IN_BUILD_CONTAINER),1)
-  LOCAL_OUT := $(ISTIO_OUT_LINUX)
+  export LOCAL_OUT := $(ISTIO_OUT_LINUX)
+  ifneq ($(GOOS_LOCAL),"linux")
+    BUILD_DEPS += build-linux
+  endif
 else
-  LOCAL_OUT := $(ISTIO_OUT)
+  export LOCAL_OUT := $(ISTIO_OUT)
 endif
 
 export HELM=helm
@@ -198,6 +205,7 @@ ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
 
+include operator/operator.mk
 
 .PHONY: default
 default: init build test
@@ -271,7 +279,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/test/policybackend \
   ./tools/istio-iptables \
   ./tools/istio-clean-iptables \
-  ./operator/cmd/manager
+  ./operator/cmd/operator
 
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
@@ -328,7 +336,7 @@ lint-go-split:
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
 
-lint: lint-python lint-copyright-banner lint-scripts lint-go-split lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
+lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
@@ -344,7 +352,11 @@ go-gen:
 gen-charts:
 	@operator/scripts/run_update_charts.sh
 
-gen: go-gen mirror-licenses format update-crds gen-charts
+update-golden:
+	@UPDATE_GOLDENS=true go test ./operator/cmd/mesh/...
+	@REFRESH_GOLDENS=true go test ./pkg/kube/inject/...
+
+gen: go-gen mirror-licenses format update-crds update-golden gen-charts operator-proto
 
 gen-check: gen check-clean-repo
 
@@ -413,6 +425,7 @@ else
        TEST_OBJ = selected-pkg-test
 endif
 test: | $(JUNIT_REPORT)
+	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
 	$(MAKE) -e -f Makefile.core.mk --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
@@ -431,10 +444,8 @@ operator-test:
 .PHONY: mixer-test
 mixer-test: mixer-racetest
 
-# Galley test is not using -race yet. See https://github.com/istio/istio/issues/20110
 .PHONY: galley-test
-galley-test:
-	go test ${T} ./galley/...
+galley-test: galley-racetest
 
 .PHONY: security-test
 security-test: security-racetest
@@ -519,9 +530,9 @@ security-racetest:
 	go test ${T} -race ./security/pkg/... ./security/cmd/...
 
 .PHONY: common-racetest
-common-racetest:
+common-racetest: ${BUILD_DEPS}
 	# Execute bash shell unit tests scripts
-	./tests/scripts/istio-iptables-test.sh
+	LOCAL_OUT=$(LOCAL_OUT) ./tests/scripts/istio-iptables-test.sh
 	go test ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
 
 #-----------------------------------------------------------------------------

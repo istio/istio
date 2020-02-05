@@ -141,8 +141,6 @@ spec:
               maxUnavailable: "25%"
       certManager:
         enabled: false
-      nodeAgent:
-        enabled: false
 
   # Config management feature
   configManagement:
@@ -463,9 +461,6 @@ spec:
       tag: v0.6.2
       image: cert-manager-controller
 
-    nodeagent:
-      image: node-agent-k8s
-
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
@@ -643,7 +638,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.14"
+        tag: "1.16"
         memory:
           max_traces: 50000
         spanStorageType: badger

@@ -55,7 +55,7 @@ message CNIConfig {
 
   string hub = 2;
 
-  StringOrNumber tag = 3;
+  TypeInterface tag = 3;
 
   string image = 4;
 
@@ -74,6 +74,31 @@ message CNIConfig {
   string psp_cluster_role = 11;
 
   string logLevel = 12;
+
+  CNIRepairConfig repair = 13;
+}
+
+message CNIRepairConfig {
+  // Controls whether repair behavior is enabled.
+  google.protobuf.BoolValue enabled = 1;
+
+  string hub = 2;
+
+  TypeInterface tag = 3;
+
+  string image = 4;
+
+  // Controls whether various repair behaviors are enabled.
+  string labelPods = 5;
+
+  string createEvents = 6;
+
+  string deletePods = 7;
+
+  string brokenPodLabelKey = 8;
+
+  string brokenPodLabelValue = 9;
+
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.
@@ -93,7 +118,7 @@ message CertManagerConfig {
   string hub = 2;
 
   // Image tag for the CertManager Deployment.
-  StringOrNumber tag = 3;
+  TypeInterface tag = 3;
 
   // Image name for the CertManager Deployment.
   string image = 4;
@@ -360,7 +385,7 @@ message GalleyConfig {
 
   string hub = 15;
 
-  StringOrNumber tag = 16;
+  TypeInterface tag = 16;
 }
 
 // GatewayLabelsConfig is a set of Configuration for gateway labels.
@@ -560,7 +585,7 @@ message GlobalConfig {
   SDSConfig sds = 30;
 
   // Specifies the tag for the Istio docker images.
-  StringOrNumber tag = 31;
+  TypeInterface tag = 31;
 
   // Specifies the namespace for the telemetry component.
   string telemetryNamespace = 32;
@@ -602,9 +627,17 @@ message GlobalConfig {
   // Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   string jwtPolicy = 57;
 
-  // The next available key is 58
+  // Specifies the configuration for Security Token Service.
+  STSConfig sts = 58;
+  // The next available key is 59
 }
 
+// Configuration for Security Token Service (STS) server.
+//
+// See https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16
+message STSConfig {
+  uint32 servicePort = 1;
+}
 
 message IstiodConfig {
   // If enabled, all control plane functionality will be handled by a single deployment.
@@ -936,7 +969,7 @@ message MixerPolicyConfig {
 
   string hub = 19;
 
-  StringOrNumber tag = 20;
+  TypeInterface tag = 20;
 }
 
 // Configuration for Mixer Telemetry.
@@ -1018,7 +1051,7 @@ message MixerTelemetryConfig {
 
   string hub = 23;
 
-  StringOrNumber tag = 24;
+  TypeInterface tag = 24;
 }
 
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
@@ -1064,7 +1097,7 @@ message NodeAgentConfig {
 
   string hub = 9;
 
-  StringOrNumber tag = 10;
+  TypeInterface tag = 10;
 }
 
 // OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
@@ -1211,7 +1244,7 @@ message PilotConfig {
 
   string hub = 34;
 
-  StringOrNumber tag = 35;
+  TypeInterface tag = 35;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -1324,7 +1357,7 @@ message PrometheusConfig {
 
   string hub = 4;
 
-  StringOrNumber tag = 5;
+  TypeInterface tag = 5;
 
   string retention = 6;
 
@@ -1519,6 +1552,7 @@ enum tracer {
   zipkin = 0;
   lightstep = 1;
   datadog = 2;
+  stackdriver = 3;
 }
 
 message EnvoyAccessLogConfig {
@@ -1567,18 +1601,18 @@ message ResourcesRequestsConfig {
 // Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 message SDSConfig {
   // Controls whether the SecretDiscoveryService is enabled.
-  google.protobuf.BoolValue enabled = 1;
+  google.protobuf.BoolValue enabled = 1 [deprecated=true];
 
   // Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
-  string udsPath = 2;
+  string udsPath = 2 [deprecated=true];
 
   // Enables SDS use of k8s normal JWT to request for certificates.
-  google.protobuf.BoolValue useNormalJwt = 3;
+  google.protobuf.BoolValue useNormalJwt = 3 [deprecated=true];
 
   // Enables SDS use of trustworthy JWT to request for certificates.
-  google.protobuf.BoolValue useTrustworthyJwt = 4;
+  google.protobuf.BoolValue useTrustworthyJwt = 4 [deprecated=true];
 
-  TypeMapStringInterface token = 5;
+  TypeMapStringInterface token = 5 [deprecated=true];
 }
 
 // Configuration for secret volume mounts.
@@ -1697,7 +1731,7 @@ message SidecarInjectorConfig {
 
   string hub = 4;
 
-  StringOrNumber tag = 5;
+  TypeInterface tag = 5;
 
   // K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.
   //
@@ -1818,7 +1852,8 @@ message TracerConfig {
   // Configuration for the zipkin tracing service.
   TracerZipkinConfig zipkin = 3;
 
-  TypeMapStringInterface stackdriver = 4;
+  // Configuration for the stackdriver tracing service.
+  TracerStackdriverConfig stackdriver = 4;
 }
 
 // Configuration for the datadog tracing service.
@@ -1848,6 +1883,21 @@ message TracerZipkinConfig {
   //
   // Example: <zipkin-collector-service>.<zipkin-collector-namespace>:941
   string address = 1;
+}
+
+// Configuration for the stackdriver tracing service.
+message TracerStackdriverConfig {
+  // enables trace output to stdout.
+  google.protobuf.BoolValue debug = 1;
+
+  // The global default max number of attributes per span.
+  uint32 maxNumberOfAttributes = 2;
+
+  // The global default max number of annotation events per span.
+  uint32 maxNumberOfAnnotations = 3;
+
+  // The global default max number of message events per span.
+  uint32 maxNumberOfMessageEvents = 4;
 }
 
 // Configurations for different tracing system to be installed.
@@ -1893,7 +1943,7 @@ message TracingOpencensusConfig {
   string hub = 1;
 
   // Image tag for Opencensus tracing deployment.
-  StringOrNumber tag = 2;
+  TypeInterface tag = 2;
 
   TracingOpencensusExportersConfig exporters  = 3;
   // K8s resources settings.
@@ -1928,7 +1978,7 @@ message TracingJaegerConfig {
   string hub = 1;
 
   // Image tag for Jaeger tracing deployment.
-  StringOrNumber tag = 2;
+  TypeInterface tag = 2;
 
   string image = 10;
 
@@ -1966,7 +2016,7 @@ message TracingZipkinConfig {
   string hub = 1;
 
   // Image tag for Zipkin tracing deployment.
-  StringOrNumber tag = 2;
+  TypeInterface tag = 2;
 
   string image = 9;
 
@@ -2047,7 +2097,7 @@ message KialiConfig {
   string hub = 3;
 
   // Image tag for kiali deployment.
-  StringOrNumber tag = 4;
+  TypeInterface tag = 4;
 
   // Number of replicas for Kiali.
   uint32 replicaCount = 5 [deprecated=true];
@@ -2126,7 +2176,7 @@ message Values {
 
   MixerConfig mixer = 8;
 
-  NodeAgentConfig nodeagent = 9;
+  NodeAgentConfig nodeagent = 9 [deprecated=true];
 
   PilotConfig pilot = 10;
 
@@ -2171,5 +2221,5 @@ message ZeroVPNConfig {
   string suffix = 2;
 }
 
-// GOTYPE: *json.Number
-message StringOrNumber {}
+// GOTYPE: interface{}
+message TypeInterface {}

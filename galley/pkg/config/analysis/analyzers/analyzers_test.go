@@ -16,7 +16,6 @@ package analyzers
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -198,6 +197,7 @@ var testGrid = []testCase{
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"},
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"}, // Duplicate, because resource has two problems
 			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
+			{msg.Deprecated, "Policy policy-with-jwt.deprecation-policy"},
 		},
 	},
 	{
@@ -502,13 +502,13 @@ func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*lo
 	}
 
 	// Gather test files
-	var files []io.Reader
+	var files []local.ReaderSource
 	for _, f := range tc.inputFiles {
 		of, err := os.Open(f)
 		if err != nil {
 			return nil, fmt.Errorf("error opening test file: %q", f)
 		}
-		files = append(files, of)
+		files = append(files, local.ReaderSource{Name: f, Reader: of})
 	}
 
 	// Include resources from test files

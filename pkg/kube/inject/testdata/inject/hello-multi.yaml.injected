@@ -112,8 +112,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: SDS_ENABLED
-          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_METAJSON_LABELS
@@ -126,7 +124,7 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -186,7 +184,7 @@ spec:
         - -d
         - "15020"
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:
@@ -205,9 +203,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
       volumes:
       - emptyDir:
           medium: Memory
@@ -342,8 +340,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: SDS_ENABLED
-          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_METAJSON_LABELS
@@ -356,7 +352,7 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -416,7 +412,7 @@ spec:
         - -d
         - "15020"
         image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:
@@ -435,9 +431,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
       volumes:
       - emptyDir:
           medium: Memory

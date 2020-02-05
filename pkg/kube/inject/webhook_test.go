@@ -632,6 +632,11 @@ func TestWebhookInject(t *testing.T) {
 			inputFile: "TestWebhookInject_mtls_not_ready.yaml",
 			wantFile:  "TestWebhookInject_mtls_not_ready.patch",
 		},
+		{
+			inputFile:    "TestWebhookInject_validationOrder.yaml",
+			wantFile:     "TestWebhookInject_validationOrder.patch",
+			templateFile: "TestWebhookInject_validationOrder_template.yaml",
+		},
 	}
 
 	for i, c := range cases {
@@ -726,6 +731,10 @@ func TestHelmInject(t *testing.T) {
 		{
 			inputFile: "deploymentconfig.yaml",
 			wantFile:  "deploymentconfig.yaml.injected",
+		},
+		{
+			inputFile: "deploymentconfig-with-canonical-service-label.yaml",
+			wantFile:  "deploymentconfig-with-canonical-service-label.yaml.injected",
 		},
 		{
 			inputFile: "deploymentconfig-multi.yaml",
@@ -1316,6 +1325,11 @@ func TestRunAndServe(t *testing.T) {
       "value": {
          "security.istio.io/tlsMode": "istio"
       }
+    },
+    {
+      "op": "add",
+      "path": "/metadata/labels/service.istio.io~1canonical-name",
+      "value": "test"
     }
 ]`)
 

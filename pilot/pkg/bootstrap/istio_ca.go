@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -25,6 +26,10 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
+	"istio.io/istio/pilot/pkg/features"
+
 	oidc "github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -33,7 +38,6 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -136,8 +140,10 @@ func (s *Server) EnableCA() bool {
 		return false
 	}
 	if _, err := ioutil.ReadFile(s.jwtPath); err != nil {
-		// for debug we may want to override this by setting trustedIssuer explicitly
-		if trustedIssuer.Get() == "" {
+		// for debug we may want to override this by setting trustedIssuer explicitly.
+		// If TOKEN_ISSUER is set, we ignore the lack of mounted JWT token, it means user is using
+		// an external OIDC provider to validate the tokens, and istiod lack of a JWT doesn't indicate a problem.
+		if features.JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT && trustedIssuer.Get() == "" {
 			log.Warnf("istiod running without access to K8S tokens (jwt path %v); disable the CA functionality",
 				s.jwtPath)
 			return false
@@ -181,7 +187,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopC
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
-		true, model.JwtPolicy.Get())
+		true, features.JwtPolicy.Get())
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
@@ -338,6 +344,60 @@ func detectAuthEnv(jwt string) (*jwtPayload, error) {
 
 func (j jwtAuthenticator) AuthenticatorType() string {
 	return authenticate.IDTokenAuthenticatorType
+}
+
+// Save the root public key file and initialize the path the the file, to be used by other
+// components.
+func (s *Server) initPublicKey() error {
+	// Setup the root cert chain and caBundlePath - before calling initDNSListener.
+	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+		s.caBundlePath = defaultCACertPath
+	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
+		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		if _, err := os.Stat(signingKeyFile); err != nil {
+			// When Citadel is configured to use self-signed certs, keep a local copy so other
+			// components can load it via file (e.g. webhook config controller).
+			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
+				return err
+			}
+			// We have direct access to the self-signed
+			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
+
+			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+				return err
+			}
+
+			s.caBundlePath = internalSelfSignedRootPath
+			s.addStartFunc(func(stop <-chan struct{}) error {
+				go func() {
+					for {
+						select {
+						case <-stop:
+							return
+						case <-time.After(namespaceResyncPeriod):
+							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+							if !bytes.Equal(rootCert, newRootCert) {
+								rootCert = newRootCert
+								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+									log.Errorf("Failed to update local copy of self-signed root: %v", err)
+								} else {
+									log.Info("Updtaed local copy of self-signed root")
+								}
+							}
+						}
+					}
+				}()
+				return nil
+			})
+
+		} else {
+			s.caBundlePath = path.Join(localCertDir.Get(), "cert-chain.pem")
+		}
+	} else {
+		s.caBundlePath = path.Join(features.PilotCertProvider.Get(), "cert-chain.pem")
+	}
+	return nil
 }
 
 func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.IstioCA, error) {

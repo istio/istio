@@ -49,7 +49,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
-	github.com/envoyproxy/go-control-plane v0.9.2
+	github.com/envoyproxy/go-control-plane v0.9.2-0.20200122210702-14108a6abe04
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fluent/fluent-logger-golang v1.3.0
 	github.com/frankban/quicktest v1.4.1 // indirect
@@ -89,8 +89,7 @@ require (
 	github.com/hashicorp/vault/api v1.0.3
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/huandu/xstrings v1.2.1 // indirect
-	github.com/imdario/mergo v0.3.8 // indirect
-	github.com/istio.io/proxy/src/envoy/tcp/metadata_exchange/config v0.0.0
+	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kr/pretty v0.1.0
 	github.com/kylelemons/godebug v1.1.0
@@ -118,7 +117,6 @@ require (
 	github.com/prometheus/client_golang v1.1.0
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.6.0
-	github.com/prometheus/procfs v0.0.8 // indirect
 	github.com/prometheus/prom2json v1.2.2
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/satori/go.uuid v1.2.0
@@ -150,9 +148,9 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.7
-	istio.io/api v0.0.0-20200126041626-2e8814b40f58
-	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
-	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca
+	istio.io/api v0.0.0-20200201001607-7b905a0a6e49
+	istio.io/gogo-genproto v0.0.0-20200122005450-9b171d92064b
+	istio.io/pkg v0.0.0-20200131182711-9ba13e0e34bb
 	k8s.io/api v0.17.2
 	k8s.io/apiextensions-apiserver v0.17.2
 	k8s.io/apimachinery v0.17.2
@@ -170,5 +168,3 @@ replace github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/au
 replace github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.5.0
 
 replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.2.0+incompatible
-
-replace github.com/istio.io/proxy/src/envoy/tcp/metadata_exchange/config v0.0.0 => ./pilot/pkg/metadata_exchange

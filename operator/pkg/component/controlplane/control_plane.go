@@ -56,8 +56,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 
 	for idx, c := range installSpec.Components.IngressGateways {
 		if c.Name == istioIngressGatewayName {
-			valuePath := "gateways." + istioIngressGatewayName
-			enabled, pathExist, err := name.IsComponentEnabledFromValue(valuePath, installSpec.Values)
+			enabled, pathExist, err := translate.IsComponentEnabledFromValue(name.IngressComponentName, installSpec.Values)
 			if err == nil && pathExist {
 				if c.Enabled == nil {
 					c.Enabled = &v1alpha1.BoolValueForPB{}
@@ -74,8 +73,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 	}
 	for idx, c := range installSpec.Components.EgressGateways {
 		if c.Name == istioEgressGatewayName {
-			valuePath := "gateways." + istioEgressGatewayName
-			enabled, pathExist, err := name.IsComponentEnabledFromValue(valuePath, installSpec.Values)
+			enabled, pathExist, err := translate.IsComponentEnabledFromValue(name.EgressComponentName, installSpec.Values)
 			if err == nil && pathExist {
 				if c.Enabled == nil {
 					c.Enabled = &v1alpha1.BoolValueForPB{}
