@@ -21,9 +21,11 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/component/component"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -52,9 +54,12 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 			return nil, err
 		}
 		o.Namespace = ns
-		out.components = append(out.components, component.NewComponent(c, &o))
+		rn := ""
+		if cm := translator.ComponentMap(string(c)); cm != nil {
+			rn = cm.ResourceName
+		}
+		out.components = append(out.components, component.NewComponent(c, rn, &o))
 	}
-
 	for idx, c := range installSpec.Components.IngressGateways {
 		if c.Name == istioIngressGatewayName {
 			enabled, pathExist, err := translate.IsComponentEnabledFromValue(name.IngressComponentName, installSpec.Values)
@@ -89,20 +94,30 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
 		out.components = append(out.components, component.NewEgressComponent(c.Name, idx, &o))
 	}
-	for _, cn := range orderedKeys(installSpec.AddonComponents) {
+	addonNames, err := helm.GetAddonNamesFromCharts(installSpec.GetInstallPackagePath())
+	if err != nil {
+		log.Warnf("Failed scanning for AddonComponent charts: %v", err)
+		addonNames = orderedKeys(installSpec.AddonComponents)
+	}
+	for _, cn := range addonNames {
 		c := installSpec.AddonComponents[cn]
-		if c.Enabled == nil || !c.Enabled.Value {
+		if c == nil || c.Enabled == nil || !c.Enabled.Value {
 			continue
 		}
+		componentName := name.TitleCase(name.ComponentName(cn))
+		ns, err := name.Namespace(componentName, installSpec)
+		if err != nil {
+			return nil, err
+		}
+		o := *opts
+		o.Namespace = ns
 		rn := ""
-		// For well-known addon components like Prometheus, the resource names are included
-		// in the translations.
+		// Resource names are included in the translations.
 		if cm := translator.ComponentMap(cn); cm != nil {
 			rn = cm.ResourceName
 		}
-		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-		out.components = append(out.components, component.NewAddonComponent(cn, rn, &o))
+		component := component.NewComponent(componentName, rn, &o)
+		out.components = append(out.components, component)
 	}
 	return out, nil
 }

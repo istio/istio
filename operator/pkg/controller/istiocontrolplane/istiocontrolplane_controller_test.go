@@ -44,18 +44,21 @@ var (
 		string(name.PilotComponentName):     healthyVersionStatus,
 	}
 	defaultStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
-		string(name.IstioBaseComponentName): healthyVersionStatus,
-		string(name.PilotComponentName):     healthyVersionStatus,
-		string(name.IngressComponentName):   healthyVersionStatus,
-		string(name.AddonComponentName):     healthyVersionStatus,
+		string(name.IstioBaseComponentName):  healthyVersionStatus,
+		string(name.PilotComponentName):      healthyVersionStatus,
+		string(name.IngressComponentName):    healthyVersionStatus,
+		string(name.PrometheusComponentName): healthyVersionStatus,
 	}
 	demoStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
-		string(name.IstioBaseComponentName): healthyVersionStatus,
-		string(name.PilotComponentName):     healthyVersionStatus,
-		string(name.PolicyComponentName):    healthyVersionStatus,
-		string(name.IngressComponentName):   healthyVersionStatus,
-		string(name.EgressComponentName):    healthyVersionStatus,
-		string(name.AddonComponentName):     healthyVersionStatus,
+		string(name.IstioBaseComponentName):  healthyVersionStatus,
+		string(name.PilotComponentName):      healthyVersionStatus,
+		string(name.PolicyComponentName):     healthyVersionStatus,
+		string(name.IngressComponentName):    healthyVersionStatus,
+		string(name.EgressComponentName):     healthyVersionStatus,
+		string(name.PrometheusComponentName): healthyVersionStatus,
+		string(name.GrafanaComponentName):    healthyVersionStatus,
+		string(name.KialiComponentName):      healthyVersionStatus,
+		string(name.TracingComponentName):    healthyVersionStatus,
 	}
 )
 

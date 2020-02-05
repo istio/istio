@@ -73,12 +73,10 @@ type IstioComponent interface {
 	RenderManifest() (string, error)
 }
 
-// CommonComponentFields is a struct common to all components.
-type CommonComponentFields struct {
+// Component is a struct common to all components.
+type Component struct {
 	*Options
 	componentName name.ComponentName
-	// addonName is the name of the addon component.
-	addonName string
 	// resourceName is the name of all resources for this component.
 	resourceName string
 	// index is the index of the component (only used for components with multiple instances like gateways).
@@ -88,109 +86,17 @@ type CommonComponentFields struct {
 }
 
 // NewComponent creates a new IstioComponent with the given componentName and options.
-func NewComponent(cn name.ComponentName, opts *Options) IstioComponent {
-	var component IstioComponent
-	switch cn {
-	case name.IstioBaseComponentName:
-		component = NewCRDComponent(opts)
-	case name.PilotComponentName:
-		component = NewPilotComponent(opts)
-	case name.GalleyComponentName:
-		component = NewGalleyComponent(opts)
-	case name.PolicyComponentName:
-		component = NewPolicyComponent(opts)
-	case name.TelemetryComponentName:
-		component = NewTelemetryComponent(opts)
-	case name.CitadelComponentName:
-		component = NewCitadelComponent(opts)
-	case name.CNIComponentName:
-		component = NewCNIComponent(opts)
-	default:
-		panic("Unknown component componentName: " + string(cn))
+func NewComponent(cn name.ComponentName, resourceName string, opts *Options) IstioComponent {
+	component := &Component{
+		Options:       opts,
+		resourceName:  resourceName,
+		componentName: cn,
 	}
 	return component
 }
 
-// CRDComponent is the pilot component.
-type CRDComponent struct {
-	*CommonComponentFields
-}
-
-// NewCRDComponent creates a new CRDComponent and returns a pointer to it.
-func NewCRDComponent(opts *Options) *CRDComponent {
-	return &CRDComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: name.IstioBaseComponentName,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *CRDComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *CRDComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *CRDComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *CRDComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *CRDComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// PilotComponent is the pilot component.
-type PilotComponent struct {
-	*CommonComponentFields
-}
-
-// NewPilotComponent creates a new PilotComponent and returns a pointer to it.
-func NewPilotComponent(opts *Options) *PilotComponent {
-	cn := name.PilotComponentName
-	return &PilotComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-			resourceName:  opts.Translator.ComponentMaps[cn].ResourceName,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *PilotComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *PilotComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	baseYAML, err := renderManifest(c.CommonComponentFields)
-	if err != nil {
-		return "", err
-	}
-
-	return c.overlayMeshConfig(baseYAML)
-}
-
-func (c *PilotComponent) overlayMeshConfig(baseYAML string) (string, error) {
-	if c.CommonComponentFields.InstallSpec.MeshConfig == nil {
+func (c *Component) overlayMeshConfig(baseYAML string) (string, error) {
+	if c.InstallSpec.MeshConfig == nil {
 		return baseYAML, nil
 	}
 
@@ -213,7 +119,7 @@ func (c *PilotComponent) overlayMeshConfig(baseYAML string) (string, error) {
 			continue
 		}
 
-		meshOverride, err := gogoprotomarshal.ToYAML(c.CommonComponentFields.InstallSpec.MeshConfig)
+		meshOverride, err := gogoprotomarshal.ToYAML(c.InstallSpec.MeshConfig)
 		if err != nil {
 			return "", err
 		}
@@ -253,382 +159,43 @@ func isMeshConfigMap(obj *object.K8sObject) bool {
 	}
 }
 
-// ComponentName implements the IstioComponent interface.
-func (c *PilotComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *PilotComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *PilotComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// CitadelComponent is the pilot component.
-type CitadelComponent struct {
-	*CommonComponentFields
-}
-
-// NewCitadelComponent creates a new PilotComponent and returns a pointer to it.
-func NewCitadelComponent(opts *Options) *CitadelComponent {
-	cn := name.CitadelComponentName
-	return &CitadelComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *CitadelComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *CitadelComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *CitadelComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *CitadelComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *CitadelComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// PolicyComponent is the pilot component.
-type PolicyComponent struct {
-	*CommonComponentFields
-}
-
-// NewPolicyComponent creates a new PilotComponent and returns a pointer to it.
-func NewPolicyComponent(opts *Options) *PolicyComponent {
-	cn := name.PolicyComponentName
-	return &PolicyComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *PolicyComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *PolicyComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *PolicyComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *PolicyComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *PolicyComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// TelemetryComponent is the pilot component.
-type TelemetryComponent struct {
-	*CommonComponentFields
-}
-
-// NewTelemetryComponent creates a new PilotComponent and returns a pointer to it.
-func NewTelemetryComponent(opts *Options) *TelemetryComponent {
-	cn := name.TelemetryComponentName
-	return &TelemetryComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *TelemetryComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *TelemetryComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *TelemetryComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *TelemetryComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *TelemetryComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// GalleyComponent is the pilot component.
-type GalleyComponent struct {
-	*CommonComponentFields
-}
-
-// NewGalleyComponent creates a new PilotComponent and returns a pointer to it.
-func NewGalleyComponent(opts *Options) *GalleyComponent {
-	cn := name.GalleyComponentName
-	return &GalleyComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *GalleyComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *GalleyComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *GalleyComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *GalleyComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *GalleyComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// CNIComponent is the egress gateway component.
-type CNIComponent struct {
-	*CommonComponentFields
-}
-
-// NewCNIComponent creates a new IngressComponent and returns a pointer to it.
-func NewCNIComponent(opts *Options) *CNIComponent {
-	cn := name.CNIComponentName
-	return &CNIComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *CNIComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *CNIComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *CNIComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *CNIComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *CNIComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// IngressComponent is the ingress gateway component.
-type IngressComponent struct {
-	*CommonComponentFields
-}
-
 // NewIngressComponent creates a new IngressComponent and returns a pointer to it.
-func NewIngressComponent(resourceName string, index int, opts *Options) *IngressComponent {
-	cn := name.IngressComponentName
-	return &IngressComponent{
-		CommonComponentFields: &CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-			resourceName:  resourceName,
-			index:         index,
-		},
+func NewIngressComponent(resourceName string, index int, opts *Options) IstioComponent {
+	return &Component{
+		resourceName:  resourceName,
+		Options:       opts,
+		componentName: name.IngressComponentName,
+		index:         index,
 	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *IngressComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *IngressComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *IngressComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *IngressComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *IngressComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// EgressComponent is the egress gateway component.
-type EgressComponent struct {
-	*CommonComponentFields
-	// resourceName is the name of all resources for this component.
-	resourceName string
 }
 
 // NewEgressComponent creates a new IngressComponent and returns a pointer to it.
-func NewEgressComponent(resourceName string, index int, opts *Options) *EgressComponent {
-	cn := name.EgressComponentName
-	return &EgressComponent{
-		resourceName: resourceName,
-		CommonComponentFields: &CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-			index:         index,
-		},
+func NewEgressComponent(resourceName string, index int, opts *Options) IstioComponent {
+	return &Component{
+		resourceName:  resourceName,
+		Options:       opts,
+		componentName: name.EgressComponentName,
+		index:         index,
 	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *EgressComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *EgressComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *EgressComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *EgressComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
 }
 
 // Namespace implements the IstioComponent interface.
-func (c *EgressComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// AddonComponent is an external component.
-type AddonComponent struct {
-	*CommonComponentFields
-}
-
-// NewAddonComponent creates a new IngressComponent and returns a pointer to it.
-func NewAddonComponent(addonName, resourceName string, opts *Options) *AddonComponent {
-	return &AddonComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: name.AddonComponentName,
-			resourceName:  resourceName,
-			addonName:     addonName,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *AddonComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *AddonComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *AddonComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
+func (c *Component) Namespace() string {
+	return c.Options.Namespace
 }
 
 // ResourceName implements the IstioComponent interface.
-func (c *AddonComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
+func (c *Component) ResourceName() string {
+	return c.resourceName
 }
 
-// Namespace implements the IstioComponent interface.
-func (c *AddonComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
+// ComponentName implements the IstioComponent interface.
+func (c *Component) ComponentName() name.ComponentName {
+	return c.componentName
 }
 
-// runComponent performs startup tasks for the component defined by the given CommonComponentFields.
-func runComponent(c *CommonComponentFields) error {
+// Run performs startup tasks for the component defined by the given CommonComponentFields.
+func (c *Component) Run() error {
 	r, err := createHelmRenderer(c)
 	if err != nil {
 		return err
@@ -641,24 +208,25 @@ func runComponent(c *CommonComponentFields) error {
 	return nil
 }
 
-// renderManifest renders the manifest for the component defined by c and returns the resulting string.
-func renderManifest(c *CommonComponentFields) (string, error) {
-	if c.componentName.IsCoreComponent() {
-		e, err := c.Translator.IsComponentEnabled(c.componentName, c.InstallSpec)
-		if err != nil {
-			return "", err
-		}
-		if !e {
-			return disabledYAMLStr(c.componentName), nil
-		}
+// RenderManifest renders the manifest for the component defined by c and returns the resulting string.
+func (c *Component) RenderManifest() (string, error) {
+	if !c.started {
+		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
 	}
 
-	mergedYAML, err := c.Translator.TranslateHelmValues(c.InstallSpec, c.componentName)
+	e, err := c.Translator.IsComponentEnabled(c.componentName, c.Options.InstallSpec)
 	if err != nil {
 		return "", err
 	}
 
-	log.Debugf("Merged values:\n%s\n", mergedYAML)
+	if !e {
+		return disabledYAMLStr(c.componentName), nil
+	}
+
+	mergedYAML, err := c.Translator.TranslateHelmValues(c.Options.InstallSpec, c.componentName)
+	if err != nil {
+		return "", err
+	}
 
 	my, err := c.renderer.RenderManifest(mergedYAML)
 	if err != nil {
@@ -670,16 +238,13 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		log.Infof("Initial manifest with merged values:\n%s\n", my)
 	}
 	// Add the k8s resources from IstioOperatorSpec.
-	my, err = c.Translator.OverlayK8sSettings(my, c.InstallSpec, c.componentName, c.index)
+	my, err = c.Translator.OverlayK8sSettings(my, c.Options.InstallSpec, c.componentName, c.index)
 	if err != nil {
 		log.Errorf("Error in OverlayK8sSettings: %s", err)
 		return "", err
 	}
 	cnOutput := string(c.componentName)
-	if !c.componentName.IsCoreComponent() && !c.componentName.IsGateway() {
-		cnOutput += " " + c.addonName
-	}
-	my = "# Resources for " + cnOutput + " component\n\n" + my
+	my += "# Resources for " + cnOutput + " component\n\n" + my
 	if devDbg {
 		log.Infof("Manifest after k8s API settings:\n%s\n", my)
 	}
@@ -687,6 +252,8 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 	pathToK8sOverlay := fmt.Sprintf("Components.%s.", c.componentName)
 	if c.componentName == name.IngressComponentName || c.componentName == name.EgressComponentName {
 		pathToK8sOverlay += fmt.Sprintf("%d.", c.index)
+	} else if !c.ComponentName().IsAddon() {
+		pathToK8sOverlay = fmt.Sprintf("AddonComponents.%s.", util.ToYAMLPathString(string(c.componentName)))
 	}
 	pathToK8sOverlay += fmt.Sprintf("K8S.Overlays")
 	var overlays []*v1alpha1.K8SObjectOverlay
@@ -703,29 +270,28 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return "", err
 	}
 	log.Infof("Applying kubernetes overlay: \n%s\n", kyo)
-	ret, err := patch.YAMLManifestPatch(my, c.Namespace, overlays)
+	ret, err := patch.YAMLManifestPatch(my, c.Namespace(), overlays)
 	if err != nil {
 		return "", err
 	}
 
 	log.Infof("Manifest after resources and overlay: \n%s\n", ret)
+	if c.ComponentName() == name.PilotComponentName {
+		return c.overlayMeshConfig(ret)
+	}
 	return ret, nil
 }
 
 // createHelmRenderer creates a helm renderer for the component defined by c and returns a ptr to it.
 // If a helm subdir is not found in ComponentMap translations, it is assumed to be "addon/<component name>.
-func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error) {
-	iop := c.InstallSpec
+func createHelmRenderer(c *Component) (helm.TemplateRenderer, error) {
+	iop := c.Options.InstallSpec
 	cns := string(c.componentName)
-	if c.componentName.IsAddon() {
-		// For addons, distinguish the chart path using the addon name.
-		cns = c.addonName
-	}
 	helmSubdir := addonsChartDirName + "/" + cns
 	if cm := c.Translator.ComponentMap(cns); cm != nil {
 		helmSubdir = cm.HelmSubdir
 	}
-	return helm.NewHelmRenderer(iop.InstallPackagePath, helmSubdir, cns, c.Namespace)
+	return helm.NewHelmRenderer(iop.InstallPackagePath, helmSubdir, cns, c.Namespace())
 }
 
 // disabledYAMLStr returns the YAML comment string that the given component is disabled.

@@ -55,16 +55,11 @@ func IsComponentEnabledInSpec(componentName name.ComponentName, controlPlaneSpec
 	if componentName == name.EgressComponentName {
 		return len(controlPlaneSpec.Components.EgressGateways) != 0, nil
 	}
-	if componentName == name.AddonComponentName {
-		for _, ac := range controlPlaneSpec.AddonComponents {
-			if ac.Enabled != nil && ac.Enabled.Value {
-				return true, nil
-			}
-		}
-		return false, nil
+	componentPath := "Components." + string(componentName) + ".Enabled"
+	if componentName.IsAddon() {
+		componentPath = "AddonComponents." + util.ToYAMLPathString(string(componentName)) + ".Enabled"
 	}
-
-	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Enabled")
+	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, componentPath)
 	if err != nil {
 		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for component=%s: %s",
 			componentName, err)

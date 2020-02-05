@@ -4,3 +4,5 @@ name: grafana
 version: 1.1.0
 appVersion: 1.1.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon

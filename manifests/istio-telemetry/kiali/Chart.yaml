@@ -4,3 +4,5 @@ name: kiali
 version: 1.13.0
 appVersion: 1.13.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon

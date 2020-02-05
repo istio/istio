@@ -69,7 +69,7 @@ spec:
         - --configDefaultNamespace=istio-system
         - --useAdapterCRDs=false
         - --useTemplateCRDs=false
-        - --trace_zipkin_url=http://zipkin.istio-telemetry:1234/api/v1/spans
+        - --trace_zipkin_url=http://zipkin.istio-system:9411/api/v1/spans
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -127,22 +127,25 @@ spec:
 ---
 
 
-apiVersion: config.istio.io/v1alpha2
+apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
+  name: prometheus
+  namespace: istio-system
   labels:
     app: istio-telemetry
     release: istio
-  name: prometheus
-  namespace: istio-system
 spec:
   compiledAdapter: prometheus
   params:
+    metricsExpirationPolicy:
+      metricsExpiryDuration: "10m"
     metrics:
-    - instance_name: requestcount.instance.istio-system
+    - name: requests_total
+      instance_name: requestcount.instance.istio-system
       kind: COUNTER
       label_names:
-      - new_metric
+      - reporter
       - source_app
       - source_principal
       - source_workload
@@ -161,21 +164,7 @@ spec:
       - response_code
       - response_flags
       - connection_security_policy
-      name: requests_total
-    - buckets:
-        explicit_buckets:
-          bounds:
-          - 0.005
-          - 0.01
-          - 0.025
-          - 0.05
-          - 0.1
-          - 0.25
-          - 0.5
-          - 1
-          - 2.5
-          - 5
-          - 10
+    - name: request_duration_seconds
       instance_name: requestduration.instance.istio-system
       kind: DISTRIBUTION
       label_names:
@@ -198,12 +187,10 @@ spec:
       - grpc_response_status
       - response_flags
       - connection_security_policy
-      name: request_duration_seconds
-    - buckets:
-        exponentialBuckets:
-          growthFactor: 10
-          numFiniteBuckets: 8
-          scale: 1
+      buckets:
+        explicit_buckets:
+          bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+    - name: request_bytes
       instance_name: requestsize.instance.istio-system
       kind: DISTRIBUTION
       label_names:
@@ -226,12 +213,12 @@ spec:
       - grpc_response_status
       - response_flags
       - connection_security_policy
-      name: request_bytes
-    - buckets:
+      buckets:
         exponentialBuckets:
-          growthFactor: 10
           numFiniteBuckets: 8
           scale: 1
+          growthFactor: 10
+    - name: response_bytes
       instance_name: responsesize.instance.istio-system
       kind: DISTRIBUTION
       label_names:
@@ -254,8 +241,13 @@ spec:
       - grpc_response_status
       - response_flags
       - connection_security_policy
-      name: response_bytes
-    - instance_name: tcpbytesent.instance.istio-system
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+    - name: tcp_sent_bytes_total
+      instance_name: tcpbytesent.instance.istio-system
       kind: COUNTER
       label_names:
       - reporter
@@ -274,8 +266,8 @@ spec:
       - destination_service_namespace
       - connection_security_policy
       - response_flags
-      name: tcp_sent_bytes_total
-    - instance_name: tcpbytereceived.instance.istio-system
+    - name: tcp_received_bytes_total
+      instance_name: tcpbytereceived.instance.istio-system
       kind: COUNTER
       label_names:
       - reporter
@@ -294,8 +286,8 @@ spec:
       - destination_service_namespace
       - connection_security_policy
       - response_flags
-      name: tcp_received_bytes_total
-    - instance_name: tcpconnectionsopened.instance.istio-system
+    - name: tcp_connections_opened_total
+      instance_name: tcpconnectionsopened.instance.istio-system
       kind: COUNTER
       label_names:
       - reporter
@@ -314,8 +306,8 @@ spec:
       - destination_service_namespace
       - connection_security_policy
       - response_flags
-      name: tcp_connections_opened_total
-    - instance_name: tcpconnectionsclosed.instance.istio-system
+    - name: tcp_connections_closed_total
+      instance_name: tcpconnectionsclosed.instance.istio-system
       kind: COUNTER
       label_names:
       - reporter
@@ -334,7 +326,4 @@ spec:
       - destination_service_namespace
       - connection_security_policy
       - response_flags
-      name: tcp_connections_closed_total
-    metricsExpirationPolicy:
-      metricsExpiryDuration: 10m
 ---

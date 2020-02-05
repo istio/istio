@@ -14642,6 +14642,8 @@ name: grafana
 version: 1.1.0
 appVersion: 1.1.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryGrafanaChartYamlBytes() ([]byte, error) {
@@ -29657,6 +29659,8 @@ name: kiali
 version: 1.13.0
 appVersion: 1.13.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryKialiChartYamlBytes() ([]byte, error) {
@@ -33392,6 +33396,8 @@ name: prometheus
 version: 1.1.0
 appVersion: 2.8.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryPrometheusChartYamlBytes() ([]byte, error) {
@@ -34269,10 +34275,12 @@ func chartsIstioTelemetryPrometheusValuesYaml() (*asset, error) {
 
 var _chartsIstioTelemetryPrometheusOperatorChartYaml = []byte(`apiVersion: v1
 description: A Helm chart for Kubernetes
-name: prometheus-operator
+name: prometheusOperator
 version: 1.1.0
 appVersion: 2.3.1
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryPrometheusOperatorChartYamlBytes() ([]byte, error) {
@@ -34960,6 +34968,8 @@ name: tracing
 version: 1.1.0
 appVersion: 1.5.1
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryTracingChartYamlBytes() ([]byte, error) {
@@ -35778,10 +35788,12 @@ func chartsIstioTelemetryTracingValuesYaml() (*asset, error) {
 
 var _chartsIstiocorednsChartYaml = []byte(`apiVersion: v1
 description: Istio CoreDNS provides DNS resolution for services in multicluster setups.
-name: istiocoredns
+name: coreDNS
 version: 1.1.0
 appVersion: 0.1
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstiocorednsChartYamlBytes() ([]byte, error) {

@@ -63,8 +63,12 @@ const (
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
 
-	// Addon root component
-	AddonComponentName ComponentName = "AddonComponents"
+	// Addon components
+	PrometheusComponentName ComponentName = "Prometheus"
+	KialiComponentName      ComponentName = "Kiali"
+	GrafanaComponentName    ComponentName = "Grafana"
+	TracingComponentName    ComponentName = "Tracing"
+	CoreDNSComponentName    ComponentName = "CoreDNS"
 
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
@@ -145,7 +149,7 @@ func (cn ComponentName) IsGateway() bool {
 
 // IsAddon reports whether cn is an addon component.
 func (cn ComponentName) IsAddon() bool {
-	return cn == AddonComponentName
+	return AddonComponentNamesMap[cn]
 }
 
 // NamespaceFromValue gets the namespace value in helm value.yaml tree.
@@ -175,7 +179,12 @@ func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOper
 
 	defaultNamespace := iop.Namespace(controlPlaneSpec)
 
-	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Namespace")
+	componentPath := "Components." + string(componentName) + ".Namespace"
+	if componentName.IsAddon() {
+		componentPath = "AddonComponents." + util.ToYAMLPathString(string(componentName)) + ".Namespace"
+	}
+
+	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, componentPath)
 	if err != nil {
 		return "", fmt.Errorf("error in Namepsace GetFromStructPath componentNamespace for component=%s: %s", componentName, err)
 	}
