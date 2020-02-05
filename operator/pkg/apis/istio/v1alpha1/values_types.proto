@@ -74,6 +74,31 @@ message CNIConfig {
   string psp_cluster_role = 11;
 
   string logLevel = 12;
+
+  CNIRepairConfig repair = 13;
+}
+
+message CNIRepairConfig {
+  // Controls whether repair behavior is enabled.
+  google.protobuf.BoolValue enabled = 1;
+
+  string hub = 2;
+
+  TypeInterface tag = 3;
+
+  string image = 4;
+
+  // Controls whether various repair behaviors are enabled.
+  string labelPods = 5;
+
+  string createEvents = 6;
+
+  string deletePods = 7;
+
+  string brokenPodLabelKey = 8;
+
+  string brokenPodLabelValue = 9;
+
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.
