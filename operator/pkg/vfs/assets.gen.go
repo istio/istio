@@ -13377,9 +13377,8 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml() (*asset, error) {
 var _chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-pilot{{ .Values.version }}
+  name: istiod{{ .Values.version }}
   namespace: {{ .Release.Namespace }}
-  # TODO: default template doesn't have this, which one is right ?
   labels:
     app: pilot
     {{- if ne .Values.version ""}}
@@ -13419,11 +13418,6 @@ spec:
         # This avoids default deployment picking the canary
         istio: pilot
         {{- end }}
-{{- if eq .Release.Namespace "istio-system"}}
-        heritage: Tiller
-        release: istio
-        chart: pilot
-{{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
