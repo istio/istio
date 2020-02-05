@@ -24,9 +24,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/resource"
 )
 
 var (
@@ -45,10 +45,9 @@ var _ analysis.Analyzer = &JwtAnalyzer{}
 func (j *JwtAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "injection.JwtAnalyzer",
-		Description: "Checks that jwt auth policies are against valid services",
 		Inputs: collection.Names{
-			collections.IstioAuthenticationV1Alpha1Policies.Name(),
-			collections.K8SCoreV1Services.Name(),
+			metadata.IstioAuthenticationV1Alpha1Policies,
+			metadata.K8SCoreV1Services,
 		},
 	}
 }
@@ -56,7 +55,7 @@ func (j *JwtAnalyzer) Metadata() analysis.Metadata {
 func (j *JwtAnalyzer) Analyze(c analysis.Context) {
 	nsm := j.buildNamespaceServiceMap(c)
 
-	c.ForEach(collections.IstioAuthenticationV1Alpha1Policies.Name(), func(r *resource.Instance) bool {
+	c.ForEach(metadata.IstioAuthenticationV1Alpha1Policies, func(r *resource.Entry) bool {
 		j.analyzeServiceTarget(r, c, nsm)
 		return true
 	})
@@ -67,11 +66,10 @@ func (j *JwtAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[string]
 	// Keep track of each fqdn -> service definition
 	fqdnServices := map[string]*v1.ServiceSpec{}
 
-	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
-		svcNs := r.Metadata.FullName.Namespace
-		svcName := r.Metadata.FullName.Name
+	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
+		svcNs, svcName := r.Metadata.Name.InterpretAsNamespaceAndName()
 
-		svc := r.Message.(*v1.ServiceSpec)
+		svc := r.Item.(*v1.ServiceSpec)
 		fqdn := util.ConvertHostToFQDN(svcNs, string(svcName))
 		fqdnServices[fqdn] = svc
 
@@ -81,17 +79,15 @@ func (j *JwtAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[string]
 	return fqdnServices
 }
 
-func (j *JwtAnalyzer) analyzeServiceTarget(r *resource.Instance, ctx analysis.Context, nsm map[string]*v1.ServiceSpec) {
-	policy := r.Message.(*v1alpha1.Policy)
-	ns := r.Metadata.FullName.Namespace
+func (j *JwtAnalyzer) analyzeServiceTarget(r *resource.Entry, ctx analysis.Context, nsm map[string]*v1.ServiceSpec) {
+	policy := r.Item.(*v1alpha1.Policy)
+	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
-	// nolint: staticcheck
 	for _, origin := range policy.Origins {
 		if origin.GetJwt() == nil {
 			continue
 		}
 
-		// nolint: staticcheck
 		for _, target := range policy.GetTargets() {
 			fqdn := util.ConvertHostToFQDN(ns, target.GetName())
 			svc, ok := nsm[fqdn]
@@ -117,14 +113,14 @@ func (j *JwtAnalyzer) analyzeServiceTarget(r *resource.Instance, ctx analysis.Co
 	}
 }
 
-func checkPortName(r *resource.Instance, ctx analysis.Context, portName string, svc *v1.ServiceSpec) {
+func checkPortName(r *resource.Entry, ctx analysis.Context, portName string, svc *v1.ServiceSpec) {
 	var svcPort *v1.ServicePort
 	for _, port := range svc.Ports {
 		if portName != port.Name {
 			continue
 		}
 		if !isTCPProtocol(port.Protocol) {
-			ctx.Report(collections.IstioAuthenticationV1Alpha1Policies.Name(),
+			ctx.Report(metadata.IstioAuthenticationV1Alpha1Policies,
 				msg.NewJwtFailureDueToInvalidServicePortPrefix(
 					r,
 					int(port.Port),
@@ -141,7 +137,7 @@ func checkPortName(r *resource.Instance, ctx analysis.Context, portName string, 
 	checkPort(r, ctx, svcPort)
 }
 
-func checkPortNumber(r *resource.Instance, ctx analysis.Context, portNum uint32, svc *v1.ServiceSpec) {
+func checkPortNumber(r *resource.Entry, ctx analysis.Context, portNum uint32, svc *v1.ServiceSpec) {
 	var svcPort *v1.ServicePort
 	for _, port := range svc.Ports {
 		if !isTCPProtocol(port.Protocol) {
@@ -155,14 +151,14 @@ func checkPortNumber(r *resource.Instance, ctx analysis.Context, portNum uint32,
 	checkPort(r, ctx, svcPort)
 }
 
-func checkPort(r *resource.Instance, ctx analysis.Context, svcPort *v1.ServicePort) {
+func checkPort(r *resource.Entry, ctx analysis.Context, svcPort *v1.ServicePort) {
 	if svcPort == nil {
 		return
 	}
 
 	svcPortName := svcPort.Name
 	if !isJwtSupportedPortName(svcPortName) {
-		ctx.Report(collections.IstioAuthenticationV1Alpha1Policies.Name(),
+		ctx.Report(metadata.IstioAuthenticationV1Alpha1Policies,
 			msg.NewJwtFailureDueToInvalidServicePortPrefix(
 				r,
 				int(svcPort.Port),
@@ -173,12 +169,12 @@ func checkPort(r *resource.Instance, ctx analysis.Context, svcPort *v1.ServicePo
 	}
 }
 
-func checkServicePorts(r *resource.Instance, ctx analysis.Context, svc *v1.ServiceSpec) {
+func checkServicePorts(r *resource.Entry, ctx analysis.Context, svc *v1.ServiceSpec) {
 	for _, port := range svc.Ports {
 		if isTCPProtocol(port.Protocol) && isJwtSupportedPortName(port.Name) {
 			continue
 		} else {
-			ctx.Report(collections.IstioAuthenticationV1Alpha1Policies.Name(),
+			ctx.Report(metadata.IstioAuthenticationV1Alpha1Policies,
 				msg.NewJwtFailureDueToInvalidServicePortPrefix(
 					r,
 					int(port.Port),
