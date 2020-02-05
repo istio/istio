@@ -58,7 +58,9 @@ spec:
       containers:
       - name: oc-collector
         image: "{{ .Values.tracing.opencensus.hub }}/opencensus-collector:{{ .Values.tracing.opencensus.tag }}"
-        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
         command:
           - "/occollector_linux"
           - "--config=/conf/oc-collector-config.yaml"

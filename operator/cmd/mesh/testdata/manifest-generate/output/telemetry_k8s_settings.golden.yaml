@@ -83,7 +83,6 @@ spec:
         - name: GOMAXPROCS
           value: "6"
         image: gcr.io/istio-testing/mixer:latest
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /version
@@ -109,12 +108,18 @@ spec:
           requests:
             cpu: 888m
             memory: 999Mi
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /sock
           name: uds-socket
         - mountPath: /var/run/secrets/istio.io/telemetry/adapter
           name: telemetry-adapter-secret
           readOnly: true
+      securityContext:
+        fsGroup: 1337
       serviceAccountName: istio-mixer-service-account
       volumes:
       - name: istio-certs

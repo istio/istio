@@ -37,9 +37,7 @@ import (
 )
 
 const (
-	metadataExchangeFilterConfig = "testdata/metadata_exchange_tcp_filter.yaml"
-	statsFilterConfig            = "testdata/stats_filter.yaml"
-	cleanupFilterConfig          = "testdata/cleanup.yaml"
+	cleanupFilterConfig = "testdata/cleanup.yaml"
 )
 
 var (
@@ -70,32 +68,18 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 			)
 
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
-			// TODO(gargnupur): Use istioctl to install metadata exchange and stats filters.
-			mxc, err := file.AsString(metadataExchangeFilterConfig)
-			if err != nil {
-				t.Errorf("unable to load config %s, err:%v", metadataExchangeFilterConfig, err)
-			}
-			stats, err := file.AsString(statsFilterConfig)
-			if err != nil {
-				t.Errorf("unable to load config %s, err:%v", statsFilterConfig, err)
-			}
-
 			cleanup, err := file.AsString(cleanupFilterConfig)
 			if err != nil {
-				t.Errorf("unable to load config %s, err:%v", metadataExchangeFilterConfig, err)
+				t.Errorf("unable to load config %s, err:%v", cleanupFilterConfig, err)
 			}
 
 			g.ApplyConfigOrFail(
 				t,
 				systemNM,
-				mxc,
-				stats,
 				cleanup,
 			)
 			defer g.DeleteConfig(
 				systemNM,
-				mxc,
-				stats,
 				cleanup,
 			)
 
@@ -106,7 +90,7 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 				util.SendTraffic(ing, t, "Sending traffic", url, "", 200)
 				// TODO(gargnupur): Use TCP metrics like in Telemetry V1 (https://github.com/istio/istio/issues/20283)
 				if err := util_prometheus.QueryPrometheus(t, destinationQuery, prom); err != nil {
-					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(prom, "istio_requests_total"))
+					t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(prom, "istio_tcp_connections_opened_total"))
 					return err
 				}
 				return nil
@@ -177,7 +161,7 @@ func testsetup(ctx resource.Context) (err error) {
 }
 
 func buildQuery() (destinationQuery string) {
-	destinationQuery = `istio_requests_total{reporter="destination",`
+	destinationQuery = `istio_tcp_connections_opened_total{reporter="destination",`
 	labels := map[string]string{
 		"request_protocol":               "tcp",
 		"response_code":                  "0",

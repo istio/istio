@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  name: hello
+spec:
+  replicas: 7
+  template:
+    metadata:
+      labels:
+        app: hello
+        tier: backend
+        track: stable
+        service.istio.io/canonical-name: test-service-name
+    spec:
+      containers:
+        - name: hello
+          image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+          ports:
+            - name: http
+              containerPort: 80
+  triggers:
+    - type: "ConfigChange"
+    - type: "ImageChange"
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          - "helloworld"
+        from:
+          kind: "ImageStreamTag"
+          name: "hello-go-gke:1.0"
+  strategy:
+    type: "Rolling"
+  paused: false
+  revisionHistoryLimit: 2
+  minReadySeconds: 0
