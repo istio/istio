@@ -62,7 +62,7 @@ type v1beta1PolicyApplier struct {
 
 func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
-		log.Debugf("JwtFilter: RequestAuthentication (beta policy) not found, fallback to alpha if available")
+		authnLog.Debug("JwtFilter: RequestAuthentication (beta policy) not found, fallback to alpha if available")
 		return a.alphaApplier.JwtFilter()
 	}
 
@@ -119,7 +119,7 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWTRule) *authn_filter.
 // proxyType does not matter here, exists only for legacy reason.
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType) *http_conn.HttpFilter {
 	if len(a.processedJwtRules) == 0 && a.consolidatedPeerPolicy == nil {
-		log.Debugf("AuthnFilter: RequestAuthentication nor PeerAuthentication (beta policy) not found, fallback to alpha if available")
+		authnLog.Debug("AuthnFilter: RequestAuthentication nor PeerAuthentication (beta policy) not found, fallback to alpha if available")
 		return a.alphaApplier.AuthNFilter(proxyType)
 	}
 	filterConfigProto := convertToIstioAuthnFilterConfig(a.processedJwtRules)
@@ -308,7 +308,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 	}
 }
 
-// GetMutualTLSMode returns the MutualTLSMode enum corresponding to the given peer authentiation policy.
+// GetMutualTLSMode returns the MutualTLSMode enum corresponding to the given peer authentication policy.
 // If the input authentication is nil, returns MTLSPermissive.
 func GetMutualTLSMode(peer *v1beta1.PeerAuthentication) model.MutualTLSMode {
 	if peer == nil || peer.Mtls == nil {
