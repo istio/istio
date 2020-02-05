@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -171,4 +172,78 @@ func getPodID(i echo.Instance) (string, error) {
 	}
 
 	return "", fmt.Errorf("no workloads")
+}
+
+func TestProxyConfig(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		RunParallel(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "istioctl-pc",
+				Inject: true,
+			})
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			podID, err := getPodID(a)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "bootstrap", podID}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.HaveKey("bootstrap"))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "cluster", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "endpoint", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "listener", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "route", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "secret", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
+		})
+}
+
+func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
+	var val interface{}
+
+	// this is guarded by prettyPrint
+	err := json.Unmarshal([]byte(s), &val)
+	if err != nil {
+		t.Fatalf("Could not unmarshal %s response %s", context, s)
+	}
+	return val
 }
