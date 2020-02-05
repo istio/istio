@@ -812,7 +812,7 @@ func getSNIHostsForServer(server *networking.Server) []string {
 }
 
 func buildGatewayVirtualHostDomains(hostname string, ports []int) []string {
-	domains := []string{string(hostname)}
+	domains := []string{hostname}
 	if hostname == "*" {
 		return domains
 	}
