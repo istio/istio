@@ -380,7 +380,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	if err := waitForCRDs(crdObjects, opts.DryRun); err != nil {
+	if err := waitForCRDs(crdObjects, stdout, opts.DryRun); err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	appliedObjects = append(appliedObjects, crdObjects...)
@@ -571,12 +571,33 @@ func objectsNotInLists(objects object.K8sObjects, lists ...object.K8sObjects) ob
 	return ret
 }
 
-func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
+func canSkipCrdWait(applyOut string) bool {
+	for _, line := range strings.Split(applyOut, "\n") {
+		if line == "" {
+			continue
+		}
+		segments := strings.Split(line, " ")
+		if len(segments) == 2 {
+			changed := segments[1] != "unchanged"
+			isCrd := strings.HasPrefix(segments[0], "customresourcedefinition")
+			if changed && isCrd {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 	if dryRun {
 		scope.Info("Not waiting for CRDs in dry run mode.")
 		return nil
 	}
 
+	if canSkipCrdWait(stdout) {
+		scope.Info("Skipping CRD wait, no changes detected")
+		return nil
+	}
 	scope.Info("Waiting for CRDs to be applied.")
 	cs, err := apiextensionsclient.NewForConfig(k8sRESTConfig)
 	if err != nil {
