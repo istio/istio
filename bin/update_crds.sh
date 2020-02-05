@@ -45,6 +45,3 @@ fi
 rm -f "${ROOTDIR}/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml" "${ROOTDIR}/manifests/base/files/crd-all.gen.yaml"
 cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml"
 cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/manifests/base/files/crd-all.gen.yaml"
-
-# update the golden files for operator tests
-(cd "${ROOTDIR}/operator" && UPDATE_GOLDENS=true go test ./cmd/mesh/...)

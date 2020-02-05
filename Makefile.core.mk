@@ -352,7 +352,11 @@ go-gen:
 gen-charts:
 	@operator/scripts/run_update_charts.sh
 
-gen: go-gen mirror-licenses format update-crds gen-charts operator-proto
+update-golden:
+	@UPDATE_GOLDENS=true go test ./operator/cmd/mesh/...
+	@REFRESH_GOLDENS=true go test ./pkg/kube/inject/...
+
+gen: go-gen mirror-licenses format update-crds update-golden gen-charts operator-proto
 
 gen-check: gen check-clean-repo
 
