@@ -51,7 +51,7 @@ func CheckValuesString(vs []byte) util.Errors {
 	var yamlTree = make(map[string]interface{})
 	err := yaml.Unmarshal(vs, &yamlTree)
 	if err != nil {
-		return util.Errors{fmt.Errorf("error when unmarshalling into untype tree %v", err)}
+		return util.Errors{fmt.Errorf("values.yaml string failed validation: %v", err)}
 	}
 	return CheckValues(yamlTree)
 }

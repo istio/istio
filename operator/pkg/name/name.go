@@ -83,9 +83,10 @@ var (
 		CNIComponentName,
 	}
 	allComponentNamesMap = make(map[ComponentName]bool)
-	// DeprecatedComponentNamesMap defines the istio component name used in old versions.
+	// DeprecatedComponentNamesMap defines the names of deprecated istio core components used in old versions,
+	// which would not appear as standalone components in current version.
 	DeprecatedComponentNamesMap = make(map[ComponentName]bool)
-	// AddonComponentNamesMap defines the component name for addon components names used in old versions.
+	// AddonComponentNamesMap defines the component name for addon components used in old versions.
 	AddonComponentNamesMap = make(map[ComponentName]bool)
 )
 
