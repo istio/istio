@@ -36,8 +36,8 @@ spec:
           image: "gcr.io/istio-testing/proxyv2:latest"
           ports:
             - containerPort: 15020
-            - containerPort: 80
-            - containerPort: 443
+            - containerPort: 8080
+            - containerPort: 8443
             - containerPort: 15029
             - containerPort: 15030
             - containerPort: 15031
@@ -257,9 +257,10 @@ spec:
     targetPort: 15020
   - name: http2
     port: 80
-    targetPort: 80
+    targetPort: 8080
   - name: https
     port: 443
+    targetPort: 8443
   - name: kiali
     port: 15029
     targetPort: 15029
