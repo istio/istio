@@ -15,24 +15,35 @@
 package leaderelection
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
+
+	"istio.io/istio/pkg/test/util/retry"
 )
 
-func createElection(t *testing.T, name string, expectLeader bool, client kubernetes.Interface) chan struct{} {
+func createElection(t *testing.T, name string, expectLeader bool, client kubernetes.Interface, fns ...func(stop <-chan struct{})) chan struct{} {
 	t.Helper()
 	l := NewLeaderElection("ns", name, client)
+	l.ttl = time.Second
 	gotLeader := make(chan struct{})
 	l.AddRunFunction(func(stop <-chan struct{}) {
 		gotLeader <- struct{}{}
 	})
+	for _, fn := range fns {
+		l.AddRunFunction(fn)
+	}
 	stop := make(chan struct{})
-	if err := l.Run(stop, nil); err != nil {
+	if err := l.Build(); err != nil {
 		t.Fatal(err)
 	}
+	go l.Run(stop)
 
 	if expectLeader {
 		select {
@@ -60,4 +71,48 @@ func TestLeaderElection(t *testing.T) {
 	close(stop2)
 	close(stop)
 	_ = createElection(t, "pod2", true, client)
+}
+
+func TestLeaderElectionConfigMapRemoved(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	stop := createElection(t, "pod1", true, client)
+	if err := client.CoreV1().ConfigMaps("ns").Delete("istio-leader", &v1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	retry.UntilSuccessOrFail(t, func() error {
+		l, err := client.CoreV1().ConfigMaps("ns").List(v1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		if len(l.Items) != 1 {
+			return fmt.Errorf("got unexpected config map entry: %v", l.Items)
+		}
+		return nil
+	})
+	close(stop)
+}
+
+func TestLeaderElectionNoPermission(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	completed := make(chan struct{})
+	stop := createElection(t, "pod1", true, client, func(stop <-chan struct{}) {
+		// Send on "completed" if we haven't been told to stop within 3s
+		select {
+		case <-stop:
+			return
+		case <-time.After(time.Second * 3):
+		}
+		completed <- struct{}{}
+	})
+	// Immediately drop RBAC permssions to update the configmap
+	client.Fake.PrependReactor("update", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("nope, out of luck")
+	})
+	// We would expect this to complete
+	select {
+	case <-time.After(time.Second * 15):
+		t.Fatalf("failed to complete function")
+	case <-completed:
+	}
+	close(stop)
 }
