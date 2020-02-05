@@ -23,24 +23,19 @@ protoc = protoc -Icommon-protos -Ioperator
 go_plugin_prefix := --go_out=plugins=grpc,
 go_plugin := $(go_plugin_prefix):$(out_path)
 
-python_output_path := operator/python/istio_api
-protoc_gen_python_prefix := --python_out=,
-protoc_gen_python_plugin := $(protoc_gen_python_prefix):$(repo_dir)/$(python_output_path)
-
 protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front_matter:$(repo_dir)/
 
 v1alpha1_path := operator/pkg/apis/istio/v1alpha1
 v1alpha1_protos := $(wildcard $(v1alpha1_path)/*.proto)
 v1alpha1_pb_gos := $(v1alpha1_protos:.proto=.pb.go)
-v1alpha1_pb_pythons := $(patsubst $(v1alpha1_path)/%.proto,$(python_output_path)/$(v1alpha1_path)/%_pb2.py,$(v1alpha1_protos))
 v1alpha1_pb_docs := $(v1alpha1_path)/v1alpha1.pb.html
 v1alpha1_openapi := $(v1alpha1_protos:.proto=.json)
 
-$(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons): $(v1alpha1_protos)
-	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(v1alpha1_path) $(protoc_gen_python_plugin) $^
+$(v1alpha1_pb_gos) $(v1alpha1_pb_docs): $(v1alpha1_protos)
+	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(v1alpha1_path) $^
 	@cp -r ${TMPDIR}/pkg/* operator/pkg/
 	@rm -fr ${TMPDIR}/pkg
 	@go run $(repo_dir)/operator/pkg/apis/istio/fixup_structs/main.go -f $(v1alpha1_path)/values_types.pb.go
 
 .PHONY: operator-proto
-operator-proto: $(v1alpha1_pb_gos) $(v1alpha1_pb_docs) $(v1alpha1_pb_pythons)
+operator-proto: $(v1alpha1_pb_gos) $(v1alpha1_pb_docs)
