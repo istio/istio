@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/version"
-	"istio.io/pkg/log"
 	buildversion "istio.io/pkg/version"
 )
 
@@ -102,7 +101,7 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 		Long:  "The init subcommand installs the Istio operator controller in the cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			operatorInit(rootArgs, oiArgs, l, defaultManifestApplier)
 		}}
 }
@@ -124,7 +123,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 		l.logAndFatal(err)
 	}
 
-	log.Infof("Using the following manifest to install operator:\n%s\n", mstr)
+	scope.Infof("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,
@@ -252,7 +251,7 @@ tag: {{.Tag}}
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Installing operator charts with the following values:\n%s", vals)
+	scope.Infof("Installing operator charts with the following values:\n%s", vals)
 	return r.RenderManifest(vals)
 }
 
