@@ -914,8 +914,12 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
+				tlsLabel := ep.TLSMode
+				if !push.BetaPolicyAbleAcceptMTLS(ep.Labels) {
+					tlsLabel = model.DisabledTLSModeLabel
+				}
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network,
-					ep.LbWeight, ep.TLSMode, push)
+					ep.LbWeight, tlsLabel, push)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 

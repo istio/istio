@@ -134,6 +134,12 @@ type PushContext struct {
 	networkGateways map[string][]*Gateway
 }
 
+// BetaPolicy place holder to return betap policy for mTLS.
+// TODO: fill this once diem pr is merged.
+func (ps *PushContext) BetaPolicyAbleAcceptMTLS(_ labels.Instance) bool {
+	return true
+}
+
 // Gateway is the gateway of a network
 type Gateway struct {
 	// gateway ip address
