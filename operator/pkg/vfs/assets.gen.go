@@ -211,6 +211,7 @@
 // charts/security/nodeagent/templates/daemonset.yaml
 // charts/security/nodeagent/templates/serviceaccount.yaml
 // charts/security/nodeagent/values.yaml
+// examples/customresource/istio_v1alpha1_istiooperator_cr.yaml
 // examples/googleca/values-istio-google-ca.yaml
 // examples/multicluster/values-istio-multicluster-gateways.yaml
 // examples/multicluster/values-istio-multicluster-primary.yaml
@@ -6810,6 +6811,9 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
         {{- if .Values.global.istiod.enabled }}
           - --controlPlaneAuthPolicy
           - NONE
@@ -7909,6 +7913,9 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
           {{- if .Values.global.istiod.enabled }}
           - --controlPlaneAuthPolicy
           - NONE
@@ -12026,6 +12033,9 @@ template: |
     - --statusPort
     - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
   {{- end }}
+  {{- if .Values.global.sts.servicePort }}
+    - --stsPort={{ .Values.global.sts.servicePort }}
+  {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
   {{- end }}
@@ -13377,9 +13387,8 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml() (*asset, error) {
 var _chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-pilot{{ .Values.version }}
+  name: istiod{{ .Values.version }}
   namespace: {{ .Release.Namespace }}
-  # TODO: default template doesn't have this, which one is right ?
   labels:
     app: pilot
     {{- if ne .Values.version ""}}
@@ -13419,11 +13428,6 @@ spec:
         # This avoids default deployment picking the canary
         istio: pilot
         {{- end }}
-{{- if eq .Release.Namespace "istio-system"}}
-        heritage: Tiller
-        release: istio
-        chart: pilot
-{{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
@@ -31193,8 +31197,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.9.0
-appVersion: 1.9.0
+version: 1.13.0
+appVersion: 1.13.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -31803,7 +31807,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.9
+  tag: v1.13
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -38866,6 +38870,32 @@ func chartsSecurityNodeagentValuesYaml() (*asset, error) {
 	return a, nil
 }
 
+var _examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml = []byte(`---
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: example-istiocontrolplane
+spec:
+  profile: demo
+...
+`)
+
+func examplesCustomresourceIstio_v1alpha1_istiooperator_crYamlBytes() ([]byte, error) {
+	return _examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml, nil
+}
+
+func examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml() (*asset, error) {
+	bytes, err := examplesCustomresourceIstio_v1alpha1_istiooperator_crYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "examples/customresource/istio_v1alpha1_istiooperator_cr.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _examplesGooglecaValuesIstioGoogleCaYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -39304,7 +39334,6 @@ spec:
   group: install.istio.io
   names:
     kind: IstioOperator
-    listKind: IstioOperatorList
     plural: istiooperators
     singular: istiooperator
     shortNames:
@@ -39338,7 +39367,7 @@ spec:
             https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
           type: object
   versions:
-  - name: v1alpha2
+  - name: v1alpha1
     served: true
     storage: true
 ---
@@ -39849,6 +39878,8 @@ spec:
         udsPath: ""
         token:
           aud: istio-ca
+      sts:
+        servicePort: 0
       meshNetworks: {}
       localityLbSetting:
         enabled: true
@@ -41627,6 +41658,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/security/nodeagent/templates/daemonset.yaml":                                      chartsSecurityNodeagentTemplatesDaemonsetYaml,
 	"charts/security/nodeagent/templates/serviceaccount.yaml":                                 chartsSecurityNodeagentTemplatesServiceaccountYaml,
 	"charts/security/nodeagent/values.yaml":                                                   chartsSecurityNodeagentValuesYaml,
+	"examples/customresource/istio_v1alpha1_istiooperator_cr.yaml":                            examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml,
 	"examples/googleca/values-istio-google-ca.yaml":                                           examplesGooglecaValuesIstioGoogleCaYaml,
 	"examples/multicluster/values-istio-multicluster-gateways.yaml":                           examplesMulticlusterValuesIstioMulticlusterGatewaysYaml,
 	"examples/multicluster/values-istio-multicluster-primary.yaml":                            examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
@@ -41998,6 +42030,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		}},
 	}},
 	"examples": &bintree{nil, map[string]*bintree{
+		"customresource": &bintree{nil, map[string]*bintree{
+			"istio_v1alpha1_istiooperator_cr.yaml": &bintree{examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml, map[string]*bintree{}},
+		}},
 		"googleca": &bintree{nil, map[string]*bintree{
 			"values-istio-google-ca.yaml": &bintree{examplesGooglecaValuesIstioGoogleCaYaml, map[string]*bintree{}},
 		}},

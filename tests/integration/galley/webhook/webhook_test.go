@@ -55,7 +55,7 @@ var (
 func setup(cfg *istio.Config) {
 	if cfg.IsIstiodEnabled() {
 		webhookControllerApp = "pilot" // i.e. istiod. Switch to 'galley' and change the setup options for non-istiod tests.
-		deployName = fmt.Sprintf("istio-%v", webhookControllerApp)
+		deployName = "istiod"
 		clusterRolePrefix = "istiod"
 		vwcName = "istiod-istio-system"
 	} else {

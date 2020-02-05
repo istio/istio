@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: some-service
+  annotations:
+    # This annotation doesn't exist!
+    foobar.istio.io/dontExist: "nothing-here"
