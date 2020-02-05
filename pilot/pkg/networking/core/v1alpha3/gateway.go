@@ -224,6 +224,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	servers := merged.ServersByRouteName[routeName]
 	port := int(servers[0].Port.Number) // all these servers are for the same routeName, and therefore same port
+	// svcPorts are used to build gateway virtualHost domains
+	svcPorts := findServicePorts(node, port)
 
 	nameToServiceMap := make(map[host.Name]*model.Service, len(services))
 	for _, svc := range services {
@@ -258,7 +260,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				} else {
 					newVHost := &route.VirtualHost{
 						Name:    fmt.Sprintf("%s:%d", hostname, port),
-						Domains: []string{string(hostname), fmt.Sprintf("%s:%d", hostname, port)},
+						Domains: buildGatewayVirtualHostDomains(string(hostname), svcPorts),
 						Routes:  routes,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -807,4 +809,39 @@ func getSNIHostsForServer(server *networking.Server) []string {
 	sort.Strings(sniHostsSlice)
 
 	return sniHostsSlice
+}
+
+func buildGatewayVirtualHostDomains(hostname string, ports []int) []string {
+	domains := []string{string(hostname)}
+	if hostname == "*" {
+		return domains
+	}
+
+	for _, port := range ports {
+		domains = append(domains, fmt.Sprintf("%s:%d", hostname, port))
+	}
+
+	return domains
+}
+
+func findServicePorts(node *model.Proxy, svcPort int) []int {
+	ports := []int{svcPort}
+	if len(node.ServiceInstances) == 0 {
+		return ports
+	}
+	svcPortName := ""
+	for _, p := range node.ServiceInstances[0].Service.Ports {
+		// found the svc port
+		if p.Port == svcPort {
+			svcPortName = p.Name
+			continue
+		}
+		// found another port, nodeport for k8s service
+		if svcPortName != "" && svcPortName == p.Name {
+			ports = append(ports, p.Port)
+			break
+		}
+	}
+
+	return ports
 }

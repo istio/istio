@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/proto"
@@ -888,40 +889,87 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	gatewayInstance := &pilot_model.ServiceInstance{
+		Service: &pilot_model.Service{
+			Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
+			Address:  "9.9.9.9",
+			Ports: pilot_model.PortList{
+				&pilot_model.Port{
+					Name:     "http2",
+					Port:     80,
+					Protocol: protocol.HTTP2,
+				},
+				&pilot_model.Port{
+					Name:     "http2",
+					Port:     31380,
+					Protocol: protocol.HTTP2,
+				},
+			},
+			CreationTime: tnow,
+			Attributes: pilot_model.ServiceAttributes{
+				Namespace: "istio-system",
+			},
+		},
+		Endpoint: &pilot_model.IstioEndpoint{
+			EndpointPort: 8080,
+		},
+		ServicePort: &pilot_model.Port{
+			Name:     "http2",
+			Port:     80,
+			Protocol: protocol.HTTP2,
+		},
+	}
+
 	cases := []struct {
 		name                 string
 		virtualServices      []pilot_model.Config
 		gateways             []pilot_model.Config
 		routeName            string
-		expectedVirtualHosts []string
+		expectedVirtualHosts map[string][]string
 	}{
 		{
 			"404 when no services",
 			[]pilot_model.Config{},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"blackhole:80"},
+			map[string][]string{
+				"blackhole:80": {
+					"*",
+				},
+			},
 		},
 		{
 			"add a route for a virtual service",
 			[]pilot_model.Config{virtualService},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"example.org:80"},
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:80", "example.org:31380",
+				},
+			},
 		},
 		{
 			"duplicate virtual service should merge",
 			[]pilot_model.Config{virtualService, virtualServiceCopy},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"example.org:80"},
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:80", "example.org:31380",
+				},
+			},
 		},
 		{
 			"duplicate by wildcard should merge",
 			[]pilot_model.Config{virtualService, virtualServiceWildcard},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"example.org:80"},
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:80", "example.org:31380",
+				},
+			},
 		},
 	}
 	for _, tt := range cases {
@@ -930,13 +978,14 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
 			proxy14Gateway.SetGatewaysForProxy(env.PushContext)
+			proxy14Gateway.ServiceInstances = []*pilot_model.ServiceInstance{gatewayInstance}
 			route := configgen.buildGatewayHTTPRouteConfig(&proxy14Gateway, env.PushContext, tt.routeName)
 			if route == nil {
 				t.Fatal("got an empty route configuration")
 			}
-			vh := make([]string, 0)
+			vh := make(map[string][]string)
 			for _, h := range route.VirtualHosts {
-				vh = append(vh, h.Name)
+				vh[h.Name] = h.Domains
 			}
 			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
 				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
