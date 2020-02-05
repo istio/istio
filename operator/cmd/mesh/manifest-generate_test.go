@@ -115,11 +115,15 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_values",
-			diffSelect: "Deployment:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod",
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istio-pilot, Service:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod, Service:*:istio-pilot",
+		},
+		{
+			desc:       "pilot_merge_meshconfig",
+			diffSelect: "ConfigMap:*:istio$",
 		},
 	})
 }
@@ -153,6 +157,16 @@ func TestManifestGenerateGateway(t *testing.T) {
 		{
 			desc:       "ingressgateway_k8s_settings",
 			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
+		},
+	})
+}
+
+func TestManifestGenerateHelmValues(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc: "helm_values_enablement",
+			diffSelect: "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway," +
+				" Deployment:*:kiali, Service:*:kiali, Deployment:*:prometheus, Service:*:prometheus",
 		},
 	})
 }
@@ -194,7 +208,11 @@ func TestMultiICPSFiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
+		diffSelect := "handler:*:prometheus"
+		got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+		if err != nil {
+			t.Errorf("error selecting from output manifest: %v", err)
+		}
 		diff := compare.YAMLCmp(got, want)
 		if diff != "" {
 			t.Errorf("`manifest generate` diff = %s", diff)
@@ -239,6 +257,15 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				t.Fatal(err)
 			}
 
+			diffSelect := "*:*:*"
+			if tt.diffSelect != "" {
+				diffSelect = tt.diffSelect
+				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				if err != nil {
+					t.Errorf("error selecting from output manifest: %v", err)
+				}
+			}
+
 			if tt.outputDir != "" {
 				got, err = util.ReadFilesWithFilter(tt.outputDir, func(fileName string) bool {
 					return strings.HasSuffix(fileName, ".yaml")
@@ -258,11 +285,6 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			want, err := readFile(outPath)
 			if err != nil {
 				t.Fatal(err)
-			}
-
-			diffSelect := "*:*:*"
-			if tt.diffSelect != "" {
-				diffSelect = tt.diffSelect
 			}
 
 			for _, v := range []bool{true, false} {

@@ -198,6 +198,7 @@ ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
 
+include operator/operator.mk
 
 .PHONY: default
 default: init build test
@@ -344,7 +345,7 @@ go-gen:
 gen-charts:
 	@operator/scripts/run_update_charts.sh
 
-gen: go-gen mirror-licenses format update-crds gen-charts
+gen: go-gen mirror-licenses format update-crds gen-charts operator-proto
 
 gen-check: gen check-clean-repo
 
@@ -413,6 +414,7 @@ else
        TEST_OBJ = selected-pkg-test
 endif
 test: | $(JUNIT_REPORT)
+	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
 	$(MAKE) -e -f Makefile.core.mk --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
