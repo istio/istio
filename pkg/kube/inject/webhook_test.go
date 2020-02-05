@@ -1060,9 +1060,6 @@ func normalizeAndCompareDeployments(got, want *appsv1.Deployment, t *testing.T) 
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
 	getAnnotations(got)[annotation.SidecarStatus.Name] = getAnnotations(want)[annotation.SidecarStatus.Name]
-	gotIstioCerts := istioCerts(got)
-	wantIstioCerts := istioCerts(want)
-	gotIstioCerts.Secret.DefaultMode = wantIstioCerts.Secret.DefaultMode
 	gotIstioInit := istioInit(got, t)
 	wantIstioInit := istioInit(want, t)
 	gotIstioInit.Image = wantIstioInit.Image
