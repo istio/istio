@@ -30646,8 +30646,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.9.0
-appVersion: 1.9.0
+version: 1.13.0
+appVersion: 1.13.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -31258,7 +31258,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.9
+  tag: v1.13
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
