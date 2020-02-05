@@ -380,7 +380,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	if err := waitForCRDs(crdObjects, opts.DryRun); err != nil {
+	if err := waitForCRDs(crdObjects, stdout, opts.DryRun); err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	appliedObjects = append(appliedObjects, crdObjects...)
@@ -571,12 +571,33 @@ func objectsNotInLists(objects object.K8sObjects, lists ...object.K8sObjects) ob
 	return ret
 }
 
-func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
+func canSkipCrdWait(applyOut string) bool {
+	for _, line := range strings.Split(applyOut, "\n") {
+		if line == "" {
+			continue
+		}
+		segments := strings.Split(line, " ")
+		if len(segments) == 2 {
+			changed := segments[1] != "unchanged"
+			isCrd := strings.HasPrefix(segments[0], "customresourcedefinition")
+			if changed && isCrd {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 	if dryRun {
 		scope.Info("Not waiting for CRDs in dry run mode.")
 		return nil
 	}
 
+	if canSkipCrdWait(stdout) {
+		scope.Info("Skipping CRD wait, no changes detected")
+		return nil
+	}
 	scope.Info("Waiting for CRDs to be applied.")
 	cs, err := apiextensionsclient.NewForConfig(k8sRESTConfig)
 	if err != nil {
@@ -639,7 +660,6 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 
 	errPoll := wait.Poll(2*time.Second, opts.WaitTimeout, func() (bool, error) {
 		pods := []v1.Pod{}
-		services := []v1.Service{}
 		deployments := []deployment{}
 		namespaces := []v1.Namespace{}
 
@@ -712,15 +732,9 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 					return false, err
 				}
 				pods = append(pods, list...)
-			case "Service":
-				svc, err := cs.CoreV1().Services(o.Namespace).Get(o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				services = append(services, *svc)
 			}
 		}
-		isReady := namespacesReady(namespaces) && podsReady(pods) && deploymentsReady(deployments) && servicesReady(services)
+		isReady := namespacesReady(namespaces) && podsReady(pods) && deploymentsReady(deployments)
 		if !isReady {
 			logAndPrint("Waiting for resources ready with timeout of %v", opts.WaitTimeout)
 		}
@@ -782,23 +796,6 @@ func deploymentsReady(deployments []deployment) bool {
 	for _, v := range deployments {
 		if v.replicaSets.Status.ReadyReplicas < *v.deployment.Spec.Replicas {
 			logAndPrint("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
-			return false
-		}
-	}
-	return true
-}
-
-func servicesReady(svc []v1.Service) bool {
-	for _, s := range svc {
-		if s.Spec.Type == v1.ServiceTypeExternalName {
-			continue
-		}
-		if s.Spec.ClusterIP != v1.ClusterIPNone && s.Spec.ClusterIP == "" {
-			logAndPrint("Service is not ready: %s/%s", s.GetNamespace(), s.GetName())
-			return false
-		}
-		if s.Spec.Type == v1.ServiceTypeLoadBalancer && s.Status.LoadBalancer.Ingress == nil {
-			logAndPrint("Service is not ready: %s/%s", s.GetNamespace(), s.GetName())
 			return false
 		}
 	}
