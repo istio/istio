@@ -8986,7 +8986,23 @@ rules:
   - nodes
   verbs:
   - get
-`)
+---
+{{- if .Values.cni.repair.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-cni-repair-role
+  labels:
+    app: istio-cni
+    release: {{ .Release.Name }}
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "delete", "patch", "update" ]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]
+{{- end }}`)
 
 func chartsIstioCniTemplatesClusterroleYamlBytes() ([]byte, error) {
 	return _chartsIstioCniTemplatesClusterroleYaml, nil
@@ -9018,6 +9034,24 @@ subjects:
 - kind: ServiceAccount
   name: istio-cni
   namespace: {{ .Release.Namespace }}
+---
+{{- if .Values.cni.repair.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-cni-repair-rolebinding
+  namespace: {{ .Release.Namespace}}
+  labels:
+    k8s-app: istio-cni-repair
+subjects:
+- kind: ServiceAccount
+  name: istio-cni
+  namespace: {{ .Release.Namespace}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-cni-repair-role
+{{- end }}
 ---
 {{- if ne .Values.cni.psp_cluster_role "" }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -9171,6 +9205,41 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
+{{- if .Values.cni.repair.enabled }}
+        - name: repair-cni
+{{- if contains "/" .Values.cni.image }}
+          image: "{{ .Values.cni.image }}"
+{{- else }}
+          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}"
+{{- end }}
+{{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
+{{- end }}
+
+          command: ["/opt/cni/bin/istio-cni-repair"]
+          env:
+          - name: "REPAIR_NODE-NAME"
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: "REPAIR_LABEL-PODS"
+            value: "{{.Values.cni.repair.labelPods}}"
+          - name: "REPAIR_CREATE-EVENTS"
+            value: "{{.Values.cni.repair.createEvents}}"
+          # Set to true to enable pod deletion
+          - name: "REPAIR_DELETE-PODS"
+            value: "{{.Values.cni.repair.deletePods}}"
+          - name: "REPAIR_RUN-AS-DAEMON"
+            value: "true"
+          - name: "REPAIR_SIDECAR-ANNOTATION"
+            value: "sidecar.istio.io/status"
+          - name: "REPAIR_INIT-CONTAINER-NAME"
+            value: "istio-init"
+          - name: "REPAIR_BROKEN-POD-LABEL-KEY"
+            value: "{{.Values.cni.repair.brokenPodLabelKey}}"
+          - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
+            value: "{{.Values.cni.repair.brokenPodLabelValue}}"
+{{- end }}
       volumes:
         # Used to install CNI.
         - name: cni-bin-dir
@@ -9257,6 +9326,18 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
   # This can be used to bind a preexisting ClusterRole to the istio/cni ServiceAccount
   # e.g. if you use PodSecurityPolicies
   psp_cluster_role: ""
+
+  repair:
+    enabled: true
+    hub: gcr.io/istio-testing
+    tag: latest
+
+    labelPods: "true"
+    createEvents: "true"
+    deletePods: "true"
+
+    brokenPodLabelKey: "cni.istio.io/uninitialized"
+    brokenPodLabelValue: "true"
 `)
 
 func chartsIstioCniValuesYamlBytes() ([]byte, error) {
@@ -15007,7 +15088,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   compiledAdapter: kubernetesenv
-  params:
+  params: {}
     # when running from mixer root, use the following config after adding a
     # symbolic link to a kubernetes config file via:
     #
@@ -30565,8 +30646,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.9.0
-appVersion: 1.9.0
+version: 1.13.0
+appVersion: 1.13.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -31177,7 +31258,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.9
+  tag: v1.13
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -38306,7 +38387,7 @@ spec:
         status:
           description: 'Status describes each of istio control plane component status at the current time.
             0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
-            More info: https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/v1alpha2.pb.html &
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
             https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
           type: object
   versions:
@@ -38351,7 +38432,7 @@ spec:
         - name: istio-operator
           image: {{.Values.hub}}/operator:{{.Values.tag}}
           command:
-          - istio-operator
+          - operator
           - server
           imagePullPolicy: IfNotPresent
           resources:
