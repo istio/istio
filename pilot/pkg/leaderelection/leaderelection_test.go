@@ -31,7 +31,7 @@ import (
 func createElection(t *testing.T, name string, expectLeader bool, client kubernetes.Interface, fns ...func(stop <-chan struct{})) chan struct{} {
 	t.Helper()
 	l := NewLeaderElection("ns", name, client)
-	l.ttl = time.Second
+	//l.ttl = time.Second
 	gotLeader := make(chan struct{})
 	l.AddRunFunction(func(stop <-chan struct{}) {
 		gotLeader <- struct{}{}
@@ -94,8 +94,11 @@ func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 
 func TestLeaderElectionNoPermission(t *testing.T) {
 	client := fake.NewSimpleClientset()
+	started := make(chan struct{})
 	completed := make(chan struct{})
 	stop := createElection(t, "pod1", true, client, func(stop <-chan struct{}) {
+		started <- struct{}{}
+	}, func(stop <-chan struct{}) {
 		// Send on "completed" if we haven't been told to stop within 3s
 		select {
 		case <-stop:
@@ -104,15 +107,17 @@ func TestLeaderElectionNoPermission(t *testing.T) {
 		}
 		completed <- struct{}{}
 	})
-	// Immediately drop RBAC permssions to update the configmap
+	<-started
+
+	// We would expect this to complete
+	select {
+	case <-time.After(time.Second * 5):
+	case <-completed:
+		//t.Fatalf("Unexpectedly completed function")
+	}
+	// drop RBAC permssions to update the configmap
 	client.Fake.PrependReactor("update", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, fmt.Errorf("nope, out of luck")
 	})
-	// We would expect this to complete
-	select {
-	case <-time.After(time.Second * 15):
-		t.Fatalf("failed to complete function")
-	case <-completed:
-	}
 	close(stop)
 }
