@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
@@ -44,9 +45,9 @@ func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 		Name:        "virtualservice.DestinationHostAnalyzer",
 		Description: "Checks the destination hosts associated with each virtual service",
 		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name(),
 			collections.IstioNetworkingV1Alpha3Serviceentries.Name(),
 			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			collections.K8SCoreV1Services.Name(),
 		},
 	}
 }
@@ -123,7 +124,7 @@ func getDestinationHost(sourceNs resource.Namespace, host string, serviceEntryHo
 func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3.ServiceEntry {
 	result := make(map[util.ScopedFqdn]*v1alpha3.ServiceEntry)
 
-	extractFn := func(r *resource.Instance) bool {
+	extractSe := func(r *resource.Instance) bool {
 		s := r.Message.(*v1alpha3.ServiceEntry)
 		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
 		if util.IsExportToAllNamespaces(s.ExportTo) {
@@ -134,10 +135,29 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 		}
 		return true
 	}
+	extractSvc := func(r *resource.Instance) bool {
+		s := r.Message.(*corev1.ServiceSpec)
+		var se *v1alpha3.ServiceEntry
+		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
+		var ports []*v1alpha3.Port
+		for _, p := range s.Ports {
+			ports = append(ports, &v1alpha3.Port{
+				Number:   uint32(p.Port),
+				Name:     p.Name,
+				Protocol: string(p.Protocol),
+			})
+		}
+		host := util.ConvertHostToFQDN(r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())
+		se = &v1alpha3.ServiceEntry{
+			Hosts: []string{host},
+			Ports: ports,
+		}
+		result[util.NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())] = se
+		return true
+	}
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), extractFn)
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name(), extractFn)
-
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), extractSe)
+	ctx.ForEach(collections.K8SCoreV1Services.Name(), extractSvc)
 	return result
 }
 
