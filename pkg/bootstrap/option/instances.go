@@ -243,3 +243,7 @@ func PilotCertProvider(value string) Instance {
 func STSPort(value int) Instance {
 	return newOption("sts_port", value)
 }
+
+func CaCert(value string) Instance {
+	return newOption("ca_cert", value)
+}

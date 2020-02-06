@@ -70,6 +70,7 @@ spec:
         env:
         - name: JWT_POLICY
           value: third-party-jwt
+        - name: CA_CERT
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: CA_ADDR
@@ -145,8 +146,6 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
@@ -207,9 +206,6 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istio-ca-root-cert
-        name: citadel-ca-cert
       - name: istio-certs
         secret:
           optional: true
@@ -289,6 +285,7 @@ spec:
         env:
         - name: JWT_POLICY
           value: third-party-jwt
+        - name: CA_CERT
         - name: PILOT_CERT_PROVIDER
           value: citadel
         - name: CA_ADDR
@@ -364,8 +361,6 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
@@ -426,9 +421,6 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istio-ca-root-cert
-        name: citadel-ca-cert
       - name: istio-certs
         secret:
           optional: true

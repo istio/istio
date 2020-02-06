@@ -35,6 +35,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -150,6 +151,7 @@ type SidecarTemplateData struct {
 	ProxyConfig    *meshconfig.ProxyConfig
 	MeshConfig     *meshconfig.MeshConfig
 	Values         map[string]interface{}
+	CaCert         string
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -707,6 +709,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		ProxyConfig:    meshconfig.DefaultConfig,
 		MeshConfig:     meshconfig,
 		Values:         values,
+		CaCert:         "",
 	}
 	spec, status, err := InjectionData(sidecarTemplate, sidecarTemplateVersionHash(sidecarTemplate), data)
 	if err != nil {

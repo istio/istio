@@ -265,7 +265,7 @@
                 {{ if eq .pilot_cert_provider "kubernetes" }}
                 "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
                 {{ else if eq .pilot_cert_provider "citadel" }}
-                "filename": "./etc/istio/citadel-ca-cert/ca-cert-ns.pem"
+                "inline_string": "{{.ca_cert}}"
                 {{ end }}
               },
               "verify_subject_alt_name": {{ toJSON .pilot_SAN }}

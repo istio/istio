@@ -136,6 +136,8 @@ var (
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
 
+	caCertEnv = env.RegisterStringVar("CA_CERT", "", "The CA certificate to use.").Get()
+
 	sdsUdsWaitTimeout = time.Minute
 
 	// Indicates if any the remote services like AccessLogService, MetricsService have enabled tls.
@@ -446,6 +448,7 @@ var (
 						option.SDSTokenPath(sdsTokenPath),
 						option.SDSUDSPath(sdsUDSPath),
 						option.STSPort(stsPort),
+						option.CaCert(caCertEnv),
 					}
 
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
@@ -548,6 +551,7 @@ var (
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
 				StsPort:             stsPort,
+				CaCert:              caCertEnv,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())

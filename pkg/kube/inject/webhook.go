@@ -72,6 +72,7 @@ type Webhook struct {
 	healthCheckInterval time.Duration
 	healthCheckFile     string
 
+	caCert     string
 	server     *http.Server
 	meshFile   string
 	configFile string
@@ -142,6 +143,9 @@ type WebhookParameters struct {
 	// Port is the webhook port, e.g. typically 443 for https.
 	Port int
 
+	// CaCert returns the cert for the CA to be injected into pods.
+	CaCert string
+
 	// MonitoringPort is the webhook port, e.g. typically 15014.
 	// Set to -1 to disable monitoring
 	MonitoringPort int
@@ -209,6 +213,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		keyFile:                p.KeyFile,
 		cert:                   &pair,
 		env:                    p.Env,
+		caCert:                 p.CaCert,
 	}
 
 	var mux *http.ServeMux
@@ -765,6 +770,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		ProxyConfig:    wh.meshConfig.DefaultConfig,
 		MeshConfig:     wh.meshConfig,
 		Values:         wh.values,
+		CaCert:         wh.caCert,
 	}
 	spec, iStatus, err := InjectionData(wh.Config.Template, wh.sidecarTemplateVersion, data)
 	if err != nil {

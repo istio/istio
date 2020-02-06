@@ -63,6 +63,7 @@ type ProxyConfig struct {
 	OutlierLogPath      string
 	PilotCertProvider   string
 	StsPort             int
+	CaCert              string
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -172,6 +173,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
 			StsPort:             e.StsPort,
+			CaCert:              e.CaCert,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config: ", err)

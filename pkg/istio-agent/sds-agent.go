@@ -23,8 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/config/constants"
-
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/kube"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
@@ -73,11 +71,10 @@ var (
 	initialBackoffInMilliSecEnv        = env.RegisterIntVar(InitialBackoffInMilliSec, 2000, "").Get()
 	pkcs8KeysEnv                       = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 
+	caCertEnv = env.RegisterStringVar("CA_CERT", "", "The CA certificate to use.").Get()
+
 	// Location of K8S CA root.
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-
-	// CitadelCACertPath is the directory for Citadel CA certificate.
-	CitadelCACertPath = "./etc/istio/citadel-ca-cert"
 )
 
 const (
@@ -363,11 +360,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 
 			if serverOptions.PilotCertProvider == "citadel" {
 				log.Info("istiod uses self-issued certificate")
-				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
-					certReadErr = true
-				} else {
-					log.Infof("the CA cert of istiod is: %v", string(rootCert))
-				}
+				rootCert = []byte(caCertEnv)
 			} else if serverOptions.PilotCertProvider == "kubernetes" {
 				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
 				if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
@@ -397,11 +390,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			} else if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
 				if serverOptions.PilotCertProvider == "citadel" {
 					log.Info("istiod uses self-issued certificate")
-					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
-						certReadErr = true
-					} else {
-						log.Infof("the CA cert of istiod is: %v", string(rootCert))
-					}
+					rootCert = []byte(caCertEnv)
 				} else if serverOptions.PilotCertProvider == "kubernetes" {
 					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
 					if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {

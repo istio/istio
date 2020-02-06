@@ -11065,6 +11065,9 @@ template: |
     env:
     - name: JWT_POLICY
       value: {{ .Values.global.jwtPolicy }}
+    - name: CA_CERT
+      value: |-
+        {{ .CaCert | indent 6}}
     - name: PILOT_CERT_PROVIDER
       value: {{ .Values.global.pilotCertProvider }}
     # Temp, pending PR to make it default or based on the istiodAddr env
@@ -11232,10 +11235,6 @@ template: |
   {{- end }}
     {{  end -}}
     volumeMounts:
-    {{- if eq .Values.global.pilotCertProvider "citadel" }}
-    - mountPath: /etc/istio/citadel-ca-cert
-      name: citadel-ca-cert
-    {{- end }}
     {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
@@ -11277,11 +11276,6 @@ template: |
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
-  {{- end }}
-  {{- if eq .Values.global.pilotCertProvider "citadel" }}
-  - name: citadel-ca-cert
-    configMap:
-      name: istio-ca-root-cert
   {{- end }}
   - name: istio-certs
     secret:
