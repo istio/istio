@@ -85,7 +85,7 @@ func genApplyManifests(setOverlay []string, inFilename []string, force bool, dry
 	gotError := false
 	skippedComponentMap := map[name.ComponentName]bool{}
 	for cn := range manifests {
-		enabledInSpec, err := translate.IsComponentEnabledInSpec(cn, iops)
+		enabledInSpec, err := translate.IsComponentEnabledInSpec("", "", cn, iops)
 		if err != nil {
 			l.logAndPrintf("failed to check if %s is enabled in IstioOperatorSpec: %v", cn, err)
 		}

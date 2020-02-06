@@ -425,8 +425,13 @@ metadata:
 
 # Cni component is disabled.
 
+# EgressGateways component is disabled.
+
 # Galley component is disabled.
 
+# IngressGateways component is disabled.
+
+---
 # Resources for IngressGateways component
 
 apiVersion: autoscaling/v2beta1

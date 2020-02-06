@@ -1,0 +1,20 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: default
+  components:
+    base:
+      enabled: false
+    ingressGateways:
+      - namespace: istio-system
+        name: ingressgateway
+        enabled: false
+      - namespace: istio-ingress-ns1
+        name: istio-ingress-1
+        enabled: true
+      - namespace: istio-ingress-ns2
+        name: istio-ingress-2
+        enabled: true
+      - namespace: istio-ingress-ns3
+        name: istio-ingress-3
+        enabled: false

@@ -27,7 +27,7 @@ import (
 // IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.
 // IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.
 // TODO: remove extra validations when comfort level is high enough.
-func IsComponentEnabledInSpec(componentName name.ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (bool, error) {
+func IsComponentEnabledInSpec(ns, rn string, componentName name.ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (bool, error) {
 	// for Istio components, check whether override path exist in values part first then ISCP.
 	enabled, pathExist, err := IsComponentEnabledFromValue(componentName, controlPlaneSpec.Values)
 	// only return value when path exists
@@ -35,10 +35,20 @@ func IsComponentEnabledInSpec(componentName name.ComponentName, controlPlaneSpec
 		return enabled, nil
 	}
 	if componentName == name.IngressComponentName {
-		return len(controlPlaneSpec.Components.IngressGateways) != 0, nil
+		for _, k := range controlPlaneSpec.Components.IngressGateways {
+			if k.Name == rn && (k.Namespace == ns || k.Namespace == "") {
+				return k.Enabled.Value, nil
+			}
+		}
+		return false, nil
 	}
 	if componentName == name.EgressComponentName {
-		return len(controlPlaneSpec.Components.EgressGateways) != 0, nil
+		for _, k := range controlPlaneSpec.Components.EgressGateways {
+			if k.Name == rn && (k.Namespace == ns || k.Namespace == "") {
+				return k.Enabled.Value, nil
+			}
+		}
+		return false, nil
 	}
 	if componentName == name.AddonComponentName {
 		for _, ac := range controlPlaneSpec.AddonComponents {

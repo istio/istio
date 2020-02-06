@@ -166,6 +166,10 @@ func TestManifestGenerateGateway(t *testing.T) {
 			desc:       "ingressgateway_k8s_settings",
 			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
 		},
+		{
+			desc:       "multi-gateways",
+			diffIgnore: "ConfigMap:*:istio",
+		},
 	})
 }
 

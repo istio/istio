@@ -356,7 +356,7 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 	for i := l - 1; i >= 0; i-- {
 		cn := name.ComponentName(keys[i])
 		c := t.ComponentMaps[cn]
-		e, err := t.IsComponentEnabled(cn, iop)
+		e, err := t.IsComponentEnabled("", "", cn, iop)
 		if err != nil {
 			return err
 		}
@@ -369,8 +369,8 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		if err := tpath.WriteNode(root, util.PathFromString(enablementPath+"."+HelmValuesEnabledSubpath), e); err != nil {
 			return err
 		}
-
 		ns, err := name.Namespace(cn, iop)
+
 		if err != nil {
 			return err
 		}
@@ -408,11 +408,11 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 
 // IsComponentEnabled reports whether the component with name cn is enabled, according to the translations in t,
 // and the contents of ocp.
-func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.IstioOperatorSpec) (bool, error) {
+func (t *Translator) IsComponentEnabled(ns, rn string, cn name.ComponentName, iop *v1alpha1.IstioOperatorSpec) (bool, error) {
 	if t.ComponentMaps[cn] == nil {
 		return false, nil
 	}
-	return IsComponentEnabledInSpec(cn, iop)
+	return IsComponentEnabledInSpec(ns, rn, cn, iop)
 }
 
 // AllComponentsNames returns a slice of all components used in t.

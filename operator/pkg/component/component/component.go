@@ -550,6 +550,7 @@ func NewEgressComponent(resourceName string, index int, opts *Options) *EgressCo
 			Options:       opts,
 			componentName: cn,
 			index:         index,
+			resourceName:  resourceName,
 		},
 	}
 }
@@ -643,8 +644,8 @@ func runComponent(c *CommonComponentFields) error {
 
 // renderManifest renders the manifest for the component defined by c and returns the resulting string.
 func renderManifest(c *CommonComponentFields) (string, error) {
-	if c.componentName.IsCoreComponent() {
-		e, err := c.Translator.IsComponentEnabled(c.componentName, c.InstallSpec)
+	if c.componentName.IsCoreComponent() || c.componentName.IsGateway() {
+		e, err := c.Translator.IsComponentEnabled(c.Namespace, c.resourceName, c.componentName, c.InstallSpec)
 		if err != nil {
 			return "", err
 		}
