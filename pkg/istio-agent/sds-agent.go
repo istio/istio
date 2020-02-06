@@ -16,6 +16,7 @@ package istioagent
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -75,6 +77,9 @@ var (
 
 	// Location of K8S CA root.
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+	// CitadelCACertPath is the directory for Citadel CA certificate.
+	CitadelCACertPath = "./etc/istio/citadel-ca-cert"
 )
 
 const (
@@ -158,6 +163,13 @@ type SDSAgent struct {
 
 	// PilotCertProvider is the provider of the Pilot certificate
 	PilotCertProvider string
+}
+
+func GetCaCert() ([]byte, error) {
+	if caCertEnv != "" {
+		return []byte(caCertEnv), nil
+	}
+	return ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName))
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -349,7 +361,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 		var rootCert []byte
 
 		tls := true
-		certReadErr := false
+		var certReadErr error
 
 		if serverOptions.CAEndpoint == "" {
 			// When serverOptions.CAEndpoint is nil, the default CA endpoint
@@ -360,25 +372,21 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 
 			if serverOptions.PilotCertProvider == "citadel" {
 				log.Info("istiod uses self-issued certificate")
-				rootCert = []byte(caCertEnv)
+				rootCert, certReadErr = GetCaCert()
 			} else if serverOptions.PilotCertProvider == "kubernetes" {
 				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
-				if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
-					certReadErr = true
-				}
+				rootCert, certReadErr = ioutil.ReadFile(k8sCAPath)
 			} else if serverOptions.PilotCertProvider == "custom" {
 				log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
 					cache.ExistingRootCertFile)
-				if rootCert, err = ioutil.ReadFile(cache.ExistingRootCertFile); err != nil {
-					certReadErr = true
-				}
+				rootCert, certReadErr = ioutil.ReadFile(cache.ExistingRootCertFile)
 			} else {
-				certReadErr = true
+				certReadErr = fmt.Errorf("invalid pilot cert provider: %v", serverOptions.PilotCertProvider)
 			}
-			if certReadErr {
+			if certReadErr != nil {
 				rootCert = nil
 				// for debugging only
-				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
+				log.Warnf("Failed to load root cert, assume IP secure network: %v", certReadErr)
 				serverOptions.CAEndpoint = "istio-pilot.istio-system.svc:15010"
 			}
 		} else {
@@ -390,24 +398,20 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			} else if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
 				if serverOptions.PilotCertProvider == "citadel" {
 					log.Info("istiod uses self-issued certificate")
-					rootCert = []byte(caCertEnv)
+					rootCert, certReadErr = GetCaCert()
 				} else if serverOptions.PilotCertProvider == "kubernetes" {
 					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
-					if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
-						certReadErr = true
-					}
+					rootCert, certReadErr = ioutil.ReadFile(k8sCAPath)
 				} else if serverOptions.PilotCertProvider == "custom" {
 					log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
 						cache.ExistingRootCertFile)
-					if rootCert, err = ioutil.ReadFile(cache.ExistingRootCertFile); err != nil {
-						certReadErr = true
-					}
+					rootCert, certReadErr = ioutil.ReadFile(cache.ExistingRootCertFile)
 				} else {
-					certReadErr = true
+					certReadErr = fmt.Errorf("invalid pilot cert provider: %v", serverOptions.PilotCertProvider)
 				}
-				if certReadErr {
+				if certReadErr != nil {
 					rootCert = nil
-					log.Fatal("invalid config - port 15012 missing a root certificate")
+					log.Fatalf("invalid config - port 15012 missing a root certificate: %v", certReadErr)
 				}
 			} else {
 				// It is ok for CA endpoint to have a port that is not 15010 or 15012, e.g.,

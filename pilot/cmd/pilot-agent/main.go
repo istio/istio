@@ -136,8 +136,6 @@ var (
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
 
-	caCertEnv = env.RegisterStringVar("CA_CERT", "", "The CA certificate to use.").Get()
-
 	sdsUdsWaitTimeout = time.Minute
 
 	// Indicates if any the remote services like AccessLogService, MetricsService have enabled tls.
@@ -448,7 +446,6 @@ var (
 						option.SDSTokenPath(sdsTokenPath),
 						option.SDSUDSPath(sdsUDSPath),
 						option.STSPort(stsPort),
-						option.CaCert(caCertEnv),
 					}
 
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
@@ -531,7 +528,10 @@ var (
 			}
 
 			log.Infof("PilotSAN %#v", pilotSAN)
-
+			caCert, err := istio_agent.GetCaCert()
+			if err != nil {
+				return fmt.Errorf("failed to get root cert: %v", err)
+			}
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
 				Node:                role.ServiceNode(),
@@ -551,7 +551,7 @@ var (
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
 				StsPort:             stsPort,
-				CaCert:              caCertEnv,
+				CaCert:              caCert,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
