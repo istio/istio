@@ -1358,7 +1358,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 			},
 		},
 		{
-			name: "Fallback to alpha",
+			name: "Fallback to alpha API",
 			alphaPolicy: &authn_alpha_api.Policy{
 				Peers: []*authn_alpha_api.PeerAuthenticationMethod{
 					{
@@ -1390,7 +1390,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 			},
 		},
 		{
-			name: "Ignore to alpha",
+			name: "Ignore alpha API",
 			peerPolicies: []*model.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{

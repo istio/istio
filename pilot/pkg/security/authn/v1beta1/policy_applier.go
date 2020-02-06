@@ -414,11 +414,9 @@ func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v
 			spec.Mtls.Mode != v1beta1.PeerAuthentication_MutualTLS_UNSET &&
 			isStrictlyStronger(spec, &finalPolicy) {
 			// Current policy has explicit mTLS, with stronger mTLS mode than the consolidated policy: update to current.
-			authnLog.Infof("Yeild for workload policy %s in %s with mode %v", cfg.Name, cfg.Namespace, spec.Mtls.Mode)
 			finalPolicy.Mtls = spec.Mtls
 		} else if isStrictlyStronger(&parentPolicy, &finalPolicy) {
 			// Current policy inherit from parent, and parent has stronger mTLS mode than the consolidate policy: update to parent.
-			authnLog.Infof("Inherit workload policy %s in %s from parent %v", cfg.Name, cfg.Namespace, parentPolicy.Mtls.Mode)
 			finalPolicy.Mtls = parentPolicy.Mtls
 		}
 
