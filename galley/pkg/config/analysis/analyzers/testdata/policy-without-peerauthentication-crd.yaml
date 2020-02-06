@@ -1,0 +1,18 @@
+# We have both a policy object and a mesh policy. With no CRD defined, however,
+# we won't tell the user to upgrade.
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "namespace-level-policy"
+  namespace: "foobar"
+spec:
+  peers:
+    - mtls: {}
+---
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+spec:
+  peers:
+    - mtls: {}
