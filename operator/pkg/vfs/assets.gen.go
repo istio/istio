@@ -39489,7 +39489,7 @@ spec:
         - name: istio-operator
           image: {{.Values.hub}}/operator:{{.Values.tag}}
           command:
-          - istio-operator
+          - operator
           - server
           imagePullPolicy: IfNotPresent
           resources:
