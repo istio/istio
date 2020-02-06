@@ -126,17 +126,21 @@ func (rc *Context) Run(testCases []TestCase) {
 		test.Run(func(ctx framework.TestContext) {
 			// Apply the policy.
 			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
-			retry.UntilSuccessOrFail(ctx, func() error {
+			retry.UntilSuccessOrFail(rc.ctx, func() error {
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
+				ctx.Logf("[%s] Apply config %s", testName, c.ConfigFile)
 				return rc.g.ApplyConfig(c.Namespace, policyYAML)
 			})
 			ctx.WhenDone(func() error {
+				ctx.Logf("[%s] Delete config %s", testName, c.ConfigFile)
 				return rc.g.DeleteConfig(c.Namespace, policyYAML)
 			})
 
 			// Give some time for the policy propagate.
 			// TODO: query pilot or app to know instead of sleep.
+			ctx.Logf("[%s] Wait for config propagate to endpoints...", testName)
 			time.Sleep(10 * time.Second)
+			ctx.Logf("[%s] Finish waiting. Continue testing.", testName)
 
 			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
 				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
