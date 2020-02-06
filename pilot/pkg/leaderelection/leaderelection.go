@@ -17,18 +17,13 @@ package leaderelection
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
-	coreV1 "k8s.io/api/core/v1"
+	"istio.io/pkg/log"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	"k8s.io/client-go/tools/record"
-
-	"istio.io/pkg/log"
 )
 
 const (
@@ -82,18 +77,11 @@ func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
 
 		},
 	}
-	broadcaster := record.NewBroadcaster()
-	hostname, _ := os.Hostname()
-	recorder := broadcaster.NewRecorder(scheme.Scheme, coreV1.EventSource{
-		Component: recorderComponent,
-		Host:      hostname,
-	})
 	lock := resourcelock.ConfigMapLock{
 		ConfigMapMeta: metaV1.ObjectMeta{Namespace: l.namespace, Name: electionID},
 		Client:        l.client.CoreV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
 			Identity:      l.name,
-			EventRecorder: recorder,
 		},
 	}
 	return leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
