@@ -35,7 +35,11 @@ func addInitSvcAndEndpoints(server *bootstrap.Server) *model.Service {
 	svc := &model.Service{
 		Hostname: hostname,
 		Address:  "10.10.0.3",
-		Ports:    testPorts(0),
+		Ports: []*model.Port{{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}},
 		Attributes: model.ServiceAttributes{
 			Name:      "service3",
 			Namespace: "default",
@@ -264,10 +268,10 @@ func TestPushEdsWithEgds(t *testing.T) {
 		t.Errorf("failed while receiving EGDS updates. Reason: %s", err)
 	}
 
-	// And we should receive 28 group changes(because we got 7 clusters for a single service here.)
+	// The above changes will cause 1 egds change
 	egdsUpdatedLen := len(adscConn.GetEgdsUpdated())
-	if egdsUpdatedLen != 7 {
-		t.Errorf("wrong EGDS updated groups received. Expect: 7, Got: %d", egdsUpdatedLen)
+	if egdsUpdatedLen != 1 {
+		t.Errorf("wrong EGDS updated groups received. Expect: 1, Got: %d", egdsUpdatedLen)
 	}
 }
 
