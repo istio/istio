@@ -149,8 +149,8 @@ spec:
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
-        - containerPort: 80
-        - containerPort: 443
+        - containerPort: 8080
+        - containerPort: 8443
         - containerPort: 15443
         - containerPort: 15090
           name: http-envoy-prom
@@ -172,6 +172,10 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/citadel-ca-cert
           name: citadel-ca-cert
@@ -342,9 +346,11 @@ spec:
     -
       name: http2
       port: 80
+      targetPort: 8080
     -
       name: https
       port: 443
+      targetPort: 8443
     -
       name: tls
       port: 15443

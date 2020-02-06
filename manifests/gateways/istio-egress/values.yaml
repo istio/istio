@@ -4,8 +4,10 @@ gateways:
   istio-egressgateway:
     ports:
     - port: 80
+      targetPort: 8080
       name: http2
     - port: 443
+      targetPort: 8443
       name: https
       # This is the port where sni routing happens
     - port: 15443

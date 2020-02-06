@@ -76,6 +76,10 @@ spec:
           - --discoveryAddress
           - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           readinessProbe:
             failureThreshold: 30
             httpGet:

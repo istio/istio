@@ -70,7 +70,7 @@ spec:
 {{- end }}
           ports:
             {{- range $key, $val := $gateway.ports }}
-            - containerPort: {{ $val.port }}
+            - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
@@ -126,6 +126,10 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           readinessProbe:
             failureThreshold: 30
             httpGet:

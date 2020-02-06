@@ -763,6 +763,10 @@ spec:
           requests:
             cpu: 111m
             memory: 222Mi
+        securityContext:
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/citadel-ca-cert
           name: citadel-ca-cert

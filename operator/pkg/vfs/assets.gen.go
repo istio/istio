@@ -6795,7 +6795,7 @@ spec:
 {{- end }}
           ports:
             {{- range $key, $val := $gateway.ports }}
-            - containerPort: {{ $val.port }}
+            - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
@@ -6851,6 +6851,10 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           readinessProbe:
             failureThreshold: 30
             httpGet:
@@ -7239,8 +7243,10 @@ gateways:
   istio-egressgateway:
     ports:
     - port: 80
+      targetPort: 8080
       name: http2
     - port: 443
+      targetPort: 8443
       name: https
       # This is the port where sni routing happens
     - port: 15443
@@ -7881,6 +7887,10 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           readinessProbe:
             failureThreshold: 30
             httpGet:
@@ -38223,8 +38233,10 @@ spec:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
           - port: 80
+            targetPort: 8080
             name: http2
           - port: 443
+            targetPort: 8443
             name: https
           - port: 15443
             targetPort: 15443
