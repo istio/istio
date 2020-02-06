@@ -80,7 +80,7 @@ spec:
           - {{ .Release.Namespace }}
 {{- end }}
 
-{{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.istiod.enabled }}
+{{- if and .Values.global.controlPlaneSecurityEnabled }}
           - --secureGrpcAddr=:15011
 {{- else }}
           - --secureGrpcAddr=
@@ -151,12 +151,10 @@ spec:
             value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
-{{- if .Values.global.istiod.enabled }}
           - name: ISTIOD_ADDR
             value: istio-pilot.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
-{{- end }}
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -170,7 +168,6 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          {{- if .Values.global.istiod.enabled }}
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
@@ -190,79 +187,7 @@ spec:
           - name: validation
             mountPath: /var/lib/istio/validation
             readOnly: true
-          {{- end }}
-{{- if and .Values.global.controlPlaneSecurityEnabled (not .Values.global.istiod.enabled) }}
-        - name: istio-proxy
-{{- if contains "/" .Values.global.proxy.image }}
-          image: "{{ .Values.global.proxy.image }}"
-{{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
-          ports:
-          - containerPort: 15011
-          args:
-          - proxy
-          - --domain
-          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-          - --serviceCluster
-          - istio-pilot
-          - --templateFile
-          - /var/lib/envoy/envoy.yaml.tmpl
-        {{- if .Values.global.controlPlaneSecurityEnabled}}
-          - --controlPlaneAuthPolicy
-          - MUTUAL_TLS
-        {{- else }}
-          - --controlPlaneAuthPolicy
-          - NONE
-        {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
-        {{- end }}
-        {{- if .Values.global.logAsJson }}
-          - --log_as_json
-        {{- end }}
-          env:
-          - name: JWT_POLICY
-            value: {{ .Values.global.jwtPolicy }}
-          - name: PILOT_CERT_PROVIDER
-            value: {{ .Values.global.pilotCertProvider }}
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: INSTANCE_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.podIP
-          resources:
-{{- if .Values.global.proxy.resources }}
-{{ toYaml .Values.global.proxy.resources | trim | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
-{{- end }}
-          volumeMounts:
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
-{{- if .Values.pilot.jwksResolverExtraRootCA }}
-          - name: extracacerts
-            mountPath: /cacerts
-{{- end }}
-          - name: pilot-envoy-config
-            mountPath: /var/lib/envoy
-{{- end }}
       volumes:
-      {{- if .Values.global.istiod.enabled }}
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
       - emptyDir:
@@ -295,15 +220,10 @@ spec:
         configMap:
           name: istio-validation
           optional: true
-      {{- end }}
-
       - name: config-volume
         configMap:
           name: istio{{ .Values.version }}
-      - name: pilot-envoy-config
-        configMap:
-          name: pilot-envoy-config{{ .Values.version }}
-  {{- if .Values.global.controlPlaneSecurityEnabled}}
+  {{- if .Values.global.controlPlaneSecurityEnabled }}
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account

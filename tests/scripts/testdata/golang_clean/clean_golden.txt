@@ -32,5 +32,5 @@ ip6tables -t nat -F ISTIO_REDIRECT
 ip6tables -t nat -X ISTIO_REDIRECT
 ip6tables -t nat -F ISTIO_IN_REDIRECT
 ip6tables -t nat -X ISTIO_IN_REDIRECT
-iptables-save --table=mangle --table=nat
-ip6tables-save --table=mangle --table=nat
+iptables-save 
+ip6tables-save 

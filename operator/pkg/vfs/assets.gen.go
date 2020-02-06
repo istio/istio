@@ -75,7 +75,6 @@
 // charts/istio-control/istio-discovery/templates/clusterrole-galley-disable-webhook.yaml
 // charts/istio-control/istio-discovery/templates/clusterrole.yaml
 // charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml
-// charts/istio-control/istio-discovery/templates/configmap-envoy.yaml
 // charts/istio-control/istio-discovery/templates/configmap-jwks.yaml
 // charts/istio-control/istio-discovery/templates/configmap-validation.yaml
 // charts/istio-control/istio-discovery/templates/configmap.yaml
@@ -6839,7 +6838,6 @@ spec:
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
-        {{- if .Values.global.istiod.enabled }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
@@ -6848,25 +6846,6 @@ spec:
           {{- else }}
           - istio-pilot.istio-system.svc:15012
           {{- end }}
-        {{- else if .Values.global.controlPlaneSecurityEnabled }}
-          - --controlPlaneAuthPolicy
-          - MUTUAL_TLS
-          - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}:15011
-          {{- else }}
-          - istio-pilot:15011
-          {{- end }}
-        {{- else }}
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}:15010
-          {{- else }}
-          - istio-pilot:15010
-          {{- end }}
-        {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -6965,12 +6944,10 @@ spec:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
           {{- end }}
-          {{- if .Values.global.istiod.enabled }}
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          {{- end }}
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -6989,7 +6966,6 @@ spec:
         configMap:
           name: istio-ca-root-cert
       {{- end }}
-{{- if .Values.global.istiod.enabled }}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
@@ -6998,7 +6974,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
-{{- end }}
 {{- end }}
       - name: istio-certs
         secret:
@@ -7816,36 +7791,6 @@ spec:
             privileged: true
 {{- end }}
       containers:
-{{- if and $gateway.sds.enabled (not .Values.global.istiod.enabled) }}
-        - name: ingress-sds
-{{- if contains "/" $gateway.sds.image }}
-          image: "{{ $gateway.sds.image }}"
-{{- else }}
-          image: "{{ .Values.global.hub }}/{{ $gateway.sds.image }}:{{ .Values.global.tag }}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
-          resources:
-{{- if $gateway.sds.resources }}
-{{ toYaml $gateway.sds.resources | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 12 }}
-{{- end }}
-          env:
-          - name: "ENABLE_WORKLOAD_SDS"
-            value: "false"
-          - name: "ENABLE_INGRESS_GATEWAY_SDS"
-            value: "true"
-          - name: "INGRESS_GATEWAY_NAMESPACE"
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          volumeMounts:
-          - name: ingressgatewaysdsudspath
-            mountPath: /var/run/ingress_gateway
-{{- end }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
@@ -7917,7 +7862,6 @@ spec:
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
-          {{- if .Values.global.istiod.enabled }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
@@ -7926,25 +7870,6 @@ spec:
           {{- else }}
           - istio-pilot.istio-system.svc:15012
           {{- end }}
-          {{- else if .Values.global.controlPlaneSecurityEnabled }}
-          - --controlPlaneAuthPolicy
-          - MUTUAL_TLS
-          - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}:15011
-          {{- else }}
-          - istio-pilot:15011
-          {{- end }}
-        {{- else }}
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}:15010
-          {{- else }}
-          - istio-pilot:15010
-          {{- end }}
-        {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -7969,14 +7894,10 @@ spec:
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
-{{- if or .Values.global.istiod.enabled $gateway.sds.enabled }}
           - name: "ISTIO_META_USER_SDS"
             value: "true"
-{{- if .Values.global.istiod.enabled }}
           - name: CA_ADDR
             value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-{{- end }}
-{{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -8054,7 +7975,6 @@ spec:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
 {{- end }}
-{{- if .Values.global.istiod.enabled }}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
@@ -8062,12 +7982,6 @@ spec:
 {{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-{{ else }}
-          {{- if $gateway.sds.enabled }}
-          - name: ingressgatewaysdsudspath
-            mountPath: /var/run/ingress_gateway
-          {{- end }}
-{{- end }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -8085,7 +7999,6 @@ spec:
         configMap:
           name: istio-ca-root-cert
 {{- end }}
-{{- if .Values.global.istiod.enabled }}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
@@ -8096,12 +8009,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
-{{- end }}
-{{- else }}
-      {{- if $gateway.sds.enabled }}
-      - name: ingressgatewaysdsudspath
-        emptyDir: {}
-      {{- end }}
 {{- end }}
       - name: istio-certs
         secret:
@@ -8535,7 +8442,6 @@ func chartsGatewaysIstioIngressTemplatesPreconfiguredYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioIngressTemplatesRoleYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- if or $gateway.sds.enabled .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -8548,7 +8454,6 @@ rules:
   resources: ["secrets"]
   verbs: ["get", "watch", "list"]
 ---
-{{- end }}
 `)
 
 func chartsGatewaysIstioIngressTemplatesRoleYamlBytes() ([]byte, error) {
@@ -8567,7 +8472,6 @@ func chartsGatewaysIstioIngressTemplatesRoleYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioIngressTemplatesRolebindingsYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- if or $gateway.sds.enabled .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -8583,7 +8487,6 @@ subjects:
 - kind: ServiceAccount
   name: istio-ingressgateway-service-account
 ---
-{{- end }}
 `)
 
 func chartsGatewaysIstioIngressTemplatesRolebindingsYamlBytes() ([]byte, error) {
@@ -8735,22 +8638,6 @@ var _chartsGatewaysIstioIngressValuesYaml = []byte(`# A-la-carte istio ingress g
 
 gateways:
   istio-ingressgateway:
-    #
-    # Secret Discovery Service (SDS) configuration for ingress gateway.
-    #
-    sds:
-      # If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
-      enabled: false
-      # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
-      # This server runs in the same pod as ingress gateway.
-      image: node-agent-k8s
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-        limits:
-          cpu: 2000m
-          memory: 1024Mi
     labels:
       app: istio-ingressgateway
       istio: ingressgateway
@@ -9409,6 +9296,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- end }}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+      privileged: {{ .Values.global.proxy.privileged }}
       capabilities:
     {{- if not .Values.istio_cni.enabled }}
         add:
@@ -9417,11 +9305,16 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     {{- end }}
         drop:
         - ALL
-      privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: false
+    {{- if not .Values.istio_cni.enabled }}
+      runAsGroup: 0
+      runAsNonRoot: false
+      runAsUser: 0
+    {{- else }}
       runAsGroup: 1337
-      runAsNonRoot: true
       runAsUser: 1337
+      runAsNonRoot: true
+    {{- end }}
     restartPolicy: Always
   {{ end -}}
   {{- if eq .Values.global.proxy.enableCoreDump true }}
@@ -10064,12 +9957,6 @@ rules:
     "security.istio.io"]
     resources: ["*/status"]
     verbs: ["update"]
-    # Remove galley's permissions to reconcile the validation config when istiod is present.
-{{- if not (or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled) }}
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["validatingwebhookconfigurations"]
-    verbs: ["*"]
-{{- end }}
   - apiGroups: ["extensions","apps"]
     resources: ["deployments"]
     resourceNames: ["istio-galley"]
@@ -10369,16 +10256,8 @@ spec:
           - --readinessProbePath=/tmp/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
-  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
-          - --enable-validation=true
-  {{- else }}
           - --enable-validation=false
-  {{- end }}
-  {{- if or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled  }}
           - --enable-reconcileWebhookConfiguration=false
-  {{- else }}
-          - --enable-reconcileWebhookConfiguration=true
-  {{- end }}
   {{- if .Values.galley.enableServiceDiscovery }}
           - --enableServiceDiscovery=true
   {{- end }}
@@ -10394,26 +10273,11 @@ spec:
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
-{{- if .Values.global.certificates }}
-          - --validation.tls.clientCertificate=/etc/dnscerts/cert-chain.pem
-          - --validation.tls.privateKey=/etc/dnscerts/key.pem
-          - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
-{{- end }}
           securityContext:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
           volumeMounts:
-  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
-  {{- end }}
-  {{- if .Values.global.certificates }}
-          - name: dnscerts
-            mountPath: /etc/dnscerts
-            readOnly: true
-  {{- end }}
           - name: config
             mountPath: /etc/config
             readOnly: true
@@ -10503,16 +10367,6 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
-  {{- if or .Values.global.controlPlaneSecurityEnabled (and .Values.global.configValidation (not .Values.global.istiod.enabled)) }}
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-galley-service-account
-  {{- end }}
-  {{- if .Values.global.certificates }}
-      - name: dnscerts
-        secret:
-          secretName: dns.istio-galley-service-account
-  {{- end }}
   {{- if .Values.global.controlPlaneSecurityEnabled }}
       - name: envoy-config
         configMap:
@@ -10664,8 +10518,7 @@ func chartsIstioControlIstioConfigTemplatesServiceaccountYaml() (*asset, error) 
 	return a, nil
 }
 
-var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`{{- if .Values.global.istiod.enabled }}
-apiVersion: admissionregistration.k8s.io/v1beta1
+var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
@@ -10675,7 +10528,7 @@ metadata:
     release: {{ .Release.Name }}
     istio: galley
 webhooks:
-{{- end }}`)
+`)
 
 func chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYaml, nil
@@ -10693,7 +10546,6 @@ func chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYam
 }
 
 var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl = []byte(`{{ define "validatingwebhookconfiguration.yaml.tpl" }}
-{{- if .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -10704,76 +10556,6 @@ metadata:
     release: {{ .Release.Name }}
     istio: galley
 webhooks:
-{{- else }}
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: galley
-    release: {{ .Release.Name }}
-    istio: galley
-webhooks:
-  - name: pilot.validation.istio.io
-    clientConfig:
-      service:
-        name: istio-galley
-        namespace: {{ .Release.Namespace }}
-        path: "/admitpilot"
-      caBundle: ""
-    rules:
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
-        - config.istio.io
-        apiVersions:
-        - v1alpha2
-        resources:
-        - httpapispecs
-        - httpapispecbindings
-        - quotaspecs
-        - quotaspecbindings
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
-        - rbac.istio.io
-        - security.istio.io
-        - authentication.istio.io
-        - networking.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-    failurePolicy: Fail
-    sideEffects: None
-  - name: mixer.validation.istio.io
-    clientConfig:
-      service:
-        name: istio-galley
-        namespace: {{ .Release.Namespace }}
-        path: "/admitmixer"
-      caBundle: ""
-    rules:
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
-        - config.istio.io
-        apiVersions:
-        - v1alpha2
-        resources:
-        - rules
-        - attributemanifests
-        - adapters
-        - handlers
-        - instances
-        - templates
-    failurePolicy: Fail
-    sideEffects: None
-{{- end }}
 {{- end }}
 ---
 `)
@@ -10967,6 +10749,7 @@ template: |
   {{- end }}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+      privileged: {{ .Values.global.proxy.privileged }}
       capabilities:
     {{- if not .Values.istio_cni.enabled }}
         add:
@@ -10975,11 +10758,16 @@ template: |
     {{- end }}
         drop:
         - ALL
-      privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: false
+    {{- if not .Values.istio_cni.enabled }}
+      runAsGroup: 0
+      runAsNonRoot: false
+      runAsUser: 0
+    {{- else }}
       runAsGroup: 1337
-      runAsNonRoot: true
       runAsUser: 1337
+      runAsNonRoot: true
+    {{- end }}
     restartPolicy: Always
   {{ end -}}
   {{- if eq .Values.global.proxy.enableCoreDump true }}
@@ -11078,16 +10866,8 @@ template: |
     - --concurrency
     - "{{ .ProxyConfig.Concurrency }}"
     {{ end -}}
-    {{- if .Values.global.istiod.enabled }}
     - --controlPlaneAuthPolicy
     - NONE
-    {{- else if .Values.global.controlPlaneSecurityEnabled }}
-    - --controlPlaneAuthPolicy
-    - MUTUAL_TLS
-    {{- else }}
-    - --controlPlaneAuthPolicy
-    - NONE
-    {{- end }}
     - --dnsRefreshRate
     - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
@@ -11553,7 +11333,7 @@ func chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml() (*asset, error) {
 var _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml = []byte(`{{/* If we have Istiod enabled and Galley disabled, we may run into issues during upgrade. */}}
 {{/* The old Galley will continuely try to patch its webhook, when we actually want to remove it. */}}
 {{/* This will disable Galley's permission to do so, if galley is disabled. */}}
-{{- if and .Values.global.istiod.enabled (not .Values.galley.enabled) }}
+{{- if not .Values.galley.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -11673,7 +11453,6 @@ metadata:
     app: pilot
     release: {{ .Release.Name }}
 rules:
-{{- if .Values.global.istiod.enabled }}
   # Remove permissions to reconcile webhook configuration. This address the downgrade case
   # where istiod will be uninstalled. Removing the permissions reduces
   # the likelihood that istiod will reconcile something it shouldn't.
@@ -11698,7 +11477,6 @@ rules:
     resourceNames:
     - istiod-{{ .Release.Namespace }}
     verbs: ["get"]
-{{- end }}
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -11795,7 +11573,6 @@ subjects:
     name: istio-pilot-service-account
     namespace: {{ .Release.Namespace }}
 ---
-{{ if .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -11811,9 +11588,7 @@ subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
     namespace: {{ .Release.Namespace }}
-
 ---
-{{ end }}
 {{ end }}
 `)
 
@@ -11828,195 +11603,6 @@ func chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml() (*asset, 
 	}
 
 	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml = []byte(`apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: {{ .Release.Namespace }}
-  name: pilot-envoy-config{{ .Values.version }}
-  labels:
-    release: {{ .Release.Name }}
-data:
-  envoy.yaml.tmpl: |-
-    admin:
-      access_log_path: /dev/null
-      address:
-        socket_address:
-          address: 127.0.0.1
-          port_value: 15000
-
-    static_resources:
-      clusters:
-      - name: in.15010
-        http2_protocol_options: {}
-        connect_timeout: 1.000s
-
-        hosts:
-        - socket_address:
-            address: 127.0.0.1
-            port_value: 15010
-
-        circuit_breakers:
-          thresholds:
-          - max_connections: 100000
-            max_pending_requests: 100000
-            max_requests: 100000
-            max_retries: 3
-
-    # TODO: telemetry using EDS
-    # TODO: other pilots using EDS, load balancing
-    # TODO: galley using EDS
-
-      - name: out.galley.15019
-        http2_protocol_options: {}
-        connect_timeout: 1.000s
-        type: STRICT_DNS
-
-        circuit_breakers:
-          thresholds:
-            - max_connections: 100000
-              max_pending_requests: 100000
-              max_requests: 100000
-              max_retries: 3
-
-        tls_context:
-          common_tls_context:
-            tls_certificates:
-            - certificate_chain:
-                filename: /etc/certs/cert-chain.pem
-              private_key:
-                filename: /etc/certs/key.pem
-            validation_context:
-              trusted_ca:
-                filename: /etc/certs/root-cert.pem
-              verify_subject_alt_name:
-              - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
-
-        hosts:
-          - socket_address:
-              address: istio-galley.{{ .Values.global.configNamespace }}
-              port_value: 15019
-
-
-      listeners:
-      - name: "in.15011"
-        address:
-          socket_address:
-            address: 0.0.0.0
-            port_value: 15011
-        filter_chains:
-        - filters:
-          - name: envoy.http_connection_manager
-            #typed_config
-            #"@type": "type.googleapis.com/",
-            config:
-              codec_type: HTTP2
-              stat_prefix: "15011"
-              stream_idle_timeout: 0s
-              http2_protocol_options:
-                max_concurrent_streams: 1073741824
-
-              access_log:
-              - name: envoy.file_access_log
-                config:
-                  path: /dev/stdout
-
-              http_filters:
-              - name: envoy.router
-
-              route_config:
-                name: "15011"
-
-                virtual_hosts:
-                - name: istio-pilot
-
-                  domains:
-                  - '*'
-
-                  routes:
-                  - match:
-                      prefix: /
-                    route:
-                      cluster: in.15010
-                      timeout: 0.000s
-                    decorator:
-                      operation: xDS
-
-          tls_context:
-            require_client_certificate: true
-            common_tls_context:
-              validation_context:
-                trusted_ca:
-                  filename: /etc/certs/root-cert.pem
-
-              alpn_protocols:
-              - h2
-
-              tls_certificates:
-              - certificate_chain:
-                  filename: /etc/certs/cert-chain.pem
-                private_key:
-                  filename: /etc/certs/key.pem
-
-
-      # Manual 'whitebox' mode
-      - name: "local.15019"
-        address:
-          socket_address:
-            address: 127.0.0.1
-            port_value: 15019
-        filter_chains:
-          - filters:
-              - name: envoy.http_connection_manager
-                config:
-                  codec_type: HTTP2
-                  stat_prefix: "15019"
-                  stream_idle_timeout: 0s
-                  http2_protocol_options:
-                    max_concurrent_streams: 1073741824
-
-                  access_log:
-                    - name: envoy.file_access_log
-                      config:
-                        path: /dev/stdout
-
-                  http_filters:
-                    - name: envoy.router
-
-                  route_config:
-                    name: "15019"
-
-                    virtual_hosts:
-                      - name: istio-galley
-
-                        domains:
-                          - '*'
-
-                        routes:
-                          - match:
-                              prefix: /
-                            route:
-                              cluster: out.galley.15019
-                              timeout: 0.000s
-
----
-
-`)
-
-func chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/configmap-envoy.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -12049,8 +11635,7 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml() (*asset, error
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml = []byte(`{{- if .Values.global.istiod.enabled }}
-apiVersion: v1
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-validation
@@ -12063,7 +11648,6 @@ data:
     {{- include "validatingwebhookconfiguration.yaml.tpl" . | indent 4}}
 {{- end}}
 ---
-{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYamlBytes() ([]byte, error) {
@@ -12225,32 +11809,8 @@ data:
       - {{ . | quote }}
       {{- end }}
 
-    {{- if .Values.global.istiod.enabled }}
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
-    {{- else }}
-
-    # Set expected values when SDS is disabled
-    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
-    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
-    sdsUdsPath: ""
-
-    # This flag is used by secret discovery service(SDS).
-    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
-    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
-    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
-    enableSdsTokenMount: false
-
-    # This flag is used by secret discovery service(SDS).
-    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
-    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
-    # and pass to sds server, which will be used to request key/cert eventually.
-    # this flag is ignored if enableSdsTokenMount is set.
-    # This isn't supported for non-k8s case.
-    sdsUseK8sSaJwt: false
-    {{- end }}
 
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
@@ -12357,38 +11917,10 @@ data:
         {{- end }}
       {{- end }}
 
-    {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
-    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
-
-    {{- if .Values.global.istiod.enabled }}
-      # If port is 15012, will use SDS.
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: {{ $defPilotHostname }}.svc:15012
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}.svc:15012
 
-    {{- else if .Values.global.controlPlaneSecurityEnabled }}
-      #
-      # Mutual TLS authentication between sidecars and istio control plane.
-      controlPlaneAuthPolicy: MUTUAL_TLS
-      #
-      # Address where istio Pilot service is running
-      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-      discoveryAddress: {{ $defPilotHostname }}:15011
-      {{- else }}
-      discoveryAddress: {{ $pilotAddress }}:15011
-      {{- end }}
-    {{- else }}
-      #
-      # Mutual TLS authentication between sidecars and istio control plane.
-      controlPlaneAuthPolicy: NONE
-      #
-      # Address where istio Pilot service is running
-      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-      discoveryAddress: {{ $defPilotHostname }}:15010
-      {{- else }}
-      discoveryAddress: {{ $pilotAddress }}:15010
-      {{- end }}
-    {{- end }}
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
       #
@@ -12522,7 +12054,7 @@ spec:
           - {{ .Release.Namespace }}
 {{- end }}
 
-{{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.istiod.enabled }}
+{{- if and .Values.global.controlPlaneSecurityEnabled }}
           - --secureGrpcAddr=:15011
 {{- else }}
           - --secureGrpcAddr=
@@ -12593,12 +12125,10 @@ spec:
             value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
-{{- if .Values.global.istiod.enabled }}
           - name: ISTIOD_ADDR
             value: istio-pilot.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
-{{- end }}
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -12612,7 +12142,6 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          {{- if .Values.global.istiod.enabled }}
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
@@ -12632,79 +12161,7 @@ spec:
           - name: validation
             mountPath: /var/lib/istio/validation
             readOnly: true
-          {{- end }}
-{{- if and .Values.global.controlPlaneSecurityEnabled (not .Values.global.istiod.enabled) }}
-        - name: istio-proxy
-{{- if contains "/" .Values.global.proxy.image }}
-          image: "{{ .Values.global.proxy.image }}"
-{{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
-          ports:
-          - containerPort: 15011
-          args:
-          - proxy
-          - --domain
-          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-          - --serviceCluster
-          - istio-pilot
-          - --templateFile
-          - /var/lib/envoy/envoy.yaml.tmpl
-        {{- if .Values.global.controlPlaneSecurityEnabled}}
-          - --controlPlaneAuthPolicy
-          - MUTUAL_TLS
-        {{- else }}
-          - --controlPlaneAuthPolicy
-          - NONE
-        {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
-        {{- end }}
-        {{- if .Values.global.logAsJson }}
-          - --log_as_json
-        {{- end }}
-          env:
-          - name: JWT_POLICY
-            value: {{ .Values.global.jwtPolicy }}
-          - name: PILOT_CERT_PROVIDER
-            value: {{ .Values.global.pilotCertProvider }}
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: INSTANCE_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.podIP
-          resources:
-{{- if .Values.global.proxy.resources }}
-{{ toYaml .Values.global.proxy.resources | trim | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
-{{- end }}
-          volumeMounts:
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
-{{- if .Values.pilot.jwksResolverExtraRootCA }}
-          - name: extracacerts
-            mountPath: /cacerts
-{{- end }}
-          - name: pilot-envoy-config
-            mountPath: /var/lib/envoy
-{{- end }}
       volumes:
-      {{- if .Values.global.istiod.enabled }}
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
       - emptyDir:
@@ -12737,15 +12194,10 @@ spec:
         configMap:
           name: istio-validation
           optional: true
-      {{- end }}
-
       - name: config-volume
         configMap:
           name: istio{{ .Values.version }}
-      - name: pilot-envoy-config
-        configMap:
-          name: pilot-envoy-config{{ .Values.version }}
-  {{- if .Values.global.controlPlaneSecurityEnabled}}
+  {{- if .Values.global.controlPlaneSecurityEnabled }}
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
@@ -12914,8 +12366,7 @@ func chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml() (*as
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`{{- if .Values.global.istiod.enabled }}
-{{- if not .Values.global.operatorManageWebhooks }}
+var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`{{- if not .Values.global.operatorManageWebhooks }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -12972,7 +12423,6 @@ webhooks:
 {{- else }}
       matchLabels:
         "sidecar.istio.io/inject": "true"
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}`)
@@ -13052,11 +12502,9 @@ spec:
     name: http-legacy-discovery # direct
   - port: 15014
     name: http-monitoring
-{{- if .Values.global.istiod.enabled }}
   - port: 443
     name: https-webhook # validation and injection
     targetPort: 15017
-{{- end }}
   selector:
     {{- if ne .Values.version ""}}
     app: pilot
@@ -13065,7 +12513,6 @@ spec:
     istio: pilot
     {{- end }}
 ---
-{{- if .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -13084,8 +12531,7 @@ spec:
   selector:
     app: pilot
     istio: pilot
----
-{{- end }}`)
+---`)
 
 func chartsIstioControlIstioDiscoveryTemplatesServiceYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesServiceYaml, nil
@@ -14255,20 +13701,7 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`{{/* If Istiod is not enabled, create a NOP config for Istiod so we don't block config application. */}}
-{{- if not .Values.global.istiod.enabled }}
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istiod-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istiod
-    release: {{ .Release.Name }}
-    istio: istiod
-webhooks:
-{{/* If Istiod is enabled and galley is disabled, create a NOP config for Galley's webhook */}}
-{{- else if not .Values.galley.enabled}}
+var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`{{/* Create a NOP config for Galley's webhook to stop it from blocking config */}}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -14279,7 +13712,7 @@ metadata:
     release: {{ .Release.Name }}
     istio: galley
 webhooks:
-{{- end }}`)
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml, nil
@@ -14297,7 +13730,6 @@ func chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoop
 }
 
 var _chartsIstioControlIstioDiscoveryTemplatesValidationTemplateYamlTpl = []byte(`{{ define "validatingwebhookconfiguration.yaml.tpl" }}
-{{- if .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -14332,18 +13764,6 @@ webhooks:
         - "*"
     failurePolicy: Fail
     sideEffects: None
-{{- else }}
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istiod-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istiod
-    release: {{ .Release.Name }}
-    istio: istiod
-webhooks:
-{{- end }}
 ---
 {{ end }}
 `)
@@ -38889,8 +38309,6 @@ spec:
       outboundTrafficPolicy:
         mode: ALLOW_ANY
       sds:
-        enabled: false
-        udsPath: ""
         token:
           aud: istio-ca
       sts:
@@ -39035,16 +38453,6 @@ spec:
         zvpn:
           enabled: true
           suffix: global
-        sds:
-          enabled: false
-          image: node-agent-k8s
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -40764,7 +40172,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/clusterrole-galley-disable-webhook.yaml":  chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml,
 	"charts/istio-control/istio-discovery/templates/clusterrole.yaml":                         chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml,
 	"charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml":                  chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml,
-	"charts/istio-control/istio-discovery/templates/configmap-envoy.yaml":                     chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml,
 	"charts/istio-control/istio-discovery/templates/configmap-jwks.yaml":                      chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml,
 	"charts/istio-control/istio-discovery/templates/configmap-validation.yaml":                chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml,
 	"charts/istio-control/istio-discovery/templates/configmap.yaml":                           chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml,
@@ -41061,7 +40468,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"clusterrole-galley-disable-webhook.yaml":  &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, map[string]*bintree{}},
 					"clusterrole.yaml":                         &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml, map[string]*bintree{}},
 					"clusterrolebinding.yaml":                  &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap-envoy.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
 					"configmap-jwks.yaml":                      &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml, map[string]*bintree{}},
 					"configmap-validation.yaml":                &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml, map[string]*bintree{}},
 					"configmap.yaml":                           &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml, map[string]*bintree{}},
