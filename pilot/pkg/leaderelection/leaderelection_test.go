@@ -29,7 +29,8 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func createElection(t *testing.T, name string, expectLeader bool, client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
+func createElection(t *testing.T, name string, expectLeader bool, client kubernetes.Interface,
+	fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
 	t.Helper()
 	l := NewLeaderElection("ns", name, client)
 	l.ttl = time.Second
