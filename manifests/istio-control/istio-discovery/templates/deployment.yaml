@@ -296,6 +296,7 @@ spec:
           name: istio-validation
           optional: true
         {{- else }}
+      # Not using istiod - sidecar and certs.
       - name: pilot-envoy-config
         configMap:
           name: pilot-envoy-config{{ .Values.version }}
@@ -306,6 +307,7 @@ spec:
           optional: true
         {{- end }}
         {{- end }}
+      # End 'if istiod/else'
 
       - name: config-volume
         configMap:
