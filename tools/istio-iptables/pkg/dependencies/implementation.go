@@ -19,14 +19,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
-)
-
-// The capabilities required by iptables commands.
-// https://github.com/torvalds/linux/blob/master/include/uapi/linux/capability.h
-const (
-	capNetAdmin = 12 // CAP_NET_ADMIN
-	capNetRaw   = 13 // CAP_NET_RAW
 )
 
 // RealDependencies implementation of interface Dependencies, which is used in production
@@ -37,12 +29,6 @@ func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...stri
 	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
 	externalCommand.Stdout = os.Stdout
-	externalCommand.SysProcAttr = &syscall.SysProcAttr{
-		AmbientCaps: []uintptr{
-			capNetAdmin,
-			capNetRaw,
-		},
-	}
 	//TODO Check naming and redirection logic
 	if !redirectStdout {
 		externalCommand.Stderr = os.Stderr

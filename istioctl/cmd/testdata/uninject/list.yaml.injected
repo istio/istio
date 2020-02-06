@@ -172,9 +172,9 @@ items:
               - ALL
             privileged: false
             readOnlyRootFilesystem: false
-            runAsGroup: 1337
-            runAsNonRoot: true
-            runAsUser: 1337
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
         volumes:
         - name: test
           secret:
@@ -351,14 +351,13 @@ items:
             capabilities:
               add:
               - NET_ADMIN
-              - NET_RAW
               drop:
               - ALL
             privileged: false
             readOnlyRootFilesystem: false
-            runAsGroup: 1337
-            runAsNonRoot: true
-            runAsUser: 1337
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
         volumes:
         - emptyDir:
             medium: Memory

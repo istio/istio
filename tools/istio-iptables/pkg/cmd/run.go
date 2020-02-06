@@ -314,19 +314,9 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv4Rules(ipv4RangesIn
 func (iptConfigurator *IptablesConfigurator) run() {
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		_ = iptConfigurator.ext.Run(
-			constants.IPTABLESSAVE,
-			// Limit saving to only the tables actually used in Istio. This prevents iptables-restore from trying to
-			// read /proc/net/ip_tables_names, which requires uid/gid 0.
-			"--table="+constants.MANGLE,
-			"--table="+constants.NAT)
+		_ = iptConfigurator.ext.Run(constants.IPTABLESSAVE)
 		if iptConfigurator.cfg.EnableInboundIPv6 {
-			_ = iptConfigurator.ext.Run(
-				constants.IP6TABLESSAVE,
-				// Limit saving to only the tables actually used in Istio. This prevents iptables-restore from trying to
-				// read /proc/net/ip_tables_names, which requires uid/gid 0.
-				"--table="+constants.MANGLE,
-				"--table="+constants.NAT)
+			_ = iptConfigurator.ext.Run(constants.IP6TABLESSAVE)
 		}
 	}()
 
@@ -480,15 +470,8 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 	if err := iptConfigurator.createRulesFile(rulesFile, data); err != nil {
 		return err
 	}
-	iptConfigurator.ext.RunOrFail(
-		cmd,
-		// Prevent flushing/deleting the previous contents from tables.
-		"--noflush",
-		// Limit restoring to only the tables actually used in Istio. This prevents iptables-restore from trying to
-		// read /proc/net/ip_tables_names, which requires uid/gid 0.
-		"--table="+constants.MANGLE,
-		"--table="+constants.NAT,
-		rulesFile.Name())
+	// --noflush to prevent flushing/deleting previous contents from table
+	iptConfigurator.ext.RunOrFail(cmd, "--noflush", rulesFile.Name())
 	return nil
 }
 

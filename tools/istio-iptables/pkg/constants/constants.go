@@ -16,10 +16,11 @@ package constants
 
 import "time"
 
-// Subset of iptables tables that are used in Istio
+// iptables tables
 const (
 	MANGLE = "mangle"
 	NAT    = "nat"
+	FILTER = "filter"
 )
 
 // Built-in iptables chains
