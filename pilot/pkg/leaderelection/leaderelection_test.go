@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -28,10 +29,10 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func createElection(t *testing.T, name string, expectLeader bool, client kubernetes.Interface, fns ...func(stop <-chan struct{})) chan struct{} {
+func createElection(t *testing.T, name string, expectLeader bool, client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
 	t.Helper()
 	l := NewLeaderElection("ns", name, client)
-	//l.ttl = time.Second
+	l.ttl = time.Second
 	gotLeader := make(chan struct{})
 	l.AddRunFunction(func(stop <-chan struct{}) {
 		gotLeader <- struct{}{}
@@ -40,9 +41,6 @@ func createElection(t *testing.T, name string, expectLeader bool, client kuberne
 		l.AddRunFunction(fn)
 	}
 	stop := make(chan struct{})
-	if err := l.Build(); err != nil {
-		t.Fatal(err)
-	}
 	go l.Run(stop)
 
 	if expectLeader {
@@ -58,24 +56,24 @@ func createElection(t *testing.T, name string, expectLeader bool, client kuberne
 		case <-time.After(time.Second * 1):
 		}
 	}
-	return stop
+	return l, stop
 }
 
 func TestLeaderElection(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	// First pod becomes the leader
-	stop := createElection(t, "pod1", true, client)
+	_, stop := createElection(t, "pod1", true, client)
 	// A new pod is not the leader
-	stop2 := createElection(t, "pod2", false, client)
+	_, stop2 := createElection(t, "pod2", false, client)
 	// The first pod exists, now the new pod becomes the leader
 	close(stop2)
 	close(stop)
-	_ = createElection(t, "pod2", true, client)
+	_, _ = createElection(t, "pod2", true, client)
 }
 
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	stop := createElection(t, "pod1", true, client)
+	_, stop := createElection(t, "pod1", true, client)
 	if err := client.CoreV1().ConfigMaps("ns").Delete("istio-leader", &v1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
@@ -94,30 +92,44 @@ func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 
 func TestLeaderElectionNoPermission(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	started := make(chan struct{})
-	completed := make(chan struct{})
-	stop := createElection(t, "pod1", true, client, func(stop <-chan struct{}) {
-		started <- struct{}{}
-	}, func(stop <-chan struct{}) {
-		// Send on "completed" if we haven't been told to stop within 3s
-		select {
-		case <-stop:
-			return
-		case <-time.After(time.Second * 3):
-		}
-		completed <- struct{}{}
-	})
-	<-started
-
-	// We would expect this to complete
-	select {
-	case <-time.After(time.Second * 5):
-	case <-completed:
-		//t.Fatalf("Unexpectedly completed function")
-	}
-	// drop RBAC permssions to update the configmap
+	allowRbac := atomic.NewBool(true)
 	client.Fake.PrependReactor("update", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if allowRbac.Load() {
+			return false, nil, nil
+		}
 		return true, nil, fmt.Errorf("nope, out of luck")
 	})
+
+	completions := atomic.NewInt32(0)
+	l, stop := createElection(t, "pod1", true, client, func(stop <-chan struct{}) {
+		completions.Add(1)
+	})
+	// Expect to run once
+	expectInt(t, completions.Load, 1)
+
+	// drop RBAC permssions to update the configmap
+	// This simulates loosing an active lease
+	allowRbac.Store(false)
+
+	// We should start a new cycle at this point
+	expectInt(t, l.cycle.Load, 2)
+
+	// Add configmap permission back
+	allowRbac.Store(true)
+
+	// We should get the leader lock back
+	expectInt(t, completions.Load, 2)
+
 	close(stop)
+}
+
+func expectInt(t *testing.T, f func() int32, expected int32) {
+	t.Helper()
+	retry.UntilSuccessOrFail(t, func() error {
+		got := f()
+		if got != expected {
+			return fmt.Errorf("unexpected count: %v, want %v", got, expected)
+		}
+		return nil
+	})
 }
