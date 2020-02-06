@@ -96,6 +96,7 @@ func TestIntoResourceFile(t *testing.T) {
 		privileged                   bool
 		tproxy                       bool
 		podDNSSearchNamespaces       []string
+		enableCni                    bool
 	}{
 		//"testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
@@ -107,6 +108,18 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		// verify cni
+		{
+			in:                           "hello.yaml",
+			want:                         "hello.yaml.cni.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			enableCni:                    true,
 		},
 		//verifies that the sidecar will not be injected again for an injected yaml
 		{
@@ -580,6 +593,7 @@ func TestIntoResourceFile(t *testing.T) {
 				ReadinessFailureThreshold:    c.readinessFailureThreshold,
 				RewriteAppHTTPProbe:          false,
 				PodDNSSearchNamespaces:       c.podDNSSearchNamespaces,
+				EnableCni:                    c.enableCni,
 			}
 			if c.imagePullPolicy != "" {
 				params.ImagePullPolicy = c.imagePullPolicy
@@ -911,5 +925,6 @@ func newTestParams() *Params {
 		ExcludeIPRanges:     "",
 		IncludeInboundPorts: DefaultIncludeInboundPorts,
 		ExcludeInboundPorts: "",
+		EnableCni:           false,
 	}
 }
