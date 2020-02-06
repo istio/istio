@@ -318,6 +318,7 @@ message EgressGatewayConfig {
   TypeSliceOfMapStringInterface additionalContainers = 24;
 }
 
+
 // EnvoyMetricsConfig is a set of configuration options for Envoy metrics.
 message EnvoyMetricsConfig {
   // Enables the Envoy Metrics Service.
