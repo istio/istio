@@ -301,11 +301,10 @@ func NewDeploymentAssociatedToMultipleServices(r *resource.Instance, deployment 
 }
 
 // NewDeploymentRequiresServiceAssociated returns a new diag.Message based on DeploymentRequiresServiceAssociated.
-func NewDeploymentRequiresServiceAssociated(r *resource.Instance, deployment string) diag.Message {
+func NewDeploymentRequiresServiceAssociated(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		DeploymentRequiresServiceAssociated,
 		r,
-		deployment,
 	)
 }
 
