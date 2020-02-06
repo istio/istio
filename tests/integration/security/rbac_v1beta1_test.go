@@ -110,11 +110,12 @@ func TestV1beta1_JWT(t *testing.T) {
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
 
-			var a, b, c echo.Instance
+			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -147,6 +148,24 @@ func TestV1beta1_JWT(t *testing.T) {
 				newTestCase(b, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
 				newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
 				newTestCase(c, "[NoJWT]", "", "/somePath", true),
+
+				// Test condition "request.auth.principal" on path "/valid-jwt".
+				newTestCase(d, "[NoJWT]", "", "/valid-jwt", false),
+				newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/valid-jwt", true),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/valid-jwt", true),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/valid-jwt", true),
+
+				// Test condition "request.auth.presenter" on suffix "/presenter".
+				newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/presenter", false),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
+
+				// Test condition "request.auth.audiences" on suffix "/audiences".
+				newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -353,6 +372,93 @@ func TestV1beta1_Deny(t *testing.T) {
 			defer g.DeleteConfigOrFail(t, ns, policy...)
 			policyNSRoot := applyPolicy("testdata/rbac/v1beta1-deny-ns-root.yaml.tmpl", rootNS{})
 			defer g.DeleteConfigOrFail(t, rootNS{}, policyNSRoot...)
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestV1beta1_Deny tests the authorization policy with negative match.
+func TestV1beta1_NegativeMatch(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-negative-match-1",
+				Inject: true,
+			})
+			ns2 := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-negative-match-2",
+				Inject: true,
+			})
+
+			args := map[string]string{
+				"Namespace":  ns.Name(),
+				"Namespace2": ns2.Name(),
+			}
+
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				g.ApplyConfigOrFail(t, ns, policy...)
+				return policy
+			}
+
+			policies := applyPolicy("testdata/rbac/v1beta1-negative-match.yaml.tmpl", nil)
+			defer g.DeleteConfigOrFail(t, nil, policies...)
+
+			var a, b, c, d, x echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
+				With(&x, util.EchoConfig("x", ns2, false, nil, g, p)).
+				BuildOrFail(t)
+
+			newTestCase := func(from, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: from,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+
+			// a, b, c and d are in the same namespace and x is in a different namespace.
+			// a connects to b, c and d with mTLS.
+			// x connects to b and c with mTLS, to d with plain-text.
+			cases := []rbacUtil.TestCase{
+				// Test the policy with overlapped `paths` and `not_paths` on b.
+				// a and x should have the same results:
+				// - path with prefix `/prefix` should be denied explicitly.
+				// - path `/prefix/whitelist` should be excluded from the deny.
+				// - path `/allow` should be allowed implicitly.
+				newTestCase(a, b, "/prefix", false),
+				newTestCase(a, b, "/prefix/other", false),
+				newTestCase(a, b, "/prefix/whitelist", true),
+				newTestCase(a, b, "/allow", true),
+				newTestCase(x, b, "/prefix", false),
+				newTestCase(x, b, "/prefix/other", false),
+				newTestCase(x, b, "/prefix/whitelist", true),
+				newTestCase(x, b, "/allow", true),
+
+				// Test the policy that denies other namespace on c.
+				// a should be allowed because it's from the same namespace.
+				// x should be denied because it's from a different namespace.
+				newTestCase(a, c, "/", true),
+				newTestCase(x, c, "/", false),
+
+				// Test the policy that denies plain-text traffic on d.
+				// a should be allowed because it's using mTLS.
+				// x should be denied because it's using plain-text.
+				newTestCase(a, d, "/", true),
+				newTestCase(x, d, "/", false),
+			}
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
