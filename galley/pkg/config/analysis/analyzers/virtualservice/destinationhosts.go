@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/api/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
+
+	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
@@ -124,7 +125,7 @@ func getDestinationHost(sourceNs resource.Namespace, host string, serviceEntryHo
 func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3.ServiceEntry {
 	result := make(map[util.ScopedFqdn]*v1alpha3.ServiceEntry)
 
-	extractSe := func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), func(r *resource.Instance) bool {
 		s := r.Message.(*v1alpha3.ServiceEntry)
 		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
 		if util.IsExportToAllNamespaces(s.ExportTo) {
@@ -134,8 +135,12 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 			result[util.NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h)] = s
 		}
 		return true
-	}
-	extractSvc := func(r *resource.Instance) bool {
+
+	})
+
+	// converts k8s service to servcieEntry since destinationHost
+	// validation is performed against serviceEntry
+	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		s := r.Message.(*corev1.ServiceSpec)
 		var se *v1alpha3.ServiceEntry
 		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
@@ -154,10 +159,8 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 		}
 		result[util.NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())] = se
 		return true
-	}
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), extractSe)
-	ctx.ForEach(collections.K8SCoreV1Services.Name(), extractSvc)
+	})
 	return result
 }
 
