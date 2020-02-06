@@ -345,7 +345,7 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // one in namespace-level and so on.
 func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v1beta1.PeerAuthentication {
 	var meshPolicy, namespacePolicy, workloadPolicy *v1beta1.PeerAuthentication
-	// Creation time associate with the selected workloadPolicy above. Intiial to max time (not set)
+	// Creation time associate with the selected workloadPolicy above. Initially set to max time.
 	workloadPolicyCreationTime := time.Unix(1<<63-1, 0)
 
 	for _, cfg := range configs {
