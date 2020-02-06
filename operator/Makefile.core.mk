@@ -45,7 +45,7 @@ mandiff:
 gen-check: clean gen check-clean-repo
 
 update-goldens:
-	@UPDATE_GOLDENS=true go test -v ./cmd/mesh/...
+	@REFRESH_GOLDENS=true go test -v ./cmd/mesh/...
 
 e2e:
 	@HUB=$(HUB) TAG=$(TAG) bash -c tests/e2e/e2e.sh

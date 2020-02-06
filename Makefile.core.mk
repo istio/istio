@@ -351,9 +351,11 @@ go-gen:
 gen-charts:
 	@operator/scripts/run_update_charts.sh
 
-update-golden:
-	@UPDATE_GOLDENS=true go test ./operator/cmd/mesh/...
+refresh-goldens:
+	@REFRESH_GOLDENS=true go test ./operator/...
 	@REFRESH_GOLDENS=true go test ./pkg/kube/inject/...
+
+update-golden: refresh-goldens
 
 gen: go-gen mirror-licenses format update-crds update-golden gen-charts operator-proto
 

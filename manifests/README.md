@@ -1,5 +1,7 @@
 # Istio Installer
 
+Note: If making any changes to the charts or values.yaml in this dir, first read [UPDATING-CHARTS.md](UPDATING-CHARTS.md)
+
 Istio installer is a modular, 'a-la-carte' installer for Istio. It is based on a
 fork of the Istio helm templates, refactored to increase modularity and isolation.
 
