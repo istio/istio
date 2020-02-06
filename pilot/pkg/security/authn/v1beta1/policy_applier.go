@@ -412,10 +412,10 @@ func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v
 
 		if spec.Mtls != nil &&
 			spec.Mtls.Mode != v1beta1.PeerAuthentication_MutualTLS_UNSET &&
-			isStrictlyStronger(spec, &finalPolicy) {
+			isStrictlyStronger(spec.Mtls,finalPolicy.Mtls) {
 			// Current policy has explicit mTLS, with stronger mTLS mode than the consolidated policy: update to current.
 			finalPolicy.Mtls = spec.Mtls
-		} else if isStrictlyStronger(&parentPolicy, &finalPolicy) {
+		} else if isStrictlyStronger(parentPolicy.Mtls, finalPolicy.Mtls) {
 			// Current policy inherit from parent, and parent has stronger mTLS mode than the consolidate policy: update to parent.
 			finalPolicy.Mtls = parentPolicy.Mtls
 		}
@@ -430,7 +430,7 @@ func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v
 				unsetPorts[port] = true
 			} else {
 				existing, exist := finalPolicy.PortLevelMtls[port]
-				if !exist || getMutualTLSMode(mtls) > getMutualTLSMode(existing) {
+				if !exist || isStrictlyStronger(mtls, existing) {
 					finalPolicy.PortLevelMtls[port] = mtls
 				}
 			}
@@ -440,7 +440,7 @@ func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v
 	// Review ports with UNSET mode and update the final workload level mTLS if it is stronger.
 	for port := range unsetPorts {
 		existing, exist := finalPolicy.PortLevelMtls[port]
-		if !exist || getMutualTLSMode(finalPolicy.Mtls) > getMutualTLSMode(existing) {
+		if !exist || isStrictlyStronger(finalPolicy.Mtls, existing) {
 			finalPolicy.PortLevelMtls[port] = finalPolicy.Mtls
 		}
 	}
@@ -448,10 +448,6 @@ func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v
 	return &finalPolicy
 }
 
-func isStrictlyStronger(left, right *v1beta1.PeerAuthentication) bool {
-	if right == nil {
-		return true
-	}
-
-	return getMutualTLSMode(left.Mtls) > getMutualTLSMode(right.Mtls)
+func isStrictlyStronger(left, right *v1beta1.PeerAuthentication_MutualTLS) bool {
+	return getMutualTLSMode(left) > getMutualTLSMode(right)
 }
