@@ -74,16 +74,20 @@ var (
 	typeTag  = monitoring.MustCreateLabel("type")
 	eventTag = monitoring.MustCreateLabel("event")
 
-	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
 		"Events from k8s registry.",
 		monitoring.WithLabels(typeTag, eventTag),
 	)
+
+	endpointsWithNoPods = monitoring.NewSum(
+		"pilot_k8s_endpoints_with_no_pods",
+		"Endpoints that does not have any corresponding pods.")
 )
 
 func init() {
 	monitoring.MustRegister(k8sEvents)
+	monitoring.MustRegister(endpointsWithNoPods)
 }
 
 func incrementEvent(kind, event string) {
@@ -907,16 +911,20 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			for _, ea := range ss.Addresses {
 				pod := c.pods.getPodByIP(ea.IP)
 				if pod == nil {
-					// This can not happen in usual case
+					// This means, the endpoint event has arrived before pod event. This might happen because
+					// PodCache is eventually consistent. We should try to get the pod from kube-api server.
 					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
-						log.Warnf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-						if c.Env != nil {
-							c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+						pod = c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
+						if pod == nil {
+							// If pod is still not availalable, this an unusual case.
+							endpointsWithNoPods.Increment()
+							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
+							if c.Env != nil {
+								c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+							}
+							continue
 						}
-						// TODO: keep them in a list, and check when pod events happen !
-						continue
 					}
-					// For service without selector, maybe there are no related pods
 				}
 
 				var labels map[string]string
@@ -954,10 +962,8 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 	if log.InfoEnabled() {
 		var addresses []string
-		for _, ss := range ep.Subsets {
-			for _, a := range ss.Addresses {
-				addresses = append(addresses, a.IP)
-			}
+		for _, iep := range endpoints {
+			addresses = append(addresses, iep.Address)
 		}
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 	}
