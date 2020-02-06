@@ -1196,7 +1196,6 @@ func TestOnInboundFilterChain(t *testing.T) {
 		peerPolicies []*model.Config
 		alphaPolicy  *authn_alpha_api.Policy
 		sdsUdsPath   string
-		node         *model.Proxy
 		expected     []plugin.FilterChain
 	}{
 		{
@@ -1243,9 +1242,6 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: tlsContext,
@@ -1275,9 +1271,6 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: tlsContext,
@@ -1285,7 +1278,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 			},
 		},
 		{
-			name: "Multiple policies",
+			name: "Multiple policies resolved to STRICT",
 			peerPolicies: []*model.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
@@ -1312,9 +1305,6 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: tlsContext,
@@ -1322,7 +1312,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 			},
 		},
 		{
-			name: "Multiple policies 2",
+			name: "Multiple policies resolved to PERMISSIVE",
 			peerPolicies: []*model.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
@@ -1348,9 +1338,6 @@ func TestOnInboundFilterChain(t *testing.T) {
 						},
 					},
 				},
-			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
 			},
 			expected: []plugin.FilterChain{
 				{
@@ -1382,9 +1369,6 @@ func TestOnInboundFilterChain(t *testing.T) {
 						},
 					},
 				},
-			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			expected: []plugin.FilterChain{
@@ -1427,22 +1411,23 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			expected: nil,
 		},
 	}
 
-	node := &model.Proxy{
-		Metadata: &model.NodeMetadata{},
+	testNode := &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Labels: map[string]string{
+				"app": "foo",
+			},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies, tc.alphaPolicy).InboundFilterChain(
 				tc.sdsUdsPath,
-				node,
+				testNode,
 			)
 			if !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("[%v] unexpected filter chains, got %v, want %v", tc.name, got, tc.expected)
@@ -1820,7 +1805,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 							},
 						},
 						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-							80: &v1beta1.PeerAuthentication_MutualTLS{
+							80: {
 								Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 							},
 						},
@@ -1832,7 +1817,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 				},
 				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-					80: &v1beta1.PeerAuthentication_MutualTLS{
+					80: {
 						Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 					},
 				},
@@ -1864,7 +1849,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 							},
 						},
 						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-							80: &v1beta1.PeerAuthentication_MutualTLS{
+							80: {
 								Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 							},
 						},
@@ -1882,7 +1867,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 							},
 						},
 						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-							80: &v1beta1.PeerAuthentication_MutualTLS{
+							80: {
 								Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 							},
 						},
@@ -1894,7 +1879,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 				},
 				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-					80: &v1beta1.PeerAuthentication_MutualTLS{
+					80: {
 						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 					},
 				},
@@ -1926,7 +1911,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 							},
 						},
 						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-							80: &v1beta1.PeerAuthentication_MutualTLS{
+							80: {
 								Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 							},
 						},
@@ -1944,7 +1929,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 							},
 						},
 						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-							70: &v1beta1.PeerAuthentication_MutualTLS{
+							70: {
 								Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 							},
 						},
@@ -1956,10 +1941,10 @@ func TestComposePeerAuthentication(t *testing.T) {
 					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 				},
 				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-					70: &v1beta1.PeerAuthentication_MutualTLS{
+					70: {
 						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 					},
-					80: &v1beta1.PeerAuthentication_MutualTLS{
+					80: {
 						Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 					},
 				},
@@ -1991,7 +1976,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 							},
 						},
 						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-							80: &v1beta1.PeerAuthentication_MutualTLS{},
+							80: {},
 						},
 					},
 				},
@@ -2007,7 +1992,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 							},
 						},
 						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-							70: &v1beta1.PeerAuthentication_MutualTLS{
+							70: {
 								Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 							},
 						},
@@ -2019,10 +2004,10 @@ func TestComposePeerAuthentication(t *testing.T) {
 					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 				},
 				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-					70: &v1beta1.PeerAuthentication_MutualTLS{
+					70: {
 						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 					},
-					80: &v1beta1.PeerAuthentication_MutualTLS{
+					80: {
 						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 					},
 				},
@@ -2057,7 +2042,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 						},
 						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-							80: &v1beta1.PeerAuthentication_MutualTLS{
+							80: {
 								Mode: v1beta1.PeerAuthentication_MutualTLS_UNSET,
 							},
 						},
@@ -2083,7 +2068,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 				},
 				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-					80: &v1beta1.PeerAuthentication_MutualTLS{
+					80: {
 						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 					},
 				},
