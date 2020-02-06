@@ -15,10 +15,6 @@ RUN chown -R istio-proxy /var/lib/istio
 
 COPY istio-iptables /usr/local/bin/istio-iptables
 
-# Add CAP_NET_ADMIN and CAP_NET_RAW as Permitted capabilities
-# to the istio-iptables binary.
-RUN ["/sbin/setcap", "cap_net_admin,cap_net_raw+p", "/usr/local/bin/istio-iptables"]
-
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007
 FROM gcr.io/distroless/cc:latest as distroless
@@ -30,14 +26,6 @@ COPY --from=default /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu
 COPY --from=default /etc/iproute2 /etc/iproute2
 
 COPY istio-iptables /usr/local/bin/istio-iptables
-
-# Add CAP_NET_ADMIN and CAP_NET_RAW as Permitted capabilities
-# to the istio-iptables binary.
-COPY --from=default /sbin/setcap /sbin/
-COPY --from=default /lib/x86_64-linux-gnu/libcap.so.2 /lib/x86_64-linux-gnu/libcap.so.2.25 /lib/
-COPY --from=default /bin/rm /bin/
-RUN ["/sbin/setcap", "cap_net_admin,cap_net_raw+p", "/usr/local/bin/istio-iptables"]
-RUN ["/bin/rm", "-f", "/sbin/setcap", "/lib/x86_64-linux-gnu/libcap.so.2", "/lib/x86_64-linux-gnu/libcap.so.2.25", "/bin/rm"]
 
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY --chown=nonroot:nonroot envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
