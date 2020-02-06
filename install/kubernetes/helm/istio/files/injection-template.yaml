@@ -4,8 +4,8 @@
 rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
 {{- if $enableInitContainer }}
 initContainers:
-{{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-  {{ if $cniRepairEnabled -}}
+{{- if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
+{{ if $cniRepairEnabled -}}
 - name: istio-validation
 {{ else -}}
 - name: istio-init
@@ -42,8 +42,8 @@ initContainers:
   - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
   {{ end -}}
 {{ if $cniRepairEnabled -}}
-- "--run-validation"
-- "--skip-rule-apply"
+  - "--run-validation"
+  - "--skip-rule-apply"
 {{ end -}}
   imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
 {{- if .Values.global.proxy.init.resources }}
