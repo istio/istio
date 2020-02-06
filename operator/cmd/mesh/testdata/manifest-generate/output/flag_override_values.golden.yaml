@@ -837,6 +837,7 @@ data:
           "useILB": false
         },
         "meshNetworks": {},
+        "mountMtlsCerts": false,
         "mtls": {
           "auto": false,
           "enabled": false
@@ -926,11 +927,9 @@ data:
           }
         },
         "sds": {
-          "enabled": false,
           "token": {
             "aud": "istio-ca"
-          },
-          "udsPath": ""
+          }
         },
         "securityNamespace": "control-plane",
         "sts": {

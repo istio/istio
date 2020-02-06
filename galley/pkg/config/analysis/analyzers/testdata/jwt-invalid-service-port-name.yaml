@@ -1,0 +1,159 @@
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-with-specified-ports
+  namespace: namespace-port-missing-prefix
+spec:
+  targets:
+    - name: my-service-port-missing-prefix
+      ports:
+        - number: 8080
+        - number: 8081
+        - number: 8082
+  origins:
+    - jwt:
+        issuer: "testing@secure.istio.io"
+        jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-port-missing-prefix
+  namespace: namespace-port-missing-prefix
+spec:
+  selector:
+    app: my-service
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: missingprefix-8080
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+      name: https-svc-8081
+    - protocol: TCP
+      port: 8082
+      targetPort: 8082
+      name: http2-svc-8082
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-without-specified-ports
+  namespace: namespace-port-missing-prefix
+spec:
+  targets:
+    - name: my-service-no-target-ports-specified
+  origins:
+    - jwt:
+        issuer: "testing@secure.istio.io"
+        jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-no-target-ports-specified
+  namespace: namespace-port-missing-prefix
+spec:
+  selector:
+    app: my-service-no-target-ports-specified
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http-svc-8080
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+      name: svc-8081
+    - protocol: TCP
+      port: 8082
+      targetPort: 8082
+      name: svc-8082
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-with-udp-target-port
+  namespace: namespace-with-non-tcp-protocol
+spec:
+  targets:
+    - name: my-service-no-target-ports-specified
+  origins:
+    - jwt:
+        issuer: "testing@secure.istio.io"
+        jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-no-target-ports-specified
+  namespace: namespace-with-non-tcp-protocol
+spec:
+  selector:
+    app: my-service-no-target-ports-specified
+  ports:
+    - protocol: UDP
+      port: 8080
+      targetPort: 8080
+      name: http-svc-8080
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-with-invalid-named-target-port
+  namespace: namespace-with-invalid-named-port
+spec:
+  targets:
+    - name: my-service-with-invalid-named-port
+      ports:
+        - name: badname
+  origins:
+    - jwt:
+        issuer: "testing@secure.istio.io"
+        jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-with-invalid-named-port
+  namespace: namespace-with-invalid-named-port
+spec:
+  selector:
+    app: my-service-with-invalid-named-port
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: badname
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-with-valid-named-target-port-invalid-protocol
+  namespace: namespace-with-valid-named-port-invalid-protocol
+spec:
+  targets:
+    - name: my-service-with-valid-named-port-invalid-protocol
+      ports:
+        - name: https
+  origins:
+    - jwt:
+        issuer: "testing@secure.istio.io"
+        jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-with-valid-named-port-invalid-protocol
+  namespace: namespace-with-valid-named-port-invalid-protocol
+spec:
+  selector:
+    app: my-service-with-valid-named-port-invalid-protocol
+  ports:
+    - protocol: UDP
+      port: 8080
+      targetPort: 8080
+      name: https
+---
