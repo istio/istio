@@ -35,7 +35,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
-
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -423,37 +422,20 @@ func flippedContains(needle, haystack string) bool {
 	return strings.Contains(haystack, needle)
 }
 
-// InjectionData renders sidecarTemplate with valuesConfig.
-func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
-	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
+// InjectionData renders sidecarTemplate with values.
+func InjectionData(sidecarTemplate, version string, data SidecarTemplateData) (
 	*SidecarInjectionSpec, string, error) {
 
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
-	if spec.DNSPolicy != "" && spec.DNSPolicy != corev1.DNSClusterFirst {
-		podName := potentialPodName(metadata)
+	if data.Spec.DNSPolicy != "" && data.Spec.DNSPolicy != corev1.DNSClusterFirst {
+		podName := potentialPodName(data.ObjectMeta)
 		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
-			metadata.Namespace+"/"+podName, corev1.DNSClusterFirst)
+			data.ObjectMeta.Namespace+"/"+podName, corev1.DNSClusterFirst)
 	}
 
-	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
+	if err := validateAnnotations(data.ObjectMeta.GetAnnotations()); err != nil {
 		log.Errorf("Injection failed due to invalid annotations: %v", err)
 		return nil, "", err
-	}
-
-	values := map[string]interface{}{}
-	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, valuesConfig)
-		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
-	}
-
-	data := SidecarTemplateData{
-		TypeMeta:       typeMetadata,
-		DeploymentMeta: deploymentMetadata,
-		ObjectMeta:     metadata,
-		Spec:           spec,
-		ProxyConfig:    proxyConfig,
-		MeshConfig:     meshConfig,
-		Values:         values,
 	}
 
 	funcMap := template.FuncMap{
@@ -713,16 +695,20 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		}
 	}
 
-	spec, status, err := InjectionData(
-		sidecarTemplate,
-		valuesConfig,
-		sidecarTemplateVersionHash(sidecarTemplate),
-		typeMeta,
-		deploymentMetadata,
-		podSpec,
-		metadata,
-		meshconfig.DefaultConfig,
-		meshconfig)
+	values := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
+		return nil, fmt.Errorf("Failed to parse values config: %v [%v]\n", err, valuesConfig)
+	}
+	data := SidecarTemplateData{
+		TypeMeta:       typeMeta,
+		DeploymentMeta: deploymentMetadata,
+		ObjectMeta:     metadata,
+		Spec:           podSpec,
+		ProxyConfig:    meshconfig.DefaultConfig,
+		MeshConfig:     meshconfig,
+		Values:         values,
+	}
+	spec, status, err := InjectionData(sidecarTemplate, sidecarTemplateVersionHash(sidecarTemplate), data)
 	if err != nil {
 		return nil, err
 	}

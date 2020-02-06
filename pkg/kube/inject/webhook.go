@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/hashicorp/go-multierror"
 	"github.com/howeyc/fsnotify"
 
 	"istio.io/api/annotation"
@@ -66,7 +67,7 @@ type Webhook struct {
 	Config                 *Config
 	sidecarTemplateVersion string
 	meshConfig             *meshconfig.MeshConfig
-	valuesConfig           string
+	values                 map[string]interface{}
 
 	healthCheckInterval time.Duration
 	healthCheckFile     string
@@ -188,14 +189,18 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
 		}
 	}
-
+	values := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
+		log.Infof("Failed to parse values config: %v [%v]\n", err, valuesConfig)
+		return nil, multierror.Prefix(err, "could not parse configuration values:")
+	}
 	wh := &Webhook{
 		Config:                 sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
 		configFile:             p.ConfigFile,
 		valuesFile:             p.ValuesFile,
-		valuesConfig:           valuesConfig,
+		values:                 values,
 		meshFile:               p.MeshFile,
 		watcher:                watcher,
 		healthCheckInterval:    p.HealthCheckInterval,
@@ -280,9 +285,15 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 				log.Errorf("reload cert error: %v", err)
 				break
 			}
+
+			values := map[string]interface{}{}
+			if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
+				log.Errorf("Failed to parse values config: %v [%v]\n", err, valuesConfig)
+				break
+			}
 			wh.mu.Lock()
 			wh.Config = sidecarConfig
-			wh.valuesConfig = valuesConfig
+			wh.values = values
 			wh.sidecarTemplateVersion = version
 			wh.meshConfig = meshConfig
 			wh.cert = &pair
@@ -746,7 +757,16 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		deployMeta.Name = pod.Name
 	}
 
-	spec, iStatus, err := InjectionData(wh.Config.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	data := SidecarTemplateData{
+		TypeMeta:       typeMetadata,
+		DeploymentMeta: deployMeta,
+		ObjectMeta:     &pod.ObjectMeta,
+		Spec:           &pod.Spec,
+		ProxyConfig:    wh.meshConfig.DefaultConfig,
+		MeshConfig:     wh.meshConfig,
+		Values:         wh.values,
+	}
+	spec, iStatus, err := InjectionData(wh.Config.Template, wh.sidecarTemplateVersion, data)
 	if err != nil {
 		handleError(fmt.Sprintf("Injection data: err=%v spec=%v\n", err, iStatus))
 		return toAdmissionResponse(err)

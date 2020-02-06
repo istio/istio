@@ -843,7 +843,7 @@ func TestHelmInject(t *testing.T) {
 	}
 }
 
-func createTestWebhook(t testing.TB, config *Config, values string) (*Webhook, func()) {
+func createTestWebhook(t testing.TB, config *Config, values map[string]interface{}) (*Webhook, func()) {
 	m := mesh.DefaultMeshConfig()
 	dir, err := ioutil.TempDir("", "webhook_test")
 	if err != nil {
@@ -856,7 +856,7 @@ func createTestWebhook(t testing.TB, config *Config, values string) (*Webhook, f
 		Config:                 config,
 		sidecarTemplateVersion: "unit-test-fake-version",
 		meshConfig:             &m,
-		valuesConfig:           values,
+		values:                 values,
 	}, cleanup
 }
 
@@ -866,14 +866,18 @@ func createTestWebhookFromFile(templateFile string, t *testing.T) (*Webhook, fun
 	if err := yaml.Unmarshal(util.ReadFile(templateFile, t), injectConfig); err != nil {
 		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
 	}
-	return createTestWebhook(t, injectConfig, "{}")
+	return createTestWebhook(t, injectConfig, nil)
 }
 
 func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate, values := loadInjectionConfigMap(t, "")
+	sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, "")
+	values := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
+		t.Fatalf("Failed to parse values config: %v [%v]\n", err, valuesConfig)
+	}
 	return createTestWebhook(t, sidecarTemplate, values)
 }
 
