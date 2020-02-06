@@ -1,17 +1,4 @@
-{{/* If Istiod is not enabled, create a NOP config for Istiod so we don't block config application. */}}
-{{- if not .Values.global.istiod.enabled }}
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istiod-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istiod
-    release: {{ .Release.Name }}
-    istio: istiod
-webhooks:
-{{/* If Istiod is enabled and galley is disabled, create a NOP config for Galley's webhook */}}
-{{- else if not .Values.galley.enabled}}
+{{/* Create a NOP config for Galley's webhook to stop it from blocking config */}}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -22,4 +9,3 @@ metadata:
     release: {{ .Release.Name }}
     istio: galley
 webhooks:
-{{- end }}
