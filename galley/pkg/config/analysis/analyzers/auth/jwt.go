@@ -44,7 +44,7 @@ var _ analysis.Analyzer = &JwtAnalyzer{}
 // Metadata implements JwtAnalyzer
 func (j *JwtAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        "injection.JwtAnalyzer",
+		Name: "injection.JwtAnalyzer",
 		Inputs: collection.Names{
 			metadata.IstioAuthenticationV1Alpha1Policies,
 			metadata.K8SCoreV1Services,
@@ -70,7 +70,7 @@ func (j *JwtAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[string]
 		svcNs, svcName := r.Metadata.Name.InterpretAsNamespaceAndName()
 
 		svc := r.Item.(*v1.ServiceSpec)
-		fqdn := util.ConvertHostToFQDN(svcNs, string(svcName))
+		fqdn := util.ConvertHostToFQDN(svcNs, svcName)
 		fqdnServices[fqdn] = svc
 
 		return true
