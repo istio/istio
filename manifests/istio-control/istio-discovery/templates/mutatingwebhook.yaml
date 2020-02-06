@@ -1,4 +1,3 @@
-{{- if .Values.global.istiod.enabled }}
 {{- if not .Values.global.operatorManageWebhooks }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
@@ -56,7 +55,6 @@ webhooks:
 {{- else }}
       matchLabels:
         "sidecar.istio.io/inject": "true"
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

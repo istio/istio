@@ -173,16 +173,8 @@ template: |
     - --concurrency
     - "{{ .ProxyConfig.Concurrency }}"
     {{ end -}}
-    {{- if .Values.global.istiod.enabled }}
     - --controlPlaneAuthPolicy
     - NONE
-    {{- else if .Values.global.controlPlaneSecurityEnabled }}
-    - --controlPlaneAuthPolicy
-    - MUTUAL_TLS
-    {{- else }}
-    - --controlPlaneAuthPolicy
-    - NONE
-    {{- end }}
     - --dnsRefreshRate
     - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
