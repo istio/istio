@@ -412,7 +412,7 @@ func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v
 
 		if spec.Mtls != nil &&
 			spec.Mtls.Mode != v1beta1.PeerAuthentication_MutualTLS_UNSET &&
-			isStrictlyStronger(spec.Mtls,finalPolicy.Mtls) {
+			isStrictlyStronger(spec.Mtls, finalPolicy.Mtls) {
 			// Current policy has explicit mTLS, with stronger mTLS mode than the consolidated policy: update to current.
 			finalPolicy.Mtls = spec.Mtls
 		} else if isStrictlyStronger(parentPolicy.Mtls, finalPolicy.Mtls) {
