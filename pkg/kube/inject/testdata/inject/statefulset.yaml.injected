@@ -204,9 +204,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - hostPath:
           path: /mnt/disks/ssd0

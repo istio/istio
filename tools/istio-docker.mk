@@ -24,7 +24,7 @@ docker: docker.all
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s \
+	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl \
 	docker.istioctl docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
@@ -239,11 +239,6 @@ docker.citadel-test: $(ISTIO_DOCKER)/istio_ca.key
 docker.node-agent: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.node-agent: security/docker/Dockerfile.node-agent
 docker.node-agent: $(ISTIO_DOCKER)/node_agent
-	$(DOCKER_RULE)
-
-docker.node-agent-k8s: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.node-agent-k8s: security/docker/Dockerfile.node-agent-k8s
-docker.node-agent-k8s: $(ISTIO_DOCKER)/node_agent_k8s
 	$(DOCKER_RULE)
 
 docker.node-agent-test: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}

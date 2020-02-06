@@ -274,16 +274,6 @@ spec:
         - name: tls
           port: 15443
           targetPort: 15443
-        sds:
-          enabled: false
-          image: node-agent-k8s
-          resources:
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
-            requests:
-              cpu: 100m
-              memory: 128Mi
         secretVolumes:
         - mountPath: /etc/istio/ingressgateway-certs
           name: ingressgateway-certs
@@ -529,8 +519,6 @@ spec:
         sessionAffinityEnabled: false
         tolerations: []
         useMCP: true
-    nodeagent:
-      image: node-agent-k8s
     pilot:
       appNamespaces: []
       autoscaleEnabled: true
