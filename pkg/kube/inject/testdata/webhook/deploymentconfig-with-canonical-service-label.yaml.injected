@@ -1,16 +1,14 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: DeploymentConfig
 metadata:
   creationTimestamp: null
   name: hello
 spec:
   replicas: 7
-  selector:
-    matchLabels:
-      app: hello
-      tier: backend
-      track: stable
-  strategy: {}
+  revisionHistoryLimit: 2
+  selector: null
+  strategy:
+    type: Rolling
   template:
     metadata:
       annotations:
@@ -19,7 +17,7 @@ spec:
       labels:
         app: hello
         security.istio.io/tlsMode: istio
-        service.istio.io/canonical-name: hello
+        service.istio.io/canonical-name: test-service-name
         tier: backend
         track: stable
     spec:
