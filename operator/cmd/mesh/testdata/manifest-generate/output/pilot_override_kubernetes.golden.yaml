@@ -178,9 +178,6 @@ spec:
       - configMap:
           name: istio
         name: config-volume
-      - configMap:
-          name: pilot-envoy-config
-        name: pilot-envoy-config
 ---
 
 

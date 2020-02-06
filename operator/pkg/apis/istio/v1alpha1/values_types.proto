@@ -641,7 +641,8 @@ message STSConfig {
 
 message IstiodConfig {
   // If enabled, all control plane functionality will be handled by a single deployment.
-  google.protobuf.BoolValue enabled = 1;
+  // Deprecated. This field is always ignored and assumed true.
+  google.protobuf.BoolValue enabled = 1 [deprecated=true];
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.

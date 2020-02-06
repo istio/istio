@@ -150,13 +150,9 @@ spec:
         configMap:
           name: istio-validation
           optional: true
-
       - name: config-volume
         configMap:
           name: istio
-      - name: pilot-envoy-config
-        configMap:
-          name: pilot-envoy-config
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

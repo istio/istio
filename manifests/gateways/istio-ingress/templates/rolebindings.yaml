@@ -1,5 +1,4 @@
 {{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- if .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -15,4 +14,3 @@ subjects:
 - kind: ServiceAccount
   name: istio-ingressgateway-service-account
 ---
-{{- end }}

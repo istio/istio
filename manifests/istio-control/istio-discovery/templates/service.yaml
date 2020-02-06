@@ -19,11 +19,9 @@ spec:
     name: http-legacy-discovery # direct
   - port: 15014
     name: http-monitoring
-{{- if .Values.global.istiod.enabled }}
   - port: 443
     name: https-webhook # validation and injection
     targetPort: 15017
-{{- end }}
   selector:
     {{- if ne .Values.version ""}}
     app: pilot
@@ -32,7 +30,6 @@ spec:
     istio: pilot
     {{- end }}
 ---
-{{- if .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -52,4 +49,3 @@ spec:
     app: pilot
     istio: pilot
 ---
-{{- end }}

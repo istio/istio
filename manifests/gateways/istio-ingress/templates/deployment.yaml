@@ -130,7 +130,6 @@ spec:
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
-          {{- if .Values.global.istiod.enabled }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
@@ -139,25 +138,6 @@ spec:
           {{- else }}
           - istio-pilot.istio-system.svc:15012
           {{- end }}
-          {{- else if .Values.global.controlPlaneSecurityEnabled }}
-          - --controlPlaneAuthPolicy
-          - MUTUAL_TLS
-          - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}:15011
-          {{- else }}
-          - istio-pilot:15011
-          {{- end }}
-        {{- else }}
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}:15010
-          {{- else }}
-          - istio-pilot:15010
-          {{- end }}
-        {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -182,12 +162,10 @@ spec:
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
-{{- if .Values.global.istiod.enabled }}
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
             value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-{{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -265,7 +243,6 @@ spec:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
 {{- end }}
-{{- if .Values.global.istiod.enabled }}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
@@ -273,7 +250,6 @@ spec:
 {{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-{{- end }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -291,7 +267,6 @@ spec:
         configMap:
           name: istio-ca-root-cert
 {{- end }}
-{{- if .Values.global.istiod.enabled }}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
@@ -302,7 +277,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
-{{- end }}
 {{- end }}
       - name: istio-certs
         secret:

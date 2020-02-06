@@ -60,16 +60,8 @@ spec:
           - --readinessProbePath=/tmp/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
-  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
-          - --enable-validation=true
-  {{- else }}
           - --enable-validation=false
-  {{- end }}
-  {{- if or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled  }}
           - --enable-reconcileWebhookConfiguration=false
-  {{- else }}
-          - --enable-reconcileWebhookConfiguration=true
-  {{- end }}
   {{- if .Values.galley.enableServiceDiscovery }}
           - --enableServiceDiscovery=true
   {{- end }}
@@ -85,26 +77,11 @@ spec:
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
-{{- if .Values.global.certificates }}
-          - --validation.tls.clientCertificate=/etc/dnscerts/cert-chain.pem
-          - --validation.tls.privateKey=/etc/dnscerts/key.pem
-          - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
-{{- end }}
           securityContext:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
           volumeMounts:
-  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
-  {{- end }}
-  {{- if .Values.global.certificates }}
-          - name: dnscerts
-            mountPath: /etc/dnscerts
-            readOnly: true
-  {{- end }}
           - name: config
             mountPath: /etc/config
             readOnly: true
@@ -194,16 +171,6 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
-  {{- if or .Values.global.controlPlaneSecurityEnabled (and .Values.global.configValidation (not .Values.global.istiod.enabled)) }}
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-galley-service-account
-  {{- end }}
-  {{- if .Values.global.certificates }}
-      - name: dnscerts
-        secret:
-          secretName: dns.istio-galley-service-account
-  {{- end }}
   {{- if .Values.global.controlPlaneSecurityEnabled }}
       - name: envoy-config
         configMap:
