@@ -334,12 +334,8 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // based on following rules:
 // - It should have the setting from the most narrow scope (i.e workload-level is  preferred over
 // namespace-level, which is preferred over mesh-level).
-// - When there are more than one policy in the same scope (i.e workload-level), the one with
-// stronger security (STRICT > PERMISSIVE > DISABLE) is preferred.
-// - In a tie, the first in the list will be used (typically, the list is passed in sorted order by
-// timestamp, so it's more or less the latest).
-// - Port-level setting will be combined in similar manner: if there are more than 1 policy define
-// port-level mTLS for the same port, the stronger one is used.
+// - When there are more than one policy in the same scope (i.e workload-level), the oldest one
+// win.
 // - UNSET will be replaced with the setting from the parrent. I.e UNSET port-level config will be
 // replaced with config from workload-level, UNSET in workload-level config will be replaced with
 // one in namespace-level and so on.
