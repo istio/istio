@@ -295,20 +295,21 @@ spec:
         configMap:
           name: istio-validation
           optional: true
-      {{- end }}
-
-      - name: config-volume
-        configMap:
-          name: istio{{ .Values.version }}
+        {{- else }}
       - name: pilot-envoy-config
         configMap:
           name: pilot-envoy-config{{ .Values.version }}
-  {{- if .Values.global.controlPlaneSecurityEnabled}}
+        {{- if .Values.global.controlPlaneSecurityEnabled}}
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
           optional: true
-  {{- end }}
+        {{- end }}
+        {{- end }}
+
+      - name: config-volume
+        configMap:
+          name: istio{{ .Values.version }}
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:
