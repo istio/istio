@@ -2,16 +2,20 @@ apiVersion: "security.istio.io/v1beta1"
 kind: "PeerAuthentication"
 metadata:
   name: "default"
+  annotations:
+    test-suite: "beta-mtls-on"
 spec:
   mtls:
-    mode: DISABLE
+    mode: STRICT
 ---
 apiVersion: "networking.istio.io/v1alpha3"
 kind: "DestinationRule"
 metadata:
   name: "default"
+  annotations:
+    test-suite: "beta-mtls-on"
 spec:
   host: "*.local"
   trafficPolicy:
     tls:
-      mode: DISABLE
+      mode: ISTIO_MUTUAL

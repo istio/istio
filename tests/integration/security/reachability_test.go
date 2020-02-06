@@ -92,7 +92,7 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "beta-global-mtls-on.yaml",
+					ConfigFile:          "beta-mtls-on.yaml",
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -109,7 +109,7 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "beta-global-mtls-permissive.yaml",
+					ConfigFile:          "beta-mtls-permissive.yaml",
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -121,7 +121,7 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile: "beta-global-mtls-off.yaml",
+					ConfigFile: "beta-mtls-off.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true

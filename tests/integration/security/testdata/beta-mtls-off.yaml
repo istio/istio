@@ -1,21 +1,21 @@
-# Global PeerAuthentication can be removed for this test, once we remove the (alpha) mesh policy
-# during installation.
 apiVersion: "security.istio.io/v1beta1"
 kind: "PeerAuthentication"
 metadata:
   name: "default"
-  namespace: "{{ .RootNamespace }}"
+  annotations:
+    test-suite: "beta-mtls-off"
 spec:
   mtls:
-    mode: PERMISSIVE
+    mode: DISABLE
 ---
 apiVersion: "networking.istio.io/v1alpha3"
 kind: "DestinationRule"
 metadata:
   name: "default"
-  namespace: "{{ .RootNamespace }}"
+  annotations:
+    test-suite: "beta-mtls-off"
 spec:
   host: "*.local"
   trafficPolicy:
     tls:
-      mode: ISTIO_MUTUAL
+      mode: DISABLE
