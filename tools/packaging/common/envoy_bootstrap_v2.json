@@ -127,6 +127,10 @@
           "tag_name": "response_flags"
       },
       {
+          "regex": "(grpc_response_status=\\.=(.*?);\\.;)",
+          "tag_name": "grpc_response_status"
+      },
+      {
           "regex": "(connection_security_policy=\\.=(.+?);\\.;)",
           "tag_name": "connection_security_policy"
       },
