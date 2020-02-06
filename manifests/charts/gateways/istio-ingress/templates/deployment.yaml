@@ -46,6 +46,11 @@ spec:
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
     spec:
+      securityContext:
+        runAsUser: 1337
+        runAsGroup: 1337
+        runAsNonRoot: true
+        fsGroup: 1337
       serviceAccountName: istio-ingressgateway-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
@@ -67,6 +72,9 @@ spec:
             - -c
             - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
           securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
             privileged: true
 {{- end }}
       containers:
@@ -198,6 +206,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:
+          - name: istioproxyconfig
+            mountPath: /etc/istio/proxy
           - name: config-volume
             mountPath: /etc/istio/config
 {{- if eq .Values.global.pilotCertProvider "istiod" }}
@@ -242,6 +252,8 @@ spec:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
+      - name: istioproxyconfig
+        emptyDir: {}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
