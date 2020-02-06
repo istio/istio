@@ -74,7 +74,7 @@ func NewK8sObject(u *unstructured.Unstructured, json, yaml []byte) *K8sObject {
 func Hash(kind, namespace, name string) string {
 	switch kind {
 	// TODO: replace strings with k8s const (istio/istio#17237).
-	case "ClusterRole", "ClusterRoleBinding":
+	case "ClusterRole", "ClusterRoleBinding", "MeshPolicy":
 		namespace = ""
 	}
 	return strings.Join([]string{kind, namespace, name}, ":")
