@@ -1,11 +1,12 @@
+{{ if .Values.clusterResources }}
 {{- if not .Values.global.operatorManageWebhooks }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector{{ .Values.revision }}
 {{ else }}
-  name: istio-sidecar-injector-{{ .Release.Namespace }}
+  name: istio-sidecar-injector{{ .Values.revision }}-{{ .Release.Namespace }}
 {{- end }}
   labels:
     app: sidecar-injector
@@ -67,6 +68,7 @@ webhooks:
 {{- else }}
       matchLabels:
         "sidecar.istio.io/inject": "true"
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

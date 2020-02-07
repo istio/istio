@@ -1,8 +1,9 @@
+{{ if not .Values.clusterResources }}
 {{- if .Values.pilot.configMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio{{ .Values.version }}
+  name: istio{{ .Values.revision }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -254,7 +255,7 @@ data:
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}.svc:15012
+      discoveryAddress: istiod{{ .Values.revision }}.{{ .Release.Namespace }}.svc:15012
 
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
@@ -289,4 +290,5 @@ data:
     {{- end}}
 
 ---
+{{- end }}
 {{- end }}

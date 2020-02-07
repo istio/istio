@@ -1,4 +1,5 @@
 #.Values.pilot for discovery and mesh wide config
+revision: ""
 
 ## Discovery Settings
 pilot:
