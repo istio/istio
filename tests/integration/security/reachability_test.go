@@ -142,7 +142,7 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile: "mix-mtls-api",
+					ConfigFile: "mix-mtls-api.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
