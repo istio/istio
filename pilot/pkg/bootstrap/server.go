@@ -103,6 +103,7 @@ func init() {
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
 type startFunc func(stop <-chan struct{}) error
 
+// nolint: maligned
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
 	SecureGRPCListeningAddr net.Addr
