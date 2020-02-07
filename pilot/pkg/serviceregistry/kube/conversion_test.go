@@ -157,14 +157,12 @@ func TestServiceConversion(t *testing.T) {
 				{
 					Name:     "http",
 					Port:     8080,
-					NodePort: 38080,
 					Protocol: coreV1.ProtocolTCP,
 				},
 				{
 					Name:     "https",
 					Protocol: coreV1.ProtocolTCP,
 					Port:     443,
-					NodePort: 30443,
 				},
 			},
 		},
@@ -179,9 +177,9 @@ func TestServiceConversion(t *testing.T) {
 		t.Fatalf("incorrect creation time => %v, want %v", service.CreationTime, tnow)
 	}
 
-	if len(service.Ports) != len(localSvc.Spec.Ports)*2 {
+	if len(service.Ports) != len(localSvc.Spec.Ports) {
 		t.Fatalf("incorrect number of ports => %v, want %v",
-			len(service.Ports), len(localSvc.Spec.Ports)*2)
+			len(service.Ports), len(localSvc.Spec.Ports))
 	}
 
 	if service.External() {

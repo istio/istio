@@ -46,24 +46,12 @@ const (
 	managementPortPrefix = "mgmt-"
 )
 
-func convertPort(port coreV1.ServicePort) []*model.Port {
-	out := []*model.Port{
-		{
-			Name:     port.Name,
-			Port:     int(port.Port),
-			Protocol: kube.ConvertProtocol(port.Port, port.Name, port.Protocol),
-		},
+func convertPort(port coreV1.ServicePort) *model.Port {
+	return &model.Port{
+		Name:     port.Name,
+		Port:     int(port.Port),
+		Protocol: kube.ConvertProtocol(port.Port, port.Name, port.Protocol),
 	}
-
-	if port.NodePort > 0 {
-		out = append(out, &model.Port{
-			Name:     port.Name,
-			Port:     int(port.NodePort),
-			Protocol: kube.ConvertProtocol(port.NodePort, port.Name, port.Protocol),
-		})
-	}
-
-	return out
 }
 
 func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *model.Service {
@@ -87,7 +75,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
-		ports = append(ports, convertPort(port)...)
+		ports = append(ports, convertPort(port))
 	}
 
 	var exportTo map[visibility.Instance]bool
