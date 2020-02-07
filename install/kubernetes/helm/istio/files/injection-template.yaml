@@ -44,7 +44,7 @@ initContainers:
 {{ if $cniRepairEnabled -}}
   - "--run-validation"
   - "--skip-rule-apply"
-{{ end -}}
+{{- end }}
   imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
 {{- if .Values.global.proxy.init.resources }}
   resources:
