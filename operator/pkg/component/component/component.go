@@ -82,13 +82,18 @@ type CommonComponentFields struct {
 	// resourceName is the name of all resources for this component.
 	resourceName string
 	// index is the index of the component (only used for components with multiple instances like gateways).
-	index    int
+	index int
+	// spec for the actual gateway, if the component is a gateway.
+	gatewaySpec *v1alpha1.GatewaySpec
+	// spec for the actual addon, if the component is a addon.
+	addonSpec *v1alpha1.ExternalComponentSpec
+	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer
 }
 
-// NewComponent creates a new IstioComponent with the given componentName and options.
-func NewComponent(cn name.ComponentName, opts *Options) IstioComponent {
+// NewCoreComponent creates a new IstioComponent with the given componentName and options.
+func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 	var component IstioComponent
 	switch cn {
 	case name.IstioBaseComponentName:
@@ -133,9 +138,6 @@ func (c *CRDComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *CRDComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
 	return renderManifest(c.CommonComponentFields)
 }
 
@@ -178,9 +180,6 @@ func (c *PilotComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *PilotComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
 	baseYAML, err := renderManifest(c.CommonComponentFields)
 	if err != nil {
 		return "", err
@@ -291,9 +290,6 @@ func (c *CitadelComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *CitadelComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
 	return renderManifest(c.CommonComponentFields)
 }
 
@@ -335,9 +331,6 @@ func (c *PolicyComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *PolicyComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
 	return renderManifest(c.CommonComponentFields)
 }
 
@@ -379,9 +372,6 @@ func (c *TelemetryComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *TelemetryComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
 	return renderManifest(c.CommonComponentFields)
 }
 
@@ -423,9 +413,6 @@ func (c *GalleyComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *GalleyComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
 	return renderManifest(c.CommonComponentFields)
 }
 
@@ -467,9 +454,6 @@ func (c *CNIComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *CNIComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
 	return renderManifest(c.CommonComponentFields)
 }
 
@@ -494,7 +478,7 @@ type IngressComponent struct {
 }
 
 // NewIngressComponent creates a new IngressComponent and returns a pointer to it.
-func NewIngressComponent(resourceName string, index int, opts *Options) *IngressComponent {
+func NewIngressComponent(resourceName string, index int, spec *v1alpha1.GatewaySpec, opts *Options) *IngressComponent {
 	cn := name.IngressComponentName
 	return &IngressComponent{
 		CommonComponentFields: &CommonComponentFields{
@@ -502,6 +486,7 @@ func NewIngressComponent(resourceName string, index int, opts *Options) *Ingress
 			componentName: cn,
 			resourceName:  resourceName,
 			index:         index,
+			gatewaySpec:   spec,
 		},
 	}
 }
@@ -513,9 +498,6 @@ func (c *IngressComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *IngressComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
 	return renderManifest(c.CommonComponentFields)
 }
 
@@ -542,7 +524,7 @@ type EgressComponent struct {
 }
 
 // NewEgressComponent creates a new IngressComponent and returns a pointer to it.
-func NewEgressComponent(resourceName string, index int, opts *Options) *EgressComponent {
+func NewEgressComponent(resourceName string, index int, spec *v1alpha1.GatewaySpec, opts *Options) *EgressComponent {
 	cn := name.EgressComponentName
 	return &EgressComponent{
 		resourceName: resourceName,
@@ -550,6 +532,7 @@ func NewEgressComponent(resourceName string, index int, opts *Options) *EgressCo
 			Options:       opts,
 			componentName: cn,
 			index:         index,
+			gatewaySpec:   spec,
 		},
 	}
 }
@@ -561,9 +544,6 @@ func (c *EgressComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *EgressComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
 	return renderManifest(c.CommonComponentFields)
 }
 
@@ -588,13 +568,14 @@ type AddonComponent struct {
 }
 
 // NewAddonComponent creates a new IngressComponent and returns a pointer to it.
-func NewAddonComponent(addonName, resourceName string, opts *Options) *AddonComponent {
+func NewAddonComponent(addonName, resourceName string, spec *v1alpha1.ExternalComponentSpec, opts *Options) *AddonComponent {
 	return &AddonComponent{
-		&CommonComponentFields{
+		CommonComponentFields: &CommonComponentFields{
 			Options:       opts,
 			componentName: name.AddonComponentName,
 			resourceName:  resourceName,
 			addonName:     addonName,
+			addonSpec:     spec,
 		},
 	}
 }
@@ -606,9 +587,6 @@ func (c *AddonComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *AddonComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
 	return renderManifest(c.CommonComponentFields)
 }
 
@@ -643,14 +621,13 @@ func runComponent(c *CommonComponentFields) error {
 
 // renderManifest renders the manifest for the component defined by c and returns the resulting string.
 func renderManifest(c *CommonComponentFields) (string, error) {
-	if c.componentName.IsCoreComponent() {
-		e, err := c.Translator.IsComponentEnabled(c.componentName, c.InstallSpec)
-		if err != nil {
-			return "", err
-		}
-		if !e {
-			return disabledYAMLStr(c.componentName), nil
-		}
+	if !c.started {
+		return "", fmt.Errorf("component %s not started in RenderManifest", c.componentName)
+	}
+
+	enabled, err := isComponentEnabled(c)
+	if !enabled {
+		return disabledYAMLStr(c.componentName, ""), nil
 	}
 
 	mergedYAML, err := c.Translator.TranslateHelmValues(c.InstallSpec, c.componentName)
@@ -728,7 +705,43 @@ func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error)
 	return helm.NewHelmRenderer(iop.InstallPackagePath, helmSubdir, cns, c.Namespace)
 }
 
+// isComponentEnabled reports whether the component is enabled.
+func isComponentEnabled(c *CommonComponentFields) (bool, error) {
+	var err error
+	enabled := false
+	switch {
+	case c.componentName.IsCoreComponent():
+		enabled, err = c.Translator.IsComponentEnabled(c.componentName, c.InstallSpec)
+		if err != nil {
+			return false, err
+		}
+
+	case c.componentName.IsGateway():
+		enabled = boolValue(c.gatewaySpec.Enabled)
+
+	case c.componentName.IsAddon():
+		enabled = boolValue(c.addonSpec.Enabled)
+
+	default:
+		return false, fmt.Errorf("unknown component type %s", c.componentName)
+	}
+
+	return enabled, nil
+}
+
 // disabledYAMLStr returns the YAML comment string that the given component is disabled.
-func disabledYAMLStr(componentName name.ComponentName) string {
-	return yamlCommentStr + string(componentName) + componentDisabledStr + "\n"
+func disabledYAMLStr(componentName name.ComponentName, resourceName string) string {
+	fullName := string(componentName)
+	if resourceName != "" {
+		fullName += " " + resourceName
+	}
+	return fmt.Sprintf("%s%s %s\n", yamlCommentStr, fullName, componentDisabledStr)
+}
+
+// boolValue returns true is v is not nil and v.Value is true, or false otherwise.
+func boolValue(v *v1alpha1.BoolValueForPB) bool {
+	if v == nil {
+		return false
+	}
+	return v.Value
 }
