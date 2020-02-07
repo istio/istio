@@ -16,7 +16,7 @@ package injection
 
 import (
 	"encoding/json"
-	"strings"
+	"fmt"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -27,10 +27,10 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-// VersionAnalyzer checks the version of auto-injection configured with the running proxies on pods.
-type VersionAnalyzer struct{}
+// ImageAnalyzer checks the image of auto-injection configured with the running proxies on pods.
+type ImageAnalyzer struct{}
 
-var _ analysis.Analyzer = &VersionAnalyzer{}
+var _ analysis.Analyzer = &ImageAnalyzer{}
 
 const sidecarInjectorConfigName = "istio-sidecar-injector"
 
@@ -40,14 +40,20 @@ type injectionConfigMap struct {
 }
 
 type global struct {
-	Tag string `json:"tag"`
+	Hub   string `json:"hub"`
+	Tag   string `json:"tag"`
+	Proxy proxy  `json:"proxy"`
+}
+
+type proxy struct {
+	Image string `json:"image"`
 }
 
 // Metadata implements Analyzer.
-func (a *VersionAnalyzer) Metadata() analysis.Metadata {
+func (a *ImageAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        "injection.VersionAnalyzer",
-		Description: "Checks the version of auto-injection configured with the running proxies on pods",
+		Name:        "injection.ImageAnalyzer",
+		Description: "Checks the image of auto-injection configured with the running proxies on pods",
 		Inputs: collection.Names{
 			collections.K8SCoreV1Namespaces.Name(),
 			collections.K8SCoreV1Pods.Name(),
@@ -57,19 +63,22 @@ func (a *VersionAnalyzer) Metadata() analysis.Metadata {
 }
 
 // Analyze implements Analyzer.
-func (a *VersionAnalyzer) Analyze(c analysis.Context) {
-	var injectionVersion string
+func (a *ImageAnalyzer) Analyze(c analysis.Context) {
+	var proxyImage string
 
-	// relying on just istio-system namespace for now as the injector looks for the injection config
-	// in the istio-system namespace.
-	r := c.Find(collections.K8SCoreV1Configmaps.Name(), resource.NewFullName("istio-system", sidecarInjectorConfigName))
-	if r != nil {
-		cm := r.Message.(*v1.ConfigMap)
+	// TODO: when multiple injector configmaps exist, we may need to assess them respectively.
+	c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
+		if r.Metadata.FullName.Name.String() == sidecarInjectorConfigName {
+			cm := r.Message.(*v1.ConfigMap)
 
-		injectionVersion = getIstioImageTag(cm)
-	}
+			proxyImage = getIstioProxyImage(cm)
 
-	if injectionVersion == "" {
+			return false
+		}
+		return true
+	})
+
+	if proxyImage == "" {
 		return
 	}
 
@@ -101,15 +110,9 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 			if container.Name != istioProxyName {
 				continue
 			}
-			// Attempt to parse out the version of the proxy.
-			v := getContainerNameVersion(&container)
-			// We can't check anything without a version; skip the pod.
-			if v == "" {
-				continue
-			}
 
-			if v != injectionVersion {
-				c.Report(collections.K8SCoreV1Pods.Name(), msg.NewIstioProxyVersionMismatch(r, v, injectionVersion))
+			if container.Image != proxyImage {
+				c.Report(collections.K8SCoreV1Pods.Name(), msg.NewIstioProxyImageMismatch(r, container.Image, proxyImage))
 			}
 		}
 
@@ -117,24 +120,12 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 	})
 }
 
-// getIstioImageTag retrieves the image tag defined in the sidecar injector
+// getIstioProxyImage retrieves the proxy image name defined in the sidecar injector
 // configuration.
-func getIstioImageTag(cm *v1.ConfigMap) string {
+func getIstioProxyImage(cm *v1.ConfigMap) string {
 	var m injectionConfigMap
 	if err := json.Unmarshal([]byte(cm.Data["values"]), &m); err != nil {
 		return ""
 	}
-	return m.Global.Tag
-}
-
-// getContainerNameVersion parses the name and version from a container image.
-// If the version is not specified or can't be found, version is the empty
-// string.
-func getContainerNameVersion(c *v1.Container) (version string) {
-	parts := strings.Split(c.Image, ":")
-	if len(parts) != 2 {
-		return ""
-	}
-	version = parts[1]
-	return
+	return fmt.Sprintf("%s/%s:%s", m.Global.Hub, m.Global.Proxy.Image, m.Global.Tag)
 }
