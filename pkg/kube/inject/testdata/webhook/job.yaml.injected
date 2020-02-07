@@ -14,6 +14,7 @@ spec:
       labels:
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: pi
+        service.istio.io/canonical-revision: latest
       name: pi
     spec:
       containers:

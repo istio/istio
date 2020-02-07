@@ -15,7 +15,11 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
+<<<<<<< HEAD
         sidecar.istio.io/status: '{"version":"7d3769ec1c25d0f16cf729617166d277db4e96a8e942fa276b229bd858eb37e8","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+=======
+        sidecar.istio.io/status: '{"version":"341418dbb29c335401a1b88f9f4f3fec23a7258273f9b6885f3c68ba3df227e0","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+>>>>>>> c5cf3ee14...  feat(injector): add initial support for canonical service revision (#20943)
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
