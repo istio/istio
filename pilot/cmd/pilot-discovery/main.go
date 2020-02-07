@@ -94,6 +94,9 @@ var (
 			}
 
 			cmd.WaitSignal(stop)
+			// Wait until we shut down. In theory this could block forever; in practice we will get
+			// forcibly shut down after 30s in Kubernetes.
+			discoveryServer.WaitUntilCompletion()
 			return nil
 		},
 	}
