@@ -1588,7 +1588,11 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
-			workloadLabels := labels.Collection{proxy.Metadata.Labels}
+			workloadLabels := labels.Collection{}
+			// This should never happen except in tests.
+			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+				workloadLabels = labels.Collection{proxy.Metadata.Labels}
+			}
 			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
 				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 			}
