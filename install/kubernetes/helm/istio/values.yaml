@@ -96,6 +96,8 @@ certmanager:
 #
 istio_cni:
   enabled: false
+  repair:
+    enabled: true
 
 # addon Istio CoreDNS configuration
 #
