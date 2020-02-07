@@ -692,6 +692,18 @@ func TestOptions(t *testing.T) {
 			option:   option.PilotCertProvider("citadel"),
 			expected: "citadel",
 		},
+		{
+			testName: "admin uds path empty",
+			key:      "admin_uds_path_empty",
+			option:   option.AdminUDSPath(""),
+			expected: nil,
+		},
+		{
+			testName: "admin uds path",
+			key:      "admin_uds_path",
+			option:   option.AdminUDSPath("fake"),
+			expected: "fake",
+		},
 	}
 
 	for _, c := range cases {

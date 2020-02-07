@@ -88,6 +88,7 @@ func TestGolden(t *testing.T) {
 		setup                      func()
 		teardown                   func()
 		check                      func(got *v2.Bootstrap, t *testing.T)
+		adminUDSPath               string
 	}{
 		{
 			base: "auth",
@@ -237,6 +238,10 @@ func TestGolden(t *testing.T) {
 			},
 			stats: stats{regexps: "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"},
 		},
+		{
+			base:         "admin_uds",
+			adminUDSPath: "fake_uds",
+		},
 	}
 
 	for _, c := range cases {
@@ -270,6 +275,7 @@ func TestGolden(t *testing.T) {
 				SDSUDSPath:     c.sdsUDSPath,
 				SDSTokenPath:   c.sdsTokenPath,
 				OutlierLogPath: "/dev/stdout",
+				AdminUDSPath:   c.adminUDSPath,
 			}).CreateFileForEpoch(0)
 			if err != nil {
 				t.Fatal(err)

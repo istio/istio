@@ -109,6 +109,7 @@ var (
 	tlsCertsToWatch          []string
 	loggingOptions           = log.DefaultOptions()
 	outlierLogPath           string
+	httpAdminEndpoint        bool
 
 	wg sync.WaitGroup
 
@@ -135,6 +136,7 @@ var (
 		"the provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
+	adminUdsPathVar = env.RegisterStringVar("ADMIN_UDS_PATH", "unix:/var/run/admin/uds_path", "Admin UDS path")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -528,6 +530,11 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
+			var adminUDSPath string
+			if !httpAdminEndpoint {
+				adminUDSPath = adminUdsPathVar.Get()
+			}
+
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
 				Node:                role.ServiceNode(),
@@ -548,6 +555,7 @@ var (
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
 				StsPort:             stsPort,
+				AdminUDSPath:        adminUDSPath,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
@@ -799,6 +807,8 @@ func init() {
 		"Process bootstrap provided via templateFile to be used by control plane components.")
 	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
+	proxyCmd.PersistentFlags().BoolVar(&httpAdminEndpoint, "httpAdminEndpoint", true,
+		"Use TCP loopback address for proxy admin")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

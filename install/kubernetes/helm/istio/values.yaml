@@ -295,6 +295,10 @@ global:
     # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
     tracer: "zipkin"
 
+    # Specify whether use TCP loopback address as Envoy admin endpoint.
+    # If it's set to false, unix domain socket will be used for admin endpoint.
+    httpAdminEndpoint: true
+
   proxy_init:
     # Base name for the istio-init container, used to configure iptables.
     image: proxyv2

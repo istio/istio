@@ -239,3 +239,7 @@ func SDSTokenPath(value string) Instance {
 func PilotCertProvider(value string) Instance {
 	return newOption("pilot_cert_provider", value)
 }
+
+func AdminUDSPath(value string) Instance {
+	return newOptionOrSkipIfZero("admin_uds_path", value)
+}

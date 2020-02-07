@@ -180,6 +180,8 @@ containers:
   - --statusPort
   - "{{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}"
 {{- end }}
+  - --httpAdminEndpoint
+  - "{{ annotation .ObjectMeta `sidecar.istio.io/httpAdminEndpoint` .Values.global.proxy.httpAdminEndpoint}}"
 {{- if .Values.global.trustDomain }}
   - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
