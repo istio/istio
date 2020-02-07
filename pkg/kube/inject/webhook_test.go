@@ -1336,7 +1336,12 @@ func TestRunAndServe(t *testing.T) {
       "op": "add",
       "path": "/metadata/labels/service.istio.io~1canonical-name",
       "value": "test"
-    }
+	},
+	{
+		"op": "add",
+		"path": "/metadata/labels/service.istio.io~1canonical-revision",
+		"value": "latest"
+	}
 ]`)
 
 	cases := []struct {
