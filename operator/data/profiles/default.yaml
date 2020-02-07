@@ -1,10 +1,10 @@
 apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
+metadata:
+  namespace: istio-system
 spec:
   hub: gcr.io/istio-testing
   tag: latest
-  meshConfig:
-    rootNamespace: istio-system
 
   # Traffic management feature
   components:
@@ -24,18 +24,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-pilot
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
         readinessProbe:
           httpGet:
             path: /ready
@@ -203,8 +191,10 @@ spec:
       enabled: true
 
   # Global values passed through to helm global.yaml.
+  # Please keep this in sync with manifests/global.yaml
   values:
     global:
+      istioNamespace: istio-system
       istiod:
         enabled: true
       logging:
@@ -334,10 +324,10 @@ spec:
       outboundTrafficPolicy:
         mode: ALLOW_ANY
       sds:
-        enabled: false
-        udsPath: ""
         token:
           aud: istio-ca
+      sts:
+        servicePort: 0
       meshNetworks: {}
       localityLbSetting:
         enabled: true
@@ -478,16 +468,6 @@ spec:
         zvpn:
           enabled: true
           suffix: global
-        sds:
-          enabled: false
-          image: node-agent-k8s
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -495,9 +475,10 @@ spec:
             targetPort: 15020
             name: status-port
           - port: 80
-            targetPort: 80
+            targetPort: 8080
             name: http2
           - port: 443
+            targetPort: 8443
             name: https
           - port: 15029
             targetPort: 15029
@@ -522,7 +503,7 @@ spec:
             targetPort: 8060
             name: tcp-citadel-grpc-tls
           - port: 853
-            targetPort: 853
+            targetPort: 8853
             name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs

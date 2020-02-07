@@ -34,8 +34,9 @@ func TestProtoToValuesV13(t *testing.T) {
 		{
 			desc: "default success",
 			yamlStr: `
-meshConfig:
-  rootNamespace: istio-system
+values:
+  global:
+    istioNamespace: istio-system
 `,
 			want: `certmanager:
   enabled: false
@@ -102,8 +103,9 @@ tracing:
 			yamlStr: `
 hub: docker.io/istio
 tag: 1.2.3
-meshConfig:
-  rootNamespace: istio-system
+values:
+  global:
+    istioNamespace: istio-system
 `,
 			want: `certmanager:
   enabled: false

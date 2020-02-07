@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 VERSION ?= 1.6-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.6-dev.1
+BASE_VERSION ?= 1.6-dev.0
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -271,7 +271,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/tools/mixgen \
   ./galley/cmd/galley \
   ./security/cmd/node_agent \
-  ./security/cmd/node_agent_k8s \
   ./security/cmd/istio_ca \
   ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
@@ -279,10 +278,10 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/test/policybackend \
   ./tools/istio-iptables \
   ./tools/istio-clean-iptables \
-  ./operator/cmd/manager
+  ./operator/cmd/operator
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent istio_ca istioctl galley sdsclient
 
 .PHONY: build
 build: depend
@@ -352,7 +351,13 @@ go-gen:
 gen-charts:
 	@operator/scripts/run_update_charts.sh
 
-gen: go-gen mirror-licenses format update-crds gen-charts operator-proto
+refresh-goldens:
+	@REFRESH_GOLDENS=true go test ./operator/...
+	@REFRESH_GOLDENS=true go test ./pkg/kube/inject/...
+
+update-golden: refresh-goldens
+
+gen: go-gen mirror-licenses format update-crds update-golden gen-charts operator-proto
 
 gen-check: gen check-clean-repo
 

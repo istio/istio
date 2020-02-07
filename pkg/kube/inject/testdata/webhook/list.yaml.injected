@@ -20,6 +20,7 @@ spec:
       labels:
         app: hello
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: hello
         tier: backend
         track: stable
         version: v1
@@ -192,9 +193,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory
@@ -238,6 +239,7 @@ spec:
       labels:
         app: hello
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: hello
         tier: backend
         track: stable
         version: v2
@@ -410,9 +412,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory

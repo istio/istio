@@ -74,6 +74,31 @@ message CNIConfig {
   string psp_cluster_role = 11;
 
   string logLevel = 12;
+
+  CNIRepairConfig repair = 13;
+}
+
+message CNIRepairConfig {
+  // Controls whether repair behavior is enabled.
+  google.protobuf.BoolValue enabled = 1;
+
+  string hub = 2;
+
+  TypeInterface tag = 3;
+
+  string image = 4;
+
+  // Controls whether various repair behaviors are enabled.
+  string labelPods = 5;
+
+  string createEvents = 6;
+
+  string deletePods = 7;
+
+  string brokenPodLabelKey = 8;
+
+  string brokenPodLabelValue = 9;
+
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.
@@ -602,13 +627,25 @@ message GlobalConfig {
   // Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   string jwtPolicy = 57;
 
-  // The next available key is 58
+  // Specifies the configuration for Security Token Service.
+  STSConfig sts = 58;
+
+  // Configures the revision this control plane is a part of
+  string revision = 59;
+  // The next available key is 60
 }
 
+// Configuration for Security Token Service (STS) server.
+//
+// See https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16
+message STSConfig {
+  uint32 servicePort = 1;
+}
 
 message IstiodConfig {
   // If enabled, all control plane functionality will be handled by a single deployment.
-  google.protobuf.BoolValue enabled = 1;
+  // Deprecated. This field is always ignored and assumed true.
+  google.protobuf.BoolValue enabled = 1 [deprecated=true];
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.

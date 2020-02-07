@@ -117,18 +117,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 	}
 	// Names in the Istiod cert - support the old service names as well.
 	// The first is the recommended one, also used by Apiserver for webhooks.
-	names := []string{hostname}
-
-	// Default value, matching old installs. For migration we also add the new SAN, so workloads
-	// can switch between the names.
-	if hostname == "istio-pilot.istio-system.svc" {
-		names = append(names, "istiod.istio-system.svc")
-	}
-	// New name - while migrating we need to support the old name.
-	// Both cases will be removed after 1 release, when the move to the new name is completed.
-	if hostname == "istiod.istio-system.svc" {
-		names = append(names, "istio-pilot.istio-system.svc")
-	}
+	names := []string{hostname, "istiod.istio-system.svc", "istio-pilot.istio-system.svc"}
 
 	var certChain, keyPEM []byte
 	var err error

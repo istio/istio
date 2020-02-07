@@ -67,7 +67,6 @@ var (
 		PolicyNamespace:                DefaultSystemNamespace,
 		IngressNamespace:               DefaultSystemNamespace,
 		EgressNamespace:                DefaultSystemNamespace,
-		Operator:                       true,
 		DeployIstio:                    true,
 		DeployTimeout:                  0,
 		UndeployTimeout:                0,
@@ -127,9 +126,6 @@ type Config struct {
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
 
-	// Operator determines if we should use the operator for installation
-	Operator bool
-
 	// Do not wait for the validation webhook before completing the deployment. This is useful for
 	// doing deployments without Galley.
 	SkipWaitForValidationWebhook bool
@@ -137,13 +133,6 @@ type Config struct {
 	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
 	// if the value is "", use the default sidecar injection instead.
 	CustomSidecarInjectorNamespace string
-}
-
-func (c *Config) IsIstiodEnabled() bool {
-	if c.Operator {
-		return c.Values["global.istiod.enabled"] != "false"
-	}
-	return false
 }
 
 // IsMtlsEnabled checks in Values flag and Values file.
@@ -348,7 +337,6 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("IngressNamespace:               %s\n", c.IngressNamespace)
 	result += fmt.Sprintf("EgressNamespace:                %s\n", c.EgressNamespace)
 	result += fmt.Sprintf("DeployIstio:                    %v\n", c.DeployIstio)
-	result += fmt.Sprintf("Operator:                       %v\n", c.Operator)
 	result += fmt.Sprintf("DeployTimeout:                  %s\n", c.DeployTimeout.String())
 	result += fmt.Sprintf("UndeployTimeout:                %s\n", c.UndeployTimeout.String())
 	result += fmt.Sprintf("Values:                         %v\n", c.Values)

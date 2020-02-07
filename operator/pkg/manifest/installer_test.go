@@ -92,3 +92,47 @@ clientVersion:
 		})
 	}
 }
+
+func TestCanSkipCRD(t *testing.T) {
+	cases := []struct {
+		name   string
+		in     string
+		result bool
+	}{
+		{
+			"re-apply",
+			`namespace/istio-system unchanged
+
+customresourcedefinition.apiextensions.k8s.io/adapters.config.istio.io unchanged
+customresourcedefinition.apiextensions.k8s.io/attributemanifests.config.istio.io unchanged
+`,
+			true,
+		},
+		{
+			"first apply",
+			`namespace/istio-system unchanged
+
+customresourcedefinition.apiextensions.k8s.io/adapters.config.istio.io created
+customresourcedefinition.apiextensions.k8s.io/attributemanifests.config.istio.io created
+`,
+			false,
+		},
+		{
+			"re-apply",
+			`namespace/istio-system unchanged
+
+customresourcedefinition.apiextensions.k8s.io/adapters.config.istio.io configured
+customresourcedefinition.apiextensions.k8s.io/attributemanifests.config.istio.io configured
+`,
+			false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := canSkipCrdWait(tt.in)
+			if got != tt.result {
+				t.Fatalf("got %v, want %v", got, tt.result)
+			}
+		})
+	}
+}

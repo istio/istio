@@ -48,7 +48,7 @@ func init() {
 
 }
 
-// IstioRenderingInput is a RenderingInput specific to an v1alpha2 IstioOperator instance.
+// IstioRenderingInput is a RenderingInput specific to an v1alpha1 IstioOperator instance.
 type IstioRenderingInput struct {
 	instance *v1alpha1.IstioOperator
 	crPath   string
@@ -72,7 +72,7 @@ func (i *IstioRenderingInput) GetTargetNamespace() string {
 	if i.instance.Spec.MeshConfig == nil {
 		return ""
 	}
-	return i.instance.Spec.MeshConfig.RootNamespace
+	return i.instance.Namespace
 }
 
 // GetProcessingOrder returns the order in which the rendered charts should be processed.

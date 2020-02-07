@@ -92,18 +92,6 @@ components:
           fieldRef:
             apiVersion: v1
             fieldPath: metadata.namespace
-      hpaSpec:
-        maxReplicas: 5
-        metrics:
-        - resource:
-            name: cpu
-            targetAverageUtilization: 80
-          type: Resource
-        minReplicas: 1
-        scaleTargetRef:
-          apiVersion: apps/v1
-          kind: Deployment
-          name: istio-pilot
       readinessProbe:
         httpGet:
           path: /ready
@@ -184,8 +172,6 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
 hub: gcr.io/istio-testing
-meshConfig:
-  rootNamespace: istio-system
 profile: default
 tag: latest
 values:
@@ -233,16 +219,17 @@ values:
         targetPort: 8060
       - name: tcp-dns-tls
         port: 853
-        targetPort: 853
+        targetPort: 8853
       ports:
       - name: status-port
         port: 15020
         targetPort: 15020
       - name: http2
         port: 80
-        targetPort: 80
+        targetPort: 8080
       - name: https
         port: 443
+        targetPort: 8443
       - name: kiali
         port: 15029
         targetPort: 15029
@@ -258,16 +245,6 @@ values:
       - name: tls
         port: 15443
         targetPort: 15443
-      sds:
-        enabled: false
-        image: node-agent-k8s
-        resources:
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
       secretVolumes:
       - mountPath: /etc/istio/ingressgateway-certs
         name: ingressgateway-certs
@@ -298,6 +275,7 @@ values:
     enableTracing: true
     imagePullPolicy: ""
     imagePullSecrets: []
+    istioNamespace: istio-system
     istiod:
       enabled: true
     jwtPolicy: third-party-jwt
@@ -394,10 +372,10 @@ values:
           cpu: 10m
           memory: 10Mi
     sds:
-      enabled: false
       token:
         aud: istio-ca
-      udsPath: ""
+    sts:
+      servicePort: 0
     tracer:
       datadog:
         address: $(HOST_IP):8126

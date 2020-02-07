@@ -1,0 +1,103 @@
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: test-ports
+  namespace: my-namespace
+spec:
+  targets:
+    - name: my-service
+      ports:
+        - number: 8080
+        - number: 8081
+        - number: 8082
+  origins:
+    - jwt:
+        issuer: "testing@secure.istio.io"
+        jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: my-namespace
+spec:
+  selector:
+    app: my-service
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http-svc-8080
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+      name: https-svc-8081
+    - protocol: TCP
+      port: 8082
+      targetPort: 8082
+      name: http2-svc-8082
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: test-no-ports
+  namespace: my-namespace-2
+spec:
+  targets:
+    - name: my-service-no-target-ports-specified
+  origins:
+    - jwt:
+        issuer: "testing@secure.istio.io"
+        jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-no-target-ports-specified
+  namespace: my-namespace-2
+spec:
+  selector:
+    app: my-service-no-target-ports-specified
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http-svc-8080
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+      name: https-svc-8081
+    - protocol: TCP
+      port: 8082
+      targetPort: 8082
+      name: http2-svc-8082
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-named-ports
+  namespace: namespace-named-ports
+spec:
+  targets:
+    - name: my-service-named-port
+      ports:
+        - name: http-foo
+  origins:
+    - jwt:
+        issuer: "testing@secure.istio.io"
+        jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-named-port
+  namespace: namespace-named-ports
+spec:
+  selector:
+    app: my-service-named-port
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http-foo
+---

@@ -13,6 +13,7 @@
 # This doesn't match istio defaults, which are more geared towards tests and bookinfo.
 
 global:
+  revision: ""
   # Used to locate istio-pilot.
   # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
   # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
@@ -393,7 +394,7 @@ global:
 
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
-  useMCP: true
+  useMCP: false
 
   # The trust domain corresponds to the trust root of a system
   # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
@@ -469,6 +470,10 @@ global:
     token:
       aud: istio-ca
 
+  sts:
+    # The service port used by Security Token Service (STS) server to handle token exchange requests.
+    # Setting this port to a non-zero value enables STS server.
+    servicePort: 0
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #

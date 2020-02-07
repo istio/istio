@@ -1,4 +1,3 @@
-{{- if .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,4 +11,3 @@ data:
     {{- include "validatingwebhookconfiguration.yaml.tpl" . | indent 4}}
 {{- end}}
 ---
-{{- end }}
