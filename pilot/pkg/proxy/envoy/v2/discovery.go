@@ -15,6 +15,10 @@
 package v2
 
 import (
+	"fmt"
+	"io/ioutil"
+	"istio.io/pkg/log"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -165,6 +169,7 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
+	go s.rebalance(stopCh)
 }
 
 // Push metrics are updated periodically (10s default)
@@ -396,4 +401,61 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue)
+}
+
+func (s *DiscoveryServer) rebalance(ch <-chan struct{}) {
+	time.Sleep(time.Second * 10)
+	for {
+		clients := adsClientCount()
+		log.Errorf("howardjohn: I have %v clients", clients)
+		peers := []string{}
+		pilotShards := s.EndpointShardsByService["istio-pilot.istio-system.svc.cluster.local"]["istio-system"]
+		if pilotShards != nil {
+			pilotShards.mutex.RLock()
+			for _, eps := range pilotShards.Shards {
+				for _, ep := range eps {
+					if ep.EndpointPort == 8080 {
+						peers = append(peers, ep.Address)
+					}
+				}
+			}
+			pilotShards.mutex.RUnlock()
+		}
+		log.Errorf("howardjohn: found peers: %v", peers)
+		loads := []int{}
+		for _, peer := range peers {
+			res, err := http.Get(fmt.Sprintf("http://%s:%d/debug/load", peer, 8080))
+			if err != nil {
+				log.Errorf("got err 1: %v", err)
+				continue
+			}
+			got, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				log.Errorf("got err 2: %v", err)
+			}
+			load, err := strconv.Atoi(string(got))
+			if err != nil {
+				log.Errorf("got err 3: %v", err)
+			}
+			loads = append(loads, load)
+		}
+		log.Errorf("howardjohn: found loads: %v", loads)
+
+		overloaded := false
+		for _, load := range loads {
+			if 2*load < clients {
+				log.Errorf("howardjohn: I am overloaded!")
+				overloaded = true
+			}
+		}
+
+		if overloaded {
+			adsClientsMutex.Lock()
+			for _, c := range adsClients {
+				c.errChannel <- fmt.Errorf("istio overloaded, dropping connection")
+			}
+			adsClientsMutex.Unlock()
+		}
+		time.Sleep(time.Second * 10)
+	}
 }

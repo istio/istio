@@ -119,6 +119,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	mux.HandleFunc("/debug", s.Debug)
 
+	s.addDebugHandler(mux, "/debug/load", "Status and debug interface for EDS", s.load)
 	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
 	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
@@ -775,6 +776,12 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(500)
 	}
 	w.WriteHeader(200)
+}
+
+func (s *DiscoveryServer) load(w http.ResponseWriter, request *http.Request) {
+	count := adsClientCount()
+	resp := fmt.Sprintf("%d", count)
+	_, _ = w.Write([]byte(resp))
 }
 
 // edsz implements a status and debug interface for EDS.

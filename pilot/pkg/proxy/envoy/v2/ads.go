@@ -106,7 +106,8 @@ type XdsConnection struct {
 	// LDSWatch is set if the remote server is watching Listeners
 	LDSWatch bool
 	// CDSWatch is set if the remote server is watching Clusters
-	CDSWatch bool
+	CDSWatch   bool
+	errChannel chan error
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -134,6 +135,7 @@ type XdsEvent struct {
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
 		pushChannel:  make(chan *XdsEvent),
+		errChannel:  make(chan error),
 		PeerAddr:     peerAddr,
 		Clusters:     []string{},
 		Connect:      time.Now(),
@@ -393,6 +395,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			if err != nil {
 				return nil
 			}
+		case err := <-con.errChannel:
+			return status.Errorf(codes.ResourceExhausted, "error: %v", err)
 		}
 	}
 }
