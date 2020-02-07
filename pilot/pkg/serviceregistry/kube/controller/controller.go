@@ -519,7 +519,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	if instances != nil {
 		inScopeInstances := make([]*model.ServiceInstance, 0)
 		for _, i := range instances {
-			if i.Service.Attributes.Namespace == svc.Attributes.Namespace {
+			if i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort {
 				inScopeInstances = append(inScopeInstances, i)
 			}
 		}

@@ -202,9 +202,6 @@ messages:
     level: Warning
     description: "The resulting pods of a service mesh deployment must be associated with at least one service."
     template: "No service associated with this deployment. Service mesh deployments must be associated with a service."
-    args:
-      - name: deployment
-        type: string
 
   - name: "PortNameIsNotUnderNamingConvention"
     code: IST0118

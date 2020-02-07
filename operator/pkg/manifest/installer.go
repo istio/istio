@@ -47,7 +47,7 @@ import (
 	kubectlutil "k8s.io/kubectl/pkg/util/deployment"
 	"k8s.io/utils/pointer"
 
-	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/name"
@@ -140,26 +140,19 @@ func init() {
 
 }
 
-// ParseK8SYAMLToIstioOperatorSpec parses a IstioOperator CustomResource YAML string and unmarshals in into
+// ParseK8SYAMLToIstioOperator parses a IstioOperator CustomResource YAML string and unmarshals in into
 // an IstioOperatorSpec object. It returns the object and an API group/version with it.
-func ParseK8SYAMLToIstioOperatorSpec(yml string) (*v1alpha1.IstioOperatorSpec, *schema.GroupVersionKind, error) {
+func ParseK8SYAMLToIstioOperator(yml string) (*iopv1alpha1.IstioOperator, *schema.GroupVersionKind, error) {
 	o, err := object.ParseYAMLToK8sObject([]byte(yml))
 	if err != nil {
 		return nil, nil, err
 	}
-	spec, ok := o.UnstructuredObject().Object["spec"]
-	if !ok {
-		return nil, nil, fmt.Errorf("spec is missing from IstioOperator YAML")
-	}
-	y, err := yaml.Marshal(spec)
-	if err != nil {
-		return nil, nil, err
-	}
-	iop := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(string(y), iop); err != nil {
+	iop := &iopv1alpha1.IstioOperator{}
+	if err := util.UnmarshalWithJSONPB(yml, iop); err != nil {
 		return nil, nil, err
 	}
 	gvk := o.GroupVersionKind()
+	iopv1alpha1.SetNamespace(iop.Spec, o.Namespace)
 	return iop, &gvk, nil
 }
 

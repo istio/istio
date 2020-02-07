@@ -19,6 +19,7 @@ import (
 	"sort"
 
 	"istio.io/api/operator/v1alpha1"
+	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/component/component"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
@@ -68,7 +69,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 			continue
 		}
 		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
+		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
 		out.components = append(out.components, component.NewIngressComponent(c.Name, idx, &o))
 	}
 	for idx, c := range installSpec.Components.EgressGateways {
@@ -85,7 +86,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 			continue
 		}
 		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
+		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
 		out.components = append(out.components, component.NewEgressComponent(c.Name, idx, &o))
 	}
 	for _, cn := range orderedKeys(installSpec.AddonComponents) {
@@ -100,7 +101,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 			rn = cm.ResourceName
 		}
 		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
+		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
 		out.components = append(out.components, component.NewAddonComponent(cn, rn, &o))
 	}
 	return out, nil

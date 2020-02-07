@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"istio.io/api/operator/v1alpha1"
+	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 )
@@ -27,6 +28,10 @@ const (
 	// OperatorAPINamespace is the API namespace for operator config.
 	// TODO: move this to a base definitions file when one is created.
 	OperatorAPINamespace = "operator.istio.io"
+)
+
+const (
+	DefaultProfileName = "default"
 )
 
 // ComponentName is a component name string, typed to constrain allowed values.
@@ -108,8 +113,8 @@ func init() {
 	for _, n := range AllLegacyAddonComponentNames {
 		LegacyAddonComponentNamesMap[n] = true
 		cn := strings.ToLower(string(n))
-		valuePath := fmt.Sprintf("values.%s.enabled", cn)
-		iopPath := fmt.Sprintf("addonComponents.%s.enabled", cn)
+		valuePath := fmt.Sprintf("spec.values.%s.enabled", cn)
+		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", cn)
 		LegacyAddonComponentPathMap[valuePath] = iopPath
 	}
 }
@@ -166,21 +171,8 @@ func NamespaceFromValue(valuePath string, valueSpec map[string]interface{}) (str
 // Namespace assumes that controlPlaneSpec has been validated.
 // TODO: remove extra validations when comfort level is high enough.
 func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (string, error) {
-	defaultNamespaceI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "MeshConfig.RootNamespace")
-	if !found {
-		return "", fmt.Errorf("can't find any setting for defaultNamespace for component=%s", componentName)
-	}
-	if err != nil {
-		return "", fmt.Errorf("error in Namepsace for component=%s: %s", componentName, err)
 
-	}
-	defaultNamespace, ok := defaultNamespaceI.(string)
-	if !ok {
-		return "", fmt.Errorf("defaultNamespace has bad type %T, expect string", defaultNamespaceI)
-	}
-	if defaultNamespace == "" {
-		return "", fmt.Errorf("defaultNamespace must be set")
-	}
+	defaultNamespace := iop.Namespace(controlPlaneSpec)
 
 	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Namespace")
 	if err != nil {
