@@ -33,8 +33,8 @@ var (
 func init() {
 	for n := range name.AddonComponentNamesMap {
 		cn := strings.ToLower(string(n))
-		valuePath := fmt.Sprintf("values.%s.enabled", cn)
-		iopPath := fmt.Sprintf("addonComponents.%s.enabled", cn)
+		valuePath := fmt.Sprintf("spec.values.%s.enabled", cn)
+		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", cn)
 		LegacyAddonComponentPathMap[valuePath] = iopPath
 	}
 }

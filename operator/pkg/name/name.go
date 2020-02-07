@@ -123,13 +123,6 @@ func init() {
 	for _, n := range deprecatedComponentNames {
 		DeprecatedComponentNamesMap[ComponentName(n)] = true
 	}
-	for _, n := range AllLegacyAddonComponentNames {
-		LegacyAddonComponentNamesMap[n] = true
-		cn := strings.ToLower(string(n))
-		valuePath := fmt.Sprintf("spec.values.%s.enabled", cn)
-		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", cn)
-		LegacyAddonComponentPathMap[valuePath] = iopPath
-	}
 }
 
 // ManifestMap is a map of ComponentName to its manifest string.

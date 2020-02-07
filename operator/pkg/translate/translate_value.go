@@ -279,7 +279,7 @@ func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, r
 			return err
 		}
 		if !pathExist && !enabled {
-			return nil
+			continue
 		}
 		gwSpecs := make([]map[string]interface{}, 1)
 		gwSpec := make(map[string]interface{})
