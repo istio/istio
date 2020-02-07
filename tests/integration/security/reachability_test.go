@@ -132,7 +132,7 @@ func TestReachability(t *testing.T) {
 				},
 				{
 					ConfigFile: "beta-per-port-mtls.yaml",
-					Namespace:  systemNM,
+					Namespace:  rctx.Namespace,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Include all tests that target app B, which has the single-port config.
 						return opts.Target == rctx.B

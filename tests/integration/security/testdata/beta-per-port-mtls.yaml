@@ -11,7 +11,8 @@ spec:
   mtls:
     mode: DISABLE
   portLevelMtls:
-    80:
+    # 8090 is the targetPort for service http(80)
+    8090:
       mode: STRICT
 ---
 apiVersion: "networking.istio.io/v1alpha3"
@@ -19,7 +20,7 @@ kind: "DestinationRule"
 metadata:
   name: "default"
   annotations:
-    test-suite: "beta-mtls-on"
+    test-suite: "beta-per-port-mtls"
 spec:
   host: "*.local"
   trafficPolicy:
