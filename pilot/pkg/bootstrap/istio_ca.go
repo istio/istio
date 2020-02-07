@@ -220,8 +220,10 @@ func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopC
 	if err != nil {
 		log.Warnf("failed to start istiod namespace controller, error: %v", err)
 	} else {
-		nc.Run(stopCh)
-		log.Info("istiod namespace controller has started")
+		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
+			log.Infof("Starting namespace controller")
+			nc.namespaceController.Run(stop)
+		})
 	}
 }
 

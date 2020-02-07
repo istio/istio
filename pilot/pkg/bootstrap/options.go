@@ -69,6 +69,7 @@ type PilotArgs struct {
 	DiscoveryOptions         DiscoveryServiceOptions
 	InjectionOptions         InjectionOptions
 	ValidationOptions        ValidationOptions
+	PodName                  string
 	Namespace                string
 	Revision                 string
 	ServiceAccountName       string
@@ -130,6 +131,7 @@ type ValidationOptions struct {
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
 var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
 
 var revisionVar = env.RegisterStringVar("REVISION", "", "")
@@ -139,6 +141,9 @@ func (p *PilotArgs) Default() {
 	// If the namespace isn't set, try looking it up from the environment.
 	if p.Namespace == "" {
 		p.Namespace = podNamespaceVar.Get()
+	}
+	if p.PodName == "" {
+		p.PodName = podNameVar.Get()
 	}
 	if p.ServiceAccountName == "" {
 		p.ServiceAccountName = serviceAccountVar.Get()

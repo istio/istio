@@ -75,13 +75,7 @@ func NewNamespaceController(ca *ca.IstioCA, core corev1.CoreV1Interface) (*Names
 			UpdateFunc: c.namespaceUpdated,
 			AddFunc:    c.namespaceAdded,
 		})
-
 	return c, nil
-}
-
-// Run starts the NamespaceController until a value is sent to stopCh.
-func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
-	go nc.namespaceController.Run(stopCh)
 }
 
 // When a namespace is created, Citadel adds its public CA certificate

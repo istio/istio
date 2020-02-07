@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
@@ -147,9 +148,16 @@ type Server struct {
 	// nil if injection disabled
 	injectionWebhook *inject.Webhook
 
+	leaderElection *leaderelection.LeaderElection
+
 	webhookCertMu sync.Mutex
 	webhookCert   *tls.Certificate
 	jwtPath       string
+
+	// requiredTerminations keeps track of components that should block server exit if they are not stopped
+	// This allows important cleanup tasks to be completed.
+	// Note: this is still best effort; a process can die at any time.
+	requiredTerminations sync.WaitGroup
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -177,6 +185,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("kube client: %v", err)
 	}
+	s.initLeaderElection(args)
 	fileWatcher := filewatcher.NewWatcher()
 	if err := s.initMeshConfiguration(args, fileWatcher); err != nil {
 		return nil, fmt.Errorf("mesh: %v", err)
@@ -268,6 +277,19 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil
 	})
 
+	if s.leaderElection != nil {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			// We mark this as a required termination as an optimization. Without this, when we exit the lock is
+			// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
+			s.requiredTerminations.Add(1)
+			go func() {
+				s.leaderElection.Run(stop)
+				s.requiredTerminations.Done()
+			}()
+			return nil
+		})
+	}
+
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
 		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
@@ -337,6 +359,12 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	s.cleanupOnStop(stop)
 
 	return nil
+}
+
+// WaitUntilCompletion waits for everything marked as a "required termination" to complete.
+// This should be called before exiting.
+func (s *Server) WaitUntilCompletion() {
+	s.requiredTerminations.Wait()
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
@@ -690,10 +718,10 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 				s.secureGRPCServerDNS.Stop()
 				_ = s.secureHTTPServerDNS.Close()
 			} else {
-				s.secureGRPCServerDNS.GracefulStop()
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				_ = s.secureHTTPServerDNS.Shutdown(ctx)
+				s.secureGRPCServerDNS.Stop()
 			}
 		}()
 		return nil
@@ -842,6 +870,12 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 	}
 
 	return nil
+}
+
+func (s *Server) initLeaderElection(args *PilotArgs) {
+	if s.kubeClient != nil {
+		s.leaderElection = leaderelection.NewLeaderElection(args.Namespace, args.PodName, s.kubeClient)
+	}
 }
 
 func fileExists(path string) bool {

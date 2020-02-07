@@ -88,8 +88,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores,
 			ingress.NewController(s.kubeClient, meshConfig, args.Config.ControllerOptions))
 
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient,
-			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
+		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient, args.Config.ControllerOptions, s.leaderElection); errSyncer != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 		} else {
 			s.addStartFunc(func(stop <-chan struct{}) error {
