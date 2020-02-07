@@ -1741,7 +1741,7 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 
 		if in.PortLevelMtls != nil && len(in.PortLevelMtls) == 0 {
 			errs = appendErrors(errs,
-				fmt.Errorf("port level mTLS, if define, must have at most one element"))
+				fmt.Errorf("port level mTLS, if define, must have at least one element"))
 		}
 
 		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
