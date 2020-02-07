@@ -190,6 +190,11 @@ func (o *K8sObject) YAMLDebugString() string {
 	return string(y)
 }
 
+// GetObject returns the unstructured object of the K8sObject.
+func(o K8sObject) GetObject() *unstructured.Unstructured {
+	return o.object
+}
+
 // AddLabels adds labels to the K8sObject.
 // This method will override the value if there is already label with the same key.
 func (o *K8sObject) AddLabels(labels map[string]string) {

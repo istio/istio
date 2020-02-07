@@ -170,48 +170,86 @@ func checkConstraint(verStr, constraintStr string) (bool, error) {
 	return constraint.Check(ver), nil
 }
 
-// checkMixerTelemetry compares default mixer telemetry configs with in-cluster configs
+// checkMixerTelemetry compares default mixer telemetry configs with corresponding in-cluster configs
+// consider these cases with difference:
+// 1. new in-cluster CR which does not exists in default configs
+// 2. same CR but with difference in fields
+// 3. remove CR from default configs(upgrade can proceed for this case)
 func checkMixerTelemetry(kubeClient manifest.ExecClient, params HookCommonParams) util.Errors {
-	nkMap := params.DefaultTelemetryManifest
-	for kind, names := range CRKindNamesMap {
-		for _, name := range names {
-			uls, err := kubeClient.GetGroupVersionResource(configAPIGroup, configAPIVersion, KindResourceMap[kind], istioNamespace, name)
-			if err != nil {
-				return util.NewErrs(err)
-			}
-			if len(uls.Items) == 0 {
-				// Do we need to return error for this case
-				log.Warnf("default config kind: %s, name: %s does not exist in cluster", kind, name)
-				continue
-			}
-			nkKey := name + ":" + kind
-			msMap, ok := nkMap[nkKey]
-			if !ok {
-				continue
-			}
-			item := uls.Items[0]
-			spec, ok := item.UnstructuredContent()["spec"].(map[string]interface{})
-			if !ok {
-				return util.NewErrs(fmt.Errorf("failed to get spec from unstructured item"+
-					" of kind: %s, name: %s", kind, name))
-			}
-			specYAML, err := yaml.Marshal(spec)
-			if err != nil {
-				return util.NewErrs(fmt.Errorf("failed to marshal spec of kind: %s, name: %s", kind, name))
-			}
+	knMapDefault, err := extractTargetKNMapFromDefault(params.DefaultTelemetryManifest)
+	if err != nil {
+		return util.NewErrs(err)
+	}
+	knMapCluster, err := extractKNMapFromCluster(kubeClient)
+	if err != nil {
+		return util.NewErrs(err)
+	}
 
-			msYAML, err := msMap.YAML()
-			if err != nil {
-				return util.NewErrs(err)
-			}
-			diff := util.YAMLDiff(string(specYAML), string(msYAML))
-			if diff != "" {
-				return util.NewErrs(fmt.Errorf("customized config exists for kind: %s, name: %s,"+
-					" diff is: %s. please check existing mixer config first before upgrade", kind, name, diff))
-			}
+	for nk, inclusterCR := range knMapCluster {
+		defaultCR, ok := knMapDefault[nk]
+		if !ok {
+			// for case 1
+			return util.NewErrs(fmt.Errorf("there are extra mixer configs in cluster"))
+		}
+		// for case 2
+		diff := util.YAMLDiff(defaultCR, inclusterCR)
+		if diff != "" {
+			return util.NewErrs(fmt.Errorf("customized config exists for %s,"+
+				" diff is: %s. please check existing mixer config first before upgrade", nk, diff))
 		}
 	}
 	return nil
+}
+
+func extractTargetKNMapFromDefault(nkMap map[string]*object.K8sObject) (map[string]string, error) {
+	checkMap := make(map[string]string)
+	for kind, names := range CRKindNamesMap {
+		for _, name := range names {
+			knKey := kind + ":" + name
+			msObject, ok := nkMap[knKey]
+			if !ok {
+				continue
+			}
+			item := msObject.GetObject()
+			spec, ok := item.UnstructuredContent()["spec"].(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("failed to get spec from unstructured item"+
+						" of kind: %s, name: %s", kind, name)
+			}
+			specYAML, err := yaml.Marshal(spec)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal spec of kind: %s, name: %s", kind, name)
+			}
+			checkMap[knKey] = string(specYAML)
+		}
+	}
+	return checkMap, nil
+}
+
+func extractKNMapFromCluster(kubeClient manifest.ExecClient) (map[string]string, error) {
+	knYAMLMap := make(map[string]string)
+	for kind := range CRKindNamesMap {
+		uls, err := kubeClient.GetGroupVersionResource(configAPIGroup, configAPIVersion, KindResourceMap[kind], istioNamespace, "")
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range uls.Items {
+			meta, _ := item.UnstructuredContent()["metadata"].(map[string]interface{})
+			name, _ := meta["name"].(string)
+			spec, ok := item.UnstructuredContent()["spec"].(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("failed to get spec from unstructured item"+
+					" of kind: %s, name: %s", kind, name)
+			}
+			specYAML, err := yaml.Marshal(spec)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal spec of kind: %s, name: %s", kind, name)
+			}
+			key := kind + ":" + name
+			knYAMLMap[key] = string(specYAML)
+		}
+	}
+	return knYAMLMap, nil
 }
 
 func checkInitCrdJobs(kubeClient manifest.ExecClient, params HookCommonParams) util.Errors {

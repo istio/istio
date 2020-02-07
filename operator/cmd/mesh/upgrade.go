@@ -146,7 +146,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	if err != nil && !args.force {
 		return fmt.Errorf("failed to read the current Istio version, error: %v", err)
 	}
-	
+
+	currentVersion = "1.3.0"
+	targetVersion = "1.4.3"
 	// Check if the upgrade currentVersion -> targetVersion is supported
 	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI)
 	if err != nil && !args.force {
