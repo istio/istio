@@ -337,7 +337,7 @@ message EnvoyMetricsConfig {
 
 // GalleyConfig is a set of Configuration for Galley.
 message GalleyConfig {
-  // Controls whether Galley is enabled.
+  // Controls whether Galley is enabled
   google.protobuf.BoolValue enabled = 1;
 
   // Image name used for Galley.
