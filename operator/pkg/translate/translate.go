@@ -98,6 +98,8 @@ type ComponentMaps struct {
 	HelmSubdir string
 	// ToHelmValuesTreeRoot is the tree root in values YAML files for the component.
 	ToHelmValuesTreeRoot string
+	// SkipReverseTranslate defines whether reverse translate of this component need to be skipped.
+	SkipReverseTranslate bool
 }
 
 // TranslationFunc maps a yamlStr API path into a YAML values tree.

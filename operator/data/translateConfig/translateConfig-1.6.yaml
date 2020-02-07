@@ -97,13 +97,6 @@ componentMaps:
     HelmSubdir:           "security/nodeagent"
     ToHelmValuesTreeRoot: "nodeagent"
     SkipReverseTranslate: true
-  CertManager:
-    ResourceType:        "Deployment"
-    ResourceName:         "certmanager"
-    ContainerName:        "certmanager"
-    HelmSubdir:           "security/certmanager"
-    ToHelmValuesTreeRoot: "certmanager"
-    SkipReverseTranslate: true
   IngressGateways:
     ResourceType:         "Deployment"
     ResourceName:         "istio-ingressgateway"

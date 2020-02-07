@@ -1,0 +1,12 @@
+legacyAddonComponentNames:
+  - "Prometheus"
+  - "Kiali"
+  - "Grafana"
+  - "Tracing"
+  - "Istiocoredns"
+deprecatedComponentNames:
+  - "Injector"
+  - "CertManager"
+  - "IngressGateway"
+  - "EgressGateway"
+  - "SidecarInjector"
