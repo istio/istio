@@ -1362,7 +1362,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 						},
 						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-							8080: &v1beta1.PeerAuthentication_MutualTLS{
+							8080: {
 								Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 							},
 						},
@@ -1382,7 +1382,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 							},
 						},
 						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-							7070: &v1beta1.PeerAuthentication_MutualTLS{
+							7070: {
 								Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 							},
 						},
