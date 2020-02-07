@@ -5,8 +5,8 @@ metadata:
   namespace: istio-control
   labels:
     app: pilot
-    release: istio
     istio: pilot
+    release: istio
 spec:
   strategy:
     rollingUpdate:
@@ -19,8 +19,6 @@ spec:
     metadata:
       labels:
         app: pilot
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"

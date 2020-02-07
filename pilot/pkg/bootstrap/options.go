@@ -70,6 +70,7 @@ type PilotArgs struct {
 	InjectionOptions         InjectionOptions
 	ValidationOptions        ValidationOptions
 	Namespace                string
+	Revision                 string
 	ServiceAccountName       string
 	Mesh                     MeshArgs
 	Config                   ConfigArgs
@@ -131,6 +132,8 @@ type ValidationOptions struct {
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
 var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
 
+var revisionVar = env.RegisterStringVar("REVISION", "", "")
+
 // Apply default value to PilotArgs
 func (p *PilotArgs) Default() {
 	// If the namespace isn't set, try looking it up from the environment.
@@ -139,6 +142,10 @@ func (p *PilotArgs) Default() {
 	}
 	if p.ServiceAccountName == "" {
 		p.ServiceAccountName = serviceAccountVar.Get()
+	}
+
+	if p.Revision == "" {
+		p.Revision = revisionVar.Get()
 	}
 
 	if p.KeepaliveOptions == nil {

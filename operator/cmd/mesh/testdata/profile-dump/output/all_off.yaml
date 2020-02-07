@@ -92,18 +92,6 @@ components:
           fieldRef:
             apiVersion: v1
             fieldPath: metadata.namespace
-      hpaSpec:
-        maxReplicas: 5
-        metrics:
-        - resource:
-            name: cpu
-            targetAverageUtilization: 80
-          type: Resource
-        minReplicas: 1
-        scaleTargetRef:
-          apiVersion: apps/v1
-          kind: Deployment
-          name: istio-pilot
       readinessProbe:
         httpGet:
           path: /ready

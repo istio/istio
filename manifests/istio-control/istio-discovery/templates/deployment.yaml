@@ -1,18 +1,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istiod{{ .Values.version }}
+  name: istiod
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
-    {{- if ne .Values.version ""}}
-    version: {{ .Values.version }}
-    {{- end }}
+    istio: pilot
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
 {{- end }}
-    istio: pilot
 spec:
 {{- if not .Values.pilot.autoscaleEnabled }}
 {{- if .Values.pilot.replicaCount }}
@@ -25,23 +22,12 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      {{- if ne .Values.version ""}}
-      app: pilot
-      version: {{ .Values.version }}
-      {{- else }}
       istio: pilot
-      {{- end }}
   template:
     metadata:
       labels:
         app: pilot
-        {{- if ne .Values.version ""}}
-        version: {{ .Values.version }}
-        {{- else }}
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
         istio: pilot
-        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
