@@ -533,7 +533,9 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	}
 
 	// Update Proxy with current information.
-	s.updateProxy(con.node, pushEv.push)
+	if err := s.updateProxy(con.node, pushEv.push); err != nil {
+		return nil
+	}
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.node, pushEv) {
