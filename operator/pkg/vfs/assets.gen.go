@@ -12183,12 +12183,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio{{ .Values.version }}
-  {{- if .Values.global.controlPlaneSecurityEnabled }}
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-pilot-service-account
-          optional: true
-  {{- end }}
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:
@@ -38163,6 +38157,7 @@ spec:
       enabled: true
 
   # Global values passed through to helm global.yaml.
+  # Please keep this in sync with manifests/global.yaml
   values:
     global:
       istiod:

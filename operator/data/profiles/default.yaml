@@ -191,6 +191,7 @@ spec:
       enabled: true
 
   # Global values passed through to helm global.yaml.
+  # Please keep this in sync with manifests/global.yaml
   values:
     global:
       istiod:
