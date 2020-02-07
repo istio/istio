@@ -29,8 +29,9 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/leaderelection"
 	"k8s.io/client-go/rest"
+
+	"istio.io/istio/pilot/pkg/leaderelection"
 
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
