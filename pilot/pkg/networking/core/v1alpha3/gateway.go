@@ -258,7 +258,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				} else {
 					newVHost := &route.VirtualHost{
 						Name:    fmt.Sprintf("%s:%d", hostname, port),
-						Domains: []string{string(hostname), fmt.Sprintf("%s:%d", hostname, port)},
+						Domains: buildGatewayVirtualHostDomains(string(hostname)),
 						Routes:  routes,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -807,4 +807,14 @@ func getSNIHostsForServer(server *networking.Server) []string {
 	sort.Strings(sniHostsSlice)
 
 	return sniHostsSlice
+}
+
+func buildGatewayVirtualHostDomains(hostname string) []string {
+	domains := []string{hostname}
+	if hostname == "*" {
+		return domains
+	}
+	// To support gateway behind a LB with unknown port.
+	domains = append(domains, hostname+":*")
+	return domains
 }
