@@ -9123,7 +9123,7 @@ spec:
           - name: "REPAIR_SIDECAR-ANNOTATION"
             value: "sidecar.istio.io/status"
           - name: "REPAIR_INIT-CONTAINER-NAME"
-            value: "istio-init"
+            value: "{{ .Values.cni.repair.initContainerName }}"
           - name: "REPAIR_BROKEN-POD-LABEL-KEY"
             value: "{{.Values.cni.repair.brokenPodLabelKey}}"
           - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
@@ -9224,6 +9224,8 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
     labelPods: "true"
     createEvents: "true"
     deletePods: "true"
+
+    initContainerName: "istio-validation"
 
     brokenPodLabelKey: "cni.istio.io/uninitialized"
     brokenPodLabelValue: "true"
