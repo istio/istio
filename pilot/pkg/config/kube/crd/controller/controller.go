@@ -366,7 +366,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
 			handleValidationFailure(item, err)
-		} else {
+		} else if c.client.objectInEnvironment(config) {
 			out = append(out, *config)
 		}
 	}
