@@ -42,9 +42,9 @@ initContainers:
   - "--skip-rule-apply"
   {{ end -}}
   imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
-{{- if .Values.global.proxy.init.resources }}
+{{- if .Values.global.proxy_init.resources }}
   resources:
-    {{ toYaml .Values.global.proxy.init.resources | indent 4 }}
+    {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
 {{- else }}
   resources: {}
 {{- end }}

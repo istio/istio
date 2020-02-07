@@ -262,7 +262,7 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 // overlayValuesEnablement overlays any enablement in values path from the user file overlay or set flag overlay.
 // The overlay is translated from values to the corresponding addonComponents enablement paths.
 func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (string, error) {
-	fyt, err := translate.YAMLTree(fileOverlayYAML, fileOverlayYAML, name.LegacyAddonComponentPathMap)
+	fyt, err := translate.YAMLTree(fileOverlayYAML, fileOverlayYAML, translate.LegacyAddonComponentPathMap)
 	if err != nil {
 		return "", fmt.Errorf("error translating addon components enablement from values of overlay files: %v", err)
 	}
@@ -272,7 +272,7 @@ func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (
 		return "", fmt.Errorf("could not overlay user config over base: %s", err)
 	}
 
-	syt, err := translate.YAMLTree(setOverlayYAML, setOverlayYAML, name.LegacyAddonComponentPathMap)
+	syt, err := translate.YAMLTree(setOverlayYAML, setOverlayYAML, translate.LegacyAddonComponentPathMap)
 	if err != nil {
 		return "", fmt.Errorf("error translating addon components enablement from values of set overlay: %v", err)
 	}
@@ -288,7 +288,7 @@ func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (
 // error.
 func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
 	iops := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(iopsYAML, iops); err != nil {
+	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
 		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
 	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {

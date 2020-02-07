@@ -3,228 +3,200 @@ kind: IstioOperator
 metadata:
   creationTimestamp: null
 spec:
-  autoInjection:
-    components:
-      injector:
-        enabled: true
-        k8s:
-          nodeSelector: {}
-          replicaCount: 1
-          strategy:
-            rollingUpdate:
-              maxSurge: 100%
-              maxUnavailable: 25%
-          tolerations: []
-    enabled: true
-  cni:
-    components:
-      cni:
-        enabled: false
-    enabled: false
-  configManagement:
-    components:
-      galley:
-        enabled: true
-        k8s:
-          nodeSelector: {}
-          replicaCount: 1
-          resources:
-            requests:
-              cpu: 100m
-          strategy:
-            rollingUpdate:
-              maxSurge: 100%
-              maxUnavailable: 25%
-          tolerations: []
-    enabled: true
-  coreDNS:
-    components:
-      coreDNS:
-        enabled: false
-    enabled: false
-  gateways:
-    components:
-      egressGateway:
-        enabled: true
-        k8s:
-          env:
-          - name: ISTIO_META_ROUTER_MODE
-            value: sni-dnat
-          hpaSpec:
-            maxReplicas: 5
-            metrics:
-            - resource:
-                name: cpu
-                targetAverageUtilization: 80
-              type: Resource
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-istio-egressgateway
-          nodeSelector: {}
-          podAnnotations: {}
-          resources:
-            limits:
-              cpu: 2000m
-              memory: 256Mi
-            requests:
-              cpu: 100m
-              memory: 128Mi
-          serviceAnnotations: {}
-          strategy:
-            rollingUpdate:
-              maxSurge: 100%
-              maxUnavailable: 25%
-          tolerations: []
-      ingressGateway:
-        enabled: true
-        k8s:
-          env:
-          - name: ISTIO_META_ROUTER_MODE
-            value: sni-dnat
-          hpaSpec:
-            maxReplicas: 5
-            metrics:
-            - resource:
-                name: cpu
-                targetAverageUtilization: 80
-              type: Resource
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-istio-ingressgateway
-          nodeSelector: {}
-          podAnnotations: {}
-          resources:
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
-            requests:
-              cpu: 100m
-              memory: 128Mi
-          serviceAnnotations: {}
-          strategy:
-            rollingUpdate:
-              maxSurge: 100%
-              maxUnavailable: 25%
-          tolerations: []
-    enabled: true
+  addonComponents:
+    coreDNS:
+      enabled: false
+    grafana:
+      enabled: false
+    kiali:
+      enabled: false
+    prometheus:
+      enabled: true
+      k8s:
+        nodeSelector: {}
+        replicaCount: 1
+        tolerations: []
+  components:
+    citadel:
+      enabled: true
+      k8s:
+        nodeSelector: {}
+        replicaCount: 1
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations: []
+    egressGateways:
+    - enabled: true
+      k8s:
+        env:
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-istio-egressgateway
+        nodeSelector: {}
+        podAnnotations: {}
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        serviceAnnotations: {}
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations: []
+      name: istio-egressgateway
+    galley:
+      enabled: true
+      k8s:
+        nodeSelector: {}
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 100m
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations: []
+    ingressGateways:
+    - enabled: true
+      k8s:
+        env:
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-istio-ingressgateway
+        nodeSelector: {}
+        podAnnotations: {}
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        serviceAnnotations: {}
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations: []
+      name: istio-ingressgateway
+    pilot:
+      enabled: true
+      k8s:
+        env:
+        - name: GODEBUG
+          value: gctrace=1
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-pilot
+        nodeSelector: {}
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2048Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations: []
+    policy:
+      enabled: true
+      k8s:
+        env:
+        - name: GODEBUG
+          value: gctrace=1
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-policy
+        nodeSelector: {}
+        podAnnotations: {}
+        replicaCount: 1
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations: []
+    telemetry:
+      enabled: true
+      k8s:
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-telemetry
+        nodeSelector: {}
+        replicaCount: 1
+        resources:
+          limits:
+            cpu: 4800m
+            memory: 4G
+          requests:
+            cpu: 1000m
+            memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations: []
   hub: gcr.io/istio-release
-  policy:
-    components:
-      policy:
-        enabled: true
-        k8s:
-          env:
-          - name: GODEBUG
-            value: gctrace=1
-          hpaSpec:
-            maxReplicas: 5
-            metrics:
-            - resource:
-                name: cpu
-                targetAverageUtilization: 80
-              type: Resource
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-policy
-          nodeSelector: {}
-          podAnnotations: {}
-          replicaCount: 1
-          strategy:
-            rollingUpdate:
-              maxSurge: 100%
-              maxUnavailable: 25%
-          tolerations: []
-    enabled: true
-  security:
-    components:
-      certManager:
-        enabled: false
-      citadel:
-        enabled: true
-        k8s:
-          nodeSelector: {}
-          replicaCount: 1
-          strategy:
-            rollingUpdate:
-              maxSurge: 100%
-              maxUnavailable: 25%
-          tolerations: []
-      nodeAgent:
-        enabled: false
-    enabled: true
   tag: master-latest-daily
-  telemetry:
-    components:
-      telemetry:
-        enabled: true
-        k8s:
-          hpaSpec:
-            maxReplicas: 5
-            metrics:
-            - resource:
-                name: cpu
-                targetAverageUtilization: 80
-              type: Resource
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-telemetry
-          nodeSelector: {}
-          replicaCount: 1
-          resources:
-            limits:
-              cpu: 4800m
-              memory: 4G
-            requests:
-              cpu: 1000m
-              memory: 1G
-          strategy:
-            rollingUpdate:
-              maxSurge: 100%
-              maxUnavailable: 25%
-          tolerations: []
-    enabled: true
-  trafficManagement:
-    components:
-      pilot:
-        enabled: true
-        k8s:
-          env:
-          - name: GODEBUG
-            value: gctrace=1
-          hpaSpec:
-            maxReplicas: 5
-            metrics:
-            - resource:
-                name: cpu
-                targetAverageUtilization: 80
-              type: Resource
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-pilot
-          nodeSelector: {}
-          replicaCount: 1
-          resources:
-            requests:
-              cpu: 500m
-              memory: 2048Mi
-          strategy:
-            rollingUpdate:
-              maxSurge: 100%
-              maxUnavailable: 25%
-          tolerations: []
-    enabled: true
   values:
     certmanager:
+      enabled: false
       hub: quay.io/jetstack
       image: cert-manager-controller
       podAntiAffinityLabelSelector: []
@@ -235,6 +207,7 @@ spec:
     cni:
       cniBinDir: /opt/cni/bin
       cniConfDir: /etc/cni/net.d
+      enabled: false
       excludeNamespaces:
       - istio-system
       hub: gcr.io/istio-release
@@ -398,7 +371,6 @@ spec:
         concurrency: 2
         dnsRefreshRate: 300s
         enableCoreDump: false
-        enableCoreDumpImage: ubuntu:xenial
         envoyAccessLogService:
           enabled: false
           tcpKeepalive:
@@ -418,14 +390,6 @@ spec:
         image: proxyv2
         includeIPRanges: '*'
         includeInboundPorts: '*'
-        init:
-          resources:
-            limits:
-              cpu: 100m
-              memory: 50Mi
-            requests:
-              cpu: 10m
-              memory: 10Mi
         kubevirtInterfaces: ""
         logLevel: ""
         privileged: false
@@ -444,6 +408,13 @@ spec:
         tracer: zipkin
       proxy_init:
         image: proxy_init
+        resources:
+          limits:
+            cpu: 100m
+            memory: 50Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
       sds:
         enabled: false
         udsPath: ""
@@ -488,7 +459,6 @@ spec:
               orgId: 1
               type: prometheus
               url: http://prometheus:9090
-      enabled: false
       image:
         repository: grafana/grafana
         tag: 6.1.6
@@ -526,7 +496,6 @@ spec:
           strategy: login
         secretName: kiali
         viewOnlyMode: false
-      enabled: false
       hub: quay.io/kiali
       image: kiali
       ingress:
@@ -535,7 +504,6 @@ spec:
         - kiali.local
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      prometheusAddr: http://prometheus:9090
       replicaCount: 1
       security:
         cert_file: /kiali-cert/cert-chain.pem
@@ -562,15 +530,6 @@ spec:
         reportBatchMaxTime: 1s
         sessionAffinityEnabled: false
         useMCP: true
-    nodeagent:
-      env:
-        cA_ADDR: ""
-        cA_PROVIDER: ""
-        plugins: ""
-      image: node-agent-k8s
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      tolerations: []
     pilot:
       appNamespaces: []
       configMap: true
@@ -585,13 +544,10 @@ spec:
       podAntiAffinityTermLabelSelector: []
       policy:
         enabled: false
-      telemetry:
-        enabled: true
       traceSampling: 1
       useMCP: true
     prometheus:
       contextPath: /prometheus
-      enabled: true
       hub: docker.io/prom
       image: prometheus
       ingress:
@@ -600,7 +556,6 @@ spec:
         - prometheus.local
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      replicaCount: 1
       retention: 6h
       scrapeInterval: 15s
       security:
@@ -610,7 +565,6 @@ spec:
           enabled: false
           port: 32090
       tag: v2.8.0
-      tolerations: []
     security:
       dnsCerts:
         istio-galley-service-account:
@@ -638,13 +592,18 @@ spec:
     sidecarInjectorWebhook:
       alwaysInjectSelector: []
       enableNamespacesByDefault: false
+      enabled: true
       image: sidecar_injector
       injectLabel: istio-injection
       neverInjectSelector: []
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
+      replicaCount: 1
       rewriteAppHTTPProbe: false
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
       selfSigned: false
+      tolerations: []
     tracing:
       enabled: false
       ingress:

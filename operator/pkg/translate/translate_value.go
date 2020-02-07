@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
-	"istio.io/pkg/log"
+	"istio.io/istio/operator/pkg/vfs"
 )
 
 // ReverseTranslator is a set of mappings to translate between values.yaml and API paths, charts, k8s paths.
@@ -32,50 +32,27 @@ type ReverseTranslator struct {
 	Version version.MinorVersion
 	// APIMapping is Values.yaml path to API path mapping using longest prefix match. If the path is a non-leaf node,
 	// the output path is the matching portion of the path, plus any remaining output path.
-	APIMapping map[string]*Translation
+	APIMapping map[string]*Translation `yaml:"apiMapping,omitempty"`
 	// KubernetesPatternMapping defines mapping patterns from k8s resource paths to IstioOperator API paths.
-	KubernetesPatternMapping map[string]string
+	KubernetesPatternMapping map[string]string `yaml:"kubernetesPatternMapping,omitempty"`
 	// KubernetesMapping defines actual k8s mappings generated from KubernetesPatternMapping before each translation.
-	KubernetesMapping map[string]*Translation
-	// ValuesToFeatureComponentName defines mapping from value path to feature and component name in API paths.
-	ValuesToComponentName map[string]name.ComponentName
-	// NamespaceMapping maps namespace defined in value.yaml to that in API spec. Not every components have namespace defined in value.yaml tree.
-	NamespaceMapping map[string][]string
+	KubernetesMapping map[string]*Translation `yaml:"kubernetesMapping,omitempty"`
+	// GatewayKubernetesMapping defines actual k8s mappings for gateway components generated from KubernetesPatternMapping before each translation.
+	GatewayKubernetesMapping gatewayKubernetesMapping `yaml:"GatewayKubernetesMapping,omitempty"`
+	// ValuesToComponentName defines mapping from value path to component name in API paths.
+	ValuesToComponentName map[string]name.ComponentName `yaml:"valuesToComponentName,omitempty"`
+}
+
+type gatewayKubernetesMapping struct {
+	ingressMapping map[string]*Translation
+	egressMapping  map[string]*Translation
 }
 
 var (
-	// ReverseTranslators maps a minor version to a corresponding ReverseTranslator.
-	ReverseTranslators = map[version.MinorVersion]*ReverseTranslator{
-		version.NewMinorVersion(1, 4): {
-			APIMapping: map[string]*Translation{},
-			KubernetesPatternMapping: map[string]string{
-				"{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env",
-				"{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec",
-				"{{.ValueComponentName}}.imagePullPolicy":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy",
-				"{{.ValueComponentName}}.nodeSelector":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.NodeSelector",
-				"{{.ValueComponentName}}.tolerations":           "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Tolerations",
-				"{{.ValueComponentName}}.podDisruptionBudget":   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodDisruptionBudget",
-				"{{.ValueComponentName}}.podAnnotations":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodAnnotations",
-				"{{.ValueComponentName}}.priorityClassName":     "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PriorityClassName",
-				"{{.ValueComponentName}}.readinessProbe":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReadinessProbe",
-				"{{.ValueComponentName}}.replicaCount":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReplicaCount",
-				"{{.ValueComponentName}}.resources":             "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Resources",
-				"{{.ValueComponentName}}.rollingMaxSurge":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy",
-				"{{.ValueComponentName}}.rollingMaxUnavailable": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy",
-			},
-			KubernetesMapping:     map[string]*Translation{},
-			ValuesToComponentName: map[string]name.ComponentName{},
-			NamespaceMapping: map[string][]string{
-				"global.istioNamespace":     {"security.components.namespace"},
-				"global.telemetryNamespace": {"telemetry.components.namespace"},
-				"global.policyNamespace":    {"policy.components.namespace"},
-				"global.configNamespace":    {"configManagement.components.namespace"},
-			},
-		},
-	}
-	// Component enablement mapping. Ex "{{.ValueComponent}}.enabled": {"Components.{{.ComponentName}}.enabled}", nil},
-	// Feature enablement mapping. Ex: "{{.ValueComponent}}.enabled": {"{{.FeatureName}}.enabled}", nil},
+	// Component enablement mapping. Ex "{{.ValueComponent}}.enabled": Components.{{.ComponentName}}.enabled}", nil},
 	componentEnablementPattern = "Components.{{.ComponentName}}.Enabled"
+	// addonEnablementPattern defines enablement pattern for addon components in IOP spec.
+	addonEnablementPattern = "AddonComponents.{{.ComponentName}}.Enabled"
 	// specialComponentPath lists cases of component path of values.yaml we need to have special treatment.
 	specialComponentPath = map[string]bool{
 		"mixer":                         true,
@@ -92,6 +69,11 @@ var (
 		name.IstioOperatorCustomResourceName: true,
 		name.CNIComponentName:                true,
 	}
+
+	gatewayPathMapping = map[string]name.ComponentName{
+		"gateways.istio-ingressgateway": name.IngressComponentName,
+		"gateways.istio-egressgateway":  name.EgressComponentName,
+	}
 )
 
 // initAPIMapping generate the reverse mapping from original translator apiMapping.
@@ -100,12 +82,15 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 	if err != nil {
 		return err
 	}
+	t.APIMapping = make(map[string]*Translation)
+	t.KubernetesMapping = make(map[string]*Translation)
+	t.ValuesToComponentName = make(map[string]name.ComponentName)
 	for valKey, outVal := range ts.APIMapping {
 		t.APIMapping[outVal.OutPath] = &Translation{valKey, nil}
 	}
-
 	for cn, cm := range ts.ComponentMaps {
-		if !skipTranslate[cn] {
+		// we use dedicated translateGateway for gateway instead
+		if !skipTranslate[cn] && !cm.SkipReverseTranslate && !cn.IsGateway() {
 			t.ValuesToComponentName[cm.ToHelmValuesTreeRoot] = cn
 		}
 	}
@@ -121,13 +106,16 @@ func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) err
 			return err
 		}
 		if !cnEnabled {
-			log.Infof("Component:%s disabled, skip k8s mapping", componentName)
+			scope.Debugf("Component:%s disabled, skip k8s mapping", componentName)
 			continue
 		}
 		for K8SValKey, outPathTmpl := range t.KubernetesPatternMapping {
 			newKey, err := renderComponentName(K8SValKey, valKey)
 			if err != nil {
 				return err
+			}
+			if !componentName.IsCoreComponent() && !componentName.IsGateway() {
+				outPathTmpl = "Addon" + outPathTmpl
 			}
 			newVal, err := renderFeatureComponentPathTemplate(outPathTmpl, componentName)
 			if err != nil {
@@ -138,26 +126,58 @@ func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) err
 	}
 
 	t.KubernetesMapping = outputMapping
+
+	igwOutputMapping := make(map[string]*Translation)
+	egwOutputMapping := make(map[string]*Translation)
+	for valKey, componentName := range gatewayPathMapping {
+		cnEnabled, _, err := IsComponentEnabledFromValue(componentName, valueTree)
+		if err != nil {
+			return err
+		}
+		if !cnEnabled {
+			scope.Debugf("Component:%s disabled, skip k8s mapping", componentName)
+			continue
+		}
+		mapping := igwOutputMapping
+		if componentName == name.EgressComponentName {
+			mapping = egwOutputMapping
+		}
+		for K8SValKey, outPathTmpl := range t.KubernetesPatternMapping {
+			newKey, err := renderComponentName(K8SValKey, valKey)
+			if err != nil {
+				return err
+			}
+			newP := util.PathFromString(outPathTmpl)
+			mapping[newKey] = &Translation{newP[len(newP)-2:].String(), nil}
+		}
+	}
+	t.GatewayKubernetesMapping = gatewayKubernetesMapping{ingressMapping: igwOutputMapping, egressMapping: egwOutputMapping}
 	return nil
 }
 
 // NewReverseTranslator creates a new ReverseTranslator for minorVersion and returns a ptr to it.
 func NewReverseTranslator(minorVersion version.MinorVersion) (*ReverseTranslator, error) {
-	t := ReverseTranslators[minorVersion]
-	if t == nil {
-		return nil, fmt.Errorf("no value.yaml translator available for version %s", minorVersion)
+	v := fmt.Sprintf("%s.%d", minorVersion.MajorVersion, minorVersion.Minor)
+	f := "translateConfig/reverseTranslateConfig-" + v + ".yaml"
+	b, err := vfs.ReadFile(f)
+	if err != nil {
+		return nil, fmt.Errorf("could not read translate configs: %v", err)
 	}
-
-	err := t.initAPIAndComponentMapping(minorVersion)
+	rt := &ReverseTranslator{}
+	err = yaml.Unmarshal(b, rt)
+	if err != nil {
+		return nil, fmt.Errorf("could not Unmarshal reverseTranslateConfig file %s: %s", f, err)
+	}
+	err = rt.initAPIAndComponentMapping(minorVersion)
 	if err != nil {
 		return nil, fmt.Errorf("error initialize API mapping: %s", err)
 	}
-	t.Version = minorVersion
-	return t, nil
+	rt.Version = minorVersion
+	return rt, nil
 }
 
 // TranslateFromValueToSpec translates from values.yaml value to IstioOperatorSpec.
-func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte) (controlPlaneSpec *v1alpha1.IstioOperatorSpec, err error) {
+func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte, force bool) (controlPlaneSpec *v1alpha1.IstioOperatorSpec, err error) {
 
 	var yamlTree = make(map[string]interface{})
 	err = yaml.Unmarshal(values, &yamlTree)
@@ -176,7 +196,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte) (controlPlan
 	}
 
 	var cpSpec = &v1alpha1.IstioOperatorSpec{}
-	err = util.UnmarshalWithJSONPB(string(outputVal), cpSpec)
+	err = util.UnmarshalWithJSONPB(string(outputVal), cpSpec, force)
 
 	if err != nil {
 		return nil, fmt.Errorf("error when unmarshalling into control plane spec %v, \nyaml:\n %s", err, outputVal)
@@ -188,7 +208,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte) (controlPlan
 // TranslateTree translates input value.yaml Tree to ControlPlaneSpec Tree.
 func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSpecTree map[string]interface{}, path util.Path) error {
 	// translate enablement and namespace
-	err := t.setEnablementAndNamespacesFromValue(valueTree, cpSpecTree)
+	err := t.setEnablementFromValue(valueTree, cpSpecTree)
 	if err != nil {
 		return fmt.Errorf("error when translating enablement and namespace from value.yaml tree: %v", err)
 	}
@@ -203,9 +223,15 @@ func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSp
 	if err != nil {
 		return fmt.Errorf("error when initiating k8s mapping: %v", err)
 	}
-	err = t.translateK8sTree(valueTree, cpSpecTree)
+	err = t.translateK8sTree(valueTree, cpSpecTree, t.KubernetesMapping)
 	if err != nil {
 		return fmt.Errorf("error when translating value.yaml tree with kubernetes mapping: %v", err)
+	}
+
+	// translate for gateway
+	err = t.translateGateway(valueTree, cpSpecTree)
+	if err != nil {
+		return fmt.Errorf("error when translating gateway from value.yaml tree: %v", err.Error())
 	}
 
 	// translate remaining untranslated paths into component values
@@ -216,15 +242,21 @@ func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSp
 	return nil
 }
 
-// setEnablementAndNamespaces translates the enablement and namespace value of each component in the baseYAML values
+// setEnablementFromValue translates the enablement value of components in the values.yaml
 // tree, based on feature/component inheritance relationship.
-func (t *ReverseTranslator) setEnablementAndNamespacesFromValue(valueSpec map[string]interface{}, root map[string]interface{}) error {
+func (t *ReverseTranslator) setEnablementFromValue(valueSpec map[string]interface{}, root map[string]interface{}) error {
 	for _, cni := range t.ValuesToComponentName {
-		enabled, _, err := IsComponentEnabledFromValue(cni, valueSpec)
+		enabled, pathExist, err := IsComponentEnabledFromValue(cni, valueSpec)
 		if err != nil {
 			return err
 		}
+		if !pathExist {
+			continue
+		}
 		tmpl := componentEnablementPattern
+		if !cni.IsCoreComponent() && !cni.IsGateway() {
+			tmpl = addonEnablementPattern
+		}
 		ceVal, err := renderFeatureComponentPathTemplate(tmpl, cni)
 		if err != nil {
 			return err
@@ -236,16 +268,39 @@ func (t *ReverseTranslator) setEnablementAndNamespacesFromValue(valueSpec map[st
 		}
 	}
 
-	// set namespace
-	for vp, nsList := range t.NamespaceMapping {
-		namespace, err := name.NamespaceFromValue(vp, valueSpec)
+	return nil
+}
+
+// translateGateway handles translation for gateways specific configuration
+func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, root map[string]interface{}) error {
+	for inPath, outPath := range gatewayPathMapping {
+		enabled, pathExist, err := IsComponentEnabledFromValue(outPath, valueSpec)
 		if err != nil {
 			return err
 		}
-		for _, ns := range nsList {
-			if err := tpath.WriteNode(root, util.ToYAMLPath(ns), namespace); err != nil {
+		if !pathExist && !enabled {
+			continue
+		}
+		gwSpecs := make([]map[string]interface{}, 1)
+		gwSpec := make(map[string]interface{})
+		gwSpecs[0] = gwSpec
+		gwSpec["enabled"] = enabled
+		gwSpec["name"] = util.ToYAMLPath(inPath)[1]
+		outCP := util.ToYAMLPath("Components." + string(outPath))
+
+		if enabled {
+			mapping := t.GatewayKubernetesMapping.ingressMapping
+			if outPath == name.EgressComponentName {
+				mapping = t.GatewayKubernetesMapping.egressMapping
+			}
+			err = t.translateK8sTree(valueSpec, gwSpec, mapping)
+			if err != nil {
 				return err
 			}
+		}
+		err = tpath.WriteNode(root, outCP, gwSpecs)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -263,7 +318,7 @@ func translateStrategy(fieldName string, outPath string, value interface{}, cpSp
 	}
 	outPath += ".rollingUpdate." + newFieldName
 
-	log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
+	scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
 	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), value); err != nil {
 		return err
 	}
@@ -340,7 +395,7 @@ name: istio-%s`
 
 // setOutputAndClean is helper function to set value of iscp tree and clean the original value from value.yaml tree.
 func setOutputAndClean(valPath, outPath string, outVal interface{}, valueTree, cpSpecTree map[string]interface{}, clean bool) error {
-	log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
+	scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
 
 	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), outVal); err != nil {
 		return err
@@ -368,7 +423,7 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 		outEnv[cnt]["value"] = fmt.Sprintf("%v", v)
 		cnt++
 	}
-	log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
+	scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
 	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), outEnv); err != nil {
 		return err
 	}
@@ -377,26 +432,26 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 
 // translateK8sTree is internal method for translating K8s configurations from value.yaml tree.
 func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
-	cpSpecTree map[string]interface{}) error {
-	for inPath, v := range t.KubernetesMapping {
-		log.Infof("Checking for k8s path %s in helm Value.yaml tree", inPath)
+	cpSpecTree map[string]interface{}, mapping map[string]*Translation) error {
+	for inPath, v := range mapping {
+		scope.Debugf("Checking for k8s path %s in helm Value.yaml tree", inPath)
 		m, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
 		if err != nil {
 			return err
 		}
 		if !found {
-			log.Infof("path %s not found in helm Value.yaml tree, skip mapping.", inPath)
+			scope.Debugf("path %s not found in helm Value.yaml tree, skip mapping.", inPath)
 			continue
 		}
 
 		if mstr, ok := m.(string); ok && mstr == "" {
-			log.Infof("path %s is empty string, skip mapping.", inPath)
+			scope.Debugf("path %s is empty string, skip mapping.", inPath)
 			continue
 		}
 		// Zero int values are due to proto3 compiling to scalars rather than ptrs. Skip these because values of 0 are
 		// the default in destination fields and need not be set explicitly.
 		if mint, ok := util.ToIntValue(m); ok && mint == 0 {
-			log.Infof("path %s is int 0, skip mapping.", inPath)
+			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
 
@@ -427,7 +482,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 
 		default:
 			output := util.ToYAMLPath(v.OutPath)
-			log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", output)
+			scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", output)
 
 			if err := tpath.WriteNode(cpSpecTree, output, m); err != nil {
 				return err
@@ -477,28 +532,28 @@ func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interfa
 func (t *ReverseTranslator) translateTree(valueTree map[string]interface{},
 	cpSpecTree map[string]interface{}) error {
 	for inPath, v := range t.APIMapping {
-		log.Infof("Checking for path %s in helm Value.yaml tree", inPath)
+		scope.Debugf("Checking for path %s in helm Value.yaml tree", inPath)
 		m, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
 		if err != nil {
 			return err
 		}
 		if !found {
-			log.Infof("path %s not found in helm Value.yaml tree, skip mapping.", inPath)
+			scope.Debugf("path %s not found in helm Value.yaml tree, skip mapping.", inPath)
 			continue
 		}
 		if mstr, ok := m.(string); ok && mstr == "" {
-			log.Infof("path %s is empty string, skip mapping.", inPath)
+			scope.Debugf("path %s is empty string, skip mapping.", inPath)
 			continue
 		}
 		// Zero int values are due to proto3 compiling to scalars rather than ptrs. Skip these because values of 0 are
 		// the default in destination fields and need not be set explicitly.
 		if mint, ok := util.ToIntValue(m); ok && mint == 0 {
-			log.Infof("path %s is int 0, skip mapping.", inPath)
+			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
 
 		path := util.ToYAMLPath(v.OutPath)
-		log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", path)
+		scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", path)
 
 		if err := tpath.WriteNode(cpSpecTree, path, m); err != nil {
 			return err

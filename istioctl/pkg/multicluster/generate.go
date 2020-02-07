@@ -122,7 +122,7 @@ func generateIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alp
 			return "", err
 		}
 		var user operatorV1alpha1.IstioOperator
-		if err := util.UnmarshalWithJSONPB(string(b), &user); err != nil {
+		if err := util.UnmarshalWithJSONPB(string(b), &user, false); err != nil {
 			return "", err
 		}
 		if errs := validate.CheckIstioOperatorSpec(user.Spec, false); len(errs) != 0 {

@@ -16,18 +16,28 @@ package name
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
+
+	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/vfs"
+	binversion "istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 )
 
 const (
 	// OperatorAPINamespace is the API namespace for operator config.
 	// TODO: move this to a base definitions file when one is created.
 	OperatorAPINamespace = "operator.istio.io"
+	// ConfigFolder is the folder where we store translation configurations
+	ConfigFolder = "translateConfig"
+	// ConfigPrefix is the prefix of IstioOperator's translation configuration file
+	ConfigPrefix = "names-"
 )
 
 const (
@@ -56,26 +66,13 @@ const (
 	// Addon root component
 	AddonComponentName ComponentName = "AddonComponents"
 
-	// Legacy addon components
-	PrometheusComponentName ComponentName = "Prometheus"
-	KialiComponentName      ComponentName = "Kiali"
-	GrafanaComponentName    ComponentName = "Grafana"
-	TracingComponentName    ComponentName = "Tracing"
-	CoreDNSComponentName    ComponentName = "Istiocoredns"
-
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
-
-	// Component names used in old versions
-	InjectorComponentName        ComponentName = "Injector"
-	SidecarInjectorComponentName ComponentName = "SidecarInjector"
-	IngressGatewayComponentName  ComponentName = "IngressGateway"
-	EgressGatewayComponentName   ComponentName = "EgressGateway"
-	NodeAgentComponentName       ComponentName = "NodeAgent"
 )
 
 var (
+	scope                 = log.RegisterScope("name", "operator naming", 0)
 	AllCoreComponentNames = []ComponentName{
 		IstioBaseComponentName,
 		PilotComponentName,
@@ -85,37 +82,46 @@ var (
 		CitadelComponentName,
 		CNIComponentName,
 	}
-	DeprecatedNames = []ComponentName{
-		InjectorComponentName,
-		SidecarInjectorComponentName,
-		NodeAgentComponentName,
-	}
-	AllLegacyAddonComponentNames = []ComponentName{
-		PrometheusComponentName,
-		KialiComponentName,
-		GrafanaComponentName,
-		TracingComponentName,
-		CoreDNSComponentName,
-	}
-	allComponentNamesMap         = make(map[ComponentName]bool)
-	deprecatedComponentNamesMap  = make(map[ComponentName]bool)
-	LegacyAddonComponentNamesMap = make(map[ComponentName]bool)
-	LegacyAddonComponentPathMap  = make(map[string]string)
+	allComponentNamesMap = make(map[ComponentName]bool)
+	// DeprecatedComponentNamesMap defines the names of deprecated istio core components used in old versions,
+	// which would not appear as standalone components in current version.
+	DeprecatedComponentNamesMap = make(map[ComponentName]bool)
+	// AddonComponentNamesMap defines the component name for addon components used in old versions.
+	AddonComponentNamesMap = make(map[ComponentName]bool)
 )
 
 func init() {
 	for _, n := range AllCoreComponentNames {
 		allComponentNamesMap[n] = true
 	}
-	for _, n := range DeprecatedNames {
-		deprecatedComponentNamesMap[n] = true
+	minorVersion := binversion.OperatorBinaryVersion.MinorVersion
+	f := filepath.Join(ConfigFolder, ConfigPrefix+minorVersion.String()+".yaml")
+	b, err := vfs.ReadFile(f)
+	if err != nil {
+		log.Errorf("fail to read naming file: %v", err)
+		return
 	}
-	for _, n := range AllLegacyAddonComponentNames {
-		LegacyAddonComponentNamesMap[n] = true
-		cn := strings.ToLower(string(n))
-		valuePath := fmt.Sprintf("spec.values.%s.enabled", cn)
-		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", cn)
-		LegacyAddonComponentPathMap[valuePath] = iopPath
+	names := make(map[string][]string)
+	err = yaml.Unmarshal(b, &names)
+	if err != nil {
+		scope.Errorf("fail to unmarshal naming config file: %v", err)
+		return
+	}
+	legacyAddonComponentNames, ok := names["legacyAddonComponentNames"]
+	if !ok {
+		scope.Errorf("fail to find legacyAddonComponentNames")
+		return
+	}
+	for _, an := range legacyAddonComponentNames {
+		AddonComponentNamesMap[ComponentName(an)] = true
+	}
+	deprecatedComponentNames, ok := names["deprecatedComponentNames"]
+	if !ok {
+		scope.Errorf("fail to find legacyAddonComponentNames")
+		return
+	}
+	for _, n := range deprecatedComponentNames {
+		DeprecatedComponentNamesMap[ComponentName(n)] = true
 	}
 }
 
@@ -129,7 +135,7 @@ func (cn ComponentName) IsCoreComponent() bool {
 
 // IsDeprecatedName reports whether cn is a deprecated component.
 func (cn ComponentName) IsDeprecatedName() bool {
-	return deprecatedComponentNamesMap[cn]
+	return DeprecatedComponentNamesMap[cn]
 }
 
 // IsGateway reports whether cn is a gateway component.
@@ -140,11 +146,6 @@ func (cn ComponentName) IsGateway() bool {
 // IsAddon reports whether cn is an addon component.
 func (cn ComponentName) IsAddon() bool {
 	return cn == AddonComponentName
-}
-
-// IsLegacyAddonComponent reports whether cn is an legacy addonComponent name.
-func (cn ComponentName) IsLegacyAddonComponent() bool {
-	return LegacyAddonComponentNamesMap[cn]
 }
 
 // NamespaceFromValue gets the namespace value in helm value.yaml tree.

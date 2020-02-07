@@ -318,6 +318,7 @@ message EgressGatewayConfig {
   TypeSliceOfMapStringInterface additionalContainers = 24;
 }
 
+
 // EnvoyMetricsConfig is a set of configuration options for Envoy metrics.
 message EnvoyMetricsConfig {
   // Enables the Envoy Metrics Service.
@@ -336,7 +337,7 @@ message EnvoyMetricsConfig {
 
 // GalleyConfig is a set of Configuration for Galley.
 message GalleyConfig {
-  // Controls whether Galley is enabled.
+  // Controls whether Galley is enabled
   google.protobuf.BoolValue enabled = 1;
 
   // Image name used for Galley.
@@ -1549,6 +1550,10 @@ message ProxyConfig {
   string connectTimeout = 30;
 
   google.protobuf.Duration parentShutdownDuration = 32;
+
+  string enableCoreDumpImage = 33 [deprecated=true];
+
+  string outlierLogPath = 34;
 }
 
 // Specifies which tracer to use.
@@ -2161,6 +2166,8 @@ message KialiConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   Resources resources = 17 [deprecated=true];
+
+  string prometheusAddr = 18 [deprecated=true];
 }
 
 message Values {

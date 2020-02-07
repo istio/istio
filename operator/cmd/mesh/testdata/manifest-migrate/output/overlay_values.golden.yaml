@@ -3,42 +3,31 @@ kind: IstioOperator
 metadata:
   creationTimestamp: null
 spec:
-  gateways:
-    components:
-      ingressGateway:
-        enabled: true
-        k8s:
-          nodeSelector:
-            scalers.istio: dedicated
-          tolerations:
-          - effect: NoSchedule
-            key: scalers.istio
-            operator: Equal
-            value: dedicated
-    enabled: true
-  policy:
-    components:
-      policy:
-        enabled: false
-    enabled: false
-  telemetry:
-    components:
-      telemetry:
-        enabled: false
-    enabled: false
-  trafficManagement:
-    components:
-      pilot:
-        enabled: true
-        k8s:
-          nodeSelector:
-            scalers.istio: dedicated
-          tolerations:
-          - effect: NoSchedule
-            key: scalers.istio
-            operator: Equal
-            value: dedicated
-    enabled: true
+  components:
+    ingressGateways:
+    - enabled: true
+      k8s:
+        nodeSelector:
+          scalers.istio: dedicated
+        tolerations:
+        - effect: NoSchedule
+          key: scalers.istio
+          operator: Equal
+          value: dedicated
+      name: istio-ingressgateway
+    pilot:
+      k8s:
+        nodeSelector:
+          scalers.istio: dedicated
+        tolerations:
+        - effect: NoSchedule
+          key: scalers.istio
+          operator: Equal
+          value: dedicated
+    policy:
+      enabled: false
+    telemetry:
+      enabled: false
   values:
     gateways:
       istio-ingressgateway:
