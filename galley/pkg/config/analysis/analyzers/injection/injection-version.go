@@ -60,7 +60,8 @@ func (a *VersionAnalyzer) Metadata() analysis.Metadata {
 func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 	var injectionVersion string
 
-	// relying on just istio-system namespace for now as it align with the implementation.
+	// relying on just istio-system namespace for now as the injector looks for the injection config
+	// in the istio-system namespace.
 	r := c.Find(collections.K8SCoreV1Configmaps.Name(), resource.NewFullName("istio-system", sidecarInjectorConfigName))
 	if r != nil {
 		cm := r.Message.(*v1.ConfigMap)
