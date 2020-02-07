@@ -8381,10 +8381,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-pilot-service-account
-          optional: true
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

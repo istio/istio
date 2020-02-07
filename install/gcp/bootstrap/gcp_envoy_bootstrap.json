@@ -108,4 +108,18 @@
     }
   }}
   {{ end }}
+  ,
+  "layered_runtime": {
+    "layers": [
+      {
+        "name": "rtds_layer",
+        "rtds_layer": {
+          "name": "traffic_director_runtime",
+          "rtds_config": {
+            "ads": {}
+           }
+       }
+      }
+     ]
+  }
 }

@@ -507,7 +507,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	if err := yaml.Unmarshal(bbuf.Bytes(), &sic); err != nil {
 		// This usually means an invalid injector template; we can't check
 		// the template itself because it is merely a string.
-		log.Warnf("Failed to unmarshal template %v %s", err, bbuf.String())
+		log.Warnf("Failed to unmarshal template %v\n %s", err, bbuf.String())
 		return nil, "", multierror.Prefix(err, "failed parsing generated injected YAML (check Istio sidecar injector configuration):")
 	}
 
