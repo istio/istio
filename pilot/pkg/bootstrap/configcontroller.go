@@ -292,7 +292,7 @@ func (s *Server) mcpController(
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
 	configClient, err := controller.NewClient(args.Config.KubeConfig, "", collections.Pilot,
-		args.Config.ControllerOptions.DomainSuffix, buildLedger(args.Config))
+		args.Config.ControllerOptions.DomainSuffix, buildLedger(args.Config), args.Revision)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
