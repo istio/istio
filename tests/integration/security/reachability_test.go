@@ -130,6 +130,27 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 				},
+				{
+					ConfigFile: "beta-per-port-mtls.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Include all tests that target app B, which has the single-port config.
+						return opts.Target == rctx.B
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return opts.PortName != "http"
+					},
+				},
+				{
+					ConfigFile: "mix-mtls-api",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+				},
 			}
 			rctx.Run(testCases)
 		})
