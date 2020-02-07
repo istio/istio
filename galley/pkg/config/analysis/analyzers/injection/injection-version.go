@@ -59,18 +59,14 @@ func (a *VersionAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer.
 func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 	var injectionVersion string
-	c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.FullName.Namespace.String() == "istio-system" &&
-			r.Metadata.FullName.Name.String() == sidecarInjectorConfigName {
-			cm := r.Message.(*v1.ConfigMap)
 
-			// The image tag name currently serves as the version for the injector.
-			injectionVersion = getIstioImageTag(cm)
+	// relying on just istio-system namespace for now as it align with the implementation.
+	r := c.Find(collections.K8SCoreV1Configmaps.Name(), resource.NewFullName("istio-system", sidecarInjectorConfigName))
+	if r != nil {
+		cm := r.Message.(*v1.ConfigMap)
 
-			return false
-		}
-		return true
-	})
+		injectionVersion = getIstioImageTag(cm)
+	}
 
 	if injectionVersion == "" {
 		return
