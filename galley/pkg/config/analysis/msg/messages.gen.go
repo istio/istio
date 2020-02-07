@@ -34,8 +34,8 @@ var (
 	GatewayPortNotOnWorkload = diag.NewMessageType(diag.Warning, "IST0104", "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)")
 
 	// IstioProxyVersionMismatch defines a diag.MessageType for message "IstioProxyVersionMismatch".
-	// Description: The version of the Istio proxy running on the pod does not match the version used by the istio injector.
-	IstioProxyVersionMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
+	// Description: The version of the Istio proxy running on the pod does not match the version defined in the injection configuration.
+	IstioProxyVersionMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The version of the Istio proxy running on the pod does not match the version defined in the injection configuration (pod version: %s; injection configuration version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
 
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
 	// Description: The resource has a schema validation error.

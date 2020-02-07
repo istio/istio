@@ -15,6 +15,7 @@
 package injection
 
 import (
+	"encoding/json"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -31,14 +32,15 @@ type VersionAnalyzer struct{}
 
 var _ analysis.Analyzer = &VersionAnalyzer{}
 
-const injectorName = "sidecar-injector-webhook"
-const sidecarInjectorName = "sidecarInjectorWebhook"
+const sidecarInjectorConfigName = "istio-sidecar-injector"
 
-// podVersion is a helper struct for tracking a resource with its detected
-// proxy version.
-type podVersion struct {
-	Resource     *resource.Instance
-	ProxyVersion string
+// injectionConfigMap is a snippet of the sidecar injection ConfigMap
+type injectionConfigMap struct {
+	Global global `json:"global"`
+}
+
+type global struct {
+	Tag string `json:"tag"`
 }
 
 // Metadata implements Analyzer.
@@ -49,12 +51,30 @@ func (a *VersionAnalyzer) Metadata() analysis.Metadata {
 		Inputs: collection.Names{
 			collections.K8SCoreV1Namespaces.Name(),
 			collections.K8SCoreV1Pods.Name(),
+			collections.K8SCoreV1Configmaps.Name(),
 		},
 	}
 }
 
 // Analyze implements Analyzer.
 func (a *VersionAnalyzer) Analyze(c analysis.Context) {
+	var injectionVersion string
+	c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
+		if r.Metadata.FullName.Namespace.String() == "istio-system" &&
+			r.Metadata.FullName.Name.String() == sidecarInjectorConfigName {
+			cm := r.Message.(*v1.ConfigMap)
+
+			injectionVersion = getSidecarinjectionVersion(cm)
+
+			return false
+		}
+		return true
+	})
+
+	if injectionVersion == "" {
+		return
+	}
+
 	injectedNamespaces := make(map[string]struct{})
 
 	// Collect the list of namespaces that have istio injection enabled.
@@ -66,15 +86,8 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	injectorVersions := make(map[string]struct{})
-	var podVersions []podVersion
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
 		pod := r.Message.(*v1.Pod)
-
-		// Check if this is a sidecar injector pod - if it is, note its version.
-		if v := tryReturnSidecarInjectorVersion(pod); v != "" {
-			injectorVersions[v] = struct{}{}
-		}
 
 		if _, ok := injectedNamespaces[pod.GetNamespace()]; !ok {
 			return true
@@ -96,43 +109,24 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 			if v == "" {
 				continue
 			}
-			// Note the pod/version to check later after we've collected all injector versions.
-			podVersions = append(podVersions, podVersion{
-				Resource:     r,
-				ProxyVersion: v})
 
+			if v != injectionVersion {
+				c.Report(collections.K8SCoreV1Pods.Name(), msg.NewIstioProxyVersionMismatch(r, v, injectionVersion))
+			}
 		}
 
 		return true
 	})
-
-	for iv := range injectorVersions {
-		for _, pv := range podVersions {
-			if pv.ProxyVersion != iv {
-				c.Report(collections.K8SCoreV1Pods.Name(), msg.NewIstioProxyVersionMismatch(pv.Resource, pv.ProxyVersion, iv))
-			}
-		}
-	}
 }
 
-// tryReturnSidecarInjectorVersion returns an empty string if the pod is not
-// the sidecar injector; otherwise the version of the injector image is
-// returned.
-func tryReturnSidecarInjectorVersion(p *v1.Pod) string {
-	if p.Labels["app"] != sidecarInjectorName {
+// getSidecarinjectionVersion retrieves the injection version defined in the
+// sidecar injector configuration.
+func getSidecarinjectionVersion(cm *v1.ConfigMap) string {
+	var m injectionConfigMap
+	if err := json.Unmarshal([]byte(cm.Data["values"]), &m); err != nil {
 		return ""
 	}
-
-	for _, c := range p.Spec.Containers {
-		if c.Name != injectorName {
-			continue
-		}
-
-		v := getContainerNameVersion(&c)
-		return v
-	}
-
-	return ""
+	return m.Global.Tag
 }
 
 // getContainerNameVersion parses the name and version from a container image.
