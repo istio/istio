@@ -241,11 +241,11 @@ func TestProxyConfig(t *testing.T) {
 }
 
 func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
+	t.Helper()
 	var val interface{}
 
 	// this is guarded by prettyPrint
-	err := json.Unmarshal([]byte(s), &val)
-	if err != nil {
+	if err := json.Unmarshal([]byte(s), &val); err != nil {
 		t.Fatalf("Could not unmarshal %s response %s", context, s)
 	}
 	return val
