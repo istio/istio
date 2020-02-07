@@ -209,12 +209,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio{{ .Values.version }}
-  {{- if .Values.global.controlPlaneSecurityEnabled }}
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-pilot-service-account
-          optional: true
-  {{- end }}
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:
