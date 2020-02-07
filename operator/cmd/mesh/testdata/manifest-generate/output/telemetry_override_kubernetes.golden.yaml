@@ -157,10 +157,9 @@ spec:
       - destination_service_name
       - destination_service_namespace
       - request_protocol
+      - grpc_response_status
       - response_code
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       name: requests_total
     - buckets:
@@ -196,9 +195,8 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - grpc_response_status
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       name: request_duration_seconds
     - buckets:
@@ -225,9 +223,8 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - grpc_response_status
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       name: request_bytes
     - buckets:
@@ -254,9 +251,8 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - grpc_response_status
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       name: response_bytes
     - instance_name: tcpbytesent.instance.istio-system
