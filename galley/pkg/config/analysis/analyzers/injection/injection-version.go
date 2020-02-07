@@ -64,7 +64,8 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 			r.Metadata.FullName.Name.String() == sidecarInjectorConfigName {
 			cm := r.Message.(*v1.ConfigMap)
 
-			injectionVersion = getSidecarinjectionVersion(cm)
+			// The image tag name currently serves as the version for the injector.
+			injectionVersion = getIstioImageTag(cm)
 
 			return false
 		}
@@ -119,9 +120,9 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 	})
 }
 
-// getSidecarinjectionVersion retrieves the injection version defined in the
-// sidecar injector configuration.
-func getSidecarinjectionVersion(cm *v1.ConfigMap) string {
+// getIstioImageTag retrieves the image tag defined in the sidecar injector
+// configuration.
+func getIstioImageTag(cm *v1.ConfigMap) string {
 	var m injectionConfigMap
 	if err := json.Unmarshal([]byte(cm.Data["values"]), &m); err != nil {
 		return ""
