@@ -13,6 +13,7 @@
 # This doesn't match istio defaults, which are more geared towards tests and bookinfo.
 
 global:
+  revision: ""
   # Used to locate istio-pilot.
   # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
   # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
