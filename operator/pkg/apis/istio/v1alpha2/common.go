@@ -26,6 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+const (
+	IstioControlPlaneKindStr = "IstioControlPlane"
+)
+
 // define new type from k8s intstr to marshal/unmarshal jsonpb
 type IntOrStringForPB struct {
 	intstr.IntOrString
