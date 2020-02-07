@@ -57,6 +57,9 @@ type Client struct {
 
 	// Ledger for tracking config distribution
 	configLedger ledger.Ledger
+
+	// revision for this control plane instance. We will only read configs that match this revision.
+	revision string
 }
 
 type restClient struct {
@@ -163,7 +166,7 @@ func (rc *restClient) updateRESTConfig(cfg *rest.Config) (config *rest.Config, e
 }
 
 // NewForConfig creates a client to the Kubernetes API using a rest config.
-func NewForConfig(cfg *rest.Config, schemas collection.Schemas, domainSuffix string, configLedger ledger.Ledger) (*Client, error) {
+func NewForConfig(cfg *rest.Config, schemas collection.Schemas, domainSuffix string, configLedger ledger.Ledger, revision string) (*Client, error) {
 	cs, err := newClientSet(schemas)
 	if err != nil {
 		return nil, err
@@ -174,6 +177,7 @@ func NewForConfig(cfg *rest.Config, schemas collection.Schemas, domainSuffix str
 		domainSuffix: domainSuffix,
 		configLedger: configLedger,
 		schemas:      schemas,
+		revision:     revision,
 	}
 
 	for _, v := range out.clientset {
@@ -189,13 +193,13 @@ func NewForConfig(cfg *rest.Config, schemas collection.Schemas, domainSuffix str
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
 // You can also choose a config context by providing the desired context name.
-func NewClient(config string, context string, schemas collection.Schemas, domainSuffix string, configLedger ledger.Ledger) (*Client, error) {
+func NewClient(config string, context string, schemas collection.Schemas, domainSuffix string, configLedger ledger.Ledger, revision string) (*Client, error) {
 	cfg, err := kubecfg.BuildClientConfig(config, context)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewForConfig(cfg, schemas, domainSuffix, configLedger)
+	return NewForConfig(cfg, schemas, domainSuffix, configLedger, revision)
 }
 
 // Schemas for the store
@@ -239,7 +243,10 @@ func (cl *Client) Get(typ resource.GroupVersionKind, name, namespace string) *mo
 		log.Warna(err)
 		return nil
 	}
-	return out
+	if cl.objectInEnvironment(out) {
+		return out
+	}
+	return nil
 }
 
 // Create implements store interface
@@ -370,11 +377,25 @@ func (cl *Client) List(kind resource.GroupVersionKind, namespace string) ([]mode
 		obj, err := crd.ConvertObject(s, item, cl.domainSuffix)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-		} else {
+		} else if cl.objectInEnvironment(obj) {
 			out = append(out, *obj)
 		}
 	}
 	return out, errs
+}
+
+func (cl *Client) objectInEnvironment(o *model.Config) bool {
+	// If revision is not configured, we will select all objects
+	if cl.revision == "" {
+		return true
+	}
+	configEnv, f := o.Labels[model.RevisionLabel]
+	if !f {
+		// This is a global object, and always included
+		return true
+	}
+	// Otherwise, only return if the
+	return configEnv == cl.revision
 }
 
 // deprecated - only used for CRD controller unit tests

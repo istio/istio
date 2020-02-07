@@ -629,7 +629,10 @@ message GlobalConfig {
 
   // Specifies the configuration for Security Token Service.
   STSConfig sts = 58;
-  // The next available key is 59
+
+  // Configures the revision this control plane is a part of
+  string revision = 59;
+  // The next available key is 60
 }
 
 // Configuration for Security Token Service (STS) server.
