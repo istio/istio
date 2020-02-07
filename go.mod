@@ -152,11 +152,11 @@ require (
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
 	gopkg.in/ory-am/dockertest.v3 v3.3.4 // indirect
 	gopkg.in/square/go-jose.v2 v2.3.1
-	gopkg.in/yaml.v2 v2.2.7
+	gopkg.in/yaml.v2 v2.2.4
 	istio.io/api v0.0.0-20200107183329-ed4b507c54e1
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d
-	istio.io/operator v0.0.0-20200128164134-d8ab51c0a823
-	istio.io/pkg v0.0.0-20200206133456-cc9c9062dd4b
+	istio.io/operator v0.0.0-20200206010504-1be6cec84e8a
+	istio.io/pkg v0.0.0-20191030005435-10d06b6b315e
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0
