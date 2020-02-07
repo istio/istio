@@ -1,3 +1,5 @@
+Validation errors (continuing because of --force):
+unknown field "badKey" in v1alpha1.GlobalConfig
 # Base component is disabled.
 
 # Citadel component is disabled.
@@ -617,6 +619,7 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
+        "badKey": "badValue",
         "certificates": [],
         "configNamespace": "istio-system",
         "configValidation": true,

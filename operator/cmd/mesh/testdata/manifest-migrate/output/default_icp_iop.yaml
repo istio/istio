@@ -87,6 +87,8 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
       name: istio-ingressgateway
+    nodeAgent:
+      enabled: false
     pilot:
       enabled: true
       k8s:
@@ -197,7 +199,7 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
-  tag: 1.4-dev
+  tag: latest
   values:
     certmanager:
       hub: quay.io/jetstack
@@ -272,6 +274,16 @@ spec:
         - name: tls
           port: 15443
           targetPort: 15443
+        sds:
+          enabled: false
+          image: node-agent-k8s
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
         secretVolumes:
         - mountPath: /etc/istio/ingressgateway-certs
           name: ingressgateway-certs
@@ -316,7 +328,7 @@ spec:
         useILB: false
       meshNetworks: {}
       mtls:
-        auto: false
+        auto: true
         enabled: false
       multiCluster:
         clusterName: ""
@@ -517,6 +529,8 @@ spec:
         sessionAffinityEnabled: false
         tolerations: []
         useMCP: true
+    nodeagent:
+      image: node-agent-k8s
     pilot:
       appNamespaces: []
       autoscaleEnabled: true
@@ -570,7 +584,6 @@ spec:
       enableNamespacesByDefault: true
       image: citadel
       selfSigned: true
-      trustDomain: cluster.local
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
       image: sidecar_injector
@@ -582,18 +595,8 @@ spec:
       selfSigned: false
     telemetry:
       enabled: true
-      v1:
-        enabled: true
       v2:
         enabled: false
-        prometheus:
-          enabled: true
-        stackdriver:
-          configOverride: {}
-          enabled: false
-          logging: false
-          monitoring: false
-          topology: false
     tracing:
       enabled: false
       ingress:
@@ -606,7 +609,7 @@ spec:
         persist: false
         spanStorageType: badger
         storageClassName: ""
-        tag: "1.16"
+        tag: "1.14"
       nodeSelector: {}
       opencensus:
         exporters:
@@ -646,3 +649,4 @@ spec:
             memory: 900Mi
         tag: 2.14.2
     version: ""
+

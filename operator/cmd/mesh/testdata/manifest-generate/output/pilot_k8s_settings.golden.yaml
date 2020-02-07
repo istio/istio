@@ -321,7 +321,7 @@ data:
       serviceCluster: istio-proxy
       tracing:
         zipkin:
-          address: zipkin.istio-control:9411
+          address: zipkin.istio-system:9411
     disableMixerHttpReports: true
     disablePolicyChecks: true
     enableAutoMtls: false
@@ -618,7 +618,7 @@ data:
           "s390x": 2
         },
         "certificates": [],
-        "configNamespace": "istio-control",
+        "configNamespace": "istio-system",
         "configValidation": true,
         "controlPlaneSecurityEnabled": false,
         "defaultNodeSelector": {},
@@ -637,7 +637,7 @@ data:
         "hub": "docker.io/istio",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
-        "istioNamespace": "istio-control",
+        "istioNamespace": "istio-system",
         "istiod": {
           "enabled": true
         },
@@ -667,7 +667,7 @@ data:
           "clusterName": "",
           "enabled": false
         },
-        "namespace": "istio-control",
+        "namespace": "istio-system",
         "network": "",
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
@@ -677,9 +677,9 @@ data:
         },
         "pilotCertProvider": "citadel",
         "policyCheckFailOpen": false,
-        "policyNamespace": "istio-control",
+        "policyNamespace": "istio-system",
         "priorityClassName": "",
-        "prometheusNamespace": "istio-control",
+        "prometheusNamespace": "istio-system",
         "proxy": {
           "accessLogEncoding": "TEXT",
           "accessLogFile": "",
@@ -752,12 +752,12 @@ data:
             "aud": "istio-ca"
           }
         },
-        "securityNamespace": "istio-control",
+        "securityNamespace": "istio-system",
         "sts": {
           "servicePort": 0
         },
         "tag": "1.1.4",
-        "telemetryNamespace": "istio-control",
+        "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
             "address": "$(HOST_IP):8126"
@@ -790,7 +790,7 @@ data:
         "enabled": false,
         "injectLabel": "istio-injection",
         "injectedAnnotations": {},
-        "namespace": "istio-control",
+        "namespace": "istio-system",
         "neverInjectSelector": [],
         "objectSelector": {
           "autoInject": true,
