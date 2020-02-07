@@ -84,6 +84,11 @@
     "value": ""
   },
   {
+    "op": "add",
+    "path": "/metadata/labels/service.istio.io~1canonical-revision",
+    "value": "latest"
+  },
+  {
     "op": "replace",
     "path": "/spec/containers/1/readinessProbe/httpGet",
     "value": {

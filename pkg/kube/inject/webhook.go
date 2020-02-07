@@ -483,7 +483,7 @@ func escapeJSONPointerValue(in string) string {
 func addLabels(target map[string]string, added map[string]string) []rfc6902PatchOperation {
 	patches := []rfc6902PatchOperation{}
 
-	var addedKeys []string
+	addedKeys := make([]string, 0, len(added))
 	for key := range added {
 		addedKeys = append(addedKeys, key)
 	}
@@ -591,10 +591,11 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
-	canonicalSvc := extractCanonicalSerivceLabel(pod.Labels, workloadName)
+	canonicalSvc, canonicalRev := extractCanonicalServiceLabels(pod.Labels, workloadName)
 	patch = append(patch, addLabels(pod.Labels, map[string]string{
-		model.TLSModeLabelName:               model.IstioMutualTLSModeLabel,
-		model.IstioCanonicalServiceLabelName: canonicalSvc})...)
+		model.TLSModeLabelName:                       model.IstioMutualTLSModeLabel,
+		model.IstioCanonicalServiceLabelName:         canonicalSvc,
+		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
 
 	if rewrite {
 		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
@@ -603,8 +604,27 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	return json.Marshal(patch)
 }
 
-func extractCanonicalSerivceLabel(podLabels map[string]string, workloadName string) string {
+func extractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
+	return extractCanonicalServiceLabel(podLabels, workloadName), extractCanonicalServiceRevision(podLabels)
+}
 
+func extractCanonicalServiceRevision(podLabels map[string]string) string {
+	if rev, ok := podLabels[model.IstioCanonicalServiceRevisionLabelName]; ok {
+		return rev
+	}
+
+	if rev, ok := podLabels["app.kubernetes.io/version"]; ok {
+		return rev
+	}
+
+	if rev, ok := podLabels["version"]; ok {
+		return rev
+	}
+
+	return "latest"
+}
+
+func extractCanonicalServiceLabel(podLabels map[string]string, workloadName string) string {
 	if svc, ok := podLabels[model.IstioCanonicalServiceLabelName]; ok {
 		return svc
 	}

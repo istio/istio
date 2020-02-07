@@ -21,6 +21,7 @@ spec:
         app: hello
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: hello
+        service.istio.io/canonical-revision: v1
         tier: backend
         track: stable
         version: v1
@@ -240,6 +241,7 @@ spec:
         app: hello
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: hello
+        service.istio.io/canonical-revision: v2
         tier: backend
         track: stable
         version: v2
