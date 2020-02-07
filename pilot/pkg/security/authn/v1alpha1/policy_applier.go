@@ -18,31 +18,25 @@ import (
 	"crypto/sha1"
 	"fmt"
 
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	ldsv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
+	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config/constants"
-	protovalue "istio.io/istio/pkg/proto"
 	authn_filter_policy "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 	istio_jwt "istio.io/istio/security/proto/envoy/config/filter/http/jwt_auth/v2alpha1"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -328,109 +322,7 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model
 	if a.policy == nil || len(a.policy.Peers) == 0 {
 		return nil
 	}
-	meta := node.Metadata
-	var alpnIstioMatch *ldsv2.FilterChainMatch
-	var tls *auth.DownstreamTlsContext
-	if util.IsTCPMetadataExchangeEnabled(node) {
-		alpnIstioMatch = &ldsv2.FilterChainMatch{
-			ApplicationProtocols: util.ALPNInMeshWithMxc,
-		}
-		tls = &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
-				// expect the same from server. This  is so that secure metadata exchange
-				// transfer can take place between sidecars for TCP with mTLS.
-				AlpnProtocols: util.ALPNDownstream,
-			},
-			RequireClientCertificate: protovalue.BoolTrue,
-		}
-	} else {
-		alpnIstioMatch = &ldsv2.FilterChainMatch{
-			ApplicationProtocols: util.ALPNInMesh,
-		}
-		tls = &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
-				// which is used to differentiate between service mesh and legacy traffic.
-				//
-				// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
-				//
-				// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
-				// include "istio" for the secure traffic, but its TLSContext.ALPN must not
-				// include "istio", which would interfere with negotiation of the underlying
-				// protocol, e.g. HTTP/2.
-				AlpnProtocols: util.ALPNHttp,
-			},
-			RequireClientCertificate: protovalue.BoolTrue,
-		}
-	}
-
-	if !node.Metadata.SdsEnabled || sdsUdsPath == "" {
-		base := meta.SdsBase + constants.AuthCertsPath
-		tlsServerRootCert := model.GetOrDefault(meta.TLSServerRootCert, base+constants.RootCertFilename)
-
-		tls.CommonTlsContext.ValidationContextType = authn_model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
-
-		tlsServerCertChain := model.GetOrDefault(meta.TLSServerCertChain, base+constants.CertChainFilename)
-		tlsServerKey := model.GetOrDefault(meta.TLSServerKey, base+constants.KeyFilename)
-
-		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
-			{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerCertChain,
-					},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerKey,
-					},
-				},
-			},
-		}
-	} else {
-		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsUdsPath, meta),
-		}
-
-		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName,
-					sdsUdsPath, meta),
-			},
-		}
-	}
-	mtls := GetMutualTLS(a.policy)
-	if mtls == nil {
-		return nil
-	}
-	if mtls.GetMode() == authn_v1alpha1.MutualTls_STRICT {
-		log.Debug("Allow only istio mutual TLS traffic")
-		return []plugin.FilterChain{
-			{
-				TLSContext: tls,
-			}}
-	}
-	if mtls.GetMode() == authn_v1alpha1.MutualTls_PERMISSIVE {
-		log.Debug("Allow both, ALPN istio and legacy traffic")
-		return []plugin.FilterChain{
-			{
-				FilterChainMatch: alpnIstioMatch,
-				TLSContext:       tls,
-				ListenerFilters: []*ldsv2.ListenerFilter{
-					{
-						Name:       xdsutil.TlsInspector,
-						ConfigType: &ldsv2.ListenerFilter_Config{Config: &structpb.Struct{}},
-					},
-				},
-			},
-			{
-				FilterChainMatch: &ldsv2.FilterChainMatch{},
-			},
-		}
-	}
-	return nil
+	return authn_utils.BuildInboundFilterChain(GetMutualTLSMode(a.policy), sdsUdsPath, node)
 }
 
 // NewPolicyApplier returns new applier for v1alpha1 authentication policy.
