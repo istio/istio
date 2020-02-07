@@ -1734,6 +1734,16 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 				fmt.Errorf("peer authentication with empty workload selector must be named %q", constants.DefaultAuthenticationPolicyName))
 		}
 
+		if emptySelector && len(in.PortLevelMtls) != 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("default peer authentication cannot have port level mTLS"))
+		}
+
+		if in.PortLevelMtls != nil && len(in.PortLevelMtls) == 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("port level mTLS, if define, must have at most one element"))
+		}
+
 		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
 
 		return errs
