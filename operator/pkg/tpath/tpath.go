@@ -83,6 +83,11 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	}
 	pe := remainPath[0]
 
+	if nc.Node == nil {
+		// Otherwise we panic on bad input
+		return nil, false, fmt.Errorf("node %s is zero", pe)
+	}
+
 	v := reflect.ValueOf(nc.Node)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -175,6 +180,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			nn, ok = m[pe]
 			if !ok {
 				// remainPath == 1 means the patch is creation of a new leaf.
+
 				if createMissing || len(remainPath) == 1 {
 					m[pe] = make(map[string]interface{})
 					nn = m[pe]
