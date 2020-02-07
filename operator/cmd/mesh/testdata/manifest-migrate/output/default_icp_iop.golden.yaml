@@ -197,8 +197,6 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
-  meshConfig:
-    rootNamespace: istio-system
   tag: latest
   values:
     certmanager:
@@ -274,16 +272,6 @@ spec:
         - name: tls
           port: 15443
           targetPort: 15443
-        sds:
-          enabled: false
-          image: node-agent-k8s
-          resources:
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
-            requests:
-              cpu: 100m
-              memory: 128Mi
         secretVolumes:
         - mountPath: /etc/istio/ingressgateway-certs
           name: ingressgateway-certs

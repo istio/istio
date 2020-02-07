@@ -23,12 +23,6 @@ rules:
     "security.istio.io"]
     resources: ["*/status"]
     verbs: ["update"]
-    # Remove galley's permissions to reconcile the validation config when istiod is present.
-{{- if not (or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled) }}
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["validatingwebhookconfigurations"]
-    verbs: ["*"]
-{{- end }}
   - apiGroups: ["extensions","apps"]
     resources: ["deployments"]
     resourceNames: ["istio-galley"]

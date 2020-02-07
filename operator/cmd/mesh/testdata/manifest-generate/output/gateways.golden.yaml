@@ -603,7 +603,6 @@ spec:
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
