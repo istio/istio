@@ -675,11 +675,7 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 
 		go func() {
 			<-stop
-			if s.forceStop {
-				s.secureGRPCServerDNS.Stop()
-			} else {
-				s.secureGRPCServerDNS.Stop()
-			}
+			s.secureGRPCServerDNS.Stop()
 		}()
 		return nil
 	})
