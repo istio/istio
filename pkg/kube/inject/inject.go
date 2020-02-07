@@ -30,6 +30,8 @@ import (
 	"strings"
 	"text/template"
 
+	"istio.io/istio/pkg/config/mesh"
+
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -824,6 +826,7 @@ func structToJSON(v interface{}) string {
 }
 
 func protoToJSON(v proto.Message) string {
+	v = cleanMeshConfig(v)
 	if v == nil {
 		return "{}"
 	}
@@ -836,6 +839,133 @@ func protoToJSON(v proto.Message) string {
 	}
 
 	return ba
+}
+
+func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
+	defaults := mesh.DefaultProxyConfig()
+	if pc.ConfigPath == defaults.ConfigPath {
+		pc.ConfigPath = ""
+	}
+	if pc.BinaryPath == defaults.BinaryPath {
+		pc.BinaryPath = ""
+	}
+	if pc.ServiceCluster == defaults.ServiceCluster {
+		pc.ServiceCluster = ""
+	}
+	if reflect.DeepEqual(pc.DrainDuration, defaults.DrainDuration) {
+		pc.DrainDuration = nil
+	}
+	if reflect.DeepEqual(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
+		pc.ParentShutdownDuration = nil
+	}
+	if pc.DiscoveryAddress == defaults.DiscoveryAddress {
+		pc.DiscoveryAddress = ""
+	}
+	if reflect.DeepEqual(pc.ConnectTimeout, defaults.ConnectTimeout) {
+		pc.ConnectTimeout = nil
+	}
+	if reflect.DeepEqual(pc.EnvoyMetricsService, defaults.EnvoyMetricsService) {
+		pc.EnvoyMetricsService = nil
+	}
+	if reflect.DeepEqual(pc.EnvoyAccessLogService, defaults.EnvoyAccessLogService) {
+		pc.EnvoyAccessLogService = nil
+	}
+	if pc.ProxyAdminPort == defaults.ProxyAdminPort {
+		pc.ProxyAdminPort = 0
+	}
+	if pc.StatNameLength == defaults.StatNameLength {
+		pc.StatNameLength = 0
+	}
+	return &pc
+}
+
+// Rather than dump the entire proxy config, we remove fields that are default
+// This makes the pod spec much smaller
+// This is not comprehensive code, but nothing will break if this misses some fields
+func cleanMeshConfig(v proto.Message) proto.Message {
+	mc, ok := v.(*meshconfig.MeshConfig)
+	if !ok || mc == nil {
+		return v
+	}
+
+	cpy := *mc
+
+	defaults := mesh.DefaultMeshConfig()
+	if reflect.DeepEqual(cpy.DefaultConfig, defaults.DefaultConfig) {
+		cpy.DefaultConfig = nil
+	} else if cpy.DefaultConfig != nil {
+		cpy.DefaultConfig = cleanProxyConfig(*cpy.DefaultConfig)
+	}
+	if cpy.DisablePolicyChecks == defaults.DisablePolicyChecks {
+		cpy.DisablePolicyChecks = false
+	}
+	if cpy.DisableMixerHttpReports == defaults.DisableMixerHttpReports {
+		cpy.DisableMixerHttpReports = false
+	}
+	if cpy.EnableTracing == defaults.EnableTracing {
+		cpy.EnableTracing = false
+	}
+	if cpy.ProxyListenPort == defaults.ProxyListenPort {
+		cpy.ProxyListenPort = 0
+	}
+	if cpy.ReportBatchMaxEntries == defaults.ReportBatchMaxEntries {
+		cpy.ReportBatchMaxEntries = 0
+	}
+	if reflect.DeepEqual(cpy.ConnectTimeout, defaults.ConnectTimeout) {
+		cpy.ConnectTimeout = nil
+	}
+	if reflect.DeepEqual(cpy.DnsRefreshRate, defaults.DnsRefreshRate) {
+		cpy.DnsRefreshRate = nil
+	}
+	if reflect.DeepEqual(cpy.ProtocolDetectionTimeout, defaults.ProtocolDetectionTimeout) {
+		cpy.ProtocolDetectionTimeout = nil
+	}
+	if reflect.DeepEqual(cpy.DefaultServiceExportTo, defaults.DefaultServiceExportTo) {
+		cpy.DefaultServiceExportTo = nil
+	}
+	if reflect.DeepEqual(cpy.DefaultVirtualServiceExportTo, defaults.DefaultVirtualServiceExportTo) {
+		cpy.DefaultVirtualServiceExportTo = nil
+	}
+	if reflect.DeepEqual(cpy.DefaultDestinationRuleExportTo, defaults.DefaultDestinationRuleExportTo) {
+		cpy.DefaultDestinationRuleExportTo = nil
+	}
+	if reflect.DeepEqual(cpy.EnableAutoMtls, defaults.EnableAutoMtls) {
+		cpy.EnableAutoMtls = nil
+	}
+	if reflect.DeepEqual(cpy.TrustDomainAliases, defaults.TrustDomainAliases) {
+		cpy.TrustDomainAliases = nil
+	}
+	if reflect.DeepEqual(cpy.OutboundTrafficPolicy, defaults.OutboundTrafficPolicy) {
+		cpy.OutboundTrafficPolicy = nil
+	}
+	if reflect.DeepEqual(cpy.Certificates, defaults.Certificates) {
+		cpy.Certificates = nil
+	}
+	if reflect.DeepEqual(cpy.LocalityLbSetting, defaults.LocalityLbSetting) {
+		cpy.LocalityLbSetting = nil
+	}
+	if reflect.DeepEqual(cpy.ReportBatchMaxTime, defaults.ReportBatchMaxTime) {
+		cpy.ReportBatchMaxTime = nil
+	}
+	if reflect.DeepEqual(cpy.ThriftConfig, defaults.ThriftConfig) {
+		cpy.ThriftConfig = nil
+	}
+	if cpy.IngressService == defaults.IngressService {
+		cpy.IngressService = ""
+	}
+	if cpy.IngressClass == defaults.IngressClass {
+		cpy.IngressClass = ""
+	}
+	if cpy.AccessLogFile == defaults.AccessLogFile {
+		cpy.AccessLogFile = ""
+	}
+	if cpy.RootNamespace == defaults.RootNamespace {
+		cpy.RootNamespace = ""
+	}
+	if cpy.TrustDomain == defaults.TrustDomain {
+		cpy.TrustDomain = ""
+	}
+	return &cpy
 }
 
 func toJSON(m map[string]string) string {
