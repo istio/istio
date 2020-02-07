@@ -121,8 +121,9 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile: "beta-mtls-off.yaml",
-					Namespace:  systemNM,
+					ConfigFile:          "beta-mtls-off.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
@@ -131,8 +132,9 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile: "beta-per-port-mtls.yaml",
-					Namespace:  rctx.Namespace,
+					ConfigFile:          "beta-per-port-mtls.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Include all tests that target app B, which has the single-port config.
 						return opts.Target == rctx.B
@@ -142,8 +144,9 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile: "mix-mtls-api.yaml",
-					Namespace:  systemNM,
+					ConfigFile:          "mix-mtls-api.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
