@@ -130,6 +130,18 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 				},
+				// {
+				// 	ConfigFile: "beta-mtls-workload-automtls.yaml",
+				// 	Namespace:  rctx.Namespace,
+				// 	// TODO: for now we only consider B -> A.
+				// 	// TODO: some opts to control path, trigger run multi times.
+				// 	Include: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		return src == rctx.B
+				// 	},
+				// 	ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		return true
+				// 	},
+				// },
 			}
 			rctx.Run(testCases)
 		})
