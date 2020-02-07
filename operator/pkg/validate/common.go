@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+
 	"istio.io/istio/operator/pkg/util"
 
 	"istio.io/pkg/log"
@@ -269,3 +271,30 @@ func anchored(res ...*regexp.Regexp) *regexp.Regexp {
 
 // ValidatorFunc validates a value.
 type ValidatorFunc func(path util.Path, i interface{}) util.Errors
+
+// UnmarshalIOP unmarshals a string containing IstioOperator as YAML.
+func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
+	iop := &v1alpha1.IstioOperator{}
+	if err := util.UnmarshalWithJSONPB(iopYAML, iop); err != nil {
+		return nil, fmt.Errorf("%s:\n\nYAML:\n%s", err, iopYAML)
+	}
+	return iop, nil
+}
+
+// ValidIOPYAML validates the iopYAML strings, which should contain IstioOperator YAML.
+func ValidIOPYAML(iopYAML string) error {
+	if strings.TrimSpace(iopYAML) == "" {
+		return nil
+	}
+	iop, err := UnmarshalIOP(iopYAML)
+	if err != nil {
+		return err
+	}
+	return ValidIOP(iop)
+}
+
+// ValidIOPYAML validates the given IstioOperator object.
+func ValidIOP(iop *v1alpha1.IstioOperator) error {
+	errs := CheckIstioOperatorSpec(iop.Spec, false)
+	return errs.ToError()
+}

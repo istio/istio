@@ -5,6 +5,6 @@ spec:
   components:
     pilot:
       enabled: true
-values:
-  global:
-    badKey: badValue
+  values:
+    global:
+      badKey: badValue

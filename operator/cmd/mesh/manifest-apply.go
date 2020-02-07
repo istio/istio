@@ -16,17 +16,22 @@ package mesh
 
 import (
 	"fmt"
-	"io"
 	"os"
-	"strings"
 	"time"
+
+	"istio.io/istio/operator/pkg/translate"
+
+	"istio.io/istio/operator/pkg/kubectlcmd"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/version"
 
 	"github.com/spf13/cobra"
 )
 
 type manifestApplyArgs struct {
-	// inFilename is an array of paths to the input IstioOperator CR files.
-	inFilename []string
+	// inFilenames is an array of paths to the input IstioOperator CR files.
+	inFilenames []string
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
 	// context is the cluster context in the kube config
@@ -46,7 +51,7 @@ type manifestApplyArgs struct {
 }
 
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
-	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename", "f", nil, filenameFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
@@ -71,40 +76,99 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			// Warn users if they use `manifest apply` without any config args.
-			if len(maArgs.inFilename) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
+			if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
 				if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
 					cmd.Print("Cancelled.\n")
 					os.Exit(1)
 				}
 			}
-			return manifestApply(rootArgs, maArgs, l)
+			if err := configLogs(rootArgs.logToStdErr); err != nil {
+				return fmt.Errorf("could not configure logs: %s", err)
+			}
+			if err := ApplyManifests(maArgs.set, maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
+				maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
+				return fmt.Errorf("failed to generate and apply manifests, error: %v", err)
+			}
+
+			return nil
 		}}
 }
 
-func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *Logger) error {
-	if err := configLogs(args.logToStdErr); err != nil {
-		return fmt.Errorf("could not configure logs: %s", err)
-	}
-	if err := genApplyManifests(maArgs.set, maArgs.inFilename, maArgs.force, args.dryRun, args.verbose,
-		maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
-		return fmt.Errorf("failed to generate and apply manifests, error: %v", err)
-	}
+// ApplyManifests generates manifests from the given input files and --set flag overlays and applies them to the
+// cluster. See GenManifests for more description of the manifest generation process.
+//  force   validation warnings are written to logger but command is not aborted
+//  dryRun  all operations are done but nothing is written
+//  verbose full manifests are output
+//  wait    block until Services and Deployments are ready, or timeout after waitTimeout
+func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool, verbose bool,
+	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
 
-	return nil
-}
-
-func confirm(msg string, writer io.Writer) bool {
-	fmt.Fprintf(writer, "%s ", msg)
-
-	var response string
-	_, err := fmt.Scanln(&response)
+	ysf, err := yamlFromSetFlags(setOverlay, force, l)
 	if err != nil {
-		return false
-	}
-	response = strings.ToUpper(response)
-	if response == "Y" || response == "YES" {
-		return true
+		return err
 	}
 
-	return false
+	kubeconfig, err := manifest.InitK8SRestClient(kubeConfigPath, context)
+	if err != nil {
+		return err
+	}
+	manifests, iops, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
+	if err != nil {
+		return fmt.Errorf("failed to generate manifest: %v", err)
+	}
+	opts := &kubectlcmd.Options{
+		DryRun:      dryRun,
+		Verbose:     verbose,
+		Wait:        wait,
+		WaitTimeout: waitTimeout,
+		Kubeconfig:  kubeConfigPath,
+		Context:     context,
+	}
+
+	for _, cn := range name.DeprecatedNames {
+		DeprecatedComponentManifest := fmt.Sprintf("# %s component has been deprecated.\n", cn)
+		manifests[cn] = append(manifests[cn], DeprecatedComponentManifest)
+	}
+
+	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, opts)
+	if err != nil {
+		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
+	}
+	gotError := false
+	skippedComponentMap := map[name.ComponentName]bool{}
+	for cn := range manifests {
+		enabledInSpec, err := translate.IsComponentEnabledInSpec(cn, iops)
+		if err != nil {
+			l.logAndPrintf("failed to check if %s is enabled in IstioOperatorSpec: %v", cn, err)
+		}
+		// Skip the output of a component when it is disabled
+		// and not pruned (indicated by applied manifest out[cn].Manifest).
+		if !enabledInSpec && out[cn].Err == nil && out[cn].Manifest == "" {
+			skippedComponentMap[cn] = true
+		}
+	}
+
+	for cn := range manifests {
+		if out[cn].Err != nil {
+			cs := fmt.Sprintf("Component %s - manifest apply returned the following errors:", cn)
+			l.logAndPrintf("\n%s", cs)
+			l.logAndPrint("Error: ", out[cn].Err, "\n")
+			gotError = true
+		} else if skippedComponentMap[cn] {
+			continue
+		}
+
+		if !ignoreError(out[cn].Stderr) {
+			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n", out[cn].Stdout, "\n")
+			gotError = true
+		}
+	}
+
+	if gotError {
+		l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
+		return fmt.Errorf("errors were logged during apply operation")
+	}
+
+	l.logAndPrint("\n\n✔ Installation complete\n")
+	return nil
 }

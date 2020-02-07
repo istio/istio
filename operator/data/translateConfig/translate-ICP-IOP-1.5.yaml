@@ -16,7 +16,6 @@ values.kiali.enabled: addonComponents.kiali.enabled
 values.prometheus.enabled: addonComponents.prometheus.enabled
 values.tracing.enabled: addonComponents.tracing.enabled
 
-defaultNamespace: meshConfig.rootNamespace
 values: values
 unvalidatedValues: unvalidatedValues
 hub: hub

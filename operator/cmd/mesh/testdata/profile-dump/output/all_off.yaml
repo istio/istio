@@ -172,8 +172,6 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
 hub: gcr.io/istio-testing
-meshConfig:
-  rootNamespace: istio-system
 profile: default
 tag: latest
 values:
@@ -277,6 +275,7 @@ values:
     enableTracing: true
     imagePullPolicy: ""
     imagePullSecrets: []
+    istioNamespace: istio-system
     istiod:
       enabled: true
     jwtPolicy: third-party-jwt

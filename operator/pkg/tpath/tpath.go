@@ -27,6 +27,8 @@ import (
 	"regexp"
 	"strconv"
 
+	yaml2 "github.com/ghodss/yaml"
+
 	"gopkg.in/yaml.v2"
 
 	"github.com/kylelemons/godebug/pretty"
@@ -590,4 +592,41 @@ func Set(val, out interface{}) error {
 	}
 	reflect.ValueOf(out).Set(reflect.ValueOf(val))
 	return nil
+}
+
+// AddSpecRoot adds a root node called "spec" to the given tree and returns the resulting tree.
+func AddSpecRoot(tree string) (string, error) {
+	t, nt := make(map[string]interface{}), make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(tree), &t); err != nil {
+		return "", err
+	}
+	nt["spec"] = t
+	out, err := yaml.Marshal(nt)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+// GetSpecSubtree returns the subtree under "spec".
+func GetSpecSubtree(yml string) (string, error) {
+	return GetConfigSubtree(yml, "spec")
+}
+
+// GetConfigSubtree returns the subtree at the given path.
+func GetConfigSubtree(manifest, path string) (string, error) {
+	root := make(map[string]interface{})
+	if err := yaml2.Unmarshal([]byte(manifest), &root); err != nil {
+		return "", err
+	}
+
+	nc, _, err := GetPathContext(root, util.PathFromString(path))
+	if err != nil {
+		return "", err
+	}
+	out, err := yaml2.Marshal(nc.Node)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }

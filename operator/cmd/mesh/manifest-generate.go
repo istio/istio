@@ -20,6 +20,13 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/client-go/rest"
+
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/component/controlplane"
+	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/version"
+
 	"istio.io/istio/operator/pkg/helm"
 
 	"github.com/spf13/cobra"
@@ -29,7 +36,7 @@ import (
 )
 
 type manifestGenerateArgs struct {
-	// inFilename is an array of paths to the input IstioOperator CR files.
+	// inFilenames is an array of paths to the input IstioOperator CR files.
 	inFilename []string
 	// outFilename is the path to the generated output directory.
 	outFilename string
@@ -70,14 +77,12 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) e
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	overlayFromSet, err := MakeTreeFromSetList(mgArgs.set, mgArgs.force, l)
+	ysf, err := yamlFromSetFlags(mgArgs.set, mgArgs.force, l)
 	if err != nil {
 		return err
 	}
 
-	// For generate, we may not have access to the kube cluster, so don't rely on kubeconfig
-	// TODO: support optional kubeconfig reading
-	manifests, _, err := GenManifests(mgArgs.inFilename, overlayFromSet, mgArgs.force, nil, l)
+	manifests, _, err := GenManifests(mgArgs.inFilename, ysf, mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}
@@ -96,6 +101,41 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) e
 	}
 
 	return nil
+}
+
+// GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
+// representation of path-values passed through the --set flag.
+// If force is set, validation errors will not cause processing to abort but will result in warnings going to the
+// supplied logger.
+func GenManifests(inFilename []string, setOverlayYAML string, force bool,
+	kubeConfig *rest.Config, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
+	mergedYAML, _, err := GenerateConfig(inFilename, setOverlayYAML, force, kubeConfig, l)
+	if err != nil {
+		return nil, nil, err
+	}
+	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, force, l)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	t, err := translate.NewTranslator(version.OperatorBinaryVersion.MinorVersion)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cp, err := controlplane.NewIstioOperator(mergedIOPS, t)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := cp.Run(); err != nil {
+		return nil, nil, fmt.Errorf("failed to create Istio control plane with spec: \n%v\nerror: %s", mergedIOPS, err)
+	}
+
+	manifests, errs := cp.RenderManifest()
+	if errs != nil {
+		return manifests, mergedIOPS, errs.ToError()
+	}
+	return manifests, mergedIOPS, nil
 }
 
 func orderedManifests(mm name.ManifestMap) []string {

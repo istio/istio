@@ -1,10 +1,10 @@
 apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
+metadata:
+  namespace: istio-system
 spec:
   hub: gcr.io/istio-testing
   tag: latest
-  meshConfig:
-    rootNamespace: istio-system
 
   # Traffic management feature
   components:
@@ -194,6 +194,7 @@ spec:
   # Please keep this in sync with manifests/global.yaml
   values:
     global:
+      istioNamespace: istio-system
       istiod:
         enabled: true
       logging:

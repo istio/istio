@@ -17,24 +17,22 @@ package mesh
 import (
 	"fmt"
 
+	"istio.io/istio/operator/pkg/tpath"
+
 	"github.com/spf13/cobra"
 )
 
 type profileDumpArgs struct {
-	// inFilename is an array of paths to the input IstioOperator CR files.
-	inFilename []string
-	// If set, display the translated Helm values rather than IstioOperatorSpec.
-	helmValues bool
+	// inFilenames is an array of paths to the input IstioOperator CR files.
+	inFilenames []string
 	// configPath sets the root node for the subtree to display the config for.
 	configPath string
 }
 
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
-	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename", "f", nil, filenameFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.configPath, "config-path", "p", "",
 		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree")
-	cmd.PersistentFlags().BoolVarP(&args.helmValues, "helm-values", "", false,
-		"If set, dumps the Helm values that IstioControlPlaceSpec is translated to before manifests are rendered")
 }
 
 func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command {
@@ -58,17 +56,24 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *Logger) error {
 	initLogsOrExit(rootArgs)
 
-	if len(args) == 1 && pdArgs.inFilename != nil {
+	if len(args) == 1 && pdArgs.inFilenames != nil {
 		return fmt.Errorf("cannot specify both profile name and filename flag")
 	}
 
-	profile := ""
+	setFlagYAML := ""
 	if len(args) == 1 {
-		profile = args[0]
+		var err error
+		if setFlagYAML, err = tpath.AddSpecRoot("profile: " + args[0]); err != nil {
+			return err
+		}
 	}
-	// For profile dump, we may not have access to the kube cluster, so don't rely on kubeconfig
-	// TODO: support optional kubeconfig reading
-	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, profile, "", pdArgs.configPath, true, nil, l)
+
+	y, _, err := GenerateConfig(pdArgs.inFilenames, setFlagYAML, true, nil, l)
+	if err != nil {
+		return err
+	}
+
+	y, err = tpath.GetConfigSubtree(y, pdArgs.configPath)
 	if err != nil {
 		return err
 	}

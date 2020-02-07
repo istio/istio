@@ -72,7 +72,7 @@ func (i *IstioRenderingInput) GetTargetNamespace() string {
 	if i.instance.Spec.MeshConfig == nil {
 		return ""
 	}
-	return i.instance.Spec.MeshConfig.RootNamespace
+	return i.instance.Namespace
 }
 
 // GetProcessingOrder returns the order in which the rendered charts should be processed.
