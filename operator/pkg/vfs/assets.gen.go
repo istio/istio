@@ -6979,14 +6979,8 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
-<<<<<<< HEAD
-{{- end }}
       {{- if .Values.global.mountMtlsCerts }}
       # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
-||||||| 2554c1462
-{{- end }}
-=======
->>>>>>> 0655abc61d367df212608f5191f06cf64d0a4045
       - name: istio-certs
         secret:
           secretName: istio.default
@@ -7995,14 +7989,8 @@ spec:
 {{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-<<<<<<< HEAD
-{{- end }}
           {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
-||||||| 2554c1462
-{{- end }}
-=======
->>>>>>> 0655abc61d367df212608f5191f06cf64d0a4045
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -8032,14 +8020,8 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
-<<<<<<< HEAD
-{{- end }}
       {{- if .Values.global.mountMtlsCerts }}
       # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
-||||||| 2554c1462
-{{- end }}
-=======
->>>>>>> 0655abc61d367df212608f5191f06cf64d0a4045
       - name: istio-certs
         secret:
           secretName: istio.istio-ingressgateway-service-account
@@ -11758,156 +11740,6 @@ spec:
           - name: validation
             mountPath: /var/lib/istio/validation
             readOnly: true
-<<<<<<< HEAD
-          {{- end }}
-{{- if and .Values.global.controlPlaneSecurityEnabled (not .Values.global.istiod.enabled) }}
-        - name: istio-proxy
-{{- if contains "/" .Values.global.proxy.image }}
-          image: "{{ .Values.global.proxy.image }}"
-{{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
-          ports:
-          - containerPort: 15011
-          args:
-          - proxy
-          - --domain
-          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-          - --serviceCluster
-          - istio-pilot
-          - --templateFile
-          - /var/lib/envoy/envoy.yaml.tmpl
-        {{- if .Values.global.controlPlaneSecurityEnabled}}
-          - --controlPlaneAuthPolicy
-          - MUTUAL_TLS
-        {{- else }}
-          - --controlPlaneAuthPolicy
-          - NONE
-        {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
-        {{- end }}
-        {{- if .Values.global.logAsJson }}
-          - --log_as_json
-        {{- end }}
-          env:
-          - name: JWT_POLICY
-            value: {{ .Values.global.jwtPolicy }}
-          - name: PILOT_CERT_PROVIDER
-            value: {{ .Values.global.pilotCertProvider }}
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: INSTANCE_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.podIP
-          resources:
-{{- if .Values.global.proxy.resources }}
-{{ toYaml .Values.global.proxy.resources | trim | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
-{{- end }}
-          {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
-          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
-          # TODO: Pilot needs to read from the local file when using the mounted key and cert.
-          volumeMounts:
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
-          {{- end }}
-{{- if .Values.pilot.jwksResolverExtraRootCA }}
-          - name: extracacerts
-            mountPath: /cacerts
-{{- end }}
-          - name: pilot-envoy-config
-            mountPath: /var/lib/envoy
-{{- end }}
-||||||| 2554c1462
-          {{- end }}
-{{- if and .Values.global.controlPlaneSecurityEnabled (not .Values.global.istiod.enabled) }}
-        - name: istio-proxy
-{{- if contains "/" .Values.global.proxy.image }}
-          image: "{{ .Values.global.proxy.image }}"
-{{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
-          ports:
-          - containerPort: 15011
-          args:
-          - proxy
-          - --domain
-          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-          - --serviceCluster
-          - istio-pilot
-          - --templateFile
-          - /var/lib/envoy/envoy.yaml.tmpl
-        {{- if .Values.global.controlPlaneSecurityEnabled}}
-          - --controlPlaneAuthPolicy
-          - MUTUAL_TLS
-        {{- else }}
-          - --controlPlaneAuthPolicy
-          - NONE
-        {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
-        {{- end }}
-        {{- if .Values.global.logAsJson }}
-          - --log_as_json
-        {{- end }}
-          env:
-          - name: JWT_POLICY
-            value: {{ .Values.global.jwtPolicy }}
-          - name: PILOT_CERT_PROVIDER
-            value: {{ .Values.global.pilotCertProvider }}
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: INSTANCE_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.podIP
-          resources:
-{{- if .Values.global.proxy.resources }}
-{{ toYaml .Values.global.proxy.resources | trim | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
-{{- end }}
-          volumeMounts:
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
-{{- if .Values.pilot.jwksResolverExtraRootCA }}
-          - name: extracacerts
-            mountPath: /cacerts
-{{- end }}
-          - name: pilot-envoy-config
-            mountPath: /var/lib/envoy
-{{- end }}
-=======
->>>>>>> 0655abc61d367df212608f5191f06cf64d0a4045
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -11944,30 +11776,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio{{ .Values.version }}
-<<<<<<< HEAD
-      - name: pilot-envoy-config
-        configMap:
-          name: pilot-envoy-config{{ .Values.version }}
-  {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
-      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
-      # TODO: Pilot needs to read from the local file when using the mounted key and cert.
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-pilot-service-account
-          optional: true
-  {{- end }}
-||||||| 2554c1462
-      - name: pilot-envoy-config
-        configMap:
-          name: pilot-envoy-config{{ .Values.version }}
-  {{- if .Values.global.controlPlaneSecurityEnabled}}
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-pilot-service-account
-          optional: true
-  {{- end }}
-=======
->>>>>>> 0655abc61d367df212608f5191f06cf64d0a4045
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:
