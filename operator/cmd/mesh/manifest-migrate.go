@@ -24,10 +24,13 @@ import (
 	"github.com/spf13/cobra"
 
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/validate"
 	binversion "istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -37,18 +40,21 @@ const (
 type manifestMigrateArgs struct {
 	// namespace is the namespace to get the in cluster configMap
 	namespace string
+	// force proceeds even if there are validation errors
+	force bool
 }
 
 func addManifestMigrateFlags(cmd *cobra.Command, args *manifestMigrateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.namespace, "namespace", "n", defaultNamespace,
-		" Default namespace for output IstioOperator CustomResource")
+		"Default namespace for output IstioOperator custom resource")
+	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
 }
 
 func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate [<filepath>]",
-		Short: "Migrates a file containing Helm values to IstioOperator format",
-		Long:  "The migrate subcommand migrates a configuration from Helm values format to IstioOperator format.",
+		Short: "Migrates a file containing Helm values or IstioControlPlane to IstioOperator format",
+		Long:  "The migrate subcommand migrates a configuration from Helm values or IstioControlPlane format to IstioOperator format.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return fmt.Errorf("migrate accepts optional single filepath")
@@ -62,7 +68,7 @@ func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.
 				return migrateFromClusterConfig(rootArgs, mmArgs, l)
 			}
 
-			return migrateFromFiles(rootArgs, args, l)
+			return migrateFromFiles(rootArgs, mmArgs, args, l)
 		}}
 }
 
@@ -71,7 +77,7 @@ func valueFileFilter(path string) bool {
 }
 
 // migrateFromFiles handles migration for local values.yaml files
-func migrateFromFiles(rootArgs *rootArgs, args []string, l *Logger) error {
+func migrateFromFiles(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, args []string, l *Logger) error {
 	initLogsOrExit(rootArgs)
 	value, err := util.ReadFilesWithFilter(args[0], valueFileFilter)
 	if err != nil {
@@ -81,17 +87,40 @@ func migrateFromFiles(rootArgs *rootArgs, args []string, l *Logger) error {
 		l.logAndPrint("no valid value.yaml file specified")
 		return nil
 	}
-	return translateFunc([]byte(value), l)
+	return translateFunc([]byte(value), mmArgs.force, l)
 }
 
 // translateFunc translates the input values and output the result
-func translateFunc(values []byte, l *Logger) error {
-	ts, err := translate.NewReverseTranslator(binversion.OperatorBinaryVersion.MinorVersion)
+func translateFunc(values []byte, force bool, l *Logger) error {
+	// First, try to translate from IstioControlPlane format.
+	icp := &icpv1alpha2.IstioControlPlane{}
+	if err := util.UnmarshalWithJSONPB(string(values), icp, false); err == nil {
+		log.Info("Input file has IstioControlPlane format.")
+		translations, err := translate.ICPtoIOPTranslations(binversion.OperatorBinaryVersion)
+		if err != nil {
+			return err
+		}
+		out, err := translate.ICPToIOP(string(values), translations)
+		if err != nil {
+			return err
+		}
+		l.logAndPrint(out)
+		return nil
+	}
+
+	// Not IstioControlPlane, try Helm values.yaml.
+	mvs := binversion.OperatorBinaryVersion.MinorVersion
+	ts, err := translate.NewReverseTranslator(mvs)
 	if err != nil {
 		return fmt.Errorf("error creating values.yaml translator: %s", err)
 	}
 
-	translatedIOPS, err := ts.TranslateFromValueToSpec(values)
+	// verify the input schema first
+	if errs := validate.CheckValuesString(values); len(errs) != 0 {
+		return validate.GenValidateError(mvs, errs.ToError())
+	}
+
+	translatedIOPS, err := ts.TranslateFromValueToSpec(values, force)
 	if err != nil {
 		return fmt.Errorf("error translating values.yaml: %s", err)
 	}
@@ -100,7 +129,6 @@ func translateFunc(values []byte, l *Logger) error {
 
 	ms := jsonpb.Marshaler{}
 	gotString, err := ms.MarshalToString(isCP)
-	l.logAndPrint("there is a known issue about the proto tag above, check https://github.com/istio/istio/issues/19735 for more details.\n\n")
 	if err != nil {
 		return fmt.Errorf("error marshaling translated IstioOperator: %s", err)
 	}
@@ -145,5 +173,5 @@ func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l
 		return fmt.Errorf("error marshaling untyped map to YAML: %s", err)
 	}
 
-	return translateFunc(res, l)
+	return translateFunc(res, mmArgs.force, l)
 }

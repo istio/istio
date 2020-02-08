@@ -17,6 +17,6 @@ FROM gcr.io/distroless/static:nonroot as distroless
 FROM ${BASE_DISTRIBUTION}
 
 # install operator binary
-COPY manager /usr/local/bin/
+COPY operator /usr/local/bin/
 
-ENTRYPOINT ["/usr/local/bin/manager"]
+ENTRYPOINT ["/usr/local/bin/operator"]

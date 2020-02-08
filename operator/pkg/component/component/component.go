@@ -21,15 +21,20 @@ package component
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -92,16 +97,12 @@ func NewComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewPilotComponent(opts)
 	case name.GalleyComponentName:
 		component = NewGalleyComponent(opts)
-	case name.SidecarInjectorComponentName:
-		component = NewSidecarInjectorComponent(opts)
 	case name.PolicyComponentName:
 		component = NewPolicyComponent(opts)
 	case name.TelemetryComponentName:
 		component = NewTelemetryComponent(opts)
 	case name.CitadelComponentName:
 		component = NewCitadelComponent(opts)
-	case name.NodeAgentComponentName:
-		component = NewNodeAgentComponent(opts)
 	case name.CNIComponentName:
 		component = NewCNIComponent(opts)
 	default:
@@ -180,7 +181,76 @@ func (c *PilotComponent) RenderManifest() (string, error) {
 	if !c.started {
 		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
 	}
-	return renderManifest(c.CommonComponentFields)
+	baseYAML, err := renderManifest(c.CommonComponentFields)
+	if err != nil {
+		return "", err
+	}
+
+	return c.overlayMeshConfig(baseYAML)
+}
+
+func (c *PilotComponent) overlayMeshConfig(baseYAML string) (string, error) {
+	if c.CommonComponentFields.InstallSpec.MeshConfig == nil {
+		return baseYAML, nil
+	}
+
+	// Overlay MeshConfig onto the istio configmap
+	baseObjs, err := object.ParseK8sObjectsFromYAMLManifest(baseYAML)
+	if err != nil {
+		return "", err
+	}
+
+	for _, obj := range baseObjs {
+		if !isMeshConfigMap(obj) {
+			continue
+		}
+
+		u := obj.UnstructuredObject()
+
+		// Ignore any configMap that isn't of the format we're expecting
+		meshStr, ok, err := unstructured.NestedString(u.Object, "data", "mesh")
+		if !ok || err != nil {
+			continue
+		}
+
+		meshOverride, err := gogoprotomarshal.ToYAML(c.CommonComponentFields.InstallSpec.MeshConfig)
+		if err != nil {
+			return "", err
+		}
+
+		// Merge the MeshConfig yaml on top of whatever is in the configMap already
+		meshStr, err = util.OverlayYAML(meshStr, meshOverride)
+		if err != nil {
+			return "", err
+		}
+
+		meshStr = strings.TrimSpace(meshStr)
+
+		log.Debugf("Merged MeshConfig:\n%s\n", meshStr)
+
+		// Set the new yaml string back into the configMap
+		if err := unstructured.SetNestedField(u.Object, meshStr, "data", "mesh"); err != nil {
+			return "", err
+		}
+
+		newObj := object.NewK8sObject(u, nil, nil)
+
+		// Replace the unstructured object in the slice
+		*obj = *newObj
+
+		return baseObjs.YAMLManifest()
+	}
+
+	return baseYAML, nil
+}
+
+func isMeshConfigMap(obj *object.K8sObject) bool {
+	switch {
+	case obj.Kind != "ConfigMap", !strings.HasPrefix(obj.Name, "istio"):
+		return false
+	default:
+		return true
+	}
 }
 
 // ComponentName implements the IstioComponent interface.
@@ -239,50 +309,6 @@ func (c *CitadelComponent) ResourceName() string {
 
 // Namespace implements the IstioComponent interface.
 func (c *CitadelComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// NodeAgentComponent is the pilot component.
-type NodeAgentComponent struct {
-	*CommonComponentFields
-}
-
-// NewNodeAgentComponent creates a new PilotComponent and returns a pointer to it.
-func NewNodeAgentComponent(opts *Options) *NodeAgentComponent {
-	cn := name.NodeAgentComponentName
-	return &NodeAgentComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *NodeAgentComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *NodeAgentComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *NodeAgentComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *NodeAgentComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *NodeAgentComponent) Namespace() string {
 	return c.CommonComponentFields.Namespace
 }
 
@@ -415,50 +441,6 @@ func (c *GalleyComponent) ResourceName() string {
 
 // Namespace implements the IstioComponent interface.
 func (c *GalleyComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// SidecarInjectorComponent is the pilot component.
-type SidecarInjectorComponent struct {
-	*CommonComponentFields
-}
-
-// NewSidecarInjectorComponent creates a new PilotComponent and returns a pointer to it.
-func NewSidecarInjectorComponent(opts *Options) *SidecarInjectorComponent {
-	cn := name.SidecarInjectorComponentName
-	return &SidecarInjectorComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *SidecarInjectorComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *SidecarInjectorComponent) RenderManifest() (string, error) {
-	if !c.started {
-		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
-	}
-	return renderManifest(c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *SidecarInjectorComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *SidecarInjectorComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *SidecarInjectorComponent) Namespace() string {
 	return c.CommonComponentFields.Namespace
 }
 
@@ -693,7 +675,11 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		log.Errorf("Error in OverlayK8sSettings: %s", err)
 		return "", err
 	}
-	my = "# Resources for " + string(c.componentName) + " component\n\n" + my
+	cnOutput := string(c.componentName)
+	if !c.componentName.IsCoreComponent() && !c.componentName.IsGateway() {
+		cnOutput += " " + c.addonName
+	}
+	my = "# Resources for " + cnOutput + " component\n\n" + my
 	if devDbg {
 		log.Infof("Manifest after k8s API settings:\n%s\n", my)
 	}

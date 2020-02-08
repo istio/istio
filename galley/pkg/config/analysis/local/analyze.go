@@ -23,6 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -35,17 +36,17 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/snapshots"
 )
 
 const (
@@ -56,7 +57,6 @@ const (
 
 // Pseudo-constants, since golang doesn't support a true const slice/array
 var (
-	requiredPerms     = []string{"list", "watch"}
 	analysisSnapshots = []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry}
 )
 
@@ -96,6 +96,14 @@ type AnalysisResult struct {
 	Messages          diag.Messages
 	SkippedAnalyzers  []string
 	ExecutedAnalyzers []string
+}
+
+// ReaderSource is a tuple of a io.Reader and filepath.
+type ReaderSource struct {
+	// Name is the name of the source (commonly the path to a file, but can be "-" for sources read from stdin or "" if completely synthetic).
+	Name string
+	// Reader is the reader instance to use.
+	Reader io.Reader
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
@@ -218,23 +226,22 @@ func (sa *SourceAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSup
 }
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
-func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
+func (sa *SourceAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
 
 	var errs error
 
 	// If we encounter any errors reading or applying files, track them but attempt to continue
-	for i, r := range readers {
-		by, err := ioutil.ReadAll(r)
+	for _, r := range readers {
+		by, err := ioutil.ReadAll(r.Reader)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
 		}
 
-		if err = src.ApplyContent(string(i), string(by)); err != nil {
+		if err = src.ApplyContent(r.Name, string(by)); err != nil {
 			errs = multierror.Append(errs, err)
-			src.ApplyContent(string(i), string(by))
 		}
 	}
 
@@ -254,7 +261,13 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 
 	// Since we're using a running k8s source, try to get mesh config from the configmap
 	if err := sa.addRunningKubeMeshConfigSource(client); err != nil {
-		scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)
+		_, err := client.CoreV1().Namespaces().Get(sa.istioNamespace.String(), metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			scope.Analysis.Warnf("%v namespace not found. Istio may not be installed in the target cluster. "+
+				"Using default mesh configuration values for analysis", sa.istioNamespace.String())
+		} else if err != nil {
+			scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)
+		}
 	}
 
 	src := apiserverNew(apiserver.Options{
@@ -285,14 +298,14 @@ func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
 // and don't want to generate false positives because they aren't there.
 // Respect mesh config when deciding which default resources should be generated
 func (sa *SourceAnalyzer) AddDefaultResources() error {
-	var readers []io.Reader
+	var readers []ReaderSource
 
 	if sa.meshCfg.GetIngressControllerMode() != v1alpha1.MeshConfig_OFF {
 		ingressResources, err := getDefaultIstioIngressGateway(sa.istioNamespace.String(), sa.meshCfg.GetIngressService())
 		if err != nil {
 			return err
 		}
-		readers = append(readers, strings.NewReader(ingressResources))
+		readers = append(readers, ReaderSource{Reader: strings.NewReader(ingressResources)})
 	}
 
 	if len(readers) == 0 {

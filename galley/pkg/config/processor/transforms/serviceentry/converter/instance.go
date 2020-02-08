@@ -15,7 +15,6 @@
 package converter
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,12 +25,11 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/constants"
 	configKube "istio.io/istio/pkg/config/kube"
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/validation"
 )
 
 // Instance of the converter.
@@ -280,13 +278,13 @@ func serviceHostname(fullName resource.FullName, domainSuffix string) string {
 }
 
 func convertPort(port coreV1.ServicePort) (*networking.Port, error) {
-	if err := validatePortName(port.Name); err != nil {
+	if err := validation.ValidatePortName(port.Name); err != nil {
 		return nil, err
 	}
-	if err := validateProtocol(string(port.Protocol)); err != nil {
+	if err := validation.ValidateProtocol(string(port.Protocol)); err != nil {
 		return nil, err
 	}
-	if err := validatePort(port.Port); err != nil {
+	if err := validation.ValidatePort(int(port.Port)); err != nil {
 		return nil, err
 	}
 
@@ -295,27 +293,4 @@ func convertPort(port coreV1.ServicePort) (*networking.Port, error) {
 		Number:   uint32(port.Port),
 		Protocol: string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol)),
 	}, nil
-}
-
-func validatePortName(name string) error {
-	if !labels.IsDNS1123Label(name) {
-		return fmt.Errorf("invalid port name: %q", name)
-	}
-	return nil
-}
-
-func validateProtocol(protocolStr string) error {
-	// Empty string is used for protocol sniffing.
-	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
-		return fmt.Errorf("unsupported protocol: %q", protocolStr)
-	}
-	return nil
-}
-
-// ValidatePort checks that the network port is in range
-func validatePort(port int32) error {
-	if 1 <= port && port <= 65535 {
-		return nil
-	}
-	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }

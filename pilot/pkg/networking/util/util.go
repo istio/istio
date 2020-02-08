@@ -95,8 +95,16 @@ var ALPNInMeshH2 = []string{"istio", "h2"}
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 var ALPNInMesh = []string{"istio"}
 
+// ALPNInMeshWithMxc advertises that Proxy is going to talk to the in-mesh cluster and has metadata exchange enabled for
+// TCP. The custom "istio-peer-exchange" value indicates, metadata exchange is enabled for TCP. The custom "istio" value
+// indicates in-mesh traffic and it's going to be used for routing decisions.
+var ALPNInMeshWithMxc = []string{"istio-peer-exchange", "istio"}
+
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
+
+// ALPNDownstream advertises that Proxy is going to talking either tcp(for metadata exchange), http2 or http 1.1.
+var ALPNDownstream = []string{"istio-peer-exchange", "h2", "http/1.1"}
 
 // FallThroughFilterChainBlackHoleService is the blackhole service used for fall though
 // filter chain
@@ -264,9 +272,10 @@ func IsIstioVersionGE14(node *model.Proxy) bool {
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 4, Patch: -1}) >= 0
 }
 
-// IsXDSMarshalingToAnyEnabled controls whether "marshaling to Any" feature is enabled.
-func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
-	return !features.DisableXDSMarshalingToAny
+// IsIstioVersionGE15 checks whether the given Istio version is greater than or equals 1.5.
+func IsIstioVersionGE15(node *model.Proxy) bool {
+	return node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
 }
 
 // IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
@@ -288,6 +297,11 @@ func IsProtocolSniffingEnabledForInboundPort(node *model.Proxy, port *model.Port
 
 func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Port) bool {
 	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
+}
+
+// IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.
+func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
+	return features.EnableTCPMetadataExchange.Get() && IsIstioVersionGE15(node)
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
@@ -412,14 +426,15 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 // name.namespace of the config, the type, etc. Used by Mixer client
 // to generate attributes for policy and telemetry.
 func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
+	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
 	return &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{
 			IstioMetadataKey: {
 				Fields: map[string]*pstruct.Value{
 					"config": {
 						Kind: &pstruct.Value_StringValue{
-							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace,
-								strcase.CamelCaseToKebabCase(config.Type), config.Name),
+							StringValue: s,
 						},
 					},
 				},

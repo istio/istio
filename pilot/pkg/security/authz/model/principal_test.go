@@ -66,6 +66,18 @@ func TestPrincipal_ValidateForTCP(t *testing.T) {
 			},
 		},
 		{
+			name: "principal with request header",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						"request.headers[id]": Values{
+							Values: []string{"123"},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "good principal",
 			principal: &Principal{
 				Users: []string{"user"},
@@ -301,24 +313,28 @@ func TestPrincipal_Generate(t *testing.T) {
 				Namespaces: []string{"ns-1", "ns-2"},
 			},
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-1/.*
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-2/.*`,
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-1/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-2/.*`,
 		},
 		{
 			name: "principal with notNamespaces",
@@ -326,25 +342,29 @@ func TestPrincipal_Generate(t *testing.T) {
 				NotNamespaces: []string{"ns-1", "ns-2"},
 			},
 			wantYAML: `
-         andIds:
-           ids:
-           - notId:
-               orIds:
-                 ids:
-                 - metadata:
-                     filter: istio_authn
-                     path:
-                     - key: source.principal
-                     value:
-                       stringMatch:
-                         regex: .*/ns/ns-1/.*
-                 - metadata:
-                     filter: istio_authn
-                     path:
-                     - key: source.principal
-                     value:
-                       stringMatch:
-                         regex: .*/ns/ns-2/.*`,
+            andIds:
+              ids:
+              - notId:
+                  orIds:
+                    ids:
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                        - key: source.principal
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              googleRe2: {}
+                              regex: .*/ns/ns-1/.*
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                        - key: source.principal
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              googleRe2: {}
+                              regex: .*/ns/ns-2/.*`,
 		},
 		{
 			name: "principal with ips",
@@ -416,24 +436,28 @@ func TestPrincipal_Generate(t *testing.T) {
 				},
 			},
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-1/.*
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-2/.*`,
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-1/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-2/.*`,
 		},
 		{
 			name: "principal with property attrSrcNamespace for TCP filter",
@@ -448,16 +472,20 @@ func TestPrincipal_Generate(t *testing.T) {
 			},
 			forTCPFilter: true,
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - authenticated:
-                  principalName:
-                    regex: .*/ns/ns-1/.*
-              - authenticated:
-                  principalName:
-                    regex: .*/ns/ns-2/.*`,
+              - orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/ns-1/.*
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/ns-2/.*`,
 		},
 		{
 			name: "principal with property attrSrcPrincipal v1alpha1",
@@ -471,26 +499,28 @@ func TestPrincipal_Generate(t *testing.T) {
 				},
 			},
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      exact: id-1
-              - any: true
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*
-              - any: true`,
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: id-1
+                  - any: true
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*
+                  - any: true`,
 		},
 		{
 			name: "principal with property attrSrcPrincipal v1beta1",
@@ -522,7 +552,9 @@ func TestPrincipal_Generate(t *testing.T) {
                       - key: source.principal
                       value:
                         stringMatch:
-                          regex: .+
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
                   - metadata:
                       filter: istio_authn
                       path:
@@ -551,18 +583,20 @@ func TestPrincipal_Generate(t *testing.T) {
 			},
 			forTCPFilter: true,
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - authenticated:
-                  principalName:
-                    exact: spiffe://id-1
-              - any: true
-              - authenticated:
-                  principalName:
-                    regex: .*
-              - any: true`,
+              - orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://id-1
+                  - any: true
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*
+                  - any: true`,
 		},
 		{
 			name: "principal with property attrSrcPrincipal for TCP filter v1beta1",
@@ -587,7 +621,9 @@ func TestPrincipal_Generate(t *testing.T) {
                         exact: spiffe://id-1
                   - authenticated:
                       principalName:
-                        regex: .+
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
                   - authenticated:
                       principalName:
                         exact: spiffe://allAuthenticatedUsers
@@ -950,17 +986,19 @@ func TestPrincipal_Generate(t *testing.T) {
 				},
 			},
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns/.*`,
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns/.*`,
 		},
 		{
 			name: "principal with multiple properties",
@@ -985,64 +1023,68 @@ func TestPrincipal_Generate(t *testing.T) {
 				},
 			},
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - sourceIp:
-                  addressPrefix: 1.2.3.4
-                  prefixLen: 32
-              - sourceIp:
-                  addressPrefix: 5.6.7.8
-                  prefixLen: 32
-          - orIds:
-              ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-1/.*
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-2/.*
-          - orIds:
-              ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: request.auth.audiences
-                  value:
-                    stringMatch:
-                      exact: aud-1
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: request.auth.audiences
-                  value:
-                    stringMatch:
-                      exact: aud-2
-          - orIds:
-              ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      exact: id-1
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      exact: id-2`,
+              - orIds:
+                  ids:
+                  - sourceIp:
+                      addressPrefix: 1.2.3.4
+                      prefixLen: 32
+                  - sourceIp:
+                      addressPrefix: 5.6.7.8
+                      prefixLen: 32
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-1/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-2/.*
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.audiences
+                      value:
+                        stringMatch:
+                          exact: aud-1
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.audiences
+                      value:
+                        stringMatch:
+                          exact: aud-2
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: id-1
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: id-2`,
 		},
 	}
 

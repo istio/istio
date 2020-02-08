@@ -23,7 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pkg/config/constants"
+
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/kube"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
@@ -66,10 +67,10 @@ var (
 
 	trustDomainEnv                     = env.RegisterStringVar(trustDomain, "", "").Get()
 	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
-	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
+	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 12*time.Hour, "").Get()
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
-	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
+	initialBackoffInMilliSecEnv        = env.RegisterIntVar(InitialBackoffInMilliSec, 2000, "").Get()
 	pkcs8KeysEnv                       = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 
 	// Location of K8S CA root.
@@ -117,16 +118,12 @@ const (
 
 	// The environmental variable name for the initial backoff in milliseconds.
 	// example value format like "10"
-	InitialBackoff = "INITIAL_BACKOFF_MSEC"
+	InitialBackoffInMilliSec = "INITIAL_BACKOFF_MSEC"
 
 	pkcs8Key = "PKCS8_KEY"
 )
 
 var (
-	// JWTPath is the default location of a JWT token to be used to authenticate with XDS and CA servers.
-	// If the file is missing, the agent will fallback to using mounted certificates if XDS address is secure.
-	JWTPath = "./var/run/secrets/tokens/istio-token"
-
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	LocalSDS = "/etc/istio/proxy/SDS"
 
@@ -174,7 +171,7 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider string) *SDSAgent {
+func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath string) *SDSAgent {
 	ac := &SDSAgent{}
 
 	ac.PilotCertProvider = pilotCertProvider
@@ -184,11 +181,11 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider string) *S
 		log.Fatala("Invalid discovery address", discAddr, err)
 	}
 
-	if _, err := os.Stat(JWTPath); err == nil {
-		ac.JWTPath = JWTPath
+	if _, err := os.Stat(jwtPath); err == nil {
+		ac.JWTPath = jwtPath
 	} else {
 		// Can't use in-process SDS.
-		log.Warna("Missing JWT token, can't use in process SDS ", JWTPath, err)
+		log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
 
 		if discPort == "15012" {
 			log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
@@ -238,16 +235,22 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
 	serverOptions.UseLocalJWT = true
+	serverOptions.JWTPath = conf.JWTPath
 
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := newSecretCache(serverOptions)
 
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
-		serverOptions.EnableIngressGatewaySDS = true
-		// TODO: what is the setting for ingress ?
-		serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
-		gatewaySecretCache = newIngressSecretCache(podNamespace)
+		if ingressSdsExists() {
+			log.Infof("Starting gateway SDS")
+			serverOptions.EnableIngressGatewaySDS = true
+			// TODO: what is the setting for ingress ?
+			serverOptions.IngressGatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
+			gatewaySecretCache = newIngressSecretCache(podNamespace)
+		} else {
+			log.Infof("Skipping gateway SDS")
+		}
 	}
 
 	// For sidecar and ingress we need to first get the certificates for the workload.
@@ -314,6 +317,13 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	return server, nil
 }
 
+func ingressSdsExists() bool {
+	p := strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
+	dir := path.Dir(p)
+	_, err := os.Stat(dir)
+	return !os.IsNotExist(err)
+}
+
 // newSecretCache creates the cache for workload secrets and/or gateway secrets.
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
 	ret := &secretfetcher.SecretFetcher{}
@@ -353,7 +363,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 
 			if serverOptions.PilotCertProvider == "citadel" {
 				log.Info("istiod uses self-issued certificate")
-				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, bootstrap.CACertNamespaceConfigMapDataName)); err != nil {
+				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 					certReadErr = true
 				} else {
 					log.Infof("the CA cert of istiod is: %v", string(rootCert))
@@ -387,7 +397,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			} else if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
 				if serverOptions.PilotCertProvider == "citadel" {
 					log.Info("istiod uses self-issued certificate")
-					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, bootstrap.CACertNamespaceConfigMapDataName)); err != nil {
+					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 						certReadErr = true
 					} else {
 						log.Infof("the CA cert of istiod is: %v", string(rootCert))
@@ -475,5 +485,5 @@ func applyEnvVars() {
 
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 
-	workloadSdsCacheOptions.InitialBackoff = int64(initialBackoffEnv)
+	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 }

@@ -39,7 +39,7 @@ const (
 	SubjectTokenType = "urn:ietf:params:oauth:token-type:jwt"
 )
 
-var stsServerLog = log.RegisterScope("stsServerLog", "STS service debugging", 0)
+var stsServerLog = log.RegisterScope("stsserver", "STS service debugging", 0)
 
 // error code sent in a STS error response. A full list of error code is
 // defined in https://tools.ietf.org/html/rfc6749#section-5.2.
@@ -184,7 +184,7 @@ func (s *Server) sendSuccessfulResponse(w http.ResponseWriter, tokenData []byte)
 	if _, err := w.Write(tokenData); err != nil {
 		stsServerLog.Errorf("failure in sending STS success response: %v", err)
 	}
-	stsServerLog.Debugf("sent out STS success response: %v", tokenData)
+	stsServerLog.Debug("sent out STS success response")
 }
 
 // DumpStsStatus handles requests for dumping STS status, including STS requests being served,

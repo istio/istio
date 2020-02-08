@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 )
 
@@ -37,7 +36,7 @@ func NewPlugin() plugin.Plugin {
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return factory.NewPolicyApplier(in.Push,
 		in.ServiceInstance, in.Node.Metadata.Namespace, in.Node.WorkloadLabels).InboundFilterChain(
-		in.Push.Mesh.SdsUdsPath, in.Node.Metadata)
+		in.ServiceInstance.Endpoint.EndpointPort, in.Push.Mesh.SdsUdsPath, in.Node)
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
@@ -71,10 +70,10 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
-			if filter := applier.JwtFilter(util.IsXDSMarshalingToAnyEnabled(in.Node)); filter != nil {
+			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			if filter := applier.AuthNFilter(in.Node.Type, util.IsXDSMarshalingToAnyEnabled(in.Node)); filter != nil {
+			if filter := applier.AuthNFilter(in.Node.Type); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}

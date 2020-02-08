@@ -57,7 +57,7 @@ trap "cleanup_kind_cluster local; cleanup_kind_cluster remote" EXIT
 export HUB=istio-testing
 export TAG=istio-testing
 
-time build_images
+time build_images_legacy
 
 # Set up routing rules for inter-cluster direct pod to pod communication
 DOCKER_IP_LOCAL=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" local-control-plane)

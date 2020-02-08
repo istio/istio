@@ -19,15 +19,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -111,9 +112,9 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	}
 
 	if validationWebhookConfigName.Get() != "" {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			go whController.Start(stop)
-			return nil
+		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
+			log.Infof("Starting validation controller")
+			whController.Start(stop)
 		})
 	}
 	return nil

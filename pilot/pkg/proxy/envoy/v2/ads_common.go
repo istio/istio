@@ -15,9 +15,9 @@
 package v2
 
 import (
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
@@ -112,8 +112,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				out[RDS] = true
 			case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 				// Do not push
-			case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
-				collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind():
+			case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
@@ -167,8 +166,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 			case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 				out[LDS] = true
 				out[RDS] = true
-			case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
-				collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind():
+			case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
 				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true

@@ -1,6 +1,18 @@
 addonComponents:
+  grafana:
+    enabled: false
+    k8s:
+      replicaCount: 1
+  kiali:
+    enabled: false
+    k8s:
+      replicaCount: 1
   prometheus:
     enabled: true
+    k8s:
+      replicaCount: 1
+  tracing:
+    enabled: false
 components:
   base:
     enabled: true
@@ -13,6 +25,33 @@ components:
           maxUnavailable: 25%
   cni:
     enabled: false
+  egressGateways:
+  - enabled: false
+    k8s:
+      hpaSpec:
+        maxReplicas: 5
+        metrics:
+        - resource:
+            name: cpu
+            targetAverageUtilization: 80
+          type: Resource
+        minReplicas: 1
+        scaleTargetRef:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: istio-ingressgateway
+      resources:
+        limits:
+          cpu: 2000m
+          memory: 1024Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      strategy:
+        rollingUpdate:
+          maxSurge: 100%
+          maxUnavailable: 25%
+    name: istio-egressgateway
   galley:
     enabled: false
     k8s:
@@ -51,8 +90,6 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
     name: istio-ingressgateway
-  nodeAgent:
-    enabled: false
   pilot:
     enabled: false
     k8s:
@@ -67,18 +104,6 @@ components:
           fieldRef:
             apiVersion: v1
             fieldPath: metadata.namespace
-      hpaSpec:
-        maxReplicas: 5
-        metrics:
-        - resource:
-            name: cpu
-            targetAverageUtilization: 80
-          type: Resource
-        minReplicas: 1
-        scaleTargetRef:
-          apiVersion: apps/v1
-          kind: Deployment
-          name: istio-pilot
       readinessProbe:
         httpGet:
           path: /ready
@@ -123,12 +148,6 @@ components:
     enabled: false
   sidecarInjector:
     enabled: false
-    k8s:
-      replicaCount: 1
-      strategy:
-        rollingUpdate:
-          maxSurge: 100%
-          maxUnavailable: 25%
   telemetry:
     enabled: false
     k8s:
@@ -165,8 +184,6 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
 hub: gcr.io/istio-testing
-meshConfig:
-  rootNamespace: istio-system
 profile: default
 tag: latest
 values:
@@ -214,16 +231,17 @@ values:
         targetPort: 8060
       - name: tcp-dns-tls
         port: 853
-        targetPort: 853
+        targetPort: 8853
       ports:
       - name: status-port
         port: 15020
         targetPort: 15020
       - name: http2
         port: 80
-        targetPort: 80
+        targetPort: 8080
       - name: https
         port: 443
+        targetPort: 8443
       - name: kiali
         port: 15029
         targetPort: 15029
@@ -239,16 +257,6 @@ values:
       - name: tls
         port: 15443
         targetPort: 15443
-      sds:
-        enabled: false
-        image: node-agent-k8s
-        resources:
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
       secretVolumes:
       - mountPath: /etc/istio/ingressgateway-certs
         name: ingressgateway-certs
@@ -267,7 +275,7 @@ values:
       s390x: 2
     certificates: []
     configValidation: true
-    controlPlaneSecurityEnabled: false
+    controlPlaneSecurityEnabled: true
     defaultNodeSelector: {}
     defaultPodDisruptionBudget:
       enabled: true
@@ -277,8 +285,9 @@ values:
     disablePolicyChecks: true
     enableHelmTest: false
     enableTracing: true
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: ""
     imagePullSecrets: []
+    istioNamespace: istio-system
     istiod:
       enabled: true
     jwtPolicy: third-party-jwt
@@ -375,10 +384,10 @@ values:
           cpu: 10m
           memory: 10Mi
     sds:
-      enabled: false
       token:
         aud: istio-ca
-      udsPath: ""
+    sts:
+      servicePort: 0
     tracer:
       datadog:
         address: $(HOST_IP):8126
@@ -387,6 +396,11 @@ values:
         address: ""
         cacertPath: ""
         secure: true
+      stackdriver:
+        debug: false
+        maxNumberOfAnnotations: 200
+        maxNumberOfAttributes: 200
+        maxNumberOfMessageEvents: 200
       zipkin:
         address: ""
     trustDomain: cluster.local
@@ -409,7 +423,6 @@ values:
       datasources.yaml:
         apiVersion: 1
         datasources: null
-    enabled: false
     env: {}
     envSecrets: {}
     image:
@@ -425,7 +438,6 @@ values:
     persist: false
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-    replicaCount: 1
     security:
       enabled: false
       passphraseKey: passphrase
@@ -455,7 +467,6 @@ values:
       secretName: kiali
       usernameKey: username
       viewOnlyMode: false
-    enabled: false
     hub: quay.io/kiali
     ingress:
       annotations: null
@@ -467,7 +478,6 @@ values:
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
     prometheusNamespace: null
-    replicaCount: 1
     security:
       cert_file: /kiali-cert/cert-chain.pem
       enabled: false
@@ -517,8 +527,6 @@ values:
       reportBatchMaxTime: 1s
       sessionAffinityEnabled: false
       tolerations: []
-  nodeagent:
-    image: node-agent-k8s
   pilot:
     appNamespaces: []
     autoscaleEnabled: true
@@ -550,7 +558,6 @@ values:
     traceSampling: 1
   prometheus:
     contextPath: /prometheus
-    enabled: true
     hub: docker.io/prom
     ingress:
       annotations: null
@@ -561,7 +568,6 @@ values:
     nodeSelector: {}
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-    replicaCount: 1
     retention: 6h
     scrapeInterval: 15s
     security:
@@ -576,19 +582,26 @@ values:
     selfSigned: true
   sidecarInjectorWebhook:
     enableNamespacesByDefault: false
-    image: sidecar_injector
     injectLabel: istio-injection
     objectSelector:
       autoInject: true
       enabled: false
     rewriteAppHTTPProbe: false
-    selfSigned: false
   telemetry:
     enabled: true
-    v2:
+    v1:
       enabled: false
+    v2:
+      enabled: true
+      prometheus:
+        enabled: true
+      stackdriver:
+        configOverride: {}
+        enabled: false
+        logging: false
+        monitoring: false
+        topology: false
   tracing:
-    enabled: false
     ingress:
       annotations: null
       enabled: false
@@ -602,7 +615,7 @@ values:
       persist: false
       spanStorageType: badger
       storageClassName: ""
-      tag: "1.14"
+      tag: "1.16"
     nodeSelector: {}
     opencensus:
       exporters:

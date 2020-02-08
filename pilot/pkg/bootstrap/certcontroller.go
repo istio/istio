@@ -61,7 +61,8 @@ func (s *Server) initCertController(args *PilotArgs) error {
 
 	meshConfig := s.environment.Mesh()
 	if meshConfig.GetCertificates() == nil || len(meshConfig.GetCertificates()) == 0 {
-		log.Info("No certificates specified, skipping DNS certificate controller")
+		// TODO: if the provider is set to Citadel, use that instead of k8s so the API is still preserved.
+		log.Info("No certificates specified, skipping K8S DNS certificate controller")
 		return nil
 	}
 
@@ -110,31 +111,13 @@ func (s *Server) initCertController(args *PilotArgs) error {
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
 func (s *Server) initDNSCerts(hostname string) error {
-	if _, err := os.Stat(dnsKeyFile); err == nil {
-		// Existing certificate mounted by user. Skip self-signed certificate generation.
-		// Use this with an existing CA - the expectation is that the cert will match the
-		// DNS name in DiscoveryAddress.
-		return nil
-	}
-
 	parts := strings.Split(hostname, ".")
 	if len(parts) < 2 {
 		return fmt.Errorf("invalid hostname %s, should contain at least service name and namespace", hostname)
 	}
 	// Names in the Istiod cert - support the old service names as well.
 	// The first is the recommended one, also used by Apiserver for webhooks.
-	names := []string{hostname}
-
-	// Default value, matching old installs. For migration we also add the new SAN, so workloads
-	// can switch between the names.
-	if hostname == "istio-pilot.istio-system.svc" {
-		names = append(names, "istiod.istio-system.svc")
-	}
-	// New name - while migrating we need to support the old name.
-	// Both cases will be removed after 1 release, when the move to the new name is completed.
-	if hostname == "istiod.istio-system.svc" {
-		names = append(names, "istio-pilot.istio-system.svc")
-	}
+	names := []string{hostname, "istiod.istio-system.svc", "istio-pilot.istio-system.svc"}
 
 	var certChain, keyPEM []byte
 	var err error
@@ -142,14 +125,13 @@ func (s *Server) initDNSCerts(hostname string) error {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
-
-		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
 		log.Infof("Generating Citadel-signed cert for %v", names)
 		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
 
 		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
 		if _, err := os.Stat(signingKeyFile); err != nil {
+			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
 			// When Citadel is configured to use self-signed certs, keep a local copy so other
 			// components can load it via file (e.g. webhook config controller).
 			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
@@ -176,7 +158,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
 									log.Errorf("Failed to update local copy of self-signed root: %v", err)
 								} else {
-									log.Info("Updtaed local copy of self-signed root")
+									log.Info("Updated local copy of self-signed root")
 								}
 							}
 						}
@@ -186,12 +168,13 @@ func (s *Server) initDNSCerts(hostname string) error {
 			})
 			s.caBundlePath = internalSelfSignedRootPath
 		} else {
-			s.caBundlePath = path.Join(localCertDir.Get(), "cert-chain.pem")
+			log.Infof("Use plugged-in cert at %v", signingKeyFile)
+			s.caBundlePath = path.Join(localCertDir.Get(), "root-cert.pem")
 		}
 
 	} else {
-		log.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
-		err = fmt.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
+		log.Infof("User specified certs: %v", features.PilotCertProvider.Get())
+		return nil
 	}
 	if err != nil {
 		return err

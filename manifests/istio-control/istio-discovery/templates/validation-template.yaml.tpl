@@ -1,5 +1,4 @@
 {{ define "validatingwebhookconfiguration.yaml.tpl" }}
-{{- if .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -13,7 +12,7 @@ webhooks:
   - name: validation.istio.io
     clientConfig:
       service:
-        name: istio-pilot{{ .Values.version }}
+        name: istiod
         namespace: {{ .Release.Namespace }}
         path: "/validate"
         port: 443
@@ -34,17 +33,5 @@ webhooks:
         - "*"
     failurePolicy: Fail
     sideEffects: None
-{{- else }}
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istiod-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istiod
-    release: {{ .Release.Name }}
-    istio: istiod
-webhooks:
-{{- end }}
 ---
 {{ end }}

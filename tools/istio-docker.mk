@@ -23,8 +23,8 @@ docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
-DOCKER_TARGETS ?= docker.pilot docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s \
+DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
+	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl \
 	docker.istioctl docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
@@ -93,6 +93,10 @@ else
 	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
 endif
 
+# rule for wasm extensions.
+$(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm: init
+$(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
+
 # Default proxy image.
 docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent istio-iptables
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
@@ -105,19 +109,8 @@ docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 docker.proxyv2: $(ISTIO_DOCKER)/istio-iptables
-	$(DOCKER_RULE)
-
-# Proxy using TPROXY interception - but no core dumps
-docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
-docker.proxytproxy: tools/packaging/common/envoy_bootstrap_v2.json
-docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
-docker.proxytproxy: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
-docker.proxytproxy: $(ISTIO_OUT_LINUX)/pilot-agent
-docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
-docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
-docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
-docker.proxytproxy: $(ISTIO_DOCKER)/istio-iptables
+docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm
+docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
 	$(DOCKER_RULE)
 
 docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery cacert.pem
@@ -175,7 +168,7 @@ docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
 
 docker.operator: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.operator: operator/docker/Dockerfile.operator
-docker.operator: $(ISTIO_OUT_LINUX)/manager
+docker.operator: $(ISTIO_OUT_LINUX)/operator
 	$(DOCKER_RULE)
 
 # mixer docker images
@@ -246,11 +239,6 @@ docker.citadel-test: $(ISTIO_DOCKER)/istio_ca.key
 docker.node-agent: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.node-agent: security/docker/Dockerfile.node-agent
 docker.node-agent: $(ISTIO_DOCKER)/node_agent
-	$(DOCKER_RULE)
-
-docker.node-agent-k8s: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.node-agent-k8s: security/docker/Dockerfile.node-agent-k8s
-docker.node-agent-k8s: $(ISTIO_DOCKER)/node_agent_k8s
 	$(DOCKER_RULE)
 
 docker.node-agent-test: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}

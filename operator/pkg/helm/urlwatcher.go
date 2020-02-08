@@ -20,8 +20,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"istio.io/pkg/log"
 )
 
 // URLPoller is used to poll files from remote url at specific internal
@@ -61,10 +59,10 @@ func (p *URLPoller) checkUpdate() (bool, error) {
 func (p *URLPoller) poll(notify chan<- struct{}) {
 	for t := range p.ticker.C {
 		// When the ticker fires
-		log.Debugf("Tick at: %s", t)
+		scope.Debugf("Tick at: %s", t)
 		updated, err := p.checkUpdate()
 		if err != nil {
-			log.Errorf("Error polling charts: %v", err)
+			scope.Errorf("Error polling charts: %v", err)
 		}
 		if updated {
 			notify <- struct{}{}
@@ -90,13 +88,13 @@ func NewPoller(installationURL string, destDir string, interval time.Duration) (
 func PollURL(installationURL string, interval time.Duration) (chan<- struct{}, error) {
 	destDir, err := ioutil.TempDir("", InstallationDirectory)
 	if err != nil {
-		log.Error("failed to create temp directory for charts")
+		scope.Error("failed to create temp directory for charts")
 		return nil, err
 	}
 
 	po, err := NewPoller(installationURL, destDir, interval)
 	if err != nil {
-		log.Fatalf("failed to create new poller for: %s", err)
+		scope.Fatalf("failed to create new poller for: %s", err)
 	}
 	updated := make(chan struct{}, 1)
 	go po.poll(updated)

@@ -27,6 +27,10 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	scope = log.RegisterScope("installer", "installer", 0)
+)
+
 // New creates a Client that runs kubectl available on the path with default authentication
 func New() *Client {
 	return &Client{cmdSite: &console{}}
@@ -71,7 +75,7 @@ type Options struct {
 // It returns stdout, stderr from the `kubectl` command as strings, and error for errors external to kubectl.
 func (c *Client) Apply(manifest string, opts *Options) (string, string, error) {
 	if strings.TrimSpace(manifest) == "" {
-		log.Infof("Empty manifest, not running kubectl apply.")
+		scope.Infof("Empty manifest, not running kubectl apply.")
 		return "", "", nil
 	}
 	subcmds := []string{"apply"}
@@ -83,7 +87,7 @@ func (c *Client) Apply(manifest string, opts *Options) (string, string, error) {
 // It returns stdout, stderr from the `kubectl` command as strings, and error for errors external to kubectl.
 func (c *Client) Delete(manifest string, opts *Options) (string, string, error) {
 	if strings.TrimSpace(manifest) == "" {
-		log.Infof("Empty manifest, not running kubectl delete.")
+		scope.Infof("Empty manifest, not running kubectl delete.")
 		return "", "", nil
 	}
 	subcmds := []string{"delete"}
@@ -102,6 +106,14 @@ func (c *Client) GetAll(opts *Options) (string, string, error) {
 // It returns stdout, stderr from the `kubectl` command as strings, and error for errors external to kubectl.
 func (c *Client) GetConfigMap(name string, opts *Options) (string, string, error) {
 	return c.kubectl([]string{"get", "cm", name}, opts)
+}
+
+// Version runs the `kubectl version` and return stdout and stderr
+func (c *Client) Version(opts *Options) (string, string, error) {
+	verOpts := *opts
+	verOpts.Output = "yaml"
+	verOpts.DryRun = false
+	return c.kubectl([]string{"version"}, &verOpts)
 }
 
 // kubectl runs the `kubectl` command by specifying subcommands in subcmds with opts.
@@ -140,25 +152,25 @@ func (c *Client) kubectl(subcmds []string, opts *Options) (string, string, error
 		if opts.Verbose {
 			cmdStr += "\n" + opts.Stdin
 		} else {
-			cmdStr += " <use --verbose to see stdin string> \n"
+			cmdStr += " <use --verbose to see stdin string> "
 		}
 	}
 
 	if opts.DryRun {
-		log.Infof("dry run mode: would be running this cmd:\n%s\n", cmdStr)
+		scope.Infof("dry run mode: would be running this cmd:\n%s\n", cmdStr)
 		return "", "", nil
 	}
 
-	log.Infof("running command:\n%s\n", cmdStr)
+	scope.Infof("running command: %s", cmdStr)
 	err := c.cmdSite.Run(cmd)
 	csError := util.ConsolidateLog(stderr.String())
 
 	if err != nil {
-		log.Errorf("error running kubectl: %s", err)
+		scope.Errorf("error running kubectl: %s", err)
 		return stdout.String(), csError, fmt.Errorf("error running kubectl: %s", err)
 	}
 
-	log.Infof("command succeeded: %s", cmdStr)
+	scope.Infof("command succeeded: %s", cmdStr)
 
 	return stdout.String(), csError, nil
 }

@@ -25,12 +25,12 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	coll "istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	resource2 "istio.io/istio/galley/pkg/config/schema/resource"
-	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
+	resource2 "istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/snapshots"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
@@ -87,7 +87,10 @@ func (a *analyzerMock) Metadata() analysis.Metadata {
 func (a *analyzerMock) getAnalyzeCalls() []*Snapshot {
 	a.m.RLock()
 	defer a.m.RUnlock()
-	return a.analyzeCalls
+
+	out := make([]*Snapshot, len(a.analyzeCalls))
+	copy(out, a.analyzeCalls)
+	return out
 }
 
 func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
@@ -463,12 +466,12 @@ func TestAnalyzeSuppressesMessagesWhenResourceIsAnnotated(t *testing.T) {
 
 			ad.Distribute(snapshots.Default, sDefault)
 
-			g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sDefault))
+			g.Eventually(a.getAnalyzeCalls).Should(ConsistOf(sDefault))
 			if tc.wantSuppress {
-				g.Expect(u.messages).To(HaveLen(0))
+				g.Expect(u.getMessages()).To(HaveLen(0))
 			} else {
-				g.Expect(u.messages).To(HaveLen(1))
-				g.Expect(u.messages[0].Resource).To(Equal(r))
+				g.Expect(u.getMessages()).To(HaveLen(1))
+				g.Expect(u.getMessages()[0].Resource).To(Equal(r))
 			}
 		})
 	}

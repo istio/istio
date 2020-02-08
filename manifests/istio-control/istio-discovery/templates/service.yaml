@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-pilot{{ .Values.version }}
+  name: istio-pilot
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -19,11 +19,9 @@ spec:
     name: http-legacy-discovery # direct
   - port: 15014
     name: http-monitoring
-{{- if .Values.global.istiod.enabled }}
   - port: 443
     name: https-webhook # validation and injection
     targetPort: 15017
-{{- end }}
   selector:
     {{- if ne .Values.version ""}}
     app: pilot
@@ -31,4 +29,23 @@ spec:
     {{ else }}
     istio: pilot
     {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+spec:
+  ports:
+    - port: 15012
+      name: https-dns # mTLS with k8s-signed cert
+    - port: 443
+      name: https-webhook # validation and injection
+      targetPort: 15017
+  selector:
+    app: pilot
+    istio: pilot
 ---

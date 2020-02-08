@@ -9,6 +9,9 @@ pilot:
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
 
+  hub: ""
+  tag: ""
+
   # Can be a full hub/image:tag
   image: pilot
   traceSampling: 1.0
@@ -46,8 +49,7 @@ pilot:
 
   # This is used to set the source of configuration for
   # the associated address in configSource, if nothing is specificed
-  # the default MCP is assumed. The alternative option is SERVICE_REGISTRY
-  # which describes the source is only forwarding synthetic service entries
+  # the default MCP is assumed.
   configSource:
     subscribedResources: []
 
@@ -145,15 +147,33 @@ sidecarInjectorWebhook:
   #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
   injectedAnnotations: {}
 
+  # This enables injection of sidecar in all namespaces,
+  # with the exception of namespaces with "istio-injection:disabled" annotation
+  # Only one environment should have this enabled.
+  enableNamespacesByDefault: false
+
+  # If set, will use the value as injection label. The value must match the 'release' label of the injector,
+  # except when 1.2 istio-injection label is used, which must be set to "enabled".
+  injectLabel: istio-injection
+
+  # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
+  # It is disabled by default since this function will only work after k8s v1.15.
+  objectSelector:
+    enabled: false
+    autoInject: true
+
+galley:
+  enabled: false
+
 telemetry:
   enabled: true
   v1:
     # Set true to enable Mixer based telemetry
-    enabled: true
+    enabled: false
   v2:
     # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
     # also enable metadata exchange and stats filter.
-    enabled: false
+    enabled: true
     # Indicate if prometheus stats filter is enabled or not
     prometheus:
       enabled: true

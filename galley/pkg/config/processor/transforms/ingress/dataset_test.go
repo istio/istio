@@ -22,9 +22,10 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/meshcfg"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"istio.io/istio/pkg/config/resource"
 )
 
 func ingress1() *resource.Instance {

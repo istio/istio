@@ -23,15 +23,14 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
@@ -72,6 +71,7 @@ type controller struct {
 
 // NewController provides a new Controller controller
 func NewController(options *Options) Controller {
+	//TODO: remove after galley sse is removed
 	// Filter out synthetic service entries.
 	supportedSchemas := collections.Pilot.Remove(collections.IstioNetworkingV1Alpha3SyntheticServiceentries)
 	synced := make(map[string]bool)
@@ -207,6 +207,7 @@ func (c *controller) Apply(change *sink.Change) error {
 		c.options.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:               true,
 			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{kind: {}},
+			Reason:             []model.TriggerReason{model.ConfigUpdate},
 		})
 	}
 	return nil

@@ -20,6 +20,7 @@ import (
 	"net"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -164,7 +165,8 @@ var (
 	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
 	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
-	mtlsTCPALPNs = []string{"istio"}
+	mtlsTCPALPNs        = []string{"istio"}
+	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 
 	// These ALPNs are injected in the client side by the ALPN filter.
 	// "istio" is added for each upstream protocol in order to make it
@@ -201,6 +203,47 @@ var (
 		{
 			// client side traffic could not be identified by the outbound listener, but sent over mTLS
 			ApplicationProtocols: mtlsTCPALPNs,
+			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
+			TransportProtocol: "tls",
+			Protocol:          plugin.ListenerProtocolTCP,
+		},
+		{
+			// client side traffic could not be identified by the outbound listener, sent over plaintext
+			// or it could be that the client has no sidecar. In this case, this filter chain is simply
+			// receiving plaintext TCP traffic.
+			Protocol: plugin.ListenerProtocolTCP,
+		},
+		{
+			// client side traffic could not be identified by the outbound listener, sent over one-way
+			// TLS (HTTPS for example) by the downstream application.
+			// or it could be that the client has no sidecar, and it is directly making a HTTPS connection to
+			// this sidecar. In this case, this filter chain is receiving plaintext one-way TLS traffic. The TLS
+			// inspector would detect this as TLS traffic [not necessarily mTLS]. But since there is no ALPN to match,
+			// this filter chain match will treat the traffic as just another TCP proxy.
+			TransportProtocol: "tls",
+			Protocol:          plugin.ListenerProtocolTCP,
+		},
+	}
+
+	// Same as inboundPermissiveFilterChainMatchOptions except for following case:
+	// FCM 3: ALPN [istio-peer-exchange, istio] Transport protocol: tls            --> TCP traffic from sidecar over TLS
+	inboundPermissiveFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
+		{
+			// client side traffic was detected as HTTP by the outbound listener, sent over mTLS
+			ApplicationProtocols: mtlsHTTPALPNs,
+			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
+			TransportProtocol: "tls",
+			Protocol:          plugin.ListenerProtocolHTTP,
+		},
+		{
+			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
+			ApplicationProtocols: plaintextHTTPALPNs,
+			// No transport protocol match as this filter chain (+match) will be used for plain text connections
+			Protocol: plugin.ListenerProtocolHTTP,
+		},
+		{
+			// client side traffic could not be identified by the outbound listener, but sent over mTLS
+			ApplicationProtocols: mtlsTCPWithMxcALPNs,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: "tls",
 			Protocol:          plugin.ListenerProtocolTCP,
@@ -653,7 +696,12 @@ allChainsLabel:
 		allChains = append(allChains, allChains...)
 		if tlsInspectorEnabled {
 			allChains = append(allChains, plugin.FilterChain{})
-			filterChainMatchOption = inboundPermissiveFilterChainMatchOptions
+			if util.IsTCPMetadataExchangeEnabled(node) {
+				filterChainMatchOption = inboundPermissiveFilterChainMatchWithMxcOptions
+			} else {
+				filterChainMatchOption = inboundPermissiveFilterChainMatchOptions
+			}
+
 		} else {
 			if hasTLSContext {
 				filterChainMatchOption = inboundStrictFilterChainMatchOptions
@@ -1089,7 +1137,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
 		listenerOpts.bind = actualWildcard
 	}
-	*listenerMapKey = fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
+	*listenerMapKey = listenerOpts.bind + ":" + strconv.Itoa(pluginParams.Port.Port)
 
 	var exists bool
 
@@ -1148,9 +1196,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	} else {
 		if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto &&
 			util.IsProtocolSniffingEnabledForOutbound(node) && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
-			rdsName = fmt.Sprintf("%s:%d", pluginParams.Service.Hostname, pluginParams.Port.Port)
+			rdsName = string(pluginParams.Service.Hostname) + ":" + strconv.Itoa(pluginParams.Port.Port)
 		} else {
-			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
+			rdsName = strconv.Itoa(pluginParams.Port.Port)
 		}
 	}
 	httpOpts := &httpListenerOpts{
@@ -1311,9 +1359,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
 			return
-		} else {
-			listenerOpts.filterChainOpts = opts
 		}
+		listenerOpts.filterChainOpts = opts
 	} else {
 		switch pluginParams.ListenerProtocol {
 		case plugin.ListenerProtocolHTTP:
@@ -1407,13 +1454,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// When this happens, Envoy will infinite loop sending requests to itself.
 	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
 	if listenerOpts.bind == actualWildcard && features.RestrictPodIPTrafficLoops.Get() {
-		blackhole := blackholeStructMarshalling
-		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-			blackhole = blackholeAnyMarshalling
-		}
 		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
 			destinationCIDRs: pluginParams.Node.IPAddresses,
-			networkFilters:   []*listener.Filter{blackhole},
+			networkFilters:   []*listener.Filter{blackholeFilter},
 		}}, listenerOpts.filterChainOpts...)
 	}
 
@@ -1963,7 +2006,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	listener := &xdsapi.Listener{
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like
-		Name:            fmt.Sprintf("%s_%d", opts.bind, opts.port),
+		Name:            opts.bind + "_" + strconv.Itoa(opts.port),
 		Address:         util.BuildAddress(opts.bind, uint32(opts.port)),
 		ListenerFilters: listenerFilters,
 		FilterChains:    filterChains,
@@ -2351,15 +2394,15 @@ func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
 		// Remove listener filter timeout for
 		// 	1. outbound listeners AND
 		// 	2. without HTTP inspector
-		hasHttpInspector := false
+		hasHTTPInspector := false
 		for _, lf := range l.ListenerFilters {
 			if lf.Name == wellknown.HttpInspector {
-				hasHttpInspector = true
+				hasHTTPInspector = true
 				break
 			}
 		}
 
-		if !hasHttpInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
+		if !hasHTTPInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
 			l.ListenerFiltersTimeout = nil
 			l.ContinueOnListenerFiltersTimeout = false
 		}

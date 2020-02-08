@@ -9,7 +9,6 @@ global:
         memory: 40Mi
 
     accessLogFile: "/dev/stdout"
-    enableCoreDump: true
 
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY
@@ -59,7 +58,7 @@ gateways:
       name: tls
 
   istio-egressgateway:
-    enabled: true
+    enabled: false
     autoscaleMax: 1
     resources:
       requests:

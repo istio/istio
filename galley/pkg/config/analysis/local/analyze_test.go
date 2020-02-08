@@ -15,7 +15,6 @@ package local
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -29,9 +28,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meshcfg"
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
@@ -39,6 +35,9 @@ import (
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
 	"istio.io/istio/galley/pkg/config/util/kubeyaml"
 	"istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 type testAnalyzer struct {
@@ -188,7 +187,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 	tmpfile := tempFileFromString(t, data.YamlN1I1V1)
 	defer os.Remove(tmpfile.Name())
 
-	err := sa.AddReaderKubeSource([]io.Reader{tmpfile})
+	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(BeNil())
 	g.Expect(*sa.meshCfg).To(Equal(*meshcfg.Default())) // Base default meshcfg
 	g.Expect(sa.sources).To(HaveLen(1))
@@ -212,7 +211,7 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 	tmpfile := tempFileFromString(t, kubeyaml.JoinString(data.YamlN1I1V1, "bogus resource entry\n"))
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
-	err := sa.AddReaderKubeSource([]io.Reader{tmpfile})
+	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(Not(BeNil()))
 	g.Expect(sa.sources).To(HaveLen(1))
 }

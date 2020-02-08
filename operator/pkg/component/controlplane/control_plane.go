@@ -19,10 +19,16 @@ import (
 	"sort"
 
 	"istio.io/api/operator/v1alpha1"
+	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/component/component"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+)
+
+const (
+	istioIngressGatewayName = "istio-ingressgateway"
+	istioEgressGatewayName  = "istio-egressgateway"
 )
 
 // IstioOperator is an installation of an Istio control plane.
@@ -48,20 +54,39 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		o.Namespace = ns
 		out.components = append(out.components, component.NewComponent(c, &o))
 	}
+
 	for idx, c := range installSpec.Components.IngressGateways {
+		if c.Name == istioIngressGatewayName {
+			enabled, pathExist, err := translate.IsComponentEnabledFromValue(name.IngressComponentName, installSpec.Values)
+			if err == nil && pathExist {
+				if c.Enabled == nil {
+					c.Enabled = &v1alpha1.BoolValueForPB{}
+				}
+				c.Enabled.Value = enabled
+			}
+		}
 		if c.Enabled == nil || !c.Enabled.Value {
 			continue
 		}
 		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
+		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
 		out.components = append(out.components, component.NewIngressComponent(c.Name, idx, &o))
 	}
 	for idx, c := range installSpec.Components.EgressGateways {
+		if c.Name == istioEgressGatewayName {
+			enabled, pathExist, err := translate.IsComponentEnabledFromValue(name.EgressComponentName, installSpec.Values)
+			if err == nil && pathExist {
+				if c.Enabled == nil {
+					c.Enabled = &v1alpha1.BoolValueForPB{}
+				}
+				c.Enabled.Value = enabled
+			}
+		}
 		if c.Enabled == nil || !c.Enabled.Value {
 			continue
 		}
 		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
+		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
 		out.components = append(out.components, component.NewEgressComponent(c.Name, idx, &o))
 	}
 	for _, cn := range orderedKeys(installSpec.AddonComponents) {
@@ -76,7 +101,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 			rn = cm.ResourceName
 		}
 		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, installSpec.MeshConfig.RootNamespace)
+		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
 		out.components = append(out.components, component.NewAddonComponent(cn, rn, &o))
 	}
 	return out, nil

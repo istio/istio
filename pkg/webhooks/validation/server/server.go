@@ -34,16 +34,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var scope = log.RegisterScope("validationServer", "validation webhook server", 0)
@@ -67,9 +66,9 @@ func init() {
 	_ = kubeApiApps.AddToScheme(runtimeScheme)
 }
 
-const HTTPSHandlerReadyPath = "/ready"
-
 const (
+	HTTPSHandlerReadyPath = "/httpsReady"
+
 	watchDebounceDelay = 100 * time.Millisecond
 )
 
@@ -397,6 +396,12 @@ func (wh *Webhook) admitPilot(request *kubeApiAdmission.AdmissionRequest) *kubeA
 	}
 
 	gvk := obj.GroupVersionKind()
+
+	// TODO(jasonwzm) remove this when multi-version is supported. v1beta1 shares the same
+	// schema as v1lalpha3. Fake conversion and validate against v1alpha3.
+	if gvk.Group == "networking.istio.io" && gvk.Version == "v1beta1" {
+		gvk.Version = "v1alpha3"
+	}
 	s, exists := wh.schemas.FindByGroupVersionKind(resource.FromKubernetesGVK(&gvk))
 	if !exists {
 		scope.Infof("unrecognized type %v", obj.Kind)

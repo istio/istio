@@ -16,6 +16,8 @@ package v2
 import (
 	"google.golang.org/grpc/codes"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/monitoring"
 )
@@ -127,6 +129,12 @@ var (
 		[]float64{.1, 1, 3, 5, 10, 20, 30},
 	)
 
+	pushTriggers = monitoring.NewSum(
+		"pilot_push_triggers",
+		"Total number of times a push was triggered, labeled by reason for the push.",
+		monitoring.WithLabels(typeTag),
+	)
+
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
@@ -155,6 +163,12 @@ var (
 	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
 	inboundServiceDeletes = inboundUpdates.With(typeTag.Value("svcdelete"))
 )
+
+func recordPushTriggers(reasons ...model.TriggerReason) {
+	for _, r := range reasons {
+		pushTriggers.With(typeTag.Value(string(r))).Increment()
+	}
+}
 
 func recordSendError(metric monitoring.Metric, err error) {
 	s, ok := status.FromError(err)
@@ -191,5 +205,6 @@ func init() {
 		pushContextErrors,
 		totalXDSInternalErrors,
 		inboundUpdates,
+		pushTriggers,
 	)
 }

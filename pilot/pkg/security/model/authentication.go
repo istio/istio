@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/jwt"
-	"istio.io/pkg/env"
 )
 
 const (
@@ -71,11 +70,6 @@ const (
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
-)
-
-var (
-	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
-		"The JWT validation policy. ")
 )
 
 // ConstructSdsSecretConfigForGatewayListener constructs SDS secret configuration for ingress gateway.
@@ -133,14 +127,14 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata *model.NodeMetad
 		log.Debugf("SDS token path is (%v)", sdsTokenPath)
 		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(sdsTokenPath, K8sSAJwtTokenHeaderKey)
 	} else {
-		if JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
+		if features.JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
 			log.Debug("call credentials uses third-party JWT")
 			gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey)
-		} else if JwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
+		} else if features.JwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
 			log.Debug("call credentials uses first-party JWT")
 			gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSAJwtFileName, K8sSAJwtTokenHeaderKey)
 		} else {
-			log.Errorf("invalid JWT policy: %v", JwtPolicy.Get())
+			log.Errorf("invalid JWT policy: %v", features.JwtPolicy.Get())
 			return nil
 		}
 	}

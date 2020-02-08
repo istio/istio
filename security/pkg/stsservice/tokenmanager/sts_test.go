@@ -165,12 +165,12 @@ func sendHTTPRequestWithRetry(client *http.Client, req *http.Request) (resp *htt
 // token manager, and an authorization server.
 func setUpTestComponents(t *testing.T) (*stsServer.Server, *mock.AuthorizationServer, []*http.Client) {
 	// Create mock authorization server
-	mockServer, err := mock.StartNewServer(t)
+	mockServer, err := mock.StartNewServer(t, mock.Config{Port: 0})
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
 	// Create token exchange Google plugin
-	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum)
+	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL)
 	federatedTokenTestingEndpoint := mockServer.URL + "/v1/identitybindingtoken"
 	accessTokenTestingEndpoint := mockServer.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)

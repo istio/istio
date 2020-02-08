@@ -63,6 +63,11 @@ const (
 	SidecarTest
 	SidecarConsumerOnlyTest
 	TracingHeaderTest
+	STSTest
+	STSCacheTest
+	STSRenewTest
+	STSFailureTest
+	STSTimeoutTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum

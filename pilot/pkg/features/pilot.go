@@ -17,6 +17,8 @@ package features
 import (
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
@@ -135,13 +137,6 @@ var (
 			"When REGISTRY_ONLY traffic policy is used, a 502 error is returned.",
 	)
 
-	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
-	DisableXDSMarshalingToAny = env.RegisterBoolVar(
-		"PILOT_DISABLE_XDS_MARSHALING_TO_ANY",
-		false,
-		"",
-	).Get()
-
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = env.RegisterBoolVar(
@@ -199,6 +194,12 @@ var (
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
 		true,
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
+	)
+
+	EnableTCPMetadataExchange = env.RegisterBoolVar(
+		"PILOT_ENABLE_TCP_METADATA_EXCHANGE",
+		true,
+		"If enabled, metadata exchange will be enabled for TCP using ALPN and Network Metadata Exchange filters in Envoy",
 	)
 
 	ScopePushes = env.RegisterBoolVar(
@@ -290,4 +291,7 @@ var (
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
 		"the provider of Pilot DNS certificate.")
+
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+		"The JWT validation policy.")
 )

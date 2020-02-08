@@ -16,17 +16,15 @@ package v1alpha3
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -35,6 +33,8 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -945,6 +945,75 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		})
 	}
 
+}
+
+func TestBuildGatewayListeners(t *testing.T) {
+	cases := []struct {
+		name              string
+		node              *pilot_model.Proxy
+		gateway           *networking.Gateway
+		expectedListeners []string
+	}{
+		{
+			"targetPort overrides service port",
+			&pilot_model.Proxy{
+				ServiceInstances: []*pilot_model.ServiceInstance{
+					{
+						Service: &pilot_model.Service{
+							Hostname: "test",
+						},
+						ServicePort: &pilot_model.Port{
+							Port: 80,
+						},
+						Endpoint: &pilot_model.IstioEndpoint{
+							EndpointPort: 8080,
+						},
+					},
+				},
+			},
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					},
+				},
+			},
+			[]string{"0.0.0.0_8080"},
+		},
+		{
+			"multiple ports",
+			&pilot_model.Proxy{},
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					},
+					{
+						Port: &networking.Port{Name: "http", Number: 801, Protocol: "HTTP"},
+					},
+				},
+			},
+			[]string{"0.0.0.0_80", "0.0.0.0_801"},
+		},
+	}
+
+	for _, tt := range cases {
+		p := &fakePlugin{}
+		configgen := NewConfigGenerator([]plugin.Plugin{p})
+		env := buildEnv(t, []pilot_model.Config{{Spec: tt.gateway}}, []pilot_model.Config{})
+		proxy14Gateway.SetGatewaysForProxy(env.PushContext)
+		proxy14Gateway.ServiceInstances = tt.node.ServiceInstances
+		builder := configgen.buildGatewayListeners(&proxy14Gateway, env.PushContext, &ListenerBuilder{})
+		var listeners []string
+		for _, l := range builder.gatewayListeners {
+			listeners = append(listeners, l.Name)
+		}
+		sort.Strings(listeners)
+		sort.Strings(tt.expectedListeners)
+		if !reflect.DeepEqual(listeners, tt.expectedListeners) {
+			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxy14Gateway.MergedGateway.Servers)
+		}
+	}
 }
 
 func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pilot_model.Config) pilot_model.Environment {

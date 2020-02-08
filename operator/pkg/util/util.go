@@ -125,7 +125,7 @@ func ParseValue(valueStr string) interface{} {
 	} else if v, err := strconv.ParseBool(valueStr); err == nil {
 		value = v
 	} else {
-		value = valueStr
+		value = strings.ReplaceAll(valueStr, "\\,", ",")
 	}
 	return value
 }
