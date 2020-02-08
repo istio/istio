@@ -1744,7 +1744,7 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 				fmt.Errorf("port level mTLS, if defined, must have at least one element"))
 		}
 
-		for port, _ := range in.PortLevelMtls {
+		for port := range in.PortLevelMtls {
 			if port == 0 {
 				errs = appendErrors(errs, fmt.Errorf("port cannot be 0"))
 			}
