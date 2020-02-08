@@ -38,5 +38,7 @@ cni:
     createEvents: "true"
     deletePods: "true"
 
+    initContainerName: "istio-validation"
+
     brokenPodLabelKey: "cni.istio.io/uninitialized"
     brokenPodLabelValue: "true"
