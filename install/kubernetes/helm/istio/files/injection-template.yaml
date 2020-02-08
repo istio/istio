@@ -16,7 +16,11 @@ initContainers:
   image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
 {{- end }}
   command:
+{{ if $cniRepairEnabled -}}
   - istio-iptables-go
+{{- else }}
+  - istio-iptables
+{{- end }}
   - "-p"
   - "15001"
   - "-z"
