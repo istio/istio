@@ -40,6 +40,15 @@ import (
 
 var (
 	cacheLog = log.RegisterScope("cache", "cache debugging", 0)
+
+	// The well-known path for an existing certificate chain file
+	existingCertChainFile = CertChainFilePath
+
+	// The well-known path for an existing key file
+	existingKeyFile = KeyFilePath
+
+	// ExistingRootCertFile is the well-known path for an existing root certificate file
+	ExistingRootCertFile = RootCertFilePath
 )
 
 const (
@@ -74,13 +83,13 @@ const (
 	notifyK8sSecretTimeout = 30 * time.Second
 
 	// The well-known path for an existing certificate chain file
-	existingCertChainFile = "./etc/certs/cert-chain.pem"
+	CertChainFilePath = "./etc/certs/cert-chain.pem"
 
 	// The well-known path for an existing key file
-	existingKeyFile = "./etc/certs/key.pem"
+	KeyFilePath = "./etc/certs/key.pem"
 
 	// ExistingRootCertFile is the well-known path for an existing root certificate file
-	ExistingRootCertFile = "./etc/certs/root-cert.pem"
+	RootCertFilePath = "./etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
@@ -245,7 +254,8 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 			return nil, err
 		}
 		// This is not stored - envoy will refresh when the cert is about to expire.
-		cacheLog.Infoa("GenerateSecret from file", resourceName)
+		cacheLog.Infoa("GenerateSecret from file ", resourceName)
+		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
 
