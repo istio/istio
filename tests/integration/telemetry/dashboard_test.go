@@ -225,7 +225,6 @@ func waitForMetrics(t framework.TestContext, instance prometheus.Instance) {
 	queries := []string{
 		`istio_requests_total`,
 		`istio_tcp_received_bytes_total`,
-		`mixer_runtime_dispatches_total`,
 	}
 
 	for _, query := range queries {
