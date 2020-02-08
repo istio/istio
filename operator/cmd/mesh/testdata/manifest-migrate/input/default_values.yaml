@@ -155,7 +155,7 @@ gateways:
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
 sidecarInjectorWebhook:
-  enabled: true
+  enabled: false
   replicaCount: 1
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%

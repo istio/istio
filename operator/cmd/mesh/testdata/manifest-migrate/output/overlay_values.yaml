@@ -5,25 +5,25 @@ metadata:
 spec:
   components:
     ingressGateways:
-      - enabled: true
-        k8s:
-          nodeSelector:
-            scalers.istio: dedicated
-          tolerations:
-            - effect: NoSchedule
-              key: scalers.istio
-              operator: Equal
-              value: dedicated
-        name: istio-ingressgateway
+    - enabled: true
+      k8s:
+        nodeSelector:
+          scalers.istio: dedicated
+        tolerations:
+        - effect: NoSchedule
+          key: scalers.istio
+          operator: Equal
+          value: dedicated
+      name: istio-ingressgateway
     pilot:
       k8s:
         nodeSelector:
           scalers.istio: dedicated
         tolerations:
-          - effect: NoSchedule
-            key: scalers.istio
-            operator: Equal
-            value: dedicated
+        - effect: NoSchedule
+          key: scalers.istio
+          operator: Equal
+          value: dedicated
     policy:
       enabled: false
     telemetry:
@@ -34,16 +34,16 @@ spec:
         autoscaleMax: 20
         autoscaleMin: 20
         podAntiAffinityTermLabelSelector:
-          - key: istio
-            operator: In
-            topologyKey: kubernetes.io/hostname
-            values: ingressgateway
+        - key: istio
+          operator: In
+          topologyKey: kubernetes.io/hostname
+          values: ingressgateway
     pilot:
       autoscaleMax: 20
       autoscaleMin: 20
       podAntiAffinityTermLabelSelector:
-        - key: istio
-          operator: In
-          topologyKey: kubernetes.io/hostname
-          values: pilot
+      - key: istio
+        operator: In
+        topologyKey: kubernetes.io/hostname
+        values: pilot
 

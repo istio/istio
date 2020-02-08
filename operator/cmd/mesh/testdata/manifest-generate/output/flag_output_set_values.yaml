@@ -6659,8 +6659,6 @@ spec:
         - "*/*"
 ---
 
-# NodeAgent component is disabled.
-
 # Resources for Pilot component
 
 apiVersion: autoscaling/v2beta1
@@ -8729,8 +8727,6 @@ webhooks:
 ---
 
 # Policy component is disabled.
-
-# SidecarInjector component is disabled.
 
 # Telemetry component is disabled.
 

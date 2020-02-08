@@ -2,8 +2,6 @@
 // sources:
 // charts/base/Chart.yaml
 // charts/base/files/crd-all.gen.yaml
-// charts/base/files/crd-certmanager-10.yaml
-// charts/base/files/crd-certmanager-11.yaml
 // charts/base/files/crd-mixer.yaml
 // charts/base/kustomization.yaml
 // charts/base/templates/clusterrole.yaml
@@ -195,15 +193,6 @@
 // charts/istiocoredns/templates/service.yaml
 // charts/istiocoredns/templates/serviceaccount.yaml
 // charts/istiocoredns/values.yaml
-// charts/security/certmanager/Chart.yaml
-// charts/security/certmanager/templates/NOTES.txt
-// charts/security/certmanager/templates/_affinity.tpl
-// charts/security/certmanager/templates/deployment.yaml
-// charts/security/certmanager/templates/issuer.yaml
-// charts/security/certmanager/templates/poddisruptionbudget.yaml
-// charts/security/certmanager/templates/rbac.yaml
-// charts/security/certmanager/templates/serviceaccount.yaml
-// charts/security/certmanager/values.yaml
 // charts/security/citadel/Chart.yaml
 // charts/security/citadel/templates/NOTES.txt
 // charts/security/citadel/templates/_affinity.tpl
@@ -243,14 +232,12 @@
 // profiles/minimal.yaml
 // profiles/remote.yaml
 // translateConfig/names-1.5.yaml
-// translateConfig/names-1.6.yaml
 // translateConfig/reverseTranslateConfig-1.4.yaml
 // translateConfig/reverseTranslateConfig-1.5.yaml
 // translateConfig/translate-ICP-IOP-1.5.yaml
 // translateConfig/translateConfig-1.3.yaml
 // translateConfig/translateConfig-1.4.yaml
 // translateConfig/translateConfig-1.5.yaml
-// translateConfig/translateConfig-1.6.yaml
 // versions.yaml
 package vfs
 
@@ -5948,201 +5935,6 @@ func chartsBaseFilesCrdAllGenYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/base/files/crd-all.gen.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsBaseFilesCrdCertmanager10Yaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: clusterissuers.certmanager.k8s.io
-  labels:
-    app: certmanager
-    chart: certmanager
-    heritage: Tiller
-    release: istio
-spec:
-  group: certmanager.k8s.io
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
-  names:
-    kind: ClusterIssuer
-    plural: clusterissuers
-  scope: Cluster
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: issuers.certmanager.k8s.io
-  labels:
-    app: certmanager
-    chart: certmanager
-    heritage: Tiller
-    release: istio
-spec:
-  group: certmanager.k8s.io
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
-  names:
-    kind: Issuer
-    plural: issuers
-  scope: Namespaced
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: certificates.certmanager.k8s.io
-  labels:
-    app: certmanager
-    chart: certmanager
-    heritage: Tiller
-    release: istio
-spec:
-  additionalPrinterColumns:
-    - JSONPath: .status.conditions[?(@.type=="Ready")].status
-      name: Ready
-      type: string
-    - JSONPath: .spec.secretName
-      name: Secret
-      type: string
-    - JSONPath: .spec.issuerRef.name
-      name: Issuer
-      type: string
-      priority: 1
-    - JSONPath: .status.conditions[?(@.type=="Ready")].message
-      name: Status
-      type: string
-      priority: 1
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
-
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
-  group: certmanager.k8s.io
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
-  scope: Namespaced
-  names:
-    kind: Certificate
-    plural: certificates
-    shortNames:
-      - cert
-      - certs
----
-`)
-
-func chartsBaseFilesCrdCertmanager10YamlBytes() ([]byte, error) {
-	return _chartsBaseFilesCrdCertmanager10Yaml, nil
-}
-
-func chartsBaseFilesCrdCertmanager10Yaml() (*asset, error) {
-	bytes, err := chartsBaseFilesCrdCertmanager10YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/base/files/crd-certmanager-10.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsBaseFilesCrdCertmanager11Yaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: orders.certmanager.k8s.io
-  labels:
-    app: certmanager
-    chart: certmanager
-    heritage: Tiller
-    release: istio
-spec:
-  additionalPrinterColumns:
-    - JSONPath: .status.state
-      name: State
-      type: string
-    - JSONPath: .spec.issuerRef.name
-      name: Issuer
-      type: string
-      priority: 1
-    - JSONPath: .status.reason
-      name: Reason
-      type: string
-      priority: 1
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
-
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
-  group: certmanager.k8s.io
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
-  names:
-    kind: Order
-    plural: orders
-  scope: Namespaced
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: challenges.certmanager.k8s.io
-  labels:
-    app: certmanager
-    chart: certmanager
-    heritage: Tiller
-    release: istio
-spec:
-  additionalPrinterColumns:
-    - JSONPath: .status.state
-      name: State
-      type: string
-    - JSONPath: .spec.dnsName
-      name: Domain
-      type: string
-    - JSONPath: .status.reason
-      name: Reason
-      type: string
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
-
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
-  group: certmanager.k8s.io
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
-  names:
-    kind: Challenge
-    plural: challenges
-  scope: Namespaced
----
-`)
-
-func chartsBaseFilesCrdCertmanager11YamlBytes() ([]byte, error) {
-	return _chartsBaseFilesCrdCertmanager11Yaml, nil
-}
-
-func chartsBaseFilesCrdCertmanager11Yaml() (*asset, error) {
-	bytes, err := chartsBaseFilesCrdCertmanager11YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/base/files/crd-certmanager-11.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -38178,466 +37970,6 @@ func chartsIstiocorednsValuesYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsSecurityCertmanagerChartYaml = []byte(`apiVersion: v1
-description: A Helm chart for Kubernetes
-name: certmanager
-version: 1.1.0
-appVersion: 0.6.2
-tillerVersion: ">=2.7.2"
-`)
-
-func chartsSecurityCertmanagerChartYamlBytes() ([]byte, error) {
-	return _chartsSecurityCertmanagerChartYaml, nil
-}
-
-func chartsSecurityCertmanagerChartYaml() (*asset, error) {
-	bytes, err := chartsSecurityCertmanagerChartYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/certmanager/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityCertmanagerTemplatesNotesTxt = []byte(`certmanager has been deployed successfully!
-
-More information on the different types of issuers and how to configure them
-can be found in our documentation:
-
-https://cert-manager.readthedocs.io/en/latest/reference/issuers.html`)
-
-func chartsSecurityCertmanagerTemplatesNotesTxtBytes() ([]byte, error) {
-	return _chartsSecurityCertmanagerTemplatesNotesTxt, nil
-}
-
-func chartsSecurityCertmanagerTemplatesNotesTxt() (*asset, error) {
-	bytes, err := chartsSecurityCertmanagerTemplatesNotesTxtBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/certmanager/templates/NOTES.txt", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityCertmanagerTemplates_affinityTpl = []byte(`{{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
-
-{{- define "nodeaffinity" }}
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityRequiredDuringScheduling" . }}
-    preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityPreferredDuringScheduling" . }}
-{{- end }}
-
-{{- define "nodeAffinityRequiredDuringScheduling" }}
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: beta.kubernetes.io/arch
-          operator: In
-          values:
-        {{- range $key, $val := .Values.global.arch }}
-          {{- if gt ($val | int) 0 }}
-          - {{ $key | quote }}
-          {{- end }}
-        {{- end }}
-        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.certmanager.nodeSelector -}}
-        {{- range $key, $val := $nodeSelector }}
-        - key: {{ $key }}
-          operator: In
-          values:
-          - {{ $val | quote }}
-        {{- end }}
-{{- end }}
-
-{{- define "nodeAffinityPreferredDuringScheduling" }}
-  {{- range $key, $val := .Values.global.arch }}
-    {{- if gt ($val | int) 0 }}
-    - weight: {{ $val | int }}
-      preference:
-        matchExpressions:
-        - key: beta.kubernetes.io/arch
-          operator: In
-          values:
-          - {{ $key | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-
-{{- define "podAntiAffinity" }}
-{{- if or .Values.certmanager.podAntiAffinityLabelSelector .Values.certmanager.podAntiAffinityTermLabelSelector}}
-  podAntiAffinity:
-    {{- if .Values.certmanager.podAntiAffinityLabelSelector }}
-    requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "podAntiAffinityRequiredDuringScheduling" . }}
-    {{- end }}
-    {{- if .Values.certmanager.podAntiAffinityTermLabelSelector }}
-    preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "podAntiAffinityPreferredDuringScheduling" . }}
-    {{- end }}
-{{- end }}
-{{- end }}
-
-{{- define "podAntiAffinityRequiredDuringScheduling" }}
-    {{- range $index, $item := .Values.certmanager.podAntiAffinityLabelSelector }}
-    - labelSelector:
-        matchExpressions:
-        - key: {{ $item.key }}
-          operator: {{ $item.operator }}
-          {{- if $item.values }}
-          values:
-          {{- $vals := split "," $item.values }}
-          {{- range $i, $v := $vals }}
-          - {{ $v | quote }}
-          {{- end }}
-          {{- end }}
-      topologyKey: {{ $item.topologyKey }}
-    {{- end }}
-{{- end }}
-
-{{- define "podAntiAffinityPreferredDuringScheduling" }}
-    {{- range $index, $item := .Values.certmanager.podAntiAffinityTermLabelSelector }}
-    - podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-          - key: {{ $item.key }}
-            operator: {{ $item.operator }}
-            {{- if $item.values }}
-            values:
-            {{- $vals := split "," $item.values }}
-            {{- range $i, $v := $vals }}
-            - {{ $v | quote }}
-            {{- end }}
-            {{- end }}
-        topologyKey: {{ $item.topologyKey }}
-      weight: 100
-    {{- end }}
-{{- end }}
-`)
-
-func chartsSecurityCertmanagerTemplates_affinityTplBytes() ([]byte, error) {
-	return _chartsSecurityCertmanagerTemplates_affinityTpl, nil
-}
-
-func chartsSecurityCertmanagerTemplates_affinityTpl() (*asset, error) {
-	bytes, err := chartsSecurityCertmanagerTemplates_affinityTplBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/certmanager/templates/_affinity.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityCertmanagerTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: certmanager
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: certmanager
-    release: {{ .Release.Name }}
-spec:
-  replicas: {{ .Values.certmanager.replicaCount }}
-  selector:
-    matchLabels:
-      app: certmanager
-  template:
-    metadata:
-      labels:
-        app: certmanager
-        release: {{ .Release.Name }}        
-        {{- if .Values.certmanager.podLabels }}
-{{ toYaml .Values.certmanager.podLabels | indent 8 }}
-        {{- end }}
-      annotations:
-        sidecar.istio.io/inject: "false"
-        {{- if .Values.certmanager.podAnnotations }}
-{{ toYaml .Values.certmanager.podAnnotations | indent 8 }}
-        {{- end }}
-    spec:
-      serviceAccountName: certmanager
-{{- if .Values.global.priorityClassName }}
-      priorityClassName: "{{ .Values.global.priorityClassName }}"
-{{- end }}
-      containers:
-      - name: certmanager
-        image: "{{ .Values.certmanager.hub }}/{{ .Values.certmanager.image }}:{{ .Values.certmanager.tag }}"
-        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
-        args:
-        - --cluster-resource-namespace=$(POD_NAMESPACE)
-        - --leader-election-namespace=$(POD_NAMESPACE)
-      {{- if .Values.certmanager.extraArgs }}
-{{ toYaml .Values.certmanager.extraArgs | indent 8 }}
-      {{- end }}
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        resources:
-{{ toYaml .Values.certmanager.resources | indent 10 }}
-      {{- if .Values.certmanager.podDnsPolicy }}
-      dnsPolicy: {{ .Values.certmanager.podDnsPolicy }}
-      {{- end }}
-      {{- if .Values.certmanager.podDnsConfig }}
-      dnsConfig:
-{{ toYaml .Values.certmanager.podDnsConfig | indent 8 }}
-      {{- end }}
-      affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
-      {{- include "podAntiAffinity" . | indent 6 }}
-{{- if .Values.certmanager.tolerations }}
-      tolerations:
-{{ toYaml .Values.certmanager.tolerations | indent 6 }}
-{{- else if .Values.global.defaultTolerations }}
-      tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
-{{- end }}
-`)
-
-func chartsSecurityCertmanagerTemplatesDeploymentYamlBytes() ([]byte, error) {
-	return _chartsSecurityCertmanagerTemplatesDeploymentYaml, nil
-}
-
-func chartsSecurityCertmanagerTemplatesDeploymentYaml() (*asset, error) {
-	bytes, err := chartsSecurityCertmanagerTemplatesDeploymentYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/certmanager/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityCertmanagerTemplatesIssuerYaml = []byte(`---
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-staging
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: certmanager
-    release: {{ .Release.Name }}
-spec:
-  acme:
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: {{ .Values.certmanager.email }}
-    # Name of a secret used to store the ACME account private key
-    privateKeySecretRef:
-      name: letsencrypt-staging
-    http01: {}
----
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: certmanager
-    release: {{ .Release.Name }}
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: {{ .Values.certmanager.email }}
-    privateKeySecretRef:
-      name: letsencrypt
-    http01: {}
-`)
-
-func chartsSecurityCertmanagerTemplatesIssuerYamlBytes() ([]byte, error) {
-	return _chartsSecurityCertmanagerTemplatesIssuerYaml, nil
-}
-
-func chartsSecurityCertmanagerTemplatesIssuerYaml() (*asset, error) {
-	bytes, err := chartsSecurityCertmanagerTemplatesIssuerYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/certmanager/templates/issuer.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityCertmanagerTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: certmanager
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: certmanager
-    release: {{ .Release.Name }}
-    {{- if .Values.certmanager.podLabels }}
-{{ toYaml .Values.certmanager.podLabels | indent 4 }}
-    {{- end }}
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: certmanager
-      release: {{ .Release.Name }}
-{{- end }}
-`)
-
-func chartsSecurityCertmanagerTemplatesPoddisruptionbudgetYamlBytes() ([]byte, error) {
-	return _chartsSecurityCertmanagerTemplatesPoddisruptionbudgetYaml, nil
-}
-
-func chartsSecurityCertmanagerTemplatesPoddisruptionbudgetYaml() (*asset, error) {
-	bytes, err := chartsSecurityCertmanagerTemplatesPoddisruptionbudgetYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/certmanager/templates/poddisruptionbudget.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityCertmanagerTemplatesRbacYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: certmanager
-  labels:
-    app: certmanager
-    release: {{ .Release.Name }}
-rules:
-  - apiGroups: ["certmanager.k8s.io"]
-    resources: ["certificates", "certificates/finalizers", "issuers", "clusterissuers", "orders", "orders/finalizers", "challenges"]
-    verbs: ["*"]
-  - apiGroups: [""]
-    resources: ["configmaps", "secrets", "events", "services", "pods"]
-    verbs: ["*"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses"]
-    verbs: ["*"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: certmanager
-  labels:
-    app: certmanager
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: certmanager
-subjects:
-  - name: certmanager
-    namespace: {{ .Release.Namespace }}
-    kind: ServiceAccount
-`)
-
-func chartsSecurityCertmanagerTemplatesRbacYamlBytes() ([]byte, error) {
-	return _chartsSecurityCertmanagerTemplatesRbacYaml, nil
-}
-
-func chartsSecurityCertmanagerTemplatesRbacYaml() (*asset, error) {
-	bytes, err := chartsSecurityCertmanagerTemplatesRbacYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/certmanager/templates/rbac.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityCertmanagerTemplatesServiceaccountYaml = []byte(`apiVersion: v1
-kind: ServiceAccount
-{{- if .Values.global.imagePullSecrets }}
-imagePullSecrets:
-{{- range .Values.global.imagePullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- end }}
-metadata:
-  name: certmanager
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: certmanager
-    release: {{ .Release.Name }}
-`)
-
-func chartsSecurityCertmanagerTemplatesServiceaccountYamlBytes() ([]byte, error) {
-	return _chartsSecurityCertmanagerTemplatesServiceaccountYaml, nil
-}
-
-func chartsSecurityCertmanagerTemplatesServiceaccountYaml() (*asset, error) {
-	bytes, err := chartsSecurityCertmanagerTemplatesServiceaccountYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/certmanager/templates/serviceaccount.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsSecurityCertmanagerValuesYaml = []byte(`certmanager:
-  # Certmanager uses ACME to sign certificates. Since Istio gateways are
-  # mounting the TLS secrets the Certificate CRDs must be created in the
-  # istio-system namespace. Once the certificate has been created, the
-  # gateway must be updated by adding 'secretVolumes'. After the gateway
-  # restart, DestinationRules can be created using the ACME-signed certificates.
-  enabled: false
-  replicaCount: 1
-  hub: quay.io/jetstack
-  image: cert-manager-controller
-  tag: v0.8.1
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  podAnnotations: {}
-  podLabels: {}
-  extraArgs: []
-  podDnsPolicy: ""
-  podDnsConfig: {}
-  # Specify the pod anti-affinity that allows you to constrain which nodes
-  # your pod is eligible to be scheduled based on labels on pods that are
-  # already running on the node rather than based on labels on nodes.
-  # There are currently two types of anti-affinity:
-  #    "requiredDuringSchedulingIgnoredDuringExecution"
-  #    "preferredDuringSchedulingIgnoredDuringExecution"
-  # which denote "hard" vs. "soft" requirements, you can define your values
-  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
-  # correspondingly.
-  # For example:
-  # podAntiAffinityLabelSelector:
-  # - key: security
-  #   operator: In
-  #   values: S1,S2
-  #   topologyKey: "kubernetes.io/hostname"
-  # This pod anti-affinity rule says that the pod requires not to be scheduled
-  # onto a node if that node is already running a pod with label having key
-  # "security" and value "S1".
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
-  email: ""`)
-
-func chartsSecurityCertmanagerValuesYamlBytes() ([]byte, error) {
-	return _chartsSecurityCertmanagerValuesYaml, nil
-}
-
-func chartsSecurityCertmanagerValuesYaml() (*asset, error) {
-	bytes, err := chartsSecurityCertmanagerValuesYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/security/certmanager/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsSecurityCitadelChartYaml = []byte(`apiVersion: v1
 name: citadel
 version: 1.1.0
@@ -41411,11 +40743,9 @@ var _translateconfigNames15Yaml = []byte(`legacyAddonComponentNames:
   - "Tracing"
   - "Istiocoredns"
 deprecatedComponentNames:
-  - "Injector"
   - "CertManager"
   - "IngressGateway"
   - "EgressGateway"
-  - "NodeAgent"
   - "SidecarInjector"
 
 `)
@@ -41431,35 +40761,6 @@ func translateconfigNames15Yaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "translateConfig/names-1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _translateconfigNames16Yaml = []byte(`legacyAddonComponentNames:
-  - "Prometheus"
-  - "Kiali"
-  - "Grafana"
-  - "Tracing"
-  - "Istiocoredns"
-deprecatedComponentNames:
-  - "Injector"
-  - "CertManager"
-  - "IngressGateway"
-  - "EgressGateway"
-  - "NodeAgent"
-  - "SidecarInjector"`)
-
-func translateconfigNames16YamlBytes() ([]byte, error) {
-	return _translateconfigNames16Yaml, nil
-}
-
-func translateconfigNames16Yaml() (*asset, error) {
-	bytes, err := translateconfigNames16YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "translateConfig/names-1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -42103,7 +41404,6 @@ componentMaps:
     ContainerName:        "sidecar-injector-webhook"
     HelmSubdir:           "istio-control/istio-autoinject"
     ToHelmValuesTreeRoot: "sidecarInjectorWebhook"
-    SkipReverseTranslate: true
   Policy:
     ResourceType:         "Deployment"
     ResourceName:         "istio-policy"
@@ -42128,7 +41428,6 @@ componentMaps:
     ContainerName:        "nodeagent"
     HelmSubdir:           "security/nodeagent"
     ToHelmValuesTreeRoot: "nodeagent"
-    SkipReverseTranslate: true
   CertManager:
     ResourceType:        "Deployment"
     ResourceName:         "certmanager"
@@ -42204,177 +41503,6 @@ func translateconfigTranslateconfig15Yaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "translateConfig/translateConfig-1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _translateconfigTranslateconfig16Yaml = []byte(`apiMapping:
-  Hub:
-    outPath: "global.hub"
-  Tag:
-    outPath: "global.tag"
-  K8SDefaults:
-    outPath: "global.resources"
-  MeshConfig.rootNamespace:
-    outPath: "global.istioNamespace"
-  Revision:
-    outPath: "global.revision"
-kubernetesMapping:
-  "Components.{{.ComponentName}}.K8S.Affinity":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
-  "Components.{{.ComponentName}}.K8S.Env":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env"
-  "Components.{{.ComponentName}}.K8S.HpaSpec":
-    outPath: "[HorizontalPodAutoscaler:{{.ResourceName}}].spec"
-  "Components.{{.ComponentName}}.K8S.ImagePullPolicy":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy"
-  "Components.{{.ComponentName}}.K8S.NodeSelector":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector"
-  "Components.{{.ComponentName}}.K8S.PodDisruptionBudget":
-    outPath: "[PodDisruptionBudget:{{.ResourceName}}].spec"
-  "Components.{{.ComponentName}}.K8S.PodAnnotations":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations"
-  "Components.{{.ComponentName}}.K8S.PriorityClassName":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName."
-  "Components.{{.ComponentName}}.K8S.ReadinessProbe":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe"
-  "Components.{{.ComponentName}}.K8S.ReplicaCount":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.replicas"
-  "Components.{{.ComponentName}}.K8S.Resources":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources"
-  "Components.{{.ComponentName}}.K8S.Strategy":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.strategy"
-  "Components.{{.ComponentName}}.K8S.Tolerations":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"
-  "Components.{{.ComponentName}}.K8S.ServiceAnnotations":
-    outPath: "[Service:{{.ResourceName}}].metadata.annotations"
-  "Components.{{.ComponentName}}.K8S.Service":
-    outPath: "[Service:{{.ResourceName}}].spec"
-globalNamespaces:
-  Pilot:      "istioNamespace"
-  Galley:     "configNamespace"
-  Telemetry:  "telemetryNamespace"
-  Policy:     "policyNamespace"
-  Prometheus: "prometheusNamespace"
-  Citadel:    "securityNamespace"
-
-componentMaps:
-  Base:
-    ToHelmValuesTreeRoot: "global"
-    HelmSubdir:           "base"
-    SkipReverseTranslate: true
-  Pilot:
-    ResourceType:         "Deployment"
-    ResourceName:         "istio-pilot"
-    ContainerName:        "discovery"
-    HelmSubdir:           "istio-control/istio-discovery"
-    ToHelmValuesTreeRoot: "pilot"
-  Galley:
-    ResourceType:         "Deployment"
-    ResourceName:         "istio-galley"
-    ContainerName:        "galley"
-    HelmSubdir:           "istio-control/istio-config"
-    ToHelmValuesTreeRoot: "galley"
-  SidecarInjector:
-    ResourceType:         "Deployment"
-    ResourceName:         "istio-sidecar-injector"
-    ContainerName:        "sidecar-injector-webhook"
-    HelmSubdir:           "istio-control/istio-autoinject"
-    ToHelmValuesTreeRoot: "sidecarInjectorWebhook"
-    SkipReverseTranslate: true
-  Policy:
-    ResourceType:         "Deployment"
-    ResourceName:         "istio-policy"
-    ContainerName:        "mixer"
-    HelmSubdir:           "istio-policy"
-    ToHelmValuesTreeRoot: "mixer.policy"
-  Telemetry:
-    ResourceType:        "Deployment"
-    ResourceName:         "istio-telemetry"
-    ContainerName:        "mixer"
-    HelmSubdir:           "istio-telemetry/mixer-telemetry"
-    ToHelmValuesTreeRoot: "mixer.telemetry"
-  Citadel:
-    ResourceType:        "Deployment"
-    ResourceName:         "istio-citadel"
-    ContainerName:        "citadel"
-    HelmSubdir:           "security/citadel"
-    ToHelmValuesTreeRoot: "security"
-  NodeAgent:
-    ResourceType:         "DaemonSet"
-    ResourceName:         "istio-nodeagent"
-    ContainerName:        "nodeagent"
-    HelmSubdir:           "security/nodeagent"
-    ToHelmValuesTreeRoot: "nodeagent"
-    SkipReverseTranslate: true
-  IngressGateways:
-    ResourceType:         "Deployment"
-    ResourceName:         "istio-ingressgateway"
-    ContainerName:        "istio-proxy"
-    HelmSubdir:           "gateways/istio-ingress"
-    ToHelmValuesTreeRoot: "gateways.istio-ingressgateway"
-  EgressGateways:
-    ResourceType:         "Deployment"
-    ResourceName:         "istio-egressgateway"
-    ContainerName:        "istio-proxy"
-    HelmSubdir:           "gateways/istio-egress"
-    ToHelmValuesTreeRoot: "gateways.istio-egressgateway"
-  Cni:
-    ResourceType:         "DaemonSet"
-    ResourceName:         "istio-cni-node"
-    ContainerName:        "install-cni"
-    HelmSubdir:           "istio-cni"
-    ToHelmValuesTreeRoot: "cni"
-  CoreDNS:
-    ResourceType:         "Deployment"
-    ResourceName:         "istiocoredns"
-    ContainerName:        "coredns"
-    HelmSubdir:           "istiocoredns"
-    ToHelmValuesTreeRoot: "istiocoredns"
-  Tracing:
-    ResourceType:         "Deployment"
-    ResourceName:         "istio-tracing"
-    ContainerName:        "jaeger"
-    HelmSubdir:           "istio-telemetry/tracing"
-    ToHelmValuesTreeRoot: "tracing.jaeger"
-  PrometheusOperator:
-    ResourceType:         "Deployment"
-    ResourceName:         "prometheus"
-    ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
-    ToHelmValuesTreeRoot: "prometheus"
-    SkipReverseTranslate: true
-  Kiali:
-    ResourceType:         "Deployment"
-    ResourceName:         "kiali"
-    ContainerName:        "kiali"
-    HelmSubdir:           "istio-telemetry/kiali"
-    ToHelmValuesTreeRoot: "kiali"
-  Grafana:
-    ResourceType:        "Deployment"
-    ResourceName:         "grafana"
-    ContainerName:        "grafana"
-    HelmSubdir:           "istio-telemetry/grafana"
-    ToHelmValuesTreeRoot: "grafana"
-  Prometheus:
-    ResourceType:         "Deployment"
-    ResourceName:         "prometheus"
-    ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus"
-    ToHelmValuesTreeRoot: "prometheus"
-`)
-
-func translateconfigTranslateconfig16YamlBytes() ([]byte, error) {
-	return _translateconfigTranslateconfig16Yaml, nil
-}
-
-func translateconfigTranslateconfig16Yaml() (*asset, error) {
-	bytes, err := translateconfigTranslateconfig16YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "translateConfig/translateConfig-1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -42498,8 +41626,6 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"charts/base/Chart.yaml":                                                                  chartsBaseChartYaml,
 	"charts/base/files/crd-all.gen.yaml":                                                      chartsBaseFilesCrdAllGenYaml,
-	"charts/base/files/crd-certmanager-10.yaml":                                               chartsBaseFilesCrdCertmanager10Yaml,
-	"charts/base/files/crd-certmanager-11.yaml":                                               chartsBaseFilesCrdCertmanager11Yaml,
 	"charts/base/files/crd-mixer.yaml":                                                        chartsBaseFilesCrdMixerYaml,
 	"charts/base/kustomization.yaml":                                                          chartsBaseKustomizationYaml,
 	"charts/base/templates/clusterrole.yaml":                                                  chartsBaseTemplatesClusterroleYaml,
@@ -42691,15 +41817,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istiocoredns/templates/service.yaml":                                              chartsIstiocorednsTemplatesServiceYaml,
 	"charts/istiocoredns/templates/serviceaccount.yaml":                                       chartsIstiocorednsTemplatesServiceaccountYaml,
 	"charts/istiocoredns/values.yaml":                                                         chartsIstiocorednsValuesYaml,
-	"charts/security/certmanager/Chart.yaml":                                                  chartsSecurityCertmanagerChartYaml,
-	"charts/security/certmanager/templates/NOTES.txt":                                         chartsSecurityCertmanagerTemplatesNotesTxt,
-	"charts/security/certmanager/templates/_affinity.tpl":                                     chartsSecurityCertmanagerTemplates_affinityTpl,
-	"charts/security/certmanager/templates/deployment.yaml":                                   chartsSecurityCertmanagerTemplatesDeploymentYaml,
-	"charts/security/certmanager/templates/issuer.yaml":                                       chartsSecurityCertmanagerTemplatesIssuerYaml,
-	"charts/security/certmanager/templates/poddisruptionbudget.yaml":                          chartsSecurityCertmanagerTemplatesPoddisruptionbudgetYaml,
-	"charts/security/certmanager/templates/rbac.yaml":                                         chartsSecurityCertmanagerTemplatesRbacYaml,
-	"charts/security/certmanager/templates/serviceaccount.yaml":                               chartsSecurityCertmanagerTemplatesServiceaccountYaml,
-	"charts/security/certmanager/values.yaml":                                                 chartsSecurityCertmanagerValuesYaml,
 	"charts/security/citadel/Chart.yaml":                                                      chartsSecurityCitadelChartYaml,
 	"charts/security/citadel/templates/NOTES.txt":                                             chartsSecurityCitadelTemplatesNotesTxt,
 	"charts/security/citadel/templates/_affinity.tpl":                                         chartsSecurityCitadelTemplates_affinityTpl,
@@ -42739,14 +41856,12 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/minimal.yaml":                                                                   profilesMinimalYaml,
 	"profiles/remote.yaml":                                                                    profilesRemoteYaml,
 	"translateConfig/names-1.5.yaml":                                                          translateconfigNames15Yaml,
-	"translateConfig/names-1.6.yaml":                                                          translateconfigNames16Yaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                         translateconfigReversetranslateconfig14Yaml,
 	"translateConfig/reverseTranslateConfig-1.5.yaml":                                         translateconfigReversetranslateconfig15Yaml,
 	"translateConfig/translate-ICP-IOP-1.5.yaml":                                              translateconfigTranslateIcpIop15Yaml,
 	"translateConfig/translateConfig-1.3.yaml":                                                translateconfigTranslateconfig13Yaml,
 	"translateConfig/translateConfig-1.4.yaml":                                                translateconfigTranslateconfig14Yaml,
 	"translateConfig/translateConfig-1.5.yaml":                                                translateconfigTranslateconfig15Yaml,
-	"translateConfig/translateConfig-1.6.yaml":                                                translateconfigTranslateconfig16Yaml,
 	"versions.yaml":                                                                           versionsYaml,
 }
 
@@ -42795,10 +41910,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"base": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsBaseChartYaml, map[string]*bintree{}},
 			"files": &bintree{nil, map[string]*bintree{
-				"crd-all.gen.yaml":        &bintree{chartsBaseFilesCrdAllGenYaml, map[string]*bintree{}},
-				"crd-certmanager-10.yaml": &bintree{chartsBaseFilesCrdCertmanager10Yaml, map[string]*bintree{}},
-				"crd-certmanager-11.yaml": &bintree{chartsBaseFilesCrdCertmanager11Yaml, map[string]*bintree{}},
-				"crd-mixer.yaml":          &bintree{chartsBaseFilesCrdMixerYaml, map[string]*bintree{}},
+				"crd-all.gen.yaml": &bintree{chartsBaseFilesCrdAllGenYaml, map[string]*bintree{}},
+				"crd-mixer.yaml":   &bintree{chartsBaseFilesCrdMixerYaml, map[string]*bintree{}},
 			}},
 			"kustomization.yaml": &bintree{chartsBaseKustomizationYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
@@ -43066,19 +42179,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"values.yaml": &bintree{chartsIstiocorednsValuesYaml, map[string]*bintree{}},
 		}},
 		"security": &bintree{nil, map[string]*bintree{
-			"certmanager": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsSecurityCertmanagerChartYaml, map[string]*bintree{}},
-				"templates": &bintree{nil, map[string]*bintree{
-					"NOTES.txt":                &bintree{chartsSecurityCertmanagerTemplatesNotesTxt, map[string]*bintree{}},
-					"_affinity.tpl":            &bintree{chartsSecurityCertmanagerTemplates_affinityTpl, map[string]*bintree{}},
-					"deployment.yaml":          &bintree{chartsSecurityCertmanagerTemplatesDeploymentYaml, map[string]*bintree{}},
-					"issuer.yaml":              &bintree{chartsSecurityCertmanagerTemplatesIssuerYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml": &bintree{chartsSecurityCertmanagerTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"rbac.yaml":                &bintree{chartsSecurityCertmanagerTemplatesRbacYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":      &bintree{chartsSecurityCertmanagerTemplatesServiceaccountYaml, map[string]*bintree{}},
-				}},
-				"values.yaml": &bintree{chartsSecurityCertmanagerValuesYaml, map[string]*bintree{}},
-			}},
 			"citadel": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsSecurityCitadelChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
@@ -43147,14 +42247,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"names-1.5.yaml":                  &bintree{translateconfigNames15Yaml, map[string]*bintree{}},
-		"names-1.6.yaml":                  &bintree{translateconfigNames16Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.5.yaml": &bintree{translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
 		"translate-ICP-IOP-1.5.yaml":      &bintree{translateconfigTranslateIcpIop15Yaml, map[string]*bintree{}},
 		"translateConfig-1.3.yaml":        &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
 		"translateConfig-1.4.yaml":        &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
 		"translateConfig-1.5.yaml":        &bintree{translateconfigTranslateconfig15Yaml, map[string]*bintree{}},
-		"translateConfig-1.6.yaml":        &bintree{translateconfigTranslateconfig16Yaml, map[string]*bintree{}},
 	}},
 	"versions.yaml": &bintree{versionsYaml, map[string]*bintree{}},
 }}

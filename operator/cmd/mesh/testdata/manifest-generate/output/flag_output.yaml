@@ -9,8 +9,6 @@
 # Galley component is disabled.
 
 
-# NodeAgent component is disabled.
-
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -2004,8 +2002,6 @@ webhooks:
 ---
 
 # Policy component is disabled.
-
-# SidecarInjector component is disabled.
 
 # Telemetry component is disabled.
 
