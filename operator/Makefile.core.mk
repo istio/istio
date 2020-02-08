@@ -70,8 +70,7 @@ clean-proto:
 # -------------------------- Controller ----------------------------
 
 controller:
-	go build -o $(GOBIN)/istio-operator ./cmd/manager
-	STATIC=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(TARGET_OUT)/istio-operator ./cmd/manager
+	STATIC=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(TARGET_OUT)/istio-operator ./cmd/operator
 
 docker: controller
 	mkdir -p $(GOBIN)/docker

@@ -120,11 +120,11 @@ the Istio control plane into the istio-system namespace by default.
 
 1. Set env $WATCH_NAMESPACE and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
 
-1. From the operator repo root directory, run `go run ./cmd/manager/*.go server`
+1. From the operator repo root directory, run `go run ./cmd/operator/*.go server`
 
 To use Remote debugging with IntelliJ, replace above step 2 with following:
 
-1. From ./cmd/manager path run
+1. From ./cmd/operator path run
 `
 dlv debug --headless --listen=:2345 --api-version=2 -- server
 `.
