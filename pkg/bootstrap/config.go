@@ -93,7 +93,6 @@ type Config struct {
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
-	StsPort             int
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
