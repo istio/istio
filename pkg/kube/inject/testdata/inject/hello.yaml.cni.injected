@@ -148,7 +148,7 @@ spec:
           readOnly: true
       initContainers:
       - command:
-        - istio-iptables
+        - istio-iptables-go
         - -p
         - "15001"
         - -z

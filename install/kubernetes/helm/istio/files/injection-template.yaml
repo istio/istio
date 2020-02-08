@@ -16,7 +16,7 @@ initContainers:
   image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
 {{- end }}
   command:
-  - istio-iptables
+  - istio-iptables-go
   - "-p"
   - "15001"
   - "-z"

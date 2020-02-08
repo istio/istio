@@ -107,6 +107,7 @@ docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
+docker.proxyv2: tools/packaging/common/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 docker.proxyv2: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
