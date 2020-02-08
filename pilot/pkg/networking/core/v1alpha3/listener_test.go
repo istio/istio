@@ -37,6 +37,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	mixerClient "istio.io/api/mixer/v1/config/client"
 	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -2135,23 +2136,54 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 	serviceDiscovery.ServicesReturns(services, nil)
 
+	quotaSpec := &client.Quota{
+		Quota:  "test",
+		Charge: 1,
+	}
+
 	configStore := &fakes.IstioConfigStore{
-		QuotaSpecByDestinationStub: func(s *model.ServiceInstance) []model.Config {
-			if s.Service.Hostname.Matches(host.Name(limitedSvcName + ".default.svc.cluster.local")) {
+		ListStub: func(kind resource.GroupVersionKind, s string) (configs []model.Config, err error) {
+			if kind.String() == collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind().String() {
 				return []model.Config{
 					{
-						Spec: &client.QuotaRule{
-							Quotas: []*client.Quota{
+						ConfigMeta: model.ConfigMeta{
+							Type:      collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(),
+							Version:   collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Version(),
+							Name:      limitedSvcName,
+							Namespace: "default",
+						},
+						Spec: quotaSpec,
+					},
+				}, nil
+			} else if kind.String() == collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind().String() {
+				return []model.Config{
+					{
+						ConfigMeta: model.ConfigMeta{
+							Type:      collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(),
+							Version:   collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Version(),
+							Name:      limitedSvcName,
+							Namespace: "default",
+						},
+						Spec: &mixerClient.QuotaSpecBinding{
+							Services: []*mixerClient.IstioService{
 								{
-									Quota:  "test",
-									Charge: 1,
+									Name:      "thrift-service",
+									Namespace: "default",
+									Domain:    "cluster.local",
+									Service:   "thrift-service.default.svc.cluster.local",
+								},
+							},
+							QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
+								{
+									Name:      "thrift-service",
+									Namespace: "default",
 								},
 							},
 						},
 					},
-				}
+				}, nil
 			}
-			return []model.Config{}
+			return []model.Config{}, nil
 		},
 	}
 

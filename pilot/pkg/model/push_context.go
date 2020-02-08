@@ -926,6 +926,14 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initQuotaSpecs(env); err != nil {
+		return err
+	}
+
+	if err := ps.initQuotaSpecBindings(env); err != nil {
+		return err
+	}
+
 	// Must be initialized in the end
 	if err := ps.initSidecarScopes(env); err != nil {
 		return err
