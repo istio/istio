@@ -66,25 +66,32 @@ var (
 		{
 			"istio-grafana-configuration-dashboards-istio-mesh-dashboard",
 			"istio-mesh-dashboard.json",
-			nil,
+			[]string{
+				"galley_",
+				"istio_tcp_",
+			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-service-dashboard",
 			"istio-service-dashboard.json",
-			nil,
+			[]string{
+				"istio_tcp_",
+			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-workload-dashboard",
 			"istio-workload-dashboard.json",
-			nil,
+			[]string{
+				"istio_tcp_",
+			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-performance-dashboard",
 			"istio-performance-dashboard.json",
 			[]string{
 				// TODO add these back: https://github.com/istio/istio/issues/20175
-				`destination_workload="istio-telemetry"`,
-				`destination_workload="istio-policy"`,
+				`istio-telemetry`,
+				`istio-policy`,
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 				"container_fs_usage_bytes",
 			},
@@ -93,39 +100,24 @@ var (
 			"istio-grafana-configuration-dashboards-galley-dashboard",
 			"galley-dashboard.json",
 			[]string{
-				"validation_cert_key_update_errors",
-				"validation_failed",
-				"validation_http_error",
-				"event_error_total",
-				"converter_failure_total",
-				"request_nacks_total",
-				"runtime_strategy_timer",
-				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
-				"container_fs_usage_bytes",
+				// Exclude all metrics -- galley is disabled by default
+				"_",
 			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-mixer-dashboard",
 			"mixer-dashboard.json",
 			[]string{
-				"grpc_code",
-				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
-				"container_fs_usage_bytes",
+				// Exclude all metrics -- mixer is disabled by default
+				"_",
 			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-citadel-dashboard",
 			"citadel-dashboard.json",
 			[]string{
-				"citadel_server_csr_count",
-				"citadel_server_success_cert_issuance_count",
-				"citadel_secret_controller_csr_err_count",
-				"citadel_server_csr_parsing_err_count",
-				"citadel_server_authentication_failure_count",
-				"acc_deleted_cert_count",
-				"secret_deleted_cert_count",
-				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
-				"container_fs_usage_bytes",
+				// Exclude all metrics -- citadel is disabled by default
+				"_",
 			},
 		},
 	}
@@ -220,7 +212,7 @@ func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 		}
 	} else {
 		if numSamples != 0 {
-			scopes.CI.Infof("Filtered out metric '%v', but got samples: %v", query, value)
+			scopes.CI.Debugf("Filtered out metric '%v', but got samples: %v", query, value)
 		}
 	}
 	return nil
