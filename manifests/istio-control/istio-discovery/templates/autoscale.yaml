@@ -1,4 +1,4 @@
-{{ if not .Values.clusterResources }}
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler

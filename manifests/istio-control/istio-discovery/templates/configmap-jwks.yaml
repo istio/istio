@@ -1,4 +1,4 @@
-{{ if not .Values.clusterResources }}
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if .Values.pilot.jwksResolverExtraRootCA }}
 apiVersion: v1
 kind: ConfigMap

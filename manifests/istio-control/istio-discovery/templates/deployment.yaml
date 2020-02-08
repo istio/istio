@@ -1,4 +1,4 @@
-{{ if not .Values.clusterResources }}
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
