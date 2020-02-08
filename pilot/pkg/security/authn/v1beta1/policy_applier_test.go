@@ -1193,6 +1193,31 @@ func TestOnInboundFilterChain(t *testing.T) {
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
 
+	expectedStrict := []plugin.FilterChain{
+		{
+			TLSContext: tlsContext,
+		},
+	}
+
+	// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
+	expectedPermissive := []plugin.FilterChain{
+		{
+			TLSContext: tlsContext,
+			FilterChainMatch: &listener.FilterChainMatch{
+				ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
+			},
+			ListenerFilters: []*listener.ListenerFilter{
+				{
+					Name:       "envoy.listener.tls_inspector",
+					ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
+				},
+			},
+		},
+		{
+			FilterChainMatch: &listener.FilterChainMatch{},
+		},
+	}
+
 	cases := []struct {
 		name         string
 		peerPolicies []*model.Config
@@ -1201,24 +1226,8 @@ func TestOnInboundFilterChain(t *testing.T) {
 		expected     []plugin.FilterChain
 	}{
 		{
-			name: "No policy - behave as permissive",
-			expected: []plugin.FilterChain{
-				{
-					TLSContext: tlsContext,
-					FilterChainMatch: &listener.FilterChainMatch{
-						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
-					},
-					ListenerFilters: []*listener.ListenerFilter{
-						{
-							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
-						},
-					},
-				},
-				{
-					FilterChainMatch: &listener.FilterChainMatch{},
-				},
-			},
+			name:     "No policy - behave as permissive",
+			expected: expectedPermissive,
 		},
 		{
 			name: "Single policy - disable mode",
@@ -1244,23 +1253,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: []plugin.FilterChain{
-				{
-					TLSContext: tlsContext,
-					FilterChainMatch: &listener.FilterChainMatch{
-						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
-					},
-					ListenerFilters: []*listener.ListenerFilter{
-						{
-							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
-						},
-					},
-				},
-				{
-					FilterChainMatch: &listener.FilterChainMatch{},
-				},
-			},
+			expected: expectedPermissive,
 		},
 		{
 			name: "Single policy - strict mode",
@@ -1273,11 +1266,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: []plugin.FilterChain{
-				{
-					TLSContext: tlsContext,
-				},
-			},
+			expected: expectedStrict,
 		},
 		{
 			name: "Multiple policies resolved to STRICT",
@@ -1317,11 +1306,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: []plugin.FilterChain{
-				{
-					TLSContext: tlsContext,
-				},
-			},
+			expected: expectedStrict,
 		},
 		{
 			name: "Multiple policies resolved to PERMISSIVE",
@@ -1361,23 +1346,50 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: []plugin.FilterChain{
+			expected: expectedPermissive,
+		},
+		{
+			name: "Port level hit",
+			peerPolicies: []*model.Config{
 				{
-					TLSContext: tlsContext,
-					FilterChainMatch: &listener.FilterChainMatch{
-						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
-					},
-					ListenerFilters: []*listener.ListenerFilter{
-						{
-							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+						},
+						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+							8080: {
+								Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+							},
 						},
 					},
 				},
+			},
+			expected: expectedStrict,
+		},
+		{
+			name: "Port level miss",
+			peerPolicies: []*model.Config{
 				{
-					FilterChainMatch: &listener.FilterChainMatch{},
+					Spec: &v1beta1.PeerAuthentication{
+						Selector: &type_beta.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
+						},
+						PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+							7070: {
+								Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+							},
+						},
+					},
 				},
 			},
+			expected: expectedPermissive,
 		},
 		{
 			name: "Fallback to alpha API",
@@ -1392,24 +1404,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-			expected: []plugin.FilterChain{
-				{
-					TLSContext: tlsContext,
-					FilterChainMatch: &listener.FilterChainMatch{
-						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
-					},
-					ListenerFilters: []*listener.ListenerFilter{
-						{
-							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
-						},
-					},
-				},
-				{
-					FilterChainMatch: &listener.FilterChainMatch{},
-				},
-			},
+			expected: expectedPermissive,
 		},
 		{
 			name: "Ignore alpha API",
@@ -1433,7 +1428,6 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			expected: nil,
 		},
 	}
@@ -1448,6 +1442,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies, tc.alphaPolicy).InboundFilterChain(
+				8080,
 				tc.sdsUdsPath,
 				testNode,
 			)
