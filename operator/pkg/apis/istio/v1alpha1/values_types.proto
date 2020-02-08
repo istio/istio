@@ -99,6 +99,8 @@ message CNIRepairConfig {
 
   string brokenPodLabelValue = 9;
 
+  string initContainerName = 10;
+
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.
