@@ -481,7 +481,9 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscover
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
 	// TODO: update the service deps based on NetworkScope
-
+	if con.node.Metadata.Namespace == "automtls" {
+		adsLog.Infof("incfly debug pushConnection invoked for conn: %v, pushEv %v", con.PeerAddr, *pushEv)
+	}
 	if pushEv.edsUpdatedServices != nil {
 		if !ProxyNeedsPush(con.node, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
@@ -532,6 +534,11 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	currentVersion := versionInfo()
 	pushTypes := PushTypeFor(con.node, pushEv)
 
+	// TODO(incfly): this is hardcoded bad.
+	// for k, v := range pushEv.configTypesUpdated {
+
+	// }
+
 	if con.CDSWatch && pushTypes[CDS] {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
@@ -539,6 +546,10 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 
+	if con.node.Metadata.Namespace == "automtls" {
+		adsLog.Infof("incfly debug pushConnection eds check cluster size %v, push type %v",
+			len(con.Clusters), pushTypes[EDS])
+	}
 	if len(con.Clusters) > 0 && pushTypes[EDS] {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
@@ -546,6 +557,9 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 	if con.LDSWatch && pushTypes[LDS] {
+		if con.node.Metadata.Namespace == "automtls" {
+			adsLog.Infof("incfly debug pushConnection lds invoked")
+		}
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
@@ -612,7 +626,10 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
-	if !req.Full {
+	if req.IncflyDebug != "" {
+		adsLog.Infof("incfly debug, AdsPushAll event happened %+v", *req)
+	}
+	if !req.Full || req.IncflyDebug != "" {
 		s.edsIncremental(version, req.Push, req)
 		return
 	}

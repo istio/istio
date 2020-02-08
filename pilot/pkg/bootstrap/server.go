@@ -795,6 +795,21 @@ func (s *Server) initEventHandlers() error {
 				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{curr.GroupVersionKind(): {}},
 				Reason:             []model.TriggerReason{model.ConfigUpdate},
 			}
+
+			// TODO(incfly): remove this, or generalize.
+			// Special handling of PeerAuthn.
+			log.Infof("incfly debug, inspect groupkind version %v", curr.GroupVersionKind())
+			if curr.GroupVersionKind() ==
+				collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() {
+				log.Infof("incfly debug special handler for peer authn config name %v, ns %v, pushReq %v", curr.Name,
+					curr.Namespace, *pushReq)
+				pushReq.IncflyDebug = "lol"
+				if pushReq.NamespacesUpdated == nil {
+					pushReq.NamespacesUpdated = map[string]struct{}{}
+				}
+				pushReq.NamespacesUpdated[curr.Namespace] = struct{}{}
+			}
+
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
 		for _, schema := range collections.Pilot.All() {

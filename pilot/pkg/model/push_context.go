@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
+	// authn_beta "istio.io/istio/pilot/pkg/security/authn/v1beta1"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -43,6 +44,15 @@ type Metrics interface {
 }
 
 var _ Metrics = &PushContext{}
+
+type EndpointMtlsStore struct {
+	store map[string]string
+}
+
+func (es *EndpointMtlsStore) Mtls(namespace string, labels labels.Instance, port uint32) bool {
+	// dummy version first, no cache.
+	return true
+}
 
 // PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
@@ -135,9 +145,24 @@ type PushContext struct {
 }
 
 // BetaPolicy place holder to return betap policy for mTLS.
-// TODO: fill this once diem pr is merged.
-func (ps *PushContext) BetaPolicyAbleAcceptMTLS(_ labels.Instance) bool {
-	return true
+func (ps *PushContext) EndpointAcceptMtls(
+	namespace string, labels labels.Collection, port uint32) bool {
+	betaPolicy := ps.AuthnBetaPolicies.GetPeerAuthenticationsForWorkload(namespace, labels)
+	if betaPolicy == nil {
+		if namespace == "automtls" {
+			log.Infof("incfly debug, empty policy")
+		}
+		return true
+	}
+	policy := composePeerAuthentication(ps.AuthnBetaPolicies.GetRootNamespace(), betaPolicy)
+	if policy == nil {
+		if namespace == "automtls" {
+			log.Infof("incfly debug, empty consolidated policy")
+		}
+		return true
+	}
+	mode := getMutualTLSMode(policy.Mtls)
+	return mode == MTLSPermissive || mode == MTLSStrict
 }
 
 // Gateway is the gateway of a network
@@ -208,6 +233,8 @@ type XDSUpdater interface {
 type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
+
+	IncflyDebug string
 
 	// NamespacesUpdated contains a list of namespaces whose services/endpoints were changed in the update.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
