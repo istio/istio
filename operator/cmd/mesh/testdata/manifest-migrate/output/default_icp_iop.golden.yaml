@@ -197,8 +197,6 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
-  meshConfig:
-    rootNamespace: istio-system
   tag: latest
   values:
     certmanager:

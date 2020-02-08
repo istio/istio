@@ -22,6 +22,7 @@ spec:
         app: user-volume
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: user-volume
+        service.istio.io/canonical-revision: latest
         tier: backend
         track: stable
     spec:
@@ -195,9 +196,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory

@@ -18,6 +18,7 @@ spec:
         app: hello
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: hello
+        service.istio.io/canonical-revision: latest
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -184,9 +185,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory

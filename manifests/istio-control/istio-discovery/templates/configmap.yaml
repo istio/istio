@@ -142,32 +142,8 @@ data:
       - {{ . | quote }}
       {{- end }}
 
-    {{- if .Values.global.istiod.enabled }}
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
-    {{- else }}
-
-    # Set expected values when SDS is disabled
-    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
-    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
-    sdsUdsPath: ""
-
-    # This flag is used by secret discovery service(SDS).
-    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
-    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
-    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
-    enableSdsTokenMount: false
-
-    # This flag is used by secret discovery service(SDS).
-    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
-    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
-    # and pass to sds server, which will be used to request key/cert eventually.
-    # this flag is ignored if enableSdsTokenMount is set.
-    # This isn't supported for non-k8s case.
-    sdsUseK8sSaJwt: false
-    {{- end }}
 
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
@@ -274,38 +250,10 @@ data:
         {{- end }}
       {{- end }}
 
-    {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
-    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
-
-    {{- if .Values.global.istiod.enabled }}
-      # If port is 15012, will use SDS.
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: {{ $defPilotHostname }}.svc:15012
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}.svc:15012
 
-    {{- else if .Values.global.controlPlaneSecurityEnabled }}
-      #
-      # Mutual TLS authentication between sidecars and istio control plane.
-      controlPlaneAuthPolicy: MUTUAL_TLS
-      #
-      # Address where istio Pilot service is running
-      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-      discoveryAddress: {{ $defPilotHostname }}:15011
-      {{- else }}
-      discoveryAddress: {{ $pilotAddress }}:15011
-      {{- end }}
-    {{- else }}
-      #
-      # Mutual TLS authentication between sidecars and istio control plane.
-      controlPlaneAuthPolicy: NONE
-      #
-      # Address where istio Pilot service is running
-      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-      discoveryAddress: {{ $defPilotHostname }}:15010
-      {{- else }}
-      discoveryAddress: {{ $pilotAddress }}:15010
-      {{- end }}
-    {{- end }}
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
       #

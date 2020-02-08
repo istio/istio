@@ -45,7 +45,7 @@ const (
 )
 
 func makeClient(desc collection.Schemas) (*crd.Client, error) {
-	cl, err := crd.NewClient("", "", desc, "", &model.DisabledLedger{})
+	cl, err := crd.NewClient("", "", desc, "", &model.DisabledLedger{}, "")
 	if err != nil {
 		return nil, err
 	}

@@ -1,10 +1,10 @@
 apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
+metadata:
+  namespace: istio-system
 spec:
   hub: gcr.io/istio-testing
   tag: latest
-  meshConfig:
-    rootNamespace: istio-system
 
   # Traffic management feature
   components:
@@ -24,18 +24,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-pilot
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
         readinessProbe:
           httpGet:
             path: /ready
@@ -201,10 +189,24 @@ spec:
   addonComponents:
     prometheus:
       enabled: true
+      k8s:
+        replicaCount: 1
+    kiali:
+      enabled: false
+      k8s:
+        replicaCount: 1
+    grafana:
+      enabled: false
+      k8s:
+        replicaCount: 1
+    tracing:
+      enabled: false
 
   # Global values passed through to helm global.yaml.
+  # Please keep this in sync with manifests/global.yaml
   values:
     global:
+      istioNamespace: istio-system
       istiod:
         enabled: true
       logging:
@@ -533,8 +535,6 @@ spec:
         autoInject: true
 
     prometheus:
-      enabled: true
-      replicaCount: 1
       hub: docker.io/prom
       tag: v2.15.1
       retention: 6h
@@ -554,8 +554,6 @@ spec:
       podAntiAffinityTermLabelSelector: []
 
     grafana:
-      enabled: false
-      replicaCount: 1
       image:
         repository: grafana/grafana
         tag: 6.5.2
@@ -604,7 +602,6 @@ spec:
       envSecrets: {}
 
     tracing:
-      enabled: false
       provider: jaeger
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -664,8 +661,6 @@ spec:
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     kiali:
-      enabled: false
-      replicaCount: 1
       hub: quay.io/kiali
       tag: v1.9
       contextPath: /kiali

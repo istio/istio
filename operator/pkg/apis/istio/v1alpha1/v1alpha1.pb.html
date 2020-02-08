@@ -342,6 +342,15 @@ No
 No
 </td>
 </tr>
+<tr id="CNIRepairConfig-initContainerName">
+<td><code>initContainerName</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1283,7 +1292,7 @@ No
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
-<p>Controls whether Galley is enabled.</p>
+<p>Controls whether Galley is enabled</p>
 
 </td>
 <td>
@@ -2165,17 +2174,6 @@ No
 No
 </td>
 </tr>
-<tr id="GlobalConfig-mountMtlsCerts">
-<td><code>mountMtlsCerts</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="GlobalConfig-defaultNodeSelector" class="deprecated ">
 <td><code>defaultNodeSelector</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -2826,11 +2824,12 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="IstiodConfig-enabled">
+<tr id="IstiodConfig-enabled" class="deprecated ">
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
-<p>If enabled, all control plane functionality will be handled by a single deployment.</p>
+<p>If enabled, all control plane functionality will be handled by a single deployment.
+Deprecated. This field is always ignored and assumed true.</p>
 
 </td>
 <td>
@@ -3045,6 +3044,15 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-prometheusAddr" class="deprecated ">
+<td><code>prometheusAddr</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No
@@ -5628,6 +5636,15 @@ No
 No
 </td>
 </tr>
+<tr id="ProxyConfig-outlierLogPath">
+<td><code>outlierLogPath</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="ProxyConfig-resources" class="deprecated ">
 <td><code>resources</code></td>
 <td><code><a href="#Resources">Resources</a></code></td>
@@ -5636,6 +5653,15 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="ProxyConfig-enableCoreDumpImage" class="deprecated ">
+<td><code>enableCoreDumpImage</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No

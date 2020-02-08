@@ -99,6 +99,8 @@ message CNIRepairConfig {
 
   string brokenPodLabelValue = 9;
 
+  string initContainerName = 10;
+
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.
@@ -318,6 +320,7 @@ message EgressGatewayConfig {
   TypeSliceOfMapStringInterface additionalContainers = 24;
 }
 
+
 // EnvoyMetricsConfig is a set of configuration options for Envoy metrics.
 message EnvoyMetricsConfig {
   // Enables the Envoy Metrics Service.
@@ -336,7 +339,7 @@ message EnvoyMetricsConfig {
 
 // GalleyConfig is a set of Configuration for Galley.
 message GalleyConfig {
-  // Controls whether Galley is enabled.
+  // Controls whether Galley is enabled
   google.protobuf.BoolValue enabled = 1;
 
   // Image name used for Galley.
@@ -630,10 +633,12 @@ message GlobalConfig {
   // Specifies the configuration for Security Token Service.
   STSConfig sts = 58;
 
-  // Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.
-  google.protobuf.BoolValue mountMtlsCerts = 59;
+  // Configures the revision this control plane is a part of
+  string revision = 59;
 
-  // The next available key is 60
+  // Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.
+  google.protobuf.BoolValue mountMtlsCerts = 60;
+  // The next available key is 61
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -645,7 +650,8 @@ message STSConfig {
 
 message IstiodConfig {
   // If enabled, all control plane functionality will be handled by a single deployment.
-  google.protobuf.BoolValue enabled = 1;
+  // Deprecated. This field is always ignored and assumed true.
+  google.protobuf.BoolValue enabled = 1 [deprecated=true];
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
@@ -1549,6 +1555,10 @@ message ProxyConfig {
   string connectTimeout = 30;
 
   google.protobuf.Duration parentShutdownDuration = 32;
+
+  string enableCoreDumpImage = 33 [deprecated=true];
+
+  string outlierLogPath = 34;
 }
 
 // Specifies which tracer to use.
@@ -2161,6 +2171,8 @@ message KialiConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   Resources resources = 17 [deprecated=true];
+
+  string prometheusAddr = 18 [deprecated=true];
 }
 
 message Values {
