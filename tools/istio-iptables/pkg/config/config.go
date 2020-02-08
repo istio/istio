@@ -17,6 +17,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 
 	"istio.io/pkg/log"
 )
@@ -41,7 +42,7 @@ type Config struct {
 	RestoreFormat           bool   `json:"RESTORE_FORMAT"`
 	SkipRuleApply           bool   `json:"SKIP_RULE_APPLY"`
 	RunValidation           bool   `json:"RUN_VALIDATION"`
-	EnableInboundIPv6       bool   `json:"ENABLE_INBOUND_IPV6"`
+	EnableInboundIPv6s      net.IP `json:"ENABLE_INBOUND_IPV6"`
 }
 
 func (c *Config) String() string {

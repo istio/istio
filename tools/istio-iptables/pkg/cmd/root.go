@@ -18,25 +18,16 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/user"
 	"strconv"
 	"strings"
-
-	"istio.io/istio/tools/istio-iptables/pkg/validation"
-
-	"istio.io/istio/tools/istio-iptables/pkg/config"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
-	"istio.io/pkg/env"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"istio.io/pkg/log"
-)
+	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 
-var (
-	envoyUserVar = env.RegisterStringVar(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
+	"istio.io/pkg/log"
 )
 
 var rootCmd = &cobra.Command{
@@ -44,34 +35,12 @@ var rootCmd = &cobra.Command{
 	Long: "Script responsible for setting up port forwarding for Istio sidecar.",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
-		var ext dep.Dependencies
-		if cfg.DryRun {
-			ext = &dep.StdoutStubDependencies{}
-		} else {
-			ext = &dep.RealDependencies{}
-		}
-
-		iptConfigurator := NewIptablesConfigurator(cfg, ext)
-		if !cfg.SkipRuleApply {
-			iptConfigurator.run()
-		}
-		if cfg.RunValidation {
-			hostIP, err := getLocalIP()
-			if err != nil {
-				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
-				panic(err)
-			}
-			validator := validation.NewValidator(cfg, hostIP)
-
-			if validator.Run() != nil {
-				os.Exit(constants.ValidationErrorCode)
-			}
-		}
+		run(cfg)
 	},
 }
 
 func constructConfig() *config.Config {
-	cfg := &config.Config{
+	return &config.Config{
 		DryRun:                  viper.GetBool(constants.DryRun),
 		RestoreFormat:           viper.GetBool(constants.RestoreFormat),
 		ProxyPort:               viper.GetString(constants.EnvoyPort),
@@ -90,35 +59,8 @@ func constructConfig() *config.Config {
 		IptablesProbePort:       uint16(viper.GetUint(constants.IptablesProbePort)),
 		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
 		RunValidation:           viper.GetBool(constants.RunValidation),
+		EnableInboundIPv6s:      nil,
 	}
-
-	// TODO: Make this more configurable, maybe with a whitelist of users to be captured for output instead of a blacklist.
-	if cfg.ProxyUID == "" {
-		usr, err := user.Lookup(envoyUserVar.Get())
-		var userID string
-		// Default to the UID of ENVOY_USER and root
-		if err != nil {
-			userID = constants.DefaultProxyUID
-		} else {
-			userID = usr.Uid
-		}
-		// If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list
-		// for the CA agent.
-		cfg.ProxyUID = userID + ",0"
-	}
-	// For TPROXY as its uid and gid are same.
-	if cfg.ProxyGID == "" {
-		cfg.ProxyGID = cfg.ProxyUID
-	}
-
-	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	podIP, err := getLocalIP()
-	if err != nil {
-		panic(err)
-	}
-	cfg.EnableInboundIPv6 = podIP.To4() == nil
-
-	return cfg
 }
 
 // getLocalIP returns the local IP address

@@ -42,15 +42,12 @@ var BuiltInChainsMap = map[string]struct{}{
 const (
 	TCP = "tcp"
 
-	TPROXY     = "TPROXY"
-	PREROUTING = "PREROUTING"
-	RETURN     = "RETURN"
-	ACCEPT     = "ACCEPT"
-	REJECT     = "REJECT"
-	INPUT      = "INPUT"
-	OUTPUT     = "OUTPUT"
-	REDIRECT   = "REDIRECT"
-	MARK       = "MARK"
+	TPROXY   = "TPROXY"
+	RETURN   = "RETURN"
+	ACCEPT   = "ACCEPT"
+	REJECT   = "REJECT"
+	REDIRECT = "REDIRECT"
+	MARK     = "MARK"
 )
 
 // iptables chains
