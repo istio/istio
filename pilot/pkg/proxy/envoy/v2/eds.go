@@ -17,7 +17,7 @@ package v2
 import (
 	"reflect"
 	"strconv"
-	"strings"
+	// "strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -196,9 +196,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	var subsetName string
 	_, subsetName, hostname, clusterPort = model.ParseSubsetKey(clusterName)
 
-	if strings.Contains(clusterName, "httpbin") {
-		adsLog.Infof("incfly debug, updateClusterInc for httpbin %v", clusterName)
-	}
+	// if strings.Contains(clusterName, "httpbin") {
+	// 	adsLog.Infof("incfly 111, updateClusterInc for httpbin %v", clusterName)
+	// }
 
 	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
 	// (public/private) as well as sidecar scopes allowing import of
@@ -231,9 +231,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
-	if strings.Contains(clusterName, "httpbin") {
-		adsLog.Infof("incfly debug, updateClusterInc about to build lb endpoint %v", clusterName)
-	}
+	// if strings.Contains(clusterName, "httpbin") {
+	// 	adsLog.Infof("incfly 111, updateClusterInc about to build lb endpoint %v", clusterName)
+	// }
 
 	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push)
 	// There is a chance multiple goroutines will update the cluster at the same time.
@@ -393,31 +393,23 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	for k, v := range edsClusters {
 		_, _, hostname, _ := model.ParseSubsetKey(k)
 		_, ok := req.EdsUpdates[string(hostname)]
-		incfly := false
 		if req.IncflyDebug != "" {
-			// adsLog.Infof("incfly debug, edsIncremental hit")
 			svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-			// adsLog.Infof("incfly debug, edsIncremental included or not. svc %v", svc)
 			if svc != nil {
 				_, okf := req.NamespacesUpdated[svc.Attributes.Namespace]
 				if okf {
 					adsLog.Infof("incfly debug, edsIncremental included, svc %v", svc.Attributes.Name)
-					incfly = true
 					ok = true
 				}
 			}
 		}
+		if req.UpdateAllClusterDueToPeerAuthn {
+			ok = true
+		}
 		if !ok {
 			continue
 		}
-		// if _, ok := req.EdsUpdates[string(hostname)]; !ok {
-		// 	// Cluster was not updated, skip recomputing.
-		// 	continue
-		// }
 		cMap[k] = v
-		if incfly {
-			adsLog.Infof("incfly debug edsIncremental %v", cMap)
-		}
 	}
 	edsClusterMutex.Unlock()
 
@@ -946,8 +938,13 @@ func buildLocalityLbEndpointsFromShards(
 			// labels.Collection seems really not needed...
 			ns := ep.Attributes.Namespace
 			if ns == "automtls" {
+				canMtls := push.EndpointAcceptMtls(ns, labels.Collection{ep.Labels}, ep.EndpointPort)
 				adsLog.Warnf("incfly debug, endpoint-mtls %v, mTLS result %v",
-					ep, push.EndpointAcceptMtls(ns, labels.Collection{ep.Labels}, ep.EndpointPort))
+					ep, canMtls)
+				// negate the endpoint level mtls capabilities.
+				if !canMtls {
+					ep.TLSMode = model.DisabledTLSModeLabel
+				}
 			}
 			if ep.EnvoyEndpoint == nil {
 				tlsLabel := ep.TLSMode

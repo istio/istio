@@ -798,14 +798,18 @@ func (s *Server) initEventHandlers() error {
 
 			// TODO(incfly): remove this, or generalize.
 			// Special handling of PeerAuthn.
-			log.Infof("incfly debug, inspect groupkind version %v", curr.GroupVersionKind())
 			if curr.GroupVersionKind() ==
 				collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() {
-				log.Infof("incfly debug special handler for peer authn config name %v, ns %v, pushReq %v", curr.Name,
-					curr.Namespace, *pushReq)
+				// log.Infof("incfly 111 special handler for peer authn config name %v, ns %v, pushReq %v", curr.Name,
+				// 	curr.Namespace, *pushReq)
 				pushReq.IncflyDebug = "lol"
 				if pushReq.NamespacesUpdated == nil {
 					pushReq.NamespacesUpdated = map[string]struct{}{}
+				}
+
+				// if happens to be the root config, update all.
+				if curr.Namespace == "root-config" {
+					pushReq.UpdateAllClusterDueToPeerAuthn = true
 				}
 				pushReq.NamespacesUpdated[curr.Namespace] = struct{}{}
 			}

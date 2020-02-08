@@ -145,13 +145,13 @@ type PushContext struct {
 }
 
 // BetaPolicy place holder to return betap policy for mTLS.
+// TODO: for reviewer, this will be updated to a cache: map, k = <namespace, has(label-set), port>, value : true or false
+// determing whether this particular port can accept mTLS.
+// In future, authn applier can also benefits from the same optimization.
 func (ps *PushContext) EndpointAcceptMtls(
 	namespace string, labels labels.Collection, port uint32) bool {
 	betaPolicy := ps.AuthnBetaPolicies.GetPeerAuthenticationsForWorkload(namespace, labels)
 	if betaPolicy == nil {
-		if namespace == "automtls" {
-			log.Infof("incfly debug, empty policy")
-		}
 		return true
 	}
 	policy := composePeerAuthentication(ps.AuthnBetaPolicies.GetRootNamespace(), betaPolicy)
@@ -242,6 +242,8 @@ type PushRequest struct {
 	// If this is empty, then all proxies will get an update.
 	// If this is present, then only proxies that import this namespace will get an update
 	NamespacesUpdated map[string]struct{}
+
+	UpdateAllClusterDueToPeerAuthn bool
 
 	// ConfigTypesUpdated contains the types of configs that have changed.
 	// The config types are those defined in pkg/config/schemas
