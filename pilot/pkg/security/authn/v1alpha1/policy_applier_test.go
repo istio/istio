@@ -990,7 +990,9 @@ func TestOnInboundFilterChains(t *testing.T) {
 			},
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
+				Metadata: &model.NodeMetadata{
+					SdsEnabled: true,
+				},
 			},
 			expected: []plugin.FilterChain{
 				{
@@ -1009,6 +1011,25 @@ func TestOnInboundFilterChains(t *testing.T) {
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
+				},
+			},
+		},
+		{
+			name: "mTLS policy using SDS without node meta",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
+					},
+				},
+			},
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: tlsContext,
 				},
 			},
 		},
@@ -1068,13 +1089,15 @@ func TestOnInboundFilterChains(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		got := NewPolicyApplier(c.in).InboundFilterChain(
-			c.sdsUdsPath,
-			c.node,
-		)
-		if !reflect.DeepEqual(got, c.expected) {
-			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			got := NewPolicyApplier(c.in).InboundFilterChain(
+				c.sdsUdsPath,
+				c.node,
+			)
+			if !reflect.DeepEqual(got, c.expected) {
+				t.Errorf("[%v] unexpected filter chains, got \n%v, want \n%v", c.name, got, c.expected)
+			}
+		})
 	}
 }
 
