@@ -45,15 +45,6 @@ type Metrics interface {
 
 var _ Metrics = &PushContext{}
 
-type EndpointMtlsStore struct {
-	store map[string]string
-}
-
-func (es *EndpointMtlsStore) Mtls(namespace string, labels labels.Instance, port uint32) bool {
-	// dummy version first, no cache.
-	return true
-}
-
 // PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
 // values are zero, and when push completes the status is reset.
