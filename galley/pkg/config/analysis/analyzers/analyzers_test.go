@@ -68,6 +68,29 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "jwtTargetsInvalidServicePortName",
+		inputFiles: []string{"testdata/jwt-invalid-service-port-name.yaml"},
+		analyzer:   &auth.JwtAnalyzer{},
+		expected: []message{
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-specified-ports.namespace-port-missing-prefix"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-without-specified-ports.namespace-port-missing-prefix"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-without-specified-ports.namespace-port-missing-prefix"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-udp-target-port.namespace-with-non-tcp-protocol"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-invalid-named-target-port.namespace-with-invalid-named-port"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix,
+				"Policy policy-with-valid-named-target-port-invalid-protocol.namespace-with-valid-named-port-invalid-protocol"},
+		},
+	},
+	{
+		name:       "jwtTargetsValidServicePortName",
+		inputFiles: []string{"testdata/jwt-valid-service-port-name.yaml"},
+		analyzer:   &auth.JwtAnalyzer{},
+		expected:   []message{
+			// port prefixes all pass
+		},
+	},
+
+	{
 		name:       "serviceRoleBindings",
 		inputFiles: []string{"testdata/servicerolebindings.yaml"},
 		analyzer:   &auth.ServiceRoleBindingAnalyzer{},
