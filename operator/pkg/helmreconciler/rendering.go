@@ -25,6 +25,7 @@ import (
 	util2 "k8s.io/kubectl/pkg/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
@@ -276,22 +277,32 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 		return utilerrors.NewAggregate(allErrors)
 	}
 
-	err := util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
+	mutatedObj, err := h.customizer.Listener().BeginResource(chartName, obj)
+	if err != nil {
+		log.Errorf("error preprocessing object: %s", err)
+		return err
+	}
+
+	err = util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
 	if err != nil {
 		log.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
-	objectKey, _ := client.ObjectKeyFromObject(obj)
+	receiver.SetGroupVersionKind(mutatedObj.GetObjectKind().GroupVersionKind())
+	objectKey, _ := client.ObjectKeyFromObject(mutatedObj)
 
 	if err = h.client.Get(context.TODO(), objectKey, receiver); apierrors.IsNotFound(err) {
 		log.Infof("creating resource: %s", objectKey)
-		return h.client.Create(context.TODO(), obj)
+		return h.client.Create(context.TODO(), mutatedObj)
 	} else if err == nil {
 		log.Infof("updating resource: %s", objectKey)
-		obj.SetResourceVersion(receiver.GetResourceVersion())
-		return h.client.Update(context.TODO(), obj)
+		updatedAccessor, err := meta.Accessor(mutatedObj)
+		if err != nil {
+			return fmt.Errorf("cannot create object accessor for mutatedObj:\n%v", mutatedObj)
+		}
+		updatedAccessor.SetResourceVersion(receiver.GetResourceVersion())
+		return h.client.Update(context.TODO(), mutatedObj)
 	}
 	return err
 }
