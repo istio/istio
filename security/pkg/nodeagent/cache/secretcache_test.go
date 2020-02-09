@@ -1088,10 +1088,10 @@ func convertToBytes(ss []string) []byte {
 }
 
 func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
-	testWorkloadAgentGenerateSecretfromFile(t)
+	testWorkloadAgentGenerateSecretFromFile(t)
 }
 
-func testWorkloadAgentGenerateSecretfromFile(t *testing.T) {
+func testWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1)
 	opt := Options{
 		SecretTTL:                time.Minute,
@@ -1102,7 +1102,8 @@ func testWorkloadAgentGenerateSecretfromFile(t *testing.T) {
 	}
 
 	existingCertChainFile = "./testdata/cert-chain.pem"
-	existingKeyFile =
+	existingKeyFile = "./testdata/privatekey.pem"
+	ExistingRootCertFile = "./testdata/cert-chain.pem"
 
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
@@ -1115,8 +1116,6 @@ func testWorkloadAgentGenerateSecretfromFile(t *testing.T) {
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
-	checkBool(t, "opt.AlwaysValidTokenFlag default", opt.AlwaysValidTokenFlag, false)
-
 	conID := "proxy1-id"
 	ctx := context.Background()
 	gotSecret, err := sc.GenerateSecret(ctx, conID, testResourceName, "jwtToken1")
@@ -1124,23 +1123,25 @@ func testWorkloadAgentGenerateSecretfromFile(t *testing.T) {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
 
-	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChain1st); !bytes.Equal(got, want) {
+	if got, want := gotSecret.CertificateChain, certchain; !bytes.Equal(got, want) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
+	}
+	privateKey, _ := ioutil.ReadFile(existingKeyFile)
+	if got, want := gotSecret.PrivateKey, privateKey; !bytes.Equal(got, want) {
+		t.Errorf("PrivateKey: got: %v, want: %v", got, want)
 	}
 
 	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName, "jwtToken1", gotSecret.Version), true)
-	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName, "nonexisttoken", gotSecret.Version), false)
 
 	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := gotSecretRoot.RootCert, []byte("rootcert"); !bytes.Equal(got, want) {
+	if got, want := gotSecretRoot.RootCert, certchain; !bytes.Equal(got, want) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
 	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "jwtToken1", gotSecretRoot.Version), true)
-	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "nonexisttoken", gotSecretRoot.Version), false)
 
 	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
 		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
@@ -1156,21 +1157,6 @@ func testWorkloadAgentGenerateSecretfromFile(t *testing.T) {
 	}
 	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
 		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
-	}
-
-	sc.configOptions.SkipValidateCert = false
-	// Try to get secret again using different jwt token, verify secret is re-generated.
-	gotSecret, err = sc.GenerateSecret(ctx, conID, testResourceName, "newToken")
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
-	}
-	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChainRemain); !bytes.Equal(got, want) {
-		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
-	}
-
-	// Root cert is parsed from CSR response, it's updated since 2nd CSR is different from 1st.
-	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(1); got != want {
-		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
 	}
 
 	// Wait until unused secrets are evicted.
