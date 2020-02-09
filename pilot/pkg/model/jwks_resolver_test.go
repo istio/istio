@@ -15,6 +15,7 @@
 package model
 
 import (
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -27,34 +28,50 @@ import (
 
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	tlsR := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, []string{"./test/testcert/cert.pem"})
 
 	ms, err := test.StartNewServer()
 	defer ms.Stop()
 	if err != nil {
 		t.Fatal("failed to start a mock server")
 	}
+	tlsMs, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
+	defer tlsMs.Stop()
+	if err != nil {
+		t.Fatal("failed to start a TLS mock server")
+	}
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	tlsMockCertURL := tlsMs.URL + "/oauth2/v3/certs"
 	cases := []struct {
 		in              string
 		expectedJwksURI string
 		expectedError   bool
+		resolver        *JwksResolver
 	}{
 		{
 			in:              ms.URL,
 			expectedJwksURI: mockCertURL,
+			resolver:        r,
 		},
 		{
 			in:              ms.URL, // Send two same request, mock server is expected to hit only once because of the cache.
 			expectedJwksURI: mockCertURL,
+			resolver:        r,
 		},
 		{
 			in:            "http://xyz",
 			expectedError: true,
+			resolver:      r,
+		},
+		{
+			in:              strings.Replace(tlsMs.URL, "https://", "", 1), // Test without scheme
+			expectedJwksURI: tlsMockCertURL,
+			resolver:        tlsR,
 		},
 	}
 	for _, c := range cases {
-		jwksURI, err := r.resolveJwksURIUsingOpenID(c.in)
+		jwksURI, err := c.resolver.resolveJwksURIUsingOpenID(c.in)
 		if err != nil && !c.expectedError {
 			t.Errorf("resolveJwksURIUsingOpenID(%+v): got error (%v)", c.in, err)
 		} else if err == nil && c.expectedError {

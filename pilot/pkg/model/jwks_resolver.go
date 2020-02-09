@@ -260,6 +260,11 @@ func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 		return uri.(string), nil
 	}
 
+	// Default to https if the provided url has no scheme
+	if !strings.Contains(issuer, "://") {
+		issuer = "https://" + issuer
+	}
+
 	// Try to get jwks_uri through OpenID Discovery.
 	body, err := r.getRemoteContentWithRetry(issuer+openIDDiscoveryCfgURLSuffix, networkFetchRetryCountOnMainFlow)
 	if err != nil {
