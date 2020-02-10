@@ -131,10 +131,10 @@ func (rc *Context) Run(testCases []TestCase) {
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
 				return rc.g.ApplyConfig(c.Namespace, policyYAML)
 			})
-			ctx.WhenDone(func() error {
+			defer func() {
 				ctx.Logf("[%s] [%v] Delete config %s", testName, time.Now(), c.ConfigFile)
-				return rc.g.DeleteConfig(c.Namespace, policyYAML)
-			})
+				_ = rc.g.DeleteConfig(c.Namespace, policyYAML)
+			}()
 
 			// Give some time for the policy propagate.
 			// TODO: query pilot or app to know instead of sleep.
