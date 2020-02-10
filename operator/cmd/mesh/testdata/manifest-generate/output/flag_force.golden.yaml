@@ -1,5 +1,7 @@
 Validation errors (continuing because of --force):
 unknown field "badKey" in v1alpha1.GlobalConfig
+# AddonComponents prometheus component is disabled.
+
 # Base component is disabled.
 
 # Citadel component is disabled.

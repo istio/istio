@@ -31,8 +31,8 @@ var (
 	ValuesEnablementPathMap = make(map[string]string)
 )
 
-func init() {
-	for n := range name.AddonComponentNamesMap {
+func generateValuesEnablementMap() {
+	for n := range name.BundledAddonComponentNamesMap {
 		cn := strings.ToLower(string(n))
 		valuePath := fmt.Sprintf("spec.values.%s.enabled", cn)
 		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", cn)

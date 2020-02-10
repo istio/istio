@@ -42,8 +42,8 @@ const (
 	// addonsChartDirName is the default subdir for all addon charts.
 	addonsChartDirName = "addons"
 	// String to emit for any component which is disabled.
-	componentDisabledStr = " component is disabled."
-	yamlCommentStr       = "# "
+	componentDisabledStr = "component is disabled."
+	yamlCommentStr       = "#"
 
 	// devDbg generates lots of output useful in development.
 	devDbg = false
@@ -83,10 +83,8 @@ type CommonComponentFields struct {
 	resourceName string
 	// index is the index of the component (only used for components with multiple instances like gateways).
 	index int
-	// spec for the actual gateway, if the component is a gateway.
-	gatewaySpec *v1alpha1.GatewaySpec
-	// spec for the actual addon, if the component is a addon.
-	addonSpec *v1alpha1.ExternalComponentSpec
+	// spec for the actual component.
+	spec interface{}
 	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer
@@ -486,7 +484,7 @@ func NewIngressComponent(resourceName string, index int, spec *v1alpha1.GatewayS
 			componentName: cn,
 			resourceName:  resourceName,
 			index:         index,
-			gatewaySpec:   spec,
+			spec:          spec,
 		},
 	}
 }
@@ -519,20 +517,18 @@ func (c *IngressComponent) Namespace() string {
 // EgressComponent is the egress gateway component.
 type EgressComponent struct {
 	*CommonComponentFields
-	// resourceName is the name of all resources for this component.
-	resourceName string
 }
 
 // NewEgressComponent creates a new IngressComponent and returns a pointer to it.
 func NewEgressComponent(resourceName string, index int, spec *v1alpha1.GatewaySpec, opts *Options) *EgressComponent {
 	cn := name.EgressComponentName
 	return &EgressComponent{
-		resourceName: resourceName,
 		CommonComponentFields: &CommonComponentFields{
 			Options:       opts,
 			componentName: cn,
 			index:         index,
-			gatewaySpec:   spec,
+			spec:          spec,
+			resourceName:  resourceName,
 		},
 	}
 }
@@ -575,7 +571,7 @@ func NewAddonComponent(addonName, resourceName string, spec *v1alpha1.ExternalCo
 			componentName: name.AddonComponentName,
 			resourceName:  resourceName,
 			addonName:     addonName,
-			addonSpec:     spec,
+			spec:          spec,
 		},
 	}
 }
@@ -627,7 +623,7 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 
 	enabled, err := isComponentEnabled(c)
 	if !enabled {
-		return disabledYAMLStr(c.componentName, ""), nil
+		return disabledYAMLStr(c.componentName, c.resourceName), nil
 	}
 
 	mergedYAML, err := c.Translator.TranslateHelmValues(c.InstallSpec, c.componentName)
@@ -717,10 +713,11 @@ func isComponentEnabled(c *CommonComponentFields) (bool, error) {
 		}
 
 	case c.componentName.IsGateway():
-		enabled = boolValue(c.gatewaySpec.Enabled)
+		// type assert is guaranteed to work in this context.
+		enabled = boolValue(c.spec.(*v1alpha1.GatewaySpec).Enabled)
 
 	case c.componentName.IsAddon():
-		enabled = boolValue(c.addonSpec.Enabled)
+		enabled = boolValue(c.spec.(*v1alpha1.ExternalComponentSpec).Enabled)
 
 	default:
 		return false, fmt.Errorf("unknown component type %s", c.componentName)
@@ -735,7 +732,7 @@ func disabledYAMLStr(componentName name.ComponentName, resourceName string) stri
 	if resourceName != "" {
 		fullName += " " + resourceName
 	}
-	return fmt.Sprintf("%s%s %s\n", yamlCommentStr, fullName, componentDisabledStr)
+	return fmt.Sprintf("%s %s %s\n", yamlCommentStr, fullName, componentDisabledStr)
 }
 
 // boolValue returns true is v is not nil and v.Value is true, or false otherwise.

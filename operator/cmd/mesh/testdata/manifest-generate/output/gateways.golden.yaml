@@ -1,3 +1,5 @@
+# AddonComponents prometheus component is disabled.
+
 # Base component is disabled.
 
 # Citadel component is disabled.
@@ -825,7 +827,7 @@ spec:
         - "*/*"
 ---
 
-# Pilot component is disabled.
+# Pilot istio-pilot component is disabled.
 
 # Policy component is disabled.
 

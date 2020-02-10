@@ -21,12 +21,12 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	"istio.io/istio/operator/pkg/vfs"
+	"istio.io/istio/operator/version"
+
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/vfs"
-	binversion "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 )
 
@@ -71,6 +71,12 @@ const (
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
 )
 
+// ComponentNamesConfig is used for unmarshaling legacy and addon naming data.
+type ComponentNamesConfig struct {
+	BundledAddonComponentNames []string
+	DeprecatedComponentNames   []string
+}
+
 var (
 	scope                 = log.RegisterScope("name", "operator naming", 0)
 	AllCoreComponentNames = []ComponentName{
@@ -84,44 +90,21 @@ var (
 	}
 	allComponentNamesMap = make(map[ComponentName]bool)
 	// DeprecatedComponentNamesMap defines the names of deprecated istio core components used in old versions,
-	// which would not appear as standalone components in current version.
+	// which would not appear as standalone components in current version. This is used for pruning, and alerting
+	// users to the fact that the components are deprecated.
 	DeprecatedComponentNamesMap = make(map[ComponentName]bool)
-	// AddonComponentNamesMap defines the component name for addon components used in old versions.
-	AddonComponentNamesMap = make(map[ComponentName]bool)
+
+	// BundledAddonComponentNamesMap is a map of component names of addons which have helm charts bundled with Istio
+	// and have built in path definitions beyond standard addons coming from external charts.
+	BundledAddonComponentNamesMap = make(map[ComponentName]bool)
 )
 
 func init() {
 	for _, n := range AllCoreComponentNames {
 		allComponentNamesMap[n] = true
 	}
-	minorVersion := binversion.OperatorBinaryVersion.MinorVersion
-	f := filepath.Join(ConfigFolder, ConfigPrefix+minorVersion.String()+".yaml")
-	b, err := vfs.ReadFile(f)
-	if err != nil {
-		log.Errorf("fail to read naming file: %v", err)
-		return
-	}
-	names := make(map[string][]string)
-	err = yaml.Unmarshal(b, &names)
-	if err != nil {
-		scope.Errorf("fail to unmarshal naming config file: %v", err)
-		return
-	}
-	legacyAddonComponentNames, ok := names["legacyAddonComponentNames"]
-	if !ok {
-		scope.Errorf("fail to find legacyAddonComponentNames")
-		return
-	}
-	for _, an := range legacyAddonComponentNames {
-		AddonComponentNamesMap[ComponentName(an)] = true
-	}
-	deprecatedComponentNames, ok := names["deprecatedComponentNames"]
-	if !ok {
-		scope.Errorf("fail to find legacyAddonComponentNames")
-		return
-	}
-	for _, n := range deprecatedComponentNames {
-		DeprecatedComponentNamesMap[ComponentName(n)] = true
+	if err := loadComponentNamesConfig(); err != nil {
+		panic(err)
 	}
 }
 
@@ -146,22 +129,6 @@ func (cn ComponentName) IsGateway() bool {
 // IsAddon reports whether cn is an addon component.
 func (cn ComponentName) IsAddon() bool {
 	return cn == AddonComponentName
-}
-
-// NamespaceFromValue gets the namespace value in helm value.yaml tree.
-func NamespaceFromValue(valuePath string, valueSpec map[string]interface{}) (string, error) {
-	nsNodeI, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
-	if err != nil {
-		return "", fmt.Errorf("namespace path not found: %s from helm value.yaml tree", valuePath)
-	}
-	if !found || nsNodeI == nil {
-		return "", nil
-	}
-	nsNode, ok := nsNodeI.(string)
-	if !ok {
-		return "", fmt.Errorf("node at helm value.yaml tree path %s has bad type %T, expect string", valuePath, nsNodeI)
-	}
-	return nsNode, nil
 }
 
 // Namespace returns the namespace for the component. It follows these rules:
@@ -199,4 +166,27 @@ func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOper
 func TitleCase(n ComponentName) ComponentName {
 	s := string(n)
 	return ComponentName(strings.ToUpper(s[0:1]) + s[1:])
+}
+
+// loadComponentNamesConfig loads a config that defines version specific components names, such as legacy components
+// names that may not otherwise exist in the code.
+func loadComponentNamesConfig() error {
+	minorVersion := version.OperatorBinaryVersion.MinorVersion
+	f := filepath.Join(ConfigFolder, ConfigPrefix+minorVersion.String()+".yaml")
+	b, err := vfs.ReadFile(f)
+	if err != nil {
+		return fmt.Errorf("failed to read naming file: %v", err)
+	}
+	namesConfig := &ComponentNamesConfig{}
+	err = yaml.Unmarshal(b, &namesConfig)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal naming config file: %v", err)
+	}
+	for _, an := range namesConfig.BundledAddonComponentNames {
+		BundledAddonComponentNamesMap[ComponentName(an)] = true
+	}
+	for _, n := range namesConfig.DeprecatedComponentNames {
+		DeprecatedComponentNamesMap[ComponentName(n)] = true
+	}
+	return nil
 }
