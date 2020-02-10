@@ -56,6 +56,9 @@ type TestContext interface {
 	// RequireOrSkip skips the test if the environment is not as expected.
 	RequireOrSkip(envName environment.Name)
 
+	// WhenDone runs the given function when the test context completes.
+	WhenDone(fn func() error)
+
 	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
 	// allocated resources.
 	Done()
@@ -211,6 +214,10 @@ func (c *testContext) NewSubTest(name string) *Test {
 		parent: c.test,
 		s:      c.test.s,
 	}
+}
+
+func (c *testContext) WhenDone(fn func() error) {
+	c.scope.addCloser(&closer{fn})
 }
 
 func (c *testContext) Done() {
