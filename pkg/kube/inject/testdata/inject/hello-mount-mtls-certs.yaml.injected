@@ -1,24 +1,28 @@
-apiVersion: v1
-kind: DeploymentConfig
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   creationTimestamp: null
   name: hello
 spec:
   replicas: 7
-  revisionHistoryLimit: 2
-  selector: null
-  strategy:
-    type: Rolling
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
+  strategy: {}
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
+        sidecar.istio.io/interceptionMode: REDIRECT
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeInboundPorts: "80"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: hello
         security.istio.io/tlsMode: istio
-        service.istio.io/canonical-name: hello
-        service.istio.io/canonical-revision: latest
         tier: backend
         track: stable
     spec:
@@ -108,9 +112,16 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+            {"app":"hello","tier":"backend","track":"stable"}
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: hello
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_META_MESH_ID
           value: cluster.local
-        image: gcr.io/istio-release/proxyv2:master-latest-daily
+        image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy
         ports:
@@ -148,6 +159,9 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
       initContainers:
       - command:
         - istio-iptables
@@ -167,7 +181,7 @@ spec:
         - '*'
         - -d
         - "15020"
-        image: gcr.io/istio-release/proxy_init:master-latest-daily
+        image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-init
         resources:
@@ -204,6 +218,9 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.default
 status: {}
-
 ---
