@@ -80,8 +80,8 @@ func verifyDumpStatus(t *testing.T, tCase string, dumpJSON []byte, lastStatus ma
 		t.Errorf("(Test case %s), failed to unmarshal status dump: %v", tCase, err)
 	}
 	newStatusMap := extractTokenDumpToMap(newStatus)
-	t.Logf("Dump newStatusMap:\n%v", newStatusMap)
-	t.Logf("Dump lastStatus:\n%v", lastStatus)
+	t.Logf("Dump newStatusMap:\n%+v", newStatusMap)
+	t.Logf("Dump lastStatus:\n%+v", lastStatus)
 	for _, exp := range expected {
 		if newVal, ok := newStatusMap[exp]; !ok {
 			t.Errorf("(Test case %s), failed to find expected token %s in status dump", tCase, exp)
@@ -137,7 +137,7 @@ func defaultSTSRequest() stsservice.StsRequestParameters {
 
 // setUpTest sets up token manager, authorization server.
 func setUpTest(t *testing.T) (*Plugin, *mock.AuthorizationServer, string, string) {
-	tm, _ := CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL)
+	tm, _ := CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, false)
 	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
