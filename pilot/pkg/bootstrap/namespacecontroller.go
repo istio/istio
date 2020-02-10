@@ -177,7 +177,7 @@ func (nc *NamespaceController) configMapChange(obj interface{}) error {
 	cm, ok := obj.(*v1.ConfigMap)
 
 	if ok {
-		if err := certutil.UpdateDataInConfigMap(nc.core, cm, nc.getData()); err != nil {
+		if err := certutil.UpdateDataInConfigMap(nc.core, cm.DeepCopy(), nc.getData()); err != nil {
 			return fmt.Errorf("error when inserting CA cert to configmap %v: %v", cm.Name, err)
 		}
 	}
