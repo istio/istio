@@ -66,8 +66,7 @@ spec:
     headers:
       request:
         add:
-          istio-custom-header: user-defined-value
-				`,
+          istio-custom-header: user-defined-value`,
 					func(response *echoclient.ParsedResponse) error {
 						if response.RawResponse["Istio-Custom-Header"] != "user-defined-value" {
 							return fmt.Errorf("missing request header, have %+v", response.RawResponse)
@@ -96,9 +95,7 @@ spec:
         exact: /new/path
     route:
     - destination:
-        host: server
-
-`,
+        host: server`,
 					func(response *echoclient.ParsedResponse) error {
 						if response.URL != "/new/path" {
 							return fmt.Errorf("incorrect URL, have %+v %+v", response.RawResponse["URL"], response.URL)
