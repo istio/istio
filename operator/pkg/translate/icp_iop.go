@@ -185,7 +185,7 @@ components:
 func checkIstioControlPlane(icpStr string) error {
 	// First, check if this is even an IstioControlPlane kind.
 	icp := &icpv1alpha2.IstioControlPlane{}
-	if err := util.UnmarshalWithJSONPB(icpStr, icp); err != nil {
+	if err := util.UnmarshalWithJSONPB(icpStr, icp, false); err != nil {
 		return fmt.Errorf("not a valid IstioControlPlane")
 	}
 	o, err := object.ParseYAMLToK8sObject([]byte(icpStr))

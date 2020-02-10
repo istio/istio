@@ -125,7 +125,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		Context:     context,
 	}
 
-	for _, cn := range name.DeprecatedNames {
+	for cn := range name.DeprecatedComponentNamesMap {
 		DeprecatedComponentManifest := fmt.Sprintf("# %s component has been deprecated.\n", cn)
 		manifests[cn] = append(manifests[cn], DeprecatedComponentManifest)
 	}

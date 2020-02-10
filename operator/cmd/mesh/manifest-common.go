@@ -83,7 +83,7 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 			return "", err
 		}
 		iops := &v1alpha1.IstioOperatorSpec{}
-		if err := util.UnmarshalWithJSONPB(string(testTree), iops); err != nil {
+		if err := util.UnmarshalWithJSONPB(string(testTree), iops, false); err != nil {
 			return "", fmt.Errorf("bad path=value: %s", kv)
 		}
 	}
