@@ -178,6 +178,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
 		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
 		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
+		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
 		removeDNSConfig(podSpec.DNSConfig)
 		res, b := newDep.(*appsv1.Deployment)
 		if !b {
