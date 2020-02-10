@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -133,16 +134,32 @@ func TestReachability(t *testing.T) {
 				// 	},
 				// },
 				{
-					ConfigFile: "beta-mtls-workload-automtls.yaml",
-					Namespace:  rctx.Namespace,
+					// Multiversion app v1 turns enbles mTLS using workload selector policy, v2 is PERMISSIVE.
+					// We use VirtualService and DestinationRule to ensure request hit the v1 and v2 subset.
+					ConfigFile:          "beta-mtls-workload-automtls.yaml",
+					Namespace:           rctx.Namespace,
 					RequiredEnvironment: environment.Kube,
-					// TODO: for now we only consider B -> A.
-					// TODO: some opts to control path, trigger run multi times.
+					CallOpts: []echo.CallOptions{
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "v1",
+						},
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "v2-default",
+						},
+					},
+					// Only need to consider sidecar injected and naked apps.
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return src == rctx.B
+						return src == rctx.A || src == rctx.Naked
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						if src != rctx.Naked {
+							return true
+						}
+						return opts.Path != "v1"
 					},
 				},
 			}

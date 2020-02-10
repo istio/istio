@@ -1,7 +1,4 @@
 # The following manifest is for testing auto mTLS.
-# Serivce a consists of v1 and v2 deployment, and only v1 is mTLS enabled by workload selector policy.
-# We use VirtualService and DestinationRule to ensure request hit the v1 and v2 subset.
-# We expect both v1 and v2 requests can succeed.
 ---
 apiVersion: "security.istio.io/v1beta1"
 kind: "PeerAuthentication"
@@ -29,14 +26,14 @@ spec:
   - name: "v1-route"
     match:
     - uri:
-        prefix: "/v1-route"
+        prefix: "/v1"
     rewrite:
-      uri: "/"
+      uri: "/v1"
     route:
     - destination:
         host: a.{{ .Namespace }}.svc.cluster.local
         subset: v1
-  - name: "v2-route"
+  - name: "v2-route-by-default"
     route:
     - destination:
         host: a.{{ .Namespace }}.svc.cluster.local

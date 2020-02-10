@@ -45,6 +45,10 @@ type TestCase struct {
 
 	RequiredEnvironment environment.Name
 
+	// CallOpts specified the call options for destination service. If not specified, use the default
+	// framework provided ones.
+	CallOpts []echo.CallOptions
+
 	// Indicates whether a test should be created for the given configuration.
 	Include func(src echo.Instance, opts echo.CallOptions) bool
 
@@ -149,8 +153,13 @@ func (rc *Context) Run(testCases []TestCase) {
 			time.Sleep(10 * time.Second)
 
 			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
-				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
-					for _, opts := range callOptions {
+				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.MultiVersion, rc.Naked} {
+					copts := &callOptions
+					// If test case specified service call options, use that instead.
+					if c.CallOpts != nil {
+						copts = &c.CallOpts
+					}
+					for _, opts := range *copts {
 						// Copy the loop variables so they won't change for the subtests.
 						src := src
 						dest := dest
