@@ -36,6 +36,8 @@ import (
 // - Send HTTP/gRPC requests between apps.
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
+		// Multiversion app is unable to created locally, where we need two deployments with different labels.
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			rctx := reachability.CreateContext(ctx, g, p)
