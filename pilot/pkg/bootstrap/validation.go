@@ -102,7 +102,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		CAPath:                s.caBundlePath,
 		WebhookConfigName:     webhookConfigName,
 		WebhookConfigPath:     configValidationPath,
-		ServiceName:           "istio-pilot",
+		ServiceName:           "istiod",
 		ClusterRoleName:       "istiod-" + args.Namespace,
 		DeferToDeploymentName: deferTo,
 	}
