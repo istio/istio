@@ -140,19 +140,6 @@ func (rc *Context) Run(testCases []TestCase) {
 		}
 
 		test.Run(func(ctx framework.TestContext) {
-			// TODO: remove hack.
-			// if c.ConfigFile == "beta-mtls-workload-automtls.yaml" {
-			// 	// Apply the policy.
-			// 	namespaceTmpl := map[string]string{
-			// 		"Namespace": c.Namespace.Name(),
-			// 	}
-			// 	configYAML := tmpl.EvaluateAllOrFail(ctx, namespaceTmpl,
-			// 		file.AsStringOrFail(ctx, "./testdata/beta-mtls-workload-automtls.yaml"))
-			// 	ctx.Logf("incfly debug the config is\n%v", configYAML)
-			// 	retry.UntilSuccessOrFail(ctx, func() error {
-			// 		return rc.g.ApplyConfig(c.Namespace, configYAML...)
-			// 	})
-			// } else {
 			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(ctx, func() error {
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
