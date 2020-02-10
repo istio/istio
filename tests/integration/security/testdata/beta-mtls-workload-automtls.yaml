@@ -1,27 +1,39 @@
-# The following manifest is for testing auto mTLS.
----
 apiVersion: "security.istio.io/v1beta1"
 kind: "PeerAuthentication"
 metadata:
-  name: "default"
-  namespace: {{ .Namespace }}
+  name: "multiversoin-v1-mtls"
   annotations:
     test-suite: "beta-mtls-workload-automtls"
 spec:
   selector:
     matchLabels:
-      "app": "a"
+      "app": "multiversion"
       "version": "v1"
   mtls:
     mode: STRICT
 ---
+# explicit disable to make test input more hermetic, rather than affected by other defaults.
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: "multiversoin-v1-mtls"
+  annotations:
+    test-suite: "beta-mtls-workload-automtls"
+spec:
+  selector:
+    matchLabels:
+      "app": "multiversion"
+      "version": "v2"
+  mtls:
+    mode: DISABLE
+---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: a-route
+  name: "multiversion-route"
 spec:
   hosts:
-  - a.{{ .Namespace }}.svc.cluster.local
+  - "multiversion"
   http:
   - name: "v1-route"
     match:
@@ -31,25 +43,24 @@ spec:
       uri: "/v1"
     route:
     - destination:
-        host: a.{{ .Namespace }}.svc.cluster.local
-        subset: v1
+        host: "multiversion"
+        subset: "v1"
   - name: "v2-route-by-default"
     route:
     - destination:
-        host: a.{{ .Namespace }}.svc.cluster.local
-        subset: v2
+        host: "multiversion"
+        subset: "v2"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: a-subset
+  name: "multiversion-subset"
 spec:
-  host: a.{{ .Namespace }}.svc.cluster.local
+  host: "multiversion"
   subsets:
-  - name: v1
+  - name: "v1"
     labels:
-      version: v1
-  - name: v2
+      version: "v1"
+  - name: "v2"
     labels:
-      version: v2
----
+      version: "v2"

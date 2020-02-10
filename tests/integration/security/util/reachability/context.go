@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/file"
+	// "istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
@@ -95,14 +96,15 @@ func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instanc
 		BuildOrFail(ctx)
 
 	return Context{
-		ctx:       ctx,
-		g:         g,
-		p:         p,
-		Namespace: ns,
-		A:         a,
-		B:         b,
-		Headless:  headless,
-		Naked:     naked,
+		ctx:          ctx,
+		g:            g,
+		p:            p,
+		Namespace:    ns,
+		A:            a,
+		B:            b,
+		MultiVersion: multiVersion,
+		Headless:     headless,
+		Naked:        naked,
 	}
 }
 
@@ -138,7 +140,19 @@ func (rc *Context) Run(testCases []TestCase) {
 		}
 
 		test.Run(func(ctx framework.TestContext) {
-			// Apply the policy.
+			// TODO: remove hack.
+			// if c.ConfigFile == "beta-mtls-workload-automtls.yaml" {
+			// 	// Apply the policy.
+			// 	namespaceTmpl := map[string]string{
+			// 		"Namespace": c.Namespace.Name(),
+			// 	}
+			// 	configYAML := tmpl.EvaluateAllOrFail(ctx, namespaceTmpl,
+			// 		file.AsStringOrFail(ctx, "./testdata/beta-mtls-workload-automtls.yaml"))
+			// 	ctx.Logf("incfly debug the config is\n%v", configYAML)
+			// 	retry.UntilSuccessOrFail(ctx, func() error {
+			// 		return rc.g.ApplyConfig(c.Namespace, configYAML...)
+			// 	})
+			// } else {
 			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(ctx, func() error {
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
@@ -147,6 +161,7 @@ func (rc *Context) Run(testCases []TestCase) {
 			ctx.WhenDone(func() error {
 				return rc.g.DeleteConfig(c.Namespace, policyYAML)
 			})
+			// }
 
 			// Give some time for the policy propagate.
 			// TODO: query pilot or app to know instead of sleep.
@@ -172,11 +187,12 @@ func (rc *Context) Run(testCases []TestCase) {
 						if c.Include(src, opts) {
 							expectSuccess := c.ExpectSuccess(src, opts)
 
-							subTestName := fmt.Sprintf("%s->%s://%s:%s",
+							subTestName := fmt.Sprintf("%s->%s://%s:%s/%s",
 								src.Config().Service,
 								opts.Scheme,
 								dest.Config().Service,
-								opts.PortName)
+								opts.PortName,
+								opts.Path)
 
 							ctx.NewSubTest(subTestName).
 								RunParallel(func(ctx framework.TestContext) {

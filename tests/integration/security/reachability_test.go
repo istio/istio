@@ -40,7 +40,7 @@ func TestReachability(t *testing.T) {
 
 			rctx := reachability.CreateContext(ctx, g, p)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
-			fmt.Println("incfly debug printing sysnamespace ", systemNM)
+			fmt.Println("incfly debug printing sysnamespace ", systemNM, scheme.HTTP)
 
 			testCases := []reachability.TestCase{
 				// {
@@ -143,23 +143,23 @@ func TestReachability(t *testing.T) {
 						{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "v1",
+							Path:     "/v1",
 						},
 						{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "v2-default",
+							Path:     "/v2-default",
 						},
 					},
 					// Only need to consider sidecar injected and naked apps.
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return src == rctx.A || src == rctx.Naked
+						return (src == rctx.A || src == rctx.Naked) && opts.Target == rctx.MultiVersion
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						if src != rctx.Naked {
 							return true
 						}
-						return opts.Path != "v1"
+						return opts.Path != "/v1"
 					},
 				},
 			}
