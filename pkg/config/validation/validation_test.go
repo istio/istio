@@ -5844,6 +5844,43 @@ func TestValidatePeerAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
+			name:       "empty port level mtls",
+			configName: "foo",
+			in: &security_beta.PeerAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				PortLevelMtls: map[uint32]*security_beta.PeerAuthentication_MutualTLS{},
+			},
+			valid: false,
+		},
+		{
+			name:       "empty selector with port level mtls",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.PeerAuthentication{
+				PortLevelMtls: map[uint32]*security_beta.PeerAuthentication_MutualTLS{
+					8080: {
+						Mode: security_beta.PeerAuthentication_MutualTLS_UNSET,
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "port 0",
+			configName: "foo",
+			in: &security_beta.PeerAuthentication{
+				PortLevelMtls: map[uint32]*security_beta.PeerAuthentication_MutualTLS{
+					0: {
+						Mode: security_beta.PeerAuthentication_MutualTLS_UNSET,
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name:       "unset mode",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.PeerAuthentication{
@@ -5855,8 +5892,13 @@ func TestValidatePeerAuthentication(t *testing.T) {
 		},
 		{
 			name:       "port level",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "port-level",
 			in: &security_beta.PeerAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
 				PortLevelMtls: map[uint32]*security_beta.PeerAuthentication_MutualTLS{
 					8080: {
 						Mode: security_beta.PeerAuthentication_MutualTLS_UNSET,
