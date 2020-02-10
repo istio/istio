@@ -253,7 +253,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 				conIDresourceNamePrefix, err)
 			return nil, err
 		}
-		// This is not stored - envoy will refresh when the cert is about to expire.
+		// TODO(JimmyCYJ): need a file watcher to detect file updates and push new secret to clients.
 		cacheLog.Infoa("GenerateSecret from file ", resourceName)
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
