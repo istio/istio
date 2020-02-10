@@ -52,21 +52,21 @@ func TestTrafficRouting(t *testing.T) {
 				{
 					"added header",
 					`
-				apiVersion: networking.istio.io/v1alpha3
-				kind: VirtualService
-				metadata:
-				 name: default
-				spec:
-				 hosts:
-				   - server
-				 http:
-				 - route:
-				   - destination:
-				       host: server
-				   headers:
-				     request:
-				       add:
-				         istio-custom-header: user-defined-value
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - server
+  http:
+  - route:
+    - destination:
+        host: server
+    headers:
+      request:
+        add:
+          istio-custom-header: user-defined-value
 				`,
 					func(response *echoclient.ParsedResponse) error {
 						if response.RawResponse["Istio-Custom-Header"] != "user-defined-value" {
