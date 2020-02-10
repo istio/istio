@@ -2216,7 +2216,7 @@ message Values {
 
   KialiConfig kiali = 15;
 
-  string version = 16;
+  string revision = 16;
 
   google.protobuf.BoolValue clusterResources = 17;
 
