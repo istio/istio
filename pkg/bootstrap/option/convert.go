@@ -165,12 +165,6 @@ func podIPConverter(value net.IP) convertFunc {
 	}
 }
 
-func int64Converter(value int64) convertFunc {
-	return func(*instance) (interface{}, error) {
-		return convertToJSON(value), nil
-	}
-}
-
 func convertToJSON(v interface{}) string {
 	if v == nil {
 		return ""
