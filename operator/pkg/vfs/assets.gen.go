@@ -38306,7 +38306,6 @@ spec:
     tracing:
       enabled: true
 
-
   values:
     global:
       disablePolicyChecks: false
@@ -38344,14 +38343,7 @@ spec:
       istio-ingressgateway:
         autoscaleEnabled: false
 
-    grafana:
-      enabled: true
-
-    tracing:
-      enabled: true
-
     kiali:
-      enabled: true
       createDemoSecret: true
 `)
 
@@ -38418,9 +38410,6 @@ spec:
     pilot:
       sidecar: false
       useMCP: false
-
-    prometheus:
-      enabled: false
 `)
 
 func profilesEmptyYamlBytes() ([]byte, error) {
@@ -38462,6 +38451,8 @@ spec:
     - name: istio-ingressgateway
       enabled: false
     egressGateways:
+    - name: istio-egressgateway
+      enabled: false
 
   addonComponents:
     prometheus:
@@ -38482,9 +38473,6 @@ spec:
     pilot:
       sidecar: false
       useMCP: false
-
-    prometheus:
-      enabled: false
 `)
 
 func profilesMinimalYamlBytes() ([]byte, error) {
@@ -38523,6 +38511,10 @@ spec:
     cni:
       enabled: false
 
+  addonComponents:
+    prometheus:
+      enabled: false
+
   values:
     pilot:
       configSource:
@@ -38530,9 +38522,6 @@ spec:
 
     security:
       createMeshPolicy: false
-
-    prometheus:
-      enabled: false
 
     global:
       istioRemote: true
