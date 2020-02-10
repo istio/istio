@@ -15,6 +15,7 @@
 package security
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -38,110 +39,112 @@ func TestReachability(t *testing.T) {
 
 			rctx := reachability.CreateContext(ctx, g, p)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
+			fmt.Println("incfly debug printing sysnamespace ", systemNM)
 
 			testCases := []reachability.TestCase{
-				{
-					ConfigFile:          "global-mtls-on.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						if src == rctx.Naked && opts.Target == rctx.Naked {
-							// naked->naked should always succeed.
-							return true
-						}
-
-						// If one of the two endpoints is naked, expect failure.
-						return src != rctx.Naked && opts.Target != rctx.Naked
-					},
-				},
-				{
-					ConfigFile:          "global-mtls-permissive.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the naked app.
-						return opts.Target != rctx.Naked
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-				},
-				{
-					ConfigFile: "global-mtls-off.yaml",
-					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-				},
-				{
-					ConfigFile:          "single-port-mtls-on.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Include all tests that target app B, which has the single-port config.
-						return opts.Target == rctx.B
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return opts.PortName != "http"
-					},
-				},
-				{
-					ConfigFile:          "beta-mtls-on.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						if src == rctx.Naked && opts.Target == rctx.Naked {
-							// naked->naked should always succeed.
-							return true
-						}
-
-						// If one of the two endpoints is naked, expect failure.
-						return src != rctx.Naked && opts.Target != rctx.Naked
-					},
-				},
-				{
-					ConfigFile:          "beta-mtls-permissive.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the naked app.
-						return opts.Target != rctx.Naked
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-				},
-				{
-					ConfigFile: "beta-mtls-off.yaml",
-					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-				},
 				// {
-				// 	ConfigFile: "beta-mtls-workload-automtls.yaml",
-				// 	Namespace:  rctx.Namespace,
-				// 	// TODO: for now we only consider B -> A.
-				// 	// TODO: some opts to control path, trigger run multi times.
+				// 	ConfigFile:          "global-mtls-on.yaml",
+				// 	Namespace:           systemNM,
+				// 	RequiredEnvironment: environment.Kube,
 				// 	Include: func(src echo.Instance, opts echo.CallOptions) bool {
-				// 		return src == rctx.B
+				// 		return true
+				// 	},
+				// 	ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		if src == rctx.Naked && opts.Target == rctx.Naked {
+				// 			// naked->naked should always succeed.
+				// 			return true
+				// 		}
+
+				// 		// If one of the two endpoints is naked, expect failure.
+				// 		return src != rctx.Naked && opts.Target != rctx.Naked
+				// 	},
+				// },
+				// {
+				// 	ConfigFile:          "global-mtls-permissive.yaml",
+				// 	Namespace:           systemNM,
+				// 	RequiredEnvironment: environment.Kube,
+				// 	Include: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		// Exclude calls to the naked app.
+				// 		return opts.Target != rctx.Naked
 				// 	},
 				// 	ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 				// 		return true
 				// 	},
 				// },
+				// {
+				// 	ConfigFile: "global-mtls-off.yaml",
+				// 	Namespace:  systemNM,
+				// 	Include: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		return true
+				// 	},
+				// 	ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		return true
+				// 	},
+				// },
+				// {
+				// 	ConfigFile:          "single-port-mtls-on.yaml",
+				// 	Namespace:           rctx.Namespace,
+				// 	RequiredEnvironment: environment.Kube,
+				// 	Include: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		// Include all tests that target app B, which has the single-port config.
+				// 		return opts.Target == rctx.B
+				// 	},
+				// 	ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		return opts.PortName != "http"
+				// 	},
+				// },
+				// {
+				// 	ConfigFile:          "beta-mtls-on.yaml",
+				// 	Namespace:           systemNM,
+				// 	RequiredEnvironment: environment.Kube,
+				// 	Include: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		return true
+				// 	},
+				// 	ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		if src == rctx.Naked && opts.Target == rctx.Naked {
+				// 			// naked->naked should always succeed.
+				// 			return true
+				// 		}
+
+				// 		// If one of the two endpoints is naked, expect failure.
+				// 		return src != rctx.Naked && opts.Target != rctx.Naked
+				// 	},
+				// },
+				// {
+				// 	ConfigFile:          "beta-mtls-permissive.yaml",
+				// 	Namespace:           systemNM,
+				// 	RequiredEnvironment: environment.Kube,
+				// 	Include: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		// Exclude calls to the naked app.
+				// 		return opts.Target != rctx.Naked
+				// 	},
+				// 	ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		return true
+				// 	},
+				// },
+				// {
+				// 	ConfigFile: "beta-mtls-off.yaml",
+				// 	Namespace:  systemNM,
+				// 	Include: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		return true
+				// 	},
+				// 	ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		return true
+				// 	},
+				// },
+				{
+					ConfigFile: "beta-mtls-workload-automtls.yaml",
+					Namespace:  rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
+					// TODO: for now we only consider B -> A.
+					// TODO: some opts to control path, trigger run multi times.
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return src == rctx.B
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+				},
 			}
 			rctx.Run(testCases)
 		})

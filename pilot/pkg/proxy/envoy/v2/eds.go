@@ -941,7 +941,7 @@ func buildLocalityLbEndpointsFromShards(
 				canMtls := push.EndpointAcceptMtls(ns, labels.Collection{ep.Labels}, ep.EndpointPort)
 				adsLog.Warnf("incfly debug, endpoint-mtls %v, mTLS result %v",
 					ep, canMtls)
-				// negate the endpoint level mtls capabilities.
+				// Update the label to disabled when the endpoint is not serving mTLS per policy.
 				if !canMtls {
 					ep.TLSMode = model.DisabledTLSModeLabel
 				}

@@ -156,11 +156,12 @@ func (ps *PushContext) EndpointAcceptMtls(
 	}
 	policy := composePeerAuthentication(ps.AuthnBetaPolicies.GetRootNamespace(), betaPolicy)
 	if policy == nil {
-		if namespace == "automtls" {
-			log.Infof("incfly debug, empty consolidated policy")
-		}
+		// if namespace == "automtls" {
+		// 	log.Infof("incfly debug, empty consolidated policy")
+		// }
 		return true
 	}
+	// TODO: add port later.
 	mode := getMutualTLSMode(policy.Mtls)
 	return mode == MTLSPermissive || mode == MTLSStrict
 }

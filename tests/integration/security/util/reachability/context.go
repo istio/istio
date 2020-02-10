@@ -57,11 +57,15 @@ type TestCase struct {
 
 // Context is a context for reachability tests.
 type Context struct {
-	ctx                   framework.TestContext
-	g                     galley.Instance
-	p                     pilot.Instance
-	Namespace             namespace.Instance
-	A, B, Headless, Naked echo.Instance
+	ctx         framework.TestContext
+	g           galley.Instance
+	p           pilot.Instance
+	Namespace   namespace.Instance
+	A, B, Naked echo.Instance
+	// Headless app is for headless service.
+	Headless echo.Instance
+	// MultiVersion app consists of two deployments, having v1 and v2 label respectively.
+	MultiVersion echo.Instance
 }
 
 // CreateContext creates and initializes reachability context.
@@ -71,10 +75,16 @@ func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instanc
 		Inject: true,
 	})
 
-	var a, b, headless, naked echo.Instance
+	var a, b, multiVersion, headless, naked echo.Instance
+	mv1 := util.EchoConfig("multiversion", ns, false, nil, g, p)
+	mv2 := mv1
+	mv1.Version = "v1"
+	mv2.Version = "v2"
 	echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 		With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+		With(&multiVersion, mv1).
+		With(&multiVersion, mv2).
 		With(&headless, util.EchoConfig("headless", ns, true, nil, g, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), g, p)).
