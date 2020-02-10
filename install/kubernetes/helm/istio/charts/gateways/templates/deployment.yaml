@@ -296,7 +296,7 @@ spec:
           {{- if $spec.env }}
           {{- range $key, $val := $spec.env }}
           - name: {{ $key }}
-            value: {{ $val }}
+            value: "{{ $val }}"
           {{- end }}
           {{- end }}
           {{ if eq $key "istio-ingressgateway" }}
