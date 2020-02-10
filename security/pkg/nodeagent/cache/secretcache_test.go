@@ -1086,3 +1086,93 @@ func convertToBytes(ss []string) []byte {
 	}
 	return res
 }
+
+func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
+	testWorkloadAgentGenerateSecretFromFile(t)
+}
+
+func testWorkloadAgentGenerateSecretFromFile(t *testing.T) {
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1)
+	opt := Options{
+		SecretTTL:                time.Minute,
+		RotationInterval:         300 * time.Microsecond,
+		EvictionDuration:         60 * time.Second,
+		InitialBackoffInMilliSec: 10,
+		SkipValidateCert:         true,
+	}
+
+	existingCertChainFile = "./testdata/cert-chain.pem"
+	existingKeyFile = "./testdata/privatekey.pem"
+	ExistingRootCertFile = "./testdata/cert-chain.pem"
+
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: true,
+		CaClient:    fakeCACli,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
+	defer func() {
+		sc.Close()
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
+	}()
+
+	conID := "proxy1-id"
+	ctx := context.Background()
+	gotSecret, err := sc.GenerateSecret(ctx, conID, testResourceName, "jwtToken1")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+
+	if got, want := gotSecret.CertificateChain, certchain; !bytes.Equal(got, want) {
+		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
+	}
+	privateKey, _ := ioutil.ReadFile(existingKeyFile)
+	if got, want := gotSecret.PrivateKey, privateKey; !bytes.Equal(got, want) {
+		t.Errorf("PrivateKey: got: %v, want: %v", got, want)
+	}
+
+	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName, "jwtToken1", gotSecret.Version), true)
+
+	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	if got, want := gotSecretRoot.RootCert, certchain; !bytes.Equal(got, want) {
+		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
+	}
+
+	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "jwtToken1", gotSecretRoot.Version), true)
+
+	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
+		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
+	}
+
+	key := ConnKey{
+		ConnectionID: conID,
+		ResourceName: testResourceName,
+	}
+	cachedSecret, found := sc.secrets.Load(key)
+	if !found {
+		t.Errorf("Failed to find secret for proxy %q from secret store: %v", conID, err)
+	}
+	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
+		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
+	}
+
+	// Wait until unused secrets are evicted.
+	wait := 500 * time.Millisecond
+	retries := 0
+	for ; retries < 3; retries++ {
+		time.Sleep(wait)
+		if _, found := sc.secrets.Load(conID); found {
+			// Retry after some sleep.
+			wait *= 2
+			continue
+		}
+
+		break
+	}
+	if retries == 3 {
+		t.Errorf("Unused secrets failed to be evicted from cache")
+	}
+}
