@@ -87,9 +87,8 @@ func NewNamespaceController(data func() map[string]string, core corev1.CoreV1Int
 				})
 			},
 			DeleteFunc: func(obj interface{}) {
-				var cm *v1.ConfigMap
-				var ok bool
-				if cm, ok = obj.(*v1.ConfigMap); !ok {
+				cm, ok := obj.(*v1.ConfigMap)
+				if !ok {
 					tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
 						log.Errorf("error decoding object, invalid type")

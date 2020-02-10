@@ -55,11 +55,11 @@ func InsertDataToConfigMap(client corev1.ConfigMapsGetter, meta metav1.ObjectMet
 
 // insertData merges a configmap with a map, and returns true if any changes were made
 func insertData(cm *v1.ConfigMap, data map[string]string) bool {
-	needsUpdate := false
 	if cm.Data == nil {
 		cm.Data = data
 		return true
 	}
+	needsUpdate := false
 	for k, v := range data {
 		if cm.Data[k] != v {
 			needsUpdate = true
