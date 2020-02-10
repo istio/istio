@@ -132,7 +132,6 @@ func (rc *Context) Run(testCases []TestCase) {
 				return rc.g.ApplyConfig(c.Namespace, policyYAML)
 			})
 			ctx.WhenDone(func() error {
-				ctx.Logf("[%s] [%v] Delete config %s", testName, time.Now(), c.ConfigFile)
 				return rc.g.DeleteConfig(c.Namespace, policyYAML)
 			})
 
