@@ -241,6 +241,9 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: true
 
+  # Use the user-specified, secret volume mounted key and certs for Pilot and workloads.
+  mountMtlsCerts: false
+
   # disablePolicyChecks disables mixer policy checks.
   # if mixer.policy.enabled==true then disablePolicyChecks has affect.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.

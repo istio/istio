@@ -165,9 +165,6 @@ spec:
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
           - name: ingressgateway-certs
             mountPath: "/etc/istio/ingressgateway-certs"
             readOnly: true
@@ -187,10 +184,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-ingressgateway-service-account
-          optional: true
       - name: ingressgateway-certs
         secret:
           secretName: "istio-ingressgateway-certs"

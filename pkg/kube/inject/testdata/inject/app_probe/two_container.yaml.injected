@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"341418dbb29c335401a1b88f9f4f3fec23a7258273f9b6885f3c68ba3df227e0","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"341418dbb29c335401a1b88f9f4f3fec23a7258273f9b6885f3c68ba3df227e0","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: 80,90
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -174,9 +174,6 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
       initContainers:
       - command:
         - istio-iptables
@@ -233,9 +230,5 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
 status: {}
 ---

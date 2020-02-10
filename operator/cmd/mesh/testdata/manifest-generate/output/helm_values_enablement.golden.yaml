@@ -178,9 +178,6 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
         - mountPath: /etc/istio/egressgateway-certs
           name: egressgateway-certs
           readOnly: true
@@ -199,10 +196,6 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
       - name: egressgateway-certs
         secret:
           optional: true

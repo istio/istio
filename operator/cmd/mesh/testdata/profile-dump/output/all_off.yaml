@@ -304,6 +304,7 @@ values:
       enabled: false
       useILB: false
     meshNetworks: {}
+    mountMtlsCerts: false
     mtls:
       auto: true
       enabled: false
