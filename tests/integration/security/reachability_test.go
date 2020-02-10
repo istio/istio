@@ -26,14 +26,7 @@ import (
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
-// This test verifies reachability under different authN scenario:
-// - app A to app B using mTLS.
-// - app A to app B using mTLS-permissive.
-// - app A to app B without using mTLS.
-// In each test, the steps are:
-// - Configure authn policy.
-// - Wait for config propagation.
-// - Send HTTP/gRPC requests between apps.
+// This test verifies reachability under different mTLS configuration.
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		// Multiversion app is unable to created locally, where we need two deployments with different labels.
@@ -136,7 +129,7 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					// Multiversion app v1 turns enbles mTLS using workload selector policy, v2 is PERMISSIVE.
+					// Multiversion app v1 enbles mTLS using workload selector policy, v2 is PERMISSIVE.
 					// We use VirtualService and DestinationRule to ensure request hit the v1 and v2 subset.
 					ConfigFile:          "beta-mtls-workload-automtls.yaml",
 					Namespace:           rctx.Namespace,
