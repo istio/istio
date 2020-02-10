@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/istio/tools/istio-iptables/pkg/validation"
 
 	"istio.io/pkg/env"
 
@@ -292,12 +293,34 @@ func handleInboundIpv4Rules(ext dep.Dependencies, config *config.Config, ipv4Ran
 	}
 }
 
+func runValidation(config *config.Config) {
+	hostIP, err := getLocalIP()
+	if err != nil {
+		// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
+		panic(err)
+	}
+	validator := validation.NewValidator(config, hostIP)
+
+	if validator.Run() != nil {
+		os.Exit(constants.ValidationErrorCode)
+	}
+}
+
 func run(config *config.Config) {
 	var ext dep.Dependencies
 	if config.DryRun {
 		ext = &dep.StdoutStubDependencies{}
 	} else {
 		ext = &dep.RealDependencies{}
+	}
+
+	defer func() {
+		if config.RunValidation {
+			runValidation(config)
+		}
+	}()
+	if config.SkipRuleApply {
+		return
 	}
 
 	defer func() {

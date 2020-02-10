@@ -15,6 +15,7 @@ COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 RUN chown -R istio-proxy /var/lib/istio
 
 COPY istio-iptables.sh /usr/local/bin/istio-iptables
+COPY istio-iptables /usr/local/bin/istio-iptables-go
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007
@@ -26,12 +27,13 @@ COPY --from=default /usr/lib/x86_64-linux-gnu/xtables/ /usr/lib/x86_64-linux-gnu
 COPY --from=default /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu
 COPY --from=default /etc/iproute2 /etc/iproute2
 
-COPY istio-iptables /usr/local/bin/istio-iptables
-
 # Copy Envoy bootstrap templates used by pilot-agent
-COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-COPY envoy_bootstrap_drain.json /var/lib/istio/envoy/envoy_bootstrap_drain.json
-COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
+COPY --from=default /var/lib/istio/envoy/envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+COPY --from=default /var/lib/istio/envoy/envoy_bootstrap_drain.json /var/lib/istio/envoy/envoy_bootstrap_drain.json
+COPY --from=default /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
+
+COPY istio-iptables /usr/local/bin/istio-iptables
+COPY istio-iptables /usr/local/bin/istio-iptables-go
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006

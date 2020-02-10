@@ -15,14 +15,17 @@
 package cmd
 
 import (
+	"fmt"
+	"net"
 	"os"
+	"strconv"
 	"strings"
-
-	"istio.io/istio/tools/istio-iptables/pkg/config"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 
 	"istio.io/pkg/log"
 )
@@ -31,13 +34,15 @@ var rootCmd = &cobra.Command{
 	Use:  "istio-iptables",
 	Long: "Script responsible for setting up port forwarding for Istio sidecar.",
 	Run: func(cmd *cobra.Command, args []string) {
-		config := constructConfig()
-		run(config)
+		cfg := constructConfig()
+		run(cfg)
 	},
 }
 
 func constructConfig() *config.Config {
 	return &config.Config{
+		DryRun:                  viper.GetBool(constants.DryRun),
+		RestoreFormat:           viper.GetBool(constants.RestoreFormat),
 		ProxyPort:               viper.GetString(constants.EnvoyPort),
 		InboundCapturePort:      viper.GetString(constants.InboundCapturePort),
 		ProxyUID:                viper.GetString(constants.ProxyUID),
@@ -51,9 +56,26 @@ func constructConfig() *config.Config {
 		OutboundIPRangesInclude: viper.GetString(constants.ServiceCidr),
 		OutboundIPRangesExclude: viper.GetString(constants.ServiceExcludeCidr),
 		KubevirtInterfaces:      viper.GetString(constants.KubeVirtInterfaces),
-		DryRun:                  viper.GetBool(constants.DryRun),
+		IptablesProbePort:       uint16(viper.GetUint(constants.IptablesProbePort)),
+		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
+		RunValidation:           viper.GetBool(constants.RunValidation),
 		EnableInboundIPv6s:      nil,
 	}
+}
+
+// getLocalIP returns the local IP address
+func getLocalIP() (net.IP, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			return ipnet.IP, nil
+		}
+	}
+	return nil, fmt.Errorf("no valid local IP address found")
 }
 
 func handleError(err error) {
@@ -162,11 +184,35 @@ func init() {
 	}
 	viper.SetDefault(constants.InboundTProxyRouteTable, "133")
 
-	rootCmd.Flags().BoolP(constants.DryRun, "n", true, "Do not call any external dependencies like iptables")
+	rootCmd.Flags().BoolP(constants.DryRun, "n", false, "Do not call any external dependencies like iptables")
 	if err := viper.BindPFlag(constants.DryRun, rootCmd.Flags().Lookup(constants.DryRun)); err != nil {
 		handleError(err)
 	}
 	viper.SetDefault(constants.DryRun, false)
+
+	rootCmd.Flags().BoolP(constants.RestoreFormat, "f", true, "Print iptables rules in iptables-restore interpretable format")
+	if err := viper.BindPFlag(constants.RestoreFormat, rootCmd.Flags().Lookup(constants.RestoreFormat)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.RestoreFormat, true)
+
+	rootCmd.Flags().String(constants.IptablesProbePort, strconv.Itoa(constants.DefaultIptablesProbePort), "set listen port for failure detection")
+	if err := viper.BindPFlag(constants.IptablesProbePort, rootCmd.Flags().Lookup(constants.IptablesProbePort)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.IptablesProbePort, strconv.Itoa(constants.DefaultIptablesProbePort))
+
+	rootCmd.Flags().Bool(constants.SkipRuleApply, false, "Skip iptables apply")
+	if err := viper.BindPFlag(constants.SkipRuleApply, rootCmd.Flags().Lookup(constants.SkipRuleApply)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.SkipRuleApply, false)
+
+	rootCmd.Flags().Bool(constants.RunValidation, false, "Validate iptables")
+	if err := viper.BindPFlag(constants.RunValidation, rootCmd.Flags().Lookup(constants.RunValidation)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.RunValidation, false)
 }
 
 func Execute() {

@@ -1,16 +1,26 @@
+{{- $cniDisabled := (not .Values.istio_cni.enabled) }}
+{{- $cniRepairEnabled := (and .Values.istio_cni.enabled .Values.istio_cni.repair.enabled) }}
+{{- $enableInitContainer := (or $cniDisabled $cniRepairEnabled .Values.global.proxy.enableCoreDump) }}
 rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
-{{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
+{{- if $enableInitContainer }}
 initContainers:
-{{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-{{- if not .Values.istio_cni.enabled }}
+{{- if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
+{{ if $cniRepairEnabled -}}
+- name: istio-validation
+{{ else -}}
 - name: istio-init
+{{ end -}}
 {{- if contains "/" .Values.global.proxy_init.image }}
   image: "{{ .Values.global.proxy_init.image }}"
 {{- else }}
   image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
 {{- end }}
   command:
+{{- if $cniRepairEnabled }}
+  - istio-iptables-go
+{{- else }}
   - istio-iptables
+{{- end }}
   - "-p"
   - "15001"
   - "-z"
@@ -27,7 +37,7 @@ initContainers:
   - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
   - "-d"
   - "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
-  {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") -}}
+  {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
   - "-o"
   - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
   {{ end -}}
@@ -35,7 +45,11 @@ initContainers:
   - "-k"
   - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
   {{ end -}}
-  imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+{{ if $cniRepairEnabled -}}
+  - "--run-validation"
+  - "--skip-rule-apply"
+{{- end }}
+  imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
 {{- if .Values.global.proxy.init.resources }}
   resources:
     {{ toYaml .Values.global.proxy.init.resources | indent 4 }}
@@ -44,20 +58,27 @@ initContainers:
 {{- end }}
   securityContext:
     allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+    privileged: {{ .Values.global.proxy.privileged }}
     capabilities:
+{{- if not $cniRepairEnabled }}
       add:
       - NET_ADMIN
       - NET_RAW
+{{- end }}
       drop:
       - ALL
-    privileged: {{ .Values.global.proxy.privileged }}
     readOnlyRootFilesystem: false
+  {{- if not $cniRepairEnabled }}
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
+  {{- else }}
+    runAsGroup: 1337
+    runAsUser: 1337
+    runAsNonRoot: true
+  {{- end }}
   restartPolicy: Always
-{{- end }}
-{{  end -}}
+  {{ end -}}
 {{- if eq .Values.global.proxy.enableCoreDump true }}
 - name: enable-core-dump
   args:
@@ -81,7 +102,7 @@ initContainers:
     runAsNonRoot: false
     runAsUser: 0
 {{ end }}
-{{- end }}
+  {{ end }}
 containers:
 - name: istio-proxy
 {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
@@ -314,7 +335,7 @@ containers:
     {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
     runAsNonRoot: false
     runAsUser: 0
-    {{- else -}}
+    {{- else }}
     runAsNonRoot: true
     runAsUser: 1337
     {{- end }}

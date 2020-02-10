@@ -97,7 +97,7 @@ else
 endif
 
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent &&
+docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent istio-iptables istio-iptables.sh &&
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_drain.json

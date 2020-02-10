@@ -24,7 +24,6 @@ import (
 
 // Command line options
 type Config struct {
-	DryRun                  bool   `json:"DRY_RUN"`
 	ProxyPort               string `json:"PROXY_PORT"`
 	InboundCapturePort      string `json:"INBOUND_CAPTURE_PORT"`
 	ProxyUID                string `json:"PROXY_UID"`
@@ -38,6 +37,11 @@ type Config struct {
 	OutboundIPRangesInclude string `json:"OUTBOUND_IPRANGES_INCLUDE"`
 	OutboundIPRangesExclude string `json:"OUTBOUND_IPRANGES_EXCLUDE"`
 	KubevirtInterfaces      string `json:"KUBEVIRT_INTERFACES"`
+	IptablesProbePort       uint16 `json:"IPTABLES_PROBE_PORT"`
+	DryRun                  bool   `json:"DRY_RUN"`
+	RestoreFormat           bool   `json:"RESTORE_FORMAT"`
+	SkipRuleApply           bool   `json:"SKIP_RULE_APPLY"`
+	RunValidation           bool   `json:"RUN_VALIDATION"`
 	EnableInboundIPv6s      net.IP `json:"ENABLE_INBOUND_IPV6"`
 }
 
@@ -55,6 +59,7 @@ func (c *Config) Print() {
 	fmt.Println(fmt.Sprintf("PROXY_PORT=%s", c.ProxyPort))
 	fmt.Println(fmt.Sprintf("PROXY_INBOUND_CAPTURE_PORT=%s", c.InboundCapturePort))
 	fmt.Println(fmt.Sprintf("PROXY_UID=%s", c.ProxyUID))
+	fmt.Println(fmt.Sprintf("PROXY_GID=%s", c.ProxyGID))
 	fmt.Println(fmt.Sprintf("INBOUND_INTERCEPTION_MODE=%s", c.InboundInterceptionMode))
 	fmt.Println(fmt.Sprintf("INBOUND_TPROXY_MARK=%s", c.InboundTProxyMark))
 	fmt.Println(fmt.Sprintf("INBOUND_TPROXY_ROUTE_TABLE=%s", c.InboundTProxyRouteTable))
