@@ -6950,9 +6950,12 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
           {{- end }}
+          {{- if .Values.global.mountMtlsCerts }}
+          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- end }}
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -6976,10 +6979,13 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           secretName: istio.default
           optional: true
+      {{- end }}
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -7983,9 +7989,12 @@ spec:
 {{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
+          {{- if .Values.global.mountMtlsCerts }}
+          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- end }}
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -8011,10 +8020,13 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           secretName: istio.istio-ingressgateway-service-account
           optional: true
+      {{- end }}
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -10639,15 +10651,19 @@ template: |
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
+    # SDS channel between istioagent and Envoy
     - mountPath: /etc/istio/proxy
       name: istio-envoy
     {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
     {{- end }}
+    {{- if .Values.global.mountMtlsCerts }}
+    # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
     - mountPath: /etc/certs/
       name: istio-certs
       readOnly: true
+    {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
       name: lightstep-certs
@@ -10665,6 +10681,7 @@ template: |
     configMap:
       name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
   {{- end }}
+  # SDS channel between istioagent and Envoy
   - emptyDir:
       medium: Memory
     name: istio-envoy
@@ -10682,6 +10699,8 @@ template: |
     configMap:
       name: istio-ca-root-cert
   {{- end }}
+  {{- if .Values.global.mountMtlsCerts }}
+  # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
   - name: istio-certs
     secret:
       optional: true
@@ -10690,6 +10709,7 @@ template: |
       {{ else -}}
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
+  {{- end }}
     {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
     {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
   - name: "{{ $index }}"
@@ -37875,6 +37895,7 @@ spec:
       localityLbSetting:
         enabled: true
       enableHelmTest: false
+      mountMtlsCerts: false
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
