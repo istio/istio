@@ -112,9 +112,9 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	}
 
 	if validationWebhookConfigName.Get() != "" {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			go whController.Start(stop)
-			return nil
+		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
+			log.Infof("Starting validation controller")
+			whController.Start(stop)
 		})
 	}
 	return nil
