@@ -34,8 +34,9 @@ func TestProtoToValuesV13(t *testing.T) {
 		{
 			desc: "default success",
 			yamlStr: `
-meshConfig:
-  rootNamespace: istio-system
+values:
+  global:
+    istioNamespace: istio-system
 `,
 			want: `certmanager:
   enabled: false
@@ -102,8 +103,9 @@ tracing:
 			yamlStr: `
 hub: docker.io/istio
 tag: 1.2.3
-meshConfig:
-  rootNamespace: istio-system
+values:
+  global:
+    istioNamespace: istio-system
 `,
 			want: `certmanager:
   enabled: false
@@ -176,7 +178,7 @@ tracing:
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ispec := &v1alpha1.IstioOperatorSpec{}
-			err := util.UnmarshalWithJSONPB(tt.yamlStr, ispec)
+			err := util.UnmarshalWithJSONPB(tt.yamlStr, ispec, false)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}

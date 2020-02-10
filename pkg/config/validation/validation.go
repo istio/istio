@@ -1670,10 +1670,10 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		var errs error
 		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
 		if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
-			errs = appendErrors(errs, fmt.Errorf("default request authentication cannot have workload selector"))
+			errs = appendErrors(errs, fmt.Errorf("mesh/namespace request authentication cannot have selector"))
 		} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs,
-				fmt.Errorf("request authentication with empty workload selector must be named %q", constants.DefaultAuthenticationPolicyName))
+				fmt.Errorf("request authentication without selector must be named %q", constants.DefaultAuthenticationPolicyName))
 		}
 
 		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
@@ -1728,10 +1728,26 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 		var errs error
 		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
 		if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
-			errs = appendErrors(errs, fmt.Errorf("default peer authentication cannot have workload selector"))
+			errs = appendErrors(errs, fmt.Errorf("mesh/namespace peer authentication cannot have selector"))
 		} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs,
-				fmt.Errorf("peer authentication with empty workload selector must be named %q", constants.DefaultAuthenticationPolicyName))
+				fmt.Errorf("peer authentication without selector must be named %q", constants.DefaultAuthenticationPolicyName))
+		}
+
+		if emptySelector && len(in.PortLevelMtls) != 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("mesh/namespace peer authentication cannot have port level mTLS"))
+		}
+
+		if in.PortLevelMtls != nil && len(in.PortLevelMtls) == 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("port level mTLS, if defined, must have at least one element"))
+		}
+
+		for port := range in.PortLevelMtls {
+			if port == 0 {
+				errs = appendErrors(errs, fmt.Errorf("port cannot be 0"))
+			}
 		}
 
 		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))

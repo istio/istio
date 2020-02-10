@@ -20,9 +20,12 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/istio/operator/pkg/tpath"
+
 	util2 "k8s.io/kubectl/pkg/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
@@ -32,7 +35,6 @@ import (
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/component/controlplane"
 	"istio.io/istio/operator/pkg/helm"
-	istiomanifest "istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
@@ -106,7 +108,7 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 	profile := iop.Profile
 
 	// This contains the IstioOperator CR.
-	baseCRYAML, err := helm.ReadProfileYAML(profile)
+	baseIOPYAML, err := helm.ReadProfileYAML(profile)
 	if err != nil {
 		return nil, fmt.Errorf("could not read the profile values for %s: %s", profile, err)
 	}
@@ -121,15 +123,10 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 		if err != nil {
 			return nil, fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
 		}
-		baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
+		baseIOPYAML, err = util.OverlayYAML(defaultYAML, baseIOPYAML)
 		if err != nil {
 			return nil, fmt.Errorf("could not overlay the profile over the default %s: %s", profile, err)
 		}
-	}
-
-	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML)
-	if err != nil {
-		return nil, err
 	}
 
 	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
@@ -141,13 +138,17 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 		if err != nil {
 			return nil, err
 		}
-		baseYAML, err = util.OverlayYAML(baseYAML, buildHubTagOverlayYAML)
+		baseIOPYAML, err = util.OverlayYAML(baseIOPYAML, buildHubTagOverlayYAML)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	overlayYAML, err := util.MarshalWithJSONPB(iop)
+	if err != nil {
+		return nil, err
+	}
+	baseYAML, err := tpath.GetSpecSubtree(baseIOPYAML)
 	if err != nil {
 		return nil, err
 	}
@@ -160,32 +161,11 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 	return unmarshalAndValidateIOPSpec(mergedYAML)
 }
 
-// unmarshalAndValidateIOP unmarshals the IstioOperator in the crYAML string and validates it.
-// If successful, it returns both a struct and string YAML representations of the IstioOperatorSpec embedded in iop.
-func unmarshalAndValidateIOP(crYAML string) (*v1alpha1.IstioOperatorSpec, string, error) {
-	// TODO: add GroupVersionKind handling as appropriate.
-	if crYAML == "" {
-		return &v1alpha1.IstioOperatorSpec{}, "", nil
-	}
-	iops, _, err := istiomanifest.ParseK8SYAMLToIstioOperatorSpec(crYAML)
-	if err != nil {
-		return nil, "", fmt.Errorf("could not parse the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)
-	}
-	if errs := validate.CheckIstioOperatorSpec(iops, false); len(errs) != 0 {
-		return nil, "", fmt.Errorf("input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s", errs, crYAML)
-	}
-	iopsYAML, err := util.MarshalWithJSONPB(iops)
-	if err != nil {
-		return nil, "", fmt.Errorf("could not marshal: %s", err)
-	}
-	return iops, iopsYAML, nil
-}
-
 // unmarshalAndValidateIOPSpec unmarshals the IstioOperatorSpec in the iopsYAML string and validates it.
 // If successful, it returns a struct representation of iopsYAML.
 func unmarshalAndValidateIOPSpec(iopsYAML string) (*v1alpha1.IstioOperatorSpec, error) {
 	iops := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(iopsYAML, iops); err != nil {
+	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
 		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
 	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
@@ -297,22 +277,32 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 		return utilerrors.NewAggregate(allErrors)
 	}
 
-	err := util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
+	mutatedObj, err := h.customizer.Listener().BeginResource(chartName, obj)
+	if err != nil {
+		log.Errorf("error preprocessing object: %s", err)
+		return err
+	}
+
+	err = util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
 	if err != nil {
 		log.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
-	objectKey, _ := client.ObjectKeyFromObject(obj)
+	receiver.SetGroupVersionKind(mutatedObj.GetObjectKind().GroupVersionKind())
+	objectKey, _ := client.ObjectKeyFromObject(mutatedObj)
 
 	if err = h.client.Get(context.TODO(), objectKey, receiver); apierrors.IsNotFound(err) {
 		log.Infof("creating resource: %s", objectKey)
-		return h.client.Create(context.TODO(), obj)
+		return h.client.Create(context.TODO(), mutatedObj)
 	} else if err == nil {
 		log.Infof("updating resource: %s", objectKey)
-		obj.SetResourceVersion(receiver.GetResourceVersion())
-		return h.client.Update(context.TODO(), obj)
+		updatedAccessor, err := meta.Accessor(mutatedObj)
+		if err != nil {
+			return fmt.Errorf("cannot create object accessor for mutatedObj:\n%v", mutatedObj)
+		}
+		updatedAccessor.SetResourceVersion(receiver.GetResourceVersion())
+		return h.client.Update(context.TODO(), mutatedObj)
 	}
 	return err
 }

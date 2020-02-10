@@ -445,7 +445,6 @@ var (
 						option.DisableReportCalls(disableInternalTelemetry),
 						option.SDSTokenPath(sdsTokenPath),
 						option.SDSUDSPath(sdsUDSPath),
-						option.STSPort(stsPort),
 					}
 
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
@@ -543,11 +542,11 @@ var (
 				PodIP:               podIP,
 				SDSUDSPath:          sdsUDSPath,
 				SDSTokenPath:        sdsTokenPath,
+				STSPort:             stsPort,
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
-				StsPort:             stsPort,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())

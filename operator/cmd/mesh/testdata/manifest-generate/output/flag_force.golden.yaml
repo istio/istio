@@ -1,3 +1,5 @@
+Validation errors (continuing because of --force):
+unknown field "badKey" in v1alpha1.GlobalConfig
 # Base component is disabled.
 
 # Citadel component is disabled.
@@ -9,23 +11,23 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
+  name: istio-pilot
+  namespace: istio-system
   labels:
     app: pilot
     release: istio
-  name: istio-pilot
-  namespace: istio-system
 spec:
   maxReplicas: 5
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: istio-pilot
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
 ---
 
 
@@ -405,8 +407,8 @@ metadata:
   namespace: istio-system
   labels:
     app: pilot
-    release: istio
     istio: pilot
+    release: istio
 spec:
   strategy:
     rollingUpdate:
@@ -419,8 +421,6 @@ spec:
     metadata:
       labels:
         app: pilot
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -619,6 +619,7 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
+        "badKey": "badValue",
         "certificates": [],
         "configNamespace": "istio-system",
         "configValidation": true,

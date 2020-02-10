@@ -29,5 +29,5 @@ var (
 
 func newClient() (model.ConfigStore, error) {
 	return controller.NewClient(kubeconfig, configContext, collections.Pilot,
-		"", &model.DisabledLedger{})
+		"", &model.DisabledLedger{}, "")
 }
