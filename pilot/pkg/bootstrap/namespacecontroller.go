@@ -87,21 +87,32 @@ func NewNamespaceController(data func() map[string]string, core corev1.CoreV1Int
 				})
 			},
 			DeleteFunc: func(obj interface{}) {
-				cm, ok := obj.(*v1.ConfigMap)
-				if ok {
-					c.queue.Push(func() error {
-						ns, err := core.Namespaces().Get(cm.Namespace, metav1.GetOptions{})
-						if err != nil {
-							return err
-						}
-						// If the namespace is terminating, we may get into a loop of trying to re-add the configmap back
-						// We should make sure the namespace still exists
-						if ns.Status.Phase != v1.NamespaceTerminating {
-							return c.insertDataForNamespace(cm.Namespace)
-						}
-						return nil
-					})
+				var cm *v1.ConfigMap
+				var ok bool
+				if cm, ok = obj.(*v1.ConfigMap); !ok {
+					tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+					if !ok {
+						log.Errorf("error decoding object, invalid type")
+						return
+					}
+					cm, ok = tombstone.Obj.(*v1.ConfigMap)
+					if !ok {
+						log.Errorf("error decoding object tombstone, invalid type")
+						return
+					}
 				}
+				c.queue.Push(func() error {
+					ns, err := core.Namespaces().Get(cm.Namespace, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					// If the namespace is terminating, we may get into a loop of trying to re-add the configmap back
+					// We should make sure the namespace still exists
+					if ns.Status.Phase != v1.NamespaceTerminating {
+						return c.insertDataForNamespace(cm.Namespace)
+					}
+					return nil
+				})
 			},
 		})
 
@@ -116,7 +127,7 @@ func NewNamespaceController(data func() map[string]string, core corev1.CoreV1Int
 	})
 	_, c.namespaceController =
 		cache.NewInformer(namespaceLW, &v1.Namespace{}, 0, cache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(oldObj, newObj interface{}) {
+			UpdateFunc: func(_, newObj interface{}) {
 				c.queue.Push(func() error {
 					return c.namespaceChange(newObj)
 				})
@@ -148,11 +159,7 @@ func (nc *NamespaceController) insertDataForNamespace(ns string) error {
 		Namespace: ns,
 		Labels:    configMapLabel,
 	}
-	err := certutil.InsertDataToConfigMap(nc.core, meta, nc.getData())
-	if err != nil {
-		return fmt.Errorf("error when inserting CA cert to configmap: %v", err)
-	}
-	return nil
+	return certutil.InsertDataToConfigMap(nc.core, meta, nc.getData())
 }
 
 // On namespace change, update the config map.
