@@ -42,7 +42,7 @@ func All() []analysis.Analyzer {
 		&gateway.IngressGatewayPortAnalyzer{},
 		&gateway.SecretAnalyzer{},
 		&injection.Analyzer{},
-		&injection.VersionAnalyzer{},
+		&injection.ImageAnalyzer{},
 		&service.PortNameAnalyzer{},
 		&sidecar.DefaultSelectorAnalyzer{},
 		&sidecar.SelectorAnalyzer{},

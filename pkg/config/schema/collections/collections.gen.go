@@ -730,6 +730,23 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SCoreV1Configmaps describes the collection k8s/core/v1/configmaps
+	K8SCoreV1Configmaps = collection.Builder{
+		Name:         "k8s/core/v1/configmaps",
+		VariableName: "K8SCoreV1Configmaps",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "",
+			Kind:          "ConfigMap",
+			Plural:        "configmaps",
+			Version:       "v1",
+			Proto:         "k8s.io.api.core.v1.ConfigMap",
+			ProtoPackage:  "k8s.io/api/core/v1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SCoreV1Endpoints describes the collection k8s/core/v1/endpoints
 	K8SCoreV1Endpoints = collection.Builder{
 		Name:         "k8s/core/v1/endpoints",
@@ -1126,6 +1143,7 @@ var (
 		MustAdd(K8SConfigIstioIoV1Alpha2Quotaspecs).
 		MustAdd(K8SConfigIstioIoV1Alpha2Rules).
 		MustAdd(K8SConfigIstioIoV1Alpha2Templates).
+		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
 		MustAdd(K8SCoreV1Namespaces).
 		MustAdd(K8SCoreV1Nodes).
@@ -1194,6 +1212,7 @@ var (
 		MustAdd(K8SConfigIstioIoV1Alpha2Quotaspecs).
 		MustAdd(K8SConfigIstioIoV1Alpha2Rules).
 		MustAdd(K8SConfigIstioIoV1Alpha2Templates).
+		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
 		MustAdd(K8SCoreV1Namespaces).
 		MustAdd(K8SCoreV1Nodes).
