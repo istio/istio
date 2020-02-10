@@ -42,13 +42,13 @@ var (
 	cacheLog = log.RegisterScope("cache", "cache debugging", 0)
 
 	// The well-known path for an existing certificate chain file
-	existingCertChainFile = CertChainFilePath
+	existingCertChainFile = defaultCertChainFilePath
 
 	// The well-known path for an existing key file
-	existingKeyFile = KeyFilePath
+	existingKeyFile = defaultKeyFilePath
 
 	// ExistingRootCertFile is the well-known path for an existing root certificate file
-	ExistingRootCertFile = RootCertFilePath
+	ExistingRootCertFile = defaultRootCertFilePath
 )
 
 const (
@@ -83,13 +83,13 @@ const (
 	notifyK8sSecretTimeout = 30 * time.Second
 
 	// The well-known path for an existing certificate chain file
-	CertChainFilePath = "./etc/certs/cert-chain.pem"
+	defaultCertChainFilePath = "./etc/certs/cert-chain.pem"
 
 	// The well-known path for an existing key file
-	KeyFilePath = "./etc/certs/key.pem"
+	defaultKeyFilePath = "./etc/certs/key.pem"
 
-	// ExistingRootCertFile is the well-known path for an existing root certificate file
-	RootCertFilePath = "./etc/certs/root-cert.pem"
+	// The well-known path for an existing root certificate file
+	defaultRootCertFilePath = "./etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
