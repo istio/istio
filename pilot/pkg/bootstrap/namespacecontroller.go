@@ -49,9 +49,9 @@ var (
 
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {
-	// data is the function to fetch the data we will insert into the config map
-	data func() map[string]string
-	core corev1.CoreV1Interface
+	// getData is the function to fetch the data we will insert into the config map
+	getData func() map[string]string
+	core    corev1.CoreV1Interface
 
 	queue queue.Instance
 
@@ -64,9 +64,9 @@ type NamespaceController struct {
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
 func NewNamespaceController(data func() map[string]string, core corev1.CoreV1Interface) (*NamespaceController, error) {
 	c := &NamespaceController{
-		data:  data,
-		core:  core,
-		queue: queue.NewQueue(time.Second),
+		getData: data,
+		core:    core,
+		queue:   queue.NewQueue(time.Second),
 	}
 	configMapLw := listwatch.MultiNamespaceListerWatcher([]string{metav1.NamespaceAll}, func(namespace string) cache.ListerWatcher {
 		return &cache.ListWatch{
@@ -97,7 +97,7 @@ func NewNamespaceController(data func() map[string]string, core corev1.CoreV1Int
 						// If the namespace is terminating, we may get into a loop of trying to re-add the configmap back
 						// We should make sure the namespace still exists
 						if ns.Status.Phase != v1.NamespaceTerminating {
-							return c.writeToNamespace(cm.Namespace)
+							return c.insertDataForNamespace(cm.Namespace)
 						}
 						return nil
 					})
@@ -139,13 +139,16 @@ func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
 	go nc.queue.Run(stopCh)
 }
 
-func (nc *NamespaceController) writeToNamespace(ns string) error {
+// insertDataForNamespace will add data into the configmap for the specified namespace
+// If the configmap is not found, it will be created.
+// If you know the current contents of the configmap, using UpdateDataInConfigMap is more efficient.
+func (nc *NamespaceController) insertDataForNamespace(ns string) error {
 	meta := metav1.ObjectMeta{
 		Name:      CACertNamespaceConfigMap,
 		Namespace: ns,
 		Labels:    configMapLabel,
 	}
-	err := certutil.InsertDataToConfigMap(nc.core, meta, nc.data())
+	err := certutil.InsertDataToConfigMap(nc.core, meta, nc.getData())
 	if err != nil {
 		return fmt.Errorf("error when inserting CA cert to configmap: %v", err)
 	}
@@ -158,7 +161,7 @@ func (nc *NamespaceController) namespaceChange(obj interface{}) error {
 	ns, ok := obj.(*v1.Namespace)
 
 	if ok && ns.Status.Phase != v1.NamespaceTerminating {
-		return nc.writeToNamespace(ns.Name)
+		return nc.insertDataForNamespace(ns.Name)
 	}
 	return nil
 }
@@ -168,7 +171,7 @@ func (nc *NamespaceController) configMapChange(obj interface{}) error {
 	cm, ok := obj.(*v1.ConfigMap)
 
 	if ok {
-		if err := certutil.UpdateDataInConfigMap(nc.core, cm, nc.data()); err != nil {
+		if err := certutil.UpdateDataInConfigMap(nc.core, cm, nc.getData()); err != nil {
 			return fmt.Errorf("error when inserting CA cert to configmap %v: %v", cm.Name, err)
 		}
 	}
