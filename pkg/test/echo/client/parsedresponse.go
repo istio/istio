@@ -34,6 +34,7 @@ var (
 	statusCodeFieldRegex     = regexp.MustCompile(string(response.StatusCodeField) + "=(.*)")
 	hostFieldRegex           = regexp.MustCompile(string(response.HostField) + "=(.*)")
 	hostnameFieldRegex       = regexp.MustCompile(string(response.HostnameField) + "=(.*)")
+	URLFieldRegex            = regexp.MustCompile(string(response.URLField) + "=(.*)")
 )
 
 // ParsedResponse represents a response to a single echo request.
@@ -42,6 +43,8 @@ type ParsedResponse struct {
 	Body string
 	// ID is a unique identifier of the resource in the response
 	ID string
+	// URL is the url the request is sent to
+	URL string
 	// Version is the version of the resource in the response
 	Version string
 	// Port is the port of the resource in the response
@@ -197,6 +200,11 @@ func parseResponse(output string) *ParsedResponse {
 	match = hostnameFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Hostname = match[1]
+	}
+
+	match = URLFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.URL = match[1]
 	}
 
 	out.RawResponse = map[string]string{}
