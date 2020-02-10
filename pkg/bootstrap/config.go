@@ -444,8 +444,14 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	// Set SDS configuration on the metadata, if provided.
 	if sdsEnabled {
 		// sds is enabled
-		meta.SdsEnabled = true
-		meta.SdsTrustJwt = true
+		meta.TLSClientKey = "/etc/istio/proxy/key.pem"
+		meta.TLSServerKey = "/etc/istio/proxy/key.pem"
+		meta.TLSClientCertChain = "/etc/istio/proxy/cert-chain.pem"
+		meta.TLSServerCertChain = "/etc/istio/proxy/cert-chain.pem"
+		meta.TLSClientRootCert = "/etc/istio/proxy/root-cert.pem"
+		meta.TLSServerRootCert = "/etc/istio/proxy/root-cert.pem"
+		meta.SdsEnabled = false
+		meta.SdsTrustJwt = false
 	}
 
 	// Add STS port into node metadata if it is not 0.
