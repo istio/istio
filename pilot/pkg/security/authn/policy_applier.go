@@ -24,8 +24,9 @@ import (
 // PolicyApplier is the interface provides essential functionalities to help config Envoy (xDS) to enforce
 // authentication policy. Each version of authentication policy will implement this interface.
 type PolicyApplier interface {
-	// InboundFilterChain returns inbound filter chain(s) to enforce the underlying authentication policy.
-	InboundFilterChain(sdsUdsPath string, node *model.Proxy) []plugin.FilterChain
+	// InboundFilterChain returns inbound filter chain(s) for the given endpoint (aka workload) port to
+	// enforce the underlying authentication policy.
+	InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []plugin.FilterChain
 
 	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.

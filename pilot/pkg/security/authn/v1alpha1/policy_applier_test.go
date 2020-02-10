@@ -1090,7 +1090,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := NewPolicyApplier(c.in).InboundFilterChain(
+			got := NewPolicyApplier(c.in).InboundFilterChain(8080,
 				c.sdsUdsPath,
 				c.node,
 			)
