@@ -233,6 +233,10 @@ collections:
     kind: "Service"
     group: ""
 
+  - name: "k8s/core/v1/configmaps"
+    kind: "ConfigMap"
+    group: ""
+
   - name: "k8s/extensions/v1beta1/ingresses"
     kind: "Ingress"
     group: "extensions"
@@ -400,6 +404,7 @@ snapshots:
       - "k8s/core/v1/pods"
       - "k8s/core/v1/secrets"
       - "k8s/core/v1/services"
+      - "k8s/core/v1/configmaps"
 
 # Configuration for resource types.
 resources:
@@ -447,6 +452,12 @@ resources:
     plural: "services"
     version: "v1"
     proto: "k8s.io.api.core.v1.ServiceSpec"
+    protoPackage: "k8s.io/api/core/v1"
+
+  - kind: "ConfigMap"
+    plural: "configmaps"
+    version: "v1"
+    proto: "k8s.io.api.core.v1.ConfigMap"
     protoPackage: "k8s.io/api/core/v1"
 
   - kind: "Ingress"
@@ -698,6 +709,7 @@ transforms:
       "k8s/core/v1/pods": "k8s/core/v1/pods"
       "k8s/core/v1/secrets": "k8s/core/v1/secrets"
       "k8s/core/v1/services": "k8s/core/v1/services"
+      "k8s/core/v1/configmaps": "k8s/core/v1/configmaps"
       "istio/mesh/v1alpha1/MeshConfig": "istio/mesh/v1alpha1/MeshConfig"
 `)
 
