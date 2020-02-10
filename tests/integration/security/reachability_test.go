@@ -15,8 +15,10 @@
 package security
 
 import (
+	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -38,6 +40,7 @@ func TestReachability(t *testing.T) {
 
 			rctx := reachability.CreateContext(ctx, g, p)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
+			fmt.Println("incfly debug printing sysnamespace ", systemNM, scheme.HTTP)
 
 			testCases := []reachability.TestCase{
 				{
@@ -128,6 +131,35 @@ func TestReachability(t *testing.T) {
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
+					},
+				},
+				{
+					// Multiversion app v1 turns enbles mTLS using workload selector policy, v2 is PERMISSIVE.
+					// We use VirtualService and DestinationRule to ensure request hit the v1 and v2 subset.
+					ConfigFile:          "beta-mtls-workload-automtls.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
+					CallOpts: []echo.CallOptions{
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/v1",
+						},
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/v2-default",
+						},
+					},
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// focused on multiversion app.
+						return (src == rctx.A || src == rctx.Naked) && opts.Target == rctx.MultiVersion
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						if src != rctx.Naked {
+							return true
+						}
+						return opts.Path != "/v1"
 					},
 				},
 			}

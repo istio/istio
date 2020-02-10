@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/file"
+	// "istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
@@ -45,6 +46,10 @@ type TestCase struct {
 
 	RequiredEnvironment environment.Name
 
+	// CallOpts specified the call options for destination service. If not specified, use the default
+	// framework provided ones.
+	CallOpts []echo.CallOptions
+
 	// Indicates whether a test should be created for the given configuration.
 	Include func(src echo.Instance, opts echo.CallOptions) bool
 
@@ -57,11 +62,15 @@ type TestCase struct {
 
 // Context is a context for reachability tests.
 type Context struct {
-	ctx                   framework.TestContext
-	g                     galley.Instance
-	p                     pilot.Instance
-	Namespace             namespace.Instance
-	A, B, Headless, Naked echo.Instance
+	ctx         framework.TestContext
+	g           galley.Instance
+	p           pilot.Instance
+	Namespace   namespace.Instance
+	A, B, Naked echo.Instance
+	// Headless app is for headless service.
+	Headless echo.Instance
+	// MultiVersion app consists of two deployments, having v1 and v2 label respectively.
+	MultiVersion echo.Instance
 }
 
 // CreateContext creates and initializes reachability context.
@@ -71,24 +80,31 @@ func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instanc
 		Inject: true,
 	})
 
-	var a, b, headless, naked echo.Instance
+	var a, b, multiVersion, headless, naked echo.Instance
+	mv1 := util.EchoConfig("multiversion", ns, false, nil, g, p)
+	mv2 := mv1
+	mv1.Version = "v1"
+	mv2.Version = "v2"
 	echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 		With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+		With(&multiVersion, mv1).
+		With(&multiVersion, mv2).
 		With(&headless, util.EchoConfig("headless", ns, true, nil, g, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), g, p)).
 		BuildOrFail(ctx)
 
 	return Context{
-		ctx:       ctx,
-		g:         g,
-		p:         p,
-		Namespace: ns,
-		A:         a,
-		B:         b,
-		Headless:  headless,
-		Naked:     naked,
+		ctx:          ctx,
+		g:            g,
+		p:            p,
+		Namespace:    ns,
+		A:            a,
+		B:            b,
+		MultiVersion: multiVersion,
+		Headless:     headless,
+		Naked:        naked,
 	}
 }
 
@@ -124,7 +140,6 @@ func (rc *Context) Run(testCases []TestCase) {
 		}
 
 		test.Run(func(ctx framework.TestContext) {
-			// Apply the policy.
 			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(ctx, func() error {
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
@@ -133,14 +148,20 @@ func (rc *Context) Run(testCases []TestCase) {
 			ctx.WhenDone(func() error {
 				return rc.g.DeleteConfig(c.Namespace, policyYAML)
 			})
+			// }
 
 			// Give some time for the policy propagate.
 			// TODO: query pilot or app to know instead of sleep.
 			time.Sleep(10 * time.Second)
 
 			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
-				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
-					for _, opts := range callOptions {
+				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.MultiVersion, rc.Naked} {
+					copts := &callOptions
+					// If test case specified service call options, use that instead.
+					if c.CallOpts != nil {
+						copts = &c.CallOpts
+					}
+					for _, opts := range *copts {
 						// Copy the loop variables so they won't change for the subtests.
 						src := src
 						dest := dest
@@ -153,11 +174,12 @@ func (rc *Context) Run(testCases []TestCase) {
 						if c.Include(src, opts) {
 							expectSuccess := c.ExpectSuccess(src, opts)
 
-							subTestName := fmt.Sprintf("%s->%s://%s:%s",
+							subTestName := fmt.Sprintf("%s->%s://%s:%s/%s",
 								src.Config().Service,
 								opts.Scheme,
 								dest.Config().Service,
-								opts.PortName)
+								opts.PortName,
+								opts.Path)
 
 							ctx.NewSubTest(subTestName).
 								RunParallel(func(ctx framework.TestContext) {

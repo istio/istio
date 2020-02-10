@@ -17,7 +17,7 @@ package v2
 import (
 	"reflect"
 	"strconv"
-	// "strings"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -937,19 +937,19 @@ func buildLocalityLbEndpointsFromShards(
 			}
 			// labels.Collection seems really not needed...
 			ns := ep.Attributes.Namespace
-			if ns == "automtls" {
-				canMtls := push.EndpointAcceptMtls(ns, labels.Collection{ep.Labels}, ep.EndpointPort)
-				adsLog.Warnf("incfly debug, endpoint-mtls %v, mTLS result %v",
-					ep, canMtls)
-				// negate the endpoint level mtls capabilities.
-				if !canMtls {
-					ep.TLSMode = model.DisabledTLSModeLabel
-				}
+			canMtls := push.EndpointAcceptMtls(ns, labels.Collection{ep.Labels}, ep.EndpointPort)
+			// Update the label to disabled when the endpoint is not serving mTLS per policy.
+			if !canMtls {
+				ep.TLSMode = model.DisabledTLSModeLabel
 			}
-			if ep.EnvoyEndpoint == nil {
-				tlsLabel := ep.TLSMode
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network,
-					ep.LbWeight, tlsLabel, push)
+			// }
+			// TODO(incfly): probably only build lb when changed.
+			// if ep.EnvoyEndpoint == nil {
+			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network,
+				ep.LbWeight, ep.TLSMode, push)
+			// }
+			if ns == "automtls" || strings.Contains(ep.Attributes.Name, "multiversion") {
+				adsLog.Warnf("incfly debug, endpoint-mtls %v, mTLS result %v, build lbenvoy ep: %v", ep, canMtls, ep.EnvoyEndpoint)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 
