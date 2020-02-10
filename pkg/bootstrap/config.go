@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -92,7 +93,6 @@ type Config struct {
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
-	StsPort             int
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -123,8 +123,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath),
-		option.STSPort(cfg.StsPort))
+		option.OutlierLogPath(cfg.OutlierLogPath))
 
 	// Support passing extra info from node environment as metadata
 	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""
@@ -451,7 +450,7 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	// Add STS port into node metadata if it is not 0.
 	if stsPort != 0 {
-		meta.StsPort = string(stsPort)
+		meta.StsPort = strconv.Itoa(stsPort)
 	}
 
 	return meta, untypedMeta, nil

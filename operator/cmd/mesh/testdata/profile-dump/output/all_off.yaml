@@ -1,6 +1,18 @@
 addonComponents:
+  grafana:
+    enabled: false
+    k8s:
+      replicaCount: 1
+  kiali:
+    enabled: false
+    k8s:
+      replicaCount: 1
   prometheus:
     enabled: true
+    k8s:
+      replicaCount: 1
+  tracing:
+    enabled: false
 components:
   base:
     enabled: true
@@ -411,7 +423,6 @@ values:
       datasources.yaml:
         apiVersion: 1
         datasources: null
-    enabled: false
     env: {}
     envSecrets: {}
     image:
@@ -427,7 +438,6 @@ values:
     persist: false
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-    replicaCount: 1
     security:
       enabled: false
       passphraseKey: passphrase
@@ -457,7 +467,6 @@ values:
       secretName: kiali
       usernameKey: username
       viewOnlyMode: false
-    enabled: false
     hub: quay.io/kiali
     ingress:
       annotations: null
@@ -469,7 +478,6 @@ values:
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
     prometheusNamespace: null
-    replicaCount: 1
     security:
       cert_file: /kiali-cert/cert-chain.pem
       enabled: false
@@ -550,7 +558,6 @@ values:
     traceSampling: 1
   prometheus:
     contextPath: /prometheus
-    enabled: true
     hub: docker.io/prom
     ingress:
       annotations: null
@@ -561,7 +568,6 @@ values:
     nodeSelector: {}
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-    replicaCount: 1
     retention: 6h
     scrapeInterval: 15s
     security:
@@ -596,7 +602,6 @@ values:
         monitoring: false
         topology: false
   tracing:
-    enabled: false
     ingress:
       annotations: null
       enabled: false
