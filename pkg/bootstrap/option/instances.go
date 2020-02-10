@@ -163,14 +163,17 @@ func StackDriverDebug(value bool) Instance {
 }
 
 func StackDriverMaxAnnotations(value int64) Instance {
+	//return newOption("stackdriverMaxAnnotations", value).withConvert(int64Converter(value))
 	return newOption("stackdriverMaxAnnotations", value)
 }
 
 func StackDriverMaxAttributes(value int64) Instance {
+	//return newOption("stackdriverMaxAttributes", value).withConvert(int64Converter(value))
 	return newOption("stackdriverMaxAttributes", value)
 }
 
 func StackDriverMaxEvents(value int64) Instance {
+	//return newOption("stackdriverMaxEvents", value).withConvert(int64Converter(value))
 	return newOption("stackdriverMaxEvents", value)
 }
 

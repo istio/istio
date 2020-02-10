@@ -80,6 +80,7 @@ func UntilSuccessOrFail(t test.Failer, fn func() error, options ...Option) {
 	t.Helper()
 	err := UntilSuccess(fn, options...)
 	if err != nil {
+		time.Sleep(time.Minute * 10)
 		t.Fatalf("retry.UntilSuccessOrFail: %v", err)
 	}
 }
