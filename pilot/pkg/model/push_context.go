@@ -1578,7 +1578,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, efw := range ps.envoyFiltersByNamespace[ps.Mesh.RootNamespace] {
-			workloadLabels := labels.Collection{}
+			var workloadLabels labels.Collection
 			// This should never happen except in tests.
 			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
@@ -1592,7 +1592,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
-			workloadLabels := labels.Collection{}
+			var workloadLabels labels.Collection
 			// This should never happen except in tests.
 			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
@@ -1669,7 +1669,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			out = append(out, cfg)
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
-			workloadLabels := labels.Collection{}
+			var workloadLabels labels.Collection
 			// This should never happen except in tests.
 			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
