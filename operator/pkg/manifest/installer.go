@@ -156,16 +156,11 @@ func ParseK8SYAMLToIstioOperator(yml string) (*iopv1alpha1.IstioOperator, *schem
 
 // RenderToDir writes manifests to a local filesystem directory tree.
 func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun bool) error {
-	logAndPrint("Component dependencies tree: \n%s", installTreeString())
 	logAndPrint("Rendering manifests to output dir %s", outputDir)
-	return renderRecursive(manifests, installTree, outputDir, dryRun)
-}
-
-func renderRecursive(manifests name.ManifestMap, installTree componentTree, outputDir string, dryRun bool) error {
-	for k, v := range installTree {
+	for k, v := range manifests {
 		componentName := string(k)
 		// In cases (like gateways) where multiple instances can exist, concatenate the manifests and apply as one.
-		ym := strings.Join(manifests[k], helm.YAMLSeparator)
+		ym := strings.Join(v, helm.YAMLSeparator)
 		logAndPrint("Rendering: %s", componentName)
 		dirName := filepath.Join(outputDir, componentName)
 		if !dryRun {
@@ -179,15 +174,6 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 			if err := ioutil.WriteFile(fname, []byte(ym), 0644); err != nil {
 				return fmt.Errorf("could not write manifest config; %s", err)
 			}
-		}
-
-		kt, ok := v.(componentTree)
-		if !ok {
-			// Leaf
-			return nil
-		}
-		if err := renderRecursive(manifests, kt, dirName, dryRun); err != nil {
-			return err
 		}
 	}
 	return nil

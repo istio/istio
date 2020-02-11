@@ -237,6 +237,13 @@ func (c *IstioComponentImpl) RenderManifest() (string, error) {
 	if devDbg {
 		log.Infof("Initial manifest with merged values:\n%s\n", my)
 	}
+	// If this is Pilot, overlay mesh config
+	if c.ComponentName() == name.PilotComponentName {
+		my, err = c.overlayMeshConfig(my)
+		if err != nil {
+			return "", err
+		}
+	}
 	// Add the k8s resources from IstioOperatorSpec.
 	my, err = c.Translator.OverlayK8sSettings(my, c.Options.InstallSpec, c.componentName, c.index)
 	if err != nil {
@@ -276,9 +283,6 @@ func (c *IstioComponentImpl) RenderManifest() (string, error) {
 	}
 
 	log.Infof("Manifest after resources and overlay: \n%s\n", ret)
-	if c.ComponentName() == name.PilotComponentName {
-		return c.overlayMeshConfig(ret)
-	}
 	return ret, nil
 }
 
