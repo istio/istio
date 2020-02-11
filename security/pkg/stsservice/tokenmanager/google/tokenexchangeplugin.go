@@ -119,18 +119,19 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 	if !p.enableCache {
 		return nil, false
 	}
-	if v, ok := p.tokens.Load(accessToken); !ok {
+	v, ok := p.tokens.Load(accessToken)
+	if !ok {
 		return nil, false
-	} else {
-		token := v.(stsservice.TokenInfo)
-		remainingLife := time.Until(token.ExpireTime)
-		pluginLog.Infof("find a cached access token with remaining lifetime: %s", remainingLife.String())
-		if remainingLife > time.Duration(defaultGracePeriod)*time.Second {
-			expireInSec := int64(remainingLife.Seconds())
-			if tokenSTS, err := p.generateSTSRespInner(token.Token, expireInSec); err == nil {
-				pluginLog.Infof("generated an STS response using a cached access token")
-				return tokenSTS, true
-			}
+	}
+
+	token := v.(stsservice.TokenInfo)
+	remainingLife := time.Until(token.ExpireTime)
+	pluginLog.Infof("find a cached access token with remaining lifetime: %s", remainingLife.String())
+	if remainingLife > time.Duration(defaultGracePeriod)*time.Second {
+		expireInSec := int64(remainingLife.Seconds())
+		if tokenSTS, err := p.generateSTSRespInner(token.Token, expireInSec); err == nil {
+			pluginLog.Infof("generated an STS response using a cached access token")
+			return tokenSTS, true
 		}
 	}
 	return nil, false

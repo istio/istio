@@ -99,7 +99,7 @@ type TokenInfo struct {
 	TokenType  string    `json:"token_type"`
 	IssueTime  time.Time `json:"issue_time"`
 	ExpireTime time.Time `json:"expire_time"`
-	Token      string    `json:token`
+	Token      string    `json:"token"`
 }
 
 // TokensDump stores information about all generated tokens.
