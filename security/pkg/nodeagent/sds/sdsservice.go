@@ -296,7 +296,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
-			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
+			if discReq.VersionInfo != "" && s.st.SecretExist("bootstrap", resourceName, token, discReq.VersionInfo) {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
 					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail)
@@ -321,7 +321,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				continue
 			}
 
-			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
+			secret, err := s.st.GenerateSecret(ctx, "bootstrap", resourceName, token)
 			if err != nil {
 				sdsServiceLog.Errorf("%s Close connection. Failed to get secret for proxy %q from "+
 					"secret cache: %v", conIDresourceNamePrefix, discReq.Node.Id, err)
@@ -402,7 +402,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	}
 
 	connID := constructConnectionID(discReq.Node.Id)
-	secret, err := s.st.GenerateSecret(ctx, connID, resourceName, token)
+	secret, err := s.st.GenerateSecret(ctx, "bootstrap", resourceName, token)
 	if err != nil {
 		sdsServiceLog.Errorf("Failed to get secret for proxy %q from secret cache: %v", connID, err)
 		return nil, err

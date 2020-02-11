@@ -228,6 +228,13 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		ResourceName: resourceName,
 	}
 
+	// Return the cached key if it exists already
+	val, exists := sc.secrets.Load(connKey)
+	if exists {
+		secret := val.(model.SecretItem)
+		return &secret, nil
+	}
+
 	logPrefix := cacheLogPrefix(resourceName)
 
 	// When there are existing root certificates, or private key and certificate under
@@ -260,17 +267,18 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	}
 
 	if resourceName != RootCertReqResourceName {
+		t := time.Now()
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
 		// root cert ends with "-cacert".
-		ns, err := sc.generateSecret(ctx, token, connKey, time.Now())
+		ns, err := sc.generateSecret(ctx, token, connKey, t)
 		if err != nil {
 			cacheLog.Errorf("%s failed to generate secret for proxy: %v",
 				logPrefix, err)
 			return nil, err
 		}
 
-		cacheLog.Infoa("GenerateSecret ", resourceName)
+		cacheLog.Infof("GenerateSecret %v in %v", resourceName, time.Now().Sub(t))
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
