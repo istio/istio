@@ -16,7 +16,7 @@ spec:
 apiVersion: "security.istio.io/v1beta1"
 kind: "PeerAuthentication"
 metadata:
-  name: "multiversoin-v1-mtls"
+  name: "multiversoin-v2-mtls"
   annotations:
     test-suite: "beta-mtls-workload-automtls"
 spec:

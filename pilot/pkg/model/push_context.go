@@ -224,8 +224,6 @@ type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
-	IncflyDebug string
-
 	// NamespacesUpdated contains a list of namespaces whose services/endpoints were changed in the update.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
 	// Currently, this will only scope EDS updates, as config updates are more complicated.
@@ -233,7 +231,9 @@ type PushRequest struct {
 	// If this is present, then only proxies that import this namespace will get an update
 	NamespacesUpdated map[string]struct{}
 
-	UpdateAllClusterDueToPeerAuthn bool
+	NamespaceUpdatedByPeerAuthn map[string]struct{}
+
+	// UpdateAllClusterDueToPeerAuthn bool
 
 	// ConfigTypesUpdated contains the types of configs that have changed.
 	// The config types are those defined in pkg/config/schemas
@@ -871,6 +871,19 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 	return nil
 }
 
+// NamespaceUpdatedByPeerAuthn returns whether a namespace is affected due to a PeerAuthenticationPolicy change.
+func (ps *PushContext) NamespaceUpdatedByPeerAuthn(namespace string, req *PushRequest) bool {
+	if req.NamespaceUpdatedByPeerAuthn == nil {
+		return false
+	}
+	_, rootUpdated := req.NamespaceUpdatedByPeerAuthn[ps.Mesh.RootNamespace]
+	if rootUpdated {
+		return true
+	}
+	_, exists := req.NamespaceUpdatedByPeerAuthn[namespace]
+	return exists
+}
+
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
@@ -1430,18 +1443,19 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // AuthenticationPolicyForWorkload returns the matching auth policy for a given service
 // This replaces store.AuthenticationPolicyForWorkload
 func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *Port) (*authn.Policy, *ConfigMeta) {
-	// Match by Service hostname
-	if workloadPolicy, configMeta := authenticationPolicyForWorkload(
-		ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {
-		return workloadPolicy, configMeta
-	}
+	if service != nil {
+		// Match by Service hostname
+		if workloadPolicy, configMeta := authenticationPolicyForWorkload(
+			ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {
+			return workloadPolicy, configMeta
+		}
 
-	// Match by namespace
-	if workloadPolicy, configMeta := authenticationPolicyForWorkload(
-		ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port); workloadPolicy != nil {
-		return workloadPolicy, configMeta
+		// Match by namespace
+		if workloadPolicy, configMeta := authenticationPolicyForWorkload(
+			ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port); workloadPolicy != nil {
+			return workloadPolicy, configMeta
+		}
 	}
-
 	// Use default global authentication policy if no others found
 	return ps.AuthnPolicies.defaultMeshPolicy, ps.AuthnPolicies.defaultMeshPolicyMeta
 }

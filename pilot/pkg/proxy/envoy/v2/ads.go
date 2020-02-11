@@ -534,11 +534,6 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	currentVersion := versionInfo()
 	pushTypes := PushTypeFor(con.node, pushEv)
 
-	// TODO(incfly): this is hardcoded bad.
-	// for k, v := range pushEv.configTypesUpdated {
-
-	// }
-
 	if con.CDSWatch && pushTypes[CDS] {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
@@ -626,10 +621,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
-	if req.IncflyDebug != "" {
-		adsLog.Infof("incfly debug, AdsPushAll event happened %+v", *req)
-	}
-	if !req.Full || req.IncflyDebug != "" {
+	if !req.Full || req.NamespaceUpdatedByPeerAuthn != nil {
 		s.edsIncremental(version, req.Push, req)
 		return
 	}

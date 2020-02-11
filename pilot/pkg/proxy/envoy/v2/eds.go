@@ -15,6 +15,9 @@
 package v2
 
 import (
+	"crypto/sha1"
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -33,6 +36,8 @@ import (
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn"
+	authnfactory "istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -196,9 +201,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	var subsetName string
 	_, subsetName, hostname, clusterPort = model.ParseSubsetKey(clusterName)
 
-	// if strings.Contains(clusterName, "httpbin") {
-	// 	adsLog.Infof("incfly 111, updateClusterInc for httpbin %v", clusterName)
-	// }
+	if strings.Contains(clusterName, "httpbin") {
+		// 	adsLog.Infof("incfly 111, updateClusterInc for httpbin %v", clusterName)
+	}
 
 	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
 	// (public/private) as well as sidecar scopes allowing import of
@@ -392,21 +397,12 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	cMap := make(map[string]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
 		_, _, hostname, _ := model.ParseSubsetKey(k)
-		_, ok := req.EdsUpdates[string(hostname)]
-		if req.IncflyDebug != "" {
-			svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-			if svc != nil {
-				_, okf := req.NamespacesUpdated[svc.Attributes.Namespace]
-				if okf {
-					adsLog.Infof("incfly debug, edsIncremental included, svc %v", svc.Attributes.Name)
-					ok = true
-				}
-			}
+		_, updated := req.EdsUpdates[string(hostname)]
+		svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+		if push.NamespaceUpdatedByPeerAuthn(svc.Attributes.Namespace, req) {
+			updated = true
 		}
-		if req.UpdateAllClusterDueToPeerAuthn {
-			ok = true
-		}
-		if !ok {
+		if !updated {
 			continue
 		}
 		cMap[k] = v
@@ -905,6 +901,31 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 	return out
 }
 
+func endpointAcceptMtls(endpointTlsMap *map[string]bool, push *model.PushContext, ep *model.IstioEndpoint) bool {
+	b, err := json.Marshal(ep.Labels)
+	if err != nil {
+		return true
+	}
+	labelHash := fmt.Sprintf("%x", sha1.Sum(b))[:8]
+	key := fmt.Sprintf("%v|%v|%v", ep.Attributes.Namespace, labelHash, ep.EndpointPort)
+	accept, exists := (*endpointTlsMap)[key]
+	if exists {
+		return accept
+	}
+	out := true
+	defer func() {
+		adsLog.Infof("incfly debug, endpointAcceptMtls, endpoint %v, out %v, key %v", *ep, out, key)
+		(*endpointTlsMap)[key] = out
+	}()
+	decider, ok := authnfactory.NewPolicyApplier(
+		push, nil, ep.Attributes.Namespace, labels.Collection{ep.Labels}).(authn.MtlsDecider)
+	if !ok {
+		return out
+	}
+	out = decider.AcceptMtls(ep.Attributes.Namespace, labels.Collection{ep.Labels}, ep.EndpointPort)
+	return out
+}
+
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func buildLocalityLbEndpointsFromShards(
 	shards *EndpointShards,
@@ -913,6 +934,7 @@ func buildLocalityLbEndpointsFromShards(
 	clusterName string,
 	push *model.PushContext) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
+	tlsMap := make(map[string]bool)
 
 	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge
@@ -935,24 +957,16 @@ func buildLocalityLbEndpointsFromShards(
 				}
 				localityEpMap[ep.Locality] = locLbEps
 			}
-			// labels.Collection seems really not needed...
-			ns := ep.Attributes.Namespace
-			canMtls := push.EndpointAcceptMtls(ns, labels.Collection{ep.Labels}, ep.EndpointPort)
-			// Update the label to disabled when the endpoint is not serving mTLS per policy.
-			if !canMtls {
-				ep.TLSMode = model.DisabledTLSModeLabel
-			}
-			// }
-			// TODO(incfly): probably only build lb when changed.
-			// if ep.EnvoyEndpoint == nil {
-			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network,
-				ep.LbWeight, ep.TLSMode, push)
-			// }
-			if ns == "automtls" || strings.Contains(ep.Attributes.Name, "multiversion") {
-				adsLog.Warnf("incfly debug, endpoint-mtls %v, mTLS result %v, build lbenvoy ep: %v", ep, canMtls, ep.EnvoyEndpoint)
-			}
-			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 
+			effectiveTlsMode := ep.TLSMode
+			if !endpointAcceptMtls(&tlsMap, push, ep) {
+				effectiveTlsMode = model.DisabledTLSModeLabel
+			}
+
+			// TODO(incfly): some optimization.
+			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network,
+				ep.LbWeight, effectiveTlsMode, push)
+			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 		}
 	}
 	shards.mutex.Unlock()

@@ -800,16 +800,8 @@ func (s *Server) initEventHandlers() error {
 			// Special handling of PeerAuthn.
 			if curr.GroupVersionKind() ==
 				collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() {
-				// log.Infof("incfly 111 special handler for peer authn config name %v, ns %v, pushReq %v", curr.Name,
-				// 	curr.Namespace, *pushReq)
-				pushReq.IncflyDebug = "lol"
 				if pushReq.NamespacesUpdated == nil {
 					pushReq.NamespacesUpdated = map[string]struct{}{}
-				}
-
-				// if happens to be the root config, update all.
-				if curr.Namespace == "root-config" {
-					pushReq.UpdateAllClusterDueToPeerAuthn = true
 				}
 				pushReq.NamespacesUpdated[curr.Namespace] = struct{}{}
 			}

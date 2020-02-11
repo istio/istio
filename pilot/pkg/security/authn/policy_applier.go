@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // PolicyApplier is the interface provides essential functionalities to help config Envoy (xDS) to enforce
@@ -34,4 +35,8 @@ type PolicyApplier interface {
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.
 	AuthNFilter(proxyType model.NodeType) *http_conn.HttpFilter
+}
+
+type MtlsDecider interface {
+	AcceptMtls(ns string, labels labels.Collection, port uint32) bool
 }

@@ -29,6 +29,7 @@ import (
 	authn_alpha_api "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -132,6 +133,15 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType) *http_conn.
 		Name:       authn_model.AuthnFilterName,
 		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)},
 	}
+}
+
+func (a *v1beta1PolicyApplier) AcceptMtls(ns string, labels labels.Collection, port uint32) bool {
+	if a.consolidatedPeerPolicy == nil {
+		return true
+	}
+	// TODO(incfly): add port later.
+	mode := getMutualTLSMode(a.consolidatedPeerPolicy.Mtls)
+	return mode == model.MTLSPermissive || mode == model.MTLSStrict
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
