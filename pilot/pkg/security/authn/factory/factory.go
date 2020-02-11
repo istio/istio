@@ -25,8 +25,12 @@ import (
 // for the given service instance.
 func NewPolicyApplier(push *model.PushContext,
 	serviceInstance *model.ServiceInstance, namespace string, labels labels.Collection) authn.PolicyApplier {
-	service := serviceInstance.Service
-	port := serviceInstance.ServicePort
+	var service *model.Service
+	var port *model.Port
+	if serviceInstance != nil {
+		service = serviceInstance.Service
+		port = serviceInstance.ServicePort
+	}
 	authnPolicy, _ := push.AuthenticationPolicyForWorkload(service, port)
 	return v1beta1.NewPolicyApplier(
 		push.AuthnBetaPolicies.GetRootNamespace(),

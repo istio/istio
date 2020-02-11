@@ -1443,7 +1443,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // AuthenticationPolicyForWorkload returns the matching auth policy for a given service
 // This replaces store.AuthenticationPolicyForWorkload
 func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *Port) (*authn.Policy, *ConfigMeta) {
-	if service != nil {
+	if service != nil && port != nil {
 		// Match by Service hostname
 		if workloadPolicy, configMeta := authenticationPolicyForWorkload(
 			ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {

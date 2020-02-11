@@ -922,7 +922,7 @@ func endpointAcceptMtls(endpointTlsMap *map[string]bool, push *model.PushContext
 	if !ok {
 		return out
 	}
-	out = decider.AcceptMtls(ep.Attributes.Namespace, labels.Collection{ep.Labels}, ep.EndpointPort)
+	out = decider.AcceptMtls(ep.EndpointPort)
 	return out
 }
 

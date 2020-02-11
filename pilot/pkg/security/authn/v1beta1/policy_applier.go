@@ -29,7 +29,6 @@ import (
 	authn_alpha_api "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -135,26 +134,25 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType) *http_conn.
 	}
 }
 
-func (a *v1beta1PolicyApplier) AcceptMtls(ns string, labels labels.Collection, port uint32) bool {
+func (a *v1beta1PolicyApplier) AcceptMtls(port uint32) bool {
 	if a.consolidatedPeerPolicy == nil {
 		return true
 	}
-	// TODO(incfly): add port later.
-	mode := getMutualTLSMode(a.consolidatedPeerPolicy.Mtls)
+	mode := a.getMutualTLSModeForPort(port)
 	return mode == model.MTLSPermissive || mode == model.MTLSStrict
 }
 
-func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
+func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
 	// If beta mTLS policy (PeerAuthentication) is not used for this workload, fallback to alpha policy.
 	if a.consolidatedPeerPolicy == nil && a.hasAlphaMTLSPolicy {
 		authnLog.Debug("InboundFilterChain: fallback to alpha policy applier")
-		return a.alphaApplier.InboundFilterChain(sdsUdsPath, node)
+		return a.alphaApplier.InboundFilterChain(endpointPort, sdsUdsPath, node)
 	}
 	effectiveMTLSMode := model.MTLSPermissive
 	if a.consolidatedPeerPolicy != nil {
-		effectiveMTLSMode = getMutualTLSMode(a.consolidatedPeerPolicy.Mtls)
+		effectiveMTLSMode = a.getMutualTLSModeForPort(endpointPort)
 	}
-	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v in %s mode", node.ID, effectiveMTLSMode)
+	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v : %d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node)
 }
 
@@ -317,6 +315,19 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		},
 		Providers: providers,
 	}
+}
+
+func (a *v1beta1PolicyApplier) getMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
+	if a.consolidatedPeerPolicy == nil {
+		return model.MTLSPermissive
+	}
+	if a.consolidatedPeerPolicy.PortLevelMtls != nil {
+		if portMtls, ok := a.consolidatedPeerPolicy.PortLevelMtls[endpointPort]; ok {
+			return getMutualTLSMode(portMtls)
+		}
+	}
+
+	return getMutualTLSMode(a.consolidatedPeerPolicy.Mtls)
 }
 
 // getMutualTLSMode returns the MutualTLSMode enum corresponding peer MutualTLS settings.

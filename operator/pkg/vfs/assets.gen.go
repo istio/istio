@@ -6950,9 +6950,12 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
           {{- end }}
+          {{- if .Values.global.mountMtlsCerts }}
+          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- end }}
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -6976,10 +6979,13 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           secretName: istio.default
           optional: true
+      {{- end }}
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -7983,9 +7989,12 @@ spec:
 {{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
+          {{- if .Values.global.mountMtlsCerts }}
+          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- end }}
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -8011,10 +8020,13 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           secretName: istio.istio-ingressgateway-service-account
           optional: true
+      {{- end }}
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -9123,7 +9135,7 @@ spec:
           - name: "REPAIR_SIDECAR-ANNOTATION"
             value: "sidecar.istio.io/status"
           - name: "REPAIR_INIT-CONTAINER-NAME"
-            value: "istio-init"
+            value: "{{ .Values.cni.repair.initContainerName }}"
           - name: "REPAIR_BROKEN-POD-LABEL-KEY"
             value: "{{.Values.cni.repair.brokenPodLabelKey}}"
           - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
@@ -9224,6 +9236,8 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
     labelPods: "true"
     createEvents: "true"
     deletePods: "true"
+
+    initContainerName: "istio-validation"
 
     brokenPodLabelKey: "cni.istio.io/uninitialized"
     brokenPodLabelValue: "true"
@@ -10563,11 +10577,11 @@ template: |
     - name: STACKDRIVER_TRACING_DEBUG
       value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations.Value }}"
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes.Value }}"
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents.Value }}"
     {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
@@ -10637,15 +10651,19 @@ template: |
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
+    # SDS channel between istioagent and Envoy
     - mountPath: /etc/istio/proxy
       name: istio-envoy
     {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
     {{- end }}
+    {{- if .Values.global.mountMtlsCerts }}
+    # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
     - mountPath: /etc/certs/
       name: istio-certs
       readOnly: true
+    {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
       name: lightstep-certs
@@ -10663,6 +10681,7 @@ template: |
     configMap:
       name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
   {{- end }}
+  # SDS channel between istioagent and Envoy
   - emptyDir:
       medium: Memory
     name: istio-envoy
@@ -10680,6 +10699,8 @@ template: |
     configMap:
       name: istio-ca-root-cert
   {{- end }}
+  {{- if .Values.global.mountMtlsCerts }}
+  # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
   - name: istio-certs
     secret:
       optional: true
@@ -10688,6 +10709,7 @@ template: |
       {{ else -}}
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
+  {{- end }}
     {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
     {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
   - name: "{{ $index }}"
@@ -11473,7 +11495,9 @@ data:
       tracing:
         stackdriver:
           # enables trace output to stdout.
+        {{- if $.Values.global.tracer.stackdriver.debug }}
           debug: {{ $.Values.global.tracer.stackdriver.debug }}
+        {{- end }}
         {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
           # The global default max number of attributes per span.
           maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
@@ -30835,7 +30859,7 @@ spec:
       destinationPrincipal: destination.principal | ""
       apiClaims: request.auth.raw_claims | ""
       apiKey: request.api_key | request.headers["x-api-key"] | ""
-      protocol: request.scheme | context.protocol | "http"
+      protocol: api.protocol | context.protocol | "http"
       method: request.method | ""
       url: request.path | ""
       responseCode: response.code | 0
@@ -30964,9 +30988,8 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
+      grpc_response_status: response.grpc_status | ""
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -30999,9 +31022,8 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
+      grpc_response_status: response.grpc_status | ""
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -31034,9 +31056,8 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
+      grpc_response_status: response.grpc_status | ""
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -31069,9 +31090,8 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
+      grpc_response_status: response.grpc_status | ""
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -31232,10 +31252,9 @@ spec:
       - destination_service_name
       - destination_service_namespace
       - request_protocol
+      - grpc_response_status
       - response_code
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
     - name: request_duration_seconds
       instance_name: requestduration.instance.{{ .Release.Namespace }}
@@ -31257,9 +31276,8 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - grpc_response_status
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       buckets:
         explicit_buckets:
@@ -31284,9 +31302,8 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - grpc_response_status
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       buckets:
         exponentialBuckets:
@@ -31313,9 +31330,8 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - grpc_response_status
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       buckets:
         exponentialBuckets:
@@ -37726,6 +37742,18 @@ spec:
   addonComponents:
     prometheus:
       enabled: true
+      k8s:
+        replicaCount: 1
+    kiali:
+      enabled: false
+      k8s:
+        replicaCount: 1
+    grafana:
+      enabled: false
+      k8s:
+        replicaCount: 1
+    tracing:
+      enabled: false
 
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/global.yaml
@@ -37869,6 +37897,7 @@ spec:
       localityLbSetting:
         enabled: true
       enableHelmTest: false
+      mountMtlsCerts: false
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -38059,8 +38088,6 @@ spec:
         autoInject: true
 
     prometheus:
-      enabled: true
-      replicaCount: 1
       hub: docker.io/prom
       tag: v2.15.1
       retention: 6h
@@ -38080,8 +38107,6 @@ spec:
       podAntiAffinityTermLabelSelector: []
 
     grafana:
-      enabled: false
-      replicaCount: 1
       image:
         repository: grafana/grafana
         tag: 6.5.2
@@ -38130,7 +38155,6 @@ spec:
       envSecrets: {}
 
     tracing:
-      enabled: false
       provider: jaeger
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -38190,8 +38214,6 @@ spec:
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     kiali:
-      enabled: false
-      replicaCount: 1
       hub: quay.io/kiali
       tag: v1.9
       contextPath: /kiali
@@ -38307,7 +38329,6 @@ spec:
     tracing:
       enabled: true
 
-
   values:
     global:
       disablePolicyChecks: false
@@ -38345,14 +38366,7 @@ spec:
       istio-ingressgateway:
         autoscaleEnabled: false
 
-    grafana:
-      enabled: true
-
-    tracing:
-      enabled: true
-
     kiali:
-      enabled: true
       createDemoSecret: true
 `)
 
@@ -38419,9 +38433,6 @@ spec:
     pilot:
       sidecar: false
       useMCP: false
-
-    prometheus:
-      enabled: false
 `)
 
 func profilesEmptyYamlBytes() ([]byte, error) {
@@ -38463,6 +38474,8 @@ spec:
     - name: istio-ingressgateway
       enabled: false
     egressGateways:
+    - name: istio-egressgateway
+      enabled: false
 
   addonComponents:
     prometheus:
@@ -38483,9 +38496,6 @@ spec:
     pilot:
       sidecar: false
       useMCP: false
-
-    prometheus:
-      enabled: false
 `)
 
 func profilesMinimalYamlBytes() ([]byte, error) {
@@ -38524,6 +38534,10 @@ spec:
     cni:
       enabled: false
 
+  addonComponents:
+    prometheus:
+      enabled: false
+
   values:
     pilot:
       configSource:
@@ -38531,9 +38545,6 @@ spec:
 
     security:
       createMeshPolicy: false
-
-    prometheus:
-      enabled: false
 
     global:
       istioRemote: true
