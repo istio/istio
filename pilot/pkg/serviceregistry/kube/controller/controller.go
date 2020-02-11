@@ -584,7 +584,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 // from the Pod. This allows retrieving Instances immediately, regardless of delays in Kubernetes.
 // If the proxy doesn't have enough metadata, an error is returned
 func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	if len(proxy.WorkloadLabels) == 0 {
+	if len(proxy.Metadata.Labels) == 0 {
 		return nil, fmt.Errorf("no workload labels found")
 	}
 
@@ -596,7 +596,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	dummyPod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: proxy.ConfigNamespace,
-			Labels:    proxy.WorkloadLabels[0],
+			Labels:    proxy.Metadata.Labels,
 		},
 	}
 
@@ -656,7 +656,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 						EndpointPort:    uint32(tp.Port),
 						ServicePortName: svcPort.Name,
 						// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
-						Labels:         proxy.WorkloadLabels[0],
+						Labels:         proxy.Metadata.Labels,
 						ServiceAccount: svcAccount,
 						Network:        c.endpointNetwork(ip),
 						Locality:       util.LocalityToString(proxy.Locality),

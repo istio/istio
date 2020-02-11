@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 )
 
 func TestNodeMetadata(t *testing.T) {
@@ -270,9 +269,7 @@ func TestParseMetadata(t *testing.T) {
 					},
 					Labels: map[string]string{"foo": "bar"},
 				},
-				WorkloadLabels: labels.Collection{map[string]string{
-					"foo": "bar",
-				}}},
+			},
 		},
 		{
 			name: "Capture Pod Ports",

@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -121,9 +120,11 @@ var (
 		Metadata: &model.NodeMetadata{
 			ConfigNamespace: "not-default",
 			IstioVersion:    "1.4",
+			Labels: map[string]string{
+				"istio": "ingressgateway",
+			},
 		},
 		ConfigNamespace: "not-default",
-		WorkloadLabels:  labels.Collection{{"istio": "ingressgateway"}},
 	}
 	proxyInstances = []*model.ServiceInstance{
 		{

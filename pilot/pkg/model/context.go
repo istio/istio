@@ -147,9 +147,6 @@ type Proxy struct {
 	// service instances associated with the proxy
 	ServiceInstances []*ServiceInstance
 
-	// labels associated with the workload
-	WorkloadLabels labels.Collection
-
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
 }
@@ -515,7 +512,8 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	if node.Type == SidecarProxy {
-		node.SidecarScope = ps.getSidecarScope(node, node.WorkloadLabels)
+		workloadLabels := labels.Collection{node.Metadata.Labels}
+		node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
@@ -557,18 +555,10 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) error 
 	return nil
 }
 
-// SetWorkloadLabels will reset the proxy.WorkloadLabels if `force` = true,
-// otherwise only set it when it is nil.
+// SetWorkloadLabels will set the node.Metadata.Labels only when it is nil.
 func (node *Proxy) SetWorkloadLabels(env *Environment) error {
-	// The WorkloadLabels is already parsed from Node metadata["LABELS"]
-	if node.WorkloadLabels != nil {
-		return nil
-	}
-
-	// TODO: remove WorkloadLabels and use node.Metadata.Labels directly
 	// First get the workload labels from node meta
 	if len(node.Metadata.Labels) > 0 {
-		node.WorkloadLabels = labels.Collection{node.Metadata.Labels}
 		return nil
 	}
 
@@ -578,8 +568,9 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) error {
 		log.Errorf("failed to get service proxy labels: %v", err)
 		return err
 	}
-
-	node.WorkloadLabels = l
+	if len(l) > 0 {
+		node.Metadata.Labels = l[0]
+	}
 	return nil
 }
 
@@ -663,9 +654,6 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 		log.Warnf("Istio Version is not found in metadata for %v, which may have undesirable side effects", out.ID)
 	}
 	out.IstioVersion = ParseIstioVersion(metadata.IstioVersion)
-	if len(metadata.Labels) > 0 {
-		out.WorkloadLabels = labels.Collection{metadata.Labels}
-	}
 	return out, nil
 }
 

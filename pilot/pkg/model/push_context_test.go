@@ -494,9 +494,8 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches two envoyfilters",
 			proxy: &Proxy{
-				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
-				WorkloadLabels:  labels.Collection{{"app": "v1"}},
 			},
 			expectedListenerPatches: 2,
 			expectedClusterPatches:  2,
@@ -504,9 +503,8 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy in root namespace matches an envoyfilter",
 			proxy: &Proxy{
-				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "istio-system",
-				WorkloadLabels:  labels.Collection{{"app": "v1"}},
 			},
 			expectedListenerPatches: 1,
 			expectedClusterPatches:  1,
@@ -515,9 +513,8 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches no envoyfilter",
 			proxy: &Proxy{
-				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v2"}},
 				ConfigNamespace: "test-ns",
-				WorkloadLabels:  labels.Collection{{"app": "v2"}},
 			},
 			expectedListenerPatches: 0,
 			expectedClusterPatches:  0,
@@ -526,9 +523,8 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches envoyfilter in root ns",
 			proxy: &Proxy{
-				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-n2",
-				WorkloadLabels:  labels.Collection{{"app": "v1"}},
 			},
 			expectedListenerPatches: 1,
 			expectedClusterPatches:  1,
@@ -536,9 +532,8 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy version matches no envoyfilters",
 			proxy: &Proxy{
-				Metadata:        &NodeMetadata{IstioVersion: "1.3.0"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.3.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
-				WorkloadLabels:  labels.Collection{{"app": "v1"}},
 			},
 			expectedListenerPatches: 0,
 			expectedClusterPatches:  0,

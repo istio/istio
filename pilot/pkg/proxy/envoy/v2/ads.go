@@ -426,6 +426,23 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 		return nil, nil // only need to init the node on first request in the stream
 	}
 
+	proxy, err := s.initProxy(node)
+	if err != nil {
+		return nil, err
+	}
+
+	// First request so initialize connection id and start tracking it.
+	con.mu.Lock()
+	con.node = proxy
+	con.ConID = connectionID(node.Id)
+	s.addCon(con.ConID, con)
+	con.mu.Unlock()
+
+	return func() { s.removeCon(con.ConID, con) }, nil
+}
+
+// initProxy initializes the Proxy from node.
+func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -437,7 +454,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
-	if err := proxy.SetServiceInstances(s.Env); err != nil {
+	if err = s.setProxyState(proxy, s.globalPushContext()); err != nil {
 		return nil, err
 	}
 
@@ -454,22 +471,40 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 		proxy.Locality = node.Locality
 	}
 
-	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
-		return nil, err
+	return proxy, nil
+}
+
+func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) error {
+	if err := s.setProxyState(proxy, push); err != nil {
+		return err
+	}
+	if util.IsLocalityEmpty(proxy.Locality) {
+		// Get the locality from the proxy's service instances.
+		// We expect all instances to have the same locality. So its enough to look at the first instance
+		if len(proxy.ServiceInstances) > 0 {
+			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].GetLocality())
+		}
 	}
 
-	// Set the sidecarScope and merged gateways associated with this proxy
-	proxy.SetSidecarScope(s.globalPushContext())
-	proxy.SetGatewaysForProxy(s.globalPushContext())
+	return nil
+}
 
-	// First request so initialize connection id and start tracking it.
-	con.mu.Lock()
-	con.node = proxy
-	con.ConID = connectionID(node.Id)
-	s.addCon(con.ConID, con)
-	con.mu.Unlock()
+func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushContext) error {
+	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
+		return err
+	}
 
-	return func() { s.removeCon(con.ConID, con) }, nil
+	if err := proxy.SetServiceInstances(push.ServiceDiscovery); err != nil {
+		return err
+	}
+
+	// Precompute the sidecar scope and merged gateways associated with this proxy.
+	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
+	// have to compute this because as part of a config change, a new Sidecar could become
+	// applicable to this proxy
+	proxy.SetSidecarScope(push)
+	proxy.SetGatewaysForProxy(push)
+	return nil
 }
 
 // DeltaAggregatedResources is not implemented.
@@ -497,28 +532,10 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	// TODO: remove this ?
-	if err := con.node.SetWorkloadLabels(s.Env); err != nil {
-		return err
+	// Update Proxy with current information.
+	if err := s.updateProxy(con.node, pushEv.push); err != nil {
+		return nil
 	}
-
-	if err := con.node.SetServiceInstances(pushEv.push.ServiceDiscovery); err != nil {
-		return err
-	}
-	if util.IsLocalityEmpty(con.node.Locality) {
-		// Get the locality from the proxy's service instances.
-		// We expect all instances to have the same locality. So its enough to look at the first instance
-		if len(con.node.ServiceInstances) > 0 {
-			con.node.Locality = util.ConvertLocality(con.node.ServiceInstances[0].GetLocality())
-		}
-	}
-
-	// Precompute the sidecar scope and merged gateways associated with this proxy.
-	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
-	// have to compute this because as part of a config change, a new Sidecar could become
-	// applicable to this proxy
-	con.node.SetSidecarScope(pushEv.push)
-	con.node.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.node, pushEv) {

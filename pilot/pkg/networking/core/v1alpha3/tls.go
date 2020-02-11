@@ -126,7 +126,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tls := range virtualService.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, node.WorkloadLabels, gateways, listenPort.Port) {
+				if matchTLS(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port) {
 					// Use the service's CIDRs.
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
@@ -230,7 +230,7 @@ TcpLoop:
 			virtualServiceDestinationSubnets := make([]string, 0)
 
 			for _, match := range tcp.Match {
-				if matchTCP(match, node.WorkloadLabels, gateways, listenPort.Port) {
+				if matchTCP(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port) {
 					// Scan all the match blocks
 					// if we find any match block without a runtime destination subnet match
 					// i.e. match any destination address, then we treat it as the terminal match/catch all match
