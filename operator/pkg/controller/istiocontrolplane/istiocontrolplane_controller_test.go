@@ -54,7 +54,7 @@ var (
 		string(name.IstioBaseComponentName): healthyVersionStatus,
 		string(name.PilotComponentName):     healthyVersionStatus,
 		string(name.IngressComponentName):   healthyVersionStatus,
-		string(PrometheusComponentName):     healthyVersionStatus,
+		PrometheusComponentName:             healthyVersionStatus,
 	}
 	demoStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
 		string(name.IstioBaseComponentName): healthyVersionStatus,
@@ -62,10 +62,10 @@ var (
 		string(name.PolicyComponentName):    healthyVersionStatus,
 		string(name.IngressComponentName):   healthyVersionStatus,
 		string(name.EgressComponentName):    healthyVersionStatus,
-		string(PrometheusComponentName):     healthyVersionStatus,
-		string(GrafanaComponentName):        healthyVersionStatus,
-		string(KialiComponentName):          healthyVersionStatus,
-		string(TracingComponentName):        healthyVersionStatus,
+		PrometheusComponentName:             healthyVersionStatus,
+		GrafanaComponentName:                healthyVersionStatus,
+		KialiComponentName:                  healthyVersionStatus,
+		TracingComponentName:                healthyVersionStatus,
 	}
 )
 
