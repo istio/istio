@@ -148,6 +148,10 @@ func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPat
 	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node)
 }
 
+func (a v1beta1PolicyApplier) IsBetaPeerPolicyEnabled() bool {
+	return a.consolidatedPeerPolicy != nil
+}
+
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
 func NewPolicyApplier(rootNamespace string,
 	jwtPolicies []*model.Config,

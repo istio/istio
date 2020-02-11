@@ -326,6 +326,10 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(_ uint32, sdsUdsPath string, n
 	return authn_utils.BuildInboundFilterChain(GetMutualTLSMode(a.policy), sdsUdsPath, node)
 }
 
+func (a v1alpha1PolicyApplier) IsBetaPeerPolicyEnabled() bool {
+	return false
+}
+
 // NewPolicyApplier returns new applier for v1alpha1 authentication policy.
 func NewPolicyApplier(policy *authn_v1alpha1.Policy) authn.PolicyApplier {
 	return &v1alpha1PolicyApplier{
