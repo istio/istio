@@ -34,6 +34,13 @@ import (
 	"istio.io/istio/operator/pkg/name"
 )
 
+const (
+	PrometheusComponentName string = "Prometheus"
+	KialiComponentName      string = "Kiali"
+	GrafanaComponentName    string = "Grafana"
+	TracingComponentName    string = "Tracing"
+)
+
 var (
 	healthyVersionStatus = &v1alpha1.InstallStatus_VersionStatus{
 		Status:       v1alpha1.InstallStatus_HEALTHY,
@@ -44,21 +51,21 @@ var (
 		string(name.PilotComponentName):     healthyVersionStatus,
 	}
 	defaultStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
-		string(name.IstioBaseComponentName):  healthyVersionStatus,
-		string(name.PilotComponentName):      healthyVersionStatus,
-		string(name.IngressComponentName):    healthyVersionStatus,
-		string(name.PrometheusComponentName): healthyVersionStatus,
+		string(name.IstioBaseComponentName): healthyVersionStatus,
+		string(name.PilotComponentName):     healthyVersionStatus,
+		string(name.IngressComponentName):   healthyVersionStatus,
+		string(PrometheusComponentName):     healthyVersionStatus,
 	}
 	demoStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
-		string(name.IstioBaseComponentName):  healthyVersionStatus,
-		string(name.PilotComponentName):      healthyVersionStatus,
-		string(name.PolicyComponentName):     healthyVersionStatus,
-		string(name.IngressComponentName):    healthyVersionStatus,
-		string(name.EgressComponentName):     healthyVersionStatus,
-		string(name.PrometheusComponentName): healthyVersionStatus,
-		string(name.GrafanaComponentName):    healthyVersionStatus,
-		string(name.KialiComponentName):      healthyVersionStatus,
-		string(name.TracingComponentName):    healthyVersionStatus,
+		string(name.IstioBaseComponentName): healthyVersionStatus,
+		string(name.PilotComponentName):     healthyVersionStatus,
+		string(name.PolicyComponentName):    healthyVersionStatus,
+		string(name.IngressComponentName):   healthyVersionStatus,
+		string(name.EgressComponentName):    healthyVersionStatus,
+		string(PrometheusComponentName):     healthyVersionStatus,
+		string(GrafanaComponentName):        healthyVersionStatus,
+		string(KialiComponentName):          healthyVersionStatus,
+		string(TracingComponentName):        healthyVersionStatus,
 	}
 )
 

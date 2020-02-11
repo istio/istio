@@ -63,13 +63,6 @@ const (
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
 
-	// Addon components
-	PrometheusComponentName ComponentName = "Prometheus"
-	KialiComponentName      ComponentName = "Kiali"
-	GrafanaComponentName    ComponentName = "Grafana"
-	TracingComponentName    ComponentName = "Tracing"
-	CoreDNSComponentName    ComponentName = "CoreDNS"
-
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
