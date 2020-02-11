@@ -37,6 +37,9 @@ type PolicyApplier interface {
 	AuthNFilter(proxyType model.NodeType) *http_conn.HttpFilter
 }
 
+// MtlsDecider is the interace to decide wether a particular workload at a specific port
+// is able to accept mTLS or not.
 type MtlsDecider interface {
+	// AcceptMtls returns true if peer authn policy configures listener able to accept mTLS traffic.
 	AcceptMtls(port uint32) bool
 }

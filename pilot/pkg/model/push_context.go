@@ -28,7 +28,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
-	// authn_beta "istio.io/istio/pilot/pkg/security/authn/v1beta1"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -214,8 +213,6 @@ type PushRequest struct {
 	// NamespaceupdatedByPeerAuthn tracks the namespace which contains the PeerAuthnPolicy change.
 	/// This will trigger further client side EDS change for auto mTLS.
 	NamespaceUpdatedByPeerAuthn map[string]struct{}
-
-	// UpdateAllClusterDueToPeerAuthn bool
 
 	// ConfigTypesUpdated contains the types of configs that have changed.
 	// The config types are those defined in pkg/config/schemas
