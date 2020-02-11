@@ -90,7 +90,6 @@ func TestIOPController_SwitchProfile(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		helmreconciler.FlushObjectCaches()
 		testSwitchProfile(t, c)
 	}
 }
