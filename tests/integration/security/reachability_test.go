@@ -155,7 +155,6 @@ func TestReachability(t *testing.T) {
 				{
 					// Multiversion app v1 enbles mTLS using workload selector policy, v2 is PERMISSIVE.
 					// We use VirtualService and DestinationRule to ensure request hit the v1 and v2 subset.
-					// TODO: add DestinationRule specified case which does not work all the time.
 					ConfigFile:          "beta-mtls-workload-automtls.yaml",
 					Namespace:           rctx.Namespace,
 					RequiredEnvironment: environment.Kube,
@@ -174,10 +173,10 @@ func TestReachability(t *testing.T) {
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Focused on multiversion app. We exclude naked app since routing on naked app client
 						// can't be enforced.
-						return src == rctx.A && opts.Target == rctx.MultiVersion
+						return src == rctx.A || (src == rctx.Naked && opts.Target == rctx.B) // expect to fail
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						return src != rctx.Naked
 					},
 				},
 			}

@@ -1,7 +1,7 @@
 apiVersion: "security.istio.io/v1beta1"
 kind: "PeerAuthentication"
 metadata:
-  name: "multiversoin-v1-mtls"
+  name: "multiversion-v1-mtls"
   annotations:
     test-suite: "beta-mtls-workload-automtls"
 spec:
@@ -16,7 +16,7 @@ spec:
 apiVersion: "security.istio.io/v1beta1"
 kind: "PeerAuthentication"
 metadata:
-  name: "multiversoin-v2-mtls"
+  name: "multiversion-v2-disable"
   annotations:
     test-suite: "beta-mtls-workload-automtls"
 spec:
@@ -26,6 +26,19 @@ spec:
       "version": "v2"
   mtls:
     mode: DISABLE
+---
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: "b-strict"
+  annotations:
+    test-suite: "beta-mtls-workload-automtls"
+spec:
+  selector:
+    matchLabels:
+      "app": "b"
+  mtls:
+    mode: STRICT
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
