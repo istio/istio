@@ -11970,15 +11970,16 @@ TODO(https://github.com/istio/istio/issues/18199) remove this configuration from
 {{- if .Values.global.mtls.enabled }}
 
 # Authentication policy to enable mutual TLS for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
 metadata:
   name: "default"
+  namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 spec:
-  peers:
-  - mtls: {}
+  mtls:
+    mode: STRICT
 ---
 {{- if not .Values.global.mtls.auto }}
 # We only need explicit destination rule with ISITO_MUTUAL when auto mTLS is not enabled.
@@ -12008,19 +12009,6 @@ spec:
   trafficPolicy:
     tls:
       mode: DISABLE
----
-{{- else }}
-# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
 ---
 {{ end }}
 {{ end }}
