@@ -26,6 +26,7 @@ import (
 	mysql_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 
@@ -188,6 +189,13 @@ func buildNetworkFiltersStack(_ *model.Proxy, port *model.Port, tcpFilter *liste
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix))
 		}
 		filterstack = append(filterstack, tcpFilter)
+	case protocol.Thrift:
+		if features.EnableThriftFilter.Get() {
+			// Thrift filter has route config, it is a terminating filter, no need append tcp filter.
+			filterstack = append(filterstack, buildThriftFilter(statPrefix))
+		} else {
+			filterstack = append(filterstack, tcpFilter)
+		}
 	default:
 		filterstack = append(filterstack, tcpFilter)
 	}
@@ -208,6 +216,20 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 		return buildOutboundNetworkFiltersWithSingleDestination(push, node, clusterName, port)
 	}
 	return buildOutboundNetworkFiltersWithWeightedClusters(node, routes, push, port, configMeta)
+}
+
+// buildThriftFilter builds an outbound Envoy Thrift filter.
+func buildThriftFilter(statPrefix string) *listener.Filter {
+	thriftProxy := &thrift_proxy.ThriftProxy{
+		StatPrefix: statPrefix, // TODO (peter.novotnak@reddit.com) Thrift stats are prefixed with thrift.<statPrefix> by Envoy.
+	}
+
+	out := &listener.Filter{
+		Name:       wellknown.ThriftProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(thriftProxy)},
+	}
+
+	return out
 }
 
 // buildMongoFilter builds an outbound Envoy MongoProxy filter.
