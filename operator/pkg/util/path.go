@@ -33,6 +33,11 @@ const (
 	MaxIndex = 65535
 	// InsertIndex is the index that means "insert" when setting values
 	InsertIndex = -1
+
+	// PathSeparatorRune is the separator between path elements, as a rune.
+	pathSeparatorRune = '.'
+	// EscapedPathSeparator is what to use when the path shouldn't separate
+	escapedPathSeparator = "\\" + PathSeparator
 )
 
 var (
@@ -48,10 +53,11 @@ func PathFromString(path string) Path {
 	path = filepath.Clean(path)
 	path = strings.TrimPrefix(path, PathSeparator)
 	path = strings.TrimSuffix(path, PathSeparator)
-	pv := strings.Split(path, PathSeparator)
+	pv := splitEscaped(path, pathSeparatorRune)
 	var r []string
 	for _, str := range pv {
 		if str != "" {
+			str = strings.ReplaceAll(str, escapedPathSeparator, PathSeparator)
 			// Is str of the form node[expr], convert to "node", "[expr]"?
 			nBracket := strings.IndexRune(str, '[')
 			if nBracket > 0 {

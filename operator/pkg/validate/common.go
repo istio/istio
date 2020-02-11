@@ -289,7 +289,7 @@ func ValidIOPYAML(iopYAML string) error {
 	return ValidIOP(iop)
 }
 
-// ValidIOPYAML validates the given IstioOperator object.
+// ValidIOP validates the given IstioOperator object.
 func ValidIOP(iop *v1alpha1.IstioOperator) error {
 	errs := CheckIstioOperatorSpec(iop.Spec, false)
 	return errs.ToError()
