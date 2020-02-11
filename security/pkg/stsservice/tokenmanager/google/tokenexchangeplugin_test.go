@@ -136,7 +136,7 @@ func defaultSTSRequest() stsservice.StsRequestParameters {
 }
 
 type testSetUp struct {
-	enableCache bool
+	enableCache        bool
 	enableDynamicToken bool
 }
 
@@ -239,7 +239,7 @@ func TestTokenExchangePluginWithCache(t *testing.T) {
 	if numATCalls != 3 {
 		t.Errorf("number of get access token API calls does not match, expected 3 got %d", numATCalls)
 	}
-	if thirdToken == fourthToken{
+	if thirdToken == fourthToken {
 		t.Errorf("should not return cached token")
 	}
 }

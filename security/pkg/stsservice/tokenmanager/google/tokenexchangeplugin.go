@@ -50,7 +50,7 @@ var (
 		"serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	// default grace period in seconds of an access token. If caching is enabled and token remaining life time is
 	// within this period, refresh access token.
-	defaultGracePeriod     = 300
+	defaultGracePeriod = 300
 )
 
 // Plugin supports token exchange with Google OAuth 2.0 authorization server.
@@ -125,7 +125,7 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 		token := v.(stsservice.TokenInfo)
 		remainingLife := time.Until(token.ExpireTime)
 		pluginLog.Infof("find a cached access token with remaining lifetime: %s", remainingLife.String())
-		if remainingLife > time.Duration(defaultGracePeriod) * time.Second {
+		if remainingLife > time.Duration(defaultGracePeriod)*time.Second {
 			expireInSec := int64(remainingLife.Seconds())
 			if tokenSTS, err := p.generateSTSRespInner(token.Token, expireInSec); err == nil {
 				pluginLog.Infof("generated an STS response using a cached access token")

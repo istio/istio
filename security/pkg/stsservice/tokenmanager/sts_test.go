@@ -199,7 +199,7 @@ func sendHTTPRequestWithRetry(client *http.Client, req *http.Request) (resp *htt
 }
 
 type testSetUp struct {
-	enableCache bool
+	enableCache        bool
 	enableDynamicToken bool
 }
 
