@@ -180,6 +180,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			nn, ok = m[pe]
 			if !ok {
 				// remainPath == 1 means the patch is creation of a new leaf.
+
 				if createMissing || len(remainPath) == 1 {
 					nextElementNPath := len(remainPath) > 1 && util.IsNPathElement(remainPath[1])
 					if nextElementNPath {
