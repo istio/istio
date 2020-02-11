@@ -1,3 +1,12 @@
+# Alpha API disable, making test more hermetic.
+apiVersion: authentication.istio.io/v1alpha1
+kind: MeshPolicy
+metadata:
+  name: "default"
+  annotations:
+    test-suite: "beta-mtls-workload-automtls"
+spec: {}
+---
 apiVersion: "security.istio.io/v1beta1"
 kind: "PeerAuthentication"
 metadata:
@@ -44,6 +53,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: "multiversion-route"
+  annotations:
+    test-suite: "beta-mtls-workload-automtls"
 spec:
   hosts:
   - "multiversion"
@@ -68,6 +79,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "multiversion-subset"
+  annotations:
+    test-suite: "beta-mtls-workload-automtls"
 spec:
   host: "multiversion"
   subsets:
