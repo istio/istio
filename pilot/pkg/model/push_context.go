@@ -135,26 +135,6 @@ type PushContext struct {
 	networkGateways map[string][]*Gateway
 }
 
-// BetaPolicy placeholder to return betap policy for mTLS.
-// Note: for reviewer, this will be updated to a cache
-// map, k = <namespace, has(label-set), port>, value : true or false
-// determing whether this particular port can accept mTLS.
-// In future, authn applier can also benefits from the same optimization.
-func (ps *PushContext) EndpointAcceptMtls(
-	namespace string, labels labels.Collection, port uint32) bool {
-	betaPolicy := ps.AuthnBetaPolicies.GetPeerAuthenticationsForWorkload(namespace, labels)
-	if betaPolicy == nil {
-		return true
-	}
-	policy := composePeerAuthentication(ps.AuthnBetaPolicies.GetRootNamespace(), betaPolicy)
-	if policy == nil {
-		return true
-	}
-	// TODO(incfly): add port later.
-	mode := getMutualTLSMode(policy.Mtls)
-	return mode == MTLSPermissive || mode == MTLSStrict
-}
-
 // Gateway is the gateway of a network
 type Gateway struct {
 	// gateway ip address
