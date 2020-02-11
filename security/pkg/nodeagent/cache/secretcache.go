@@ -278,7 +278,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 			return nil, err
 		}
 
-		cacheLog.Infof("GenerateSecret %v in %v", resourceName, time.Now().Sub(t))
+		cacheLog.Infof("GenerateSecret %v in %v", resourceName, time.Since(t))
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
