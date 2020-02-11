@@ -60,7 +60,7 @@ var (
 )
 
 // FlushObjectCaches flushes all K8s object caches.
-func FlushObjectCaches() {
+func (h *HelmReconciler) FlushObjectCaches() {
 	objectCachesMu.Lock()
 	defer objectCachesMu.Unlock()
 	objectCaches = make(map[string]*ObjectCache)
