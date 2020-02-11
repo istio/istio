@@ -248,8 +248,7 @@ func replaceGrafanaTemplates(orig string) string {
 	return queryCleanupReplacer.Replace(out)
 }
 
-
-func istioQueryFilterFn() (queries []string) []string {
+func istioQueryFilterFn(queries []string) []string {
 	filtered := make([]string, 0, len(queries))
 	for _, query := range queries {
 		// Alpha Istio authentication policy is no longer added in Istio installation. Dashboard for this
