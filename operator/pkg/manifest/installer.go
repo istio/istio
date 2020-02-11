@@ -15,6 +15,7 @@
 package manifest
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -728,14 +729,15 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 		}
 		isReady := namespacesReady(namespaces) && podsReady(pods) && deploymentsReady(deployments)
 		if !isReady {
-			logAndPrint("Waiting for resources ready with timeout of %v", opts.WaitTimeout)
+			logAndPrint("  Waiting for resources to become ready...")
 		}
 		return isReady, nil
 	})
 
 	if errPoll != nil {
-		logAndPrint("Failed to wait for resources ready: %v", errPoll)
-		return fmt.Errorf("failed to wait for resources ready: %s", errPoll)
+		msg := fmt.Sprintf("resources not ready after %v: %v", opts.WaitTimeout, errPoll)
+		logAndPrint(msg)
+		return errors.New(msg)
 	}
 	return nil
 }
@@ -787,7 +789,7 @@ func isPodReady(pod *v1.Pod) bool {
 func deploymentsReady(deployments []deployment) bool {
 	for _, v := range deployments {
 		if v.replicaSets.Status.ReadyReplicas < *v.deployment.Spec.Replicas {
-			logAndPrint("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
+			scope.Infof("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
 			return false
 		}
 	}
