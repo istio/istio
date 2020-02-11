@@ -126,8 +126,8 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 
 	// Get the target version from the tag in the IOPS
-	targetTag := targetIOPS.GetTag()
-	targetVersion, err := pkgversion.TagToVersionString(targetTag)
+	targetTag := targetIOPS.Tag
+	targetVersion, err := pkgversion.TagToVersionString(fmt.Sprint(targetTag))
 	if err != nil {
 		if !args.force {
 			return fmt.Errorf("failed to convert the target tag '%s' into a valid version, "+
