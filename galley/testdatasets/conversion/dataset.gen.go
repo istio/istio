@@ -1016,7 +1016,8 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
                   "nanos": 100000000
                 },
                 "proxy_listen_port": 15001,
-                "root_namespace": "istio-system"
+                "root_namespace": "istio-system",
+                "thrift_config": {}
             }
         }
     ]

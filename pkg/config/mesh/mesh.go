@@ -82,6 +82,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
 		ProtocolDetectionTimeout:          types.DurationProto(100 * time.Millisecond),
 		EnableAutoMtls:                    &types.BoolValue{Value: false},
+		ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
 	}
 }
 
