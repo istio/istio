@@ -11918,7 +11918,412 @@ metadata:
 
 # Cni component is disabled.
 
-# CoreDNS component is disabled.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istiocoredns
+  labels:
+    app: istiocoredns
+    release: istio
+rules:
+- apiGroups: ["networking.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-istiocoredns-role-binding-istio-system
+  labels:
+    app: istiocoredns
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istiocoredns
+subjects:
+- kind: ServiceAccount
+  name: istiocoredns-service-account
+  namespace: istio-system
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: istio-system
+  labels:
+    app: istiocoredns
+    release: istio
+data:
+  Corefile: |
+    .:53 {
+          errors
+          health
+          
+          # Removed support for the proxy plugin: https://coredns.io/2019/03/03/coredns-1.4.0-release/
+          grpc global 127.0.0.1:8053
+          forward . /etc/resolv.conf {
+            except global
+          }
+          
+          prometheus :9153
+          cache 30
+          reload
+        }
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiocoredns
+  namespace: istio-system
+  labels:
+    app: istiocoredns
+    release: istio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: istiocoredns
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      name: istiocoredns
+      labels:
+        app: istiocoredns
+        release: istio
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istiocoredns-service-account
+      containers:
+      - name: coredns
+        image: coredns/coredns:1.6.2
+        args: [ "-conf", "/etc/coredns/Corefile" ]
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/coredns
+        ports:
+        - containerPort: 53
+          name: dns
+          protocol: UDP
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+        - containerPort: 9153
+          name: metrics
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 10m
+          
+      - name: istio-coredns-plugin
+        command:
+        - /usr/local/bin/plugin
+        image: istio/coredns-plugin:0.2-istio-1.1
+        ports:
+        - containerPort: 8053
+          name: dns-grpc
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+          
+      dnsPolicy: Default
+      volumes:
+      - name: config-volume
+        configMap:
+          name: coredns
+          items:
+          - key: Corefile
+            path: Corefile
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiocoredns
+  namespace: istio-system
+  labels:
+    app: istiocoredns
+    release: istio
+spec:
+  selector:
+    app: istiocoredns
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+---
+
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istiocoredns-service-account
+  namespace: istio-system
+  labels:
+    app: istiocoredns
+    release: istio
+---
+# Resources for CoreDNS component
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istiocoredns
+  labels:
+    app: istiocoredns
+    release: istio
+rules:
+- apiGroups: ["networking.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-istiocoredns-role-binding-istio-system
+  labels:
+    app: istiocoredns
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istiocoredns
+subjects:
+- kind: ServiceAccount
+  name: istiocoredns-service-account
+  namespace: istio-system
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: istio-system
+  labels:
+    app: istiocoredns
+    release: istio
+data:
+  Corefile: |
+    .:53 {
+          errors
+          health
+          
+          # Removed support for the proxy plugin: https://coredns.io/2019/03/03/coredns-1.4.0-release/
+          grpc global 127.0.0.1:8053
+          forward . /etc/resolv.conf {
+            except global
+          }
+          
+          prometheus :9153
+          cache 30
+          reload
+        }
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiocoredns
+  namespace: istio-system
+  labels:
+    app: istiocoredns
+    release: istio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: istiocoredns
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      name: istiocoredns
+      labels:
+        app: istiocoredns
+        release: istio
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istiocoredns-service-account
+      containers:
+      - name: coredns
+        image: coredns/coredns:1.6.2
+        args: [ "-conf", "/etc/coredns/Corefile" ]
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/coredns
+        ports:
+        - containerPort: 53
+          name: dns
+          protocol: UDP
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+        - containerPort: 9153
+          name: metrics
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 10m
+          
+      - name: istio-coredns-plugin
+        command:
+        - /usr/local/bin/plugin
+        image: istio/coredns-plugin:0.2-istio-1.1
+        ports:
+        - containerPort: 8053
+          name: dns-grpc
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+          
+      dnsPolicy: Default
+      volumes:
+      - name: config-volume
+        configMap:
+          name: coredns
+          items:
+          - key: Corefile
+            path: Corefile
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiocoredns
+  namespace: istio-system
+  labels:
+    app: istiocoredns
+    release: istio
+spec:
+  selector:
+    app: istiocoredns
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+---
+
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istiocoredns-service-account
+  namespace: istio-system
+  labels:
+    app: istiocoredns
+    release: istio
+---
 
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler

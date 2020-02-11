@@ -3,7 +3,7 @@ legacyAddonComponentNames:
   - "Kiali"
   - "Grafana"
   - "Tracing"
-  - "Istiocoredns"
+  - "CoreDNS"
 deprecatedComponentNames:
   - "Injector"
   - "CertManager"

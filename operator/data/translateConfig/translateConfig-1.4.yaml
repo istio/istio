@@ -186,7 +186,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"
-    HelmSubdir:           "istiocoredns"
+    HelmSubdir:           "addons/coreDNS"
     ToHelmValuesTreeRoot: "istiocoredns"
   Tracing:
     ResourceType:         "Deployment"

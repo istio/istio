@@ -37767,6 +37767,8 @@ spec:
         replicaCount: 1
     tracing:
       enabled: false
+    coreDNS:
+      enabled: false
 
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/global.yaml
@@ -38221,7 +38223,6 @@ spec:
         annotations:
         tls:
     istiocoredns:
-      enabled: false
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
@@ -38626,7 +38627,7 @@ var _translateconfigNames15Yaml = []byte(`legacyAddonComponentNames:
   - "Kiali"
   - "Grafana"
   - "Tracing"
-  - "Istiocoredns"
+  - "CoreDNS"
 deprecatedComponentNames:
   - "Injector"
   - "CertManager"
@@ -38657,7 +38658,7 @@ var _translateconfigNames16Yaml = []byte(`legacyAddonComponentNames:
   - "Kiali"
   - "Grafana"
   - "Tracing"
-  - "Istiocoredns"
+  - "CoreDNS"
 deprecatedComponentNames:
   - "Injector"
   - "CertManager"
@@ -39230,7 +39231,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"
-    HelmSubdir:           "istiocoredns"
+    HelmSubdir:           "addons/coreDNS"
     ToHelmValuesTreeRoot: "istiocoredns"
   Tracing:
     ResourceType:         "Deployment"

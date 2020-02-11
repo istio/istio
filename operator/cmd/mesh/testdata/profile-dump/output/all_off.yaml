@@ -1,4 +1,6 @@
 addonComponents:
+  coreDNS:
+    enabled: false
   grafana:
     enabled: false
     k8s:
@@ -457,7 +459,6 @@ values:
     coreDNSImage: coredns/coredns
     coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
     coreDNSTag: 1.6.2
-    enabled: false
   kiali:
     contextPath: /kiali
     createDemoSecret: false
