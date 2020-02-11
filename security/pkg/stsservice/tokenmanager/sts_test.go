@@ -63,6 +63,8 @@ func TestStsFlow(t *testing.T) {
 	}
 }
 
+// TestStsCache enables caching at token exchange plugin, which will return cached token if that token
+// is not going to expire soon.
 func TestStsCache(t *testing.T) {
 	stsServer, mockBackend, clients := setUpTestComponents(t, testSetUp{enableCache: true, enableDynamicToken: true})
 	defer tearDownTest(t, stsServer, mockBackend)

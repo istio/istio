@@ -155,7 +155,7 @@ func setUpTest(t *testing.T, setup testSetUp) (*Plugin, *mock.AuthorizationServe
 	return tm, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint
 }
 
-// TestAccessToken verifies that token manager could successfully call server and get access token.
+// TestAccessToken verifies that token manager could return a cached token to client.
 func TestTokenExchangePluginWithCache(t *testing.T) {
 	tmPlugin, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint :=
 		setUpTest(t, testSetUp{enableCache: true, enableDynamicToken: true})
@@ -167,6 +167,7 @@ func TestTokenExchangePluginWithCache(t *testing.T) {
 		accessTokenEndpoint = originalAccessTokenEndpoint
 	}()
 
+	// Make the first token exchange call to plugin. Plugin should call backend.
 	stsRespJSON, _ := tmPlugin.ExchangeToken(defaultSTSRequest())
 	stsResp := &stsservice.StsResponseParameters{}
 	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
@@ -181,7 +182,7 @@ func TestTokenExchangePluginWithCache(t *testing.T) {
 	if numATCalls != 1 {
 		t.Errorf("number of get access token API calls does not match, expected 1 but got %d", numATCalls)
 	}
-
+	// Make the second token exchange call to plugin. Plugin should return cached token.
 	stsRespJSON, _ = tmPlugin.ExchangeToken(defaultSTSRequest())
 	stsResp = &stsservice.StsResponseParameters{}
 	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
@@ -200,7 +201,11 @@ func TestTokenExchangePluginWithCache(t *testing.T) {
 		t.Errorf("cached token is not used")
 	}
 
+	// Delete cached token
 	tmPlugin.ClearCache()
+	// Set token life time to 4 min, which is shorter than token grace period.
+	ms.SetTokenLifeTime(4 * 60)
+	// Make the third token exchange call to plugin. Cache is deleted, plugin should call backend.
 	stsRespJSON, _ = tmPlugin.ExchangeToken(defaultSTSRequest())
 	stsResp = &stsservice.StsResponseParameters{}
 	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
@@ -216,6 +221,25 @@ func TestTokenExchangePluginWithCache(t *testing.T) {
 		t.Errorf("number of get access token API calls does not match, expected 2 got %d", numATCalls)
 	}
 	if secondToken == thirdToken {
+		t.Errorf("should not return cached token")
+	}
+
+	// Make the fourth token exchange call to plugin. Cached token is going to expire, plugin should call backend.
+	stsRespJSON, _ = tmPlugin.ExchangeToken(defaultSTSRequest())
+	stsResp = &stsservice.StsResponseParameters{}
+	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
+		t.Errorf("failed to unmarshal STS response: %v", err)
+	}
+	fourthToken := stsResp.AccessToken
+	numFTCalls = ms.NumGetFederatedTokenCalls()
+	numATCalls = ms.NumGetAccessTokenCalls()
+	if numFTCalls != 3 {
+		t.Errorf("number of get federated token API calls does not match, expected 3 got %d", numFTCalls)
+	}
+	if numATCalls != 3 {
+		t.Errorf("number of get access token API calls does not match, expected 3 got %d", numATCalls)
+	}
+	if thirdToken == fourthToken{
 		t.Errorf("should not return cached token")
 	}
 }
