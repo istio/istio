@@ -211,7 +211,7 @@ type PushRequest struct {
 	NamespacesUpdated map[string]struct{}
 
 	// NamespaceupdatedByPeerAuthn tracks the namespace which contains the PeerAuthnPolicy change.
-	/// This will trigger further client side EDS change for auto mTLS.
+	// This will trigger further client side EDS change for auto mTLS.
 	NamespaceUpdatedByPeerAuthn map[string]struct{}
 
 	// ConfigTypesUpdated contains the types of configs that have changed.
@@ -855,8 +855,7 @@ func (ps *PushContext) NamespaceUpdatedByPeerAuthn(namespace string, req *PushRe
 	if req.NamespaceUpdatedByPeerAuthn == nil {
 		return false
 	}
-	_, rootUpdated := req.NamespaceUpdatedByPeerAuthn[ps.Mesh.RootNamespace]
-	if rootUpdated {
+	if _, rootUpdated := req.NamespaceUpdatedByPeerAuthn[ps.Mesh.RootNamespace]; rootUpdated {
 		return true
 	}
 	_, exists := req.NamespaceUpdatedByPeerAuthn[namespace]

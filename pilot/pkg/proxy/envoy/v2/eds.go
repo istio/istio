@@ -36,7 +36,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
-	authnfactory "istio.io/istio/pilot/pkg/security/authn/factory"
+	// authnfactory "istio.io/istio/pilot/pkg/security/authn/factory"
+	authnbeta "istio.io/istio/pilot/pkg/security/authn/v1beta1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -909,11 +910,15 @@ func endpointAcceptMtls(endpointTlsMap *map[string]bool, push *model.PushContext
 	}
 	out := true
 	defer func() {
-		adsLog.Debugf("endpoint AcceptMtls result ep %v, out %v, key %v", *ep, out, key)
+		adsLog.Debugf("Endpoint accept mtls result ep %v, out %v, key %v", *ep, out, key)
 		(*endpointTlsMap)[key] = out
 	}()
-	decider, ok := authnfactory.NewPolicyApplier(
-		push, nil, ep.Attributes.Namespace, labels.Collection{ep.Labels}).(authn.MtlsDecider)
+	ns := ep.Attributes.Namespace
+	decider, ok := authnbeta.NewPolicyApplier(
+		push.AuthnBetaPolicies.GetRootNamespace(),
+		push.AuthnBetaPolicies.GetJwtPoliciesForWorkload(ns, labels.Collection{ep.Labels}),
+		push.AuthnBetaPolicies.GetPeerAuthenticationsForWorkload(ns, labels.Collection{ep.Labels}),
+		nil).(authn.MtlsDecider)
 	if !ok {
 		return out
 	}
@@ -953,6 +958,8 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 
+			// TODO: investigate the possible race.
+			// https://prow.istio.io/view/gcs/istio-prow/pr-logs/pull/istio_istio/20881/unit-tests_istio/8472
 			ep.EffectiveTlsMode = ep.TLSMode
 			if !endpointAcceptMtls(&tlsMap, push, ep) {
 				ep.EffectiveTlsMode = model.DisabledTLSModeLabel
