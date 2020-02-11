@@ -210,7 +210,13 @@ func pathToStringList(path cmp.Path) (up []string) {
 		case cmp.MapIndex:
 			up = append(up, fmt.Sprintf("%v", t.Key()))
 		case cmp.SliceIndex:
-			up = append(up, fmt.Sprintf("%v", t.String()))
+			// Create an element, but never an NPath
+			s := t.String()
+			if util.IsNPathElement(s) {
+				// Convert e.g. [0] to [#0]
+				s = fmt.Sprintf("%c%c%s", s[0], '#', s[1:])
+			}
+			up = append(up, s)
 		}
 	}
 	return
