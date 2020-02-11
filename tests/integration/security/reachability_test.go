@@ -15,7 +15,6 @@
 package security
 
 import (
-	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
