@@ -26,11 +26,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 )
 
-const (
-	istioIngressGatewayName = "istio-ingressgateway"
-	istioEgressGatewayName  = "istio-egressgateway"
-)
-
 // IstioOperator is an installation of an Istio control plane.
 type IstioOperator struct {
 	// components is a slice of components that are part of the feature.

@@ -27,7 +27,6 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -78,7 +77,6 @@ type ComponentNamesConfig struct {
 }
 
 var (
-	scope                 = log.RegisterScope("name", "operator naming", 0)
 	AllCoreComponentNames = []ComponentName{
 		IstioBaseComponentName,
 		PilotComponentName,

@@ -622,6 +622,9 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 	}
 
 	enabled, err := isComponentEnabled(c)
+	if err != nil {
+		return "", err
+	}
 	if !enabled {
 		return disabledYAMLStr(c.componentName, c.resourceName), nil
 	}
