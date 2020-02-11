@@ -1612,7 +1612,12 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, efw := range ps.envoyFiltersByNamespace[ps.Mesh.RootNamespace] {
-			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+			var workloadLabels labels.Collection
+			// This should never happen except in tests.
+			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+				workloadLabels = labels.Collection{proxy.Metadata.Labels}
+			}
+			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
 				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 			}
 		}
@@ -1621,7 +1626,12 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
-			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+			var workloadLabels labels.Collection
+			// This should never happen except in tests.
+			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+				workloadLabels = labels.Collection{proxy.Metadata.Labels}
+			}
+			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
 				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 			}
 		}
@@ -1693,7 +1703,12 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			out = append(out, cfg)
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
-			if proxy.WorkloadLabels.IsSupersetOf(gatewaySelector) {
+			var workloadLabels labels.Collection
+			// This should never happen except in tests.
+			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+				workloadLabels = labels.Collection{proxy.Metadata.Labels}
+			}
+			if workloadLabels.IsSupersetOf(gatewaySelector) {
 				out = append(out, cfg)
 			}
 		}
