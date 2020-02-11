@@ -404,6 +404,8 @@ func newBlackholeFilter() *listener.Filter {
 }
 
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.
+// This function also returns a boolean indicating whether or not the TLS inspector is needed
+// for the filter chain.
 func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, bool) {
 	ipv4, ipv6 := ipv4AndIpv6Support(node)
@@ -475,6 +477,7 @@ func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 			}
 		}
 
+		// Construct the actual filter chains for each of the filter chain from the plugin.
 		for _, chain := range allChains {
 			filterChain := &listener.FilterChain{
 				FilterChainMatch: chain.FilterChainMatch,
@@ -488,7 +491,8 @@ func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 				}
 			}
 			for _, filter := range chain.ListenerFilters {
-				if needTLS = needTLS || filter.Name == xdsutil.TlsInspector; needTLS {
+				if filter.Name == xdsutil.TlsInspector {
+					needTLS = true
 					break
 				}
 			}
