@@ -117,5 +117,5 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.
 		// Pass 0 for endpointPort so that it never matches any port-level policy.
 		return applier.InboundFilterChain(0, in.Push.Mesh.SdsUdsPath, in.Node)
 	}
-    return nil
+	return nil
 }

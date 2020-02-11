@@ -282,7 +282,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 				if sawIpv4PassthroughCluster == 2 {
 					t.Fatalf("duplicated ipv4 passthrough cluster filter chain in listener %v", l)
 				}
-				sawIpv4PassthroughCluster += 1
+				sawIpv4PassthroughCluster++
 			} else if fc.FilterChainMatch.PrefixRanges[0].AddressPrefix == util.ConvertAddressToCidr("::0/0").AddressPrefix &&
 				fc.FilterChainMatch.PrefixRanges[0].PrefixLen.Value == 0 {
 				if sawIpv6PassthroughCluster {

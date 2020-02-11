@@ -45,9 +45,6 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Protocol: protocol.GRPC,
 			},
 		},
-		WorkloadOnlyPorts: []int{
-			8085,
-		},
 		Galley: g,
 		Pilot:  p,
 	}
