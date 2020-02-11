@@ -1,4 +1,13 @@
+# AddonComponents grafana component is disabled.
+
+---
+# AddonComponents kiali component is disabled.
+
+---
 # AddonComponents prometheus component is disabled.
+
+---
+# AddonComponents istio-tracing component is disabled.
 
 # Base component is disabled.
 
