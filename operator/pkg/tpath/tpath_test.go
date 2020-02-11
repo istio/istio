@@ -478,7 +478,35 @@ a:
           i3b:
             i1: val2
 `,
-		}}
+		},
+		// For https://github.com/istio/istio/issues/20950
+		{
+			desc: "with initial list",
+			baseYAML: `
+components:
+  ingressGateways:
+    - enabled: true
+`,
+			path:  "components.ingressGateways[0].enabled",
+			value: "false",
+			want: `
+components:
+  ingressGateways:
+    - enabled: "false"
+`,
+		},
+		{
+			desc:     "no initial list",
+			baseYAML: "",
+			path:     "components.ingressGateways[0].enabled",
+			value:    "false",
+			want: `
+components:
+  ingressGateways:
+    - enabled: "false"
+`,
+		},
+	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			root := make(map[string]interface{})
