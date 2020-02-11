@@ -212,6 +212,19 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 				// Only need the authentication MTLS mode when service is not external.
 				policy, _ := push.AuthenticationPolicyForWorkload(service, port)
 				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(policy)
+				// Conservatively set service mode to be Permissive since beta policy can use workload selector.
+				if push.AuthnBetaPolicies != nil &&
+					push.AuthnBetaPolicies.MightAffectNamespaceByPeerAuthn(service.Attributes.Namespace) {
+					serviceMTLSMode = model.MTLSPermissive
+				}
+				if strings.Contains(service.Attributes.Namespace, "reach") {
+					log.Infof("incfly debug cluster.go/buildOutboundClusters, service %v, mode %v, policy nil or not %v, affect or not %v",
+						service.Hostname, serviceMTLSMode, push.AuthnBetaPolicies != nil,
+						push.AuthnBetaPolicies.MightAffectNamespaceByPeerAuthn(service.Attributes.Namespace))
+					if policy != nil {
+						log.Infof("incfly debug policy %v", *policy)
+					}
+				}
 			}
 			clusters = append(clusters, defaultCluster)
 			destinationRule := castDestinationRuleOrDefault(destRule)
@@ -730,8 +743,15 @@ func conditionallyConvertToIstioMtls(
 	autoMTLSEnabled bool,
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode,
+	opts *buildClusterOpts,
+	// TODO: remove
 ) (*networking.TLSSettings, mtlsContextType) {
 	mtlsCtx := userSupplied
+	if opts != nil && strings.Contains(opts.cluster.GetName(), "outbound|80||") &&
+		strings.Contains(opts.cluster.GetName(), "reachability") {
+		log.Infof("incfly debug conditionallyConvertToIstioMtls, cluster %v, svc mode %v",
+			opts.cluster.GetName(), serviceMTLSMode)
+	}
 	if tls == nil {
 		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
 			return nil, mtlsCtx
@@ -742,6 +762,10 @@ func conditionallyConvertToIstioMtls(
 		tls = &networking.TLSSettings{
 			Mode: networking.TLSSettings_ISTIO_MUTUAL,
 		}
+	}
+	if opts != nil && strings.Contains(opts.cluster.GetName(), "outbound|80||") &&
+		strings.Contains(opts.cluster.GetName(), "reachability") {
+		log.Infof("incfly debug conditionallyConvertToIstioMtls, tls mode %v", tls.Mode)
 	}
 	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
@@ -846,7 +870,7 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
-			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
+			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, &opts)
 		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, proxy)
 	}
 }
