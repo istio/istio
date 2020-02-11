@@ -58,7 +58,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		if cm := translator.ComponentMap(string(c)); cm != nil {
 			rn = cm.ResourceName
 		}
-		out.components = append(out.components, component.NewComponent(c, rn, &o))
+		out.components = append(out.components, component.NewIstioComponentImpl(c, rn, &o))
 	}
 	for idx, c := range installSpec.Components.IngressGateways {
 		if c.Name == istioIngressGatewayName {
@@ -116,7 +116,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		if cm := translator.ComponentMap(cn); cm != nil {
 			rn = cm.ResourceName
 		}
-		component := component.NewComponent(componentName, rn, &o)
+		component := component.NewIstioComponentImpl(componentName, rn, &o)
 		out.components = append(out.components, component)
 	}
 	return out, nil

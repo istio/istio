@@ -73,8 +73,8 @@ type IstioComponent interface {
 	RenderManifest() (string, error)
 }
 
-// Component is a struct common to all components.
-type Component struct {
+// IstioComponentImpl is a struct common to all components.
+type IstioComponentImpl struct {
 	*Options
 	componentName name.ComponentName
 	// resourceName is the name of all resources for this component.
@@ -85,9 +85,9 @@ type Component struct {
 	renderer helm.TemplateRenderer
 }
 
-// NewComponent creates a new IstioComponent with the given componentName and options.
-func NewComponent(cn name.ComponentName, resourceName string, opts *Options) IstioComponent {
-	component := &Component{
+// NewIstioComponentImpl creates a new IstioComponentImpl with the given componentName and options.
+func NewIstioComponentImpl(cn name.ComponentName, resourceName string, opts *Options) IstioComponent {
+	component := &IstioComponentImpl{
 		Options:       opts,
 		resourceName:  resourceName,
 		componentName: cn,
@@ -95,7 +95,7 @@ func NewComponent(cn name.ComponentName, resourceName string, opts *Options) Ist
 	return component
 }
 
-func (c *Component) overlayMeshConfig(baseYAML string) (string, error) {
+func (c *IstioComponentImpl) overlayMeshConfig(baseYAML string) (string, error) {
 	if c.InstallSpec.MeshConfig == nil {
 		return baseYAML, nil
 	}
@@ -161,7 +161,7 @@ func isMeshConfigMap(obj *object.K8sObject) bool {
 
 // NewIngressComponent creates a new IngressComponent and returns a pointer to it.
 func NewIngressComponent(resourceName string, index int, opts *Options) IstioComponent {
-	return &Component{
+	return &IstioComponentImpl{
 		resourceName:  resourceName,
 		Options:       opts,
 		componentName: name.IngressComponentName,
@@ -171,7 +171,7 @@ func NewIngressComponent(resourceName string, index int, opts *Options) IstioCom
 
 // NewEgressComponent creates a new IngressComponent and returns a pointer to it.
 func NewEgressComponent(resourceName string, index int, opts *Options) IstioComponent {
-	return &Component{
+	return &IstioComponentImpl{
 		resourceName:  resourceName,
 		Options:       opts,
 		componentName: name.EgressComponentName,
@@ -180,22 +180,22 @@ func NewEgressComponent(resourceName string, index int, opts *Options) IstioComp
 }
 
 // Namespace implements the IstioComponent interface.
-func (c *Component) Namespace() string {
+func (c *IstioComponentImpl) Namespace() string {
 	return c.Options.Namespace
 }
 
 // ResourceName implements the IstioComponent interface.
-func (c *Component) ResourceName() string {
+func (c *IstioComponentImpl) ResourceName() string {
 	return c.resourceName
 }
 
 // ComponentName implements the IstioComponent interface.
-func (c *Component) ComponentName() name.ComponentName {
+func (c *IstioComponentImpl) ComponentName() name.ComponentName {
 	return c.componentName
 }
 
 // Run performs startup tasks for the component defined by the given CommonComponentFields.
-func (c *Component) Run() error {
+func (c *IstioComponentImpl) Run() error {
 	r, err := createHelmRenderer(c)
 	if err != nil {
 		return err
@@ -209,7 +209,7 @@ func (c *Component) Run() error {
 }
 
 // RenderManifest renders the manifest for the component defined by c and returns the resulting string.
-func (c *Component) RenderManifest() (string, error) {
+func (c *IstioComponentImpl) RenderManifest() (string, error) {
 	if !c.started {
 		return "", fmt.Errorf("component %s not started in RenderManifest", c.ComponentName())
 	}
@@ -284,7 +284,7 @@ func (c *Component) RenderManifest() (string, error) {
 
 // createHelmRenderer creates a helm renderer for the component defined by c and returns a ptr to it.
 // If a helm subdir is not found in ComponentMap translations, it is assumed to be "addon/<component name>.
-func createHelmRenderer(c *Component) (helm.TemplateRenderer, error) {
+func createHelmRenderer(c *IstioComponentImpl) (helm.TemplateRenderer, error) {
 	iop := c.Options.InstallSpec
 	cns := string(c.componentName)
 	helmSubdir := addonsChartDirName + "/" + cns
