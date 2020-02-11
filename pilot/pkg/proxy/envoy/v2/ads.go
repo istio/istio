@@ -481,9 +481,6 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscover
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
 	// TODO: update the service deps based on NetworkScope
-	// if con.node.Metadata.Namespace == "automtls" {
-	// 	adsLog.Infof("incfly 111 pushConnection invoked for conn: %v, pushEv %v", con.PeerAddr, *pushEv)
-	// }
 	if pushEv.edsUpdatedServices != nil {
 		if !ProxyNeedsPush(con.node, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
@@ -541,10 +538,6 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 
-	if con.node.Metadata.Namespace == "automtls" {
-		adsLog.Infof("incfly debug pushConnection eds check cluster size %v, push type %v",
-			len(con.Clusters), pushTypes[EDS])
-	}
 	if len(con.Clusters) > 0 && pushTypes[EDS] {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
@@ -552,9 +545,6 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 	if con.LDSWatch && pushTypes[LDS] {
-		// if con.node.Metadata.Namespace == "automtls" {
-		// 	adsLog.Infof("incfly 111 pushConnection lds invoked")
-		// }
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err

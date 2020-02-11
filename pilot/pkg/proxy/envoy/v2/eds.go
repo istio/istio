@@ -201,10 +201,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	var subsetName string
 	_, subsetName, hostname, clusterPort = model.ParseSubsetKey(clusterName)
 
-	if strings.Contains(clusterName, "httpbin") {
-		// 	adsLog.Infof("incfly 111, updateClusterInc for httpbin %v", clusterName)
-	}
-
 	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
 	// (public/private) as well as sidecar scopes allowing import of
 	// specific destination rules, the destination rule for a given
@@ -235,10 +231,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
-
-	// if strings.Contains(clusterName, "httpbin") {
-	// 	adsLog.Infof("incfly 111, updateClusterInc about to build lb endpoint %v", clusterName)
-	// }
 
 	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push)
 	// There is a chance multiple goroutines will update the cluster at the same time.

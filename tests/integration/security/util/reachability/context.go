@@ -175,7 +175,7 @@ func (rc *Context) Run(testCases []TestCase) {
 						if c.Include(src, opts) {
 							expectSuccess := c.ExpectSuccess(src, opts)
 
-							subTestName := fmt.Sprintf("%s->%s://%s:%s/%s",
+							subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
 								src.Config().Service,
 								opts.Scheme,
 								dest.Config().Service,

@@ -824,8 +824,7 @@ func (s *Server) initEventHandlers() error {
 				Reason:             []model.TriggerReason{model.ConfigUpdate},
 			}
 
-			// TODO(incfly): remove this, or generalize.
-			// Special handling of PeerAuthn.
+			// Additional tracking for PeerAuthentication, which triggers EDS push.
 			if curr.GroupVersionKind() ==
 				collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() {
 				if pushReq.NamespacesUpdated == nil {
