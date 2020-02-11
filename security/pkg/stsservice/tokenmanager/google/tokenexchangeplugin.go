@@ -403,3 +403,9 @@ func (p *Plugin) SetEndpoints(fTokenEndpoint, aTokenEndpoint string) {
 	federatedTokenEndpoint = fTokenEndpoint
 	accessTokenEndpoint = aTokenEndpoint
 }
+
+// ClearCache is only used for testing purposes.
+func (p *Plugin) ClearCache() {
+	p.tokens.Delete(federatedToken)
+	p.tokens.Delete(accessToken)
+}
