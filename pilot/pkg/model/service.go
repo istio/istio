@@ -349,6 +349,9 @@ type IstioEndpoint struct {
 
 	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
 	TLSMode string
+
+	// EffectiveTlsMode is the result of combined TLSMode and peer authnetication policy.
+	EffectiveTlsMode string
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.

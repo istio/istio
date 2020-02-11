@@ -827,10 +827,11 @@ func (s *Server) initEventHandlers() error {
 			// Additional tracking for PeerAuthentication, which triggers EDS push.
 			if curr.GroupVersionKind() ==
 				collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() {
-				if pushReq.NamespacesUpdated == nil {
-					pushReq.NamespacesUpdated = map[string]struct{}{}
+				if pushReq.NamespaceUpdatedByPeerAuthn == nil {
+					pushReq.NamespaceUpdatedByPeerAuthn = map[string]struct{}{}
 				}
-				pushReq.NamespacesUpdated[curr.Namespace] = struct{}{}
+				pushReq.NamespaceUpdatedByPeerAuthn[curr.Namespace] = struct{}{}
+				log.Infof("incfly bootstrap.go/handler peer authn, ns %v\n%v", curr.Namespace, curr)
 			}
 
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
