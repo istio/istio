@@ -35,8 +35,6 @@ func TestReachability(t *testing.T) {
 
 			rctx := reachability.CreateContext(ctx, g, p)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
-			fmt.Println("incfly debug printing sysnamespace ", systemNM, scheme.HTTP)
-
 			testCases := []reachability.TestCase{
 				{
 					ConfigFile:          "global-mtls-on.yaml",

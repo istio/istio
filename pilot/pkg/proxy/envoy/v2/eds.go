@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -400,7 +399,6 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 		cMap[k] = v
 		req.EdsUpdates[string(hostname)] = struct{}{}
 	}
-	adsLog.Infof("incfly debug edsIncremental check map %v", cMap)
 	edsClusterMutex.Unlock()
 
 	// UpdateCluster updates the cluster with a mutex, this code is safe ( but computing
@@ -898,9 +896,6 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 func endpointAcceptMtls(endpointTlsMap *map[string]bool, push *model.PushContext, ep *model.IstioEndpoint) bool {
 	b, err := json.Marshal(ep.Labels)
 	if err != nil {
-		if strings.Contains(ep.Attributes.Namespace, "reach") {
-			adsLog.Infof("incfly debug endpointAcceptMtls ep %v, hash error %v", *ep, err)
-		}
 		return true
 	}
 	labelHash := fmt.Sprintf("%x", sha1.Sum(b))[:8]
@@ -911,9 +906,6 @@ func endpointAcceptMtls(endpointTlsMap *map[string]bool, push *model.PushContext
 	}
 	out := true
 	defer func() {
-		if strings.Contains(ep.Attributes.Namespace, "reach") {
-			adsLog.Infof("incfly debug endpointAcceptMtls ep %v, out %v, key %v", *ep, out, key)
-		}
 		adsLog.Debugf("endpoint AcceptMtls result ep %v, out %v, key %v", *ep, out, key)
 		(*endpointTlsMap)[key] = out
 	}()
@@ -961,9 +953,6 @@ func buildLocalityLbEndpointsFromShards(
 			ep.EffectiveTlsMode = ep.TLSMode
 			if !endpointAcceptMtls(&tlsMap, push, ep) {
 				ep.EffectiveTlsMode = model.DisabledTLSModeLabel
-			}
-			if strings.Contains(ep.Attributes.Namespace, "reach") {
-				adsLog.Infof("incfly debug, effective label %v, *ep %v", ep.EffectiveTlsMode, *ep)
 			}
 
 			// TODO(incfly): some optimization.

@@ -93,8 +93,6 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 // MightAffectNamespaceByPeerAuthn determines whether it's possible to have a peer authentication policy
 // to affect the workloads in a particular namespace.
 func (policy *AuthenticationPolicies) MightAffectNamespaceByPeerAuthn(namespace string) bool {
-	log.Infof("incfly debug MightAffectNamespaceByPeerAuthn, peer %v, ns %v, root %v",
-		policy.peerAuthentications, namespace, policy.rootNamespace)
 	if len(policy.peerAuthentications) == 0 {
 		return false
 	}
