@@ -244,7 +244,7 @@ func (c *IstioComponentImpl) RenderManifest() (string, error) {
 		return "", err
 	}
 	cnOutput := string(c.componentName)
-	my += "# Resources for " + cnOutput + " component\n\n" + my
+	my = "# Resources for " + cnOutput + " component\n\n" + my
 	if devDbg {
 		log.Infof("Manifest after k8s API settings:\n%s\n", my)
 	}
