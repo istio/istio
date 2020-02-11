@@ -68,6 +68,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Use:   "apply",
 		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
 		Long:  "The apply subcommand generates an Istio install manifest and applies it to a cluster.",
+		// nolint: lll
 		Example: `  # Apply a default Istio installation
   istioctl manifest apply
 

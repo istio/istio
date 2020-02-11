@@ -59,6 +59,7 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 		Use:   "generate",
 		Short: "Generates an Istio install manifest",
 		Long:  "The generate subcommand generates an Istio install manifest and outputs to the console by default.",
+		// nolint: lll
 		Example: `  # Generate a default Istio installation
   istioctl manifest generate
 
