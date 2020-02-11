@@ -1,54 +1,37 @@
-kind: Service
-apiVersion: v1
-metadata:
-  name: frontend
-spec:
-  selector:
-    app: hello
-    tier: frontend
-  ports:
-    - protocol: "TCP"
-      port: 80
-      targetPort: 80
-  type: LoadBalancer
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
-  name: frontend
+  name: hello
 spec:
-  replicas: 1
+  replicas: 7
   selector:
     matchLabels:
       app: hello
-      tier: frontend
+      tier: backend
       track: stable
   strategy: {}
   template:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: hello
         security.istio.io/tlsMode: istio
-        tier: frontend
+        tier: backend
         track: stable
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-frontend:1.0
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - /usr/sbin/nginx
-              - -s
-              - quit
-        name: nginx
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
         resources: {}
       - args:
         - proxy
@@ -115,6 +98,7 @@ spec:
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
+                {"name":"http","containerPort":80}
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
@@ -132,11 +116,11 @@ spec:
           value: REDIRECT
         - name: ISTIO_METAJSON_LABELS
           value: |
-            {"app":"hello","tier":"frontend","track":"stable"}
+            {"app":"hello","tier":"backend","track":"stable"}
         - name: ISTIO_META_WORKLOAD_NAME
-          value: frontend
+          value: hello
         - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/default/deployments/frontend
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
@@ -177,6 +161,9 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
       initContainers:
       - command:
         - istio-iptables
@@ -233,5 +220,9 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.default
 status: {}
 ---
