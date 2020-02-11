@@ -16,7 +16,6 @@ package translate
 
 import (
 	"fmt"
-	"strings"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
@@ -24,23 +23,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	binversion "istio.io/istio/operator/version"
 )
-
-var (
-	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
-	// paths in IstioOperator.
-	ValuesEnablementPathMap = make(map[string]string)
-)
-
-func generateValuesEnablementMap() {
-	for n := range name.BundledAddonComponentNamesMap {
-		cn := strings.ToLower(string(n))
-		valuePath := fmt.Sprintf("spec.values.%s.enabled", cn)
-		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", cn)
-		ValuesEnablementPathMap[valuePath] = iopPath
-	}
-	ValuesEnablementPathMap["spec.values.gateways.istio-ingressgateway.enabled"] = "spec.components.ingressGateways.[name:istio-ingressgateway].enabled"
-	ValuesEnablementPathMap["spec.values.gateways.istio-egressgateway.enabled"] = "spec.components.egressGateways.[name:istio-egressgateway].enabled"
-}
 
 // IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.
 // IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.

@@ -37,9 +37,7 @@ const (
 	ConfigFolder = "translateConfig"
 	// ConfigPrefix is the prefix of IstioOperator's translation configuration file
 	ConfigPrefix = "names-"
-)
-
-const (
+	// DefaultProfileName is the name of the default profile.
 	DefaultProfileName = "default"
 )
 
@@ -95,6 +93,10 @@ var (
 	// BundledAddonComponentNamesMap is a map of component names of addons which have helm charts bundled with Istio
 	// and have built in path definitions beyond standard addons coming from external charts.
 	BundledAddonComponentNamesMap = make(map[ComponentName]bool)
+
+	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
+	// paths in IstioOperator.
+	ValuesEnablementPathMap = make(map[string]string)
 )
 
 func init() {
@@ -104,6 +106,7 @@ func init() {
 	if err := loadComponentNamesConfig(); err != nil {
 		panic(err)
 	}
+	generateValuesEnablementMap()
 }
 
 // ManifestMap is a map of ComponentName to its manifest string.
@@ -187,4 +190,15 @@ func loadComponentNamesConfig() error {
 		DeprecatedComponentNamesMap[ComponentName(n)] = true
 	}
 	return nil
+}
+
+func generateValuesEnablementMap() {
+	for n := range BundledAddonComponentNamesMap {
+		cn := strings.ToLower(string(n))
+		valuePath := fmt.Sprintf("spec.values.%s.enabled", cn)
+		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", cn)
+		ValuesEnablementPathMap[valuePath] = iopPath
+	}
+	ValuesEnablementPathMap["spec.values.gateways.istio-ingressgateway.enabled"] = "spec.components.ingressGateways.[name:istio-ingressgateway].enabled"
+	ValuesEnablementPathMap["spec.values.gateways.istio-egressgateway.enabled"] = "spec.components.egressGateways.[name:istio-egressgateway].enabled"
 }

@@ -267,7 +267,7 @@ func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (
 		return "", fmt.Errorf("could not overlay user config over base: %s", err)
 	}
 
-	return translate.YAMLTree(overlayYAML, baseYAML, translate.ValuesEnablementPathMap)
+	return translate.YAMLTree(overlayYAML, baseYAML, name.ValuesEnablementPathMap)
 }
 
 // unmarshalAndValidateIOPS unmarshals a string containing IstioOperator YAML, validates it, and returns a struct

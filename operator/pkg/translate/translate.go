@@ -114,7 +114,6 @@ type Translation struct {
 
 // NewTranslator creates a new translator for minorVersion and returns a ptr to it.
 func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
-	generateValuesEnablementMap()
 	f := filepath.Join(TranslateConfigFolder, TranslateConfigPrefix+minorVersion.String()+".yaml")
 	b, err := vfs.ReadFile(f)
 	if err != nil {
