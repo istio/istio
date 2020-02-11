@@ -914,7 +914,7 @@ func endpointAcceptMtls(endpointTlsMap *map[string]bool, push *model.PushContext
 	}
 	out := true
 	defer func() {
-		adsLog.Infof("incfly debug, endpointAcceptMtls, endpoint %v, out %v, key %v", *ep, out, key)
+		adsLog.Debugf("endpoint AcceptMtls result ep %v, out %v, key %v", *ep, out, key)
 		(*endpointTlsMap)[key] = out
 	}()
 	decider, ok := authnfactory.NewPolicyApplier(

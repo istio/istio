@@ -871,3 +871,7 @@ func contains(s []string, e string) bool {
 	}
 	return false
 }
+
+// TODO(incfly): add this.
+func TestEndpointAcceptMtls(t *testing.T) {
+}

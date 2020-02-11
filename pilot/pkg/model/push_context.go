@@ -231,6 +231,8 @@ type PushRequest struct {
 	// If this is present, then only proxies that import this namespace will get an update
 	NamespacesUpdated map[string]struct{}
 
+	// NamespaceupdatedByPeerAuthn tracks the namespace which contains the PeerAuthnPolicy change.
+	/// This will trigger further client side EDS change for auto mTLS.
 	NamespaceUpdatedByPeerAuthn map[string]struct{}
 
 	// UpdateAllClusterDueToPeerAuthn bool
