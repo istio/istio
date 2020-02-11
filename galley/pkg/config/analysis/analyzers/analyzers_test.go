@@ -290,11 +290,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "istioInjectionVersionMismatch",
-		inputFiles: []string{"testdata/injection-with-mismatched-sidecar.yaml"},
-		analyzer:   &injection.VersionAnalyzer{},
+		name: "istioInjectionProxyImageMismatch",
+		inputFiles: []string{
+			"testdata/injection-with-mismatched-sidecar.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyVersionMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+			{msg.IstioProxyImageMismatch, "Pod details-v1-pod-old.enabled-namespace"},
 		},
 	},
 	{

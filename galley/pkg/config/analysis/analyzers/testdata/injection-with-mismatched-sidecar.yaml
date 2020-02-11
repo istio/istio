@@ -1,16 +1,3 @@
-# Sidecar injector specifying 1.3.1 for image.
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    app: sidecarInjectorWebhook
-  name: istio-sidecar-injector-pod
-  namespace: istio-system
-spec:
-  containers:
-  - image: docker.io/istio/sidecar_injector:1.3.1
-    name: sidecar-injector-webhook
----
 # Namespace 'enabled-namespace' has istio injection enabled, so will be enforced.
 apiVersion: v1
 kind: Namespace
