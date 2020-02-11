@@ -158,9 +158,8 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	g.Expect(collectionAccessed).To(Equal(a.collectionToAccess))
 
 	// Verify we only reported messages in the AnalysisNamespaces
-	updaterMessages := u.getMessages()
-	g.Expect(updaterMessages).To(HaveLen(1))
-	for _, m := range updaterMessages {
+	g.Eventually(u.getMessages()).Should(HaveLen(1))
+	for _, m := range u.getMessages() {
 		g.Expect(m.Resource.Origin.Namespace()).To(Equal(resource.Namespace("includedNamespace")))
 	}
 }
@@ -192,7 +191,7 @@ func TestAnalyzeNamespaceMessageHasNoResource(t *testing.T) {
 
 	ad.Distribute(snapshots.Default, sDefault)
 	g.Eventually(a.getAnalyzeCalls).Should(Not(BeEmpty()))
-	g.Expect(u.getMessages()).To(HaveLen(1))
+	g.Eventually(u.getMessages()).Should(HaveLen(1))
 }
 
 func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
@@ -228,7 +227,7 @@ func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
 
 	ad.Distribute(snapshots.Default, sDefault)
 	g.Eventually(a.getAnalyzeCalls).Should(Not(BeEmpty()))
-	g.Expect(u.getMessages()).To(HaveLen(1))
+	g.Eventually(u.getMessages()).Should(HaveLen(1))
 }
 
 func TestAnalyzeSortsMessages(t *testing.T) {
@@ -272,10 +271,9 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 
 	g.Eventually(a.getAnalyzeCalls).Should(ConsistOf(sDefault))
 
-	updaterMessages := u.getMessages()
-	g.Expect(updaterMessages).To(HaveLen(2))
-	g.Expect(updaterMessages[0].Resource).To(Equal(r2))
-	g.Expect(updaterMessages[1].Resource).To(Equal(r1))
+	g.Eventually(u.getMessages()).Should(HaveLen(2))
+	g.Eventually(u.getMessages()[0].Resource).Should(Equal(r2))
+	g.Eventually(u.getMessages()[1].Resource).Should(Equal(r1))
 }
 
 func TestAnalyzeSuppressesMessages(t *testing.T) {
@@ -325,9 +323,9 @@ func TestAnalyzeSuppressesMessages(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	g.Eventually(a.getAnalyzeCalls).Should(ConsistOf(sDefault))
-	updaterMessages := u.getMessages()
-	g.Expect(updaterMessages).To(HaveLen(1))
-	g.Expect(updaterMessages[0].Resource).To(Equal(r2))
+
+	g.Eventually(u.getMessages()).Should(HaveLen(1))
+	g.Eventually(u.getMessages()[0].Resource).Should(Equal(r2))
 }
 
 func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
@@ -384,9 +382,9 @@ func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	g.Eventually(a.getAnalyzeCalls).Should(ConsistOf(sDefault))
-	updaterMessages := u.getMessages()
-	g.Expect(updaterMessages).To(HaveLen(1))
-	g.Expect(updaterMessages[0].Resource).To(Equal(r3))
+
+	g.Eventually(u.getMessages()).Should(HaveLen(1))
+	g.Eventually(u.getMessages()[0].Resource).Should(Equal(r3))
 }
 
 func TestAnalyzeSuppressesMessagesWhenResourceIsAnnotated(t *testing.T) {
@@ -468,10 +466,10 @@ func TestAnalyzeSuppressesMessagesWhenResourceIsAnnotated(t *testing.T) {
 
 			g.Eventually(a.getAnalyzeCalls).Should(ConsistOf(sDefault))
 			if tc.wantSuppress {
-				g.Expect(u.getMessages()).To(HaveLen(0))
+				g.Eventually(u.getMessages()).Should(HaveLen(0))
 			} else {
-				g.Expect(u.getMessages()).To(HaveLen(1))
-				g.Expect(u.getMessages()[0].Resource).To(Equal(r))
+				g.Eventually(u.getMessages()).Should(HaveLen(1))
+				g.Eventually(u.getMessages()[0].Resource).Should(Equal(r))
 			}
 		})
 	}
