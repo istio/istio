@@ -14,6 +14,7 @@ global:
     mode: REGISTRY_ONLY
 
 prometheus:
+  enabled: false
   scrapeInterval: 5s
 
 gateways:
