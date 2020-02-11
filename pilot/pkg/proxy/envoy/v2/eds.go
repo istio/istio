@@ -390,14 +390,17 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 		_, _, hostname, _ := model.ParseSubsetKey(k)
 		_, updated := req.EdsUpdates[string(hostname)]
 		svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-		if push.NamespaceUpdatedByPeerAuthn(svc.Attributes.Namespace, req) {
+		if !updated && push.NamespaceUpdatedByPeerAuthn(svc.Attributes.Namespace, req) {
 			updated = true
+			if req.EdsUpdates == nil {
+				req.EdsUpdates = map[string]struct{}{}
+			}
+			req.EdsUpdates[string(hostname)] = struct{}{}
 		}
 		if !updated {
 			continue
 		}
 		cMap[k] = v
-		req.EdsUpdates[string(hostname)] = struct{}{}
 	}
 	edsClusterMutex.Unlock()
 
