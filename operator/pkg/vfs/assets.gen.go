@@ -30477,7 +30477,8 @@ func chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml = []byte(`{{- if .Values.mixer.telemetry.autoscaleMin }}
+var _chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml = []byte(`{{ $telemetry := index .Values "mixer" "telemetry" }}
+{{- if and $telemetry.autoscaleEnabled $telemetry.autoscaleMin $telemetry.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -30487,8 +30488,8 @@ metadata:
     app: mixer
     release: {{ .Release.Name }}
 spec:
-    maxReplicas: {{ .Values.mixer.telemetry.autoscaleMax }}
-    minReplicas: {{ .Values.mixer.telemetry.autoscaleMin }}
+    maxReplicas: {{ $telemetry.autoscaleMax }}
+    minReplicas: {{ $telemetry.autoscaleMin }}
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
@@ -30497,7 +30498,7 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: {{ .Values.mixer.telemetry.cpu.targetAverageUtilization }}
+        targetAverageUtilization: {{ $telemetry.cpu.targetAverageUtilization }}
 ---
 {{- end }}
 `)
