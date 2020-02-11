@@ -718,3 +718,62 @@ values:
 		t.Errorf("TestSecretVolumes: diff:\n%s\n", diff)
 	}
 }
+
+// Simulates https://github.com/istio/istio/issues/19196
+func TestWriteEscapedPathContext(t *testing.T) {
+	rootYAML := `
+values:
+  sidecarInjectorWebhook:
+    injectedAnnotations: {}
+`
+	tests := []struct {
+		desc      string
+		path      string
+		value     interface{}
+		want      string
+		wantFound bool
+		wantErr   string
+	}{
+		{
+			desc:      "ModifyEscapedPathValue",
+			path:      `values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy`,
+			value:     `runtime/default`,
+			wantFound: true,
+			want: `
+values:
+  sidecarInjectorWebhook:
+    injectedAnnotations:
+      container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			root := make(map[string]interface{})
+			if err := yaml.Unmarshal([]byte(rootYAML), &root); err != nil {
+				t.Fatal(err)
+			}
+			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path))
+			if gotErr, wantErr := errToString(gotErr), tt.wantErr; gotErr != wantErr {
+				t.Fatalf("GetPathContext(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
+			}
+			if gotFound != tt.wantFound {
+				t.Fatalf("GetPathContext(%s): gotFound:%v, wantFound:%v", tt.desc, gotFound, tt.wantFound)
+			}
+			if tt.wantErr != "" || !tt.wantFound {
+				return
+			}
+
+			err := WritePathContext(pc, tt.value, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			gotYAML := util.ToYAML(root)
+			diff := util.YAMLDiff(gotYAML, tt.want)
+			if diff != "" {
+				t.Errorf("%s: diff:\n%s\n", tt.desc, diff)
+			}
+		})
+	}
+}

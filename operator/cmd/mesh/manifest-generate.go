@@ -59,6 +59,19 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 		Use:   "generate",
 		Short: "Generates an Istio install manifest",
 		Long:  "The generate subcommand generates an Istio install manifest and outputs to the console by default.",
+		// nolint: lll
+		Example: `  # Generate a default Istio installation
+  istioctl manifest generate
+
+  # Enable security
+  istioctl manifest generate --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true
+
+  # Generate the demo profile
+  istioctl manifest generate --set profile=demo
+
+  # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
+  istioctl manifest generate --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
+`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("generate accepts no positional arguments, got %#v", args)
