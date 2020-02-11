@@ -5428,6 +5428,88 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
+		{"invalid ingress tls mode", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					InboundTls:      &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_AUTO_PASSTHROUGH},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"invalid ingress with httpsRedirect", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					InboundTls:      &networking.Server_TLSOptions{HttpsRedirect: true},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"valid ingress with tls", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "https",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					InboundTls: &networking.Server_TLSOptions{
+						Mode:              networking.Server_TLSOptions_MUTUAL,
+						ServerCertificate: "/etc/certs/cert",
+						PrivateKey:        "/etc/certs/key",
+						CaCertificates:    "/etc/certs/ca",
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"invalid ingress non tls port with tls", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					InboundTls: &networking.Server_TLSOptions{
+						Mode:              networking.Server_TLSOptions_MUTUAL,
+						ServerCertificate: "/etc/certs/cert",
+						PrivateKey:        "/etc/certs/key",
+						CaCertificates:    "/etc/certs/ca",
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
 	}
 
 	for _, tt := range tests {
