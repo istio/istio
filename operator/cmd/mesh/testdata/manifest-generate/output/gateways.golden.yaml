@@ -230,6 +230,8 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: proxyconfigdir
         - mountPath: /etc/istio/citadel-ca-cert
           name: citadel-ca-cert
         - mountPath: /var/run/secrets/tokens
@@ -250,6 +252,8 @@ spec:
         name: citadel-ca-cert
       - emptyDir: {}
         name: ingressgatewaysdsudspath
+      - emptyDir: {}
+        name: proxyconfigdir
       - name: istio-token
         projected:
           sources:
@@ -608,6 +612,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
+          - mountPath: /etc/istio/proxy
+            name: proxyconfigdir
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
           - name: istio-token
@@ -626,6 +632,8 @@ spec:
         configMap:
           name: istio-ca-root-cert
       - name: ingressgatewaysdsudspath
+        emptyDir: {}
+      - name: proxyconfigdir
         emptyDir: {}
       - name: istio-token
         projected:

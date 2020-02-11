@@ -7784,6 +7784,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
+          - mountPath: /etc/istio/proxy
+            name: proxyconfigdir
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
           - name: istio-token
@@ -7802,6 +7804,8 @@ spec:
         configMap:
           name: istio-ca-root-cert
       - name: ingressgatewaysdsudspath
+        emptyDir: {}
+      - name: proxyconfigdir
         emptyDir: {}
       - name: istio-token
         projected:

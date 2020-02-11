@@ -243,6 +243,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:
+          - mountPath: /etc/istio/proxy
+            name: proxyconfigdir
 {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
@@ -275,6 +277,8 @@ spec:
           name: istio-ca-root-cert
 {{- end }}
       - name: ingressgatewaysdsudspath
+        emptyDir: {}
+      - name: proxyconfigdir
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token

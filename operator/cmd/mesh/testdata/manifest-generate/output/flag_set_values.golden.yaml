@@ -6543,6 +6543,8 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: proxyconfigdir
         - mountPath: /etc/istio/citadel-ca-cert
           name: citadel-ca-cert
         - mountPath: /var/run/secrets/tokens
@@ -6563,6 +6565,8 @@ spec:
         name: citadel-ca-cert
       - emptyDir: {}
         name: ingressgatewaysdsudspath
+      - emptyDir: {}
+        name: proxyconfigdir
       - name: istio-token
         projected:
           sources:
