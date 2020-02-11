@@ -68,10 +68,19 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Use:   "apply",
 		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
 		Long:  "The apply subcommand generates an Istio install manifest and applies it to a cluster.",
-		Example: "istioctl manifest apply  # installs the default profile on the current Kubernetes cluster context\n" +
-			"istioctl manifest apply --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true\n" +
-			"istioctl manifest apply --set profile=demo\n" +
-			"istioctl manifest apply --set installPackagePath=~/istio-releases/istio-1.4.3/install/kubernetes/operator/charts",
+		// nolint: lll
+		Example: `  # Apply a default Istio installation
+  istioctl manifest apply
+
+  # Enable security
+  istioctl manifest apply --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true
+
+  # Generate the demo profile and don't wait for confirmation
+  istioctl manifest apply --set profile=demo --skip-confirmation
+
+  # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
+  istioctl manifest apply --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
+`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
