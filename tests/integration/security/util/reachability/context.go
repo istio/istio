@@ -128,9 +128,6 @@ func (rc *Context) Run(testCases []TestCase) {
 	}
 
 	for _, c := range testCases {
-		if c.ConfigFile != "beta-mtls-workload-automtls.yaml" {
-			continue
-		}
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
