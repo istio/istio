@@ -149,7 +149,7 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 //    subjectToken: <jwt token>
 //    Scope: https://www.googleapis.com/auth/cloud-platform
 // }
-func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequestParameters) *http.Request {
+func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequestParameters) (*http.Request, error) {
 	reqScope := scope
 	if len(parameters.Scope) != 0 {
 		reqScope = parameters.Scope
@@ -163,8 +163,14 @@ func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequest
 		"subjectToken":       parameters.SubjectToken,
 		"scope":              reqScope,
 	}
-	jsonQuery, _ := json.Marshal(query)
-	req, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
+	jsonQuery, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal query for get federated token request: %+v", err)
+	}
+	req, err := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
+	if err != nil {
+		return req, fmt.Errorf("failed to create get federated token request: %+v", err)
+	}
 	req.Header.Set("Content-Type", contentType)
 	if pluginLog.DebugEnabled() {
 		dQuery := map[string]string{
@@ -183,7 +189,7 @@ func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequest
 	} else {
 		pluginLog.Info("Prepared federated token request")
 	}
-	return req
+	return req, nil
 }
 
 // fetchFederatedToken exchanges a third-party issued Json Web Token for an OAuth2.0 access token
@@ -191,7 +197,11 @@ func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequest
 func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters) (*federatedTokenResponse, error) {
 	respData := &federatedTokenResponse{}
 
-	req := p.constructFederatedTokenRequest(parameters)
+	req, err := p.constructFederatedTokenRequest(parameters)
+	if err != nil {
+		pluginLog.Errorf("failed to create get federated token request: %+v", err)
+		return nil, err
+	}
 	resp, timeElapsed, err := p.sendRequestWithRetry(req)
 	if err != nil {
 		respCode := 0
@@ -214,7 +224,11 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 		pluginLog.Infof("Received federated token response after %s", timeElapsed.String())
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		pluginLog.Errorf("Failed to read federated token response body: %+v", err)
+		return respData, fmt.Errorf("failed to read federated token response body: %+v", err)
+	}
 	if err := json.Unmarshal(body, respData); err != nil {
 		pluginLog.Errorf("Failed to unmarshal federated token response data: %v", err)
 		return respData, fmt.Errorf("failed to unmarshal federated token response data: %v", err)
@@ -281,16 +295,22 @@ type accessTokenResponse struct {
 //      https://www.googleapis.com/auth/cloud-platform
 //  ],
 // }
-func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) *http.Request {
+func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) (*http.Request, error) {
 	// Request for access token with a lifetime of 3600 seconds.
 	query := accessTokenRequest{
 		LifeTime: duration.Duration{Seconds: 3600},
 	}
 	query.Scope = append(query.Scope, scope)
 
-	jsonQuery, _ := json.Marshal(query)
+	jsonQuery, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal query for get access token request: %+v", err)
+	}
 	endpoint := fmt.Sprintf(accessTokenEndpoint, p.gcpProjectNumber)
-	req, _ := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create get access token request: %+v", err)
+	}
 	req.Header.Add("Content-Type", contentType)
 	if pluginLog.DebugEnabled() {
 		reqDump, _ := httputil.DumpRequest(req, true)
@@ -299,13 +319,17 @@ func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenRespon
 		pluginLog.Info("Prepared access token request")
 	}
 	req.Header.Add("Authorization", "Bearer "+fResp.AccessToken)
-	return req
+	return req, nil
 }
 
 func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*accessTokenResponse, error) {
 	respData := &accessTokenResponse{}
 
-	req := p.constructGenerateAccessTokenRequest(federatedToken)
+	req, err := p.constructGenerateAccessTokenRequest(federatedToken)
+	if err != nil {
+		pluginLog.Errorf("failed to create get access token request: %+v", err)
+		return nil, err
+	}
 	resp, timeElapsed, err := p.sendRequestWithRetry(req)
 	if err != nil {
 		respCode := 0
@@ -326,7 +350,11 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 		pluginLog.Infof("Received access token response after %s", timeElapsed.String())
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		pluginLog.Errorf("Failed to read access token response body: %+v", err)
+		return respData, fmt.Errorf("failed to read access token response body: %+v", err)
+	}
 	if err := json.Unmarshal(body, respData); err != nil {
 		pluginLog.Errorf("Failed to unmarshal access token response data: %v", err)
 		return respData, fmt.Errorf("failed to unmarshal access token response data: %v", err)
