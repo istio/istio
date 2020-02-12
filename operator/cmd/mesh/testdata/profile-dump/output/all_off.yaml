@@ -304,6 +304,7 @@ values:
       enabled: false
       useILB: false
     meshNetworks: {}
+    mountMtlsCerts: false
     mtls:
       auto: true
       enabled: false
@@ -568,6 +569,7 @@ values:
     nodeSelector: {}
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+    provisionPrometheusCert: true
     retention: 6h
     scrapeInterval: 15s
     security:

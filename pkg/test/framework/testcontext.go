@@ -57,6 +57,7 @@ type TestContext interface {
 	RequireOrSkip(envName environment.Name)
 
 	// WhenDone runs the given function when the test context completes.
+	// This function may not (safely) access the test context.
 	WhenDone(fn func() error)
 
 	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any

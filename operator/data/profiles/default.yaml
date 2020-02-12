@@ -344,6 +344,7 @@ spec:
       localityLbSetting:
         enabled: true
       enableHelmTest: false
+      mountMtlsCerts: false
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -551,6 +552,7 @@ spec:
       tolerations: []
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
+      provisionPrometheusCert: true
 
     grafana:
       image:

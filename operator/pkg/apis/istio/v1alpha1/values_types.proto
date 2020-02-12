@@ -635,7 +635,10 @@ message GlobalConfig {
 
   // Configures the revision this control plane is a part of
   string revision = 59;
-  // The next available key is 60
+
+  // Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.
+  google.protobuf.BoolValue mountMtlsCerts = 60;
+  // The next available key is 61
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -1400,6 +1403,13 @@ message PrometheusConfig {
   TypeMapStringInterface podAnnotations = 18 [deprecated=true];
 
   string image = 19 [deprecated=true];
+
+  // Configure whether provisions a certificate to Prometheus through Istio Agent.
+  // When this option is set as true, a sidecar is deployed along Prometheus to
+  // provision a certificate through Istio Agent to Prometheus. The provisioned certificate
+  // is shared with Prometheus through mounted files.
+  // When this option is set as false, this certificate provisioning mechanism is disabled.
+  google.protobuf.BoolValue  provisionPrometheusCert = 20;
 }
 
 // Configuration for Prometheus adapter in mixer.

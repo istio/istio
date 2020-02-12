@@ -357,7 +357,7 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds update-golden gen-charts operator-proto
+gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden
 
 gen-check: gen check-clean-repo
 

@@ -14,7 +14,7 @@ spec:
       annotations:
         sidecar.istio.io/proxyCPU: 100m
         sidecar.istio.io/proxyMemory: 1Gi
-        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: resource
@@ -145,9 +145,6 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
       initContainers:
       - command:
         - istio-iptables
@@ -204,10 +201,6 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
 status: {}
 
 ---

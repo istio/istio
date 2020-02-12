@@ -215,6 +215,7 @@
 // translateConfig/reverseTranslateConfig-1.5.yaml
 // translateConfig/reverseTranslateConfig-1.6.yaml
 // translateConfig/translate-ICP-IOP-1.5.yaml
+// translateConfig/translate-ICP-IOP-1.6.yaml
 // translateConfig/translateConfig-1.3.yaml
 // translateConfig/translateConfig-1.4.yaml
 // translateConfig/translateConfig-1.5.yaml
@@ -6950,9 +6951,12 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
           {{- end }}
+          {{- if .Values.global.mountMtlsCerts }}
+          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- end }}
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -6976,10 +6980,13 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           secretName: istio.default
           optional: true
+      {{- end }}
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -7983,9 +7990,12 @@ spec:
 {{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
+          {{- if .Values.global.mountMtlsCerts }}
+          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- end }}
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -8011,10 +8021,13 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           secretName: istio.istio-ingressgateway-service-account
           optional: true
+      {{- end }}
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -10565,11 +10578,11 @@ template: |
     - name: STACKDRIVER_TRACING_DEBUG
       value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations.Value }}"
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes.Value }}"
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents.Value }}"
     {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
@@ -10639,15 +10652,19 @@ template: |
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
+    # SDS channel between istioagent and Envoy
     - mountPath: /etc/istio/proxy
       name: istio-envoy
     {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
     {{- end }}
+    {{- if .Values.global.mountMtlsCerts }}
+    # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
     - mountPath: /etc/certs/
       name: istio-certs
       readOnly: true
+    {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
       name: lightstep-certs
@@ -10665,6 +10682,7 @@ template: |
     configMap:
       name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
   {{- end }}
+  # SDS channel between istioagent and Envoy
   - emptyDir:
       medium: Memory
     name: istio-envoy
@@ -10682,6 +10700,8 @@ template: |
     configMap:
       name: istio-ca-root-cert
   {{- end }}
+  {{- if .Values.global.mountMtlsCerts }}
+  # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
   - name: istio-certs
     secret:
       optional: true
@@ -10690,6 +10710,7 @@ template: |
       {{ else -}}
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
+  {{- end }}
     {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
     {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
   - name: "{{ $index }}"
@@ -11475,7 +11496,9 @@ data:
       tracing:
         stackdriver:
           # enables trace output to stdout.
+        {{- if $.Values.global.tracer.stackdriver.debug }}
           debug: {{ $.Values.global.tracer.stackdriver.debug }}
+        {{- end }}
         {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
           # The global default max number of attributes per span.
           maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
@@ -30477,7 +30500,8 @@ func chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml = []byte(`{{- if .Values.mixer.telemetry.autoscaleMin }}
+var _chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml = []byte(`{{ $telemetry := index .Values "mixer" "telemetry" }}
+{{- if and $telemetry.autoscaleEnabled $telemetry.autoscaleMin $telemetry.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -30487,8 +30511,8 @@ metadata:
     app: mixer
     release: {{ .Release.Name }}
 spec:
-    maxReplicas: {{ .Values.mixer.telemetry.autoscaleMax }}
-    minReplicas: {{ .Values.mixer.telemetry.autoscaleMin }}
+    maxReplicas: {{ $telemetry.autoscaleMax }}
+    minReplicas: {{ $telemetry.autoscaleMin }}
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
@@ -30497,7 +30521,7 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: {{ .Values.mixer.telemetry.cpu.targetAverageUtilization }}
+        targetAverageUtilization: {{ $telemetry.cpu.targetAverageUtilization }}
 ---
 {{- end }}
 `)
@@ -33935,10 +33959,183 @@ spec:
             mountPath: /etc/prometheus
           - mountPath: /etc/istio-certs
             name: istio-certs
+
+{{- if .Values.prometheus.provisionPrometheusCert }}
+        - name: istio-proxy
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+          ports:
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+            - proxy
+            - sidecar
+            - --domain
+            - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+            - --configPath
+            - "/etc/istio/proxy"
+            - --binaryPath
+            - "/usr/local/bin/envoy"
+            - --serviceCluster
+            - "istio-proxy-prometheus"
+            - --drainDuration
+            - "45s"
+            - --parentShutdownDuration
+            - "1m0s"
+            - --discoveryAddress
+            {{- if .Values.global.configNamespace }}
+            - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+            {{- else }}
+            - istio-pilot.istio-system.svc:15012
+            {{- end }}
+            {{- if .Values.global.proxy.logLevel }}
+            - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
+            {{- end}}
+            {{- if .Values.global.proxy.componentLogLevel }}
+            - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
+            {{- end}}
+            - --connectTimeout
+            - "10s"
+              {{- if .Values.global.proxy.envoyStatsd.enabled }}
+            - --statsdUdpAddress
+            - "{{ .ProxyConfig.StatsdUdpAddress }}"
+              {{- end }}
+            {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
+            - --envoyMetricsService
+            {{- with  $.Values.global.proxy.envoyMetricsService }}
+            - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+            {{- end }}
+            {{- end}}
+            {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
+            - --envoyAccessLogService
+            {{- with  $.Values.global.proxy.envoyAccessLogService }}
+            - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+            {{- end }}
+            {{- end }}
+            - --proxyAdminPort
+            - "15000"
+              {{- if .Values.global.istiod.enabled }}
+            - --controlPlaneAuthPolicy
+            - NONE
+              {{- else if .Values.global.controlPlaneSecurityEnabled }}
+            - --controlPlaneAuthPolicy
+            - MUTUAL_TLS
+              {{- else }}
+            - --controlPlaneAuthPolicy
+            - NONE
+              {{- end }}
+            - --dnsRefreshRate
+            - "300s"
+            - --statusPort
+            - "15020"
+              {{- if .Values.global.trustDomain }}
+            - --trust-domain={{ .Values.global.trustDomain }}
+              {{- end }}
+              {{- if .Values.global.logAsJson }}
+            - --log_as_json
+              {{- end }}
+            - --controlPlaneBootstrap=false
+          env:
+            - name: OUTPUT_KEY_CERT_TO_DIRECTORY
+              value: "/etc/istio-certs"
+            - name: JWT_POLICY
+              value: {{ .Values.global.jwtPolicy }}
+            - name: PILOT_CERT_PROVIDER
+              value: {{ .Values.global.pilotCertProvider }}
+            # Temp, pending PR to make it default or based on the istiodAddr env
+            - name: CA_ADDR
+                {{- if .Values.global.configNamespace }}
+              value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+                {{- else }}
+              value: istio-pilot.istio-system.svc:15012
+              {{- end }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: ISTIO_META_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ISTIO_META_CONFIG_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+              {{- if .Values.global.network }}
+            - name: ISTIO_META_NETWORK
+              value: "{{ .Values.global.network }}"
+              {{- end }}
+              {{- if .Values.global.meshID }}
+            - name: ISTIO_META_MESH_ID
+              value: "{{ .Values.global.meshID }}"
+              {{- else if .Values.global.trustDomain }}
+            - name: ISTIO_META_MESH_ID
+              value: "{{ .Values.global.trustDomain }}"
+              {{- end }}
+              {{- if eq .Values.global.proxy.tracer "stackdriver" }}
+            - name: STACKDRIVER_TRACING_ENABLED
+              value: "true"
+            - name: STACKDRIVER_TRACING_DEBUG
+              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
+            - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
+              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+            - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
+              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+            - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
+              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+                  {{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          volumeMounts:
+              {{- if eq .Values.global.pilotCertProvider "citadel" }}
+            - mountPath: /etc/istio/citadel-ca-cert
+              name: citadel-ca-cert
+              {{- end }}
+            - mountPath: /etc/istio/proxy
+              name: istio-envoy
+              {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+            - mountPath: /var/run/secrets/tokens
+              name: istio-token
+              {{- end }}
+            - mountPath: /etc/istio-certs/
+              name: istio-certs
+{{- end }}
+
       volumes:
       - name: config-volume
         configMap:
           name: prometheus
+
+{{- if .Values.prometheus.provisionPrometheusCert }}
+      - name: istio-certs
+        emptyDir:
+          medium: Memory
+{{- else }}
       - name: istio-certs
         secret:
           defaultMode: 420
@@ -33946,6 +34143,36 @@ spec:
           optional: true
 {{- end }}
           secretName: istio.default
+{{- end }}
+
+{{- if .Values.prometheus.provisionPrometheusCert }}
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          defaultMode: 420
+          sources:
+            - serviceAccountToken:
+                path: istio-token
+                expirationSeconds: 43200
+                audience: {{ .Values.global.sds.token.aud }}
+        {{- end }}
+        {{- if eq .Values.global.pilotCertProvider "citadel" }}
+      - name: citadel-ca-cert
+        configMap:
+          defaultMode: 420
+          name: istio-ca-root-cert
+        {{- end }}
+        {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+      - name: lightstep-certs
+        secret:
+          optional: true
+        secretName: lightstep.cacert
+        {{- end }}
+{{- end }}
+
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
@@ -34224,6 +34451,13 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
   # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
+
+  # Configure whether provisions a certificate to Prometheus through Istio Agent.
+  # When this option is set as true, a sidecar is deployed along Prometheus to
+  # provision a certificate through Istio Agent to Prometheus. The provisioned certificate
+  # is shared with Prometheus through mounted files.
+  # When this option is set as false, this certificate provisioning mechanism is disabled.
+  provisionPrometheusCert: true
 
 # Indicate if Citadel is enabled, i.e., whether its generated certificates are available
 security:
@@ -37875,6 +38109,7 @@ spec:
       localityLbSetting:
         enabled: true
       enableHelmTest: false
+      mountMtlsCerts: false
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -38082,6 +38317,7 @@ spec:
       tolerations: []
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
+      provisionPrometheusCert: true
 
     grafana:
       image:
@@ -38306,7 +38542,6 @@ spec:
     tracing:
       enabled: true
 
-
   values:
     global:
       disablePolicyChecks: false
@@ -38344,14 +38579,7 @@ spec:
       istio-ingressgateway:
         autoscaleEnabled: false
 
-    grafana:
-      enabled: true
-
-    tracing:
-      enabled: true
-
     kiali:
-      enabled: true
       createDemoSecret: true
 `)
 
@@ -38418,9 +38646,6 @@ spec:
     pilot:
       sidecar: false
       useMCP: false
-
-    prometheus:
-      enabled: false
 `)
 
 func profilesEmptyYamlBytes() ([]byte, error) {
@@ -38462,6 +38687,8 @@ spec:
     - name: istio-ingressgateway
       enabled: false
     egressGateways:
+    - name: istio-egressgateway
+      enabled: false
 
   addonComponents:
     prometheus:
@@ -38482,9 +38709,6 @@ spec:
     pilot:
       sidecar: false
       useMCP: false
-
-    prometheus:
-      enabled: false
 `)
 
 func profilesMinimalYamlBytes() ([]byte, error) {
@@ -38523,6 +38747,10 @@ spec:
     cni:
       enabled: false
 
+  addonComponents:
+    prometheus:
+      enabled: false
+
   values:
     pilot:
       configSource:
@@ -38530,9 +38758,6 @@ spec:
 
     security:
       createMeshPolicy: false
-
-    prometheus:
-      enabled: false
 
     global:
       istioRemote: true
@@ -38596,17 +38821,15 @@ func profilesSeparateYaml() (*asset, error) {
 	return a, nil
 }
 
-var _translateconfigNames15Yaml = []byte(`legacyAddonComponentNames:
+var _translateconfigNames15Yaml = []byte(`BundledAddonComponentNames:
   - "Prometheus"
   - "Kiali"
   - "Grafana"
   - "Tracing"
   - "Istiocoredns"
-deprecatedComponentNames:
+DeprecatedComponentNames:
   - "Injector"
   - "CertManager"
-  - "IngressGateway"
-  - "EgressGateway"
   - "NodeAgent"
   - "SidecarInjector"
 
@@ -38627,19 +38850,18 @@ func translateconfigNames15Yaml() (*asset, error) {
 	return a, nil
 }
 
-var _translateconfigNames16Yaml = []byte(`legacyAddonComponentNames:
+var _translateconfigNames16Yaml = []byte(`BundledAddonComponentNames:
   - "Prometheus"
   - "Kiali"
   - "Grafana"
   - "Tracing"
   - "Istiocoredns"
-deprecatedComponentNames:
+DeprecatedComponentNames:
   - "Injector"
   - "CertManager"
-  - "IngressGateway"
-  - "EgressGateway"
   - "NodeAgent"
-  - "SidecarInjector"`)
+  - "SidecarInjector"
+`)
 
 func translateconfigNames16YamlBytes() ([]byte, error) {
 	return _translateconfigNames16Yaml, nil
@@ -38718,20 +38940,20 @@ func translateconfigReversetranslateconfig15Yaml() (*asset, error) {
 }
 
 var _translateconfigReversetranslateconfig16Yaml = []byte(`kubernetesPatternMapping:
-  "{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env"
-  "{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec"
-  "{{.ValueComponentName}}.imagePullPolicy":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy"
-  "{{.ValueComponentName}}.nodeSelector":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.NodeSelector"
-  "{{.ValueComponentName}}.tolerations":           "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Tolerations"
-  "{{.ValueComponentName}}.podDisruptionBudget":   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodDisruptionBudget"
-  "{{.ValueComponentName}}.podAnnotations":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodAnnotations"
-  "{{.ValueComponentName}}.priorityClassName":     "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PriorityClassName"
-  "{{.ValueComponentName}}.readinessProbe":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReadinessProbe"
-  "{{.ValueComponentName}}.replicaCount":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReplicaCount"
-  "{{.ValueComponentName}}.resources":             "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Resources"
-  "{{.ValueComponentName}}.rollingMaxSurge":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy"
-  "{{.ValueComponentName}}.rollingMaxUnavailable": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy"
-  "{{.ValueComponentName}}.serviceAnnotations":    "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ServiceAnnotations"
+  "{{.ValueComponentName}}.env":                   "Components.{{.ComponentName}}.K8s.Env"
+  "{{.ValueComponentName}}.autoscaleEnabled":      "Components.{{.ComponentName}}.K8s.HpaSpec"
+  "{{.ValueComponentName}}.imagePullPolicy":       "Components.{{.ComponentName}}.K8s.ImagePullPolicy"
+  "{{.ValueComponentName}}.nodeSelector":          "Components.{{.ComponentName}}.K8s.NodeSelector"
+  "{{.ValueComponentName}}.tolerations":           "Components.{{.ComponentName}}.K8s.Tolerations"
+  "{{.ValueComponentName}}.podDisruptionBudget":   "Components.{{.ComponentName}}.K8s.PodDisruptionBudget"
+  "{{.ValueComponentName}}.podAnnotations":        "Components.{{.ComponentName}}.K8s.PodAnnotations"
+  "{{.ValueComponentName}}.priorityClassName":     "Components.{{.ComponentName}}.K8s.PriorityClassName"
+  "{{.ValueComponentName}}.readinessProbe":        "Components.{{.ComponentName}}.K8s.ReadinessProbe"
+  "{{.ValueComponentName}}.replicaCount":          "Components.{{.ComponentName}}.K8s.ReplicaCount"
+  "{{.ValueComponentName}}.resources":             "Components.{{.ComponentName}}.K8s.Resources"
+  "{{.ValueComponentName}}.rollingMaxSurge":       "Components.{{.ComponentName}}.K8s.Strategy"
+  "{{.ValueComponentName}}.rollingMaxUnavailable": "Components.{{.ComponentName}}.K8s.Strategy"
+  "{{.ValueComponentName}}.serviceAnnotations":    "Components.{{.ComponentName}}.K8s.ServiceAnnotations"
 `)
 
 func translateconfigReversetranslateconfig16YamlBytes() ([]byte, error) {
@@ -38784,6 +39006,45 @@ func translateconfigTranslateIcpIop15Yaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "translateConfig/translate-ICP-IOP-1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _translateconfigTranslateIcpIop16Yaml = []byte(`trafficManagement.components.pilot: components.pilot
+policy.components.policy: components.policy
+telemetry.components.telemetry: components.telemetry
+security.components.citadel: components.citadel
+security.components.nodeAgent: components.nodeAgent
+configManagement.components.galley: components.galley
+autoInjection.components.injector: components.sidecarInjector
+cni: components.cni
+
+gateways.components.ingressGateway: components.ingressGateways.[name:istio-ingressgateway]
+gateways.components.egressGateway: components.egressGateways.[name:istio-egressgateway]
+
+security.components.certManager: addonComponents.certManager
+values.grafana.enabled: addonComponents.grafana.enabled
+values.kiali.enabled: addonComponents.kiali.enabled
+values.prometheus.enabled: addonComponents.prometheus.enabled
+values.tracing.enabled: addonComponents.tracing.enabled
+
+values: values
+unvalidatedValues: unvalidatedValues
+hub: hub
+tag: tag
+`)
+
+func translateconfigTranslateIcpIop16YamlBytes() ([]byte, error) {
+	return _translateconfigTranslateIcpIop16Yaml, nil
+}
+
+func translateconfigTranslateIcpIop16Yaml() (*asset, error) {
+	bytes, err := translateconfigTranslateIcpIop16YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/translate-ICP-IOP-1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -39651,6 +39912,12 @@ var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   recommendedIstioVersions: 1.5.0
   k8sClientVersionRange: ">=1.14"
   k8sServerVersionRange: ">=1.14"
+- operatorVersion: 1.6.0
+  operatorVersionRange: ">=1.6.0,<1.7.0"
+  supportedIstioVersions: ">=1.5.0, <1.7"
+  recommendedIstioVersions: 1.6.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"
 `)
 
 func versionsYamlBytes() ([]byte, error) {
@@ -39935,6 +40202,7 @@ var _bindata = map[string]func() (*asset, error){
 	"translateConfig/reverseTranslateConfig-1.5.yaml":                                         translateconfigReversetranslateconfig15Yaml,
 	"translateConfig/reverseTranslateConfig-1.6.yaml":                                         translateconfigReversetranslateconfig16Yaml,
 	"translateConfig/translate-ICP-IOP-1.5.yaml":                                              translateconfigTranslateIcpIop15Yaml,
+	"translateConfig/translate-ICP-IOP-1.6.yaml":                                              translateconfigTranslateIcpIop16Yaml,
 	"translateConfig/translateConfig-1.3.yaml":                                                translateconfigTranslateconfig13Yaml,
 	"translateConfig/translateConfig-1.4.yaml":                                                translateconfigTranslateconfig14Yaml,
 	"translateConfig/translateConfig-1.5.yaml":                                                translateconfigTranslateconfig15Yaml,
@@ -40295,6 +40563,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"reverseTranslateConfig-1.5.yaml": &bintree{translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.6.yaml": &bintree{translateconfigReversetranslateconfig16Yaml, map[string]*bintree{}},
 		"translate-ICP-IOP-1.5.yaml":      &bintree{translateconfigTranslateIcpIop15Yaml, map[string]*bintree{}},
+		"translate-ICP-IOP-1.6.yaml":      &bintree{translateconfigTranslateIcpIop16Yaml, map[string]*bintree{}},
 		"translateConfig-1.3.yaml":        &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
 		"translateConfig-1.4.yaml":        &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
 		"translateConfig-1.5.yaml":        &bintree{translateconfigTranslateconfig15Yaml, map[string]*bintree{}},

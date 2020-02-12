@@ -204,6 +204,12 @@ metadata:
 ---
 
 ---
+# AddonComponents grafana component is disabled.
+
+---
+# AddonComponents kiali component is disabled.
+
+---
 # Resources for AddonComponents prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -588,14 +594,127 @@ spec:
             mountPath: /etc/prometheus
           - mountPath: /etc/istio-certs
             name: istio-certs
+        - name: istio-proxy
+          image: "gcr.io/istio-testing/proxyv2:latest"
+          ports:
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+            - proxy
+            - sidecar
+            - --domain
+            - $(POD_NAMESPACE).svc.cluster.local
+            - --configPath
+            - "/etc/istio/proxy"
+            - --binaryPath
+            - "/usr/local/bin/envoy"
+            - --serviceCluster
+            - "istio-proxy-prometheus"
+            - --drainDuration
+            - "45s"
+            - --parentShutdownDuration
+            - "1m0s"
+            - --discoveryAddress
+            - istio-pilot.istio-system.svc:15012
+            - --proxyLogLevel=warning
+            - --proxyComponentLogLevel=misc:error
+            - --connectTimeout
+            - "10s"
+            - --proxyAdminPort
+            - "15000"
+            - --controlPlaneAuthPolicy
+            - NONE
+            - --dnsRefreshRate
+            - "300s"
+            - --statusPort
+            - "15020"
+            - --trust-domain=cluster.local
+            - --controlPlaneBootstrap=false
+          env:
+            - name: OUTPUT_KEY_CERT_TO_DIRECTORY
+              value: "/etc/istio-certs"
+            - name: JWT_POLICY
+              value: third-party-jwt
+            - name: PILOT_CERT_PROVIDER
+              value: citadel
+            # Temp, pending PR to make it default or based on the istiodAddr env
+            - name: CA_ADDR
+              value: istio-pilot.istio-system.svc:15012
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: ISTIO_META_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ISTIO_META_CONFIG_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ISTIO_META_MESH_ID
+              value: "cluster.local"
+          imagePullPolicy: Always
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          volumeMounts:
+            - mountPath: /etc/istio/citadel-ca-cert
+              name: citadel-ca-cert
+            - mountPath: /etc/istio/proxy
+              name: istio-envoy
+            - mountPath: /var/run/secrets/tokens
+              name: istio-token
+            - mountPath: /etc/istio-certs/
+              name: istio-certs
+
       volumes:
       - name: config-volume
         configMap:
           name: prometheus
       - name: istio-certs
-        secret:
+        emptyDir:
+          medium: Memory
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-token
+        projected:
           defaultMode: 420
-          secretName: istio.default
+          sources:
+            - serviceAccountToken:
+                path: istio-token
+                expirationSeconds: 43200
+                audience: istio-ca
+      - name: citadel-ca-cert
+        configMap:
+          defaultMode: 420
+          name: istio-ca-root-cert
+
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -661,6 +780,9 @@ metadata:
     app: prometheus
     release: istio
 ---
+
+---
+# AddonComponents istio-tracing component is disabled.
 
 # Resources for Base component
 
@@ -6806,9 +6928,6 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
           - name: egressgateway-certs
             mountPath: "/etc/istio/egressgateway-certs"
             readOnly: true
@@ -6826,10 +6945,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      - name: istio-certs
-        secret:
-          secretName: istio.default
-          optional: true
       - name: egressgateway-certs
         secret:
           secretName: "istio-egressgateway-certs"
@@ -7666,9 +7781,6 @@ spec:
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
           - name: ingressgateway-certs
             mountPath: "/etc/istio/ingressgateway-certs"
             readOnly: true
@@ -7688,10 +7800,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-ingressgateway-service-account
-          optional: true
       - name: ingressgateway-certs
         secret:
           secretName: "istio-ingressgateway-certs"
@@ -8564,6 +8672,7 @@ data:
           "useILB": false
         },
         "meshNetworks": {},
+        "mountMtlsCerts": false,
         "mtls": {
           "auto": true,
           "enabled": false
@@ -9019,11 +9128,11 @@ data:
         - name: STACKDRIVER_TRACING_DEBUG
           value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations.Value }}"
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes.Value }}"
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents.Value }}"
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
@@ -9093,15 +9202,19 @@ data:
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
+        # SDS channel between istioagent and Envoy
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
+        {{- if .Values.global.mountMtlsCerts }}
+        # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+        {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
           name: lightstep-certs
@@ -9119,6 +9232,7 @@ data:
         configMap:
           name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
       {{- end }}
+      # SDS channel between istioagent and Envoy
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -9136,6 +9250,8 @@ data:
         configMap:
           name: istio-ca-root-cert
       {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           optional: true
@@ -9144,6 +9260,7 @@ data:
           {{ else -}}
           secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
           {{  end -}}
+      {{- end }}
         {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` }}
         {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) }}
       - name: "{{ $index }}"
