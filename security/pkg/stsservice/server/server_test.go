@@ -64,8 +64,8 @@ func TestStsService(t *testing.T) {
 	emptyStsParam := stsservice.StsResponseParameters{}
 	mockToken := &stsservice.TokenInfo{
 		TokenType:  "type",
-		IssueTime:  time.Now().String(),
-		ExpireTime: time.Now().Add(1 * time.Hour).String()}
+		IssueTime:  time.Now(),
+		ExpireTime: time.Now().Add(1 * time.Hour)}
 	testCases := map[string]struct {
 		genTokenError        error
 		dumpTokenError       error

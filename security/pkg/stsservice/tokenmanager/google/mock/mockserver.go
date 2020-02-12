@@ -329,11 +329,9 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	tokenLife.Format(time.RFC3339)
-	lifeJSON, _ := tokenLife.MarshalJSON()
 	resp := accessTokenResponse{
 		AccessToken: token,
-		ExpireTime:  string(lifeJSON),
+		ExpireTime:  tokenLife.Format(time.RFC3339Nano),
 	}
 
 	_ = json.NewEncoder(w).Encode(resp)

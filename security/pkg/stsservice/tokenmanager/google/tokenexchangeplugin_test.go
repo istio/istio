@@ -26,7 +26,7 @@ import (
 
 // TestAccessToken verifies that token manager could successfully call server and get access token.
 func TestTokenExchangePlugin(t *testing.T) {
-	tmPlugin, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint := setUpTest(t)
+	tmPlugin, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint := setUpTest(t, testSetUp{})
 	lastStatusDumpMap := make(map[string]stsservice.TokenInfo)
 	defer func() {
 		if err := ms.Stop(); err != nil {
@@ -80,8 +80,8 @@ func verifyDumpStatus(t *testing.T, tCase string, dumpJSON []byte, lastStatus ma
 		t.Errorf("(Test case %s), failed to unmarshal status dump: %v", tCase, err)
 	}
 	newStatusMap := extractTokenDumpToMap(newStatus)
-	t.Logf("Dump newStatusMap:\n%v", newStatusMap)
-	t.Logf("Dump lastStatus:\n%v", lastStatus)
+	t.Logf("Dump newStatusMap:\n%+v", newStatusMap)
+	t.Logf("Dump lastStatus:\n%+v", lastStatus)
 	for _, exp := range expected {
 		if newVal, ok := newStatusMap[exp]; !ok {
 			t.Errorf("(Test case %s), failed to find expected token %s in status dump", tCase, exp)
@@ -135,10 +135,16 @@ func defaultSTSRequest() stsservice.StsRequestParameters {
 	}
 }
 
+type testSetUp struct {
+	enableCache        bool
+	enableDynamicToken bool
+}
+
 // setUpTest sets up token manager, authorization server.
-func setUpTest(t *testing.T) (*Plugin, *mock.AuthorizationServer, string, string) {
-	tm, _ := CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL)
+func setUpTest(t *testing.T, setup testSetUp) (*Plugin, *mock.AuthorizationServer, string, string) {
+	tm, _ := CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, setup.enableCache)
 	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
+	ms.EnableDynamicAccessToken(setup.enableDynamicToken)
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
@@ -147,4 +153,93 @@ func setUpTest(t *testing.T) (*Plugin, *mock.AuthorizationServer, string, string
 	originalAccessTokenEndpoint := accessTokenEndpoint
 	accessTokenEndpoint = ms.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	return tm, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint
+}
+
+// TestAccessToken verifies that token manager could return a cached token to client.
+func TestTokenExchangePluginWithCache(t *testing.T) {
+	tmPlugin, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint :=
+		setUpTest(t, testSetUp{enableCache: true, enableDynamicToken: true})
+	defer func() {
+		if err := ms.Stop(); err != nil {
+			t.Logf("failed to stop mock server: %v", err)
+		}
+		federatedTokenEndpoint = originalFederatedTokenEndpoint
+		accessTokenEndpoint = originalAccessTokenEndpoint
+	}()
+
+	// Make the first token exchange call to plugin. Plugin should call backend.
+	stsRespJSON, _ := tmPlugin.ExchangeToken(defaultSTSRequest())
+	stsResp := &stsservice.StsResponseParameters{}
+	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
+		t.Errorf("failed to unmarshal STS response: %v", err)
+	}
+	firstToken := stsResp.AccessToken
+	numFTCalls := ms.NumGetFederatedTokenCalls()
+	numATCalls := ms.NumGetAccessTokenCalls()
+	if numFTCalls != 1 {
+		t.Errorf("number of get federated token API calls does not match, expected 1 but got %d", numFTCalls)
+	}
+	if numATCalls != 1 {
+		t.Errorf("number of get access token API calls does not match, expected 1 but got %d", numATCalls)
+	}
+	// Make the second token exchange call to plugin. Plugin should return cached token.
+	stsRespJSON, _ = tmPlugin.ExchangeToken(defaultSTSRequest())
+	stsResp = &stsservice.StsResponseParameters{}
+	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
+		t.Errorf("failed to unmarshal STS response: %v", err)
+	}
+	secondToken := stsResp.AccessToken
+	numFTCalls = ms.NumGetFederatedTokenCalls()
+	numATCalls = ms.NumGetAccessTokenCalls()
+	if numFTCalls != 1 {
+		t.Errorf("number of get federated token API calls does not match, expected 1 got %d", numFTCalls)
+	}
+	if numATCalls != 1 {
+		t.Errorf("number of get access token API calls does not match, expected 1 got %d", numATCalls)
+	}
+	if firstToken != secondToken {
+		t.Errorf("cached token is not used")
+	}
+
+	// Delete cached token
+	tmPlugin.ClearCache()
+	// Set token life time to 4 min, which is shorter than token grace period.
+	ms.SetTokenLifeTime(4 * 60)
+	// Make the third token exchange call to plugin. Cache is deleted, plugin should call backend.
+	stsRespJSON, _ = tmPlugin.ExchangeToken(defaultSTSRequest())
+	stsResp = &stsservice.StsResponseParameters{}
+	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
+		t.Errorf("failed to unmarshal STS response: %v", err)
+	}
+	thirdToken := stsResp.AccessToken
+	numFTCalls = ms.NumGetFederatedTokenCalls()
+	numATCalls = ms.NumGetAccessTokenCalls()
+	if numFTCalls != 2 {
+		t.Errorf("number of get federated token API calls does not match, expected 2 got %d", numFTCalls)
+	}
+	if numATCalls != 2 {
+		t.Errorf("number of get access token API calls does not match, expected 2 got %d", numATCalls)
+	}
+	if secondToken == thirdToken {
+		t.Errorf("should not return cached token")
+	}
+
+	// Make the fourth token exchange call to plugin. Cached token is going to expire, plugin should call backend.
+	stsRespJSON, _ = tmPlugin.ExchangeToken(defaultSTSRequest())
+	stsResp = &stsservice.StsResponseParameters{}
+	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
+		t.Errorf("failed to unmarshal STS response: %v", err)
+	}
+	fourthToken := stsResp.AccessToken
+	numFTCalls = ms.NumGetFederatedTokenCalls()
+	numATCalls = ms.NumGetAccessTokenCalls()
+	if numFTCalls != 3 {
+		t.Errorf("number of get federated token API calls does not match, expected 3 got %d", numFTCalls)
+	}
+	if numATCalls != 3 {
+		t.Errorf("number of get access token API calls does not match, expected 3 got %d", numATCalls)
+	}
+	if thirdToken == fourthToken {
+		t.Errorf("should not return cached token")
+	}
 }

@@ -48,6 +48,9 @@ var (
 	federatedTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	accessTokenEndpoint    = "https://iamcredentials.googleapis.com/v1/projects/-/" +
 		"serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
+	// default grace period in seconds of an access token. If caching is enabled and token remaining life time is
+	// within this period, refresh access token.
+	defaultGracePeriod = 300
 )
 
 // Plugin supports token exchange with Google OAuth 2.0 authorization server.
@@ -59,10 +62,11 @@ type Plugin struct {
 	tokens           sync.Map
 	gcpProjectNumber string
 	gkeClusterURL    string
+	enableCache      bool
 }
 
 // CreateTokenManagerPlugin creates a plugin that fetches token from a Google OAuth 2.0 authorization server.
-func CreateTokenManagerPlugin(trustDomain string, gcpProjectNumber, gkeClusterURL string) (*Plugin, error) {
+func CreateTokenManagerPlugin(trustDomain, gcpProjectNumber, gkeClusterURL string, enableCache bool) (*Plugin, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		pluginLog.Errorf("Failed to get SystemCertPool: %v", err)
@@ -80,6 +84,7 @@ func CreateTokenManagerPlugin(trustDomain string, gcpProjectNumber, gkeClusterUR
 		trustDomain:      trustDomain,
 		gcpProjectNumber: gcpProjectNumber,
 		gkeClusterURL:    gkeClusterURL,
+		enableCache:      enableCache,
 	}
 	return p, nil
 }
@@ -93,6 +98,9 @@ type federatedTokenResponse struct {
 
 // GenerateToken takes STS request parameters and fetches token, returns StsResponseParameters in JSON.
 func (p *Plugin) ExchangeToken(parameters stsservice.StsRequestParameters) ([]byte, error) {
+	if tokenSTS, ok := p.useCachedToken(); ok {
+		return tokenSTS, nil
+	}
 	pluginLog.Debugf("Start to fetch token with STS request parameters: %v", parameters)
 	ftResp, err := p.fetchFederatedToken(parameters)
 	if err != nil {
@@ -103,6 +111,30 @@ func (p *Plugin) ExchangeToken(parameters stsservice.StsRequestParameters) ([]by
 		return nil, err
 	}
 	return p.generateSTSResp(atResp)
+}
+
+// useCachedToken checks if there is a cached access token which is not going to expire soon. Returns
+// cached token in STS response or false if token is not available.
+func (p *Plugin) useCachedToken() ([]byte, bool) {
+	if !p.enableCache {
+		return nil, false
+	}
+	v, ok := p.tokens.Load(accessToken)
+	if !ok {
+		return nil, false
+	}
+
+	token := v.(stsservice.TokenInfo)
+	remainingLife := time.Until(token.ExpireTime)
+	pluginLog.Infof("find a cached access token with remaining lifetime: %s", remainingLife.String())
+	if remainingLife > time.Duration(defaultGracePeriod)*time.Second {
+		expireInSec := int64(remainingLife.Seconds())
+		if tokenSTS, err := p.generateSTSRespInner(token.Token, expireInSec); err == nil {
+			pluginLog.Infof("generated an STS response using a cached access token")
+			return tokenSTS, true
+		}
+	}
+	return nil, false
 }
 
 // constructFederatedTokenRequest returns an HTTP request for federated token.
@@ -117,7 +149,7 @@ func (p *Plugin) ExchangeToken(parameters stsservice.StsRequestParameters) ([]by
 //    subjectToken: <jwt token>
 //    Scope: https://www.googleapis.com/auth/cloud-platform
 // }
-func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequestParameters) *http.Request {
+func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequestParameters) (*http.Request, error) {
 	reqScope := scope
 	if len(parameters.Scope) != 0 {
 		reqScope = parameters.Scope
@@ -131,16 +163,33 @@ func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequest
 		"subjectToken":       parameters.SubjectToken,
 		"scope":              reqScope,
 	}
-	jsonQuery, _ := json.Marshal(query)
-	req, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
+	jsonQuery, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal query for get federated token request: %+v", err)
+	}
+	req, err := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
+	if err != nil {
+		return req, fmt.Errorf("failed to create get federated token request: %+v", err)
+	}
 	req.Header.Set("Content-Type", contentType)
 	if pluginLog.DebugEnabled() {
-		reqDump, _ := httputil.DumpRequest(req, false)
+		dQuery := map[string]string{
+			"audience":           aud,
+			"grantType":          parameters.GrantType,
+			"requestedTokenType": tokenType,
+			"subjectTokenType":   parameters.SubjectTokenType,
+			"subjectToken":       "redacted",
+			"scope":              reqScope,
+		}
+		dJSONQuery, _ := json.Marshal(dQuery)
+		dReq, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(dJSONQuery))
+		dReq.Header.Set("Content-Type", contentType)
+		reqDump, _ := httputil.DumpRequest(dReq, true)
 		pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
 	} else {
 		pluginLog.Info("Prepared federated token request")
 	}
-	return req
+	return req, nil
 }
 
 // fetchFederatedToken exchanges a third-party issued Json Web Token for an OAuth2.0 access token
@@ -148,7 +197,11 @@ func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequest
 func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters) (*federatedTokenResponse, error) {
 	respData := &federatedTokenResponse{}
 
-	req := p.constructFederatedTokenRequest(parameters)
+	req, err := p.constructFederatedTokenRequest(parameters)
+	if err != nil {
+		pluginLog.Errorf("failed to create get federated token request: %+v", err)
+		return nil, err
+	}
 	resp, timeElapsed, err := p.sendRequestWithRetry(req)
 	if err != nil {
 		respCode := 0
@@ -171,7 +224,11 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 		pluginLog.Infof("Received federated token response after %s", timeElapsed.String())
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		pluginLog.Errorf("Failed to read federated token response body: %+v", err)
+		return respData, fmt.Errorf("failed to read federated token response body: %+v", err)
+	}
 	if err := json.Unmarshal(body, respData); err != nil {
 		pluginLog.Errorf("Failed to unmarshal federated token response data: %v", err)
 		return respData, fmt.Errorf("failed to unmarshal federated token response data: %v", err)
@@ -184,8 +241,8 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 	tokenReceivedTime := time.Now()
 	p.tokens.Store(federatedToken, stsservice.TokenInfo{
 		TokenType:  federatedToken,
-		IssueTime:  tokenReceivedTime.String(),
-		ExpireTime: tokenReceivedTime.Add(time.Duration(respData.ExpiresIn) * time.Second).String()})
+		IssueTime:  tokenReceivedTime,
+		ExpireTime: tokenReceivedTime.Add(time.Duration(respData.ExpiresIn) * time.Second)})
 	return respData, nil
 }
 
@@ -238,33 +295,41 @@ type accessTokenResponse struct {
 //      https://www.googleapis.com/auth/cloud-platform
 //  ],
 // }
-func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) *http.Request {
+func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) (*http.Request, error) {
 	// Request for access token with a lifetime of 3600 seconds.
 	query := accessTokenRequest{
 		LifeTime: duration.Duration{Seconds: 3600},
 	}
 	query.Scope = append(query.Scope, scope)
 
-	jsonQuery, _ := json.Marshal(query)
+	jsonQuery, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal query for get access token request: %+v", err)
+	}
 	endpoint := fmt.Sprintf(accessTokenEndpoint, p.gcpProjectNumber)
-	req, _ := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create get access token request: %+v", err)
+	}
 	req.Header.Add("Content-Type", contentType)
-	req.Header.Add("Authorization", "Bearer "+fResp.AccessToken)
 	if pluginLog.DebugEnabled() {
-		dumpReq := req
-		dumpReq.Header.Set("Authorization", "redacted")
-		reqDump, _ := httputil.DumpRequest(dumpReq, false)
+		reqDump, _ := httputil.DumpRequest(req, true)
 		pluginLog.Debugf("Prepared access token request: \n%s", string(reqDump))
 	} else {
 		pluginLog.Info("Prepared access token request")
 	}
-	return req
+	req.Header.Add("Authorization", "Bearer "+fResp.AccessToken)
+	return req, nil
 }
 
 func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*accessTokenResponse, error) {
 	respData := &accessTokenResponse{}
 
-	req := p.constructGenerateAccessTokenRequest(federatedToken)
+	req, err := p.constructGenerateAccessTokenRequest(federatedToken)
+	if err != nil {
+		pluginLog.Errorf("failed to create get access token request: %+v", err)
+		return nil, err
+	}
 	resp, timeElapsed, err := p.sendRequestWithRetry(req)
 	if err != nil {
 		respCode := 0
@@ -285,7 +350,11 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 		pluginLog.Infof("Received access token response after %s", timeElapsed.String())
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		pluginLog.Errorf("Failed to read access token response body: %+v", err)
+		return respData, fmt.Errorf("failed to read access token response body: %+v", err)
+	}
 	if err := json.Unmarshal(body, respData); err != nil {
 		pluginLog.Errorf("Failed to unmarshal access token response data: %v", err)
 		return respData, fmt.Errorf("failed to unmarshal access token response data: %v", err)
@@ -295,10 +364,21 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 		return respData, errors.New("access token response does not have access token. " + string(body))
 	}
 	pluginLog.Debug("successfully exchanged an access token")
+	// Store access token
+	// Default token life time is 3600 seconds.
+	tokenExp := time.Now().Add(3600 * time.Second)
+	exp, err := time.Parse(time.RFC3339Nano, respData.ExpireTime)
+	if err != nil {
+		pluginLog.Errorf("Failed to unmarshal timestamp %s from access token response, "+
+			"fall back to use default lifetime (3600 seconds): %v", respData.ExpireTime, err)
+	} else {
+		tokenExp = exp
+	}
 	p.tokens.Store(accessToken, stsservice.TokenInfo{
 		TokenType:  accessToken,
-		IssueTime:  time.Now().String(),
-		ExpireTime: respData.ExpireTime})
+		IssueTime:  time.Now(),
+		ExpireTime: tokenExp,
+		Token:      respData.AccessToken})
 	return respData, nil
 }
 
@@ -313,11 +393,15 @@ func (p *Plugin) generateSTSResp(atResp *accessTokenResponse) ([]byte, error) {
 	} else {
 		expireInSec = int64(time.Until(exp).Seconds())
 	}
+	return p.generateSTSRespInner(atResp.AccessToken, expireInSec)
+}
+
+func (p *Plugin) generateSTSRespInner(token string, expire int64) ([]byte, error) {
 	stsRespParam := stsservice.StsResponseParameters{
-		AccessToken:     atResp.AccessToken,
+		AccessToken:     token,
 		IssuedTokenType: tokenType,
 		TokenType:       "Bearer",
-		ExpiresIn:       expireInSec,
+		ExpiresIn:       expire,
 	}
 	statusJSON, err := json.MarshalIndent(stsRespParam, "", " ")
 	if pluginLog.DebugEnabled() {
@@ -332,7 +416,8 @@ func (p *Plugin) DumpPluginStatus() ([]byte, error) {
 	tokenStatus := make([]stsservice.TokenInfo, 0)
 	p.tokens.Range(func(k interface{}, v interface{}) bool {
 		token := v.(stsservice.TokenInfo)
-		tokenStatus = append(tokenStatus, token)
+		tokenStatus = append(tokenStatus, stsservice.TokenInfo{
+			TokenType: token.TokenType, IssueTime: token.IssueTime, ExpireTime: token.ExpireTime})
 		return true
 	})
 	td := stsservice.TokensDump{
@@ -346,4 +431,10 @@ func (p *Plugin) DumpPluginStatus() ([]byte, error) {
 func (p *Plugin) SetEndpoints(fTokenEndpoint, aTokenEndpoint string) {
 	federatedTokenEndpoint = fTokenEndpoint
 	accessTokenEndpoint = aTokenEndpoint
+}
+
+// ClearCache is only used for testing purposes.
+func (p *Plugin) ClearCache() {
+	p.tokens.Delete(federatedToken)
+	p.tokens.Delete(accessToken)
 }
