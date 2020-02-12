@@ -43,6 +43,4 @@ func setupForSDS(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["gateways.istio-egressgateway.enabled"] = "false"
-	cfg.Values["gateways.istio-ingressgateway.sds.enabled"] = "true"
-
 }
