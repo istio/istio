@@ -29,10 +29,12 @@ import (
 func tlsCheck() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tls-check <pod-name[.namespace]> [<service>]",
-		Short: "Check whether TLS setting are matching between authentication policy and destination rules",
+		Short: "Deprecated. Check whether TLS setting are matching between authentication policy and destination rules",
 		Long: `
 Check what authentication policies and destination rules pilot uses to config a proxy instance,
 and check if TLS settings are compatible between them.
+Warning: Do not use this tool if you start using beta API, aka PeerAuthentication. The tool will be remove
+in future release of Istio.
 `,
 		Example: `
 # Check settings for pod "foo-656bd7df7c-5zp4s" in namespace default:
@@ -88,10 +90,12 @@ istioctl authn tls-check foo-656bd7df7c-5zp4s.default bar
 func AuthN() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "authn",
-		Short: "Interact with Istio authentication policies",
+		Short: "Deprecated. Interact with (alpha) Istio authentication policies",
 		Long: `
-A group of commands used to interact with Istio authentication policies.
-  tls-check
+A group of commands used to interact with (alpha) Istio authentication policies.
+	tls-check
+Warning: Do not use this tool if you start using beta API, aka PeerAuthentication. The tool will be remove
+in future release of Istio.
 `,
 		Example: `# Check whether TLS setting are matching between authentication policy and destination rules:
 istioctl authn tls-check`,
