@@ -215,6 +215,7 @@
 // translateConfig/reverseTranslateConfig-1.5.yaml
 // translateConfig/reverseTranslateConfig-1.6.yaml
 // translateConfig/translate-ICP-IOP-1.5.yaml
+// translateConfig/translate-ICP-IOP-1.6.yaml
 // translateConfig/translateConfig-1.3.yaml
 // translateConfig/translateConfig-1.4.yaml
 // translateConfig/translateConfig-1.5.yaml
@@ -38820,17 +38821,15 @@ func profilesSeparateYaml() (*asset, error) {
 	return a, nil
 }
 
-var _translateconfigNames15Yaml = []byte(`legacyAddonComponentNames:
+var _translateconfigNames15Yaml = []byte(`BundledAddonComponentNames:
   - "Prometheus"
   - "Kiali"
   - "Grafana"
   - "Tracing"
   - "Istiocoredns"
-deprecatedComponentNames:
+DeprecatedComponentNames:
   - "Injector"
   - "CertManager"
-  - "IngressGateway"
-  - "EgressGateway"
   - "NodeAgent"
   - "SidecarInjector"
 
@@ -38851,19 +38850,18 @@ func translateconfigNames15Yaml() (*asset, error) {
 	return a, nil
 }
 
-var _translateconfigNames16Yaml = []byte(`legacyAddonComponentNames:
+var _translateconfigNames16Yaml = []byte(`BundledAddonComponentNames:
   - "Prometheus"
   - "Kiali"
   - "Grafana"
   - "Tracing"
   - "Istiocoredns"
-deprecatedComponentNames:
+DeprecatedComponentNames:
   - "Injector"
   - "CertManager"
-  - "IngressGateway"
-  - "EgressGateway"
   - "NodeAgent"
-  - "SidecarInjector"`)
+  - "SidecarInjector"
+`)
 
 func translateconfigNames16YamlBytes() ([]byte, error) {
 	return _translateconfigNames16Yaml, nil
@@ -38942,20 +38940,20 @@ func translateconfigReversetranslateconfig15Yaml() (*asset, error) {
 }
 
 var _translateconfigReversetranslateconfig16Yaml = []byte(`kubernetesPatternMapping:
-  "{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env"
-  "{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec"
-  "{{.ValueComponentName}}.imagePullPolicy":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy"
-  "{{.ValueComponentName}}.nodeSelector":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.NodeSelector"
-  "{{.ValueComponentName}}.tolerations":           "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Tolerations"
-  "{{.ValueComponentName}}.podDisruptionBudget":   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodDisruptionBudget"
-  "{{.ValueComponentName}}.podAnnotations":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodAnnotations"
-  "{{.ValueComponentName}}.priorityClassName":     "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PriorityClassName"
-  "{{.ValueComponentName}}.readinessProbe":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReadinessProbe"
-  "{{.ValueComponentName}}.replicaCount":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReplicaCount"
-  "{{.ValueComponentName}}.resources":             "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Resources"
-  "{{.ValueComponentName}}.rollingMaxSurge":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy"
-  "{{.ValueComponentName}}.rollingMaxUnavailable": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy"
-  "{{.ValueComponentName}}.serviceAnnotations":    "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ServiceAnnotations"
+  "{{.ValueComponentName}}.env":                   "Components.{{.ComponentName}}.K8s.Env"
+  "{{.ValueComponentName}}.autoscaleEnabled":      "Components.{{.ComponentName}}.K8s.HpaSpec"
+  "{{.ValueComponentName}}.imagePullPolicy":       "Components.{{.ComponentName}}.K8s.ImagePullPolicy"
+  "{{.ValueComponentName}}.nodeSelector":          "Components.{{.ComponentName}}.K8s.NodeSelector"
+  "{{.ValueComponentName}}.tolerations":           "Components.{{.ComponentName}}.K8s.Tolerations"
+  "{{.ValueComponentName}}.podDisruptionBudget":   "Components.{{.ComponentName}}.K8s.PodDisruptionBudget"
+  "{{.ValueComponentName}}.podAnnotations":        "Components.{{.ComponentName}}.K8s.PodAnnotations"
+  "{{.ValueComponentName}}.priorityClassName":     "Components.{{.ComponentName}}.K8s.PriorityClassName"
+  "{{.ValueComponentName}}.readinessProbe":        "Components.{{.ComponentName}}.K8s.ReadinessProbe"
+  "{{.ValueComponentName}}.replicaCount":          "Components.{{.ComponentName}}.K8s.ReplicaCount"
+  "{{.ValueComponentName}}.resources":             "Components.{{.ComponentName}}.K8s.Resources"
+  "{{.ValueComponentName}}.rollingMaxSurge":       "Components.{{.ComponentName}}.K8s.Strategy"
+  "{{.ValueComponentName}}.rollingMaxUnavailable": "Components.{{.ComponentName}}.K8s.Strategy"
+  "{{.ValueComponentName}}.serviceAnnotations":    "Components.{{.ComponentName}}.K8s.ServiceAnnotations"
 `)
 
 func translateconfigReversetranslateconfig16YamlBytes() ([]byte, error) {
@@ -39008,6 +39006,45 @@ func translateconfigTranslateIcpIop15Yaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "translateConfig/translate-ICP-IOP-1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _translateconfigTranslateIcpIop16Yaml = []byte(`trafficManagement.components.pilot: components.pilot
+policy.components.policy: components.policy
+telemetry.components.telemetry: components.telemetry
+security.components.citadel: components.citadel
+security.components.nodeAgent: components.nodeAgent
+configManagement.components.galley: components.galley
+autoInjection.components.injector: components.sidecarInjector
+cni: components.cni
+
+gateways.components.ingressGateway: components.ingressGateways.[name:istio-ingressgateway]
+gateways.components.egressGateway: components.egressGateways.[name:istio-egressgateway]
+
+security.components.certManager: addonComponents.certManager
+values.grafana.enabled: addonComponents.grafana.enabled
+values.kiali.enabled: addonComponents.kiali.enabled
+values.prometheus.enabled: addonComponents.prometheus.enabled
+values.tracing.enabled: addonComponents.tracing.enabled
+
+values: values
+unvalidatedValues: unvalidatedValues
+hub: hub
+tag: tag
+`)
+
+func translateconfigTranslateIcpIop16YamlBytes() ([]byte, error) {
+	return _translateconfigTranslateIcpIop16Yaml, nil
+}
+
+func translateconfigTranslateIcpIop16Yaml() (*asset, error) {
+	bytes, err := translateconfigTranslateIcpIop16YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "translateConfig/translate-ICP-IOP-1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -39875,6 +39912,12 @@ var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   recommendedIstioVersions: 1.5.0
   k8sClientVersionRange: ">=1.14"
   k8sServerVersionRange: ">=1.14"
+- operatorVersion: 1.6.0
+  operatorVersionRange: ">=1.6.0,<1.7.0"
+  supportedIstioVersions: ">=1.5.0, <1.7"
+  recommendedIstioVersions: 1.6.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"
 `)
 
 func versionsYamlBytes() ([]byte, error) {
@@ -40159,6 +40202,7 @@ var _bindata = map[string]func() (*asset, error){
 	"translateConfig/reverseTranslateConfig-1.5.yaml":                                         translateconfigReversetranslateconfig15Yaml,
 	"translateConfig/reverseTranslateConfig-1.6.yaml":                                         translateconfigReversetranslateconfig16Yaml,
 	"translateConfig/translate-ICP-IOP-1.5.yaml":                                              translateconfigTranslateIcpIop15Yaml,
+	"translateConfig/translate-ICP-IOP-1.6.yaml":                                              translateconfigTranslateIcpIop16Yaml,
 	"translateConfig/translateConfig-1.3.yaml":                                                translateconfigTranslateconfig13Yaml,
 	"translateConfig/translateConfig-1.4.yaml":                                                translateconfigTranslateconfig14Yaml,
 	"translateConfig/translateConfig-1.5.yaml":                                                translateconfigTranslateconfig15Yaml,
@@ -40519,6 +40563,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"reverseTranslateConfig-1.5.yaml": &bintree{translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.6.yaml": &bintree{translateconfigReversetranslateconfig16Yaml, map[string]*bintree{}},
 		"translate-ICP-IOP-1.5.yaml":      &bintree{translateconfigTranslateIcpIop15Yaml, map[string]*bintree{}},
+		"translate-ICP-IOP-1.6.yaml":      &bintree{translateconfigTranslateIcpIop16Yaml, map[string]*bintree{}},
 		"translateConfig-1.3.yaml":        &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
 		"translateConfig-1.4.yaml":        &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
 		"translateConfig-1.5.yaml":        &bintree{translateconfigTranslateconfig15Yaml, map[string]*bintree{}},

@@ -19,8 +19,6 @@ import (
 	"os"
 	"time"
 
-	"istio.io/istio/operator/pkg/translate"
-
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -121,7 +119,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-	manifests, iops, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
+	manifests, _, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate manifest: %v", err)
 	}
@@ -135,8 +133,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	}
 
 	for cn := range name.DeprecatedComponentNamesMap {
-		DeprecatedComponentManifest := fmt.Sprintf("# %s component has been deprecated.\n", cn)
-		manifests[cn] = append(manifests[cn], DeprecatedComponentManifest)
+		manifests[cn] = append(manifests[cn], fmt.Sprintf("# %s component has been deprecated.\n", cn))
 	}
 
 	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, opts)
@@ -144,18 +141,6 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
 	}
 	gotError := false
-	skippedComponentMap := map[name.ComponentName]bool{}
-	for cn := range manifests {
-		enabledInSpec, err := translate.IsComponentEnabledInSpec(cn, iops)
-		if err != nil {
-			l.logAndPrintf("failed to check if %s is enabled in IstioOperatorSpec: %v", cn, err)
-		}
-		// Skip the output of a component when it is disabled
-		// and not pruned (indicated by applied manifest out[cn].Manifest).
-		if !enabledInSpec && out[cn].Err == nil && out[cn].Manifest == "" {
-			skippedComponentMap[cn] = true
-		}
-	}
 
 	for cn := range manifests {
 		if out[cn].Err != nil {
@@ -163,8 +148,6 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 			l.logAndPrintf("\n%s", cs)
 			l.logAndPrint("Error: ", out[cn].Err, "\n")
 			gotError = true
-		} else if skippedComponentMap[cn] {
-			continue
 		}
 
 		if !ignoreError(out[cn].Stderr) {

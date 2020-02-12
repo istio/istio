@@ -16,7 +16,6 @@ package translate
 
 import (
 	"fmt"
-	"strings"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
@@ -25,45 +24,10 @@ import (
 	binversion "istio.io/istio/operator/version"
 )
 
-var (
-	// LegacyAddonComponentPathMap defines reverse translation mapping for legacy addon component names.
-	LegacyAddonComponentPathMap = make(map[string]string)
-)
-
-func init() {
-	for n := range name.AddonComponentNamesMap {
-		cn := strings.ToLower(string(n))
-		valuePath := fmt.Sprintf("spec.values.%s.enabled", cn)
-		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", cn)
-		LegacyAddonComponentPathMap[valuePath] = iopPath
-	}
-}
-
 // IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.
 // IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.
 // TODO: remove extra validations when comfort level is high enough.
 func IsComponentEnabledInSpec(componentName name.ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (bool, error) {
-	// for Istio components, check whether override path exist in values part first then ISCP.
-	enabled, pathExist, err := IsComponentEnabledFromValue(componentName, controlPlaneSpec.Values)
-	// only return value when path exists
-	if err == nil && pathExist {
-		return enabled, nil
-	}
-	if componentName == name.IngressComponentName {
-		return len(controlPlaneSpec.Components.IngressGateways) != 0, nil
-	}
-	if componentName == name.EgressComponentName {
-		return len(controlPlaneSpec.Components.EgressGateways) != 0, nil
-	}
-	if componentName == name.AddonComponentName {
-		for _, ac := range controlPlaneSpec.AddonComponents {
-			if ac.Enabled != nil && ac.Enabled.Value {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-
 	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Enabled")
 	if err != nil {
 		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for component=%s: %s",
