@@ -15,7 +15,7 @@
 package v2
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -902,7 +902,7 @@ func endpointAcceptMtls(endpointTlsMap *map[string]bool, push *model.PushContext
 	if err != nil {
 		return true
 	}
-	labelHash := fmt.Sprintf("%x", sha1.Sum(b))[:8]
+	labelHash := fmt.Sprintf("%x", sha256.Sum256(b))[:8]
 	key := fmt.Sprintf("%v|%v|%v", ep.Attributes.Namespace, labelHash, ep.EndpointPort)
 	accept, exists := (*endpointTlsMap)[key]
 	if exists {

@@ -207,6 +207,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			}
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
+			// TODO(incfly/diemtvu): do not take service mTLS mode into consideration after mTLS Alpha API is deprecated.
 			serviceMTLSMode := model.MTLSUnknown
 			if !service.MeshExternal {
 				// Only need the authentication MTLS mode when service is not external.
@@ -735,8 +736,6 @@ func conditionallyConvertToIstioMtls(
 	autoMTLSEnabled bool,
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode,
-	opts *buildClusterOpts,
-	// TODO: remove
 ) (*networking.TLSSettings, mtlsContextType) {
 	mtlsCtx := userSupplied
 	if tls == nil {
@@ -853,7 +852,7 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
-			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, &opts)
+			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, proxy)
 	}
 }
