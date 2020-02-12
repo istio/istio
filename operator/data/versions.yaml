@@ -46,3 +46,9 @@
   recommendedIstioVersions: 1.5.0
   k8sClientVersionRange: ">=1.14"
   k8sServerVersionRange: ">=1.14"
+- operatorVersion: 1.6.0
+  operatorVersionRange: ">=1.6.0,<1.7.0"
+  supportedIstioVersions: ">=1.5.0, <1.7"
+  recommendedIstioVersions: 1.6.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"
