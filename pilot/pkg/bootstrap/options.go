@@ -137,11 +137,13 @@ var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
 var revisionVar = env.RegisterStringVar("REVISION", "", "")
 
 // NewPilotArgs constructs pilotArgs with default values.
-func NewPilotArgs(initFunc func(*PilotArgs)) *PilotArgs {
+func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
 	p := &PilotArgs{}
 
-	// Apply custom initialization function first and apply defaults later.i
-	initFunc(p)
+	// Apply custom initialization functions and apply defaults later.
+	for _, fn := range initFuncs {
+		fn(p)
+	}
 
 	// If the namespace isn't set, try looking it up from the environment.
 	if p.Namespace == "" {
