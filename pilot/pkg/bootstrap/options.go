@@ -64,7 +64,7 @@ type ServiceArgs struct {
 	Consul     ConsulArgs
 }
 
-// PilotArgs provides all of the configuration parameters for the Pilot discovery service.
+// pilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
 	DiscoveryOptions         DiscoveryServiceOptions
 	InjectionOptions         InjectionOptions
@@ -136,8 +136,13 @@ var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
 
 var revisionVar = env.RegisterStringVar("REVISION", "", "")
 
-// Apply default value to PilotArgs
-func (p *PilotArgs) Default() {
+// NewPilotArgs constructs pilotArgs with default values.
+func NewPilotArgs(initFunc func(*PilotArgs)) *PilotArgs {
+	p := &PilotArgs{}
+
+	// Apply custom initialization function first and apply defaults later.i
+	initFunc(p)
+
 	// If the namespace isn't set, try looking it up from the environment.
 	if p.Namespace == "" {
 		p.Namespace = podNamespaceVar.Get()
@@ -166,4 +171,6 @@ func (p *PilotArgs) Default() {
 	if p.BasePort == 0 {
 		p.BasePort = 15000
 	}
+
+	return p
 }

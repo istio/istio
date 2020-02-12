@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/keepalive"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
@@ -37,21 +36,7 @@ import (
 )
 
 var (
-	serverArgs = bootstrap.PilotArgs{
-		CtrlZOptions:     ctrlz.DefaultOptions(),
-		KeepaliveOptions: keepalive.DefaultOption(),
-		// TODO replace with mesh config?
-		InjectionOptions: bootstrap.InjectionOptions{
-			InjectionDirectory: "./var/lib/istio/inject",
-		},
-		ValidationOptions: bootstrap.ValidationOptions{
-			ValidationDirectory: "./var/lib/istio/validation",
-		},
-
-		MCPMaxMessageSize:        1024 * 1024 * 4, // default grpc maximum message size
-		MCPInitialConnWindowSize: 1024 * 1024,     // default grpc InitialWindowSize
-		MCPInitialWindowSize:     1024 * 1024,     // default grpc ConnWindowSize
-	}
+	serverArgs = bootstrap.NewPilotArgs(initServerArgs)
 
 	loggingOptions = log.DefaultOptions()
 
@@ -74,16 +59,13 @@ var (
 				return err
 			}
 
-			// fill in missing defaults
-			serverArgs.Default()
-
 			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain, hasKubeRegistry()))
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
 
 			// Create the server for the discovery service.
-			discoveryServer, err := bootstrap.NewServer(&serverArgs)
+			discoveryServer, err := bootstrap.NewServer(serverArgs)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
@@ -101,6 +83,22 @@ var (
 		},
 	}
 )
+
+func initServerArgs(p *bootstrap.PilotArgs) {
+	// fill in missing defaults
+	p.CtrlZOptions = ctrlz.DefaultOptions()
+	// TODO replace with mesh config?
+	p.InjectionOptions = bootstrap.InjectionOptions{
+		InjectionDirectory: "./var/lib/istio/inject",
+	}
+	p.ValidationOptions = bootstrap.ValidationOptions{
+		ValidationDirectory: "./var/lib/istio/validation",
+	}
+
+	p.MCPMaxMessageSize = 1024 * 1024 * 4    // default grpc maximum message size
+	p.MCPInitialConnWindowSize = 1024 * 1024 // default grpc InitialWindowSize
+	p.MCPInitialWindowSize = 1024 * 1024     // default grpc ConnWindowSize
+}
 
 // when we run on k8s, the default trust domain is 'cluster.local', otherwise it is the empty string
 func hasKubeRegistry() bool {
