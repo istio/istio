@@ -71,7 +71,6 @@ var (
 		DeployTimeout:                  0,
 		UndeployTimeout:                0,
 		ChartDir:                       env.IstioChartDir,
-		CrdsFilesDir:                   env.CrdsFilesDir,
 		ValuesFile:                     E2EValuesFile,
 		CustomSidecarInjectorNamespace: "",
 	}
@@ -108,9 +107,6 @@ type Config struct {
 
 	// The top-level Helm chart dir.
 	ChartDir string
-
-	// The top-level Helm Crds files dir.
-	CrdsFilesDir string
 
 	// The Helm values file to be used.
 	ValuesFile string
@@ -221,10 +217,6 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 	}
 
 	if err := checkFileExists(filepath.Join(s.ChartDir, s.ValuesFile)); err != nil {
-		return Config{}, err
-	}
-
-	if err := normalizeFile(&s.CrdsFilesDir); err != nil {
 		return Config{}, err
 	}
 
@@ -341,7 +333,6 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("UndeployTimeout:                %s\n", c.UndeployTimeout.String())
 	result += fmt.Sprintf("Values:                         %v\n", c.Values)
 	result += fmt.Sprintf("ChartDir:                       %s\n", c.ChartDir)
-	result += fmt.Sprintf("CrdsFilesDir:                   %s\n", c.CrdsFilesDir)
 	result += fmt.Sprintf("ValuesFile:                     %s\n", c.ValuesFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("CustomSidecarInjectorNamespace: %s\n", c.CustomSidecarInjectorNamespace)
