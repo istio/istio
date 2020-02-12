@@ -569,6 +569,7 @@ values:
     nodeSelector: {}
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+    provisionPrometheusCert: true
     retention: 6h
     scrapeInterval: 15s
     security:
