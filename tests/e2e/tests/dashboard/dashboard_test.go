@@ -138,7 +138,7 @@ func TestDashboards(t *testing.T) {
 		metricHost     string
 		metricPort     int
 	}{
-		{"Istio", istioMeshDashboard, istioQueryFilterFn, nil, "istio-telemetry", 42422},
+		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
 		{"Service", serviceDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
 		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, workloadReplacer, "istio-telemetry", 42422},
 		{"Citadel", citadelDashboard, citadelQueryFilterFn, nil, "istio-citadel", 15014},
@@ -246,21 +246,6 @@ func replaceGrafanaTemplates(orig string) string {
 		out = tcpReplacer.Replace(out)
 	}
 	return queryCleanupReplacer.Replace(out)
-}
-
-func istioQueryFilterFn(queries []string) []string {
-	filtered := make([]string, 0, len(queries))
-	for _, query := range queries {
-		// Alpha Istio authentication policy is no longer added in Istio installation. Dashboard for this
-		// need to be updated w.r.t the beta policy (PeerAuthentication). For now, ignore this query for
-		// test.
-		if strings.Contains(query, "galley_istio_authentication_meshpolicies") {
-			continue
-		}
-
-		filtered = append(filtered, query)
-	}
-	return filtered
 }
 
 // There currently is no good way to inject failures into a running Mixer,
