@@ -322,12 +322,6 @@ snapshots:
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
 
-    # Used by Galley to perform service discovery
-  - name: "syntheticServiceEntry"
-    strategy: immediate
-    collections:
-      - "istio/networking/v1alpha3/synthetic/serviceentries"
-
     # Used by istioctl to perform analysis
   - name: "localAnalysis"
     strategy: immediate
@@ -343,7 +337,6 @@ snapshots:
       - "istio/networking/v1alpha3/serviceentries"
       - "istio/networking/v1alpha3/sidecars"
       - "istio/networking/v1alpha3/virtualservices"
-      - "istio/networking/v1alpha3/synthetic/serviceentries"
       - "k8s/apps/v1/deployments"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/pods"

@@ -57,7 +57,7 @@ const (
 
 // Pseudo-constants, since golang doesn't support a true const slice/array
 var (
-	analysisSnapshots = []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry}
+	analysisSnapshots = []string{snapshots.LocalAnalysis}
 )
 
 // Patch table
