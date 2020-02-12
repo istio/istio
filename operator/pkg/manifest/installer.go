@@ -125,9 +125,12 @@ var (
 	dependencyWaitCh = make(map[name.ComponentName]chan struct{})
 	kubectl          = kubectlcmd.New()
 
-	k8sRESTConfig     *rest.Config
-	currentKubeconfig string
-	currentContext    string
+	k8sRESTConfig           *rest.Config
+	currentKubeconfig       string
+	currentContext          string
+	componentPruneWhiteList = map[name.ComponentName][]string{
+		name.PilotComponentName: {"networking.istio.io/v1alpha3/EnvoyFilter"},
+	}
 )
 
 func init() {
@@ -352,6 +355,13 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	// Base components include namespaces and CRDs, pruning them will remove user configs, which makes it hard to roll back.
 	if componentName != name.IstioBaseComponentName && opts.Prune == nil {
 		opts.Prune = pointer.BoolPtr(true)
+		pwl, ok := componentPruneWhiteList[componentName]
+		if ok {
+			for _, pw := range pwl {
+				pwa := []string{"--prune-whitelist", pw}
+				opts.ExtraArgs = append(opts.ExtraArgs, pwa...)
+			}
+		}
 	}
 
 	logAndPrint("- Applying manifest for component %s...", componentName)
