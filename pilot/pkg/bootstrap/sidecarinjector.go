@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
@@ -82,11 +81,10 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 	// operator or CI/CD
 	if injectionWebhookConfigName.Get() != "" {
-		s.addStartFunc(func(stop <-chan struct{}) error {
+		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
 			if err := s.patchCertLoop(s.kubeClient, stop); err != nil {
-				return multierror.Prefix(err, "failed to start patch cert loop")
+				log.Errorf("failed to start patch cert loop: %v", err)
 			}
-			return nil
 		})
 	}
 	s.injectionWebhook = wh

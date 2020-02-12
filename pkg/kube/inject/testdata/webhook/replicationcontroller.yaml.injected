@@ -16,6 +16,7 @@ spec:
         app: nginx
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: nginx
+        service.istio.io/canonical-revision: latest
       name: nginx
     spec:
       containers:

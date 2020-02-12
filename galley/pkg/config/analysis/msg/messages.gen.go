@@ -33,9 +33,9 @@ var (
 	// Description: Unhandled gateway port
 	GatewayPortNotOnWorkload = diag.NewMessageType(diag.Warning, "IST0104", "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)")
 
-	// IstioProxyVersionMismatch defines a diag.MessageType for message "IstioProxyVersionMismatch".
-	// Description: The version of the Istio proxy running on the pod does not match the version used by the istio injector.
-	IstioProxyVersionMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
+	// IstioProxyImageMismatch defines a diag.MessageType for message "IstioProxyImageMismatch".
+	// Description: The image of the Istio proxy running on the pod does not match the image defined in the injection configuration.
+	IstioProxyImageMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The image of the Istio proxy running on the pod does not match the image defined in the injection configuration (pod image: %s; injection configuration image: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
 
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
 	// Description: The resource has a schema validation error.
@@ -103,7 +103,7 @@ func All() []*diag.MessageType {
 		NamespaceNotInjected,
 		PodMissingProxy,
 		GatewayPortNotOnWorkload,
-		IstioProxyVersionMismatch,
+		IstioProxyImageMismatch,
 		SchemaValidationError,
 		MisplacedAnnotation,
 		UnknownAnnotation,
@@ -177,13 +177,13 @@ func NewGatewayPortNotOnWorkload(r *resource.Instance, selector string, port int
 	)
 }
 
-// NewIstioProxyVersionMismatch returns a new diag.Message based on IstioProxyVersionMismatch.
-func NewIstioProxyVersionMismatch(r *resource.Instance, proxyVersion string, injectionVersion string) diag.Message {
+// NewIstioProxyImageMismatch returns a new diag.Message based on IstioProxyImageMismatch.
+func NewIstioProxyImageMismatch(r *resource.Instance, proxyImage string, injectionImage string) diag.Message {
 	return diag.NewMessage(
-		IstioProxyVersionMismatch,
+		IstioProxyImageMismatch,
 		r,
-		proxyVersion,
-		injectionVersion,
+		proxyImage,
+		injectionImage,
 	)
 }
 

@@ -23,6 +23,7 @@ spec:
         app: status
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: status
+        service.istio.io/canonical-revision: latest
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0
