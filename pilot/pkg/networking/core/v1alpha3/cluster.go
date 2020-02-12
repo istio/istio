@@ -201,6 +201,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
 			defaultCluster := buildDefaultCluster(push, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port, service.MeshExternal)
+			if defaultCluster == nil {
+				continue
+			}
 			// If stat name is configured, build the alternate stats name.
 			if len(push.Mesh.OutboundClusterStatName) != 0 {
 				defaultCluster.AltStatName = altStatName(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
@@ -249,6 +252,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 					lbEndpoints = buildLocalityLbEndpoints(push, networkView, service, port.Port, []labels.Instance{subset.Labels})
 				}
 				subsetCluster := buildDefaultCluster(push, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal)
+				if subsetCluster == nil {
+					continue
+				}
 				if len(push.Mesh.OutboundClusterStatName) != 0 {
 					subsetCluster.AltStatName = altStatName(push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
 				}
@@ -331,6 +337,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := buildDefaultCluster(push, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal)
+			if defaultCluster == nil {
+				continue
+			}
 			clusters = append(clusters, defaultCluster)
 
 			if destRule != nil {
@@ -1303,6 +1312,11 @@ func buildDefaultCluster(push *model.PushContext, name string, discoveryType api
 	}
 
 	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS {
+		if len(localityLbEndpoints) == 0 {
+			push.AddMetric(model.DNSNoEndpointClusters, cluster.Name, proxy,
+				fmt.Sprintf("STRICT_DNS cluster without endpoints %s found while pushing CDS", cluster.Name))
+			return nil
+		}
 		cluster.LoadAssignment = &apiv2.ClusterLoadAssignment{
 			ClusterName: name,
 			Endpoints:   localityLbEndpoints,
