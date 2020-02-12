@@ -8756,7 +8756,7 @@ gateways:
       targetPort: 8060
       name: tcp-citadel-grpc-tls
     - port: 853
-      targetPort: 853
+      targetPort: 8853
       name: tcp-dns-tls
     ####### end MESH EXPANSION PORTS ######
 
