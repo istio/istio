@@ -89,15 +89,11 @@ var (
 
 // validateWithRegex checks whether the given value matches the regexp r.
 func validateWithRegex(path util.Path, val interface{}, r *regexp.Regexp) (errs util.Errors) {
-	switch {
-	case !util.IsString(val):
-		errs = util.AppendErr(errs, fmt.Errorf("path %s has bad type %T, want string", path, val))
-
-	case len(r.FindString(val.(string))) != len(val.(string)):
+	valStr := fmt.Sprint(val)
+	if len(r.FindString(valStr)) != len(valStr) {
 		errs = util.AppendErr(errs, fmt.Errorf("invalid value %s: %s", path, val))
+		printError(errs.ToError())
 	}
-
-	printError(errs.ToError())
 	return errs
 }
 
