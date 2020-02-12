@@ -37,7 +37,21 @@ import (
 )
 
 var (
-	serverArgs = bootstrap.NewPilotArgs(initServerArgs)
+	serverArgs = bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
+		p.CtrlZOptions = ctrlz.DefaultOptions()
+		p.KeepaliveOptions = keepalive.DefaultOption()
+		// TODO replace with mesh config?
+		p.InjectionOptions = bootstrap.InjectionOptions{
+			InjectionDirectory: "./var/lib/istio/inject",
+		}
+		p.ValidationOptions = bootstrap.ValidationOptions{
+			ValidationDirectory: "./var/lib/istio/validation",
+		}
+
+		p.MCPMaxMessageSize = 1024 * 1024 * 4    // default grpc maximum message size
+		p.MCPInitialConnWindowSize = 1024 * 1024 // default grpc InitialWindowSize
+		p.MCPInitialWindowSize = 1024 * 1024     // default grpc ConnWindowSize
+	})
 
 	loggingOptions = log.DefaultOptions()
 
@@ -84,23 +98,6 @@ var (
 		},
 	}
 )
-
-func initServerArgs(p *bootstrap.PilotArgs) {
-	// fill in missing defaults
-	p.CtrlZOptions = ctrlz.DefaultOptions()
-	p.KeepaliveOptions = keepalive.DefaultOption()
-	// TODO replace with mesh config?
-	p.InjectionOptions = bootstrap.InjectionOptions{
-		InjectionDirectory: "./var/lib/istio/inject",
-	}
-	p.ValidationOptions = bootstrap.ValidationOptions{
-		ValidationDirectory: "./var/lib/istio/validation",
-	}
-
-	p.MCPMaxMessageSize = 1024 * 1024 * 4    // default grpc maximum message size
-	p.MCPInitialConnWindowSize = 1024 * 1024 // default grpc InitialWindowSize
-	p.MCPInitialWindowSize = 1024 * 1024     // default grpc ConnWindowSize
-}
 
 // when we run on k8s, the default trust domain is 'cluster.local', otherwise it is the empty string
 func hasKubeRegistry() bool {

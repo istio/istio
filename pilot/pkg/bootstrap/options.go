@@ -19,8 +19,6 @@ import (
 
 	"istio.io/pkg/env"
 
-	"istio.io/istio/pkg/config/constants"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -140,39 +138,18 @@ var revisionVar = env.RegisterStringVar("REVISION", "", "")
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
 	p := &PilotArgs{}
 
-	// Apply custom initialization functions and apply defaults later.
+	// If the namespace isn't set, try looking it up from the environment.
+	p.Namespace = podNamespaceVar.Get()
+	p.PodName = podNameVar.Get()
+	p.ServiceAccountName = serviceAccountVar.Get()
+	p.Revision = revisionVar.Get()
+	p.KeepaliveOptions = istiokeepalive.DefaultOption()
+	p.Config.ClusterRegistriesNamespace = p.Namespace
+	p.BasePort = 15000
+
+	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
 		fn(p)
 	}
-
-	// If the namespace isn't set, try looking it up from the environment.
-	if p.Namespace == "" {
-		p.Namespace = podNamespaceVar.Get()
-	}
-	if p.PodName == "" {
-		p.PodName = podNameVar.Get()
-	}
-	if p.ServiceAccountName == "" {
-		p.ServiceAccountName = serviceAccountVar.Get()
-	}
-
-	if p.Revision == "" {
-		p.Revision = revisionVar.Get()
-	}
-
-	if p.KeepaliveOptions == nil {
-		p.KeepaliveOptions = istiokeepalive.DefaultOption()
-	}
-	if p.Config.ClusterRegistriesNamespace == "" {
-		if p.Namespace != "" {
-			p.Config.ClusterRegistriesNamespace = p.Namespace
-		} else {
-			p.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
-		}
-	}
-	if p.BasePort == 0 {
-		p.BasePort = 15000
-	}
-
 	return p
 }
