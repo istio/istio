@@ -19,6 +19,7 @@ import (
 	"os"
 	"time"
 
+	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/spiffe"
 
 	"github.com/spf13/cobra"
@@ -87,6 +88,7 @@ var (
 func initServerArgs(p *bootstrap.PilotArgs) {
 	// fill in missing defaults
 	p.CtrlZOptions = ctrlz.DefaultOptions()
+	p.KeepaliveOptions = keepalive.DefaultOption()
 	// TODO replace with mesh config?
 	p.InjectionOptions = bootstrap.InjectionOptions{
 		InjectionDirectory: "./var/lib/istio/inject",

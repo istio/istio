@@ -64,7 +64,7 @@ type ServiceArgs struct {
 	Consul     ConsulArgs
 }
 
-// pilotArgs provides all of the configuration parameters for the Pilot discovery service.
+// PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
 	DiscoveryOptions         DiscoveryServiceOptions
 	InjectionOptions         InjectionOptions
