@@ -135,9 +135,6 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType) *http_conn.
 }
 
 func (a *v1beta1PolicyApplier) AcceptMtls(port uint32) bool {
-	if a.consolidatedPeerPolicy == nil {
-		return true
-	}
 	mode := a.getMutualTLSModeForPort(port)
 	return mode == model.MTLSPermissive || mode == model.MTLSStrict
 }

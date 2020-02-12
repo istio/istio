@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
-	// authnfactory "istio.io/istio/pilot/pkg/security/authn/factory"
 	authnbeta "istio.io/istio/pilot/pkg/security/authn/v1beta1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -390,18 +389,21 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	for k, v := range edsClusters {
 		_, _, hostname, _ := model.ParseSubsetKey(k)
 		_, updated := req.EdsUpdates[string(hostname)]
-		svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-		if !updated && push.NamespaceUpdatedByPeerAuthn(svc.Attributes.Namespace, req) {
-			updated = true
-			if req.EdsUpdates == nil {
-				req.EdsUpdates = map[string]struct{}{}
-			}
-			req.EdsUpdates[string(hostname)] = struct{}{}
-		}
 		if !updated {
-			continue
+			for ns := range push.ServiceByHostnameAndNamespace[hostname] {
+				if push.NamespaceUpdatedByPeerAuthn(ns, req) {
+					updated = true
+					if req.EdsUpdates == nil {
+						req.EdsUpdates = map[string]struct{}{}
+					}
+					req.EdsUpdates[string(hostname)] = struct{}{}
+					break
+				}
+			}
 		}
-		cMap[k] = v
+		if updated {
+			cMap[k] = v
+		}
 	}
 	edsClusterMutex.Unlock()
 
@@ -897,21 +899,22 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 	return out
 }
 
-func endpointAcceptMtls(endpointTlsMap *map[string]bool, push *model.PushContext, ep *model.IstioEndpoint) bool {
+func endpointAcceptMtls(endpointTlsMap map[string]bool, push *model.PushContext, ep *model.IstioEndpoint) bool {
+	// TODO(howardjohn/incfly): consider optimize to avoid repeated json serialization.
 	b, err := json.Marshal(ep.Labels)
 	if err != nil {
 		return true
 	}
 	labelHash := fmt.Sprintf("%x", sha256.Sum256(b))[:8]
-	key := fmt.Sprintf("%v|%v|%v", ep.Attributes.Namespace, labelHash, ep.EndpointPort)
-	accept, exists := (*endpointTlsMap)[key]
+	key := fmt.Sprintf("%v|%v|%v", ep.UID, labelHash, ep.EndpointPort)
+	accept, exists := endpointTlsMap[key]
 	if exists {
 		return accept
 	}
 	out := true
 	defer func() {
 		adsLog.Debugf("Endpoint accept mtls result ep %v, out %v, key %v", *ep, out, key)
-		(*endpointTlsMap)[key] = out
+		endpointTlsMap[key] = out
 	}()
 	ns := ep.Attributes.Namespace
 	decider, ok := authnbeta.NewPolicyApplier(
@@ -961,7 +964,7 @@ func buildLocalityLbEndpointsFromShards(
 			// TODO: investigate the possible race.
 			// https://prow.istio.io/view/gcs/istio-prow/pr-logs/pull/istio_istio/20881/unit-tests_istio/8472
 			ep.EffectiveTlsMode = ep.TLSMode
-			if !endpointAcceptMtls(&tlsMap, push, ep) {
+			if !endpointAcceptMtls(tlsMap, push, ep) {
 				ep.EffectiveTlsMode = model.DisabledTLSModeLabel
 			}
 

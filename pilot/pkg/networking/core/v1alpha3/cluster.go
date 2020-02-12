@@ -208,12 +208,16 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 			// TODO(incfly/diemtvu): do not take service mTLS mode into consideration after mTLS Alpha API is deprecated.
+			// TODO(incfly): refactor these into a single function/method, rather inlined here.
 			serviceMTLSMode := model.MTLSUnknown
 			if !service.MeshExternal {
 				// Only need the authentication MTLS mode when service is not external.
 				policy, _ := push.AuthenticationPolicyForWorkload(service, port)
 				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(policy)
 				// Conservatively set service mode to be Permissive since beta policy can use workload selector.
+				if policy == nil && push.AuthnBetaPolicies == nil {
+					serviceMTLSMode = model.MTLSPermissive
+				}
 				if push.AuthnBetaPolicies != nil &&
 					push.AuthnBetaPolicies.MightAffectNamespaceByPeerAuthn(service.Attributes.Namespace) {
 					serviceMTLSMode = model.MTLSPermissive

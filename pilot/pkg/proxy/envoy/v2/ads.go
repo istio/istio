@@ -611,7 +611,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
-	if !req.Full || req.NamespaceUpdatedByPeerAuthn != nil {
+	if !req.Full {
 		s.edsIncremental(version, req.Push, req)
 		return
 	}

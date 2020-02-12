@@ -831,7 +831,6 @@ func (s *Server) initEventHandlers() error {
 					pushReq.NamespaceUpdatedByPeerAuthn = map[string]struct{}{}
 				}
 				pushReq.NamespaceUpdatedByPeerAuthn[curr.Namespace] = struct{}{}
-				log.Infof("incfly bootstrap.go/handler peer authn, ns %v\n%v", curr.Namespace, curr)
 			}
 
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
