@@ -26,6 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/security/pkg/nodeagent/util"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -121,6 +123,8 @@ type sdsservice struct {
 	localJWT bool
 
 	jwtPath string
+
+	outputKeyCertToDir string
 }
 
 // ClientDebug represents a single SDS connection to the ndoe agent
@@ -143,18 +147,19 @@ type Debug struct {
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
 func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool,
-	recycleInterval time.Duration, jwtPath string) *sdsservice {
+	recycleInterval time.Duration, jwtPath, outputKeyCertToDir string) *sdsservice {
 	if st == nil {
 		return nil
 	}
 
 	ret := &sdsservice{
-		st:             st,
-		skipToken:      skipTokenVerification,
-		tickerInterval: recycleInterval,
-		closing:        make(chan bool),
-		localJWT:       localJWT,
-		jwtPath:        jwtPath,
+		st:                 st,
+		skipToken:          skipTokenVerification,
+		tickerInterval:     recycleInterval,
+		closing:            make(chan bool),
+		localJWT:           localJWT,
+		jwtPath:            jwtPath,
+		outputKeyCertToDir: outputKeyCertToDir,
 	}
 
 	go ret.clearStaledClientsJob()
@@ -327,6 +332,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					"secret cache: %v", conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
+			if err = util.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
+				secret.CertificateChain, secret.RootCert); err != nil {
+				sdsServiceLog.Errorf("(%v, %v) error when output the key and cert: %v",
+					conIDresourceNamePrefix, discReq.Node.Id, err)
+				return err
+			}
 
 			// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
 			// and cause some confusing logs like 'fails to notify because connection isn't found'.
@@ -405,6 +416,12 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	secret, err := s.st.GenerateSecret(ctx, connID, resourceName, token)
 	if err != nil {
 		sdsServiceLog.Errorf("Failed to get secret for proxy %q from secret cache: %v", connID, err)
+		return nil, err
+	}
+	if err = util.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
+		secret.CertificateChain, secret.RootCert); err != nil {
+		sdsServiceLog.Errorf("(%v) error when output the key and cert: %v",
+			connID, err)
 		return nil, err
 	}
 	return sdsDiscoveryResponse(secret, resourceName)

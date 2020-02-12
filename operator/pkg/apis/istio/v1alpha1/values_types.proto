@@ -1403,6 +1403,13 @@ message PrometheusConfig {
   TypeMapStringInterface podAnnotations = 18 [deprecated=true];
 
   string image = 19 [deprecated=true];
+
+  // Configure whether provisions a certificate to Prometheus through Istio Agent.
+  // When this option is set as true, a sidecar is deployed along Prometheus to
+  // provision a certificate through Istio Agent to Prometheus. The provisioned certificate
+  // is shared with Prometheus through mounted files.
+  // When this option is set as false, this certificate provisioning mechanism is disabled.
+  google.protobuf.BoolValue  provisionPrometheusCert = 20;
 }
 
 // Configuration for Prometheus adapter in mixer.
