@@ -21,21 +21,23 @@ import (
 	"istio.io/istio/tests/common/jwt"
 )
 
-// TODO(diemtvu): remove this test suite. This has been already modernize and well covered
-// under ./tests/integration/security/
-func TestMTlsWithAlphaAuthNPolicy(t *testing.T) {
+func TestMTlsWithAuthNPolicy(t *testing.T) {
 	if tc.Kube.AuthEnabled {
 		// mTLS is now enabled via CRDs, so this test is no longer needed (and could cause trouble due
 		// to conflicts of policies)
 		// The whole authn test suites should be rewritten after PR #TBD for better consistency.
 		t.Skipf("Skipping %s: authn=true", t.Name())
 	}
-	// Add global alpha mesh policy to enable mTLS. There should not be no beta nor alpha added
-	// in the test setup, so nothing need to be removed.
+	// Define the default permissive global mesh resource.
+	globalPermissive := resource{
+		Kind: "MeshPolicy",
+		Name: "default",
+	}
+	// This policy will remove the permissive policy and enable mTLS mesh policy.
 	globalCfg := &deployableConfig{
 		Namespace:  "", // Use blank for cluster CRD.
 		YamlFiles:  []string{"testdata/authn/v1alpha1/global-mtls.yaml.tmpl"},
-		Removes:    nil,
+		Removes:    []resource{globalPermissive},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	// This policy disable mTLS for c and d:80.
