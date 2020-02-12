@@ -101,6 +101,8 @@ func (sink *Sink) handleResponse(resources *mcp.Resources) *mcp.RequestResources
 		defer handleResponseDoneProbe()
 	}
 
+	sink.reporter.RecordMessageSize(resources.Collection, 0, internal.ProtoSize(resources))
+
 	state, ok := sink.state[resources.Collection]
 	if !ok {
 		errDetails := status.Errorf(codes.Unimplemented, "unsupported collection %v", resources.Collection)
