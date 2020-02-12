@@ -17,6 +17,7 @@ package util
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -73,7 +74,12 @@ func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) er
 	}
 
 	u := jsonpb.Unmarshaler{AllowUnknownFields: allowUnknownField}
+	_, w, _ := os.Pipe()
+	originalStderr := os.Stderr
+	// redirect stderr to prevent bogus `proto: tag has too few fields: "-"` messages
+	os.Stderr = w
 	err = u.Unmarshal(bytes.NewReader(jb), out)
+	os.Stderr = originalStderr
 	if err != nil {
 		return err
 	}
