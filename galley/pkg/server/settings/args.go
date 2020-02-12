@@ -203,7 +203,7 @@ func DefaultArgs() *Args {
 			Path:           defaultReadinessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,
 		},
-		Snapshots:       []string{snapshots.Default, snapshots.SyntheticServiceEntry},
+		Snapshots:       []string{snapshots.Default},
 		TriggerSnapshot: snapshots.Default,
 	}
 }

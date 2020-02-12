@@ -37,11 +37,7 @@ var _ analysis.Analyzer = &ValidationAnalyzer{}
 func AllValidationAnalyzers() []analysis.Analyzer {
 	result := make([]analysis.Analyzer, 0)
 	collections.Istio.ForEach(func(s collection.Schema) (done bool) {
-		// Skip synthetic service entries
-		// See https://github.com/istio/istio/issues/17949
-		if s.Name() != collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name() {
-			result = append(result, &ValidationAnalyzer{s: s})
-		}
+		result = append(result, &ValidationAnalyzer{s: s})
 		return
 	})
 	return result

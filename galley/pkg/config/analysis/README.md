@@ -42,7 +42,7 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
     // The context object has several functions that let you access the configuration resources
     // in the current snapshot. The available collections, and how they map to k8s resources,
     // are defined in galley/pkg/config/schema/metadata.yaml
-    // Available resources are listed under the "localAnalysis" and "syntheticServiceEntry" snapshots in that file.
+    // Available resources are listed under the "localAnalysis" snapshot in that file.
     c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name, func(r *resource.Instance) bool {
         s.analyzeVirtualService(r, c)
         return true

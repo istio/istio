@@ -125,7 +125,7 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 		StatusUpdater:      u,
 		Analyzer:           analysis.Combine("testCombined", a),
 		Distributor:        d,
-		AnalysisSnapshots:  []string{snapshots.Default, snapshots.SyntheticServiceEntry},
+		AnalysisSnapshots:  []string{snapshots.Default},
 		TriggerSnapshot:    snapshots.Default,
 		CollectionReporter: cr,
 		AnalysisNamespaces: []resource.Namespace{"includedNamespace"},
@@ -134,24 +134,20 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 
 	schemaA := newSchema("a")
 	schemaB := newSchema("b")
-	schemaC := newSchema("c")
 	schemaD := newSchema("d")
 
 	sDefault := getTestSnapshot(schemaA, schemaB)
-	sSynthetic := getTestSnapshot(schemaC)
 	sOther := getTestSnapshot(schemaA, schemaD)
 
-	ad.Distribute(snapshots.SyntheticServiceEntry, sSynthetic)
 	ad.Distribute(snapshots.Default, sDefault)
 	ad.Distribute("other", sOther)
 
 	// Assert we sent every received snapshot to the distributor
-	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(snapshots.SyntheticServiceEntry) }).Should(Equal(sSynthetic))
 	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(snapshots.Default) }).Should(Equal(sDefault))
 	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot("other") }).Should(Equal(sOther))
 
 	// Assert we triggered analysis only once, with the expected combination of snapshots
-	sCombined := getTestSnapshot(schemaA, schemaB, schemaC)
+	sCombined := getTestSnapshot(schemaA, schemaB)
 	g.Eventually(a.getAnalyzeCalls).Should(ConsistOf(sCombined))
 
 	// Verify the collection reporter hook was called
