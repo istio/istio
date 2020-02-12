@@ -91,17 +91,17 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		}
 		p.Config = bootstrap.ConfigArgs{
 			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
+			// Static testdata, should include all configs we want to test.
+			FileDir: env.IstioSrc + "/tests/testdata/config",
 		}
 		p.MeshConfig = &meshConfig
 		p.MCPMaxMessageSize = 1024 * 1024 * 4
 		p.KeepaliveOptions = keepalive.DefaultOption()
 		p.ForceStop = true
+
 		// TODO: add the plugins, so local tests are closer to reality and test full generation
 		// Plugins:           bootstrap.DefaultPlugins,
 	})
-
-	// Static testdata, should include all configs we want to test.
-	args.Config.FileDir = env.IstioSrc + "/tests/testdata/config"
 
 	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
 
