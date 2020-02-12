@@ -39324,7 +39324,7 @@ componentMaps:
     SkipReverseTranslate: true
   Pilot:
     ResourceType:         "Deployment"
-    ResourceName:         "istio-pilot"
+    ResourceName:         "istiod"
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"
