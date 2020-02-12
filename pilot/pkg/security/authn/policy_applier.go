@@ -35,7 +35,4 @@ type PolicyApplier interface {
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.
 	AuthNFilter(proxyType model.NodeType) *http_conn.HttpFilter
-
-	// IsBetaPeerPolicyEnabled returns true if the beta peer authentication policy is enabled for the given workload.
-	IsBetaPeerPolicyEnabled() bool
 }

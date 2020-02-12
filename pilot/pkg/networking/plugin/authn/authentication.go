@@ -111,11 +111,8 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.Mutab
 
 // OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
 func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	// Pass nil for ServiceInstance so that we never consider any alpha policy for the pass through filter chain.
 	applier := factory.NewPolicyApplier(in.Push, nil /* ServiceInstance */, in.Node.Metadata.Namespace, in.Node.WorkloadLabels)
-	if applier.IsBetaPeerPolicyEnabled() {
-		// Only update the pass through filter chain if there is any beta policy for the workload.
-		// Pass 0 for endpointPort so that it never matches any port-level policy.
-		return applier.InboundFilterChain(0, in.Push.Mesh.SdsUdsPath, in.Node)
-	}
-	return nil
+	// Pass 0 for endpointPort so that it never matches any port-level policy.
+	return applier.InboundFilterChain(0, in.Push.Mesh.SdsUdsPath, in.Node)
 }
