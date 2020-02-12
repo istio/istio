@@ -440,6 +440,13 @@ var (
 		"Duplicate envoy clusters caused by service entries with same hostname",
 	)
 
+	// DNSNoEndpointClusters tracks dns clusters without endpoints
+	DNSNoEndpointClusters = monitoring.NewGauge(
+		"pilot_dns_cluster_without_endpoints",
+		"DNS clusters without endpoints caused by the endpoint field in "+
+			"STRICT_DNS type cluster is not set or the corresponding subset cannot select any endpoint",
+	)
+
 	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
 	ProxyStatusClusterNoInstances = monitoring.NewGauge(
 		"pilot_eds_no_instances",
