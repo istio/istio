@@ -42,11 +42,11 @@ var stsServerAddress string
 // token exchange plugin, a mock authorization server for token service, and
 // verifies STS flows.
 func TestStsFlow(t *testing.T) {
-	stsServer, mockBackend, clients := setUpTestComponents(t)
+	stsServer, mockBackend, clients := setUpTestComponents(t, testSetUp{})
 	defer tearDownTest(t, stsServer, mockBackend)
 
-	federatedTokenReceivedTime := time.Time{}.String()
-	accessTokenReceivedTime := time.Time{}.String()
+	federatedTokenReceivedTime := time.Time{}
+	accessTokenReceivedTime := time.Time{}
 	for i := 0; i < numClient; i++ {
 		resp, err := sendHTTPRequestWithRetry(clients[i], genStsReq(t))
 		if err != nil {
@@ -63,6 +63,43 @@ func TestStsFlow(t *testing.T) {
 	}
 }
 
+// TestStsCache enables caching at token exchange plugin, which will return cached token if that token
+// is not going to expire soon.
+func TestStsCache(t *testing.T) {
+	stsServer, mockBackend, clients := setUpTestComponents(t, testSetUp{enableCache: true, enableDynamicToken: true})
+	defer tearDownTest(t, stsServer, mockBackend)
+
+	accessToken := ""
+	for i := 0; i < numClient; i++ {
+		resp, err := sendHTTPRequestWithRetry(clients[i], genStsReq(t))
+		if err != nil {
+			t.Fatalf("client %d: failure in sending STS request: %v", i, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("response HTTP status code does not match, get %d vs expected %d",
+				resp.StatusCode, http.StatusOK)
+		}
+		body, _ := ioutil.ReadAll(resp.Body)
+		respStsParam := &stsservice.StsResponseParameters{}
+		json.Unmarshal(body, respStsParam)
+		if i == 0 {
+			accessToken = respStsParam.AccessToken
+		}
+		if i > 0 {
+			if accessToken != respStsParam.AccessToken {
+				t.Errorf("cached token is not in use")
+			}
+		}
+		resp.Body.Close()
+	}
+	if mockBackend.NumGetFederatedTokenCalls() != 1 {
+		t.Errorf("Number of get federated token API calls does not match, expected 1 but got %d", mockBackend.NumGetFederatedTokenCalls())
+	}
+	if mockBackend.NumGetAccessTokenCalls() != 1 {
+		t.Errorf("Number of get access token API calls does not match, expected 1 but got %d", mockBackend.NumGetAccessTokenCalls())
+	}
+}
+
 func genDumpReq(t *testing.T) (req *http.Request) {
 	dumpURL := "http://" + stsServerAddress + stsServer.StsStatusPath
 	req, _ = http.NewRequest("GET", dumpURL, nil)
@@ -75,7 +112,7 @@ func genDumpReq(t *testing.T) (req *http.Request) {
 // verifyDumpResponse parses token info from dump response, and verifies that
 // issue time of federated token and access token have updated by comparing them
 // with oldFTime and oldATime, and returns new issue time of federated token and access token.
-func verifyDumpResponse(t *testing.T, resp *http.Response, oldFTime, oldATime string) (newFTime, newATime string) {
+func verifyDumpResponse(t *testing.T, resp *http.Response, oldFTime, oldATime time.Time) (newFTime, newATime time.Time) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("response HTTP status code does not match, get %d vs expected %d",
 			resp.StatusCode, http.StatusOK)
@@ -161,16 +198,22 @@ func sendHTTPRequestWithRetry(client *http.Client, req *http.Request) (resp *htt
 	return resp, err
 }
 
+type testSetUp struct {
+	enableCache        bool
+	enableDynamicToken bool
+}
+
 // setUpTest sets up components for the STS flow, including a STS server, a
 // token manager, and an authorization server.
-func setUpTestComponents(t *testing.T) (*stsServer.Server, *mock.AuthorizationServer, []*http.Client) {
+func setUpTestComponents(t *testing.T, setup testSetUp) (*stsServer.Server, *mock.AuthorizationServer, []*http.Client) {
 	// Create mock authorization server
 	mockServer, err := mock.StartNewServer(t, mock.Config{Port: 0})
+	mockServer.EnableDynamicAccessToken(setup.enableDynamicToken)
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
 	// Create token exchange Google plugin
-	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL)
+	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, setup.enableCache)
 	federatedTokenTestingEndpoint := mockServer.URL + "/v1/identitybindingtoken"
 	accessTokenTestingEndpoint := mockServer.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)
