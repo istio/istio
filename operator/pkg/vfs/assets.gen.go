@@ -13799,9 +13799,11 @@ spec:
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
           volumeMounts:
+{{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+{{- end }}
 {{- if .Values.pilot.jwksResolverExtraRootCA }}
           - name: extracacerts
             mountPath: /cacerts
@@ -13876,7 +13878,7 @@ spec:
       - name: pilot-envoy-config
         configMap:
           name: pilot-envoy-config{{ .Values.version }}
-  {{- if .Values.global.controlPlaneSecurityEnabled}}
+  {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account

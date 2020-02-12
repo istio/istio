@@ -7444,10 +7444,6 @@ spec:
       - name: pilot-envoy-config
         configMap:
           name: pilot-envoy-config
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-pilot-service-account
-          optional: true
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
