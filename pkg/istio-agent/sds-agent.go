@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/security/pkg/nodeagent/util"
+
 	"istio.io/istio/pkg/config/constants"
 
 	"istio.io/istio/pilot/pkg/security/model"
@@ -161,6 +163,9 @@ type SDSAgent struct {
 
 	// PilotCertProvider is the provider of the Pilot certificate
 	PilotCertProvider string
+
+	// OutputKeyCertToDir is the directory for output the key and certificate
+	OutputKeyCertToDir string
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -171,10 +176,11 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath string) *SDSAgent {
+func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir string) *SDSAgent {
 	ac := &SDSAgent{}
 
 	ac.PilotCertProvider = pilotCertProvider
+	ac.OutputKeyCertToDir = outputKeyCertToDir
 
 	discHost, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
@@ -236,6 +242,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	serverOptions.WorkloadUDSPath = LocalSDS
 	serverOptions.UseLocalJWT = true
 	serverOptions.JWTPath = conf.JWTPath
+	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
 
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := newSecretCache(serverOptions)
@@ -261,9 +268,10 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	// we fail to load SDS
 	fail := conf.RequireCerts && conf.CertsPath == ""
 
+	var privateKey, certChain, rootCert []byte
 	tok, err := ioutil.ReadFile(conf.JWTPath)
 	if err != nil && fail {
-		log.Fatala("Failed to read token", err)
+		log.Fatala("Failed to read token: ", err)
 	} else {
 		si, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "default",
 			string(tok))
@@ -288,6 +296,8 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 			if err != nil {
 				log.Fatalf("Failed to write certs: %v", err)
 			}
+			privateKey = si.PrivateKey
+			certChain = si.CertificateChain
 		}
 		sir, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "ROOTCA",
 			string(tok))
@@ -306,9 +316,16 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 			if err != nil {
 				log.Fatalf("Failed to write certs: %v", err)
 			}
+			rootCert = sir.RootCert
 		}
 	}
 
+	if privateKey != nil && certChain != nil && rootCert != nil {
+		if err = util.OutputKeyCertToDir(serverOptions.OutputKeyCertToDir, privateKey, certChain, rootCert); err != nil {
+			log.Errorf("Failed to output the key and cert: %v", err)
+			return nil, err
+		}
+	}
 	server, err := sds.NewServer(serverOptions, workloadSecretCache, gatewaySecretCache)
 	if err != nil {
 		return nil, err
