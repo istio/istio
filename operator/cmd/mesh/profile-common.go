@@ -262,25 +262,12 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 // overlayValuesEnablement overlays any enablement in values path from the user file overlay or set flag overlay.
 // The overlay is translated from values to the corresponding addonComponents enablement paths.
 func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (string, error) {
-	fyt, err := translate.YAMLTree(fileOverlayYAML, fileOverlayYAML, translate.LegacyAddonComponentPathMap)
-	if err != nil {
-		return "", fmt.Errorf("error translating addon components enablement from values of overlay files: %v", err)
-	}
-	// Merge base and overlay.
-	mergedYAML, err := util.OverlayYAML(baseYAML, fyt)
+	overlayYAML, err := util.OverlayYAML(fileOverlayYAML, setOverlayYAML)
 	if err != nil {
 		return "", fmt.Errorf("could not overlay user config over base: %s", err)
 	}
 
-	syt, err := translate.YAMLTree(setOverlayYAML, setOverlayYAML, translate.LegacyAddonComponentPathMap)
-	if err != nil {
-		return "", fmt.Errorf("error translating addon components enablement from values of set overlay: %v", err)
-	}
-	mergedYAML, err = util.OverlayYAML(mergedYAML, syt)
-	if err != nil {
-		return "", fmt.Errorf("could not overlay user config over base: %s", err)
-	}
-	return mergedYAML, nil
+	return translate.YAMLTree(overlayYAML, baseYAML, name.ValuesEnablementPathMap)
 }
 
 // unmarshalAndValidateIOPS unmarshals a string containing IstioOperator YAML, validates it, and returns a struct
