@@ -6449,6 +6449,8 @@ metadata:
     release: istio
 ---
 
+# EgressGateways istio-egressgateway component is disabled.
+
 # Galley component is disabled.
 
 # Resources for IngressGateways component
