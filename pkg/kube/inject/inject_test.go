@@ -303,6 +303,16 @@ values:
     - "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
   `,
 		},
+		{
+			// Verifies that global.mountMtlsCerts is applied properly
+			in:   "hello.yaml",
+			want: "hello-mount-mtls-certs.yaml.injected",
+			values: `
+values:
+  global:
+    mountMtlsCerts: true
+  `,
+		},
 	}
 
 	for i, c := range cases {
