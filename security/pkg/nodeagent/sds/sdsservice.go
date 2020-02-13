@@ -296,7 +296,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
-			if discReq.VersionInfo != "" && s.st.SecretExist("bootstrap", resourceName, token, discReq.VersionInfo) {
+			if con.secret != nil && discReq.VersionInfo == con.secret.Version {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
 					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail)
@@ -447,12 +447,18 @@ func clearStaledClients() {
 func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
 	conIDresourceNamePrefix := sdsLogPrefix(connKey.ResourceName)
 	sdsClientsMutex.Lock()
-	conn := sdsClients[connKey]
+	var conn *sdsConnection
+	for _, c := range sdsClients {
+		if c.ResourceName == connKey.ResourceName {
+			conn = c
+			break
+		}
+	}
 	if conn == nil {
 		sdsClientsMutex.Unlock()
-		sdsServiceLog.Errorf("%s NotifyProxy failed. No connection with id %q can be found",
-			conIDresourceNamePrefix, connKey.ConnectionID)
-		return fmt.Errorf("no connection with id %q can be found", connKey.ConnectionID)
+		sdsServiceLog.Errorf("%s NotifyProxy failed. No connection for %q can be found",
+			conIDresourceNamePrefix, connKey.ResourceName)
+		return fmt.Errorf("no connection for %q can be found", connKey.ResourceName)
 	}
 	conn.mutex.Lock()
 	conn.secret = secret
