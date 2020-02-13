@@ -1,8 +1,9 @@
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot{{ .Values.version }}
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -13,10 +14,11 @@ spec:
   selector:
     matchLabels:
       app: pilot
-      {{- if ne .Values.version ""}}
-      version: {{ .Values.version }}
+      {{- if ne .Values.revision ""}}
+      version: {{ .Values.revision }}
       {{- end }}
       release: {{ .Release.Name }}
       istio: pilot
 ---
+{{- end }}
 {{- end }}

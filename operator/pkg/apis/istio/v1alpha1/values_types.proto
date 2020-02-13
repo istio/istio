@@ -2216,6 +2216,7 @@ message Values {
 
   KialiConfig kiali = 15;
 
+  // Deprecated.
   string version = 16;
 
   google.protobuf.BoolValue clusterResources = 17;
@@ -2225,6 +2226,9 @@ message Values {
   CNIConfig istio_cni = 19;
 
   google.protobuf.BoolValue kustomize = 20;
+
+  string revision = 21;
+
 }
 
 // GOTYPE: map[string]interface{}

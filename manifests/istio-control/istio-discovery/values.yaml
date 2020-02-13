@@ -191,3 +191,6 @@ telemetry:
       #  disable_server_access_logging: false
       #  meshEdgesReportingDuration: 500s
       #  disable_host_header_fallback: true
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
