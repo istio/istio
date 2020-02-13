@@ -239,7 +239,3 @@ func SDSTokenPath(value string) Instance {
 func PilotCertProvider(value string) Instance {
 	return newOption("pilot_cert_provider", value)
 }
-
-func STSPort(value int) Instance {
-	return newOption("sts_port", value)
-}

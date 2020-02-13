@@ -146,6 +146,12 @@ const (
 
 	// IstioMutualTLSModeLabel implies that the endpoint is ready to receive Istio mTLS connections.
 	IstioMutualTLSModeLabel = "istio"
+
+	// IstioCanonicalServiceLabelName is the name of label for the Istio Canonical Service for a workload instance.
+	IstioCanonicalServiceLabelName = "service.istio.io/canonical-name"
+
+	// IstioCanonicalServiceRevisionLabelName is the name of label for the Istio Canonical Service revision for a workload instance.
+	IstioCanonicalServiceRevisionLabelName = "service.istio.io/canonical-revision"
 )
 
 // Port represents a network port where a service is listening for

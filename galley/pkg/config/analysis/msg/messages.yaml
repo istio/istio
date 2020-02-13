@@ -59,15 +59,15 @@ messages:
       - name: port
         type: int
   
-  - name: "IstioProxyVersionMismatch"
+  - name: "IstioProxyImageMismatch"
     code: IST0105
     level: Warning
-    description: "The version of the Istio proxy running on the pod does not match the version used by the istio injector."
-    template: "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod."
+    description: "The image of the Istio proxy running on the pod does not match the image defined in the injection configuration."
+    template: "The image of the Istio proxy running on the pod does not match the image defined in the injection configuration (pod image: %s; injection configuration image: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod."
     args:
-      - name: proxyVersion
+      - name: proxyImage
         type: string
-      - name: injectionVersion
+      - name: injectionImage
         type: string
 
   - name: "SchemaValidationError"
@@ -202,9 +202,6 @@ messages:
     level: Warning
     description: "The resulting pods of a service mesh deployment must be associated with at least one service."
     template: "No service associated with this deployment. Service mesh deployments must be associated with a service."
-    args:
-      - name: deployment
-        type: string
 
   - name: "PortNameIsNotUnderNamingConvention"
     code: IST0118

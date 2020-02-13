@@ -69,7 +69,9 @@ type PilotArgs struct {
 	DiscoveryOptions         DiscoveryServiceOptions
 	InjectionOptions         InjectionOptions
 	ValidationOptions        ValidationOptions
+	PodName                  string
 	Namespace                string
+	Revision                 string
 	ServiceAccountName       string
 	Mesh                     MeshArgs
 	Config                   ConfigArgs
@@ -129,7 +131,10 @@ type ValidationOptions struct {
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
 var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
+
+var revisionVar = env.RegisterStringVar("REVISION", "", "")
 
 // Apply default value to PilotArgs
 func (p *PilotArgs) Default() {
@@ -137,8 +142,15 @@ func (p *PilotArgs) Default() {
 	if p.Namespace == "" {
 		p.Namespace = podNamespaceVar.Get()
 	}
+	if p.PodName == "" {
+		p.PodName = podNameVar.Get()
+	}
 	if p.ServiceAccountName == "" {
 		p.ServiceAccountName = serviceAccountVar.Get()
+	}
+
+	if p.Revision == "" {
+		p.Revision = revisionVar.Get()
 	}
 
 	if p.KeepaliveOptions == nil {

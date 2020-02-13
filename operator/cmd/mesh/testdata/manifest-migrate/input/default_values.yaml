@@ -155,7 +155,7 @@ gateways:
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
 sidecarInjectorWebhook:
-  enabled: true
+  enabled: false
   replicaCount: 1
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
@@ -268,8 +268,6 @@ pilot:
     ingressService: istio-ingressgateway
     ingressControllerMode: "OFF"
     ingressClass: istio
-  telemetry:
-    enabled: true
   policy:
     enabled: false
   useMCP: true
@@ -463,7 +461,6 @@ kiali:
     viewOnlyMode: false 
     grafanaURL:  
     jaegerURL:  
-  prometheusAddr: http://prometheus:9090
   createDemoSecret: false
   security:
     enabled: true
@@ -510,14 +507,6 @@ global:
     gatewayName: ingressgateway
     enableHttps: false
   proxy:
-    init:
-      resources:
-        limits:
-          cpu: 100m
-          memory: 50Mi
-        requests:
-          cpu: 10m
-          memory: 10Mi
     image: proxyv2
     clusterDomain: "cluster.local"
     resources:
@@ -552,7 +541,6 @@ global:
     protocolDetectionTimeout: 10ms
     privileged: false
     enableCoreDump: false
-    enableCoreDumpImage: ubuntu:xenial
     statusPort: 15020
     readinessInitialDelaySeconds: 1
     readinessPeriodSeconds: 2
@@ -575,6 +563,13 @@ global:
     tracer: "zipkin"
   proxy_init:
     image: proxy_init
+    resources:
+      limits:
+        cpu: 100m
+        memory: 50Mi
+      requests:
+        cpu: 10m
+        memory: 10Mi
   imagePullPolicy: IfNotPresent
   controlPlaneSecurityEnabled: false
   disablePolicyChecks: true

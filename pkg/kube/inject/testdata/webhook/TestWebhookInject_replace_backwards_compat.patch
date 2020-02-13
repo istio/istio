@@ -73,5 +73,15 @@
     "value": {
       "security.istio.io/tlsMode": "istio"
     }
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels/service.istio.io~1canonical-name",
+    "value": "replace-backwards-compat"
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels/service.istio.io~1canonical-revision",
+    "value": "latest"
   }
 ]

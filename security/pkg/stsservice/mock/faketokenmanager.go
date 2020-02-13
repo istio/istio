@@ -83,8 +83,8 @@ func (tm *FakeTokenManager) GenerateToken(_ stsservice.StsRequestParameters) ([]
 	t := time.Now()
 	tm.tokens.Store(t.String(), stsservice.TokenInfo{
 		TokenType:  stsResp.TokenType,
-		IssueTime:  t.String(),
-		ExpireTime: t.Add(time.Duration(stsResp.ExpiresIn) * time.Second).String(),
+		IssueTime:  t,
+		ExpireTime: t.Add(time.Duration(stsResp.ExpiresIn) * time.Second),
 	})
 	statusJSON, _ := json.MarshalIndent(stsResp, "", " ")
 	return statusJSON, nil

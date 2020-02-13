@@ -15,11 +15,13 @@
 package manifest
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time" // For kubeclient GCP auth
@@ -46,7 +48,7 @@ import (
 	kubectlutil "k8s.io/kubectl/pkg/util/deployment"
 	"k8s.io/utils/pointer"
 
-	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/name"
@@ -109,8 +111,6 @@ var (
 			name.TelemetryComponentName,
 			name.GalleyComponentName,
 			name.CitadelComponentName,
-			name.NodeAgentComponentName,
-			name.SidecarInjectorComponentName,
 			name.CNIComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
@@ -125,9 +125,12 @@ var (
 	dependencyWaitCh = make(map[name.ComponentName]chan struct{})
 	kubectl          = kubectlcmd.New()
 
-	k8sRESTConfig     *rest.Config
-	currentKubeconfig string
-	currentContext    string
+	k8sRESTConfig           *rest.Config
+	currentKubeconfig       string
+	currentContext          string
+	componentPruneWhiteList = map[name.ComponentName][]string{
+		name.PilotComponentName: {"networking.istio.io/v1alpha3/EnvoyFilter"},
+	}
 )
 
 func init() {
@@ -140,26 +143,19 @@ func init() {
 
 }
 
-// ParseK8SYAMLToIstioOperatorSpec parses a IstioOperator CustomResource YAML string and unmarshals in into
+// ParseK8SYAMLToIstioOperator parses a IstioOperator CustomResource YAML string and unmarshals in into
 // an IstioOperatorSpec object. It returns the object and an API group/version with it.
-func ParseK8SYAMLToIstioOperatorSpec(yml string) (*v1alpha1.IstioOperatorSpec, *schema.GroupVersionKind, error) {
+func ParseK8SYAMLToIstioOperator(yml string) (*iopv1alpha1.IstioOperator, *schema.GroupVersionKind, error) {
 	o, err := object.ParseYAMLToK8sObject([]byte(yml))
 	if err != nil {
 		return nil, nil, err
 	}
-	spec, ok := o.UnstructuredObject().Object["spec"]
-	if !ok {
-		return nil, nil, fmt.Errorf("spec is missing from IstioOperator YAML")
-	}
-	y, err := yaml.Marshal(spec)
-	if err != nil {
-		return nil, nil, err
-	}
-	iop := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(string(y), iop); err != nil {
+	iop := &iopv1alpha1.IstioOperator{}
+	if err := util.UnmarshalWithJSONPB(yml, iop, false); err != nil {
 		return nil, nil, err
 	}
 	gvk := o.GroupVersionKind()
+	iopv1alpha1.SetNamespace(iop.Spec, o.Namespace)
 	return iop, &gvk, nil
 }
 
@@ -223,14 +219,20 @@ func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.V
 	cNode, cFound, err := tpath.GetFromTreePath(yamlObj, cPath)
 	errs = util.AppendErr(errs, err)
 	if cFound {
-		clientVersion, err = goversion.NewVersion(cNode.(string))
+		var cVer string
+		if cVer, err = pkgversion.TagToVersionString(cNode.(string)); err == nil {
+			clientVersion, err = goversion.NewVersion(cVer)
+		}
 		errs = util.AppendErr(errs, err)
 	}
 	sPath := util.ToYAMLPath("serverVersion.gitVersion")
 	sNode, sFound, err := tpath.GetFromTreePath(yamlObj, sPath)
 	errs = util.AppendErr(errs, err)
 	if sFound {
-		serverVersion, err = goversion.NewVersion(sNode.(string))
+		var sVer string
+		if sVer, err = pkgversion.TagToVersionString(sNode.(string)); err == nil {
+			serverVersion, err = goversion.NewVersion(sVer)
+		}
 		errs = util.AppendErr(errs, err)
 	}
 	return clientVersion, serverVersion, errs.ToError()
@@ -353,6 +355,13 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	// Base components include namespaces and CRDs, pruning them will remove user configs, which makes it hard to roll back.
 	if componentName != name.IstioBaseComponentName && opts.Prune == nil {
 		opts.Prune = pointer.BoolPtr(true)
+		pwl, ok := componentPruneWhiteList[componentName]
+		if ok {
+			for _, pw := range pwl {
+				pwa := []string{"--prune-whitelist", pw}
+				opts.ExtraArgs = append(opts.ExtraArgs, pwa...)
+			}
+		}
 	}
 
 	logAndPrint("- Applying manifest for component %s...", componentName)
@@ -380,18 +389,45 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	appliedObjects = append(appliedObjects, crdObjects...)
 
 	// Apply all remaining objects.
-	nonNsCrdObjects := objectsNotInLists(objects, nsObjects, crdObjects)
-	stdout, stderr, err = applyObjects(nonNsCrdObjects, &opts, stdout, stderr)
+	// We sort them by namespace so that we can pass the `-n` to the apply command. This is required for prune to work
+	// See https://github.com/kubernetes/kubernetes/issues/87756 for details
+	namespaces, nonNsCrdObjectsByNamespace := splitByNamespace(objectsNotInLists(objects, nsObjects, crdObjects))
+	var applyErr error
+	for _, ns := range namespaces {
+		nonNsCrdObjects := nonNsCrdObjectsByNamespace[ns]
+		nsOpts := opts
+		nsOpts.Namespace = ns
+		stdout, stderr, err = applyObjects(nonNsCrdObjects, &nsOpts, stdout, stderr)
+		if err != nil {
+			applyErr = fmt.Errorf("error applying object to %v: %v: %v", ns, err, applyErr)
+		}
+		appliedObjects = append(appliedObjects, nonNsCrdObjects...)
+	}
 	mark := "✔"
-	if err != nil {
+	if applyErr != nil {
 		mark = "✘"
 	}
 	logAndPrint("%s Finished applying manifest for component %s.", mark, componentName)
-	if err != nil {
+	if applyErr != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	appliedObjects = append(appliedObjects, nonNsCrdObjects...)
 	return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
+}
+
+// Split objects by namespace, and return a sorted list of keys defining the order they should be applied
+func splitByNamespace(objs object.K8sObjects) ([]string, map[string]object.K8sObjects) {
+	res := map[string]object.K8sObjects{}
+	order := []string{}
+	for _, obj := range objs {
+		if _, f := res[obj.Namespace]; !f {
+			order = append(order, obj.Namespace)
+		}
+		res[obj.Namespace] = append(res[obj.Namespace], obj)
+	}
+	// Sort in alphabetical order. The key thing here is that the clusterwide resources are applied first.
+	// Clusterwide resources have no namespace, so they are sorted first.
+	sort.Strings(order)
+	return order, res
 }
 
 func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
@@ -566,12 +602,12 @@ func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
 				switch cond.Type {
 				case apiextensionsv1beta1.Established:
 					if cond.Status == apiextensionsv1beta1.ConditionTrue {
-						scope.Infof("established CRD %q", crdName)
+						scope.Infof("established CRD %s", crdName)
 						continue descriptor
 					}
 				case apiextensionsv1beta1.NamesAccepted:
 					if cond.Status == apiextensionsv1beta1.ConditionFalse {
-						scope.Warnf("name conflict: %v", cond.Reason)
+						scope.Warnf("name conflict for %v: %v", crdName, cond.Reason)
 					}
 				}
 			}
@@ -689,14 +725,15 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 		}
 		isReady := namespacesReady(namespaces) && podsReady(pods) && deploymentsReady(deployments) && servicesReady(services)
 		if !isReady {
-			logAndPrint("Waiting for resources ready with timeout of %v", opts.WaitTimeout)
+			logAndPrint("  Waiting for resources to become ready...")
 		}
 		return isReady, nil
 	})
 
 	if errPoll != nil {
-		logAndPrint("Failed to wait for resources ready: %v", errPoll)
-		return fmt.Errorf("failed to wait for resources ready: %s", errPoll)
+		msg := fmt.Sprintf("resources not ready after %v: %v", opts.WaitTimeout, errPoll)
+		logAndPrint(msg)
+		return errors.New(msg)
 	}
 	return nil
 }
@@ -748,7 +785,7 @@ func isPodReady(pod *v1.Pod) bool {
 func deploymentsReady(deployments []deployment) bool {
 	for _, v := range deployments {
 		if v.replicaSets.Status.ReadyReplicas < *v.deployment.Spec.Replicas {
-			logAndPrint("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
+			scope.Infof("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
 			return false
 		}
 	}
@@ -872,10 +909,10 @@ func CheckK8sVersion(opts *kubectlcmd.Options) error {
 // checkK8sVersion checks if the client and server versions are supported in CompatibilityMapping
 func checkK8sVersion(vmap *pkgversion.CompatibilityMapping, cVer, sVer *goversion.Version) error {
 	if cVer == nil {
-		return fmt.Errorf("failed to get k8s client version, please check if kubectl is correctly installed")
+		return fmt.Errorf("failed to get Kubernetes client version, please check if kubectl is correctly installed")
 	}
 	if sVer == nil {
-		return fmt.Errorf("failed to get k8s server version, please check if the k8s context is configured")
+		return fmt.Errorf("failed to get Kubernetes server version, please check if the k8s context is configured")
 	}
 	if vmap.K8sClientVersionRange != nil && !vmap.K8sClientVersionRange.Check(cVer) {
 		return fmt.Errorf("failed to meet the requirements of kubectl version for Istio %s: "+

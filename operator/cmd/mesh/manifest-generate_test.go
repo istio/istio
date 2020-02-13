@@ -71,7 +71,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 		},
 		{
 			desc:  "flag_override_values",
-			flags: "-s meshConfig.rootNamespace=control-plane",
+			flags: "-s tag=my-tag",
 		},
 		{
 			desc:      "flag_output",
@@ -88,8 +88,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 		{
 			desc:       "flag_force",
 			diffIgnore: "ConfigMap:*:istio",
-			// FIXME: this test should fail without --force flag.
-			flags: "",
+			flags:      "--force",
 		},
 		{
 			desc:       "flag_output_set_profile",
@@ -115,11 +114,11 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_values",
-			diffSelect: "Deployment:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod",
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istio-pilot, Service:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod, Service:*:istio-pilot",
 		},
 		{
 			desc:       "pilot_merge_meshconfig",
@@ -231,7 +230,7 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := NewLogger(true, os.Stdout, os.Stderr)
-	_, iops, err := genIOPS(nil, "default", "", "", true, nil, l)
+	_, iops, err := GenerateConfig(nil, "", true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}

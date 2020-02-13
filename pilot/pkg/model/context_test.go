@@ -151,6 +151,39 @@ func TestPodPortList(t *testing.T) {
 	}
 }
 
+func TestStringBool(t *testing.T) {
+	cases := []struct {
+		name   string
+		in     string
+		expect string
+	}{
+		{"1", `"1"`, `"true"`},
+		{"0", `"0"`, `"false"`},
+		{"false", `"false"`, `"false"`},
+		{"true", `"true"`, `"true"`},
+		{"invalid input", `"foo"`, ``},
+		{"no quotes", `true`, ``},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			var out model.StringBool
+			if err := json.Unmarshal([]byte(tt.in), &out); err != nil {
+				if tt.expect == "" {
+					return
+				}
+				t.Fatal(err)
+			}
+			b, err := json.Marshal(out)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(string(b), tt.expect) {
+				t.Fatalf("Expected %v, got %v", tt.expect, string(b))
+			}
+		})
+	}
+}
+
 func TestServiceNode(t *testing.T) {
 	cases := []struct {
 		in  *model.Proxy

@@ -445,7 +445,6 @@ var (
 						option.DisableReportCalls(disableInternalTelemetry),
 						option.SDSTokenPath(sdsTokenPath),
 						option.SDSUDSPath(sdsUDSPath),
-						option.STSPort(stsPort),
 					}
 
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
@@ -543,6 +542,7 @@ var (
 				PodIP:               podIP,
 				SDSUDSPath:          sdsUDSPath,
 				SDSTokenPath:        sdsTokenPath,
+				STSPort:             stsPort,
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
@@ -734,7 +734,7 @@ func init() {
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
-	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", "",
+	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
 		"Token provider specific plugin name.")
 	// Flags for proxy configuration
 	values := mesh.DefaultProxyConfig()

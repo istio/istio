@@ -461,6 +461,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// IstioSecurityV1Beta1Peerauthentications describes the collection
+	// istio/security/v1beta1/peerauthentications
+	IstioSecurityV1Beta1Peerauthentications = collection.Builder{
+		Name:         "istio/security/v1beta1/peerauthentications",
+		VariableName: "IstioSecurityV1Beta1Peerauthentications",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "security.istio.io",
+			Kind:          "PeerAuthentication",
+			Plural:        "peerauthentications",
+			Version:       "v1beta1",
+			Proto:         "istio.security.v1beta1.PeerAuthentication",
+			ProtoPackage:  "istio.io/api/security/v1beta1",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidatePeerAuthentication,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// IstioSecurityV1Beta1Requestauthentications describes the collection
 	// istio/security/v1beta1/requestauthentications
 	IstioSecurityV1Beta1Requestauthentications = collection.Builder{
@@ -707,6 +725,23 @@ var (
 			Version:       "v1alpha2",
 			Proto:         "google.protobuf.Struct",
 			ProtoPackage:  "github.com/gogo/protobuf/types",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SCoreV1Configmaps describes the collection k8s/core/v1/configmaps
+	K8SCoreV1Configmaps = collection.Builder{
+		Name:         "k8s/core/v1/configmaps",
+		VariableName: "K8SCoreV1Configmaps",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "",
+			Kind:          "ConfigMap",
+			Plural:        "configmaps",
+			Version:       "v1",
+			Proto:         "k8s.io.api.core.v1.ConfigMap",
+			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -1030,6 +1065,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SSecurityIstioIoV1Beta1Peerauthentications describes the collection
+	// k8s/security.istio.io/v1beta1/peerauthentications
+	K8SSecurityIstioIoV1Beta1Peerauthentications = collection.Builder{
+		Name:         "k8s/security.istio.io/v1beta1/peerauthentications",
+		VariableName: "K8SSecurityIstioIoV1Beta1Peerauthentications",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "security.istio.io",
+			Kind:          "PeerAuthentication",
+			Plural:        "peerauthentications",
+			Version:       "v1beta1",
+			Proto:         "istio.security.v1beta1.PeerAuthentication",
+			ProtoPackage:  "istio.io/api/security/v1beta1",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidatePeerAuthentication,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SSecurityIstioIoV1Beta1Requestauthentications describes the
 	// collection k8s/security.istio.io/v1beta1/requestauthentications
 	K8SSecurityIstioIoV1Beta1Requestauthentications = collection.Builder{
@@ -1075,6 +1128,7 @@ var (
 		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
 		MustAdd(IstioRbacV1Alpha1Serviceroles).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
+		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
 		MustAdd(K8SAppsV1Deployments).
 		MustAdd(K8SAuthenticationIstioIoV1Alpha1Meshpolicies).
@@ -1089,6 +1143,7 @@ var (
 		MustAdd(K8SConfigIstioIoV1Alpha2Quotaspecs).
 		MustAdd(K8SConfigIstioIoV1Alpha2Rules).
 		MustAdd(K8SConfigIstioIoV1Alpha2Templates).
+		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
 		MustAdd(K8SCoreV1Namespaces).
 		MustAdd(K8SCoreV1Nodes).
@@ -1107,6 +1162,7 @@ var (
 		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
 		MustAdd(K8SRbacIstioIoV1Alpha1Serviceroles).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
+		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
 		Build()
 
@@ -1137,6 +1193,7 @@ var (
 		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
 		MustAdd(IstioRbacV1Alpha1Serviceroles).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
+		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
 		Build()
 
@@ -1155,6 +1212,7 @@ var (
 		MustAdd(K8SConfigIstioIoV1Alpha2Quotaspecs).
 		MustAdd(K8SConfigIstioIoV1Alpha2Rules).
 		MustAdd(K8SConfigIstioIoV1Alpha2Templates).
+		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
 		MustAdd(K8SCoreV1Namespaces).
 		MustAdd(K8SCoreV1Nodes).
@@ -1173,6 +1231,7 @@ var (
 		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
 		MustAdd(K8SRbacIstioIoV1Alpha1Serviceroles).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
+		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
 		Build()
 
@@ -1195,6 +1254,7 @@ var (
 		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
 		MustAdd(IstioRbacV1Alpha1Serviceroles).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
+		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
 		Build()
 )

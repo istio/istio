@@ -21,8 +21,9 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 
 	"istio.io/istio/operator/pkg/helm"
@@ -32,7 +33,6 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/version"
-	"istio.io/pkg/log"
 	buildversion "istio.io/pkg/version"
 )
 
@@ -45,7 +45,7 @@ type operatorInitArgs struct {
 	operatorNamespace string
 	// istioNamespace is the namespace Istio is installed into.
 	istioNamespace string
-	// inFilename is the path to the input IstioOperator CR.
+	// inFilenames is the path to the input IstioOperator CR.
 	inFilename string
 
 	// kubeConfigPath is the path to kube config file.
@@ -102,7 +102,7 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 		Long:  "The init subcommand installs the Istio operator controller in the cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			operatorInit(rootArgs, oiArgs, l, defaultManifestApplier)
 		}}
 }
@@ -124,7 +124,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 		l.logAndFatal(err)
 	}
 
-	log.Infof("Using the following manifest to install operator:\n%s\n", mstr)
+	scope.Infof("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,
@@ -134,13 +134,9 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 		Kubeconfig:  oiArgs.kubeConfigPath,
 		Context:     oiArgs.context,
 	}
-	kubeconfig, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context)
-	if err != nil {
-		l.logAndFatal(err)
-	}
 
 	// If CR was passed, we must create a namespace for it and install CR into it.
-	customResource, istioNamespace, err := getCRAndNamespaceFromFile(oiArgs.inFilename, kubeconfig, l)
+	customResource, istioNamespace, err := getCRAndNamespaceFromFile(oiArgs.inFilename, l)
 	if err != nil {
 		l.logAndFatal(err)
 	}
@@ -196,16 +192,12 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 	return success
 }
 
-func getCRAndNamespaceFromFile(filePath string, kubeconfig *rest.Config, l *Logger) (customResource string, istioNamespace string, err error) {
+func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource string, istioNamespace string, err error) {
 	if filePath == "" {
 		return "", "", nil
 	}
 
-	mergedYAML, err := genProfile(false, []string{filePath}, "", "", "", true, kubeconfig, l)
-	if err != nil {
-		return "", "", err
-	}
-	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, true, l)
+	_, mergedIOPS, err := GenerateConfig([]string{filePath}, "", false, nil, l)
 	if err != nil {
 		return "", "", err
 	}
@@ -215,7 +207,7 @@ func getCRAndNamespaceFromFile(filePath string, kubeconfig *rest.Config, l *Logg
 		return "", "", fmt.Errorf("could not read values from file %s: %s", filePath, err)
 	}
 	customResource = string(b)
-	istioNamespace = mergedIOPS.MeshConfig.RootNamespace
+	istioNamespace = v1alpha1.Namespace(mergedIOPS)
 	return
 }
 
@@ -252,7 +244,7 @@ tag: {{.Tag}}
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Installing operator charts with the following values:\n%s", vals)
+	scope.Infof("Installing operator charts with the following values:\n%s", vals)
 	return r.RenderManifest(vals)
 }
 

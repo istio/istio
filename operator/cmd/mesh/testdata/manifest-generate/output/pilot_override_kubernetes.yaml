@@ -5,7 +5,7 @@ metadata:
     app: pilot
     istio: pilot
     release: istio
-  name: istio-pilot
+  name: istiod
   namespace: istio-control
 spec:
   selector:

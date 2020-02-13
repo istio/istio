@@ -16,6 +16,7 @@ package tokenmanager
 
 import (
 	"errors"
+	"fmt"
 
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/security/pkg/stsservice"
@@ -41,14 +42,33 @@ type Config struct {
 	TrustDomain string
 }
 
-func getGcpProjectNumber() string {
+// GCPProjectInfo stores GCP project information, including project number,
+// project ID, cluster location, cluster name
+type GCPProjectInfo struct {
+	Number          string
+	id              string
+	cluster         string
+	clusterLocation string
+}
+
+func getGCPProjectInfo() GCPProjectInfo {
+	info := GCPProjectInfo{}
 	if platform.IsGCP() {
 		md := platform.NewGCP().Metadata()
 		if projectNum, found := md[platform.GCPProjectNumber]; found {
-			return projectNum
+			info.Number = projectNum
+		}
+		if projectID, found := md[platform.GCPProject]; found {
+			info.id = projectID
+		}
+		if clusterName, found := md[platform.GCPCluster]; found {
+			info.cluster = clusterName
+		}
+		if clusterLocation, found := md[platform.GCPLocation]; found {
+			info.clusterLocation = clusterLocation
 		}
 	}
-	return ""
+	return info
 }
 
 // CreateTokenManager creates a token manager with specified type and returns
@@ -59,8 +79,10 @@ func CreateTokenManager(tokenManagerType string, config Config) stsservice.Token
 	}
 	switch tokenManagerType {
 	case GoogleTokenExchange:
-		if projectNum := getGcpProjectNumber(); len(projectNum) > 0 {
-			if p, err := google.CreateTokenManagerPlugin(config.TrustDomain, projectNum); err != nil {
+		if projectInfo := getGCPProjectInfo(); len(projectInfo.Number) > 0 {
+			gkeClusterURL := fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
+				projectInfo.id, projectInfo.clusterLocation, projectInfo.cluster)
+			if p, err := google.CreateTokenManagerPlugin(config.TrustDomain, projectInfo.Number, gkeClusterURL, true); err == nil {
 				tm.plugin = p
 			}
 		}

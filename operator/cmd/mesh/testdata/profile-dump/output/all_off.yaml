@@ -94,18 +94,6 @@ components:
           fieldRef:
             apiVersion: v1
             fieldPath: metadata.namespace
-      hpaSpec:
-        maxReplicas: 5
-        metrics:
-        - resource:
-            name: cpu
-            targetAverageUtilization: 80
-          type: Resource
-        minReplicas: 1
-        scaleTargetRef:
-          apiVersion: apps/v1
-          kind: Deployment
-          name: istio-pilot
       readinessProbe:
         httpGet:
           path: /ready
@@ -192,8 +180,6 @@ components:
           maxSurge: 100%
           maxUnavailable: 25%
 hub: gcr.io/istio-testing
-meshConfig:
-  rootNamespace: istio-system
 profile: default
 tag: latest
 values:
@@ -306,6 +292,7 @@ values:
     enableTracing: true
     imagePullPolicy: IfNotPresent
     imagePullSecrets: []
+    istioNamespace: istio-system
     istiod:
       enabled: true
     jwtPolicy: third-party-jwt
@@ -322,6 +309,7 @@ values:
       enabled: false
       useILB: false
     meshNetworks: {}
+    mountMtlsCerts: false
     mtls:
       auto: true
       enabled: false
@@ -406,6 +394,8 @@ values:
       token:
         aud: istio-ca
       udsPath: ""
+    sts:
+      servicePort: 0
     tracer:
       datadog:
         address: $(HOST_IP):8126
@@ -414,6 +404,11 @@ values:
         address: ""
         cacertPath: ""
         secure: true
+      stackdriver:
+        debug: false
+        maxNumberOfAnnotations: 200
+        maxNumberOfAttributes: 200
+        maxNumberOfMessageEvents: 200
       zipkin:
         address: ""
     trustDomain: cluster.local

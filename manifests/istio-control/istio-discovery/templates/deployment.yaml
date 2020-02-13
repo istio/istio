@@ -6,11 +6,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
+    istio: pilot
+    release: {{ .Release.Name }}
     {{- if ne .Values.revision ""}}
     version: {{ .Values.revision }}
     {{- end }}
-    istio: pilot
-    release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
 {{- end }}
@@ -31,7 +31,6 @@ spec:
       version: {{ .Values.revision }}
       {{- else }}
       istio: pilot
-      {{- end }}
   template:
     metadata:
       labels:
@@ -42,12 +41,6 @@ spec:
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
-        {{- end }}
-{{- if eq .Release.Namespace "istio-system"}}
-        heritage: Tiller
-        release: istio
-        chart: pilot
-{{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
@@ -257,9 +250,11 @@ spec:
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
           volumeMounts:
+{{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+{{- end }}
 {{- if .Values.pilot.jwksResolverExtraRootCA }}
           - name: extracacerts
             mountPath: /cacerts
@@ -334,7 +329,7 @@ spec:
       - name: pilot-envoy-config
         configMap:
           name: pilot-envoy-config{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.global.controlPlaneSecurityEnabled}}
+  {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
