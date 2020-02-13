@@ -1,19 +1,19 @@
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-pilot{{ .Values.version }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
-  # TODO: default template doesn't have this, which one is right ?
   labels:
     app: pilot
-    {{- if ne .Values.version ""}}
-    version: {{ .Values.version }}
+    {{- if ne .Values.revision ""}}
+    version: {{ .Values.revision }}
     {{- end }}
+    istio: pilot
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
 {{- end }}
-    istio: pilot
 spec:
 {{- if not .Values.pilot.autoscaleEnabled }}
 {{- if .Values.pilot.replicaCount }}
@@ -26,9 +26,9 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      {{- if ne .Values.version ""}}
+      {{- if ne .Values.revision ""}}
       app: pilot
-      version: {{ .Values.version }}
+      version: {{ .Values.revision }}
       {{- else }}
       istio: pilot
       {{- end }}
@@ -36,8 +36,8 @@ spec:
     metadata:
       labels:
         app: pilot
-        {{- if ne .Values.version ""}}
-        version: {{ .Values.version }}
+        {{- if ne .Values.revision ""}}
+        version: {{ .Values.revision }}
         {{- else }}
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
@@ -156,8 +156,10 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
 {{- if .Values.global.istiod.enabled }}
+          - name: INJECTION_WEBHOOK_CONFIG_NAME
+            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           - name: ISTIOD_ADDR
-            value: istio-pilot.{{ .Release.Namespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
 {{- end }}
@@ -328,10 +330,10 @@ spec:
 
       - name: config-volume
         configMap:
-          name: istio{{ .Values.version }}
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
       - name: pilot-envoy-config
         configMap:
-          name: pilot-envoy-config{{ .Values.version }}
+          name: pilot-envoy-config{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.controlPlaneSecurityEnabled}}
       - name: istio-certs
         secret:
@@ -341,7 +343,7 @@ spec:
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:
-          name: pilot-jwks-extra-cacerts{{ .Values.version }}
+          name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
@@ -354,3 +356,4 @@ spec:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 ---
+{{- end }}

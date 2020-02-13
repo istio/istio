@@ -83,8 +83,9 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 	// operator or CI/CD
 	if injectionWebhookConfigName.Get() != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
+			// No leader election - different istiod revisions will patch their own cert.
 			if err := s.patchCertLoop(s.kubeClient, stop); err != nil {
-				return multierror.Prefix(err, "failed to start patch cert loop")
+				log.Errorf("failed to start patch cert loop: %v", err)
 			}
 			return nil
 		})

@@ -1,3 +1,4 @@
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -415,3 +416,4 @@ spec:
 ---
 {{- end}}
 {{- end}}
+{{- end }}

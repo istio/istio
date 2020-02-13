@@ -1,8 +1,9 @@
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if .Values.pilot.configMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio{{ .Values.version }}
+  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -279,10 +280,15 @@ data:
         {{- end }}
       {{- end }}
 
-    {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
+    {{- if .Values.global.istiod.enabled }}
+    {{- if not (eq .Values.revision "") }}
+    {{- $defPilotHostname := printf "istiod-%s.%s" .Values.revision .Release.Namespace }}
+    {{- else }}
+    {{- $defPilotHostname := printf "istiod.%s"  .Release.Namespace }}
+    {{- end }}
+    {{- $defPilotHostname := printf "istiod%s.%s" .Values.revision .Release.Namespace }}
     {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
 
-    {{- if .Values.global.istiod.enabled }}
       # If port is 15012, will use SDS.
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
@@ -295,7 +301,7 @@ data:
       #
       # Address where istio Pilot service is running
       {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-      discoveryAddress: {{ $defPilotHostname }}:15011
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15011
       {{- else }}
       discoveryAddress: {{ $pilotAddress }}:15011
       {{- end }}
@@ -306,7 +312,7 @@ data:
       #
       # Address where istio Pilot service is running
       {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-      discoveryAddress: {{ $defPilotHostname }}:15010
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
       {{- else }}
       discoveryAddress: {{ $pilotAddress }}:15010
       {{- end }}
@@ -344,4 +350,5 @@ data:
     {{- end}}
 
 ---
+{{- end }}
 {{- end }}
