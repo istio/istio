@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/deployment"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
@@ -202,10 +203,17 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	if err != nil {
 		return err
 	}
+
+	defaultsIOPFile := cfg.IOPFile
+	if !path.IsAbs(defaultsIOPFile) {
+		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
+	}
+
 	cmd := []string{
 		"manifest", "apply",
 		"--skip-confirmation",
 		"--logtostderr",
+		"-f", defaultsIOPFile,
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 		"--wait",

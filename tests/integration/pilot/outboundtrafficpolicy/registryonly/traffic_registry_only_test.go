@@ -38,7 +38,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["global.outboundTrafficPolicy.mode"] = "REGISTRY_ONLY"
 	cfg.ControlPlaneValues = `
 components:
   egressGateways:

@@ -58,7 +58,12 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["global.pilotCertProvider"] = "kubernetes"
+
+	cfg.ControlPlaneValues = `
+values:
+  global:
+    pilotCertProvider: kubernetes
+`
 }
 
 func TestMtlsGatewaysK8sca(t *testing.T) {
