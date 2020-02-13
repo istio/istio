@@ -37,21 +37,7 @@ import (
 )
 
 var (
-	serverArgs = bootstrap.PilotArgs{
-		CtrlZOptions:     ctrlz.DefaultOptions(),
-		KeepaliveOptions: keepalive.DefaultOption(),
-		// TODO replace with mesh config?
-		InjectionOptions: bootstrap.InjectionOptions{
-			InjectionDirectory: "./var/lib/istio/inject",
-		},
-		ValidationOptions: bootstrap.ValidationOptions{
-			ValidationDirectory: "./var/lib/istio/validation",
-		},
-
-		MCPMaxMessageSize:        1024 * 1024 * 4, // default grpc maximum message size
-		MCPInitialConnWindowSize: 1024 * 1024,     // default grpc InitialWindowSize
-		MCPInitialWindowSize:     1024 * 1024,     // default grpc ConnWindowSize
-	}
+	serverArgs *bootstrap.PilotArgs
 
 	loggingOptions = log.DefaultOptions()
 
@@ -80,7 +66,7 @@ var (
 			stop := make(chan struct{})
 
 			// Create the server for the discovery service.
-			discoveryServer, err := bootstrap.NewServer(&serverArgs)
+			discoveryServer, err := bootstrap.NewServer(serverArgs)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
@@ -110,64 +96,83 @@ func hasKubeRegistry() bool {
 }
 
 func init() {
-	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
-		[]string{string(serviceregistry.Kubernetes)},
-		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
-			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.Mock))
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
-		"Namespace for ConfigMap which stores clusters configs")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
-		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "/etc/istio/config/mesh",
-		fmt.Sprintf("File name for Istio mesh configuration. If not specified, a default mesh will be used."))
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.NetworksConfigFile, "networksConfig", "/etc/istio/config/meshNetworks",
-		fmt.Sprintf("File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used."))
-	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", "",
-		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
-	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
-		"comma separated list of networking plugins to enable")
 
-	// MCP client flags
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", serverArgs.MCPMaxMessageSize,
-		"Max message size received by MCP's grpc client")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialWindowSize, "mcpInitialWindowSize", serverArgs.MCPInitialWindowSize,
-		"Initial window size for MCP's gRPC connection")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", serverArgs.MCPInitialConnWindowSize,
-		"Initial connection window size for MCP's gRPC connection")
+	serverArgs = bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
+		p.CtrlZOptions = ctrlz.DefaultOptions()
+		p.KeepaliveOptions = keepalive.DefaultOption()
+		// TODO replace with mesh config?
+		p.InjectionOptions = bootstrap.InjectionOptions{
+			InjectionDirectory: "./var/lib/istio/inject",
+		}
+		p.ValidationOptions = bootstrap.ValidationOptions{
+			ValidationDirectory: "./var/lib/istio/validation",
+		}
 
-	// Config Controller options
-	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Config.DisableInstallCRDs, "disable-install-crds", true,
-		"Disable discovery service from verifying the existence of CRDs at startup and then installing if not detected.  "+
-			"It is recommended to be disable for highly available setups.")
-	_ = discoveryCmd.PersistentFlags().MarkDeprecated("disable-install-crds",
-		"Setting this flag has no effect. Install CRD definitions directly or with the operator")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
-		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
-	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Config.ControllerOptions.WatchedNamespace, "appNamespace",
-		"a", metav1.NamespaceAll,
-		"Restrict the applications namespace the controller manages; if not set, controller watches all namespaces")
-	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Config.ControllerOptions.ResyncPeriod, "resync", 60*time.Second,
-		"Controller resync interval")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", "cluster.local",
-		"DNS domain suffix")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.TrustDomain, "trust-domain", "",
-		"The domain serves to identify the system with spiffe")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
-		"URL for the Consul server")
+		p.MCPMaxMessageSize = 1024 * 1024 * 4    // default grpc maximum message size
+		p.MCPInitialConnWindowSize = 1024 * 1024 // default grpc InitialWindowSize
+		p.MCPInitialWindowSize = 1024 * 1024     // default grpc ConnWindowSize
 
-	// using address, so it can be configured as localhost:.. (possibly UDS in future)
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPAddr, "httpAddr", ":8080",
-		"Discovery service HTTP address")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPSAddr, "httpsAddr", ":15017",
-		"Injection and validation service HTTPS address")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.GrpcAddr, "grpcAddr", ":15010",
-		"Discovery service grpc address")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", ":15012",
-		"Discovery service grpc address, with https")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.MonitoringAddr, "monitoringAddr", ":15014",
-		"HTTP address to use for pilot's self-monitoring information")
-	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
-		"Enable profiling via web interface host:port/debug/pprof")
+		// Process commandline args.
+		discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
+			[]string{string(serviceregistry.Kubernetes)},
+			fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
+				serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.Mock))
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
+			"Namespace for ConfigMap which stores clusters configs")
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
+			"Use a Kubernetes configuration file instead of in-cluster configuration")
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "/etc/istio/config/mesh",
+			fmt.Sprintf("File name for Istio mesh configuration. If not specified, a default mesh will be used."))
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.NetworksConfigFile, "networksConfig", "/etc/istio/config/meshNetworks",
+			fmt.Sprintf("File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used."))
+		discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", "",
+			"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
+		discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
+			"comma separated list of networking plugins to enable")
+
+		// MCP client flags
+		discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", serverArgs.MCPMaxMessageSize,
+			"Max message size received by MCP's grpc client")
+		discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialWindowSize, "mcpInitialWindowSize", serverArgs.MCPInitialWindowSize,
+			"Initial window size for MCP's gRPC connection")
+		discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", serverArgs.MCPInitialConnWindowSize,
+			"Initial connection window size for MCP's gRPC connection")
+
+		// Config Controller options
+		discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Config.DisableInstallCRDs, "disable-install-crds", true,
+			"Disable discovery service from verifying the existence of CRDs at startup and then installing if not detected.  "+
+				"It is recommended to be disable for highly available setups.")
+		_ = discoveryCmd.PersistentFlags().MarkDeprecated("disable-install-crds",
+			"Setting this flag has no effect. Install CRD definitions directly or with the operator")
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
+			"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
+		discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Config.ControllerOptions.WatchedNamespace, "appNamespace",
+			"a", metav1.NamespaceAll,
+			"Restrict the applications namespace the controller manages; if not set, controller watches all namespaces")
+		discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Config.ControllerOptions.ResyncPeriod, "resync", 60*time.Second,
+			"Controller resync interval")
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", "cluster.local",
+			"DNS domain suffix")
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.TrustDomain, "trust-domain", "",
+			"The domain serves to identify the system with spiffe")
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
+			"URL for the Consul server")
+
+		// using address, so it can be configured as localhost:.. (possibly UDS in future)
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPAddr, "httpAddr", ":8080",
+			"Discovery service HTTP address")
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPSAddr, "httpsAddr", ":15017",
+			"Injection and validation service HTTPS address")
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.GrpcAddr, "grpcAddr", ":15010",
+			"Discovery service grpc address")
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", ":15012",
+			"Discovery service grpc address, with https")
+		discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.MonitoringAddr, "monitoringAddr", ":15014",
+			"HTTP address to use for pilot's self-monitoring information")
+		discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
+			"Enable profiling via web interface host:port/debug/pprof")
+
+	})
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
