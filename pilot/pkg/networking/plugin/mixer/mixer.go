@@ -355,6 +355,11 @@ func (mixerplugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.
 	return nil
 }
 
+// OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
+func (mixerplugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
+
 func buildUpstreamName(address string) string {
 	// effectively disable the upstream
 	if address == "" {

@@ -153,3 +153,8 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain
 func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	return nil
 }
+
+// OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
+func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}

@@ -108,8 +108,10 @@ spec:
 {{- end }}
           - "{{ $p.Port }}"
 {{- end }}
+{{- range $i, $p := .WorkloadOnlyPorts }}
           - --port
-          - "8081"
+          - "{{ $p }}"
+{{- end }}
           - --version
           - "{{ .Version }}"
         ports:
@@ -196,6 +198,7 @@ func generateYAML(cfg echo.Config) (string, error) {
 		"Locality":            cfg.Locality,
 		"ServiceAccount":      cfg.ServiceAccount,
 		"Ports":               cfg.Ports,
+		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
 		"ContainerPorts":      getContainerPorts(cfg.Ports),
 		"ServiceAnnotations":  serviceAnnotations,
 		"WorkloadAnnotations": workloadAnnotations,

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -56,9 +57,10 @@ import (
 )
 
 const (
-	wildcardIP           = "0.0.0.0"
-	fakePluginHTTPFilter = "fake-plugin-http-filter"
-	fakePluginTCPFilter  = "fake-plugin-tcp-filter"
+	wildcardIP                     = "0.0.0.0"
+	fakePluginHTTPFilter           = "fake-plugin-http-filter"
+	fakePluginTCPFilter            = "fake-plugin-tcp-filter"
+	fakePluginFilterChainMatchAlpn = "fake-plugin-alpn"
 )
 
 var (
@@ -1741,6 +1743,25 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugi
 		}
 	}
 	return nil
+}
+
+func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return []plugin.FilterChain{
+		// A filter chain configured by the plugin for mutual TLS support.
+		{
+			FilterChainMatch: &listener.FilterChainMatch{
+				ApplicationProtocols: []string{fakePluginFilterChainMatchAlpn},
+			},
+			TLSContext: &auth.DownstreamTlsContext{},
+			ListenerFilters: []*listener.ListenerFilter{
+				{
+					Name: xdsutil.TlsInspector,
+				},
+			},
+		},
+		// An empty filter chain for the default pass through behavior.
+		{},
+	}
 }
 
 func isHTTPListener(listener *xdsapi.Listener) bool {
