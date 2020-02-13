@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"istio.io/istio/security/pkg/nodeagent/util"
@@ -692,8 +690,9 @@ func receiveThread(con *sdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 }
 
 func constructConnectionID(proxyID string) string {
-	id := atomic.AddInt64(&connectionNumber, 1)
-	return proxyID + "-" + strconv.FormatInt(id, 10)
+	// In istio-agent model, we consider all connections to be the same. This allows us to cache secrets
+	// across connections (by resource name).
+	return "bootstrap"
 }
 
 // sdsLogPrefix returns a unified log prefix.
