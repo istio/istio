@@ -635,7 +635,10 @@ message GlobalConfig {
 
   // Configures the revision this control plane is a part of
   string revision = 59;
-  // The next available key is 60
+
+  // Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.
+  google.protobuf.BoolValue mountMtlsCerts = 60;
+  // The next available key is 61
 }
 
 // Configuration for Security Token Service (STS) server.

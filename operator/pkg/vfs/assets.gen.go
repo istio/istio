@@ -7035,9 +7035,12 @@ spec:
             mountPath: /var/run/secrets/tokens
           {{- end }}
           {{- end }}
+          {{- if .Values.global.mountMtlsCerts }}
+          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- end }}
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -7082,10 +7085,13 @@ spec:
         hostPath:
           path: /var/run/sds
       {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           secretName: istio.default
           optional: true
+      {{- end }}
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -8155,9 +8161,12 @@ spec:
             mountPath: /var/run/ingress_gateway
           {{- end }}
 {{- end }}
+          {{- if .Values.global.mountMtlsCerts }}
+          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- end }}
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -8204,10 +8213,13 @@ spec:
       {{- end }}
       {{- end }}
 {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           secretName: istio.istio-ingressgateway-service-account
           optional: true
+      {{- end }}
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -12311,11 +12323,11 @@ template: |
     - name: STACKDRIVER_TRACING_DEBUG
       value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations.Value }}"
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes.Value }}"
     - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents.Value }}"
     {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
@@ -12385,15 +12397,19 @@ template: |
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
+    # SDS channel between istioagent and Envoy
     - mountPath: /etc/istio/proxy
       name: istio-envoy
     {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
     {{- end }}
+    {{- if .Values.global.mountMtlsCerts }}
+    # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
     - mountPath: /etc/certs/
       name: istio-certs
       readOnly: true
+    {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
       name: lightstep-certs
@@ -12411,6 +12427,7 @@ template: |
     configMap:
       name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
   {{- end }}
+  # SDS channel between istioagent and Envoy
   - emptyDir:
       medium: Memory
     name: istio-envoy
@@ -12428,6 +12445,8 @@ template: |
     configMap:
       name: istio-ca-root-cert
   {{- end }}
+  {{- if .Values.global.mountMtlsCerts }}
+  # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
   - name: istio-certs
     secret:
       optional: true
@@ -12436,6 +12455,7 @@ template: |
       {{ else -}}
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
+  {{- end }}
     {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
     {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
   - name: "{{ $index }}"
@@ -13444,7 +13464,9 @@ data:
       tracing:
         stackdriver:
           # enables trace output to stdout.
+        {{- if $.Values.global.tracer.stackdriver.debug }}
           debug: {{ $.Values.global.tracer.stackdriver.debug }}
+        {{- end }}
         {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
           # The global default max number of attributes per span.
           maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
@@ -13779,9 +13801,11 @@ spec:
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
           volumeMounts:
+{{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+{{- end }}
 {{- if .Values.pilot.jwksResolverExtraRootCA }}
           - name: extracacerts
             mountPath: /cacerts
@@ -13856,7 +13880,7 @@ spec:
       - name: pilot-envoy-config
         configMap:
           name: pilot-envoy-config{{ .Values.version }}
-  {{- if .Values.global.controlPlaneSecurityEnabled}}
+  {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
@@ -40029,6 +40053,7 @@ spec:
       localityLbSetting:
         enabled: true
       enableHelmTest: false
+      mountMtlsCerts: false
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -40481,7 +40506,6 @@ spec:
     tracing:
       enabled: true
 
-
   values:
     global:
       disablePolicyChecks: false
@@ -40519,14 +40543,7 @@ spec:
       istio-ingressgateway:
         autoscaleEnabled: false
 
-    grafana:
-      enabled: true
-
-    tracing:
-      enabled: true
-
     kiali:
-      enabled: true
       createDemoSecret: true
 `)
 
@@ -40595,9 +40612,6 @@ spec:
     pilot:
       sidecar: false
       useMCP: false
-
-    prometheus:
-      enabled: false
 `)
 
 func profilesEmptyYamlBytes() ([]byte, error) {
@@ -40641,6 +40655,8 @@ spec:
     - name: istio-ingressgateway
       enabled: false
     egressGateways:
+    - name: istio-egressgateway
+      enabled: false
 
   addonComponents:
     prometheus:
@@ -40661,9 +40677,6 @@ spec:
     pilot:
       sidecar: false
       useMCP: false
-
-    prometheus:
-      enabled: false
 `)
 
 func profilesMinimalYamlBytes() ([]byte, error) {
@@ -40704,6 +40717,10 @@ spec:
     cni:
       enabled: false
 
+  addonComponents:
+    prometheus:
+      enabled: false
+
   values:
     pilot:
       configSource:
@@ -40711,9 +40728,6 @@ spec:
 
     security:
       createMeshPolicy: false
-
-    prometheus:
-      enabled: false
 
     global:
       istioRemote: true
