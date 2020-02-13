@@ -86,6 +86,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 			if err := s.patchCertLoop(s.kubeClient, stop); err != nil {
 				log.Errorf("failed to start patch cert loop: %v", err)
 			}
+			return nil
 		})
 	}
 	s.injectionWebhook = wh
