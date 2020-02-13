@@ -10,7 +10,7 @@ replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538
 
 replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.20191011211953-adfac697dc5b
 
-replace github.com/envoyproxy/go-control-plane => gitlab.alibaba-inc.com/AliMesh/go-control-plane v0.9.2-0.20200106085130-5bfed9090b2d
+replace github.com/envoyproxy/go-control-plane => gitlab.alibaba-inc.com/AliMesh/go-control-plane v0.9.2-0.20200212071757-0546361b818f
 
 replace istio.io/api => gitlab.alibaba-inc.com/one-mesh/api v0.0.0-20200106115821-b69fd30a2f0e
 
