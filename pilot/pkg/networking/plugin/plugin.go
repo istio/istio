@@ -206,4 +206,7 @@ type Plugin interface {
 	// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
 	// Can be used to add additional filters.
 	OnInboundPassthrough(in *InputParams, mutable *MutableObjects) error
+
+	// OnInboundPassthroughFilterChains is called whenever a plugin needs to setup custom pass through filter chain.
+	OnInboundPassthroughFilterChains(in *InputParams) []FilterChain
 }
