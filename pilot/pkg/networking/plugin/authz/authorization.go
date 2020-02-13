@@ -178,3 +178,8 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.Mutab
 	buildFilter(in, mutable)
 	return nil
 }
+
+// OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
+func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
