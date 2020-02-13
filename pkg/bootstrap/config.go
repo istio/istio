@@ -197,6 +197,7 @@ func getStatsOptions(meta *model.NodeMetadata, nodeIPs []string) []option.Instan
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes, requiredEnvoyStatsMatcherInclusionPrefixes)),
 		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, requiredEnvoyStatsMatcherInclusionSuffix)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "")),
+		option.EnvoyExtraStatTags(parseOption(meta.ExtraStatTags, "")),
 	}
 }
 

@@ -154,6 +154,12 @@
           "regex": "(tag\\.(.+?)\\.)",
           "tag_name": "tag"
       },
+      {{- range $a, $tag := .extraStatTags }}
+      {
+          "regex": "({{ $tag }}=\\.=(.*?);\\.;)",
+          "tag_name": "{{ $tag }}"
+      },
+      {{- end }}
       {
           "regex": "(source_canonical_service=\\.=(.+?);\\.;)",
           "tag_name": "source_canonical_service"
