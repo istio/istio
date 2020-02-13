@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 		NewSuite("sds_ingress_multiple_tls_gateways_k8sca_test", m).
 		Label(label.CustomSetup).
 		Label(label.Flaky).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
@@ -53,11 +53,4 @@ func TestMain(m *testing.M) {
 		}).
 		Run()
 
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.Values["global.pilotCertProvider"] = "kubernetes"
 }
