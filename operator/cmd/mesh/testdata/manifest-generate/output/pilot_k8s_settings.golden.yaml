@@ -1,3 +1,14 @@
+# AddonComponents grafana component is disabled.
+
+---
+# AddonComponents kiali component is disabled.
+
+---
+# AddonComponents prometheus component is disabled.
+
+---
+# AddonComponents istio-tracing component is disabled.
+
 # Base component is disabled.
 
 # Citadel component is disabled.
@@ -314,7 +325,7 @@ data:
       configPath: /etc/istio/proxy
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istio-pilot.istio-control.svc:15012
+      discoveryAddress: istiod.istio-control.svc:15012
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
@@ -419,6 +430,8 @@ spec:
     metadata:
       labels:
         app: pilot
+        # Label used by the 'default' service. For versioned deployments we match with app and version.
+        # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -485,8 +498,10 @@ spec:
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "false"
+          - name: INJECTION_WEBHOOK_CONFIG_NAME
+            value: istio-sidecar-injector
           - name: ISTIOD_ADDR
-            value: istio-pilot.istio-control.svc:15012
+            value: istiod.istio-control.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
           resources:
@@ -1115,11 +1130,11 @@ data:
         - name: STACKDRIVER_TRACING_DEBUG
           value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations.Value }}"
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes.Value }}"
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents.Value }}"
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
@@ -1291,7 +1306,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-        name: istio-pilot
+        name: istiod
         namespace: istio-control
         path: "/inject"
       caBundle: ""
@@ -1372,6 +1387,8 @@ spec:
       targetPort: 15017
   selector:
     app: pilot
+    # Label used by the 'default' service. For versioned deployments we match with app and version.
+    # This avoids default deployment picking the canary
     istio: pilot
 ---
 

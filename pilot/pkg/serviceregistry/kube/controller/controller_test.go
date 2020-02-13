@@ -505,8 +505,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"1.1.1.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
-				WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
+				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					Labels: map[string]string{
+						"app": "prod-app",
+					}},
 			})
 			if err != nil {
 				t.Fatalf("got err getting service instances")
@@ -563,8 +565,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
-				WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
+				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					Labels: map[string]string{
+						"app": "prod-app",
+					}},
 			})
 			if err != nil {
 				t.Fatalf("got err getting service instances")
@@ -618,8 +622,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.2"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
-				WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
+				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					Labels: map[string]string{
+						"app": "prod-app",
+					}},
 			})
 			if err != nil {
 				t.Fatalf("got err getting service instances")
