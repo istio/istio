@@ -18,7 +18,7 @@
 set -o errexit
 set -o pipefail
 
-INSTALLER_CHARTS=(base gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy)
+INSTALLER_CHARTS=(base gateways istio-cni addons istio-telemetry istio-control istio-policy)
 
 function usage() {
   echo "$0

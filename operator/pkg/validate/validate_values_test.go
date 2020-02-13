@@ -211,7 +211,7 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 	valuesYAML := ""
 	var allFiles []string
 	manifestDir := filepath.Join(repoRootDir, "manifests")
-	for _, sd := range []string{"base", "gateways", "istio-cni", "istiocoredns", "istio-telemetry", "istio-control", "istio-policy"} {
+	for _, sd := range []string{"base", "gateways", "istio-cni", "addons", "istio-telemetry", "istio-control", "istio-policy"} {
 		dir := filepath.Join(manifestDir, sd)
 		files, err := util.FindFiles(dir, yamlFileFilter)
 		if err != nil {
