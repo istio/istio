@@ -140,13 +140,13 @@ var revisionVar = env.RegisterStringVar("REVISION", "", "")
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
 	p := &PilotArgs{}
 
-	// Apply Default Values.
-	p.applyDefaults()
-
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
 		fn(p)
 	}
+
+	// Apply Default Values.
+	p.applyDefaults()
 
 	return p
 }
