@@ -117,7 +117,7 @@ func init() {
 			[]string{string(serviceregistry.Kubernetes)},
 			fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
 				serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.Mock))
-		discoveryCmd.PersistentFlags().StringVar(p.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
+		discoveryCmd.PersistentFlags().StringVar(&p.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
 			"Namespace for ConfigMap which stores clusters configs")
 		discoveryCmd.PersistentFlags().StringVar(&p.Config.KubeConfig, "kubeconfig", "",
 			"Use a Kubernetes configuration file instead of in-cluster configuration")
