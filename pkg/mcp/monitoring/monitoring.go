@@ -46,11 +46,27 @@ var (
 		monitoring.WithLabels(componentTag),
 	)
 
-	// requestSizesBytes is a distribution of incoming message sizes.
-	requestSizesBytes = monitoring.NewDistribution(
+	// messageSizesBytes is a distribution of message size for each collection.
+	messageSizesBytes = monitoring.NewDistribution(
 		"istio_mcp_message_sizes_bytes",
-		"Size of messages received from clients.",
-		[]float64{1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824},
+		"Size of sent and received messages.",
+		// This metric is expected to be used to adjust the maximum
+		// gRPC message size for reliable MCP delivery. As such, the
+		// distribution bounds are defined in terms of typical max
+		// gRPC messages. Though we don't expect people to reduce the
+		// default gRPC message, its still useful to see ranges less
+		// than the default 4mb to get an early indicator of how the
+		// message size is growing.
+		[]float64{
+			262144 * .8,  // 80% of 256kib
+			525288 * .8,  // 80% of 512kib
+			1.049e6 * .8, // 80% of 1mib
+			2.097e6 * .8, // 80% of 2mib
+			4.194e6 * .8, // 80% of 4mib, the default gRPC max message size
+			8.389e6 * .8, // 80% of 8mib
+			1.258e7 * .8, // 80% of 12mib
+			1.678e7 * .8, // 80% of 16mib
+		},
 		monitoring.WithLabels(componentTag, collectionTag),
 		monitoring.WithUnit(monitoring.Bytes),
 	)
@@ -93,7 +109,7 @@ var (
 // StatsContext enables metric collection backed by OpenCensus.
 type StatsContext struct {
 	currentStreamCount       monitoring.Metric
-	requestSizeBytes         monitoring.Metric
+	messageSizeBytes         monitoring.Metric
 	requestAcksTotal         monitoring.Metric
 	requestNacksTotal        monitoring.Metric
 	sendFailuresTotal        monitoring.Metric
@@ -107,7 +123,7 @@ type Reporter interface {
 
 	RecordSendError(err error, code codes.Code)
 	RecordRecvError(err error, code codes.Code)
-	RecordRequestSize(collection string, connectionID int64, size int)
+	RecordMessageSize(collection string, connectionID int64, size int)
 	RecordRequestAck(collection string, connectionID int64)
 	RecordRequestNack(collection string, connectionID int64, code codes.Code)
 
@@ -147,9 +163,9 @@ func (s *StatsContext) RecordRecvError(err error, code codes.Code) {
 	recordError(err, code, s.recvFailuresTotal)
 }
 
-// RecordRequestSize records the size of a request from a connection for a specific type URL.
-func (s *StatsContext) RecordRequestSize(collection string, connectionID int64, size int) {
-	s.requestSizeBytes.With(
+// RecordMessageSize records the size of a response message for a specific collection
+func (s *StatsContext) RecordMessageSize(collection string, connectionID int64, size int) {
+	s.messageSizeBytes.With(
 		collectionTag.Value(collection),
 	).Record(float64(size))
 }
@@ -185,7 +201,7 @@ func NewStatsContext(componentName string) *StatsContext {
 	}
 	ctx := &StatsContext{
 		currentStreamCount:       currentStreamCount.With(componentTag.Value(componentName)),
-		requestSizeBytes:         requestSizesBytes.With(componentTag.Value(componentName)),
+		messageSizeBytes:         messageSizesBytes.With(componentTag.Value(componentName)),
 		requestAcksTotal:         requestAcksTotal.With(componentTag.Value(componentName)),
 		requestNacksTotal:        requestNacksTotal.With(componentTag.Value(componentName)),
 		sendFailuresTotal:        sendFailuresTotal.With(componentTag.Value(componentName)),
@@ -199,7 +215,7 @@ func NewStatsContext(componentName string) *StatsContext {
 func init() {
 	monitoring.MustRegister(
 		currentStreamCount,
-		requestSizesBytes,
+		messageSizesBytes,
 		requestAcksTotal,
 		requestNacksTotal,
 		sendFailuresTotal,

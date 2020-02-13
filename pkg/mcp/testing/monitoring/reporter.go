@@ -72,8 +72,8 @@ func (s *InMemoryStatsContext) RecordRecvError(err error, code codes.Code) {
 	s.mutex.Unlock()
 }
 
-// RecordRequestSize records the size of a request from a connection for a specific type URL.
-func (s *InMemoryStatsContext) RecordRequestSize(typeURL string, connectionID int64, size int) {
+// RecordMessageSize records the size of a response message for a specific collection
+func (s *InMemoryStatsContext) RecordMessageSize(typeURL string, connectionID int64, size int) {
 	key := requestKey{typeURL, connectionID}
 	s.mutex.Lock()
 	s.RequestSizesBytes[key] = append(s.RequestSizesBytes[key], int64(size))
