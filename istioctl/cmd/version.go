@@ -38,6 +38,7 @@ func newVersionCommand() *cobra.Command {
 		GetRemoteVersion: getRemoteInfo,
 		GetProxyVersions: getProxyInfo,
 	})
+
 	versionCmd.Flags().VisitAll(func(flag *pflag.Flag) {
 		if flag.Name == "short" {
 			err := flag.Value.Set("true")
