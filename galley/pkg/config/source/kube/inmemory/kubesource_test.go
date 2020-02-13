@@ -199,7 +199,7 @@ func TestKubeSource_UnparseableSegment(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, "	\n", data.YamlN2I2V1))
+	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, "invalidyaml\n", data.YamlN2I2V1))
 	g.Expect(err).To(Not(BeNil()))
 
 	actual := removeEntryOrigins(s.Get(basicmeta.K8SCollection1.Name()).AllSorted())
@@ -216,8 +216,9 @@ func TestKubeSource_Unrecognized(t *testing.T) {
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnrecognized))
-	g.Expect(err).To(Not(BeNil()))
+	g.Expect(err).To(BeNil())
 
+	// Even though we got no error, we still only parsed one resource as the unrecognized one was ignored.
 	actual := removeEntryOrigins(s.Get(basicmeta.K8SCollection1.Name()).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
 	fixtures.ExpectEqual(t, actual[0], data.EntryN1I1V1)
