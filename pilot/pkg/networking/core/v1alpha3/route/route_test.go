@@ -15,13 +15,12 @@
 package route_test
 
 import (
+	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/gogo/protobuf/types"
+	"github.com/onsi/gomega"
+	"istio.io/istio/pkg/util/gogo"
 	"reflect"
 	"testing"
-	"time"
-
-	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -188,7 +187,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		ttl := time.Nanosecond * 100
+		ttl := types.Duration{Nanos: 100}
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Mesh: &meshConfig,
@@ -228,7 +227,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
 				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie",
-					Ttl:  ptypes.DurationProto(ttl),
+					Ttl:  gogo.DurationToProtoDuration(&ttl),
 				},
 			},
 		}
