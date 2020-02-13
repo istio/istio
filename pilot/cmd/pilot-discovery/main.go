@@ -19,7 +19,6 @@ import (
 	"os"
 	"time"
 
-	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/spiffe"
 
 	"github.com/spf13/cobra"
@@ -27,13 +26,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+)
+
+const (
+	defaultMCPMaxMessageSize        = 1024 * 1024 * 4 // default grpc maximum message size
+	defaultMCPInitialConnWindowSize = 1024 * 1024     // default grpc InitialWindowSize
+	defaultMCPInitialWindowSize     = 1024 * 1024     // default grpc ConnWindowSize
 )
 
 var (
@@ -53,8 +57,6 @@ var (
 		Short: "Start Istio proxy discovery service.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
-			serverArgs.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
-			serverArgs.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
@@ -98,20 +100,6 @@ func hasKubeRegistry() bool {
 func init() {
 
 	serverArgs = bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
-		p.CtrlZOptions = ctrlz.DefaultOptions()
-		p.KeepaliveOptions = keepalive.DefaultOption()
-		// TODO replace with mesh config?
-		p.InjectionOptions = bootstrap.InjectionOptions{
-			InjectionDirectory: "./var/lib/istio/inject",
-		}
-		p.ValidationOptions = bootstrap.ValidationOptions{
-			ValidationDirectory: "./var/lib/istio/validation",
-		}
-
-		p.MCPMaxMessageSize = 1024 * 1024 * 4    // default grpc maximum message size
-		p.MCPInitialConnWindowSize = 1024 * 1024 // default grpc InitialWindowSize
-		p.MCPInitialWindowSize = 1024 * 1024     // default grpc ConnWindowSize
-
 		// Process commandline args.
 		discoveryCmd.PersistentFlags().StringSliceVar(&p.Service.Registries, "registries",
 			[]string{string(serviceregistry.Kubernetes)},
@@ -131,11 +119,11 @@ func init() {
 			"comma separated list of networking plugins to enable")
 
 		// MCP client flags
-		discoveryCmd.PersistentFlags().IntVar(&p.MCPMaxMessageSize, "mcpMaxMsgSize", p.MCPMaxMessageSize,
+		discoveryCmd.PersistentFlags().IntVar(&p.MCPMaxMessageSize, "mcpMaxMsgSize", defaultMCPMaxMessageSize,
 			"Max message size received by MCP's grpc client")
-		discoveryCmd.PersistentFlags().IntVar(&p.MCPInitialWindowSize, "mcpInitialWindowSize", p.MCPInitialWindowSize,
+		discoveryCmd.PersistentFlags().IntVar(&p.MCPInitialWindowSize, "mcpInitialWindowSize", defaultMCPInitialWindowSize,
 			"Initial window size for MCP's gRPC connection")
-		discoveryCmd.PersistentFlags().IntVar(&p.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", p.MCPInitialConnWindowSize,
+		discoveryCmd.PersistentFlags().IntVar(&p.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", defaultMCPInitialConnWindowSize,
 			"Initial connection window size for MCP's gRPC connection")
 
 		// Config Controller options
@@ -171,6 +159,16 @@ func init() {
 			"HTTP address to use for pilot's self-monitoring information")
 		discoveryCmd.PersistentFlags().BoolVar(&p.DiscoveryOptions.EnableProfiling, "profile", true,
 			"Enable profiling via web interface host:port/debug/pprof")
+
+		// Set Defaults
+		p.CtrlZOptions = ctrlz.DefaultOptions()
+		// TODO replace with mesh config?
+		p.InjectionOptions = bootstrap.InjectionOptions{
+			InjectionDirectory: "./var/lib/istio/inject",
+		}
+		p.ValidationOptions = bootstrap.ValidationOptions{
+			ValidationDirectory: "./var/lib/istio/validation",
+		}
 	})
 
 	// Attach the Istio logging options to the command.

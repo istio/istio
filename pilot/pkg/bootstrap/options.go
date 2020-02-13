@@ -20,6 +20,7 @@ import (
 	"istio.io/pkg/env"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -179,4 +180,7 @@ func (p *PilotArgs) applyDefaults() {
 	if p.BasePort == 0 {
 		p.BasePort = 15000
 	}
+
+	p.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
+	p.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 }
