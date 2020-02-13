@@ -161,7 +161,6 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 	for _, dep := range deps {
 		log.Debugf("updating deployment %s.%s with Istio sidecar un-injected",
 			dep.Name, dep.Namespace)
-		dep.DeepCopyObject()
 		res := dep.DeepCopy()
 		depName := strings.Join([]string{dep.Name, dep.Namespace}, ".")
 		sidecarInjected := false
