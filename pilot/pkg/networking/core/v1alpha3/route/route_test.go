@@ -15,12 +15,13 @@
 package route_test
 
 import (
+	"reflect"
+	"testing"
+
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 	"istio.io/istio/pkg/util/gogo"
-	"reflect"
-	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
 
