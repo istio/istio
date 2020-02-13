@@ -52,11 +52,10 @@ func (c *Client) Run(ctx context.Context) {
 	var err error
 	var stream Stream
 
-	backoffPolicy := backoff.NewExponentialBackOff()
-	backoffPolicy.InitialInterval = time.Nanosecond
-	backoffPolicy.MaxElapsedTime = 0
-
 	for {
+		backoffPolicy := backoff.NewExponentialBackOff()
+		backoffPolicy.InitialInterval = time.Nanosecond
+		backoffPolicy.MaxElapsedTime = 0
 		t := backoff.NewTicker(backoffPolicy)
 		// connect w/retry
 		for {
