@@ -228,18 +228,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		ResourceName: resourceName,
 	}
 
-	// If we are using the Ca client and the secret already exists, load it directly from the cache
-	// This skips a CSR
-	// Gateway SDS will have its own caching syste
-	if sc.fetcher.UseCaClient {
-		val, exists := sc.secrets.Load(connKey)
-		if exists {
-			cacheLog.Infof("loaded secret %v from cache", connKey.ResourceName)
-			secret := val.(model.SecretItem)
-			return &secret, nil
-		}
-	}
-
 	logPrefix := cacheLogPrefix(resourceName)
 
 	// When there are existing root certificates, or private key and certificate under
@@ -272,18 +260,17 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	}
 
 	if resourceName != RootCertReqResourceName {
-		t := time.Now()
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
 		// root cert ends with "-cacert".
-		ns, err := sc.generateSecret(ctx, token, connKey, t)
+		ns, err := sc.generateSecret(ctx, token, connKey, time.Now())
 		if err != nil {
 			cacheLog.Errorf("%s failed to generate secret for proxy: %v",
 				logPrefix, err)
 			return nil, err
 		}
 
-		cacheLog.Infof("GenerateSecret %v in %v", resourceName, time.Since(t))
+		cacheLog.Infoa("GenerateSecret ", resourceName)
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
