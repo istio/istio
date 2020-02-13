@@ -24,10 +24,7 @@ import (
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
-	"istio.io/istio/operator/pkg/hooks"
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
@@ -147,8 +144,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		return fmt.Errorf("failed to read the current Istio version, error: %v", err)
 	}
 
-	currentVersion = "1.3.0"
-	targetVersion = "1.4.3"
+	// TODO: remove from PR, this is used for testing only
+	//currentVersion = "1.3.0"
+	//targetVersion = "1.4.3"
 	// Check if the upgrade currentVersion -> targetVersion is supported
 	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI)
 	if err != nil && !args.force {
@@ -178,35 +176,27 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 
 	waitForConfirmation(args.skipConfirmation, l)
 
-	nkMap, err := generateDefaultTelemetryManifest(l)
-	if err != nil {
-		return fmt.Errorf("failed to generate default manifest for telemetry: %v", err)
-	}
-
-	// Run pre-upgrade hooks
-	hparams := &hooks.HookCommonParams{
-		SourceVer:                currentVersion,
-		TargetVer:                targetVersion,
-		DefaultTelemetryManifest: nkMap,
-		SourceIOPS:               targetIOPS,
-		TargetIOPS:               targetIOPS,
-	}
-	errs := hooks.RunPreUpgradeHooks(kubeClient, hparams, rootArgs.dryRun)
-	if len(errs) != 0 && !args.force {
-		return fmt.Errorf("failed in pre-upgrade hooks, error: %v", errs.ToError())
-	}
-
-	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(nil, args.inFilenames, args.force, rootArgs.dryRun,
+	// Apply the Istio Control Plane specs reading from inFilename to the cluster
+	manifests, iop, opts, err := genApplyManifests(nil, args.inFilename, args.force, rootArgs.dryRun,
 		rootArgs.verbose, args.kubeConfigPath, args.context, args.wait, upgradeWaitSecWhenApply, l)
 	if err != nil {
-		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
+		return fmt.Errorf("failed to generate the manifests. Error: %v", err)
+	}
+
+	err = RunPreUpgradeHooks(kubeClient, rootArgs, args, l)
+	if err != nil && !args.force {
+		return fmt.Errorf("failed in pre-upgrade hooks, error: %v", err)
+	}
+
+	if err := ApplyManifest(manifests, iop, opts, l); err != nil {
+		return fmt.Errorf("failed to apply manifests, error: %v", err)
 	}
 
 	// Run post-upgrade hooks
-	errs = hooks.RunPostUpgradeHooks(kubeClient, hparams, rootArgs.dryRun)
-	if len(errs) != 0 && !args.force {
-		return fmt.Errorf("failed in post-upgrade hooks, error: %v", errs.ToError())
+	err = RunPostUpgradeHooks(kubeClient, rootArgs, args, l)
+
+	if err != nil && !args.force {
+		return fmt.Errorf("failed in post-upgrade hooks, error: %v", err)
 	}
 
 	if !args.wait {
@@ -276,21 +266,6 @@ func checkSupportedVersions(cur, tar, versionsURI string) error {
 	}
 
 	return nil
-}
-
-func generateDefaultTelemetryManifest(l *Logger) (map[string]*object.K8sObject, error) {
-	setOverlay := []string{"components.telemetry.enabled=true"}
-	overlay, err := MakeTreeFromSetList(setOverlay, false, l)
-	manifestMap, _, err := GenManifests(nil, overlay, false, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifestMap[name.TelemetryComponentName][0])
-	if err != nil {
-		return nil, err
-	}
-	return k8sObjects.ToNameKindMap(), nil
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
