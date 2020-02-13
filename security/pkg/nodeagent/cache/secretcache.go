@@ -828,12 +828,15 @@ func (sc *SecretCache) isTokenExpired() bool {
 // Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
 func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 	providedExchangedToken string, connKey ConnKey, isCSR bool) ([]string, error) {
-	sc.randMutex.Lock()
-	randomizedInitialBackOffInMS := sc.rand.Int63n(sc.configOptions.InitialBackoffInMilliSec)
-	sc.randMutex.Unlock()
-	cacheLog.Debugf("Wait for %d millisec for jitter", randomizedInitialBackOffInMS)
-	// Add a jitter to initial CSR to avoid thundering herd problem.
-	time.Sleep(time.Duration(randomizedInitialBackOffInMS) * time.Millisecond)
+
+	if sc.configOptions.InitialBackoffInMilliSec > 0 {
+		sc.randMutex.Lock()
+		randomizedInitialBackOffInMS := sc.rand.Int63n(sc.configOptions.InitialBackoffInMilliSec)
+		sc.randMutex.Unlock()
+		cacheLog.Debugf("Wait for %d millisec for jitter", randomizedInitialBackOffInMS)
+		// Add a jitter to initial CSR to avoid thundering herd problem.
+		time.Sleep(time.Duration(randomizedInitialBackOffInMS) * time.Millisecond)
+	}
 	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
 
 	// Assign a unique request ID for all the retries.
