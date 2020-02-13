@@ -72,7 +72,7 @@ var (
 	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 12*time.Hour, "").Get()
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
-	initialBackoffInMilliSecEnv        = env.RegisterIntVar(InitialBackoffInMilliSec, 2000, "").Get()
+	initialBackoffInMilliSecEnv        = env.RegisterIntVar(InitialBackoffInMilliSec, 0, "").Get()
 	pkcs8KeysEnv                       = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 
 	// Location of K8S CA root.
