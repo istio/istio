@@ -324,6 +324,7 @@ type NodeMetadata struct {
 	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
 	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
 	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
+	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
 
 	// TLSServerCertChain is the absolute path to server cert-chain file
 	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
