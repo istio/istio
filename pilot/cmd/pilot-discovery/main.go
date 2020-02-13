@@ -37,24 +37,21 @@ import (
 )
 
 var (
-	serverArgs = bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
-		p.CtrlZOptions = ctrlz.DefaultOptions()
-		p.KeepaliveOptions = keepalive.DefaultOption()
+	serverArgs = bootstrap.PilotArgs{
+		CtrlZOptions:     ctrlz.DefaultOptions(),
+		KeepaliveOptions: keepalive.DefaultOption(),
 		// TODO replace with mesh config?
-		p.InjectionOptions = bootstrap.InjectionOptions{
+		InjectionOptions: bootstrap.InjectionOptions{
 			InjectionDirectory: "./var/lib/istio/inject",
-		}
-		p.ValidationOptions = bootstrap.ValidationOptions{
+		},
+		ValidationOptions: bootstrap.ValidationOptions{
 			ValidationDirectory: "./var/lib/istio/validation",
-		}
+		},
 
-		p.MCPMaxMessageSize = 1024 * 1024 * 4    // default grpc maximum message size
-		p.MCPInitialConnWindowSize = 1024 * 1024 // default grpc InitialWindowSize
-		p.MCPInitialWindowSize = 1024 * 1024     // default grpc ConnWindowSize
-
-		p.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
-		p.Config.DistributionCacheRetention = features.DistributionHistoryRetention
-	})
+		MCPMaxMessageSize:        1024 * 1024 * 4, // default grpc maximum message size
+		MCPInitialConnWindowSize: 1024 * 1024,     // default grpc InitialWindowSize
+		MCPInitialWindowSize:     1024 * 1024,     // default grpc ConnWindowSize
+	}
 
 	loggingOptions = log.DefaultOptions()
 
@@ -70,6 +67,8 @@ var (
 		Short: "Start Istio proxy discovery service.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
+			serverArgs.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
+			serverArgs.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
@@ -81,7 +80,7 @@ var (
 			stop := make(chan struct{})
 
 			// Create the server for the discovery service.
-			discoveryServer, err := bootstrap.NewServer(serverArgs)
+			discoveryServer, err := bootstrap.NewServer(&serverArgs)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
