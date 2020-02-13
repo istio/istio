@@ -10889,7 +10889,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml = []byte(`{{ if or (
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot{{ .Values.revision }}
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -10900,7 +10900,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istiod{{ .Values.revision }}
+    name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   metrics:
   - type: Resource
     resource:
@@ -11211,7 +11211,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml = []byte(`{{ if 
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: pilot-jwks-extra-cacerts{{ .Values.revision }}
+  name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -11273,7 +11273,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{ if or (
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio{{ .Values.revision }}
+  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -11523,9 +11523,17 @@ data:
         {{- end }}
       {{- end }}
 
+    {{- if not (eq .Values.revision "") }}
+    {{- $defPilotHostname := printf "istiod-%s.%s" .Values.revision .Release.Namespace }}
+    {{- else }}
+    {{- $defPilotHostname := printf "istiod.%s"  .Release.Namespace }}
+    {{- end }}
+    {{- $defPilotHostname := printf "istiod%s.%s" .Values.revision .Release.Namespace }}
+    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
+
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istiod{{ .Values.revision }}.{{ .Release.Namespace }}.svc:15012
+      discoveryAddress: {{ $defPilotHostname }}.svc:15012
 
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
@@ -11583,7 +11591,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml = []byte(`{{ if or 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istiod{{ .Values.revision }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -11662,7 +11670,7 @@ spec:
           - {{ .Release.Namespace }}
 {{- end }}
 
-{{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.istiod.enabled }}
+{{- if and .Values.global.controlPlaneSecurityEnabled }}
           - --secureGrpcAddr=:15011
 {{- else }}
           - --secureGrpcAddr=
@@ -11734,9 +11742,9 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
           - name: INJECTION_WEBHOOK_CONFIG_NAME
-            value: istio-sidecar-injector{{ .Values.revision }}
+            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           - name: ISTIOD_ADDR
-            value: istiod{{ .Values.revision }}.{{ .Release.Namespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
           resources:
@@ -11806,11 +11814,11 @@ spec:
           optional: true
       - name: config-volume
         configMap:
-          name: istio{{ .Values.revision }}
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:
-          name: pilot-jwks-extra-cacerts{{ .Values.revision }}
+          name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
@@ -11927,7 +11935,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml = []by
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio-sidecar-injector{{ .Values.revision }}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -11973,15 +11981,15 @@ func chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml() (*as
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`{{ if .Values.clusterResources }}
+var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
 {{- if not .Values.global.operatorManageWebhooks }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
-  name: istio-sidecar-injector{{ .Values.revision }}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{ else }}
-  name: istio-sidecar-injector{{ .Values.revision }}-{{ .Release.Namespace }}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- end }}
   labels:
     app: sidecar-injector
@@ -11990,7 +11998,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-        name: istio-pilot
+        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
         namespace: {{ .Release.Namespace }}
         path: "/inject"
       caBundle: ""
@@ -12015,7 +12023,7 @@ webhooks:
         operator: DoesNotExist
       - key: istio.io/rev
         operator: DoesNotExist
-{{- else if .Values.global.revision }}
+{{- else if .Values.revision }}
       matchExpressions:
       - key: istio-injection
         operator: NotIn
@@ -12024,7 +12032,7 @@ webhooks:
       - key: istio.io/rev
         operator: In
         values:
-        - {{ .Values.global.revision }}
+        - {{ .Values.revision }}
 {{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
       matchLabels:
         istio-injection: enabled
@@ -12043,7 +12051,6 @@ webhooks:
 {{- else }}
       matchLabels:
         "sidecar.istio.io/inject": "true"
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -12069,7 +12076,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot{{ .Values.revision }}
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -12110,7 +12117,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{ if or (eq
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-pilot{{ .Values.revision }}
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -12142,7 +12149,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istiod{{ .Values.revision }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod

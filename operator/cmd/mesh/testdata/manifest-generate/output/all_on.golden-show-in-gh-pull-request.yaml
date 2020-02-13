@@ -9309,7 +9309,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-        name: istio-pilot
+        name: istiod
         namespace: istio-system
         path: "/inject"
       caBundle: ""

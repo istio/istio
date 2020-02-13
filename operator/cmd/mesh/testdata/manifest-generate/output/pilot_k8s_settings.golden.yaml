@@ -1306,7 +1306,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-        name: istio-pilot
+        name: istiod
         namespace: istio-control
         path: "/inject"
       caBundle: ""
