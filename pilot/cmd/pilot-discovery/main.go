@@ -51,6 +51,9 @@ var (
 		p.MCPMaxMessageSize = 1024 * 1024 * 4    // default grpc maximum message size
 		p.MCPInitialConnWindowSize = 1024 * 1024 // default grpc InitialWindowSize
 		p.MCPInitialWindowSize = 1024 * 1024     // default grpc ConnWindowSize
+
+		p.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
+		p.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 	})
 
 	loggingOptions = log.DefaultOptions()
@@ -67,8 +70,6 @@ var (
 		Short: "Start Istio proxy discovery service.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
-			serverArgs.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
-			serverArgs.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
