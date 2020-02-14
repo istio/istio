@@ -81,6 +81,7 @@ spec:
 {{- if not .Values.sidecar }}
           - containerPort: 15011
 {{- end }}
+          - containerPort: {{ .Values.global.monitoringPort }}
           readinessProbe:
             httpGet:
               path: /ready
