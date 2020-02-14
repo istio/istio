@@ -62,7 +62,7 @@ type AuthenticationPolicies struct {
 
 	// namespaceMutualTLSMode is the MutualTLSMode correspoinding to the namespace-level PeerAuthentication.
 	// All namespace-level policies, and only them, are added to this map. If the policy mTLS mode is set
-	// to UNSET, it will be resolved to the globalMutualTLSMode, if exist (i.e not UNKNOWN), or MTLSPermissive
+	// to UNSET, it will be resolved to the value set by mesh policy if exist (i.e not UNKNOWN), or MTLSPermissive
 	// otherwise.
 	namespaceMutualTLSMode map[string]MutualTLSMode
 
@@ -137,7 +137,7 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
 				mode = spec.Mtls.Mode
 			}
 			if config.Namespace == policy.rootNamespace {
-				// This is mesh-level policy. Resolve the UNSET mode if needed, and update the foundGlobalMTLS.
+				// This is mesh-level policy. UNSET is treated as permissive for mesh-policy.
 				if mode == v1beta1.PeerAuthentication_MutualTLS_UNSET {
 					policy.globalMutualTLSMode = MTLSPermissive
 				} else {
@@ -155,7 +155,7 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
 
 	inheritedMTLSMode := policy.globalMutualTLSMode
 	if inheritedMTLSMode == MTLSUnknown {
-		// If the mesh policy is not presented, we want the resolve UNSET into MTLSPermissive.
+		// If the mesh policy is not explicitly presented, use default valude MTLSPermissive.
 		inheritedMTLSMode = MTLSPermissive
 	}
 	for ns, mtlsMode := range foundNamespaceMTLS {
