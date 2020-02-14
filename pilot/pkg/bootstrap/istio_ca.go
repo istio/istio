@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -156,7 +157,7 @@ func (s *Server) EnableCA() bool {
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopCh <-chan struct{}) {
+func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *CAOptions, stopCh <-chan struct{}) {
 	if !s.EnableCA() {
 		return
 	}
@@ -216,13 +217,16 @@ func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopC
 	}
 	log.Info("Istiod CA has started")
 
-	nc, err := NewNamespaceController(ca, s.kubeClient.CoreV1())
+	nc, err := NewNamespaceController(func() map[string]string {
+		return map[string]string{
+			constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
+		}
+	}, s.kubeClient.CoreV1())
 	if err != nil {
 		log.Warnf("failed to start istiod namespace controller, error: %v", err)
 	} else {
 		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-			log.Infof("Starting namespace controller")
-			nc.namespaceController.Run(stop)
+			nc.Run(stop)
 		})
 	}
 }

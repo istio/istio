@@ -29,7 +29,10 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/rest"
+
 	"istio.io/istio/pilot/pkg/leaderelection"
+
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
@@ -371,7 +374,10 @@ func (s *Server) WaitUntilCompletion() {
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.Service.Registries) {
 		var err error
-		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "")
+		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "", func(config *rest.Config) {
+			config.QPS = 20
+			config.Burst = 40
+		})
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
