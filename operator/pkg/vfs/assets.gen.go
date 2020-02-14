@@ -12627,11 +12627,12 @@ func chartsIstioControlIstioDiscoveryTemplates_helpersTpl() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml = []byte(`{{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
+var _chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot{{ .Values.version }}
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -12642,13 +12643,14 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-pilot{{ .Values.version }}
+    name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   metrics:
   - type: Resource
     resource:
       name: cpu
       targetAverageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
 ---
+{{- end }}
 {{- end }}
 `)
 
@@ -12667,7 +12669,8 @@ func chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml = []byte(`{{/* If we have Istiod enabled and Galley disabled, we may run into issues during upgrade. */}}
+var _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml = []byte(`{{ if .Values.clusterResources }}
+{{/* If we have Istiod enabled and Galley disabled, we may run into issues during upgrade. */}}
 {{/* The old Galley will continuely try to patch its webhook, when we actually want to remove it. */}}
 {{/* This will disable Galley's permission to do so, if galley is disabled. */}}
 {{- if and .Values.global.istiod.enabled (not .Values.galley.enabled) }}
@@ -12721,7 +12724,9 @@ rules:
     resources: ["clusterroles"]
     verbs: ["get", "list", "watch"]
 ---
-{{- end }}`)
+{{- end }}
+{{- end }}
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, nil
@@ -12761,7 +12766,8 @@ rules:
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["configmaps"]
-  verbs: ["get", "list", "watch"]
+  # Create and update needed for ingress election
+  verbs: ["get", "list", "watch", "create", "update"]
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
@@ -12947,11 +12953,12 @@ func chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml() (*asset, 
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml = []byte(`apiVersion: v1
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: {{ .Release.Namespace }}
-  name: pilot-envoy-config{{ .Values.version }}
+  name: pilot-envoy-config{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   labels:
     release: {{ .Release.Name }}
 data:
@@ -13118,7 +13125,7 @@ data:
                               timeout: 0.000s
 
 ---
-
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYamlBytes() ([]byte, error) {
@@ -13136,16 +13143,18 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml = []byte(`{{- if .Values.pilot.jwksResolverExtraRootCA }}
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if .Values.pilot.jwksResolverExtraRootCA }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: pilot-jwks-extra-cacerts{{ .Values.version }}
+  name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 data:
   extra.pem: {{ .Values.pilot.jwksResolverExtraRootCA | quote }}
+{{- end }}
 {{- end }}
 `)
 
@@ -13164,7 +13173,7 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml() (*asset, error
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml = []byte(`{{- if .Values.global.istiod.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml = []byte(`{{ if and (or (eq .Values.revision "") (not .Values.clusterResources)) .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13196,11 +13205,12 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- if .Values.pilot.configMap }}
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if .Values.pilot.configMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio{{ .Values.version }}
+  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -13479,10 +13489,15 @@ data:
         {{- end }}
       {{- end }}
 
-    {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
+    {{- if .Values.global.istiod.enabled }}
+    {{- if not (eq .Values.revision "") }}
+    {{- $defPilotHostname := printf "istiod-%s.%s" .Values.revision .Release.Namespace }}
+    {{- else }}
+    {{- $defPilotHostname := printf "istiod.%s"  .Release.Namespace }}
+    {{- end }}
+    {{- $defPilotHostname := printf "istiod%s.%s" .Values.revision .Release.Namespace }}
     {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
 
-    {{- if .Values.global.istiod.enabled }}
       # If port is 15012, will use SDS.
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
@@ -13495,7 +13510,7 @@ data:
       #
       # Address where istio Pilot service is running
       {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-      discoveryAddress: {{ $defPilotHostname }}:15011
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15011
       {{- else }}
       discoveryAddress: {{ $pilotAddress }}:15011
       {{- end }}
@@ -13506,7 +13521,7 @@ data:
       #
       # Address where istio Pilot service is running
       {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-      discoveryAddress: {{ $defPilotHostname }}:15010
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
       {{- else }}
       discoveryAddress: {{ $pilotAddress }}:15010
       {{- end }}
@@ -13545,6 +13560,7 @@ data:
 
 ---
 {{- end }}
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesConfigmapYamlBytes() ([]byte, error) {
@@ -13562,15 +13578,19 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
+var _chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istiod
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
     istio: pilot
     release: {{ .Release.Name }}
+    {{- if ne .Values.revision ""}}
+    version: {{ .Values.revision }}
+    {{- end }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
 {{- end }}
@@ -13586,11 +13606,20 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
+      {{- if ne .Values.revision ""}}
+      app: pilot
+      version: {{ .Values.revision }}
+      {{- end }}
       istio: pilot
   template:
     metadata:
       labels:
         app: pilot
+        {{- if ne .Values.revision ""}}
+        version: {{ .Values.revision }}
+        {{- end }}
+        # Label used by the 'default' service. For versioned deployments we match with app and version.
+        # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -13700,8 +13729,10 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
 {{- if .Values.global.istiod.enabled }}
+          - name: INJECTION_WEBHOOK_CONFIG_NAME
+            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           - name: ISTIOD_ADDR
-            value: istio-pilot.{{ .Release.Namespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
 {{- end }}
@@ -13874,10 +13905,10 @@ spec:
 
       - name: config-volume
         configMap:
-          name: istio{{ .Values.version }}
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
       - name: pilot-envoy-config
         configMap:
-          name: pilot-envoy-config{{ .Values.version }}
+          name: pilot-envoy-config{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.mountMtlsCerts }}
       - name: istio-certs
         secret:
@@ -13887,7 +13918,7 @@ spec:
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:
-          name: pilot-jwks-extra-cacerts{{ .Values.version }}
+          name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
@@ -13900,6 +13931,7 @@ spec:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 ---
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesDeploymentYamlBytes() ([]byte, error) {
@@ -13998,11 +14030,12 @@ func chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml = []byte(`{{- if not .Values.global.omitSidecarInjectorConfigMap }}
+var _chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -14030,6 +14063,7 @@ data:
 {{ .Files.Get "files/injection-template.yaml" | trim | indent 4 }}
 
 {{- end }}
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYamlBytes() ([]byte, error) {
@@ -14047,14 +14081,15 @@ func chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml() (*as
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`{{- if not .Values.global.operatorManageWebhooks }}
+var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
+{{- if not .Values.global.operatorManageWebhooks }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{ else }}
-  name: istio-sidecar-injector-{{ .Release.Namespace }}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- end }}
   labels:
     app: sidecar-injector
@@ -14063,7 +14098,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-        name: istio-pilot
+        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
         namespace: {{ .Release.Namespace }}
         path: "/inject"
       caBundle: ""
@@ -14088,7 +14123,7 @@ webhooks:
         operator: DoesNotExist
       - key: istio.io/rev
         operator: DoesNotExist
-{{- else if .Values.global.revision }}
+{{- else if .Values.revision }}
       matchExpressions:
       - key: istio-injection
         operator: NotIn
@@ -14097,7 +14132,7 @@ webhooks:
       - key: istio.io/rev
         operator: In
         values:
-        - {{ .Values.global.revision }}
+        - {{ .Values.revision }}
 {{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
       matchLabels:
         istio-injection: enabled
@@ -14118,7 +14153,8 @@ webhooks:
         "sidecar.istio.io/inject": "true"
 {{- end }}
 {{- end }}
-{{- end }}`)
+{{- end }}
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, nil
@@ -14135,11 +14171,12 @@ func chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml() (*asset, err
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot{{ .Values.version }}
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -14150,12 +14187,13 @@ spec:
   selector:
     matchLabels:
       app: pilot
-      {{- if ne .Values.version ""}}
-      version: {{ .Values.version }}
+      {{- if ne .Values.revision ""}}
+      version: {{ .Values.revision }}
       {{- end }}
       release: {{ .Release.Name }}
       istio: pilot
 ---
+{{- end }}
 {{- end }}
 `)
 
@@ -14174,10 +14212,11 @@ func chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`apiVersion: v1
+var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+apiVersion: v1
 kind: Service
 metadata:
-  name: istio-pilot
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -14201,9 +14240,9 @@ spec:
     targetPort: 15017
 {{- end }}
   selector:
-    {{- if ne .Values.version ""}}
+    {{- if ne .Values.revision ""}}
     app: pilot
-    version: {{ .Values.version }}
+    version: {{ .Values.revision }}
     {{ else }}
     istio: pilot
     {{- end }}
@@ -14212,7 +14251,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istiod
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
@@ -14226,9 +14265,17 @@ spec:
       targetPort: 15017
   selector:
     app: pilot
+    {{- if ne .Values.revision ""}}
+    version: {{ .Values.revision }}
+    {{- else }}
+    # Label used by the 'default' service. For versioned deployments we match with app and version.
+    # This avoids default deployment picking the canary
     istio: pilot
+    {{- end }}
+{{- end }}
 ---
-{{- end }}`)
+{{- end }}
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesServiceYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesServiceYaml, nil
@@ -14279,7 +14326,8 @@ func chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -14512,6 +14560,7 @@ spec:
 ---
 {{- end}}
 {{- end}}
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14YamlBytes() ([]byte, error) {
@@ -14529,7 +14578,8 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -14946,6 +14996,7 @@ spec:
 ---
 {{- end}}
 {{- end}}
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15YamlBytes() ([]byte, error) {
@@ -14963,7 +15014,8 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`{{/* If Istiod is not enabled, create a NOP config for Istiod so we don't block config application. */}}
+var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`{{ if .Values.clusterResources }}
+{{/* If Istiod is not enabled, create a NOP config for Istiod so we don't block config application. */}}
 {{- if not .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
@@ -14987,7 +15039,9 @@ metadata:
     release: {{ .Release.Name }}
     istio: galley
 webhooks:
-{{- end }}`)
+{{- end }}
+{{- end }}
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml, nil
@@ -15265,6 +15319,9 @@ telemetry:
       #  disable_server_access_logging: false
       #  meshEdgesReportingDuration: 500s
       #  disable_host_header_fallback: true
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
 `)
 
 func chartsIstioControlIstioDiscoveryValuesYamlBytes() ([]byte, error) {

@@ -1,5 +1,4 @@
 {{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -59,5 +58,6 @@ spec:
     # This avoids default deployment picking the canary
     istio: pilot
     {{- end }}
+{{- end }}
 ---
 {{- end }}
