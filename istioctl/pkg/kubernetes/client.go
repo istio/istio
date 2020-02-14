@@ -249,11 +249,11 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
-		log.Warnf("will use `--remote=false` to retrieve version info due to %q", err)
+		log.Debugf("will use `--remote=false` to retrieve version info due to %q", err)
 		return nil, nil
 	}
 	if len(pods) == 0 {
-		log.Warnf("will use `--remote=false` to retrieve version info due to `no Istio pods in namespace %q`", namespace)
+		log.Debugf("will use `--remote=false` to retrieve version info due to `no Istio pods in namespace %q`", namespace)
 		return nil, nil
 	}
 
