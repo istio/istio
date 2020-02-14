@@ -79,8 +79,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 
 	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
 
-	// Create a test pilot discovery service configured to watch the tempDir.
-	args := bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
+	additionalArgs = append(additionalArgs, func(p *bootstrap.PilotArgs) {
 		p.Namespace = "testing"
 		p.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
 			HTTPAddr:        httpAddr,
@@ -105,10 +104,8 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		// TODO: add the plugins, so local tests are closer to reality and test full generation
 		// Plugins:           bootstrap.DefaultPlugins,
 	})
-
-	for _, apply := range additionalArgs {
-		apply(args)
-	}
+	// Create a test pilot discovery service configured to watch the tempDir.
+	args := bootstrap.NewPilotArgs(additionalArgs...)
 
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)
