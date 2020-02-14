@@ -154,6 +154,23 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 				},
+				{
+					ConfigFile:          "beta-mtls-automtls.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						if src == rctx.Naked && opts.Target == rctx.Naked {
+							// naked->naked should always succeed.
+							return true
+						}
+
+						// If one of the two endpoints is naked, expect failure.
+						return src != rctx.Naked && opts.Target != rctx.Naked
+					},
+				},
 			}
 			rctx.Run(testCases)
 		})
