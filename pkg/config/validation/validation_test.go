@@ -5641,7 +5641,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "empty spec with non default name",
 			configName: someName,
 			in:         &security_beta.RequestAuthentication{},
-			valid:      false,
+			valid:      true,
 		},
 		{
 			name:       "default name with non empty selector",
@@ -5653,11 +5653,11 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name:       "empty jwt rule",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{},
@@ -5667,7 +5667,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		},
 		{
 			name:       "empty issuer",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -5679,7 +5679,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		},
 		{
 			name:       "bad JwksUri - no protocol",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -5692,7 +5692,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		},
 		{
 			name:       "bad JwksUri - invalid port",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -5704,8 +5704,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "bad selector - empy value",
-			configName: constants.DefaultAuthenticationPolicyName,
+			name:       "empy value",
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -5720,11 +5720,11 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name:       "bad selector - empy key",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -5829,7 +5829,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 			name:       "empty spec with non default name",
 			configName: someName,
 			in:         &security_beta.PeerAuthentication{},
-			valid:      false,
+			valid:      true,
 		},
 		{
 			name:       "default name with non empty selector",
@@ -5841,7 +5841,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name:       "empty port level mtls",
