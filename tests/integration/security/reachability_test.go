@@ -165,6 +165,19 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 				},
+				{
+					ConfigFile:          "beta-mtls-partial-automtls.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
+						// will fail on all ports on b, except http port.
+						return opts.Target != rctx.B || opts.PortName == "http"
+					},
+				},
 			}
 			rctx.Run(testCases)
 		})
