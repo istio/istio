@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
-func TestTlsGateways(t *testing.T) {
+func TestTlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
