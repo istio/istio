@@ -16,20 +16,14 @@ package istio
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/mitchellh/go-homedir"
 
 	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/core/image"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/file"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -37,11 +31,6 @@ import (
 const (
 	// DefaultSystemNamespace default value for SystemNamespace
 	DefaultSystemNamespace = "istio-system"
-
-	// E2EValuesFile for default settings for Istio Helm deployment.
-	// This modifies a few values to help tests, like prometheus scrape interval
-	// In general, specific settings should be added to tests, not here
-	E2EValuesFile = "test-values/values-integ.yaml"
 
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300
@@ -70,8 +59,6 @@ var (
 		DeployIstio:                    true,
 		DeployTimeout:                  0,
 		UndeployTimeout:                0,
-		ChartDir:                       env.IstioChartDir,
-		ValuesFile:                     E2EValuesFile,
 		CustomSidecarInjectorNamespace: "",
 	}
 )
@@ -105,12 +92,6 @@ type Config struct {
 	// UndeployTimeout the timeout for undeploying Istio.
 	UndeployTimeout time.Duration
 
-	// The top-level Helm chart dir.
-	ChartDir string
-
-	// The Helm values file to be used.
-	ValuesFile string
-
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
 	// If specified, Values will be ignored
@@ -138,22 +119,21 @@ func (c *Config) IsMtlsEnabled() bool {
 		return true
 	}
 
-	data, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
-	if err != nil {
-		return true
-	}
 	m := make(map[interface{}]interface{})
-	err = yaml2.Unmarshal([]byte(data), &m)
+	err := yaml2.Unmarshal([]byte(c.ControlPlaneValues), &m)
 	if err != nil {
 		return false
 	}
-	if m["global"] != nil {
-		switch globalVal := m["global"].(type) {
+	if m["values"] != nil {
+		switch values := m["values"].(type) {
 		case map[interface{}]interface{}:
-			switch mtlsVal := globalVal["mtls"].(type) {
+			switch globalVal := values["global"].(type) {
 			case map[interface{}]interface{}:
-				if !mtlsVal["enabled"].(bool) && !mtlsVal["auto"].(bool) {
-					return false
+				switch mtlsVal := globalVal["mtls"].(type) {
+				case map[interface{}]interface{}:
+					if !mtlsVal["enabled"].(bool) && !mtlsVal["auto"].(bool) {
+						return false
+					}
 				}
 			}
 		}
@@ -162,18 +142,11 @@ func (c *Config) IsMtlsEnabled() bool {
 	return true
 }
 
+// IstioOperator generates a string representing an IstioOperator manifest from a Config object
 func (c *Config) IstioOperator() string {
 	data := ""
 	if c.ControlPlaneValues != "" {
 		data = Indent(c.ControlPlaneValues, "  ")
-	} else if c.ValuesFile != "" {
-		valfile, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
-		if err != nil {
-			return ""
-		}
-		data = fmt.Sprintf(`
-  values:
-%s`, Indent(valfile, "    "))
 	}
 
 	s, err := image.SettingsFromCommandLine()
@@ -191,7 +164,7 @@ spec:
 `, s.Hub, s.Tag, data)
 }
 
-// indents a block of text with an indent string
+// Indent indents a block of text with an indent string
 func Indent(text, indent string) string {
 	if text[len(text)-1:] == "\n" {
 		result := ""
@@ -211,14 +184,6 @@ func Indent(text, indent string) string {
 func DefaultConfig(ctx resource.Context) (Config, error) {
 	// Make a local copy.
 	s := *settingsFromCommandline
-
-	if err := normalizeFile(&s.ChartDir); err != nil {
-		return Config{}, err
-	}
-
-	if err := checkFileExists(filepath.Join(s.ChartDir, s.ValuesFile)); err != nil {
-		return Config{}, err
-	}
 
 	deps, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -247,24 +212,6 @@ func DefaultConfigOrFail(t test.Failer, ctx resource.Context) Config {
 		t.Fatalf("Get istio config: %v", err)
 	}
 	return cfg
-}
-
-func normalizeFile(path *string) error {
-	// If the path uses the homedir ~, expand the path.
-	var err error
-	*path, err = homedir.Expand(*path)
-	if err != nil {
-		return err
-	}
-
-	return checkFileExists(*path)
-}
-
-func checkFileExists(path string) error {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return err
-	}
-	return nil
 }
 
 func newHelmValues(ctx resource.Context, s *image.Settings) (map[string]string, error) {
@@ -332,8 +279,6 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("DeployTimeout:                  %s\n", c.DeployTimeout.String())
 	result += fmt.Sprintf("UndeployTimeout:                %s\n", c.UndeployTimeout.String())
 	result += fmt.Sprintf("Values:                         %v\n", c.Values)
-	result += fmt.Sprintf("ChartDir:                       %s\n", c.ChartDir)
-	result += fmt.Sprintf("ValuesFile:                     %s\n", c.ValuesFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("CustomSidecarInjectorNamespace: %s\n", c.CustomSidecarInjectorNamespace)
 
