@@ -76,6 +76,8 @@ message CNIConfig {
   string logLevel = 12;
 
   CNIRepairConfig repair = 13;
+
+  google.protobuf.BoolValue chained = 14;
 }
 
 message CNIRepairConfig {
@@ -100,7 +102,6 @@ message CNIRepairConfig {
   string brokenPodLabelValue = 9;
 
   string initContainerName = 10;
-
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.

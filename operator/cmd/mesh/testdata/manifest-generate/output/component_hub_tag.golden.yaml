@@ -6673,6 +6673,9 @@ spec:
                   key: cni_network_config
             - name: CNI_NET_DIR
               value: /etc/cni/net.d
+            # Deploy as a standalone CNI plugin or as chained?
+            - name: CHAINED_CNI_PLUGIN
+              value: "true"
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
