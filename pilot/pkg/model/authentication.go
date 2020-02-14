@@ -93,7 +93,6 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 
 	if configs, err := env.List(
 		collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
-		sortConfigByCreationTime(configs)
 		policy.addPeerAuthentication(configs)
 	} else {
 		return nil, err
@@ -109,6 +108,7 @@ func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config)
 	}
 }
 
+// TODO(diemtvu): refactor this function to share with policy-applier pkg.
 func apiModeToMutualTLSMode(mode v1beta1.PeerAuthentication_MutualTLS_Mode) MutualTLSMode {
 	switch mode {
 	case v1beta1.PeerAuthentication_MutualTLS_DISABLE:
@@ -123,8 +123,11 @@ func apiModeToMutualTLSMode(mode v1beta1.PeerAuthentication_MutualTLS_Mode) Mutu
 }
 
 func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
+	// Sort configs in ascending order by their creation time.
+	sortConfigByCreationTime(configs)
 	foundNamespaceMTLS := make(map[string]v1beta1.PeerAuthentication_MutualTLS_Mode)
 
+	seenNamespaceOrMeshConfig := map(map[string]time.T)
 	for _, config := range configs {
 		policy.peerAuthentications[config.Namespace] =
 			append(policy.peerAuthentications[config.Namespace], config)
