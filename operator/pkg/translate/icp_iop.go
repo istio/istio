@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	istioOperatorTreeString = `
+	IstioOperatorTreeString = `
 apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 `
@@ -123,7 +123,7 @@ func ICPToIOP(icp string, translations map[string]string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return util.OverlayYAML(istioOperatorTreeString, out)
+	return util.OverlayYAML(IstioOperatorTreeString, out)
 }
 
 // getSpecSubtree takes a YAML tree with the root node spec and returns the subtree under this root node.
