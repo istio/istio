@@ -162,13 +162,7 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						if src == rctx.Naked && opts.Target == rctx.Naked {
-							// naked->naked should always succeed.
-							return true
-						}
-
-						// If one of the two endpoints is naked, expect failure.
-						return src != rctx.Naked && opts.Target != rctx.Naked
+						return true
 					},
 				},
 			}
