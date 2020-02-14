@@ -968,13 +968,13 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
             "Body": {
                 "access_log_file": "/dev/stdout",
                 "connect_timeout": {
-                    "seconds": 1
+                    "seconds": 10
                 },
                 "default_config": {
                   "binary_path": "/usr/local/bin/envoy",
                   "config_path": "/etc/istio/proxy",
                   "connect_timeout": {
-                    "seconds": 1
+                    "seconds": 10
                   },
                   "discovery_address": "istio-pilot:15010",
                   "drain_duration": {
@@ -1007,6 +1007,7 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
                 "ingress_class": "istio",
                 "ingress_controller_mode": 2,
                 "ingress_service": "istio-ingressgateway",
+                "locality_lb_setting": {},
                 "outbound_traffic_policy": {
                     "mode": 1
                 },
@@ -1014,8 +1015,13 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
                   "nanos": 100000000
                 },
                 "proxy_listen_port": 15001,
+                "report_batch_max_entries": 100,
+                "report_batch_max_time": {
+                  "seconds": 1
+                },
                 "root_namespace": "istio-system",
-                "thrift_config": {}
+                "thrift_config": {},
+                "trust_domain": "cluster.local"
             }
         }
     ]
