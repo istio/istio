@@ -22,7 +22,6 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -160,32 +159,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 												ApiType: core.ApiConfigSource_GRPC,
 												GrpcServices: []*core.GrpcService{
 													{
-														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:              "/tmp/sdsuds.sock",
-																StatPrefix:             authn_model.SDSStatPrefix,
-																CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-																ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-																	CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-																		LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-																	},
-																},
-																CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-																	{
-																		CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
-																			FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-																				Name: "envoy.grpc_credentials.file_based_metadata",
-																				ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
-																					TypedConfig: &any.Any{
-																						TypeUrl: "type.googleapis.com/envoy.config.grpc_credential.v2alpha.FileBasedMetadataConfig",
-																						Value:   []byte("\n%\n#/var/run/secrets/tokens/istio-token\022 istio_sds_credentials_header-bin"),
-																					},
-																				},
-																			},
-																		},
-																	},
-																},
-															},
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
 														},
 													},
 												},
@@ -206,32 +181,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 													ApiType: core.ApiConfigSource_GRPC,
 													GrpcServices: []*core.GrpcService{
 														{
-															TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-																GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																	TargetUri:              "/tmp/sdsuds.sock",
-																	StatPrefix:             authn_model.SDSStatPrefix,
-																	CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-																	ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-																		CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-																			LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-																		},
-																	},
-																	CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-																		{
-																			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
-																				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-																					Name: "envoy.grpc_credentials.file_based_metadata",
-																					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
-																						TypedConfig: &any.Any{
-																							TypeUrl: "type.googleapis.com/envoy.config.grpc_credential.v2alpha.FileBasedMetadataConfig",
-																							Value:   []byte("\n%\n#/var/run/secrets/tokens/istio-token\022 istio_sds_credentials_header-bin"),
-																						},
-																					},
-																				},
-																			},
-																		},
-																	},
-																},
+															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+																EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
 															},
 														},
 													},

@@ -21,7 +21,6 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -99,14 +98,13 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 		}
 	} else {
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsUdsPath, meta),
+			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsUdsPath),
 		}
 
 		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName,
-					sdsUdsPath, meta),
+				DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, sdsUdsPath),
 			},
 		}
 	}
@@ -136,39 +134,4 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 		}
 	}
 	return nil
-}
-
-// ConstructSDSConfig returns SDS secret config for the given SDS UDS path.
-func ConstructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
-	gRPCConfig := &core.GrpcService_GoogleGrpc{
-		TargetUri:  sdsudspath,
-		StatPrefix: authn_model.SDSStatPrefix,
-		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-			},
-		},
-	}
-
-	gRPCConfig.CredentialsFactoryName = authn_model.FileBasedMetadataPlugName
-	gRPCConfig.CallCredentials = authn_model.ConstructgRPCCallCredentials(authn_model.K8sSATrustworthyJwtFileName, authn_model.K8sSAJwtTokenHeaderKey)
-
-	return &auth.SdsSecretConfig{
-		Name: name,
-		SdsConfig: &core.ConfigSource{
-			InitialFetchTimeout: features.InitialFetchTimeout,
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType: core.ApiConfigSource_GRPC,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: gRPCConfig,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 }

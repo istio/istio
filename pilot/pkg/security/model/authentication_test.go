@@ -21,22 +21,11 @@ import (
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	envoy_config_grpc_credential_v2alpha "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestConstructSdsSecretConfig(t *testing.T) {
-	metaConfig := &envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig{
-		SecretData: &core.DataSource{
-			Specifier: &core.DataSource_Filename{
-				Filename: K8sSATrustworthyJwtFileName,
-			},
-		},
-		HeaderKey: K8sSAJwtTokenHeaderKey,
-	}
-
 	gRPCConfig := &core.GrpcService_GoogleGrpc{
 		TargetUri:  "/tmp/sdsuds.sock",
 		StatPrefix: SDSStatPrefix,
@@ -67,8 +56,8 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 							ApiType: core.ApiConfigSource_GRPC,
 							GrpcServices: []*core.GrpcService{
 								{
-									TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-										GoogleGrpc: gRPCConfig,
+									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
 									},
 								},
 							},
@@ -82,8 +71,23 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
 			sdsUdsPath:     "/tmp/sdsuds.sock",
 			expected: &auth.SdsSecretConfig{
-				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: constructsdsconfighelper(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey, metaConfig),
+				Name: "spiffe://cluster.local/ns/bar/sa/foo",
+				SdsConfig: &core.ConfigSource{
+					InitialFetchTimeout: features.InitialFetchTimeout,
+					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+						ApiConfigSource: &core.ApiConfigSource{
+							ApiType: core.ApiConfigSource_GRPC,
+							GrpcServices: []*core.GrpcService{
+								{
+									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+									},
+								},
+							},
+							RefreshDelay: nil,
+						},
+					},
+				},
 			},
 		},
 		{
@@ -99,7 +103,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, &model.NodeMetadata{}); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 			fmt.Println(got)
 			fmt.Println(c.expected)
@@ -155,49 +159,5 @@ func TestConstructSdsSecretConfigForGatewayListener(t *testing.T) {
 		if got := ConstructSdsSecretConfigForGatewayListener(c.serviceAccount, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
-	}
-}
-
-func constructLocalChannelCredConfig() *core.GrpcService_GoogleGrpc_ChannelCredentials {
-	return &core.GrpcService_GoogleGrpc_ChannelCredentials{
-		CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-			LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-		},
-	}
-}
-
-func constructsdsconfighelper(tokenFileName, headerKey string, metaConfig *envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
-	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, metaConfig)
-	return &core.ConfigSource{
-		InitialFetchTimeout: features.InitialFetchTimeout,
-		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-			ApiConfigSource: &core.ApiConfigSource{
-				ApiType: core.ApiConfigSource_GRPC,
-				GrpcServices: []*core.GrpcService{
-					{
-						TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-							GoogleGrpc: &core.GrpcService_GoogleGrpc{
-								TargetUri:              "/tmp/sdsuds.sock",
-								StatPrefix:             SDSStatPrefix,
-								CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-								ChannelCredentials:     constructLocalChannelCredConfig(),
-								CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-									{
-										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
-											FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-												Name: "envoy.grpc_credentials.file_based_metadata",
-												ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
-													TypedConfig: any},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				RefreshDelay: nil,
-			},
-		},
 	}
 }

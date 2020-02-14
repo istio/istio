@@ -243,6 +243,20 @@
           }
         ]
       },
+      {{- if eq .sds_uds_path "unix:/etc/istio/proxy/SDS" }}
+      {
+        "name": "sds-grpc",
+        "type": "STATIC",
+        "http2_protocol_options": {},
+        "connect_timeout": "{{ .connect_timeout }}",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [{
+          "pipe": {
+            "path": "/etc/istio/proxy/SDS"
+           }
+        }]
+      },
+      {{- end }}
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
@@ -266,13 +280,8 @@
                     "api_type":"GRPC",
                     "grpc_services":[
                       {
-                        "google_grpc":{
-                          "target_uri": "{{ .sds_uds_path }}",
-                          "channel_credentials":{
-                            "local_credentials":{
-                            }
-                          },
-                          "stat_prefix":"sdsstat"
+                        "envoy_grpc":{
+                          "cluster_name": "sds-grpc"
                         }
                       }
                     ]
