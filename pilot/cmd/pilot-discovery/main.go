@@ -113,7 +113,7 @@ func init() {
 			fmt.Sprintf("File name for Istio mesh configuration. If not specified, a default mesh will be used."))
 		discoveryCmd.PersistentFlags().StringVar(&p.NetworksConfigFile, "networksConfig", "/etc/istio/config/meshNetworks",
 			fmt.Sprintf("File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used."))
-		discoveryCmd.PersistentFlags().StringVarP(&p.Namespace, "namespace", "n", "",
+		discoveryCmd.PersistentFlags().StringVarP(&p.Namespace, "namespace", "n", bootstrap.PodNamespaceVar.Get(),
 			"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 		discoveryCmd.PersistentFlags().StringSliceVar(&p.Plugins, "plugins", bootstrap.DefaultPlugins,
 			"comma separated list of networking plugins to enable")

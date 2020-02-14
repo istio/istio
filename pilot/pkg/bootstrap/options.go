@@ -130,7 +130,7 @@ type ValidationOptions struct {
 	ValidationDirectory string
 }
 
-var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
 var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
 var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
 
@@ -160,7 +160,7 @@ func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
 
 // Apply default value to PilotArgs
 func (p *PilotArgs) applyDefaults() {
-	p.Namespace = podNamespaceVar.Get()
+	p.Namespace = PodNamespaceVar.Get()
 	p.PodName = podNameVar.Get()
 	p.ServiceAccountName = serviceAccountVar.Get()
 	p.Revision = revisionVar.Get()
