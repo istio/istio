@@ -2041,6 +2041,37 @@ func TestMergeTCPFilterChains(t *testing.T) {
 		Port:     443,
 		Protocol: protocol.HTTPS,
 	}
+	var l xdsapi.Listener
+	filterChains := []*listener.FilterChain{
+		{
+			FilterChainMatch: &listener.FilterChainMatch{
+				PrefixRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "10.244.0.18",
+						PrefixLen:     &wrappers.UInt32Value{Value: 32},
+					},
+					{
+						AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
+						PrefixLen:     &wrappers.UInt32Value{Value: 128},
+					},
+				},
+			},
+			Filters: nil, // This is not a valid config, just for test
+		},
+		{
+			FilterChainMatch: &listener.FilterChainMatch{
+				ServerNames: []string{"foo.com"},
+			},
+			// This is not a valid config, just for test
+			Filters: []*listener.Filter{tcpProxyFilter},
+		},
+		{
+			FilterChainMatch: &listener.FilterChainMatch{},
+			// This is not a valid config, just for test
+			Filters: buildFallthroughNetworkFilters(push, node, &l),
+		},
+	}
+	l.FilterChains = filterChains
 	listenerMap := map[string]*outboundListenerEntry{
 		"0.0.0.0_443": {
 			servicePort: svcPort,
@@ -2051,37 +2082,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 				Ports:        []*model.Port{svcPort},
 				Resolution:   model.DNSLB,
 			}},
-			listener: &xdsapi.Listener{
-				FilterChains: []*listener.FilterChain{
-					{
-						FilterChainMatch: &listener.FilterChainMatch{
-							PrefixRanges: []*core.CidrRange{
-								{
-									AddressPrefix: "10.244.0.18",
-									PrefixLen:     &wrappers.UInt32Value{Value: 32},
-								},
-								{
-									AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
-									PrefixLen:     &wrappers.UInt32Value{Value: 128},
-								},
-							},
-						},
-						Filters: nil, // This is not a valid config, just for test
-					},
-					{
-						FilterChainMatch: &listener.FilterChainMatch{
-							ServerNames: []string{"foo.com"},
-						},
-						// This is not a valid config, just for test
-						Filters: []*listener.Filter{tcpProxyFilter},
-					},
-					{
-						FilterChainMatch: &listener.FilterChainMatch{},
-						// This is not a valid config, just for test
-						Filters: []*listener.Filter{newTCPProxyOutboundListenerFilter(push, node)},
-					},
-				},
-			},
+			listener: &l,
 		},
 	}
 

@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
+	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
@@ -258,11 +259,11 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	tcpProxyFilter := newTCPProxyOutboundListenerFilter(push, node)
+	fallthroughNetworkFilters := buildFallthroughNetworkFilters(push, node, nil)
 
 	filterChains := []*listener.FilterChain{
 		{
-			Filters: []*listener.Filter{tcpProxyFilter},
+			Filters: fallthroughNetworkFilters,
 		},
 	}
 
@@ -584,24 +585,56 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl,
 	return filterChains
 }
 
-func newTCPProxyOutboundListenerFilter(push *model.PushContext, node *model.Proxy) *listener.Filter {
+func buildFallthroughNetworkFilters(push *model.PushContext, node *model.Proxy,
+	l *xdsapi.Listener) []*listener.Filter {
 	tcpProxy := &tcp_proxy.TcpProxy{
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
+	requireSniForwarding := false
 	if util.IsAllowAnyOutbound(node) {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
+		egressCluster := util.PassthroughCluster
+
+		// no need to check for nil value as the previous if check has checked
+		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
+			// user has provided an explicit destination for all the unknown traffic.
+			// build a cluster out of this destination
+			serviceFound := false
+			for _, service := range push.Services(node) {
+				if string(service.Hostname) == node.SidecarScope.OutboundTrafficPolicy.EgressProxy.Host {
+					serviceFound = true
+					if sockAddr := l.Address.GetSocketAddress(); sockAddr == nil {
+						return nil
+					}
+					listenPort := l.Address.GetSocketAddress().GetPortValue()
+					egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
+						service, int(listenPort))
+					break
+				}
+			}
+			if !serviceFound {
+				return nil
+			}
+			requireSniForwarding = true
+		}
 		tcpProxy = &tcp_proxy.TcpProxy{
-			StatPrefix:       util.PassthroughCluster,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+			StatPrefix:       egressCluster,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: egressCluster},
 		}
 		setAccessLog(push, node, tcpProxy)
 	}
 
-	filter := listener.Filter{
-		Name:       xdsutil.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
+	filterStack := make([]*listener.Filter, 0)
+	// always add the filter for forwarding downstream sni if egress proxy is set
+	if requireSniForwarding {
+		filterStack = append(filterStack, &listener.Filter{Name: util.ForwardDownstreamSniFilter})
 	}
 
-	return &filter
+	filterStack = append(filterStack, &listener.Filter{
+		Name:       xdsutil.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
+	})
+
+	return filterStack
 }
