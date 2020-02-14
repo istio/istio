@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/security/pkg/nodeagent/util"
-
 	"istio.io/istio/pkg/config/constants"
 
 	"istio.io/istio/pilot/pkg/security/model"
