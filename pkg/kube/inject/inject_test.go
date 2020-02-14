@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/google/go-cmp/cmp"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 
@@ -207,7 +208,7 @@ values:
 			in:   "format-duration.yaml",
 			want: "format-duration.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
-				m.DefaultConfig.DrainDuration = types.DurationProto(time.Second * 42)
+				m.DefaultConfig.DrainDuration = types.DurationProto(time.Second * 23)
 				m.DefaultConfig.ParentShutdownDuration = types.DurationProto(time.Second * 42)
 				m.DefaultConfig.ConnectTimeout = types.DurationProto(time.Second * 42)
 			},
@@ -321,6 +322,9 @@ values:
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
 			m := mesh.DefaultMeshConfig()
+			if c.mesh != nil {
+				c.mesh(&m)
+			}
 			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, c.values)
 			inputFilePath := "testdata/inject/" + c.in
 			wantFilePath := "testdata/inject/" + c.want
@@ -567,5 +571,50 @@ func TestSkipUDPPorts(t *testing.T) {
 				t.Fatalf("unexpect ports result for case %d: expect %v, got %v", i, expectPorts, ports)
 			}
 		}
+	}
+}
+
+func TestCleanMeshConfig(t *testing.T) {
+	explicit := mesh.DefaultMeshConfig()
+	explicit.TrustDomain = "cluster.local"
+	explicit.ConnectTimeout = types.DurationProto(10 * time.Second)
+	explicit.DefaultConfig.DrainDuration = types.DurationProto(45 * time.Second)
+	overrides := mesh.DefaultMeshConfig()
+	overrides.TrustDomain = "foo.bar"
+	cases := []struct {
+		name   string
+		mesh   meshapi.MeshConfig
+		expect string
+	}{
+		{
+			"default",
+			mesh.DefaultMeshConfig(),
+			`{}`,
+		},
+		{
+			"explicit default",
+			explicit,
+			`{}`,
+		},
+		{
+			"overrides",
+			overrides,
+			`{"trustDomain":"foo.bar"}`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := protoToJSON(&tt.mesh)
+			if got != tt.expect {
+				t.Fatalf("incorrect output: got %v, expected %v", got, tt.expect)
+			}
+			roundTrip, err := mesh.ApplyMeshConfigJSON(got, mesh.DefaultMeshConfig())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !cmp.Equal(*roundTrip, tt.mesh) {
+				t.Fatalf("round trip is not identical: got \n%+v, expected \n%+v", *roundTrip, tt.mesh)
+			}
+		})
 	}
 }
