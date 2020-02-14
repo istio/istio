@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -221,16 +222,33 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		chunk := bytes.TrimSpace(doc)
 		r, err := s.parseChunk(r, chunk)
 		if err != nil {
-			e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
-			scope.Source.Warnf("%v - skipping", e)
-			scope.Source.Debugf("Failed to parse yaml chunk: %v", string(chunk))
-			errs = multierror.Append(errs, e)
+			var uerr *unknownSchemaError
+			if errors.As(err, &uerr) {
+				// Note the error to the debug log but continue
+				scope.Source.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
+			} else {
+				e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
+				scope.Source.Warnf("%v - skipping", e)
+				scope.Source.Debugf("Failed to parse yaml chunk: %v", string(chunk))
+				errs = multierror.Append(errs, e)
+			}
 			continue
 		}
 		resources = append(resources, r)
 	}
 
 	return resources, errs
+}
+
+// unknownSchemaError represents a schema was not found for a group+version+kind.
+type unknownSchemaError struct {
+	group   string
+	version string
+	kind    string
+}
+
+func (e unknownSchemaError) Error() string {
+	return fmt.Sprintf("failed finding schema for group/version/kind: %s/%s/%s", e.group, e.version, e.kind)
 }
 
 func (s *KubeSource) parseChunk(r *collection.Schemas, yamlChunk []byte) (kubeResource, error) {
@@ -246,9 +264,17 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, yamlChunk []byte) (kubeRe
 		return kubeResource{}, fmt.Errorf("failed interpreting jsonChunk: %v", err)
 	}
 
+	if groupVersionKind.Empty() {
+		return kubeResource{}, fmt.Errorf("unable to parse resource with no group, version and kind")
+	}
+
 	schema, found := r.FindByGroupVersionKind(schemaresource.FromKubernetesGVK(groupVersionKind))
 	if !found {
-		return kubeResource{}, fmt.Errorf("failed finding schema for group/kind: %s/%s", groupVersionKind.Group, groupVersionKind.Kind)
+		return kubeResource{}, &unknownSchemaError{
+			group:   groupVersionKind.Group,
+			version: groupVersionKind.Version,
+			kind:    groupVersionKind.Kind,
+		}
 	}
 
 	t := rt.DefaultProvider().GetAdapter(schema.Resource())
