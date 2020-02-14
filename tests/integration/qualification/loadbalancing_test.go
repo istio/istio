@@ -82,7 +82,7 @@ func TestIngressLoadBalancing(t *testing.T) {
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)
 
-	prom := prometheus.NewOrFail(t, ctx)
+	prom := prometheus.NewOrFail(t, ctx, prometheus.Config{})
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
 	rangeStart := time.Now()

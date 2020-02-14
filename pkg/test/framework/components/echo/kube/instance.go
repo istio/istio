@@ -49,10 +49,10 @@ type instance struct {
 	id        resource.ID
 	cfg       echo.Config
 	clusterIP string
-	env       *kubeEnv.Environment
 	workloads []*workload
 	grpcPort  uint16
 	ctx       resource.Context
+	cluster   kubeEnv.Cluster
 }
 
 func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
@@ -69,11 +69,10 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, errors.New("galley must be provided")
 	}
 
-	env := ctx.Environment().(*kubeEnv.Environment)
 	c := &instance{
-		env: env,
-		cfg: cfg,
-		ctx: ctx,
+		cfg:     cfg,
+		ctx:     ctx,
+		cluster: kubeEnv.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -91,12 +90,12 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	// Deploy the YAML.
-	if err = env.ApplyContents(cfg.Namespace.Name(), generatedYAML); err != nil {
+	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), generatedYAML); err != nil {
 		return nil, err
 	}
 
 	// Now retrieve the service information to find the ClusterIP
-	s, err := env.GetService(cfg.Namespace.Name(), cfg.Service)
+	s, err := c.cluster.GetService(cfg.Namespace.Name(), cfg.Service)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +227,7 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.env.Accessor, c.ctx)
+			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.ctx)
 			if err != nil {
 				return err
 			}

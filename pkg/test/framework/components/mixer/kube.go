@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
+
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -37,13 +38,15 @@ type kubeComponent struct {
 
 	*client
 
-	env *kube.Environment
+	env     *kube.Environment
+	cluster kube.Cluster
 }
 
 // NewKubeComponent factory function for the component
-func newKube(ctx resource.Context, _ Config) (*kubeComponent, error) {
+func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 	c := &kubeComponent{
-		env: ctx.Environment().(*kube.Environment),
+		env:     ctx.Environment().(*kube.Environment),
+		cluster: kube.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
 	}
 
 	c.client = &client{
@@ -66,8 +69,8 @@ func newKube(ctx resource.Context, _ Config) (*kubeComponent, error) {
 		if serviceType == policyService {
 			ns = cfg.PolicyNamespace
 		}
-		fetchFn := c.env.NewSinglePodFetch(ns, "istio=mixer", "istio-mixer-type="+serviceType)
-		pods, err := c.env.WaitUntilPodsAreReady(fetchFn)
+		fetchFn := c.cluster.NewSinglePodFetch(ns, "istio=mixer", "istio-mixer-type="+serviceType)
+		pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 		if err != nil {
 			return nil, err
 		}
@@ -75,13 +78,13 @@ func newKube(ctx resource.Context, _ Config) (*kubeComponent, error) {
 
 		scopes.Framework.Debugf("completed wait for Mixer pod(%s)", serviceType)
 
-		port, err := getGrpcPort(c.env, ns, serviceType)
+		port, err := c.getGrpcPort(ns, serviceType)
 		if err != nil {
 			return nil, err
 		}
 		scopes.Framework.Debugf("extracted grpc port for service: %v", port)
 
-		forwarder, err := c.env.NewPortForwarder(pod, 0, port)
+		forwarder, err := c.cluster.NewPortForwarder(pod, 0, port)
 		if err != nil {
 			return nil, err
 		}
@@ -126,8 +129,8 @@ func (c *kubeComponent) Close() error {
 	return nil
 }
 
-func getGrpcPort(e *kube.Environment, ns, serviceType string) (uint16, error) {
-	svc, err := e.Accessor.GetService(ns, "istio-"+serviceType)
+func (c *kubeComponent) getGrpcPort(ns, serviceType string) (uint16, error) {
+	svc, err := c.cluster.GetService(ns, "istio-"+serviceType)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
 	}

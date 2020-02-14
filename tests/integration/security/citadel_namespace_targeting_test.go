@@ -42,7 +42,7 @@ func TestNamespaceTargeting(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).Run(func(ctx framework.TestContext) {
 
-		env := ctx.Environment().(*kube.Environment)
+		cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
 
 		citadelNamespace := ist.Settings().SystemNamespace
 		testCases := map[string]struct {
@@ -77,7 +77,7 @@ func TestNamespaceTargeting(t *testing.T) {
 		for name, tc := range testCases {
 			ctx.NewSubTest(name).
 				Run(func(ctx framework.TestContext) {
-					runNamespaceTargetingTest(env, ctx, tc.citadelLabels, tc.targeted)
+					runNamespaceTargetingTest(cluster, ctx, tc.citadelLabels, tc.targeted)
 				})
 		}
 	})
@@ -85,7 +85,7 @@ func TestNamespaceTargeting(t *testing.T) {
 
 // creates namespace with the supplied labels, checks if ServiceAccount secrets are generated,
 // and compares to whether secrets should have been generated
-func runNamespaceTargetingTest(env *kube.Environment, ctx framework.TestContext, citadelLabels map[string]string, targeted bool) {
+func runNamespaceTargetingTest(cluster kube.Cluster, ctx framework.TestContext, citadelLabels map[string]string, targeted bool) {
 	ctx.Helper()
 
 	nsConfig := namespace.Config{
@@ -101,11 +101,11 @@ func runNamespaceTargetingTest(env *kube.Environment, ctx framework.TestContext,
 			Name: serviceAccountName,
 		},
 	}
-	env.GetServiceAccount(ns.Name()).Create(serviceAccount)
+	cluster.GetServiceAccount(ns.Name()).Create(serviceAccount)
 
 	// generated service account secret will take the form istio.{service_account_name}
 	secretName := fmt.Sprintf("istio.%s", serviceAccountName)
-	_, err := waitForSecret(env, secretName, ns.Name(), secretTimeout)
+	_, err := waitForSecret(cluster, secretName, ns.Name(), secretTimeout)
 
 	secretGenerated := err == nil
 	if targeted != secretGenerated {
@@ -116,9 +116,9 @@ func runNamespaceTargetingTest(env *kube.Environment, ctx framework.TestContext,
 
 // waitForSecret waits up to 30 seconds for secret generation, and returns on timeout
 func waitForSecret(
-	env *kube.Environment, name, ns string, timeout time.Duration) (interface{}, error) {
+	cluster kube.Cluster, name, ns string, timeout time.Duration) (interface{}, error) {
 	sa, err := retry.Do(func() (interface{}, bool, error) {
-		sa, err := env.GetSecret(ns).Get(name, mv1.GetOptions{})
+		sa, err := cluster.GetSecret(ns).Get(name, mv1.GetOptions{})
 		if err != nil {
 			return nil, false, err
 		}

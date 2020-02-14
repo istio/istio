@@ -65,9 +65,9 @@ func TestMtlsWithRootCertUpgrade(t *testing.T) {
 			}
 
 			// Get initial root cert.
-			kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+			cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
 			systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-			caScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+			caScrt, err := cluster.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("unable to load root secret: %s", err.Error())
 			}
@@ -77,7 +77,7 @@ func TestMtlsWithRootCertUpgrade(t *testing.T) {
 
 			// Root cert rotates every 20~40 seconds. Wait for at least one root cert rotation
 			// to let workloads use new root cert to set up mTLS connections.
-			err = waitUntilRootCertRotate(t, caScrt, kubeAccessor, systemNS.Name(), 40*time.Second)
+			err = waitUntilRootCertRotate(t, caScrt, cluster, systemNS.Name(), 40*time.Second)
 			if err != nil {
 				t.Errorf("Root cert is not rotated: %s", err.Error())
 			}

@@ -26,17 +26,17 @@ import (
 )
 
 type kubeComponent struct {
-	config Config
-	id     resource.ID
-	ctx    resource.Context
-	env    *kube.Environment
+	config  Config
+	id      resource.ID
+	ctx     resource.Context
+	cluster kube.Cluster
 }
 
 func newKube(ctx resource.Context, config Config) Instance {
 	n := &kubeComponent{
-		ctx:    ctx,
-		config: config,
-		env:    ctx.Environment().(*kube.Environment),
+		ctx:     ctx,
+		config:  config,
+		cluster: kube.ClusterOrDefault(config.Cluster, ctx.Environment()),
 	}
 	n.id = ctx.TrackResource(n)
 
@@ -52,7 +52,7 @@ func (c *kubeComponent) ID() resource.ID {
 func (c *kubeComponent) Invoke(args []string) (string, error) {
 	var envArgs = []string{
 		"--kubeconfig",
-		c.env.Settings().KubeConfig,
+		c.cluster.String(),
 	}
 	var out bytes.Buffer
 	rootCmd := cmd.GetRootCmd(append(envArgs, args...))
