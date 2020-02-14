@@ -37,14 +37,16 @@ func TestAuthnTlsCheck(t *testing.T) {
 		{ // case 1
 			configs: []model.Config{},
 			args:    strings.Split("authn tls-check foo-123456-7890", " "),
-			expectedOutput: `HOST:PORT                                  STATUS     SERVER        CLIENT     AUTHN POLICY     DESTINATION RULE
+			expectedOutput: `Command "tls-check" is deprecated, do not use if you start using PeerAuthentication
+HOST:PORT                                  STATUS     SERVER        CLIENT     AUTHN POLICY     DESTINATION RULE
 details.default.svc.cluster.local:8080     OK         HTTP/mTLS     mTLS       default/         details/default
 `,
 		},
 		{ // case 2
 			configs: []model.Config{},
 			args:    strings.Split("authn tls-check foo-123456-7890 bar", " "),
-			expectedOutput: `HOST:PORT     STATUS     SERVER     CLIENT     AUTHN POLICY     DESTINATION RULE
+			expectedOutput: `Command "tls-check" is deprecated, do not use if you start using PeerAuthentication
+HOST:PORT     STATUS     SERVER     CLIENT     AUTHN POLICY     DESTINATION RULE
 `,
 		},
 	}
