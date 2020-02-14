@@ -64,6 +64,9 @@ type Config struct {
 	MeshConfig *meshConfig.MeshConfig
 
 	ServiceArgs bootstrap.ServiceArgs
+
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
 }
 
 // New returns a new instance of echo.

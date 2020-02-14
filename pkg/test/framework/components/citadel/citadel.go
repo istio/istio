@@ -34,7 +34,8 @@ type Instance interface {
 }
 
 type Config struct {
-	Istio istio.Instance
+	Istio     istio.Instance
+	KubeIndex int
 }
 
 // Deploy returns a new instance of Apps

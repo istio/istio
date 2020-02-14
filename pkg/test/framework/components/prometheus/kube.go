@@ -53,12 +53,14 @@ type kubeComponent struct {
 	api       prometheusApiV1.API
 	forwarder testKube.PortForwarder
 	env       *kube.Environment
+	kubeIndex int
 }
 
-func newKube(ctx resource.Context) (Instance, error) {
+func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
-		env: env,
+		env:       env,
+		kubeIndex: cfgIn.KubeIndex,
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -68,20 +70,20 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, err
 	}
 
-	fetchFn := env.Accessor.NewSinglePodFetch(cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
-	pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := env.Accessors[c.kubeIndex].NewSinglePodFetch(cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
+	pods, err := env.Accessors[c.kubeIndex].WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 	pod := pods[0]
 
-	svc, err := env.Accessor.GetService(cfg.TelemetryNamespace, serviceName)
+	svc, err := env.Accessors[c.kubeIndex].GetService(cfg.TelemetryNamespace, serviceName)
 	if err != nil {
 		return nil, err
 	}
 	port := uint16(svc.Spec.Ports[0].Port)
 
-	forwarder, err := env.Accessor.NewPortForwarder(pod, 0, port)
+	forwarder, err := env.Accessors[c.kubeIndex].NewPortForwarder(pod, 0, port)
 	if err != nil {
 		return nil, err
 	}

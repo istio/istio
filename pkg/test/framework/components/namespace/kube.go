@@ -110,13 +110,13 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 		return nil, err
 	}
 
-	if !env.Accessor.NamespaceExists(name) {
+	if !env.Accessors[cfg.KubeIndex].NamespaceExists(name) {
 		nsConfig := Config{
 			Inject:                  true,
 			CustomInjectorNamespace: cfg.CustomSidecarInjectorNamespace,
 		}
 		nsLabels := createNamespaceLabels(&nsConfig)
-		if err := env.CreateNamespaceWithLabels(name, "istio-test", nsLabels); err != nil {
+		if err := env.Accessors[cfg.KubeIndex].CreateNamespaceWithLabels(name, "istio-test", nsLabels); err != nil {
 			return nil, err
 		}
 
@@ -135,12 +135,18 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	ns := fmt.Sprintf("%s-%d-%d", nsConfig.Prefix, nsid, r)
 
-	nsLabels := createNamespaceLabels(nsConfig)
-	if err := env.CreateNamespaceWithLabels(ns, "istio-test", nsLabels); err != nil {
+	cfg, err := istio.DefaultConfig(ctx)
+	if err != nil {
 		return nil, err
 	}
 
-	n := &kubeNamespace{name: ns, a: env.Accessor, ctx: ctx}
+	// TODO(ayj) - create the namespace in all clusters?
+	nsLabels := createNamespaceLabels(nsConfig)
+	if err := env.Accessors[cfg.KubeIndex].CreateNamespaceWithLabels(ns, "istio-test", nsLabels); err != nil {
+		return nil, err
+	}
+
+	n := &kubeNamespace{name: ns, a: env.Accessors[cfg.KubeIndex], ctx: ctx}
 	id := ctx.TrackResource(n)
 	n.id = id
 

@@ -96,7 +96,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	// Now retrieve the service information to find the ClusterIP
-	s, err := env.GetService(cfg.Namespace.Name(), cfg.Service)
+	s, err := env.Accessors[cfg.KubeIndex].GetService(cfg.Namespace.Name(), cfg.Service)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, c.cfg.Annotations, c.grpcPort, c.env.Accessor, c.ctx)
+			workload, err := newWorkload(addr, c.cfg.Annotations, c.grpcPort, c.env.Accessors[c.cfg.KubeIndex], c.ctx)
 			if err != nil {
 				return err
 			}

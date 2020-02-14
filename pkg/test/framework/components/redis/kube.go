@@ -38,15 +38,17 @@ var (
 )
 
 type kubeComponent struct {
-	id  resource.ID
-	env *kube.Environment
-	ns  namespace.Instance
+	id        resource.ID
+	env       *kube.Environment
+	ns        namespace.Instance
+	kubeIndex int
 }
 
-func newKube(ctx resource.Context) (Instance, error) {
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
-		env: env,
+		env:       env,
+		kubeIndex: cfg.KubeIndex,
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
@@ -99,8 +101,8 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.RedisInstallFilePath, err)
 	}
 
-	fetchFn := c.env.NewPodFetch(c.ns.Name(), "app=redis")
-	if _, err := c.env.WaitUntilPodsAreReady(fetchFn); err != nil {
+	fetchFn := c.env.Accessors[c.kubeIndex].NewPodFetch(c.ns.Name(), "app=redis")
+	if _, err := c.env.Accessors[c.kubeIndex].WaitUntilPodsAreReady(fetchFn); err != nil {
 		return nil, err
 	}
 
@@ -114,8 +116,8 @@ func (c *kubeComponent) ID() resource.ID {
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
 	scopes.CI.Infof("Deleting Redis Install")
-	_ = c.env.DeleteNamespace(redisNamespace)
-	_ = c.env.WaitForNamespaceDeletion(redisNamespace)
+	_ = c.env.Accessors[c.kubeIndex].DeleteNamespace(redisNamespace)
+	_ = c.env.Accessors[c.kubeIndex].WaitForNamespaceDeletion(redisNamespace)
 	return nil
 }
 

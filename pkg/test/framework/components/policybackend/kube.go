@@ -157,15 +157,18 @@ type kubeComponent struct {
 
 	forwarder  testKube.PortForwarder
 	deployment *deployment.Instance
+
+	kubeIndex int
 }
 
 // NewKubeComponent factory function for the component
-func newKube(ctx resource.Context) (Instance, error) {
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
-		ctx:     ctx,
-		kubeEnv: env,
-		client:  &client{},
+		ctx:       ctx,
+		kubeEnv:   env,
+		client:    &client{},
+		kubeIndex: cfg.KubeIndex,
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -206,13 +209,13 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 
 	c.deployment = deployment.NewYamlContentDeployment(c.namespace.Name(), yamlContent)
-	if err = c.deployment.Deploy(env.Accessor, false); err != nil {
+	if err = c.deployment.Deploy(env.Accessors[cfg.KubeIndex], false); err != nil {
 		scopes.CI.Info("Error applying PolicyBackend deployment config")
 		return nil, err
 	}
 
-	podFetchFunc := env.NewSinglePodFetch(c.namespace.Name(), "app=policy-backend", "version=test")
-	pods, err := env.WaitUntilPodsAreReady(podFetchFunc)
+	podFetchFunc := env.Accessors[cfg.KubeIndex].NewSinglePodFetch(c.namespace.Name(), "app=policy-backend", "version=test")
+	pods, err := env.Accessors[cfg.KubeIndex].WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
 		return nil, err
@@ -220,7 +223,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	pod := pods[0]
 
 	var svc *kubeApiCore.Service
-	if svc, _, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "policy-backend"); err != nil {
+	if svc, _, err = env.Accessors[cfg.KubeIndex].WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "policy-backend"); err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend service to be available: %v", err)
 		return nil, err
 	}
@@ -228,7 +231,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	address := fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
 	scopes.Framework.Infof("Policy Backend in-cluster address: %s", address)
 
-	if c.forwarder, err = env.NewPortForwarder(
+	if c.forwarder, err = env.Accessors[cfg.KubeIndex].NewPortForwarder(
 		pod, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
 		scopes.CI.Infof("Error setting up PortForwarder for PolicyBackend: %v", err)
 		return nil, err
@@ -279,9 +282,9 @@ func (c *kubeComponent) Dump() {
 		scopes.CI.Errorf("Unable to create dump folder for policy-backend-state: %v", err)
 		return
 	}
-	deployment.DumpPodState(workDir, c.namespace.Name(), c.kubeEnv.Accessor)
+	deployment.DumpPodState(workDir, c.namespace.Name(), c.kubeEnv.Accessors[c.kubeIndex])
 
-	pods, err := c.kubeEnv.Accessor.GetPods(c.namespace.Name())
+	pods, err := c.kubeEnv.Accessors[c.kubeIndex].GetPods(c.namespace.Name())
 	if err != nil {
 		scopes.CI.Errorf("Unable to get pods from the system namespace: %v", err)
 		return
@@ -289,7 +292,7 @@ func (c *kubeComponent) Dump() {
 
 	for _, pod := range pods {
 		for _, container := range pod.Spec.Containers {
-			l, err := c.kubeEnv.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
+			l, err := c.kubeEnv.Accessors[c.kubeIndex].Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue

@@ -73,6 +73,9 @@ type Config struct {
 	// This field is ignored on native
 	// TODO(https://github.com/istio/istio/issues/20299) remove this field
 	CreateClient bool
+
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
 }
 
 // New returns a new instance of echo.

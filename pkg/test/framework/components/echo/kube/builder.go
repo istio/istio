@@ -103,13 +103,14 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 		serviceName := inst.Config().Service
 		serviceNamespace := inst.Config().Namespace.Name()
 		timeout := inst.Config().ReadinessTimeout
+		accessor := env.Accessors[inst.Config().KubeIndex]
 
 		// Run the waits in parallel.
 		go func() {
 			defer wg.Done()
 
 			// Wait until all the endpoints are ready for this service
-			_, endpoints, err := env.WaitUntilServiceEndpointsAreReady(
+			_, endpoints, err := accessor.WaitUntilServiceEndpointsAreReady(
 				serviceNamespace, serviceName, retry.Timeout(timeout))
 			if err != nil {
 				aggregateErrMux.Lock()

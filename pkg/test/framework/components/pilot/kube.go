@@ -37,8 +37,10 @@ var (
 	_ io.Closer = &kubeComponent{}
 )
 
-func newKube(ctx resource.Context, _ Config) (Instance, error) {
-	c := &kubeComponent{}
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+	c := &kubeComponent{
+		kubeIndex: cfg.KubeIndex,
+	}
 	c.id = ctx.TrackResource(c)
 
 	env := ctx.Environment().(*kube.Environment)
@@ -50,14 +52,14 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	}
 	ns := icfg.ConfigNamespace
 
-	fetchFn := env.NewSinglePodFetch(ns, "istio=pilot")
-	pods, err := env.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := env.Accessors[icfg.KubeIndex].NewSinglePodFetch(ns, "istio=pilot")
+	pods, err := env.Accessors[icfg.KubeIndex].WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 	pod := pods[0]
 
-	port, err := getGrpcPort(env, ns)
+	port, err := c.getGrpcPort(env, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +71,7 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	}()
 
 	// Start port-forwarding for pilot.
-	c.forwarder, err = env.NewPortForwarder(pod, 0, port)
+	c.forwarder, err = env.Accessors[icfg.KubeIndex].NewPortForwarder(pod, 0, port)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +99,8 @@ type kubeComponent struct {
 	*client
 
 	forwarder testKube.PortForwarder
+
+	kubeIndex int
 }
 
 func (c *kubeComponent) ID() resource.ID {
@@ -122,8 +126,8 @@ func (c *kubeComponent) Close() (err error) {
 	return
 }
 
-func getGrpcPort(e *kube.Environment, ns string) (uint16, error) {
-	svc, err := e.Accessor.GetService(ns, pilotService)
+func (c *kubeComponent) getGrpcPort(e *kube.Environment, ns string) (uint16, error) {
+	svc, err := e.Accessors[c.kubeIndex].GetService(ns, pilotService)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service %s: %v", pilotService, err)
 	}

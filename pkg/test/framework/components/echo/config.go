@@ -72,6 +72,9 @@ type Config struct {
 	// ReadinessTimeout specifies the timeout that we wait the application to
 	// become ready.
 	ReadinessTimeout time.Duration
+
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)

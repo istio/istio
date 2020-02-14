@@ -63,22 +63,27 @@ type Instance interface {
 	CreateConfigSnippet(name string, namespace string, am AdapterMode) string
 }
 
+type Config struct {
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
+}
+
 // New returns a new instance of policybackend.Instance.
-func New(ctx resource.Context) (i Instance, err error) {
+func New(ctx resource.Context, c Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Native, func() {
 		i, err = newNative(ctx)
 	})
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx)
+		i, err = newKube(ctx, c)
 	})
 	return
 }
 
 // NewOrFail calls New and fails test if it returns an error.
-func NewOrFail(t test.Failer, s resource.Context) Instance {
+func NewOrFail(t test.Failer, s resource.Context, c Config) Instance {
 	t.Helper()
-	i, err := New(s)
+	i, err := New(s, c)
 	if err != nil {
 		t.Fatalf("policybackend.NewOrFail: %v", err)
 	}

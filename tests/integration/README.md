@@ -569,8 +569,8 @@ The test framework supports the following command-line flags:
   -istio.test.pullpolicy string
         Common image pull policy to use when deploying container images
 
-  -istio.test.kube.config string
-        The path to the kube config file for cluster environments
+  -istio.test.kube.config string        
+        A colon-seperated list of paths to kube config files for cluster environments (default is current kube context)
 
   -istio.test.kube.deploy
         Deploy Istio into the target Kubernetes environment. (default true)
