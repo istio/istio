@@ -6,7 +6,7 @@ kind: MeshPolicy
 metadata:
   name: "default"
   annotations:
-    test-suite: "beta-mtls-automtls"
+    test-suite: "beta-mtls-partial-automtls"
 spec: {}
 ---
 apiVersion: "security.istio.io/v1beta1"
@@ -14,24 +14,24 @@ kind: "PeerAuthentication"
 metadata:
   name: "default"
   annotations:
-    test-suite: "beta-mtls-automtls"
+    test-suite: "beta-mtls-partial-automtls"
 spec:
   mtls:
     mode: STRICT
 ---
-  apiVersion: "security.istio.io/v1beta1"
-  kind: "PeerAuthentication"
-  metadata:
-    name: "per-port"
-    annotations:
-      test-suite: "beta-per-port-mtls"
-  spec:
-    selector:
-      matchLabels:
-        app: b
-    mtls:
-      mode: DISABLE
-    portLevelMtls:
-      # 8090 is the targetPort for service http(80)
-      8090:
-        mode: STRICT
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: "per-port"
+  annotations:
+    test-suite: "beta-mtls-partial-automtls"
+spec:
+  selector:
+    matchLabels:
+      app: b
+  mtls:
+    mode: DISABLE
+  portLevelMtls:
+    # 8090 is the targetPort for service http(80)
+    8090:
+      mode: STRICT

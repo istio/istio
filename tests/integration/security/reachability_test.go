@@ -156,7 +156,7 @@ func TestReachability(t *testing.T) {
 				},
 				{
 					ConfigFile:          "beta-mtls-automtls.yaml",
-					Namespace:           systemNM,
+					Namespace:           rctx.Namespace,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -172,16 +172,17 @@ func TestReachability(t *testing.T) {
 				},
 				{
 					ConfigFile:          "beta-mtls-partial-automtls.yaml",
-					Namespace:           systemNM,
+					Namespace:           rctx.Namespace,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
-						// have proxy neither.
+						// have proxy or have mTLS disabled
 						if src == rctx.Naked {
-							return opts.Target == rctx.Naked
+							return opts.Target == rctx.Naked || (opts.Target == rctx.B && opts.PortName != "http")
+
 						}
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
 						// will fail on all ports on b, except http port.
@@ -190,7 +191,7 @@ func TestReachability(t *testing.T) {
 				},
 				{
 					ConfigFile:          "alpha-mtls-automtls.yaml",
-					Namespace:           systemNM,
+					Namespace:           rctx.Namespace,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
