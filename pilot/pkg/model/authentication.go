@@ -18,7 +18,6 @@ import (
 	"istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 
-	config_consts "istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -130,10 +129,9 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
 		policy.peerAuthentications[config.Namespace] =
 			append(policy.peerAuthentications[config.Namespace], config)
 
-		// Mesh & namespace level policy must be named as `default` (config_consts.DefaultAuthenticationPolicyName)
-		// per validation rule. Extra check for empty selector is optional.
-		if config.Name == config_consts.DefaultAuthenticationPolicyName {
-			spec := config.Spec.(*v1beta1.PeerAuthentication)
+		// Mesh & namespace level policy are those that have empty selector.
+		spec := config.Spec.(*v1beta1.PeerAuthentication)
+		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
 			mode := v1beta1.PeerAuthentication_MutualTLS_UNSET
 			if spec.Mtls != nil {
 				mode = spec.Mtls.Mode
