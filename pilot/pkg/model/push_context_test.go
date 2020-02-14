@@ -652,7 +652,9 @@ func TestSidecarScope(t *testing.T) {
 }
 
 func TestBestEffortInferServiceMTLSMode(t *testing.T) {
-	const testNamespace string = "test-namespace"
+	const alphaNamespace string = "alpha-namespace"
+	const betaNamespace string = "beta-namespace"
+	const otherNamespace string = "other-namespace"
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
@@ -697,7 +699,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 				Version:   collections.IstioAuthenticationV1Alpha1Policies.Resource().Version(),
 				Name:      key,
 				Domain:    "cluster.local",
-				Namespace: testNamespace,
+				Namespace: alphaNamespace,
 			},
 			Spec: value,
 		}
@@ -728,9 +730,9 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	}
 
 	// Add beta policies
-	configStore.Create(*createTestPeerAuthenticationResource("default", "beta-namespace", nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
+	configStore.Create(*createTestPeerAuthenticationResource("default", betaNamespace, nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
 	// workload level beta policy.
-	configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", testNamespace, &selectorpb.WorkloadSelector{
+	configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", alphaNamespace, &selectorpb.WorkloadSelector{
 		MatchLabels: map[string]string{
 			"app":     "httpbin",
 			"version": "v1",
@@ -757,42 +759,42 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 		{
 			name:             "from beta policy",
 			serviceName:      "some-service",
-			serviceNamespace: "beta-namespace",
+			serviceNamespace: betaNamespace,
 			servicePort:      80,
 			wanted:           MTLSStrict,
 		},
 		{
 			name:             "from alpha global policy",
 			serviceName:      "some-service",
-			serviceNamespace: "new-namespace",
+			serviceNamespace: otherNamespace,
 			servicePort:      80,
 			wanted:           MTLSPermissive,
 		},
 		{
 			name:             "from alpha namespace policy",
 			serviceName:      "some-service",
-			serviceNamespace: testNamespace,
+			serviceNamespace: alphaNamespace,
 			servicePort:      80,
 			wanted:           MTLSDisable,
 		},
 		{
 			name:             "from service specific alpha policy",
 			serviceName:      "mtls-strict-svc",
-			serviceNamespace: testNamespace,
+			serviceNamespace: alphaNamespace,
 			servicePort:      80,
 			wanted:           MTLSStrict,
 		},
 		{
 			name:             "from service-port specific alpha policy",
 			serviceName:      "mtls-strict-svc-port",
-			serviceNamespace: testNamespace,
+			serviceNamespace: alphaNamespace,
 			servicePort:      80,
 			wanted:           MTLSStrict,
 		},
 		{
 			name:             "from namespace alpha policy - miss port",
 			serviceName:      "mtls-strict-svc-port",
-			serviceNamespace: testNamespace,
+			serviceNamespace: alphaNamespace,
 			servicePort:      90,
 			wanted:           MTLSDisable,
 		},
@@ -803,11 +805,22 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 				Hostname:   host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", tc.serviceName, tc.serviceNamespace)),
 				Attributes: ServiceAttributes{Namespace: tc.serviceNamespace},
 			}
+			// Intentionally use the externalService with the same name and namespace for test, though
+			// these attributes don't matter.
+			externalService := &Service{
+				Hostname:     host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", tc.serviceName, tc.serviceNamespace)),
+				Attributes:   ServiceAttributes{Namespace: tc.serviceNamespace},
+				MeshExternal: true,
+			}
+
 			port := &Port{
 				Port: tc.servicePort,
 			}
 			if got := ps.BestEffortInferServiceMTLSMode(service, port); got != tc.wanted {
 				t.Fatalf("want %s, but got %s", tc.wanted, got)
+			}
+			if got := ps.BestEffortInferServiceMTLSMode(externalService, port); got != MTLSUnknown {
+				t.Fatalf("MTLS mode for external service should always be %s, but got %s", MTLSUnknown, got)
 			}
 		})
 	}
