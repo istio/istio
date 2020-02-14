@@ -976,7 +976,7 @@
           "step": 2
         },
         {
-          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -985,7 +985,7 @@
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -1072,7 +1072,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -1081,7 +1081,7 @@
           "step": 2
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}[1m])) by (container)",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}[1m])) by (container)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -1187,7 +1187,7 @@
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container }}",
