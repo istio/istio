@@ -62,7 +62,7 @@ CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
 IMG ?= gcr.io/istio-testing/build-tools:master-2020-01-30T23-36-53
 UID = $(shell id -u)
-GID = `grep docker /etc/group | cut -f3 -d:`
+GID = `grep "^docker:" /etc/group | cut -f3 -d:`
 PWD = $(shell pwd)
 
 $(info Building with the build container: $(IMG).)
