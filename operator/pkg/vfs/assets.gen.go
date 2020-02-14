@@ -19662,7 +19662,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(galley_istio_networking_virtualservices) / count(up{job=\"galley\"})",
+          "expr": "avg(galley_istio_networking_virtualservices)",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -19743,7 +19743,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(galley_istio_networking_destinationrules) / count(up{job=\"galley\"})",
+          "expr": "avg(galley_istio_networking_destinationrules)",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -19824,7 +19824,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(galley_istio_networking_gateways) / count(up{job=\"galley\"})",
+          "expr": "avg(galley_istio_networking_gateways)",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -19905,7 +19905,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(galley_istio_authentication_meshpolicies) / count(up{job=\"galley\"})",
+          "expr": "avg(galley_istio_authentication_meshpolicies)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -21460,7 +21460,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -21469,7 +21469,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -21556,7 +21556,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -21565,7 +21565,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}[1m])) by (container)",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}[1m])) by (container)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -21671,7 +21671,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container }}",
@@ -29310,7 +29310,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -29319,7 +29319,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"istio-proxy\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Sidecar (container)",
@@ -29404,7 +29404,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"discovery\", pod=~\"istio-pilot-.*\"}[1m]))",
+          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Discovery (container)",
@@ -29420,7 +29420,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"istio-proxy\", pod=~\"istio-pilot-.*\"}[1m]))",
+          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -29507,7 +29507,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"discovery\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Discovery",
@@ -29515,7 +29515,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"istio-proxy\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Sidecar",
