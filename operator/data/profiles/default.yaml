@@ -568,6 +568,7 @@ spec:
       tolerations: []
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
+      provisionPrometheusCert: true
 
     grafana:
       enabled: false
