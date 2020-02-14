@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multipletlsgateway
+package multiplemtlsgateway
 
 import (
-	"testing"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
+
+	"testing"
 )
 
-func TestTlsGateways(t *testing.T) {
+func TestMtlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiTLSGateways(t, ctx, inst, g)
+			util.RunTestMultiMtlsGateways(t, ctx, inst, g)
 		})
 }
