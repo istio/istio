@@ -73,7 +73,7 @@ items:
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
           - --connectTimeout
-          - 1s
+          - 10s
           - --proxyAdminPort
           - "15000"
           - --controlPlaneAuthPolicy
@@ -113,6 +113,9 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+          - name: MESH_CONFIG
+            value: |
+              {}
           - name: ISTIO_META_POD_PORTS
             value: |-
               [

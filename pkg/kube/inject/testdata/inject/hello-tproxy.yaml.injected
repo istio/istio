@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/interceptionMode: REDIRECT
+        sidecar.istio.io/interceptionMode: TPROXY
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
@@ -55,7 +55,7 @@ spec:
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --connectTimeout
-        - 1s
+        - 10s
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
@@ -95,6 +95,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: MESH_CONFIG
+          value: |
+            {"defaultConfig":{"interceptionMode":"TPROXY"}}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -111,7 +114,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
-          value: REDIRECT
+          value: TPROXY
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable"}
@@ -145,13 +148,15 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
+            add:
+            - NET_ADMIN
             drop:
             - ALL
           privileged: false
           readOnlyRootFilesystem: true
           runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
+          runAsNonRoot: false
+          runAsUser: 0
         volumeMounts:
         - mountPath: /etc/istio/citadel-ca-cert
           name: citadel-ca-cert
@@ -169,7 +174,7 @@ spec:
         - -u
         - "1337"
         - -m
-        - REDIRECT
+        - TPROXY
         - -i
         - '*'
         - -x
