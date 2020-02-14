@@ -20,14 +20,13 @@ import (
 	"strings"
 	"sync"
 
-	"istio.io/istio/operator/pkg/tpath"
-
-	util2 "k8s.io/kubectl/pkg/util"
-
+	jsonpatch "github.com/evanphx/json-patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
+	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
@@ -214,7 +214,6 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		allObjectsMap[oh] = true
 		if co, ok := objectCache.cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
-			log.Infof("Object %s is unchanged, skip update.", oh)
 			deployedObjects++
 			continue
 		}
@@ -223,9 +222,9 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 	}
 
 	if len(changedObjectKeys) > 0 {
-		log.Infof("Changed object list: \n - %s", strings.Join(changedObjectKeys, "\n - "))
+		log.Infof("The following objects differ between generated manifest and cache: \n - %s", strings.Join(changedObjectKeys, "\n - "))
 	} else {
-		log.Infof("No objects changed for this component.")
+		log.Infof("Generated manifest objects are the same as cached for component %s.", manifest.Name)
 	}
 
 	// For each changed object, write it to the API server.
@@ -237,7 +236,6 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 			continue
 		}
 		deployedObjects++
-		log.Infof("Adding object %s to cache.", obj.Hash())
 		// Update the cache with the latest object.
 		objectCache.cache[obj.Hash()] = obj
 	}
@@ -276,24 +274,49 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 		return utilerrors.NewAggregate(allErrors)
 	}
 
-	err := util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
+	mutatedObj, err := h.customizer.Listener().BeginResource(chartName, obj)
+	if err != nil {
+		log.Errorf("error preprocessing object: %s", err)
+		return err
+	}
+
+	err = util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
 	if err != nil {
 		log.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
-	objectKey, _ := client.ObjectKeyFromObject(obj)
+	receiver.SetGroupVersionKind(mutatedObj.GetObjectKind().GroupVersionKind())
+	objectKey, _ := client.ObjectKeyFromObject(mutatedObj)
 
 	if err = h.client.Get(context.TODO(), objectKey, receiver); apierrors.IsNotFound(err) {
 		log.Infof("creating resource: %s", objectKey)
-		return h.client.Create(context.TODO(), obj)
+		return h.client.Create(context.TODO(), mutatedObj)
 	} else if err == nil {
 		log.Infof("updating resource: %s", objectKey)
-		obj.SetResourceVersion(receiver.GetResourceVersion())
-		return h.client.Update(context.TODO(), obj)
+		if err := applyOverlay(receiver, mutatedObj); err != nil {
+			return err
+		}
+		return h.client.Update(context.TODO(), receiver)
 	}
 	return err
+}
+
+// applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
+func applyOverlay(current, overlay runtime.Object) error {
+	cj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, current)
+	if err != nil {
+		return err
+	}
+	uj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, overlay)
+	if err != nil {
+		return err
+	}
+	merged, err := jsonpatch.MergePatch(cj, uj)
+	if err != nil {
+		return err
+	}
+	return runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
 }
 
 func toChartManifestsMap(m name.ManifestMap) ChartManifestsMap {
