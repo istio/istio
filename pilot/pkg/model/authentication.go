@@ -15,6 +15,8 @@
 package model
 
 import (
+	"time"
+
 	"istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 
@@ -125,9 +127,11 @@ func apiModeToMutualTLSMode(mode v1beta1.PeerAuthentication_MutualTLS_Mode) Mutu
 func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
 	// Sort configs in ascending order by their creation time.
 	sortConfigByCreationTime(configs)
-	foundNamespaceMTLS := make(map[string]v1beta1.PeerAuthentication_MutualTLS_Mode)
 
-	seenNamespaceOrMeshConfig := map(map[string]time.T)
+	foundNamespaceMTLS := make(map[string]v1beta1.PeerAuthentication_MutualTLS_Mode)
+	// Track which namespace/mesh level policy seen so far to make sure the oldest one is used.
+	seenNamespaceOrMeshConfig := make(map[string]time.Time)
+
 	for _, config := range configs {
 		policy.peerAuthentications[config.Namespace] =
 			append(policy.peerAuthentications[config.Namespace], config)
@@ -135,6 +139,14 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
 		// Mesh & namespace level policy are those that have empty selector.
 		spec := config.Spec.(*v1beta1.PeerAuthentication)
 		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
+			if t, ok := seenNamespaceOrMeshConfig[config.Namespace]; ok {
+				log.Warnf(
+					"Namespace/mesh-level PeerAuthentication is already defined for %q at time %v. Ignore %q which was created at time %v",
+					config.Namespace, t, config.Name, config.CreationTimestamp)
+				continue
+			}
+			seenNamespaceOrMeshConfig[config.Namespace] = config.CreationTimestamp
+
 			mode := v1beta1.PeerAuthentication_MutualTLS_UNSET
 			if spec.Mtls != nil {
 				mode = spec.Mtls.Mode
