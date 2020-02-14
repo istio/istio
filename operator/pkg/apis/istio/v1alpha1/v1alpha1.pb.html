@@ -342,6 +342,15 @@ No
 No
 </td>
 </tr>
+<tr id="CNIRepairConfig-initContainerName">
+<td><code>initContainerName</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -5049,6 +5058,21 @@ No
 <td><code>security</code></td>
 <td><code><a href="#PrometheusSecurityConfig">PrometheusSecurityConfig</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PrometheusConfig-provisionPrometheusCert">
+<td><code>provisionPrometheusCert</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Configure whether provisions a certificate to Prometheus through Istio Agent.
+When this option is set as true, a sidecar is deployed along Prometheus to
+provision a certificate through Istio Agent to Prometheus. The provisioned certificate
+is shared with Prometheus through mounted files.
+When this option is set as false, this certificate provisioning mechanism is disabled.</p>
+
 </td>
 <td>
 No

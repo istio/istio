@@ -457,14 +457,12 @@ func buildGatewayListenerTLSContext(
 			// configure egress with SDS
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(
-						authn_model.SDSRootResourceName, sdsPath, metadata),
+					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, sdsPath),
 				},
 			}
 			tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-				authn_model.ConstructSdsSecretConfig(
-					authn_model.SDSDefaultResourceName, sdsPath, metadata)}
+				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsPath)}
 		} else {
 			// global SDS disabled, fall back on using mounted certificates
 			caCertificates := model.GetOrDefault(metadata.TLSServerRootCert, constants.DefaultRootCert)
