@@ -610,7 +610,8 @@ func createTestRequestAuthenticationResource(name string, namespace string, sele
 	}
 }
 
-func createTestPeerAuthenticationResource(name string, namespace string, selector *selectorpb.WorkloadSelector, mode securityBeta.PeerAuthentication_MutualTLS_Mode) *Config {
+func createTestPeerAuthenticationResource(name string, namespace string,
+	selector *selectorpb.WorkloadSelector, mode securityBeta.PeerAuthentication_MutualTLS_Mode) *Config {
 	return &Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind(),
