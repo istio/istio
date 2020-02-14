@@ -198,9 +198,9 @@ func TestReachability(t *testing.T) {
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
-						// have proxy neither.
+						// have proxy or have mTLS disabled.
 						if src == rctx.Naked {
-							return opts.Target == rctx.Naked
+							return opts.Target == rctx.Naked || (opts.Target == rctx.B && opts.PortName != "http")
 						}
 						return true
 					},
