@@ -162,7 +162,8 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						// autoMtls doesn't work for client that doesn't have proxy.
+						return src != rctx.Naked
 					},
 				},
 				{
@@ -173,6 +174,10 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// autoMtls doesn't work for client that doesn't have proxy.
+						if src == rctx.Naked {
+							return false
+						}
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
 						// will fail on all ports on b, except http port.
 						return opts.Target != rctx.B || opts.PortName == "http"
@@ -186,7 +191,8 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						// autoMtls doesn't work for client that doesn't have proxy.
+						return src != rctx.Naked
 					},
 				},
 			}
