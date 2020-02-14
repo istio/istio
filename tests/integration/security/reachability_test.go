@@ -178,6 +178,17 @@ func TestReachability(t *testing.T) {
 						return opts.Target != rctx.B || opts.PortName == "http"
 					},
 				},
+				{
+					ConfigFile:          "alpha-mtls-automtls.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+				},
 			}
 			rctx.Run(testCases)
 		})
