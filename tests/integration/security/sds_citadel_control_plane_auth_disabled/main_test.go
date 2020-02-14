@@ -61,14 +61,28 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 
-	// Helm values from install/kubernetes/helm/istio/values-istio-sds-auth-control-plane-auth-disabled.yaml
-	cfg.ValuesFile = "values-istio-sds-auth-control-plane-auth-disabled.yaml"
 	cfg.ControlPlaneValues = `
 values:
   global:
     controlPlaneSecurityEnabled: false
 
     mtls:
+      # Default setting for service-to-service mtls. Can be set explicitly using
+      # destination rules or service annotations.
       enabled: true
+
+    sds:
+      enabled: true
+      udsPath: "unix:/var/run/sds/uds_path"
+      token:
+          aud: "istio-ca"
+
+  nodeagent:
+    enabled: true
+    image: node-agent-k8s
+    env:
+      CA_PROVIDER: "Citadel"
+      CA_ADDR: "istio-citadel:8060"
+      VALID_TOKEN: true
 `
 }

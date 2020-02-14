@@ -56,6 +56,15 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	// Helm values from install/kubernetes/helm/istio/test-values/values-istio-dns-cert.yaml
-	cfg.ValuesFile = "test-values/values-istio-dns-cert.yaml"
+
+	cfg.ControlPlaneValues = `
+values:
+  global:
+    certificates:
+      - dnsNames: [istio-pilot.istio-system.svc, istio-pilot.istio-system]
+      - secretName: dns.istio-galley-service-account
+        dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
+      - secretName: dns.istio-sidecar-injector-service-account
+        dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+`
 }
