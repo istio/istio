@@ -29,47 +29,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("trafficmanagement", m).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
 		RequireEnvironment(environment.Kube).
 		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	// add a gateway configuration that includes a TCP port
-	cfg.ControlPlaneValues = `
-values:
-  gateways:
-    istio-ingressgateway:
-      ports:
-      - port: 15020
-        targetPort: 15020
-        name: status-port
-      - port: 80
-        targetPort: 8080
-        name: http2
-      - port: 443
-        targetPort: 8443
-        name: https
-      - port: 31400
-        targetPort: 31400
-        name: tcp
-      - port: 15029
-        targetPort: 15029
-        name: https-kiali
-      - port: 15030
-        targetPort: 15030
-        name: https-prometheus
-      - port: 15031
-        targetPort: 15031
-        name: https-grafana
-      - port: 15032
-        targetPort: 15032
-        name: https-tracing
-      - port: 15443
-        targetPort: 15443
-        name: tls
-`
 }
