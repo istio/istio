@@ -24,7 +24,6 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
 )
@@ -32,6 +31,9 @@ import (
 const (
 	// SDSStatPrefix is the human readable prefix to use when emitting statistics for the SDS service.
 	SDSStatPrefix = "sdsstat"
+
+	// SDSClusterName is the name of the cluster for SDS connections
+	SDSClusterName = "sds-grpc"
 
 	// SDSDefaultResourceName is the default name in sdsconfig, used for fetching normal key/cert.
 	SDSDefaultResourceName = "default"
@@ -110,39 +112,9 @@ func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.S
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata *model.NodeMetadata) *auth.SdsSecretConfig {
+func ConstructSdsSecretConfig(name, sdsUdsPath string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
-	}
-
-	gRPCConfig := &core.GrpcService_GoogleGrpc{
-		TargetUri:  sdsUdsPath,
-		StatPrefix: SDSStatPrefix,
-		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-			},
-		},
-	}
-
-	// If metadata.SdsTokenPath is non-empty, envoy will fetch tokens from metadata.SdsTokenPath.
-	// Otherwise, if useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.12 or higher),
-	// pass it to SDS server to request key/cert.
-	gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
-	if sdsTokenPath := metadata.SdsTokenPath; len(sdsTokenPath) > 0 {
-		log.Debugf("SDS token path is (%v)", sdsTokenPath)
-		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(sdsTokenPath, K8sSAJwtTokenHeaderKey)
-	} else {
-		if JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
-			log.Debug("call credentials uses third-party JWT")
-			gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey)
-		} else if JwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
-			log.Debug("call credentials uses first-party JWT")
-			gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSAJwtFileName, K8sSAJwtTokenHeaderKey)
-		} else {
-			log.Errorf("invalid JWT policy: %v", JwtPolicy.Get())
-			return nil
-		}
 	}
 
 	return &auth.SdsSecretConfig{
@@ -153,8 +125,8 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata *model.NodeMetad
 					ApiType: core.ApiConfigSource_GRPC,
 					GrpcServices: []*core.GrpcService{
 						{
-							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: gRPCConfig,
+							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
 							},
 						},
 					},
