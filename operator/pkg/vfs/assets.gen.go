@@ -2368,6 +2368,8 @@ spec:
                                 - httpCookie
                               - required:
                                 - useSourceIp
+                              - required:
+                                - httpQueryParameterName
                           required:
                           - consistentHash
                         properties:
@@ -2390,6 +2392,10 @@ spec:
                                 type: object
                               httpHeaderName:
                                 description: Hash based on a specific HTTP header.
+                                format: string
+                                type: string
+                              httpQueryParameterName:
+                                description: Hash based on a specific HTTP query parameter.
                                 format: string
                                 type: string
                               minimumRingSize:
@@ -2554,6 +2560,8 @@ spec:
                                       - httpCookie
                                     - required:
                                       - useSourceIp
+                                    - required:
+                                      - httpQueryParameterName
                                 required:
                                 - consistentHash
                               properties:
@@ -2576,6 +2584,11 @@ spec:
                                       type: object
                                     httpHeaderName:
                                       description: Hash based on a specific HTTP header.
+                                      format: string
+                                      type: string
+                                    httpQueryParameterName:
+                                      description: Hash based on a specific HTTP query
+                                        parameter.
                                       format: string
                                       type: string
                                     minimumRingSize:
@@ -2811,6 +2824,8 @@ spec:
                           - httpCookie
                         - required:
                           - useSourceIp
+                        - required:
+                          - httpQueryParameterName
                     required:
                     - consistentHash
                   properties:
@@ -2833,6 +2848,10 @@ spec:
                           type: object
                         httpHeaderName:
                           description: Hash based on a specific HTTP header.
+                          format: string
+                          type: string
+                        httpQueryParameterName:
+                          description: Hash based on a specific HTTP query parameter.
                           format: string
                           type: string
                         minimumRingSize:
@@ -2994,6 +3013,8 @@ spec:
                                 - httpCookie
                               - required:
                                 - useSourceIp
+                              - required:
+                                - httpQueryParameterName
                           required:
                           - consistentHash
                         properties:
@@ -3016,6 +3037,10 @@ spec:
                                 type: object
                               httpHeaderName:
                                 description: Hash based on a specific HTTP header.
+                                format: string
+                                type: string
+                              httpQueryParameterName:
+                                description: Hash based on a specific HTTP query parameter.
                                 format: string
                                 type: string
                               minimumRingSize:
@@ -3177,10 +3202,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -3624,10 +3649,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -3772,10 +3797,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -3843,6 +3868,74 @@ spec:
                     type: object
                 type: object
               type: array
+            inboundTls:
+              properties:
+                caCertificates:
+                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                  format: string
+                  type: string
+                cipherSuites:
+                  description: 'Optional: If specified, only support the specified
+                    cipher list.'
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                credentialName:
+                  format: string
+                  type: string
+                httpsRedirect:
+                  type: boolean
+                maxProtocolVersion:
+                  description: 'Optional: Maximum TLS protocol version.'
+                  enum:
+                  - TLS_AUTO
+                  - TLSV1_0
+                  - TLSV1_1
+                  - TLSV1_2
+                  - TLSV1_3
+                  type: string
+                minProtocolVersion:
+                  description: 'Optional: Minimum TLS protocol version.'
+                  enum:
+                  - TLS_AUTO
+                  - TLSV1_0
+                  - TLSV1_1
+                  - TLSV1_2
+                  - TLSV1_3
+                  type: string
+                mode:
+                  enum:
+                  - PASSTHROUGH
+                  - SIMPLE
+                  - MUTUAL
+                  - AUTO_PASSTHROUGH
+                  - ISTIO_MUTUAL
+                  type: string
+                privateKey:
+                  description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                  format: string
+                  type: string
+                serverCertificate:
+                  description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                  format: string
+                  type: string
+                subjectAltNames:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                verifyCertificateHash:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                verifyCertificateSpki:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+              type: object
             ingress:
               items:
                 properties:
@@ -3859,6 +3952,75 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
+                  inboundTls:
+                    description: Overrides Sidecar level `+"`"+`inboundTls`+"`"+` settings.
+                    properties:
+                      caCertificates:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      cipherSuites:
+                        description: 'Optional: If specified, only support the specified
+                          cipher list.'
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        description: 'Optional: Maximum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        description: 'Optional: Minimum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      serverCertificate:
+                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -3877,8 +4039,25 @@ spec:
                 type: object
               type: array
             outboundTrafficPolicy:
-              description: This allows to configure the outbound traffic policy.
+              description: Configuration for the outbound traffic policy.
               properties:
+                egressProxy:
+                  properties:
+                    host:
+                      description: The name of a service from the service registry.
+                      format: string
+                      type: string
+                    port:
+                      description: Specifies the port on the host that is being addressed.
+                      properties:
+                        number:
+                          type: integer
+                      type: object
+                    subset:
+                      description: The name of a subset within the service.
+                      format: string
+                      type: string
+                  type: object
                 mode:
                   enum:
                   - REGISTRY_ONLY
@@ -3898,10 +4077,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -4260,6 +4439,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                         uri:
                           oneOf:
                           - required:
@@ -4370,6 +4554,10 @@ spec:
                           place.
                         format: string
                         type: string
+                      retryRemoteLocalities:
+                        description: Flag to specify whether the retries should retry
+                          to other localities.
+                        type: boolean
                     type: object
                   rewrite:
                     description: Rewrite HTTP URIs and Authority headers.
@@ -4485,6 +4673,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                         sourceSubnet:
                           description: IPv4 or IPv6 ip address of source with optional
                             subnet.
@@ -4558,6 +4751,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                       type: object
                     type: array
                   route:
@@ -4596,10 +4794,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
