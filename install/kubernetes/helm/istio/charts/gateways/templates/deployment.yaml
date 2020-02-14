@@ -278,15 +278,15 @@ spec:
             value: "{{ $.Values.global.tracer.stackdriver.debug }}"
           {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
           - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-            value: "{{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}"
+            value: "{{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations.Value }}"
           {{- end }}
           {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
           - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-            value: "{{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}"
+            value: "{{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes.Value }}"
           {{- end }}
           {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
           - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-            value: "{{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}"
+            value: "{{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents.Value }}"
           {{- end }}
           {{- end }}
           {{- if $spec.sds }}
