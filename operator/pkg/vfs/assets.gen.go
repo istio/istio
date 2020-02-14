@@ -9300,6 +9300,9 @@ spec:
                   key: cni_network_config
             - name: CNI_NET_DIR
               value: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
+            # Deploy as a standalone CNI plugin or as chained?
+            - name: CHAINED_CNI_PLUGIN
+              value: "{{ .Values.cni.chained }}"
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
@@ -9426,6 +9429,10 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
   # This can be used to bind a preexisting ClusterRole to the istio/cni ServiceAccount
   # e.g. if you use PodSecurityPolicies
   psp_cluster_role: ""
+
+  # Deploy the config files as plugin chain (value "true") or as standalone files in the conf dir (value "false")?
+  # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
+  chained: true
 
   repair:
     enabled: true
