@@ -128,8 +128,26 @@ var (
 	k8sRESTConfig           *rest.Config
 	currentKubeconfig       string
 	currentContext          string
+	// TODO: remove whitelist after : https://github.com/kubernetes/kubernetes/issues/66430
+	defaultPilotPruneWhileList = []string{
+		"core/v1/Pod",
+		"core/v1/ConfigMap",
+		"core/v1/Service",
+		"core/v1/ServiceAccount",
+		"core/v1/Endpoints",
+		"apps/v1/Deployment",
+		"rbac.authorization.k8s.io/v1/ClusterRole",
+		"rbac.authorization.k8s.io/v1/ClusterRoleBinding",
+		"admissionregistration.k8s.io/v1beta1/MutatingWebhookConfiguration",
+		"admissionregistration.k8s.io/v1beta1/ValidatingWebhookConfiguration",
+		"autoscaling/v2beta1/HorizontalPodAutoscaler",
+		"policy/v1beta1/PodDisruptionBudget",
+		"authentication.istio.io/v1alpha1/MeshPolicy",
+		"networking.istio.io/v1alpha3/DestinationRule",
+		"networking.istio.io/v1alpha3/EnvoyFilter",
+	}
 	componentPruneWhiteList = map[name.ComponentName][]string{
-		name.PilotComponentName: {"networking.istio.io/v1alpha3/EnvoyFilter"},
+		name.PilotComponentName: defaultPilotPruneWhileList,
 	}
 )
 
