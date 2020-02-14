@@ -34353,18 +34353,6 @@ spec:
             - name: ISTIO_META_MESH_ID
               value: "{{ .Values.global.trustDomain }}"
               {{- end }}
-              {{- if eq .Values.global.proxy.tracer "stackdriver" }}
-            - name: STACKDRIVER_TRACING_ENABLED
-              value: "true"
-            - name: STACKDRIVER_TRACING_DEBUG
-              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
-            - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
-            - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
-            - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
-                  {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30
