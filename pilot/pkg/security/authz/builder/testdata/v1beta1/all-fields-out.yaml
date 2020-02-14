@@ -64,33 +64,37 @@ rules:
                     presentMatch: true
           - orRules:
               rules:
-              - header:
-                  exactMatch: /exact
-                  name: :path
-              - header:
-                  name: :path
-                  prefixMatch: /prefix/
-              - header:
-                  name: :path
-                  suffixMatch: /suffix
-              - header:
-                  name: :path
-                  presentMatch: true
+              - urlPath:
+                  path:
+                    exact: /exact
+              - urlPath:
+                  path:
+                    prefix: /prefix/
+              - urlPath:
+                  path:
+                    suffix: /suffix
+              - urlPath:
+                  path:
+                    safeRegex:
+                      googleRe2: {}
+                      regex: .+
           - notRule:
               orRules:
                 rules:
-                - header:
-                    exactMatch: /not-exact
-                    name: :path
-                - header:
-                    name: :path
-                    prefixMatch: /not-prefix/
-                - header:
-                    name: :path
-                    suffixMatch: /not-suffix
-                - header:
-                    name: :path
-                    presentMatch: true
+                - urlPath:
+                    path:
+                      exact: /not-exact
+                - urlPath:
+                    path:
+                      prefix: /not-prefix/
+                - urlPath:
+                    path:
+                      suffix: /not-suffix
+                - urlPath:
+                    path:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
           - orRules:
               rules:
               - destinationPort: 80
