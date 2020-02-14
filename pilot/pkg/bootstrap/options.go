@@ -125,11 +125,6 @@ type InjectionOptions struct {
 	InjectionDirectory string
 }
 
-type ValidationOptions struct {
-	// Directory of config validation related config files.
-	ValidationDirectory string
-}
-
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
 var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
 var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
