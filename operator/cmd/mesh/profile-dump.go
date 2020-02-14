@@ -15,9 +15,14 @@
 package mesh
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/ghodss/yaml"
+
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 
 	"github.com/spf13/cobra"
 )
@@ -27,12 +32,21 @@ type profileDumpArgs struct {
 	inFilenames []string
 	// configPath sets the root node for the subtree to display the config for.
 	configPath string
+	// outputFormat controls the format of profile dumps
+	outputFormat string
 }
+
+const (
+	jsonOutput = "json"
+	yamlOutput = "yaml"
+)
 
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.configPath, "config-path", "p", "",
 		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree")
+	cmd.PersistentFlags().StringVarP(&args.outputFormat, "output", "o", yamlOutput,
+		"Output format: one of json|yaml")
 }
 
 func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command {
@@ -53,11 +67,49 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 
 }
 
+func prependHeader(yml string) (string, error) {
+	out, err := tpath.AddSpecRoot(yml)
+	if err != nil {
+		return "", err
+	}
+	out2, err := util.OverlayYAML(translate.IstioOperatorTreeString, out)
+	if err != nil {
+		return "", err
+	}
+	return out2, nil
+}
+
+// Convert the generated YAML to pretty JSON.
+func yamlToPrettyJSON(yml string) (string, error) {
+	// YAML objects are not completely compatible with JSON
+	// objects. Let yaml.YAMLToJSON handle the edge cases and
+	// we'll re-encode the result to pretty JSON.
+	uglyJSON, err := yaml.YAMLToJSON([]byte(yml))
+	if err != nil {
+		return "", err
+	}
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
+		return "", err
+	}
+	prettyJSON, err := json.MarshalIndent(decoded, "", "    ")
+	if err != nil {
+		return "", err
+	}
+	return string(prettyJSON), nil
+}
+
 func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *Logger) error {
 	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilenames != nil {
 		return fmt.Errorf("cannot specify both profile name and filename flag")
+	}
+
+	switch pdArgs.outputFormat {
+	case jsonOutput, yamlOutput:
+	default:
+		return fmt.Errorf("unknown output format: %v", pdArgs.outputFormat)
 	}
 
 	setFlagYAML := ""
@@ -78,7 +130,26 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 		return err
 	}
 
-	l.print(y + "\n")
+	if pdArgs.configPath == "" {
+		if y, err = prependHeader(y); err != nil {
+			return err
+		}
+	} else {
+		if y, err = tpath.GetConfigSubtree(y, pdArgs.configPath); err != nil {
+			return err
+		}
+	}
+
+	switch pdArgs.outputFormat {
+	case jsonOutput:
+		j, err := yamlToPrettyJSON(y)
+		if err != nil {
+			return err
+		}
+		l.print(j + "\n")
+	case yamlOutput:
+		l.print(y + "\n")
+	}
 
 	return nil
 }
