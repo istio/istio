@@ -148,7 +148,7 @@ func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
 		fn(p)
 	}
 
-	// Set the ClusterRegistries namespace based whether on the selected namespace.
+	// Set the ClusterRegistries namespace based on the selected namespace.
 	if p.Namespace != "" {
 		p.Config.ClusterRegistriesNamespace = p.Namespace
 	} else {
