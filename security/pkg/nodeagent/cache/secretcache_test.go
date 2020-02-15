@@ -860,6 +860,7 @@ func checkBool(t *testing.T, name string, got bool, want bool) {
 }
 
 func TestSetAlwaysValidTokenFlag(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/18401")
 	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0)
 	opt := Options{
 		SecretTTL:                200 * time.Microsecond,
