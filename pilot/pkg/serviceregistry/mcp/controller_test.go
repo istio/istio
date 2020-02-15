@@ -160,9 +160,7 @@ func TestConfigDescriptor(t *testing.T) {
 	g := NewGomegaWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 	schemas := controller.Schemas()
-	for _, s := range schemas.All() {
-		g.Expect(s.Name()).ToNot(Equal(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name()))
-	}
+	g.Expect(schemas.CollectionNames()).Should(ConsistOf(collections.Pilot.CollectionNames()))
 }
 
 func TestListInvalidType(t *testing.T) {
