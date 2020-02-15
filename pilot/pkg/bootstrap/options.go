@@ -68,7 +68,6 @@ type ServiceArgs struct {
 type PilotArgs struct {
 	DiscoveryOptions         DiscoveryServiceOptions
 	InjectionOptions         InjectionOptions
-	ValidationOptions        ValidationOptions
 	PodName                  string
 	Namespace                string
 	Revision                 string

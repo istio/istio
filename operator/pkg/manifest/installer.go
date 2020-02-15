@@ -495,7 +495,7 @@ func buildComponentApplyOutput(stdout string, stderr string, objects object.K8sO
 	}
 }
 
-func istioCustomResourceDefinition(group string) bool {
+func istioCustomResources(group string) bool {
 	switch group {
 	case "config.istio.io",
 		"rbac.istio.io",
@@ -522,12 +522,13 @@ func DefaultObjectOrder() func(o *object.K8sObject) int {
 		case gk == "rbac.authorization.k8s.io/ClusterRoleBinding":
 			return 2
 
-			// install Istio API before we apply the validatingwebhookconfiguration
-		case istioCustomResourceDefinition(o.Group):
+			// validatingwebhookconfiguration is configured to FAIL-OPEN in the default install. For the
+			// re-install case we want to apply the validatingwebhookconfiguration first to reset any
+			// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
+		case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
 			return 3
 
-			// Validation webook maybe impact CRs applied later
-		case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+		case istioCustomResources(o.Group):
 			return 4
 
 			// Pods might need configmap or secrets - avoid backoff by creating them first
