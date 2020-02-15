@@ -1,3 +1,5 @@
+# AddonComponents prometheus component is disabled.
+
 # Resources for Base component
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -5820,7 +5822,11 @@ metadata:
 
 # Cni component is disabled.
 
+# EgressGateways istio-egressgateway component is disabled.
+
 # Galley component is disabled.
+
+# IngressGateways istio-ingressgateway component is disabled.
 
 # NodeAgent component is disabled.
 

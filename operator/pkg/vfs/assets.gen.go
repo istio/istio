@@ -41006,16 +41006,16 @@ func profilesRemoteYaml() (*asset, error) {
 	return a, nil
 }
 
-var _translateconfigNames15Yaml = []byte(`legacyAddonComponentNames:
+var _translateconfigNames15Yaml = []byte(`BundledAddonComponentNames:
   - "Prometheus"
   - "Kiali"
   - "Grafana"
   - "Tracing"
   - "Istiocoredns"
-deprecatedComponentNames:
+DeprecatedComponentNames:
+  - "Injector"
   - "CertManager"
-  - "IngressGateway"
-  - "EgressGateway"
+  - "NodeAgent"
   - "SidecarInjector"
 
 `)
@@ -41823,6 +41823,12 @@ var _versionsYaml = []byte(`- operatorVersion: 1.3.0
   operatorVersionRange: ">=1.5.0,<1.6.0"
   supportedIstioVersions: ">=1.4.0, <1.6"
   recommendedIstioVersions: 1.5.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"
+- operatorVersion: 1.6.0
+  operatorVersionRange: ">=1.6.0,<1.7.0"
+  supportedIstioVersions: ">=1.5.0, <1.7"
+  recommendedIstioVersions: 1.6.0
   k8sClientVersionRange: ">=1.14"
   k8sServerVersionRange: ">=1.14"
 `)

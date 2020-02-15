@@ -229,12 +229,11 @@ func TestNewTranslator(t *testing.T) {
 			wantErr:      false,
 		},
 		{
-			name:         "version 1.6",
-			minorVersion: version.NewMinorVersion(1, 6),
-			wantVer:      "1.5",
+			name:         "version 1.7",
+			minorVersion: version.NewMinorVersion(1, 7),
+			wantVer:      "1.6",
 			wantErr:      true,
-		},
-		{
+		}, {
 			name:         "version 1.99",
 			minorVersion: version.NewMinorVersion(1, 99),
 			wantVer:      "",

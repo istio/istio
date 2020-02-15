@@ -538,8 +538,13 @@ metadata:
 
 # Cni component is disabled.
 
+# EgressGateways istio-egressgateway component is disabled.
+
 # Galley component is disabled.
 
+# IngressGateways istio-ingressgateway component is disabled.
+
+---
 # Resources for IngressGateways component
 
 apiVersion: autoscaling/v2beta1
@@ -946,7 +951,7 @@ spec:
 
 # NodeAgent component is disabled.
 
-# Pilot component is disabled.
+# Pilot istiod component is disabled.
 
 # Policy component is disabled.
 

@@ -542,7 +542,7 @@ metadata:
 
 # NodeAgent component is disabled.
 
-# Pilot component is disabled.
+# Pilot istiod component is disabled.
 
 # Policy component is disabled.
 

@@ -70,6 +70,12 @@ func TestManifestGenerateFlags(t *testing.T) {
 			noInput:    true,
 		},
 		{
+			desc:       "flag_values_enable_egressgateway",
+			diffSelect: "Service:*:istio-egressgateway",
+			flags:      "--set values.gateways.istio-egressgateway.enabled=true",
+			noInput:    true,
+		},
+		{
 			desc:  "flag_override_values",
 			flags: "-s tag=my-tag",
 		},

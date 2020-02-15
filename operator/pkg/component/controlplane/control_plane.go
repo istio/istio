@@ -26,11 +26,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 )
 
-const (
-	istioIngressGatewayName = "istio-ingressgateway"
-	istioEgressGatewayName  = "istio-egressgateway"
-)
-
 // IstioOperator is an installation of an Istio control plane.
 type IstioOperator struct {
 	// components is a slice of components that are part of the feature.
@@ -52,48 +47,21 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 			return nil, err
 		}
 		o.Namespace = ns
-		out.components = append(out.components, component.NewComponent(c, &o))
+		out.components = append(out.components, component.NewCoreComponent(c, &o))
 	}
 
 	for idx, c := range installSpec.Components.IngressGateways {
-		if c.Name == istioIngressGatewayName {
-			enabled, pathExist, err := translate.IsComponentEnabledFromValue(name.IngressComponentName, installSpec.Values)
-			if err == nil && pathExist {
-				if c.Enabled == nil {
-					c.Enabled = &v1alpha1.BoolValueForPB{}
-				}
-				c.Enabled.Value = enabled
-			}
-		}
-		if c.Enabled == nil || !c.Enabled.Value {
-			continue
-		}
 		o := *opts
 		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-		out.components = append(out.components, component.NewIngressComponent(c.Name, idx, &o))
+		out.components = append(out.components, component.NewIngressComponent(c.Name, idx, c, &o))
 	}
 	for idx, c := range installSpec.Components.EgressGateways {
-		if c.Name == istioEgressGatewayName {
-			enabled, pathExist, err := translate.IsComponentEnabledFromValue(name.EgressComponentName, installSpec.Values)
-			if err == nil && pathExist {
-				if c.Enabled == nil {
-					c.Enabled = &v1alpha1.BoolValueForPB{}
-				}
-				c.Enabled.Value = enabled
-			}
-		}
-		if c.Enabled == nil || !c.Enabled.Value {
-			continue
-		}
 		o := *opts
 		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-		out.components = append(out.components, component.NewEgressComponent(c.Name, idx, &o))
+		out.components = append(out.components, component.NewEgressComponent(c.Name, idx, c, &o))
 	}
 	for _, cn := range orderedKeys(installSpec.AddonComponents) {
 		c := installSpec.AddonComponents[cn]
-		if c.Enabled == nil || !c.Enabled.Value {
-			continue
-		}
 		rn := ""
 		// For well-known addon components like Prometheus, the resource names are included
 		// in the translations.
@@ -102,7 +70,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		}
 		o := *opts
 		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-		out.components = append(out.components, component.NewAddonComponent(cn, rn, &o))
+		out.components = append(out.components, component.NewAddonComponent(cn, rn, c, &o))
 	}
 	return out, nil
 }

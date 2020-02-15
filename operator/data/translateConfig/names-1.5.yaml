@@ -1,12 +1,12 @@
-legacyAddonComponentNames:
+BundledAddonComponentNames:
   - "Prometheus"
   - "Kiali"
   - "Grafana"
   - "Tracing"
   - "Istiocoredns"
-deprecatedComponentNames:
+DeprecatedComponentNames:
+  - "Injector"
   - "CertManager"
-  - "IngressGateway"
-  - "EgressGateway"
+  - "NodeAgent"
   - "SidecarInjector"
 
