@@ -1670,14 +1670,6 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		}
 
 		var errs error
-		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
-		if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
-			errs = appendErrors(errs, fmt.Errorf("mesh/namespace request authentication cannot have selector"))
-		} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
-			errs = appendErrors(errs,
-				fmt.Errorf("request authentication without selector must be named %q", constants.DefaultAuthenticationPolicyName))
-		}
-
 		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
 
 		for _, rule := range in.JwtRules {
@@ -1729,12 +1721,6 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 
 		var errs error
 		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
-		if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
-			errs = appendErrors(errs, fmt.Errorf("mesh/namespace peer authentication cannot have selector"))
-		} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
-			errs = appendErrors(errs,
-				fmt.Errorf("peer authentication without selector must be named %q", constants.DefaultAuthenticationPolicyName))
-		}
 
 		if emptySelector && len(in.PortLevelMtls) != 0 {
 			errs = appendErrors(errs,
