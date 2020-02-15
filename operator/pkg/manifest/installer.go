@@ -130,19 +130,23 @@ var (
 	currentContext    string
 	// TODO: remove whitelist after : https://github.com/kubernetes/kubernetes/issues/66430
 	defaultPilotPruneWhileList = []string{
+		// kubectl apply prune default
 		"core/v1/Pod",
 		"core/v1/ConfigMap",
 		"core/v1/Service",
-		"core/v1/ServiceAccount",
+		"core/v1/Secret",
 		"core/v1/Endpoints",
+		"core/v1/Namespace",
+		"core/v1/PersistentVolume",
+		"core/v1/PersistentVolumeClaim",
+		"core/v1/ReplicationController",
+		"batch/v1/Job",
+		"batch/v1beta1/CronJob",
+		"extensions/v1beta1/Ingress",
+		"apps/v1/DaemonSet",
 		"apps/v1/Deployment",
-		"rbac.authorization.k8s.io/v1/ClusterRole",
-		"rbac.authorization.k8s.io/v1/ClusterRoleBinding",
-		"admissionregistration.k8s.io/v1beta1/MutatingWebhookConfiguration",
-		"admissionregistration.k8s.io/v1beta1/ValidatingWebhookConfiguration",
-		"autoscaling/v2beta1/HorizontalPodAutoscaler",
-		"policy/v1beta1/PodDisruptionBudget",
-		"authentication.istio.io/v1alpha1/MeshPolicy",
+		"apps/v1/ReplicaSet",
+		"apps/v1/StatefulSet",
 		"networking.istio.io/v1alpha3/DestinationRule",
 		"networking.istio.io/v1alpha3/EnvoyFilter",
 	}
