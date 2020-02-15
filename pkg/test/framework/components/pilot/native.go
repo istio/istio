@@ -97,21 +97,23 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		}
 	}
 
-	bootstrapArgs := bootstrap.PilotArgs{
-		Namespace:        e.SystemNamespace,
-		DiscoveryOptions: options,
-		Config: bootstrap.ConfigArgs{
+	bootstrapArgs := bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
+		p.Namespace = e.SystemNamespace
+		p.DiscoveryOptions = options
+		p.Config = bootstrap.ConfigArgs{
 			ControllerOptions: controller.Options{
 				DomainSuffix: e.Domain,
 			},
-		},
-		MeshConfig: m,
+		}
+		p.MeshConfig = m
+
 		// Use the config store for service entries as well.
-		Service: cfg.ServiceArgs,
+		p.Service = cfg.ServiceArgs
+
 		// Include all of the default plugins for integration with Mixer, etc.
-		Plugins:   bootstrap.DefaultPlugins,
-		ForceStop: true,
-	}
+		p.Plugins = bootstrap.DefaultPlugins
+		p.ForceStop = true
+	})
 
 	if bootstrapArgs.MeshConfig == nil {
 		bootstrapArgs.MeshConfig = &meshapi.MeshConfig{}
@@ -128,7 +130,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 
 	var err error
 	// Create the server for the discovery service.
-	if instance.server, err = bootstrap.NewServer(&bootstrapArgs); err != nil {
+	if instance.server, err = bootstrap.NewServer(bootstrapArgs); err != nil {
 		return nil, err
 	}
 
