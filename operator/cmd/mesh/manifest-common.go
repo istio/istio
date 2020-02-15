@@ -16,7 +16,11 @@ package mesh
 
 import (
 	"fmt"
+	"path"
+	"path/filepath"
 	"strings"
+
+	"istio.io/istio/operator/pkg/helm"
 
 	"github.com/ghodss/yaml"
 
@@ -92,4 +96,31 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 		return "", err
 	}
 	return tpath.AddSpecRoot(string(out))
+}
+
+// fetchExtractInstallPackageHTTP downloads installation tar from the URL specified in the given IstioOperatorSpec
+// InstallPackagePath and extracts it to a local filesystem dir. If successful, it returns the path to the filesystem
+// path where the charts were extracted.
+func fetchExtractInstallPackageHTTP(installPackagePath string) (string, error) {
+	pkgPath, err := fetchInstallPackageFromURL(installPackagePath)
+	if err != nil {
+		return "", err
+	}
+	// TODO: replace with more robust logic to set local file path
+	return filepath.Join(pkgPath, helm.OperatorSubdirFilePath), nil
+}
+
+// fetchExtractInstallPackageHTTP downloads installation packages from the given URL.
+func fetchInstallPackageFromURL(url string) (string, error) {
+	uf, err := helm.NewURLFetcher(url, "")
+	if err != nil {
+		return "", err
+	}
+	if err := uf.FetchBundles().ToError(); err != nil {
+		return "", err
+	}
+	isp := path.Base(url)
+	// get rid of the suffix, installation package is untared to folder name istio-{version}, e.g. istio-1.3.0
+	idx := strings.LastIndex(isp, "-")
+	return filepath.Join(uf.DestDir(), isp[:idx]), nil
 }
