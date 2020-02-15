@@ -125,9 +125,9 @@ var (
 	dependencyWaitCh = make(map[name.ComponentName]chan struct{})
 	kubectl          = kubectlcmd.New()
 
-	k8sRESTConfig           *rest.Config
-	currentKubeconfig       string
-	currentContext          string
+	k8sRESTConfig     *rest.Config
+	currentKubeconfig string
+	currentContext    string
 	// TODO: remove whitelist after : https://github.com/kubernetes/kubernetes/issues/66430
 	defaultPilotPruneWhileList = []string{
 		"core/v1/Pod",
