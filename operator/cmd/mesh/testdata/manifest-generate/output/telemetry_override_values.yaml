@@ -33,8 +33,6 @@ spec:
       - request_protocol
       - response_code
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
     - name: request_duration_seconds
       instance_name: requestduration.instance.istio-system
@@ -57,8 +55,6 @@ spec:
       - request_protocol
       - response_code
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       buckets:
         explicit_buckets:
@@ -84,8 +80,6 @@ spec:
       - request_protocol
       - response_code
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       buckets:
         exponentialBuckets:
@@ -113,8 +107,6 @@ spec:
       - request_protocol
       - response_code
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       buckets:
         exponentialBuckets:
