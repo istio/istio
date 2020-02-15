@@ -1,3 +1,14 @@
+# AddonComponents grafana component is disabled.
+
+---
+# AddonComponents kiali component is disabled.
+
+---
+# AddonComponents prometheus component is disabled.
+
+---
+# AddonComponents istio-tracing component is disabled.
+
 # Resources for Base component
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -2115,6 +2126,8 @@ spec:
                                 - httpCookie
                               - required:
                                 - useSourceIp
+                              - required:
+                                - httpQueryParameterName
                           required:
                           - consistentHash
                         properties:
@@ -2137,6 +2150,10 @@ spec:
                                 type: object
                               httpHeaderName:
                                 description: Hash based on a specific HTTP header.
+                                format: string
+                                type: string
+                              httpQueryParameterName:
+                                description: Hash based on a specific HTTP query parameter.
                                 format: string
                                 type: string
                               minimumRingSize:
@@ -2301,6 +2318,8 @@ spec:
                                       - httpCookie
                                     - required:
                                       - useSourceIp
+                                    - required:
+                                      - httpQueryParameterName
                                 required:
                                 - consistentHash
                               properties:
@@ -2323,6 +2342,11 @@ spec:
                                       type: object
                                     httpHeaderName:
                                       description: Hash based on a specific HTTP header.
+                                      format: string
+                                      type: string
+                                    httpQueryParameterName:
+                                      description: Hash based on a specific HTTP query
+                                        parameter.
                                       format: string
                                       type: string
                                     minimumRingSize:
@@ -2558,6 +2582,8 @@ spec:
                           - httpCookie
                         - required:
                           - useSourceIp
+                        - required:
+                          - httpQueryParameterName
                     required:
                     - consistentHash
                   properties:
@@ -2580,6 +2606,10 @@ spec:
                           type: object
                         httpHeaderName:
                           description: Hash based on a specific HTTP header.
+                          format: string
+                          type: string
+                        httpQueryParameterName:
+                          description: Hash based on a specific HTTP query parameter.
                           format: string
                           type: string
                         minimumRingSize:
@@ -2741,6 +2771,8 @@ spec:
                                 - httpCookie
                               - required:
                                 - useSourceIp
+                              - required:
+                                - httpQueryParameterName
                           required:
                           - consistentHash
                         properties:
@@ -2763,6 +2795,10 @@ spec:
                                 type: object
                               httpHeaderName:
                                 description: Hash based on a specific HTTP header.
+                                format: string
+                                type: string
+                              httpQueryParameterName:
+                                description: Hash based on a specific HTTP query parameter.
                                 format: string
                                 type: string
                               minimumRingSize:
@@ -2924,10 +2960,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -3373,10 +3409,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -3522,10 +3558,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -3594,6 +3630,74 @@ spec:
                     type: object
                 type: object
               type: array
+            inboundTls:
+              properties:
+                caCertificates:
+                  description: REQUIRED if mode is `MUTUAL`.
+                  format: string
+                  type: string
+                cipherSuites:
+                  description: 'Optional: If specified, only support the specified
+                    cipher list.'
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                credentialName:
+                  format: string
+                  type: string
+                httpsRedirect:
+                  type: boolean
+                maxProtocolVersion:
+                  description: 'Optional: Maximum TLS protocol version.'
+                  enum:
+                  - TLS_AUTO
+                  - TLSV1_0
+                  - TLSV1_1
+                  - TLSV1_2
+                  - TLSV1_3
+                  type: string
+                minProtocolVersion:
+                  description: 'Optional: Minimum TLS protocol version.'
+                  enum:
+                  - TLS_AUTO
+                  - TLSV1_0
+                  - TLSV1_1
+                  - TLSV1_2
+                  - TLSV1_3
+                  type: string
+                mode:
+                  enum:
+                  - PASSTHROUGH
+                  - SIMPLE
+                  - MUTUAL
+                  - AUTO_PASSTHROUGH
+                  - ISTIO_MUTUAL
+                  type: string
+                privateKey:
+                  description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                  format: string
+                  type: string
+                serverCertificate:
+                  description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                  format: string
+                  type: string
+                subjectAltNames:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                verifyCertificateHash:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                verifyCertificateSpki:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+              type: object
             ingress:
               items:
                 properties:
@@ -3610,6 +3714,75 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
+                  inboundTls:
+                    description: Overrides Sidecar level `inboundTls` settings.
+                    properties:
+                      caCertificates:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      cipherSuites:
+                        description: 'Optional: If specified, only support the specified
+                          cipher list.'
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        description: 'Optional: Maximum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        description: 'Optional: Minimum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      serverCertificate:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -3628,8 +3801,25 @@ spec:
                 type: object
               type: array
             outboundTrafficPolicy:
-              description: This allows to configure the outbound traffic policy.
+              description: Configuration for the outbound traffic policy.
               properties:
+                egressProxy:
+                  properties:
+                    host:
+                      description: The name of a service from the service registry.
+                      format: string
+                      type: string
+                    port:
+                      description: Specifies the port on the host that is being addressed.
+                      properties:
+                        number:
+                          type: integer
+                      type: object
+                    subset:
+                      description: The name of a subset within the service.
+                      format: string
+                      type: string
+                  type: object
                 mode:
                   enum:
                   - REGISTRY_ONLY
@@ -3649,10 +3839,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -4012,6 +4202,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                         uri:
                           oneOf:
                           - required:
@@ -4122,6 +4317,10 @@ spec:
                           place.
                         format: string
                         type: string
+                      retryRemoteLocalities:
+                        description: Flag to specify whether the retries should retry
+                          to other localities.
+                        type: boolean
                     type: object
                   rewrite:
                     description: Rewrite HTTP URIs and Authority headers.
@@ -4237,6 +4436,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                         sourceSubnet:
                           description: IPv4 or IPv6 ip address of source with optional
                             subnet.
@@ -4310,6 +4514,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                       type: object
                     type: array
                   route:
@@ -4348,10 +4557,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -5779,7 +5988,11 @@ metadata:
 
 # Cni component is disabled.
 
+# EgressGateways istio-egressgateway component is disabled.
+
 # Galley component is disabled.
+
+# IngressGateways istio-ingressgateway component is disabled.
 
 # Resources for Pilot component
 
@@ -5797,7 +6010,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-pilot
+    name: istiod
   metrics:
   - type: Resource
     resource:
@@ -6242,7 +6455,7 @@ data:
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istio-pilot.istio-system.svc:15012
+      discoveryAddress: istiod.istio-system.svc:15012
 ---
 
 
@@ -6267,6 +6480,8 @@ spec:
     metadata:
       labels:
         app: pilot
+        # Label used by the 'default' service. For versioned deployments we match with app and version.
+        # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -6333,8 +6548,10 @@ spec:
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "false"
+          - name: INJECTION_WEBHOOK_CONFIG_NAME
+            value: istio-sidecar-injector
           - name: ISTIOD_ADDR
-            value: istio-pilot.istio-system.svc:15012
+            value: istiod.istio-system.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
           resources:
@@ -6507,6 +6724,7 @@ data:
           "useILB": false
         },
         "meshNetworks": {},
+        "mountMtlsCerts": false,
         "mtls": {
           "auto": false,
           "enabled": false
@@ -6890,6 +7108,9 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: MESH_CONFIG
+          value: |
+                 {{ protoToJSON .MeshConfig }}
       {{- if eq .Values.global.proxy.tracer "datadog" }}
       {{- if isset .ObjectMeta.Annotations `apm.datadoghq.com/env` }}
       {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
@@ -6962,11 +7183,11 @@ data:
         - name: STACKDRIVER_TRACING_DEBUG
           value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations.Value }}"
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes.Value }}"
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents.Value }}"
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
@@ -7036,15 +7257,19 @@ data:
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
+        # SDS channel between istioagent and Envoy
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
+        {{- if .Values.global.mountMtlsCerts }}
+        # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+        {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
           name: lightstep-certs
@@ -7062,6 +7287,7 @@ data:
         configMap:
           name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
       {{- end }}
+      # SDS channel between istioagent and Envoy
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -7079,6 +7305,8 @@ data:
         configMap:
           name: istio-ca-root-cert
       {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           optional: true
@@ -7087,6 +7315,7 @@ data:
           {{ else -}}
           secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
           {{  end -}}
+      {{- end }}
         {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` }}
         {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) }}
       - name: "{{ $index }}"
@@ -7131,7 +7360,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-        name: istio-pilot
+        name: istiod
         namespace: istio-system
         path: "/inject"
       caBundle: ""
@@ -7212,6 +7441,8 @@ spec:
       targetPort: 15017
   selector:
     app: pilot
+    # Label used by the 'default' service. For versioned deployments we match with app and version.
+    # This avoids default deployment picking the canary
     istio: pilot
 ---
 

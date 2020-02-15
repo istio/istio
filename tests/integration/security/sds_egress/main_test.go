@@ -67,4 +67,5 @@ func setupConfig(cfg *istio.Config) {
 	}
 	cfg.ValuesFile = "values-istio-sds-auth.yaml"
 	cfg.Values["gateways.istio-egressgateway.enabled"] = "true"
+	cfg.Values["prometheus.enabled"] = "true"
 }

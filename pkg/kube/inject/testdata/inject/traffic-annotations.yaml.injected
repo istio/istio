@@ -13,7 +13,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6,15020
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/excludeOutboundPorts: 7,8,9
@@ -53,7 +53,7 @@ spec:
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --connectTimeout
-        - 1s
+        - 10s
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
@@ -93,6 +93,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: MESH_CONFIG
+          value: |
+            {}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -160,9 +163,6 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
       initContainers:
       - command:
         - istio-iptables
@@ -221,9 +221,5 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
 status: {}
 ---

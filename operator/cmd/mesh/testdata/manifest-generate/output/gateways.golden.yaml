@@ -1,3 +1,14 @@
+# AddonComponents grafana component is disabled.
+
+---
+# AddonComponents kiali component is disabled.
+
+---
+# AddonComponents prometheus component is disabled.
+
+---
+# AddonComponents istio-tracing component is disabled.
+
 # Base component is disabled.
 
 # Citadel component is disabled.
@@ -222,9 +233,6 @@ spec:
           readOnly: true
         - mountPath: /var/run/ingress_gateway
           name: ingressgatewaysdsudspath
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
         - mountPath: /etc/istio/ingressgateway-certs
           name: ingressgateway-certs
           readOnly: true
@@ -245,10 +253,6 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.istio-ingressgateway-service-account
       - name: ingressgateway-certs
         secret:
           optional: true
@@ -603,9 +607,6 @@ spec:
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
           - name: ingressgateway-certs
             mountPath: "/etc/istio/ingressgateway-certs"
             readOnly: true
@@ -625,10 +626,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-ingressgateway-service-account
-          optional: true
       - name: ingressgateway-certs
         secret:
           secretName: "istio-ingressgateway-certs"
@@ -825,7 +822,7 @@ spec:
         - "*/*"
 ---
 
-# Pilot component is disabled.
+# Pilot istio-pilot component is disabled.
 
 # Policy component is disabled.
 

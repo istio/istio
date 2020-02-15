@@ -1,3 +1,4 @@
+{{ if .Values.clusterResources }}
 {{/* If we have Istiod enabled and Galley disabled, we may run into issues during upgrade. */}}
 {{/* The old Galley will continuely try to patch its webhook, when we actually want to remove it. */}}
 {{/* This will disable Galley's permission to do so, if galley is disabled. */}}
@@ -52,4 +53,5 @@ rules:
     resources: ["clusterroles"]
     verbs: ["get", "list", "watch"]
 ---
+{{- end }}
 {{- end }}

@@ -391,6 +391,11 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 	return a.set.CoreV1().Secrets(ns)
 }
 
+// GetConfigMap returns the config resource with the given name and namespace.
+func (a *Accessor) GetConfigMap(name, ns string) (*kubeApiCore.ConfigMap, error) {
+	return a.set.CoreV1().ConfigMaps(ns).Get(name, kubeApiMeta.GetOptions{})
+}
+
 // CreateSecret takes the representation of a secret and creates it in the given namespace.
 // Returns an error if there is any.
 func (a *Accessor) CreateSecret(namespace string, secret *kubeApiCore.Secret) (err error) {

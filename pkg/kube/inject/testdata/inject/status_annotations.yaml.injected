@@ -17,7 +17,7 @@ spec:
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
         readiness.status.sidecar.istio.io/periodSeconds: "200"
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
         status.sidecar.istio.io/port: "123"
         traffic.sidecar.istio.io/excludeInboundPorts: "123"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
@@ -56,7 +56,7 @@ spec:
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --connectTimeout
-        - 1s
+        - 10s
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
@@ -96,6 +96,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: MESH_CONFIG
+          value: |
+            {}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -163,9 +166,6 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
       initContainers:
       - command:
         - istio-iptables
@@ -222,9 +222,5 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
 status: {}
 ---

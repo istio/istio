@@ -33,6 +33,9 @@ func TestMain(m *testing.M) {
 		NewSuite("galley_test", m).
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
+values:
+  prometheus:
+    enabled: true
 components:
   galley:
     enabled: true

@@ -29,6 +29,10 @@ cni:
   # e.g. if you use PodSecurityPolicies
   psp_cluster_role: ""
 
+  # Deploy the config files as plugin chain (value "true") or as standalone files in the conf dir (value "false")?
+  # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
+  chained: true
+
   repair:
     enabled: true
     hub: gcr.io/istio-testing
