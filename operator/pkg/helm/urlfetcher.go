@@ -37,10 +37,12 @@ const (
 	installationPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-linux.tar.gz"
 	// InstallationDirectory is temporary folder name for caching downloaded installation packages.
 	InstallationDirectory = "istio-install-packages"
+	// OperatorSubdirFilePath is file path of installation packages to helm charts.
+	OperatorSubdirFilePath = "install/kubernetes/operator/charts"
 	// ChartsFilePath is file path of installation packages to helm charts.
-	ChartsFilePath = "install/kubernetes/operator/charts"
+	ChartsFilePath = OperatorSubdirFilePath + "/charts"
 	// ProfilesFilePath is file path of installation packages to profiles.
-	ProfilesFilePath = "install/kubernetes/operator/profiles"
+	ProfilesFilePath = OperatorSubdirFilePath + "/profiles"
 	// SHAFileSuffix is the default SHA file suffix
 	SHAFileSuffix = ".sha256"
 )

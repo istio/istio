@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"istio.io/istio/operator/pkg/translate"
@@ -115,9 +116,28 @@ func profileFromSetOverlay(yml string) string {
 
 // genIOPSFromProfile generates an IstioOperatorSpec from the given profile name or path, and overlay YAMLs from user
 // files and the --set flag. If successful, it returns an IstioOperatorSpec string and struct.
-func genIOPSFromProfile(profile, fileOverlayYAML, setOverlayYAML string, skipValidation bool,
+func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, skipValidation bool,
 	kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	outYAML, err := getProfileYAML(profile)
+	userOverlayYAML, err := util.OverlayYAML(fileOverlayYAML, setOverlayYAML)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not merge file and --set YAMLs: %s", err)
+	}
+	installPackagePath, err := getInstallPackagePath(userOverlayYAML)
+	if err != nil {
+		return "", nil, err
+	}
+	if util.IsHTTPURL(installPackagePath) {
+		installPackagePath, err := fetchExtractInstallPackageHTTP(installPackagePath)
+		if err != nil {
+			return "", nil, err
+		}
+		// Transform a profileOrPath like "default" or "demo" into a filesystem path like /tmp/istio/1.5.1/install/kubernetes/operator/profiles/default.yaml.
+		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
+	}
+
+	// To generate the base profileOrPath for overlaying with user values, we need the installPackagePath where the profiles
+	// can be found, and the selected profileOrPath. Both of these can come from either the user overlay file or --set flag.
+	outYAML, err := getProfileYAML(profileOrPath)
 	if err != nil {
 		return "", nil, err
 	}
@@ -141,16 +161,10 @@ func genIOPSFromProfile(profile, fileOverlayYAML, setOverlayYAML string, skipVal
 		}
 	}
 
-	// Merge user file overlays.
-	outYAML, err = util.OverlayYAML(outYAML, fileOverlayYAML)
+	// Merge user file and --set overlays.
+	outYAML, err = util.OverlayYAML(outYAML, userOverlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
-	}
-
-	// Merge the tree buily from --set flags.
-	outYAML, err = util.OverlayYAML(outYAML, setOverlayYAML)
-	if err != nil {
-		return "", nil, fmt.Errorf("could not overlay --set values over merged: %s", err)
 	}
 
 	// If enablement came from user values overlay (file or --set), translate into addonComponents paths and overlay that.
@@ -172,18 +186,18 @@ func genIOPSFromProfile(profile, fileOverlayYAML, setOverlayYAML string, skipVal
 	return outYAML, finalIOPS, nil
 }
 
-// getProfileYAML returns the YAML for the given profile name, using the given profile string, which may be either
+// getProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
 // a profile label or a file path.
-func getProfileYAML(profile string) (string, error) {
+func getProfileYAML(profileOrPath string) (string, error) {
 	// This contains the IstioOperator CR.
-	baseCRYAML, err := helm.ReadProfileYAML(profile)
+	baseCRYAML, err := helm.ReadProfileYAML(profileOrPath)
 	if err != nil {
 		return "", err
 	}
 
-	if !helm.IsDefaultProfile(profile) {
-		// Profile definitions are relative to the default profile, so read that first.
-		dfn, err := helm.DefaultFilenameForProfile(profile)
+	if !helm.IsDefaultProfile(profileOrPath) {
+		// Profile definitions are relative to the default profileOrPath, so read that first.
+		dfn, err := helm.DefaultFilenameForProfile(profileOrPath)
 		if err != nil {
 			return "", err
 		}
@@ -285,4 +299,16 @@ func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1
 		}
 	}
 	return iops, nil
+}
+
+// getInstallPackagePath returns the installPackagePath in the given IstioOperator YAML string.
+func getInstallPackagePath(iopYAML string) (string, error) {
+	iop, err := validate.UnmarshalIOP(iopYAML)
+	if err != nil {
+		return "", nil
+	}
+	if iop.Spec == nil {
+		return "", nil
+	}
+	return iop.Spec.InstallPackagePath, nil
 }
