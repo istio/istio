@@ -198,11 +198,6 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			var args []string
 			g := gomega.NewGomegaWithT(t)
 
-			/*args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"x", "add-to-mesh", "service", "a"}
-			output = istioCtl.InvokeOrFail(t, args)
-			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))*/
-
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "remove-from-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
