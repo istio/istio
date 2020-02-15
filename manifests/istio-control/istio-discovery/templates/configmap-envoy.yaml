@@ -1,8 +1,9 @@
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: {{ .Release.Namespace }}
-  name: pilot-envoy-config{{ .Values.version }}
+  name: pilot-envoy-config{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   labels:
     release: {{ .Release.Name }}
 data:
@@ -169,4 +170,4 @@ data:
                               timeout: 0.000s
 
 ---
-
+{{- end }}

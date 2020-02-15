@@ -21,7 +21,8 @@ rules:
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["configmaps"]
-  verbs: ["get", "list", "watch"]
+  # Create and update needed for ingress election
+  verbs: ["get", "list", "watch", "create", "update"]
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]

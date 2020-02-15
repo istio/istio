@@ -96,8 +96,10 @@ spec:
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "false"
+        - name: INJECTION_WEBHOOK_CONFIG_NAME
+          value: istio-sidecar-injector
         - name: ISTIOD_ADDR
-          value: istio-pilot.istio-control.svc:15012
+          value: istiod.istio-control.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
         envFrom:
