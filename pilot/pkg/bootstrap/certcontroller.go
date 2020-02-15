@@ -127,7 +127,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
 	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
 		log.Infof("Generating Citadel-signed cert for %v", names)
-		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
+		certChain, keyPEM, err = s.ca.GenKeyCert(names, workloadCertTTL.Get())
 
 		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
 		if _, err := os.Stat(signingKeyFile); err != nil {
