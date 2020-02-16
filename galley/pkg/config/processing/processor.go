@@ -17,7 +17,7 @@ package processing
 import (
 	"istio.io/api/mesh/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/pkg/config/event"
 )
 
 // ProcessorOptions are options that are passed to event.Processors during startup.

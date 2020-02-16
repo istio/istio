@@ -25,17 +25,17 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/resource"
 
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -366,7 +366,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
 			handleValidationFailure(item, err)
-		} else {
+		} else if c.client.objectInEnvironment(config) {
 			out = append(out, *config)
 		}
 	}

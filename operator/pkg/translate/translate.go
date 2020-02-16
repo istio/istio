@@ -17,6 +17,7 @@ package translate
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -44,6 +45,16 @@ const (
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
 	HelmValuesNamespaceSubpath = "namespace"
+	// HelmValuesHubSubpath is the subpath from the component root to the hub parameter.
+	HelmValuesHubSubpath = "hub"
+	// HelmValuesTagSubpath is the subpath from the component root to the tag parameter.
+	HelmValuesTagSubpath = "tag"
+	// TranslateConfigFolder is the folder where we store translation configurations
+	TranslateConfigFolder = "translateConfig"
+	// TranslateConfigPrefix is the prefix of IstioOperator's translation configuration file
+	TranslateConfigPrefix = "translateConfig-"
+	// ICPToIOPConfigPrefix is the prefix of IstioControPlane-to-IstioOperator translation configuration file
+	ICPToIOPConfigPrefix = "translate-ICP-IOP-"
 
 	// devDbg generates lots of output useful in development.
 	devDbg = false
@@ -69,7 +80,7 @@ type Translator struct {
 	ComponentMaps map[name.ComponentName]*ComponentMaps `yaml:"componentMaps"`
 }
 
-// FeatureMaps is a set of mappings for an Istio feature.
+// FeatureMap is a set of mappings for an Istio feature.
 type FeatureMap struct {
 	// Components contains list of components that belongs to the current feature.
 	Components []name.ComponentName
@@ -87,6 +98,8 @@ type ComponentMaps struct {
 	HelmSubdir string
 	// ToHelmValuesTreeRoot is the tree root in values YAML files for the component.
 	ToHelmValuesTreeRoot string
+	// SkipReverseTranslate defines whether reverse translate of this component need to be skipped.
+	SkipReverseTranslate bool
 }
 
 // TranslationFunc maps a yamlStr API path into a YAML values tree.
@@ -101,8 +114,7 @@ type Translation struct {
 
 // NewTranslator creates a new translator for minorVersion and returns a ptr to it.
 func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
-	v := fmt.Sprintf("%s.%d", minorVersion.MajorVersion, minorVersion.Minor)
-	f := "translateConfig/translateConfig-" + v + ".yaml"
+	f := filepath.Join(TranslateConfigFolder, TranslateConfigPrefix+minorVersion.String()+".yaml")
 	b, err := vfs.ReadFile(f)
 	if err != nil {
 		return nil, fmt.Errorf("could not read translateConfig file %s: %s", f, err)
@@ -122,9 +134,9 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 	if err != nil {
 		return "", err
 	}
-	log.Debugf("Manifest contains the following objects:")
+	scope.Debugf("Manifest contains the following objects:")
 	for _, o := range objects {
-		log.Debugf("%s", o.HashNameKind())
+		scope.Debugf("%s", o.HashNameKind())
 	}
 	// om is a map of kind:name string to Object ptr.
 	om := objects.ToNameKindMap()
@@ -134,30 +146,30 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 			return "", err
 		}
 		inPath = strings.Replace(inPath, "gressGateways.", "gressGateways."+fmt.Sprint(index)+".", 1)
-		log.Debugf("Checking for path %s in IstioOperatorSpec", inPath)
+		scope.Debugf("Checking for path %s in IstioOperatorSpec", inPath)
 		m, found, err := tpath.GetFromStructPath(iop, inPath)
 		if err != nil {
 			return "", err
 		}
 		if !found {
-			log.Debugf("path %s not found in IstioOperatorSpec, skip mapping.", inPath)
+			scope.Debugf("path %s not found in IstioOperatorSpec, skip mapping.", inPath)
 			continue
 		}
 		if mstr, ok := m.(string); ok && mstr == "" {
-			log.Debugf("path %s is empty string, skip mapping.", inPath)
+			scope.Debugf("path %s is empty string, skip mapping.", inPath)
 			continue
 		}
 		// Zero int values are due to proto3 compiling to scalars rather than ptrs. Skip these because values of 0 are
 		// the default in destination fields and need not be set explicitly.
 		if mint, ok := util.ToIntValue(m); ok && mint == 0 {
-			log.Debugf("path %s is int 0, skip mapping.", inPath)
+			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
 		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName)
 		if err != nil {
 			return "", err
 		}
-		log.Debugf("path has value in IstioOperatorSpec, mapping to output path %s", outPath)
+		scope.Debugf("path has value in IstioOperatorSpec, mapping to output path %s", outPath)
 		path := util.PathFromString(outPath)
 		pe := path[0]
 		// Output path must start with [kind:name], which is used to map to the object to overlay.
@@ -169,7 +181,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		oo, ok := om[pe]
 		if !ok {
 			// skip to overlay the K8s settings if the corresponding resource doesn't exist.
-			log.Infof("resource Kind:name %s doesn't exist in the output manifest, skip overlay.", pe)
+			scope.Infof("resource Kind:name %s doesn't exist in the output manifest, skip overlay.", pe)
 			continue
 		}
 
@@ -195,7 +207,7 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 	}
 
 	// Enabled and namespace fields require special handling because of inheritance rules.
-	if err := t.setEnablementAndNamespaces(root, ii); err != nil {
+	if err := t.setComponentProperties(root, ii); err != nil {
 		return "", err
 	}
 
@@ -242,7 +254,7 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	}
 
 	if devDbg {
-		log.Infof("Values translated from IstioOperator API:\n%s", apiValsStr)
+		scope.Infof("Values translated from IstioOperator API:\n%s", apiValsStr)
 	}
 
 	// Add global overlay from IstioOperatorSpec.Values/UnvalidatedValues.
@@ -255,8 +267,8 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 		return "", err
 	}
 	if devDbg {
-		log.Infof("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
-		log.Infof("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+		scope.Infof("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
+		scope.Infof("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
 	}
 	mergedVals, err := util.OverlayTrees(apiVals, globalVals)
 	if err != nil {
@@ -332,9 +344,9 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 	return errs
 }
 
-// setEnablementAndNamespaces translates the enablement and namespace value of each component in the baseYAML values
-// tree, based on feature/component inheritance relationship.
-func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, iop *v1alpha1.IstioOperatorSpec) error {
+// setComponentProperties translates properties (e.g., enablement and namespace) of each component
+// in the baseYAML values tree, based on feature/component inheritance relationship.
+func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1alpha1.IstioOperatorSpec) error {
 	var keys []string
 	for k := range t.ComponentMaps {
 		if k != name.IngressComponentName && k != name.EgressComponentName {
@@ -367,6 +379,20 @@ func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, iop
 		if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesNamespaceSubpath), ns); err != nil {
 			return err
 		}
+
+		hub, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Hub")
+		if found && hub.(string) != "" {
+			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesHubSubpath), hub); err != nil {
+				return err
+			}
+		}
+
+		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
+		if found && tag.(string) != "" {
+			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), tag); err != nil {
+				return err
+			}
+		}
 	}
 
 	for cn, gns := range t.GlobalNamespaces {
@@ -388,7 +414,7 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.Ist
 	if t.ComponentMaps[cn] == nil {
 		return false, nil
 	}
-	return name.IsComponentEnabledInSpec(cn, iop)
+	return IsComponentEnabledInSpec(cn, iop)
 }
 
 // AllComponentsNames returns a slice of all components used in t.

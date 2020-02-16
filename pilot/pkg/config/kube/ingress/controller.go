@@ -26,18 +26,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -163,7 +162,9 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	for _, f := range c.virtualServiceHandlers {
 		f(model.Config{}, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type: gatewayGvk.Kind,
+				Type:    virtualServiceGvk.Kind,
+				Version: virtualServiceGvk.Version,
+				Group:   virtualServiceGvk.Group,
 			},
 		}, event)
 	}
@@ -173,7 +174,7 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 
 func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func(model.Config, model.Config, model.Event)) {
 	switch kind {
-	case gatewayGvk:
+	case virtualServiceGvk:
 		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
 	}
 }

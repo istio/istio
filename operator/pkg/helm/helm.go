@@ -43,6 +43,10 @@ const (
 	NotesFileNameSuffix = ".txt"
 )
 
+var (
+	scope = log.RegisterScope("installer", "installer", 0)
+)
+
 // TemplateRenderer defines a helm template renderer interface.
 type TemplateRenderer interface {
 	// Run starts the renderer and should be called before using it.
@@ -74,9 +78,9 @@ func ReadProfileYAML(profile string) (string, error) {
 	var err error
 	var globalValues string
 	if profile == "" {
-		log.Infof("ReadProfileYAML for profile name: [Empty]")
+		scope.Infof("ReadProfileYAML for profile name: [Empty]")
 	} else {
-		log.Infof("ReadProfileYAML for profile name: %s", profile)
+		scope.Infof("ReadProfileYAML for profile name: %s", profile)
 	}
 
 	// Get global values from profile.
@@ -86,7 +90,7 @@ func ReadProfileYAML(profile string) (string, error) {
 			return "", err
 		}
 	case util.IsFilePath(profile):
-		log.Infof("Loading values from local filesystem at path %s", profile)
+		scope.Infof("Loading values from local filesystem at path %s", profile)
 		if globalValues, err = readFile(profile); err != nil {
 			return "", err
 		}
@@ -145,8 +149,9 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 // GenerateHubTagOverlay creates an IstioOperatorSpec overlay YAML for hub and tag.
 func GenerateHubTagOverlay(hub, tag string) (string, error) {
 	hubTagYAMLTemplate := `
-hub: {{.Hub}}
-tag: {{.Tag}}
+spec:
+  hub: {{.Hub}}
+  tag: {{.Tag}}
 `
 	ts := struct {
 		Hub string

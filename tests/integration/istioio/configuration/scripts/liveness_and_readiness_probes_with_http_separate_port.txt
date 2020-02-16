@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+# Copyright 2020 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+$ kubectl create ns health-sepport
+
+# $snippet with_separate_port.sh syntax="bash"
+$ kubectl -n health-sepport apply -f <(istioctl kube-inject -f @samples/health-check/liveness-http.yaml@)
+# $endsnippet
+
+$ kubectl -n health-sepport rollout status deployment liveness-http --timeout 60s
+
+# $snippet separate_port_check_status.sh syntax="bash" outputis="text"
+$ kubectl -n health-sepport get pod
+# $verify verifier="lineRegex"
+NAME *READY *STATUS *RESTARTS *AGE
+liveness-http-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0 ?
+# $endsnippet
+
+# $snippet delete_with_separate_port.sh syntax="bash"
+$ kubectl -n health-sepport delete -f <(istioctl kube-inject -f @samples/health-check/liveness-http.yaml@)
+# $endsnippet

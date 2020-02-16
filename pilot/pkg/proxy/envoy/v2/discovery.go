@@ -38,18 +38,21 @@ var (
 
 	periodicRefreshMetrics = 10 * time.Second
 
-	// DebounceAfter is the delay added to events to wait
+	// debounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
 	// This will delay the push by at least this interval, plus
 	// the time getting subsequent events. If no change is
 	// detected the push will happen, otherwise we'll keep
 	// delaying until things settle.
-	DebounceAfter time.Duration
+	debounceAfter time.Duration
 
-	// DebounceMax is the maximum time to wait for events
+	// debounceMax is the maximum time to wait for events
 	// while debouncing. Defaults to 10 seconds. If events keep
 	// showing up with no break for this time, we'll trigger a push.
-	DebounceMax time.Duration
+	debounceMax time.Duration
+
+	// enableEDSDebounce indicates whether EDS pushes should be debounced.
+	enableEDSDebounce bool
 )
 
 const (
@@ -68,8 +71,9 @@ const (
 )
 
 func init() {
-	DebounceAfter = features.DebounceAfter
-	DebounceMax = features.DebounceMax
+	debounceAfter = features.DebounceAfter
+	debounceMax = features.DebounceMax
+	enableEDSDebounce = features.EnableEDSDebounce.Get()
 }
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -144,7 +148,9 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
-	model.JwtKeyResolver.PushFunc = out.ClearCache
+	model.JwtKeyResolver.PushFunc = func() {
+		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
+	}
 
 	return out
 }
@@ -249,12 +255,6 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 	return s.Env.PushContext
 }
 
-// ClearCache is wrapper for clearCache method, used when new controller gets
-// instantiated dynamically
-func (s *DiscoveryServer) ClearCache() {
-	s.ConfigUpdate(&model.PushRequest{Full: true})
-}
-
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
@@ -295,7 +295,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 		eventDelay := time.Since(startDebounce)
 		quietTime := time.Since(lastConfigUpdateTime)
 		// it has been too long or quiet enough
-		if eventDelay >= DebounceMax || quietTime >= DebounceAfter {
+		if eventDelay >= debounceMax || quietTime >= debounceAfter {
 			if req != nil {
 				pushCounter++
 				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
@@ -308,7 +308,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				debouncedEvents = 0
 			}
 		} else {
-			timeChan = time.After(DebounceAfter - quietTime)
+			timeChan = time.After(debounceAfter - quietTime)
 		}
 	}
 
@@ -318,7 +318,11 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			free = true
 			pushWorker()
 		case r := <-ch:
-			if !features.EnableEDSDebounce.Get() && !r.Full {
+			// If reason is not set, record it as an unknown reason
+			if len(r.Reason) == 0 {
+				r.Reason = []model.TriggerReason{model.UnknownTrigger}
+			}
+			if !enableEDSDebounce && !r.Full {
 				// trigger push now, just for EDS
 				go pushFn(r)
 				continue
@@ -326,7 +330,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 
 			lastConfigUpdateTime = time.Now()
 			if debouncedEvents == 0 {
-				timeChan = time.After(DebounceAfter)
+				timeChan = time.After(debounceAfter)
 				startDebounce = lastConfigUpdateTime
 			}
 			debouncedEvents++
@@ -354,7 +358,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			// Get the next proxy to push. This will block if there are no updates required.
 			client, info := queue.Dequeue()
-
+			recordPushTriggers(info.Reason...)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
 				queue.MarkDone(client)

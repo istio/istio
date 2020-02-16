@@ -87,6 +87,13 @@ var IngressCredentialCaCertB = IngressCredential{
 	CaCert: CaCertB,
 }
 
+var (
+	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
+		"bookinfo-credential-4", "bookinfo-credential-5"}
+	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
+		"bookinfo4.example.com", "bookinfo5.example.com"}
+)
+
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
 // and creates K8s secrets for ingress gateway.
 // nolint: interfacer
@@ -402,4 +409,77 @@ func GetStatsByName(t *testing.T, ing ingress.Instance, statsName string) (int, 
 		}
 	}
 	return 0, fmt.Errorf("unable to get ingress gateway proxy sds stats: %v", err)
+}
+
+// RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
+// private key, server certificate and CA certificate for each mTLS gateway. Verifies that all gateways are able to terminate
+// mTLS connections successfully.
+func RunTestMultiMtlsGateways(t *testing.T, ctx framework.TestContext,
+	inst istio.Instance, g galley.Instance) { // nolint:interfacer
+	t.Helper()
+
+	CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, IngressCredentialA)
+	DeployBookinfo(t, ctx, g, MultiMTLSGateway)
+
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{
+		Istio: inst,
+	})
+	// Expect 2 SDS updates for each listener, one for server key/cert, and one for CA cert.
+	err := WaitUntilGatewaySdsStatsGE(t, ing, 2*len(credNames), 30*time.Second)
+	if err != nil {
+		t.Errorf("sds update stats does not match: %v", err)
+	}
+	// Expect 2 active listeners, one listens on 443 and the other listens on 15090
+	err = WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 60*time.Second)
+	if err != nil {
+		t.Errorf("total active listener stats does not match: %v", err)
+	}
+	tlsContext := TLSContext{
+		CaCert:     CaCertA,
+		PrivateKey: TLSClientKeyA,
+		Cert:       TLSClientCertA,
+	}
+	callType := ingress.Mtls
+
+	for _, h := range hosts {
+		err := VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
+			ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+		if err != nil {
+			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)
+		}
+	}
+}
+
+// RunTestMultiTLSGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
+// private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
+// SSL connections successfully.
+func RunTestMultiTLSGateways(t *testing.T, ctx framework.TestContext,
+	inst istio.Instance, g galley.Instance) { // nolint:interfacer
+	t.Helper()
+
+	CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, IngressCredentialA)
+	DeployBookinfo(t, ctx, g, MultiTLSGateway)
+
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+	err := WaitUntilGatewaySdsStatsGE(t, ing, len(credNames), 30*time.Second)
+	if err != nil {
+		t.Errorf("sds update stats does not match: %v", err)
+	}
+	// Expect two active listeners, one listens on 443 and the other listens on 15090
+	err = WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 60*time.Second)
+	if err != nil {
+		t.Errorf("total active listener stats does not match: %v", err)
+	}
+	tlsContext := TLSContext{
+		CaCert: CaCertA,
+	}
+	callType := ingress.TLS
+
+	for _, h := range hosts {
+		err := VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
+			ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+		if err != nil {
+			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)
+		}
+	}
 }

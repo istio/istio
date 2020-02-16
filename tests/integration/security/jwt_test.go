@@ -15,8 +15,6 @@
 package security
 
 import (
-	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -348,6 +346,7 @@ func TestRequestAuthentication(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			jwtPolicies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
+				file.AsStringOrFail(t, "testdata/requestauthn/a-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/b-authn-authz.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/e-authn.yaml.tmpl"),
@@ -506,6 +505,51 @@ func TestRequestAuthentication(t *testing.T) {
 						authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
 						"X-Test-Payload": payload1,
 					},
+				},
+				{
+					Name: "invalid aud",
+					Request: connection.Checker{
+						From: b,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeForbidden,
+				},
+				{
+					Name: "valid aud",
+					Request: connection.Checker{
+						From: b,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1WithAud},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
+				},
+				{
+					Name: "verify policies are combined",
+					Request: connection.Checker{
+						From: b,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 			}
 			for _, c := range testCases {
@@ -670,33 +714,10 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			for _, c := range ingTestCases {
 				t.Run(c.Name, func(t *testing.T) {
 					retry.UntilSuccessOrFail(t, func() error {
-						return checkIngress(ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
+						return authn.CheckIngress(ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
 					},
 						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 				})
 			}
 		})
-}
-
-func checkIngress(ingr ingress.Instance, host string, path string, token string, expectResponseCode int) error {
-	endpointAddress := ingr.HTTPAddress()
-	opts := ingress.CallOptions{
-		Host:     host,
-		Path:     path,
-		CallType: ingress.PlainText,
-		Address:  endpointAddress,
-	}
-	if len(token) != 0 {
-		opts.Headers = http.Header{
-			"Authorization": []string{
-				fmt.Sprintf("Bearer %s", token),
-			},
-		}
-	}
-	response, err := ingr.Call(opts)
-
-	if response.Code != expectResponseCode {
-		return fmt.Errorf("got response code %d, err %s", response.Code, err)
-	}
-	return nil
 }

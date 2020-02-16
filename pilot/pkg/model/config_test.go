@@ -30,9 +30,6 @@ import (
 	authz "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
@@ -40,6 +37,9 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // getByMessageName finds a schema by message name if it is available
@@ -685,7 +685,7 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{
 		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Resource().GroupVersionKind(): {
+			collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count-1",

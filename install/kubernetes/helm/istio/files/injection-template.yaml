@@ -42,9 +42,9 @@ initContainers:
   - "--skip-rule-apply"
   {{ end -}}
   imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
-{{- if .Values.global.proxy.init.resources }}
+{{- if .Values.global.proxy_init.resources }}
   resources:
-    {{ toYaml .Values.global.proxy.init.resources | indent 4 }}
+    {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
 {{- else }}
   resources: {}
 {{- end }}
@@ -291,15 +291,15 @@ containers:
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
   {{- if .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}
   - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations.Value }}"
   {{- end }}
   {{- if .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}
   - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes.Value }}"
   {{- end }}
   {{- if .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}
   - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents.Value }}"
   {{- end }}
   {{- end }}
   imagePullPolicy: {{ .Values.global.imagePullPolicy }}

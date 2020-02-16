@@ -116,6 +116,10 @@ create_offline_root_ca(){
 }
 
 create_base() {
+  if [ -f "${BASE_FILENAME}" ]; then
+    echo "${BASE_FILENAME} already exists."
+    return
+  fi
   cat << EOF > "${BASE_FILENAME}"
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
@@ -181,9 +185,12 @@ wait_for_gateway() {
   kc() { kubectl --context "${CONTEXT}" "$@"; }
 
   while true; do
-    if IP=$(kc -n istio-system get svc istio-ingressgateway -o "jsonpath"='{.status.loadBalancer.ingress[0].ip}'); then
+    IP=$(kc -n istio-system get svc istio-ingressgateway -o "jsonpath"='{.status.loadBalancer.ingress[0].ip}')
+    if [ "$IP" != '' ]; then
       echo "Ingress gateway external IP for cluster ${CONTEXT} is ready: ${IP}"
       return 0
+    else
+      echo "Wait for ingress gateway external IP for cluster ${CONTEXT} is ready."
     fi
     sleep 1
   done

@@ -185,9 +185,6 @@ func TestValidateValuesFromProfile(t *testing.T) {
 		{
 			profile: "minimal",
 		},
-		{
-			profile: "sds",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
@@ -195,11 +192,11 @@ func TestValidateValuesFromProfile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("fail to read profile: %s", tt.profile)
 			}
-			val, _, err := manifest.ParseK8SYAMLToIstioOperatorSpec(pf)
+			val, _, err := manifest.ParseK8SYAMLToIstioOperator(pf)
 			if err != nil {
 				t.Fatalf(" fail to parse profile to ISCP: (%s), got error %s", tt.profile, err)
 			}
-			errs := CheckValues(val.Values)
+			errs := CheckValues(val.Spec.Values)
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues of (%v): gotErr:%s, wantErr:%s", tt.profile, gotErr, wantErr)
 			}
@@ -225,6 +222,9 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 		valuesYAML, err = util.OverlayYAML(valuesYAML, string(b))
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 		valuesTree := make(map[string]interface{})
 		if err := yaml.Unmarshal([]byte(valuesYAML), &valuesTree); err != nil {
 			t.Fatal(err.Error())

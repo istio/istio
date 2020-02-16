@@ -18,21 +18,43 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/validate"
+
 	"gopkg.in/yaml.v2"
 
+	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/version"
+	"istio.io/istio/operator/pkg/vfs"
+	binversion "istio.io/istio/operator/version"
 )
 
 const (
-	istioOperatorTreeString = `
+	IstioOperatorTreeString = `
 apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 `
+	iCPIOPTranslationsFilename = "translate-ICP-IOP-"
 )
 
-// ReadTranslations reads a file at filePath with key:value pairs in the format expected by TranslateICPToIOP.
-func ReadTranslations(filePath string) (map[string]string, error) {
+// ICPtoIOPTranslations returns the translations for the given binary version.
+func ICPtoIOPTranslations(ver version.Version) (map[string]string, error) {
+	b, err := vfs.ReadFile("translateConfig/" + iCPIOPTranslationsFilename + ver.MinorVersion.String() + ".yaml")
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string)
+	if err := yaml.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ReadICPtoIOPTranslations reads a file at filePath with key:value pairs in the format expected by ICPToIOP.
+func ReadICPtoIOPTranslations(filePath string) (map[string]string, error) {
 	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -44,9 +66,43 @@ func ReadTranslations(filePath string) (map[string]string, error) {
 	return out, nil
 }
 
-// TranslateICPToIOP takes an IstioControlPlane YAML string and a map of translations with key:value format
+// ICPToIOPVer takes an IstioControlPlane YAML string and the target version as input,
+// then translates it into an IstioOperator YAML string.
+func ICPToIOPVer(icp string, ver version.Version) (string, error) {
+	translations, err := ICPtoIOPTranslations(ver)
+	if err != nil {
+		return "", fmt.Errorf("could not read translate config for version %s: %s", ver, err)
+	}
+	return ICPToIOP(icp, translations)
+}
+
+// UnmarshalIOPOrICP takes a YAML string in either IstioControlPlane or IstioOperator formats and
+// returns an IstioOperatorSpec struct and string if it is successful, performing any required translation.
+func UnmarshalIOPOrICP(yml string) (*v1alpha1.IstioOperator, string, error) {
+	translated, tyml := ICPToIOPYAML(yml)
+	if translated {
+		yml = tyml
+	}
+	iop, err := validate.UnmarshalIOP(yml)
+	return iop, yml, err
+}
+
+// ICPToIOPYAML attempts to translate the passed in ICP YAML string to an IOP YAML strings. It returns true
+// if the translation was successful.
+func ICPToIOPYAML(icpYAML string) (bool, string) {
+	out, err := ICPToIOPVer(icpYAML, binversion.OperatorBinaryVersion)
+	if err != nil {
+		return false, ""
+	}
+	return true, out
+}
+
+// ICPToIOP takes an IstioControlPlane YAML string and a map of translations with key:value format
 // souce-path:destination-path (where paths are expressed in pkg/tpath format) and returns an IstioOperator string.
-func TranslateICPToIOP(icp string, translations map[string]string) (string, error) {
+func ICPToIOP(icp string, translations map[string]string) (string, error) {
+	if err := checkIstioControlPlane(icp); err != nil {
+		return "", err
+	}
 	icps, err := getSpecSubtree(icp)
 	if err != nil {
 		return "", err
@@ -58,16 +114,16 @@ func TranslateICPToIOP(icp string, translations map[string]string) (string, erro
 		return "", err
 	}
 
-	translated, err := TranslateYAMLTree(icps, outTree, translations)
+	translated, err := YAMLTree(icps, outTree, translations)
 	if err != nil {
 		return "", err
 	}
 
-	out, err := addSpecRoot(translated)
+	out, err := tpath.AddSpecRoot(translated)
 	if err != nil {
 		return "", err
 	}
-	return util.OverlayYAML(istioOperatorTreeString, out)
+	return util.OverlayYAML(IstioOperatorTreeString, out)
 }
 
 // getSpecSubtree takes a YAML tree with the root node spec and returns the subtree under this root node.
@@ -125,19 +181,22 @@ components:
 	return out, nil
 }
 
-// addSpecRoot is the reverse of getSpecSubtree: it adds a root node called "spec" to the given tree and returns the
-// resulting tree.
-func addSpecRoot(tree string) (string, error) {
-	t, nt := make(map[string]interface{}), make(map[string]interface{})
-	if err := yaml.Unmarshal([]byte(tree), &t); err != nil {
-		return "", err
+// checkIstioControlPlane reports whether icpStr contains an IstioControlPlane with correct object headers.
+func checkIstioControlPlane(icpStr string) error {
+	// First, check if this is even an IstioControlPlane kind.
+	icp := &icpv1alpha2.IstioControlPlane{}
+	if err := util.UnmarshalWithJSONPB(icpStr, icp, false); err != nil {
+		return fmt.Errorf("not a valid IstioControlPlane")
 	}
-	nt["spec"] = t
-	out, err := yaml.Marshal(nt)
+	o, err := object.ParseYAMLToK8sObject([]byte(icpStr))
 	if err != nil {
-		return "", err
+		return err
 	}
-	return string(out), nil
+
+	if o.Kind != icpv1alpha2.IstioControlPlaneKindStr {
+		return fmt.Errorf("incorrect Kind, got %s, want %s", icp.TypeMeta.Kind, icpv1alpha2.IstioControlPlaneKindStr)
+	}
+	return nil
 }
 
 func unmarshalTree(tree string) (map[string]interface{}, error) {

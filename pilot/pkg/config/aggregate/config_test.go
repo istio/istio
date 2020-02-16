@@ -20,12 +20,12 @@ import (
 
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/aggregate/fakes"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 func TestAggregateStoreBasicMake(t *testing.T) {

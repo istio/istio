@@ -14,8 +14,6 @@ spec:
       enabled: false
     citadel:
       enabled: false
-    nodeAgent:
-      enabled: false
     galley:
       enabled: false
     cni:
@@ -24,6 +22,8 @@ spec:
     - name: istio-ingressgateway
       enabled: false
     egressGateways:
+    - name: istio-egressgateway
+      enabled: false
 
   addonComponents:
     prometheus:
@@ -44,6 +44,3 @@ spec:
     pilot:
       sidecar: false
       useMCP: false
-
-    prometheus:
-      enabled: false

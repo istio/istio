@@ -26,8 +26,8 @@ import (
 	"log"
 	"text/template"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // ConfigData is data struct to feed to types.go template.

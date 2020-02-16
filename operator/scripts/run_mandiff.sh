@@ -44,7 +44,7 @@ declare -A PROFILE_CHARTS_MAP
 PROFILE_CHARTS_MAP["${ISTIO_DEFAULT_PROFILE}"]="base istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-policy security/citadel"
 PROFILE_CHARTS_MAP["${ISTIO_DEMO_PROFILE}"]="base istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-telemetry/kiali istio-telemetry/grafana istio-telemetry/tracing istio-policy security/citadel"
 PROFILE_CHARTS_MAP["${ISTIO_MINIMAL_PROFILE}"]="base istio-control/istio-discovery"
-PROFILE_CHARTS_MAP["${ISTIO_SDS_PROFILE}"]="base istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-policy security/citadel security/nodeagent"
+PROFILE_CHARTS_MAP["${ISTIO_SDS_PROFILE}"]="base istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-policy security/citadel"
 
 # declare map with charts directory as key and namespaces as values
 declare -A NAMESPACES_MAP
@@ -61,7 +61,6 @@ NAMESPACES_MAP["istio-telemetry/grafana"]="istio-system"
 NAMESPACES_MAP["istio-telemetry/tracing"]="istio-system"
 NAMESPACES_MAP["istio-policy"]="istio-system"
 NAMESPACES_MAP["security/citadel"]="istio-system"
-NAMESPACES_MAP["security/nodeagent"]="istio-system"
 
 # define the ingored resource list for manifest comparison
 MANDIFF_IGNORE_RESOURCE_LIST="ConfigMap::istio:data.values.yaml,\

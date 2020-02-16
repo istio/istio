@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/api/extensions/v1beta1"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/resource"
 
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"

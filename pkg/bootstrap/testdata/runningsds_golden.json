@@ -11,8 +11,8 @@
       "INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
       "INTERCEPTION_MODE":"REDIRECT",
       "ISTIO_VERSION":"release-3.1",
-      "SDS": "1",
-      "TRUSTJWT": "1",
+      "SDS": "true",
+      "TRUSTJWT": "true",
       "istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}",
       "istio-locality": "regionA.zoneB.sub_zoneC",
       "EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT",
@@ -141,6 +141,10 @@
         "tag_name": "response_flags"
       },
       {
+        "regex": "(grpc_response_status=\\.=(.*?);\\.;)",
+        "tag_name": "grpc_response_status"
+      },
+      {
         "regex": "(connection_security_policy=\\.=(.+?);\\.;)",
         "tag_name": "connection_security_policy"
       },
@@ -163,6 +167,22 @@
       {
         "regex": "(tag\\.(.+?)\\.)",
         "tag_name": "tag"
+      },
+      {
+          "regex": "(source_canonical_service=\\.=(.+?);\\.;)",
+          "tag_name": "source_canonical_service"
+      },
+      {
+          "regex": "(destination_canonical_service=\\.=(.+?);\\.;)",
+          "tag_name": "destination_canonical_service"
+      },
+      {
+          "regex": "(source_canonical_revision=\\.=(.+?);\\.;)",
+          "tag_name": "source_canonical_revision"
+      },
+      {
+          "regex": "(destination_canonical_revision=\\.=(.+?);\\.;)",
+          "tag_name": "destination_canonical_revision"
       }
     ],
     "stats_matcher": {
@@ -355,6 +375,7 @@
             "keepalive_time": 300
           }
         },
+        "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
       

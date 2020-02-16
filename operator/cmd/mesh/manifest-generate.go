@@ -20,6 +20,13 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/client-go/rest"
+
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/controlplane"
+	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/version"
+
 	"istio.io/istio/operator/pkg/helm"
 
 	"github.com/spf13/cobra"
@@ -29,7 +36,7 @@ import (
 )
 
 type manifestGenerateArgs struct {
-	// inFilename is an array of paths to the input IstioOperator CR files.
+	// inFilenames is an array of paths to the input IstioOperator CR files.
 	inFilename []string
 	// outFilename is the path to the generated output directory.
 	outFilename string
@@ -43,7 +50,7 @@ type manifestGenerateArgs struct {
 func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path")
-	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
+	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
 }
 
@@ -52,6 +59,19 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 		Use:   "generate",
 		Short: "Generates an Istio install manifest",
 		Long:  "The generate subcommand generates an Istio install manifest and outputs to the console by default.",
+		// nolint: lll
+		Example: `  # Generate a default Istio installation
+  istioctl manifest generate
+
+  # Enable security
+  istioctl manifest generate --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true
+
+  # Generate the demo profile
+  istioctl manifest generate --set profile=demo
+
+  # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
+  istioctl manifest generate --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
+`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("generate accepts no positional arguments, got %#v", args)
@@ -70,11 +90,12 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) e
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	overlayFromSet, err := MakeTreeFromSetList(mgArgs.set, mgArgs.force, l)
+	ysf, err := yamlFromSetFlags(mgArgs.set, mgArgs.force, l)
 	if err != nil {
 		return err
 	}
-	manifests, _, err := GenManifests(mgArgs.inFilename, overlayFromSet, mgArgs.force, l)
+
+	manifests, _, err := GenManifests(mgArgs.inFilename, ysf, mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}
@@ -93,6 +114,41 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) e
 	}
 
 	return nil
+}
+
+// GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
+// representation of path-values passed through the --set flag.
+// If force is set, validation errors will not cause processing to abort but will result in warnings going to the
+// supplied logger.
+func GenManifests(inFilename []string, setOverlayYAML string, force bool,
+	kubeConfig *rest.Config, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
+	mergedYAML, _, err := GenerateConfig(inFilename, setOverlayYAML, force, kubeConfig, l)
+	if err != nil {
+		return nil, nil, err
+	}
+	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, force, l)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	t, err := translate.NewTranslator(version.OperatorBinaryVersion.MinorVersion)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cp, err := controlplane.NewIstioOperator(mergedIOPS, t)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := cp.Run(); err != nil {
+		return nil, nil, fmt.Errorf("failed to create Istio control plane with spec: \n%v\nerror: %s", mergedIOPS, err)
+	}
+
+	manifests, errs := cp.RenderManifest()
+	if errs != nil {
+		return manifests, mergedIOPS, errs.ToError()
+	}
+	return manifests, mergedIOPS, nil
 }
 
 func orderedManifests(mm name.ManifestMap) []string {

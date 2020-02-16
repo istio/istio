@@ -17,15 +17,11 @@ package caclient
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"reflect"
 	"testing"
-	"time"
 
-	"google.golang.org/grpc"
-
-	gcapb "istio.io/istio/security/proto/providers/google"
+	"istio.io/istio/security/pkg/nodeagent/caclient/providers/google/mock"
 )
 
 const mockServerAddress = "localhost:0"
@@ -35,18 +31,6 @@ var (
 	fakeToken = "Bearer fakeToken"
 )
 
-type mockCAServer struct {
-	Certs []string
-	Err   error
-}
-
-func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.MeshCertificateRequest) (*gcapb.MeshCertificateResponse, error) {
-	if ca.Err == nil {
-		return &gcapb.MeshCertificateResponse{CertChain: ca.Certs}, nil
-	}
-	return nil, ca.Err
-}
-
 func TestGoogleCAClient(t *testing.T) {
 	os.Setenv("GKE_CLUSTER_URL", "https://container.googleapis.com/v1/projects/testproj/locations/us-central1-c/clusters/cluster1")
 	defer func() {
@@ -54,22 +38,22 @@ func TestGoogleCAClient(t *testing.T) {
 	}()
 
 	testCases := map[string]struct {
-		server       mockCAServer
+		service      mock.CAService
 		expectedCert []string
 		expectedErr  string
 	}{
 		"Valid certs": {
-			server:       mockCAServer{Certs: fakeCert, Err: nil},
+			service:      mock.CAService{Certs: fakeCert, Err: nil},
 			expectedCert: fakeCert,
 			expectedErr:  "",
 		},
 		"Error in response": {
-			server:       mockCAServer{Certs: nil, Err: fmt.Errorf("test failure")},
+			service:      mock.CAService{Certs: nil, Err: fmt.Errorf("test failure")},
 			expectedCert: nil,
 			expectedErr:  "rpc error: code = Unknown desc = test failure",
 		},
 		"Empty response": {
-			server:       mockCAServer{Certs: []string{}, Err: nil},
+			service:      mock.CAService{Certs: []string{}, Err: nil},
 			expectedCert: nil,
 			expectedErr:  "invalid response cert chain",
 		},
@@ -77,29 +61,18 @@ func TestGoogleCAClient(t *testing.T) {
 
 	for id, tc := range testCases {
 		// create a local grpc server
-		s := grpc.NewServer()
-		defer s.Stop()
-		lis, err := net.Listen("tcp", mockServerAddress)
+		s, err := mock.CreateServer(mockServerAddress, &tc.service)
 		if err != nil {
-			t.Fatalf("Test case [%s]: failed to listen: %v", id, err)
+			t.Fatalf("Test case [%s]: failed to create server: %v", id, err)
 		}
+		defer s.Stop()
 
-		go func() {
-			gcapb.RegisterMeshCertificateServiceServer(s, &tc.server)
-			if err := s.Serve(lis); err != nil {
-				t.Logf("Test case [%s]: failed to serve: %v", id, err)
-			}
-		}()
-
-		// The goroutine starting the server may not be ready, results in flakiness.
-		time.Sleep(1 * time.Second)
-
-		cli, err := NewGoogleCAClient(lis.Addr().String(), false)
+		cli, err := NewGoogleCAClient(s.Address, false)
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		resp, err := cli.CSRSign(context.Background(), []byte{01}, fakeToken, 1)
+		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
 		if err != nil {
 			if err.Error() != tc.expectedErr {
 				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)

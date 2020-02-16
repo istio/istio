@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+
 	"github.com/spf13/cobra"
 	"k8s.io/utils/pointer"
 
@@ -31,7 +33,6 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/version"
-	"istio.io/pkg/log"
 	buildversion "istio.io/pkg/version"
 )
 
@@ -44,7 +45,7 @@ type operatorInitArgs struct {
 	operatorNamespace string
 	// istioNamespace is the namespace Istio is installed into.
 	istioNamespace string
-	// inFilename is the path to the input IstioOperator CR.
+	// inFilenames is the path to the input IstioOperator CR.
 	inFilename string
 
 	// kubeConfigPath is the path to kube config file.
@@ -81,7 +82,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
-	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for all Istio resources to be ready."+
+	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for the Istio operator to be ready."+
 		" The --wait flag must be set for this flag to apply")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
 		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
@@ -101,7 +102,7 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 		Long:  "The init subcommand installs the Istio operator controller in the cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			operatorInit(rootArgs, oiArgs, l, defaultManifestApplier)
 		}}
 }
@@ -123,23 +124,20 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 		l.logAndFatal(err)
 	}
 
-	log.Infof("Using the following manifest to install operator:\n%s\n", mstr)
-
-	// If CR was passed, we must create a namespace for it and install CR into it.
-	customResource, istioNamespace, err := getCRAndNamespaceFromFile(oiArgs.inFilename, l)
-	if err != nil {
-		l.logAndFatal(err)
-	}
+	scope.Infof("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,
 		Verbose:     args.verbose,
-		WaitTimeout: 1 * time.Minute,
+		Wait:        oiArgs.wait,
+		WaitTimeout: oiArgs.readinessTimeout,
 		Kubeconfig:  oiArgs.kubeConfigPath,
 		Context:     oiArgs.context,
 	}
 
-	if err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	// If CR was passed, we must create a namespace for it and install CR into it.
+	customResource, istioNamespace, err := getCRAndNamespaceFromFile(oiArgs.inFilename, l)
+	if err != nil {
 		l.logAndFatal(err)
 	}
 
@@ -163,6 +161,13 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 	// Specifically don't prune operator installation since it leads to a lot of resources being reapplied.
 	opts.Prune = pointer.BoolPtr(false)
 	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), *opts)
+
+	if opts.Wait {
+		err := manifest.WaitForResources(objs, opts)
+		if err != nil {
+			out.Err = err
+		}
+	}
 
 	success := true
 	if out.Err != nil {
@@ -192,11 +197,7 @@ func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource strin
 		return "", "", nil
 	}
 
-	mergedYAML, err := genProfile(false, []string{filePath}, "", "", "", true, l)
-	if err != nil {
-		return "", "", err
-	}
-	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, true, l)
+	_, mergedIOPS, err := GenerateConfig([]string{filePath}, "", false, nil, l)
 	if err != nil {
 		return "", "", err
 	}
@@ -206,7 +207,7 @@ func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource strin
 		return "", "", fmt.Errorf("could not read values from file %s: %s", filePath, err)
 	}
 	customResource = string(b)
-	istioNamespace = mergedIOPS.MeshConfig.RootNamespace
+	istioNamespace = v1alpha1.Namespace(mergedIOPS)
 	return
 }
 
@@ -243,7 +244,7 @@ tag: {{.Tag}}
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Installing operator charts with the following values:\n%s", vals)
+	scope.Infof("Installing operator charts with the following values:\n%s", vals)
 	return r.RenderManifest(vals)
 }
 

@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -123,6 +125,9 @@ type cliOptions struct { // nolint: maligned
 
 	// Whether SDS is enabled on.
 	sdsEnabled bool
+
+	// The policy for validating JWT
+	jwtPolicy string
 }
 
 var (
@@ -170,8 +175,6 @@ var (
 		"istio-sidecar-injector",
 		"istio-galley",
 	}
-
-	rootCertRotatorChan chan struct{}
 )
 
 func fatalf(template string, args ...interface{}) {
@@ -296,6 +299,9 @@ func initEnvVars() {
 	enableNamespacesByDefault := env.RegisterBoolVar("CITADEL_ENABLE_NAMESPACES_BY_DEFAULT", true,
 		"Determines whether unlabeled namespaces should be targeted by this Citadel instance").Get()
 	opts.enableNamespacesByDefault = enableNamespacesByDefault
+	jwtPolicy := env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+		"The JWT validation policy.").Get()
+	opts.jwtPolicy = jwtPolicy
 }
 
 func main() {
@@ -342,9 +348,9 @@ func runCA() {
 	if err != nil {
 		fatalf("Could not create k8s clientset: %v", err)
 	}
-	ca := createCA(cs.CoreV1())
 
 	stopCh := make(chan struct{})
+	ca := createCA(cs.CoreV1(), stopCh)
 	if !opts.serverOnly {
 		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
 		// For workloads in K8s, we apply the configured workload cert TTL.
@@ -388,7 +394,7 @@ func runCA() {
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
 		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL,
 			opts.signCACerts, hostnames, opts.grpcPort, spiffe.GetTrustDomain(),
-			opts.sdsEnabled)
+			opts.sdsEnabled, opts.jwtPolicy)
 		if startErr != nil {
 			fatalf("Failed to create istio ca server: %v", startErr)
 		}
@@ -400,7 +406,7 @@ func runCA() {
 		}
 	}
 
-	monitorErrCh := make(chan error)
+	monitorErrCh := make(chan error, 10)
 	// Start the monitoring server.
 	if opts.monitoringPort > 0 {
 		monitor, mErr := monitoring.NewMonitor(opts.monitoringPort, opts.enableProfiling)
@@ -414,7 +420,7 @@ func runCA() {
 
 	log.Info("Citadel has started")
 
-	rotatorErrCh := make(chan error)
+	rotatorErrCh := make(chan error, 10)
 	// Start CA client if the upstream CA address is specified.
 	if len(opts.cAClientConfig.CAAddress) != 0 {
 		config := &opts.cAClientConfig
@@ -437,24 +443,29 @@ func runCA() {
 		defer rotator.Stop()
 	}
 
+	// Capture termination and close the stop channel
+	go pkgcmd.WaitSignal(stopCh)
+
 	// Blocking until receives error.
-	for {
-		select {
-		case err := <-monitorErrCh:
-			fatalf("Monitoring server error: %v", err)
-		case err := <-rotatorErrCh:
-			fatalf("Key cert bundle rotator error: %v", err)
-		}
+	select {
+	case <-stopCh:
+		log.Infof("Stopping CA server, termination signal received")
+		return
+	case err := <-monitorErrCh:
+		fatalf("Monitoring server error: %v", err)
+	case err := <-rotatorErrCh:
+		fatalf("Key cert bundle rotator error: %v", err)
 	}
 }
 
-func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
+func createCA(client corev1.CoreV1Interface, stopCh chan struct{}) *ca.IstioCA {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
+	spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, true))
+
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
-		spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, true))
 		// Abort after 20 minutes.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*20)
 		defer cancel()
@@ -500,12 +511,8 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			livenessProbeChecker.Run()
 		}
 	}
-	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
-	// self-signed CA.
-	rootCertRotatorChan = make(chan struct{})
 	// Start root cert rotator in a separate goroutine.
-	istioCA.Run(rootCertRotatorChan)
-	go pkgcmd.WaitSignal(rootCertRotatorChan)
+	istioCA.Run(stopCh)
 
 	return istioCA
 }

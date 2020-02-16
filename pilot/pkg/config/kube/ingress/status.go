@@ -15,10 +15,7 @@
 package ingress
 
 import (
-	"context"
-	"fmt"
 	"net"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -31,25 +28,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/leaderelection"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	"k8s.io/client-go/tools/record"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	queue2 "istio.io/istio/pkg/queue"
 
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
 const (
-	updateInterval    = 60 * time.Second
-	ingressElectionID = "istio-ingress-controller-leader"
+	updateInterval = 60 * time.Second
 )
 
 // StatusSyncer keeps the status IP in each Ingress resource updated
@@ -64,32 +55,24 @@ type StatusSyncer struct {
 
 	queue    queue2.Instance
 	informer cache.SharedIndexInformer
-	elector  *leaderelection.LeaderElector
 }
 
 // Run the syncer until stopCh is closed
 func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 	go s.informer.Run(stopCh)
-	go s.elector.Run(context.Background())
 	<-stopCh
 	// TODO: should we remove current IPs on shutting down?
 }
 
-var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
-
 // NewStatusSyncer creates a new instance
 func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	client kubernetes.Interface,
-	pilotNamespace string,
-	options controller2.Options) (*StatusSyncer, error) {
+	options controller2.Options,
+	l *leaderelection.LeaderElection) (*StatusSyncer, error) {
 
 	// we need to use the defined ingress class to allow multiple leaders
 	// in order to update information about ingress status
 	ingressClass, defaultIngressClass := convertIngressControllerMode(mesh.IngressControllerMode, mesh.IngressClass)
-	electionID := fmt.Sprintf("%v-%v", ingressElectionID, defaultIngressClass)
-	if ingressClass != "" {
-		electionID = fmt.Sprintf("%v-%v", ingressElectionID, ingressClass)
-	}
 
 	// queue requires a time duration for a retry delay after a handler error
 	queue := queue2.NewQueue(1 * time.Second)
@@ -115,52 +98,13 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		ingressService:      mesh.IngressService,
 	}
 
-	callbacks := leaderelection.LeaderCallbacks{
-		OnStartedLeading: func(ctx context.Context) {
-			log.Infof("I am the new status update leader")
-			go st.queue.Run(ctx.Done())
-			go st.runUpdateStatus(ctx)
-		},
-		OnStoppedLeading: func() {
-			log.Infof("I am not status update leader anymore")
-		},
-		OnNewLeader: func(identity string) {
-			log.Infof("New leader elected: %v", identity)
-		},
+	if l != nil {
+		l.AddRunFunction(func(stop <-chan struct{}) {
+			log.Infof("Starting ingress status controller")
+			go st.queue.Run(stop)
+			go st.runUpdateStatus(stop)
+		})
 	}
-
-	broadcaster := record.NewBroadcaster()
-	hostname, _ := os.Hostname()
-
-	recorder := broadcaster.NewRecorder(scheme.Scheme, coreV1.EventSource{
-		Component: "ingress-leader-elector",
-		Host:      hostname,
-	})
-	podName := podNameVar.Get()
-
-	lock := resourcelock.ConfigMapLock{
-		ConfigMapMeta: metaV1.ObjectMeta{Namespace: pilotNamespace, Name: electionID},
-		Client:        client.CoreV1(),
-		LockConfig: resourcelock.ResourceLockConfig{
-			Identity:      podName,
-			EventRecorder: recorder,
-		},
-	}
-
-	ttl := 30 * time.Second
-	le, err := leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
-		Lock:          &lock,
-		LeaseDuration: ttl,
-		RenewDeadline: ttl / 2,
-		RetryPeriod:   ttl / 4,
-		Callbacks:     callbacks,
-	})
-
-	if err != nil {
-		log.Errorf("unexpected error starting leader election: %v", err)
-	}
-
-	st.elector = le
 
 	return &st, nil
 }
@@ -174,7 +118,7 @@ func (s *StatusSyncer) onEvent() error {
 	return s.updateStatus(sliceToStatus(addrs))
 }
 
-func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
+func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 	if _, err := s.runningAddresses(ingressNamespace); err != nil {
 		log.Warna("Missing ingress, skip status updates")
 		err = wait.PollUntil(10*time.Second, func() (bool, error) {
@@ -182,7 +126,7 @@ func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
 				return false, nil
 			}
 			return true, nil
-		}, ctx.Done())
+		}, stop)
 		if err != nil {
 			log.Warna("Error waiting for ingress")
 			return
@@ -191,7 +135,7 @@ func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
 	err := wait.PollUntil(updateInterval, func() (bool, error) {
 		s.queue.Push(s.onEvent)
 		return false, nil
-	}, ctx.Done())
+	}, stop)
 
 	if err != nil {
 		log.Errorf("Stop requested")
@@ -212,7 +156,7 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 		sort.SliceStable(curIPs, lessLoadBalancerIngress(curIPs))
 
 		if ingressSliceEqual(status, curIPs) {
-			log.Infof("skipping update of Ingress %v/%v (no change)", currIng.Namespace, currIng.Name)
+			log.Debugf("skipping update of Ingress %v/%v (no change)", currIng.Namespace, currIng.Name)
 			return nil
 		}
 

@@ -24,15 +24,15 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -68,21 +68,24 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:               push0,
 				Start:              t0,
 				NamespacesUpdated:  map[string]struct{}{"ns1": {}},
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg1"}: {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg1"}: {}},
+				Reason:             []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
 			&PushRequest{
 				Full:               false,
 				Push:               push1,
 				Start:              t1,
 				NamespacesUpdated:  map[string]struct{}{"ns2": {}},
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg2"}: {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg2"}: {}},
+				Reason:             []TriggerReason{EndpointUpdate},
 			},
 			PushRequest{
 				Full:               true,
 				Push:               push1,
 				Start:              t0,
 				NamespacesUpdated:  map[string]struct{}{"ns1": {}, "ns2": {}},
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg1"}: {}, resource.GroupVersionKind{Kind: "cfg2"}: {}},
+				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg1"}: {}, {Kind: "cfg2"}: {}},
+				Reason:             []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
 		},
 		{
@@ -118,7 +121,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigTypesUpdated: nil},
-			&PushRequest{Full: true, ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{resource.GroupVersionKind{Kind: "cfg2"}: {}}},
+			&PushRequest{Full: true, ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg2"}: {}}},
 			PushRequest{Full: true, ConfigTypesUpdated: nil},
 		},
 	}
@@ -491,9 +494,8 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches two envoyfilters",
 			proxy: &Proxy{
-				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
-				WorkloadLabels:  labels.Collection{{"app": "v1"}},
 			},
 			expectedListenerPatches: 2,
 			expectedClusterPatches:  2,
@@ -501,9 +503,8 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy in root namespace matches an envoyfilter",
 			proxy: &Proxy{
-				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "istio-system",
-				WorkloadLabels:  labels.Collection{{"app": "v1"}},
 			},
 			expectedListenerPatches: 1,
 			expectedClusterPatches:  1,
@@ -512,9 +513,8 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches no envoyfilter",
 			proxy: &Proxy{
-				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v2"}},
 				ConfigNamespace: "test-ns",
-				WorkloadLabels:  labels.Collection{{"app": "v2"}},
 			},
 			expectedListenerPatches: 0,
 			expectedClusterPatches:  0,
@@ -523,9 +523,8 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches envoyfilter in root ns",
 			proxy: &Proxy{
-				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-n2",
-				WorkloadLabels:  labels.Collection{{"app": "v1"}},
 			},
 			expectedListenerPatches: 1,
 			expectedClusterPatches:  1,
@@ -533,9 +532,8 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy version matches no envoyfilters",
 			proxy: &Proxy{
-				Metadata:        &NodeMetadata{IstioVersion: "1.3.0"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.3.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
-				WorkloadLabels:  labels.Collection{{"app": "v1"}},
 			},
 			expectedListenerPatches: 0,
 			expectedClusterPatches:  0,

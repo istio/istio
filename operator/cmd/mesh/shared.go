@@ -38,8 +38,6 @@ func configLogs(logToStdErr bool) error {
 	opt := log.DefaultOptions()
 	if logToStdErr {
 		opt.OutputPaths = []string{"stderr"}
-	} else {
-		opt.SetOutputLevel(log.OverrideScopeName, log.NoneLevel)
 	}
 	return log.Configure(opt)
 }
@@ -123,7 +121,7 @@ func (l *Logger) printErr(s string) {
 }
 
 func refreshGoldenFiles() bool {
-	return os.Getenv("UPDATE_GOLDENS") == "true"
+	return os.Getenv("REFRESH_GOLDENS") == "true"
 }
 
 func ReadLayeredYAMLs(filenames []string) (string, error) {
@@ -139,4 +137,21 @@ func ReadLayeredYAMLs(filenames []string) (string, error) {
 		}
 	}
 	return ly, nil
+}
+
+// confirm waits for a user to confirm with the supplied message.
+func confirm(msg string, writer io.Writer) bool {
+	fmt.Fprintf(writer, "%s ", msg)
+
+	var response string
+	_, err := fmt.Scanln(&response)
+	if err != nil {
+		return false
+	}
+	response = strings.ToUpper(response)
+	if response == "Y" || response == "YES" {
+		return true
+	}
+
+	return false
 }

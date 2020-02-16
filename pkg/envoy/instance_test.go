@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/ptypes"
 	. "github.com/onsi/gomega"
 
@@ -412,7 +412,7 @@ func TestConfigDump(t *testing.T) {
 
 	// Basic verification of the config dump..
 	for _, c := range cd.Configs {
-		if c.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump" {
+		if c.TypeUrl == "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump" {
 			b := envoyAdmin.BootstrapConfigDump{}
 			g.Expect(ptypes.UnmarshalAny(c, &b)).To(BeNil())
 

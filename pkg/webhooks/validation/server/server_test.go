@@ -37,8 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
 	"istio.io/istio/pkg/test/config"
 )

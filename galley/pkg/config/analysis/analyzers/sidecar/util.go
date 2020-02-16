@@ -13,7 +13,7 @@
 // limitations under the License.
 package sidecar
 
-import "istio.io/istio/galley/pkg/config/resource"
+import "istio.io/istio/pkg/config/resource"
 
 func getNames(entries []*resource.Instance) []string {
 	names := make([]string, 0, len(entries))

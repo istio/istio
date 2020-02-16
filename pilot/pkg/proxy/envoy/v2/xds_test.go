@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"sync"
 	"testing"
+	"time"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -71,9 +72,6 @@ const (
 	app3Ip    = "10.2.0.1"
 	gatewayIP = "10.3.0.1"
 	ingressIP = "10.3.0.2"
-
-	edsIncSvc = "eds.test.svc.cluster.local"
-	edsIncVip = "10.10.1.2"
 )
 
 // Common code for the xds testing.
@@ -107,7 +105,7 @@ func startEnvoy(t *testing.T) {
 		"NodeID":  nodeID,
 		"BaseDir": env.IstioSrc + "/tests/testdata/local",
 		// Same value used in the real template
-		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_VERSION: 1.3.0`, env.IstioSrc+"/tests/testdata/local"),
+		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_VERSION: 1.5.0`, env.IstioSrc+"/tests/testdata/local"),
 	}
 
 	// Mixer will push stats every 1 sec
@@ -126,12 +124,8 @@ func gatewayID(ip string) string { //nolint: unparam
 	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }
 
-// initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
-// of common test configs. This is a singleton server, reused for all tests in this package.
-//
-// The server will have a set of pre-defined instances and services, and read CRDs from the
-// common tests/testdata directory.
-func initLocalPilotTestEnv(t *testing.T, additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, util.TearDownFunc) {
+// localPilotTestEnv builds a pilot testing environment and it initializes with registry with the passed in init function.
+func localPilotTestEnv(t *testing.T, initFunc func(*bootstrap.Server), additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, util.TearDownFunc) {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
@@ -147,165 +141,176 @@ func initLocalPilotTestEnv(t *testing.T, additionalArgs ...func(*bootstrap.Pilot
 
 	localIP = getLocalIP()
 
-	// Service and endpoints for hello.default - used in v1 pilot tests
-	hostname := host.Name("hello.default.svc.cluster.local")
-	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
-		Hostname: hostname,
-		Address:  "10.10.0.3",
-		Ports:    testPorts(0),
-		Attributes: model.ServiceAttributes{
-			Name:      "service3",
-			Namespace: "default",
-		},
-	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
-		Endpoint: &model.IstioEndpoint{
-			Address:         "127.0.0.1",
-			EndpointPort:    uint32(testEnv.Ports().BackendPort),
-			ServicePortName: "http",
-			Locality:        "az",
-			ServiceAccount:  "hello-sa",
-		},
-		ServicePort: &model.Port{
-			Name:     "http",
-			Port:     80,
-			Protocol: protocol.HTTP,
-		},
-	})
-
-	// "local" service points to the current host and the in-process mixer http test endpoint
-	server.EnvoyXdsServer.MemRegistry.AddService("local.default.svc.cluster.local", &model.Service{
-		Hostname: "local.default.svc.cluster.local",
-		Address:  "10.10.0.4",
-		Ports: []*model.Port{
-			{
-				Name:     "http",
-				Port:     80,
-				Protocol: protocol.HTTP,
-			}},
-		Attributes: model.ServiceAttributes{
-			Name:      "local",
-			Namespace: "default",
-		},
-	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("local.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: &model.IstioEndpoint{
-			Address:         localIP,
-			EndpointPort:    uint32(testEnv.Ports().BackendPort),
-			ServicePortName: "http",
-			Locality:        "az",
-		},
-		ServicePort: &model.Port{
-			Name:     "http",
-			Port:     80,
-			Protocol: protocol.HTTP,
-		},
-	})
-
-	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
-	// but easier to read.
-	server.EnvoyXdsServer.MemRegistry.AddService("service3.default.svc.cluster.local", &model.Service{
-		Hostname: "service3.default.svc.cluster.local",
-		Address:  "10.10.0.1",
-		Ports:    testPorts(0),
-		Attributes: model.ServiceAttributes{
-			Name:      "service3",
-			Namespace: "default",
-		},
-	})
-
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: &model.IstioEndpoint{
-			Address:         app3Ip,
-			EndpointPort:    2080,
-			ServicePortName: "http-main",
-			Locality:        "az",
-			Labels:          map[string]string{"version": "v1"},
-		},
-		ServicePort: &model.Port{
-			Name:     "http-main",
-			Port:     1080,
-			Protocol: protocol.HTTP,
-		},
-	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: &model.IstioEndpoint{
-			Address:         gatewayIP,
-			EndpointPort:    2080,
-			ServicePortName: "http-main",
-			Locality:        "az",
-			Labels:          map[string]string{"version": "v2", "app": "my-gateway-controller"},
-		},
-		ServicePort: &model.Port{
-			Name:     "http-main",
-			Port:     1080,
-			Protocol: protocol.HTTP,
-		},
-	})
-
-	// Mock ingress service
-	server.EnvoyXdsServer.MemRegistry.AddService("istio-ingress.istio-system.svc.cluster.local", &model.Service{
-		Hostname: "istio-ingress.istio-system.svc.cluster.local",
-		Address:  "10.10.0.2",
-		Ports: []*model.Port{
-			{
-				Name:     "http",
-				Port:     80,
-				Protocol: protocol.HTTP,
-			},
-			{
-				Name:     "https",
-				Port:     443,
-				Protocol: protocol.HTTPS,
-			},
-		},
-		// TODO: set attribute for this service. It may affect TestLDSIsolated as we now having service defined in istio-system namespaces
-	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: &model.IstioEndpoint{
-			Address:         ingressIP,
-			EndpointPort:    80,
-			ServicePortName: "http",
-			Locality:        "az",
-			Labels:          labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
-		},
-		ServicePort: &model.Port{
-			Name:     "http",
-			Port:     80,
-			Protocol: protocol.HTTP,
-		},
-	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: &model.IstioEndpoint{
-			Address:         ingressIP,
-			EndpointPort:    443,
-			ServicePortName: "https",
-			Locality:        "az",
-			Labels:          labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
-		},
-		ServicePort: &model.Port{
-			Name:     "https",
-			Port:     443,
-			Protocol: protocol.HTTPS,
-		},
-	})
-
-	// RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
-	// service4 has no endpoints
-	server.EnvoyXdsServer.MemRegistry.AddHTTPService("service4.default.svc.cluster.local", "10.1.0.4", 80)
-
-	server.EnvoyXdsServer.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
-	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
-		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
+	// Run the initialization function.
+	initFunc(server)
 
 	// Trigger a push, to initiate push context with contents of registry.
-	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+
+	// Wait till a push is propagated.
+	time.Sleep(200 * time.Millisecond)
 
 	// Add a dummy client connection to validate that push is triggered.
 	dummyClient := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer dummyClient.Close()
 
 	return server, tearDown
+}
+
+// initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
+// of common test configs. This is a singleton server, reused for all tests in this package.
+//
+// The server will have a set of pre-defined instances and services, and read CRDs from the
+// common tests/testdata directory.
+func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
+	return localPilotTestEnv(t, func(server *bootstrap.Server) {
+		// Service and endpoints for hello.default - used in v1 pilot tests
+		hostname := host.Name("hello.default.svc.cluster.local")
+		server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
+			Hostname: hostname,
+			Address:  "10.10.0.3",
+			Ports:    testPorts(0),
+			Attributes: model.ServiceAttributes{
+				Name:      "service3",
+				Namespace: "default",
+			},
+		})
+		server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
+			Endpoint: &model.IstioEndpoint{
+				Address:         "127.0.0.1",
+				EndpointPort:    uint32(testEnv.Ports().BackendPort),
+				ServicePortName: "http",
+				Locality:        "az",
+				ServiceAccount:  "hello-sa",
+			},
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: protocol.HTTP,
+			},
+		})
+
+		// "local" service points to the current host and the in-process mixer http test endpoint
+		server.EnvoyXdsServer.MemRegistry.AddService("local.default.svc.cluster.local", &model.Service{
+			Hostname: "local.default.svc.cluster.local",
+			Address:  "10.10.0.4",
+			Ports: []*model.Port{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: protocol.HTTP,
+				}},
+			Attributes: model.ServiceAttributes{
+				Name:      "local",
+				Namespace: "default",
+			},
+		})
+		server.EnvoyXdsServer.MemRegistry.AddInstance("local.default.svc.cluster.local", &model.ServiceInstance{
+			Endpoint: &model.IstioEndpoint{
+				Address:         localIP,
+				EndpointPort:    uint32(testEnv.Ports().BackendPort),
+				ServicePortName: "http",
+				Locality:        "az",
+			},
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: protocol.HTTP,
+			},
+		})
+
+		// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
+		// but easier to read.
+		server.EnvoyXdsServer.MemRegistry.AddService("service3.default.svc.cluster.local", &model.Service{
+			Hostname: "service3.default.svc.cluster.local",
+			Address:  "10.10.0.1",
+			Ports:    testPorts(0),
+			Attributes: model.ServiceAttributes{
+				Name:      "service3",
+				Namespace: "default",
+			},
+		})
+
+		server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
+			Endpoint: &model.IstioEndpoint{
+				Address:         app3Ip,
+				EndpointPort:    2080,
+				ServicePortName: "http-main",
+				Locality:        "az",
+				Labels:          map[string]string{"version": "v1"},
+			},
+			ServicePort: &model.Port{
+				Name:     "http-main",
+				Port:     1080,
+				Protocol: protocol.HTTP,
+			},
+		})
+		server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
+			Endpoint: &model.IstioEndpoint{
+				Address:         gatewayIP,
+				EndpointPort:    2080,
+				ServicePortName: "http-main",
+				Locality:        "az",
+				Labels:          map[string]string{"version": "v2", "app": "my-gateway-controller"},
+			},
+			ServicePort: &model.Port{
+				Name:     "http-main",
+				Port:     1080,
+				Protocol: protocol.HTTP,
+			},
+		})
+
+		// Mock ingress service
+		server.EnvoyXdsServer.MemRegistry.AddService("istio-ingress.istio-system.svc.cluster.local", &model.Service{
+			Hostname: "istio-ingress.istio-system.svc.cluster.local",
+			Address:  "10.10.0.2",
+			Ports: []*model.Port{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: protocol.HTTP,
+				},
+				{
+					Name:     "https",
+					Port:     443,
+					Protocol: protocol.HTTPS,
+				},
+			},
+			// TODO: set attribute for this service. It may affect TestLDSIsolated as we now having service defined in istio-system namespaces
+		})
+		server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
+			Endpoint: &model.IstioEndpoint{
+				Address:         ingressIP,
+				EndpointPort:    80,
+				ServicePortName: "http",
+				Locality:        "az",
+				Labels:          labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
+			},
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: protocol.HTTP,
+			},
+		})
+		server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
+			Endpoint: &model.IstioEndpoint{
+				Address:         ingressIP,
+				EndpointPort:    443,
+				ServicePortName: "https",
+				Locality:        "az",
+				Labels:          labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
+			},
+			ServicePort: &model.Port{
+				Name:     "https",
+				Port:     443,
+				Protocol: protocol.HTTPS,
+			},
+		})
+
+		// RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
+		// service4 has no endpoints
+		server.EnvoyXdsServer.MemRegistry.AddHTTPService("service4.default.svc.cluster.local", "10.1.0.4", 80)
+	})
 }
 
 // nolint: unparam

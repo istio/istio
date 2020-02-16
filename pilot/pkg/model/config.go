@@ -23,23 +23,26 @@ import (
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	"github.com/mitchellh/copystructure"
 
-	"istio.io/istio/galley/pkg/config/schema/resource"
-
 	"github.com/gogo/protobuf/proto"
 
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
 	// Statically link protobuf descriptors from UDPA
 	_ = udpa.TypedStruct{}
+)
+
+const (
+	RevisionLabel = "istio.io/rev"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -517,25 +520,9 @@ func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]
 	return refs
 }
 
-// QuotaSpecByDestination selects Mixerclient quota specifications
-// associated with destination service instances.
-func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	log.Debugf("QuotaSpecByDestination(%v)", instance)
-	bindings, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
-	if err != nil {
-		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
-		return nil
-	}
-
-	log.Debugf("QuotaSpecByDestination bindings[%d] %v", len(bindings), bindings)
-	specs, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
-	if err != nil {
-		log.Warnf("Unable to fetch QuotaSpecs: %v", err)
-		return nil
-	}
-
-	log.Debugf("QuotaSpecByDestination specs[%d] %v", len(specs), specs)
-
+// filterQuotaSpecsByDestination provides QuotaSpecByDestination filtering logic as a
+// function that can be called on cached binding + spec sets
+func filterQuotaSpecsByDestination(instance *ServiceInstance, bindings []Config, specs []Config) []Config {
 	// Build the set of quota spec references bound to the service instance.
 	refs := findQuotaSpecRefs(instance, bindings)
 	log.Debugf("QuotaSpecByDestination refs:%v", refs)
@@ -555,6 +542,28 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 		log.Warnf("Some matched QuotaSpecs were not found: %v", refs)
 	}
 	return out
+}
+
+// QuotaSpecByDestination selects Mixerclient quota specifications
+// associated with destination service instances.
+func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
+	log.Debugf("QuotaSpecByDestination(%v)", instance)
+	bindings, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
+	if err != nil {
+		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
+		return nil
+	}
+
+	log.Debugf("QuotaSpecByDestination bindings[%d] %v", len(bindings), bindings)
+	specs, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
+	if err != nil {
+		log.Warnf("Unable to fetch QuotaSpecs: %v", err)
+		return nil
+	}
+
+	log.Debugf("QuotaSpecByDestination specs[%d] %v", len(specs), specs)
+
+	return filterQuotaSpecsByDestination(instance, bindings, specs)
 }
 
 func (store *istioConfigStore) ServiceRoles(namespace string) []Config {
@@ -628,8 +637,8 @@ func SortQuotaSpec(specs []Config) {
 	})
 }
 
-func (config Config) DeepCopy() Config {
-	copied, err := copystructure.Copy(config)
+func (c Config) DeepCopy() Config {
+	copied, err := copystructure.Copy(c)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
 		//  * The reflection walk over the structure fails, which should never happen

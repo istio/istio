@@ -505,8 +505,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"1.1.1.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
-				WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
+				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					Labels: map[string]string{
+						"app": "prod-app",
+					}},
 			})
 			if err != nil {
 				t.Fatalf("got err getting service instances")
@@ -563,8 +565,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
-				WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
+				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					Labels: map[string]string{
+						"app": "prod-app",
+					}},
 			})
 			if err != nil {
 				t.Fatalf("got err getting service instances")
@@ -618,8 +622,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.2"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
-				WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
+				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					Labels: map[string]string{
+						"app": "prod-app",
+					}},
 			})
 			if err != nil {
 				t.Fatalf("got err getting service instances")
@@ -663,41 +669,127 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 }
 
-func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
+func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 	pod1 := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 	testCases := []struct {
 		name    string
 		pods    []*coreV1.Pod
 		ips     []string
-		ports   []int32
+		ports   []coreV1.ServicePort
 		wantNum int
 	}{
 		{
-			name:    "multiple proxy ips single port",
-			pods:    []*coreV1.Pod{pod1},
-			ips:     []string{"128.0.0.1", "192.168.2.6"},
-			ports:   []int32{8080},
+			name: "multiple proxy ips single port",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1", "192.168.2.6"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "tcp-port",
+					Port:       8080,
+					Protocol:   "http",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+			},
 			wantNum: 2,
 		},
 		{
-			name:    "single proxy ip single port",
-			pods:    []*coreV1.Pod{pod1},
-			ips:     []string{"128.0.0.1"},
-			ports:   []int32{8080},
+			name: "single proxy ip single port",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "tcp-port",
+					Port:       8080,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+			},
 			wantNum: 1,
 		},
 		{
-			name:    "multiple proxy ips multiple ports",
-			pods:    []*coreV1.Pod{pod1},
-			ips:     []string{"128.0.0.1", "192.168.2.6"},
-			ports:   []int32{8080, 9090},
+			name: "multiple proxy ips multiple ports",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1", "192.168.2.6"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "tcp-port",
+					Port:       8080,
+					Protocol:   "http",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+				{
+					Name:       "tcp-port",
+					Port:       9090,
+					Protocol:   "http",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 9090},
+				},
+			},
 			wantNum: 4,
 		},
 		{
-			name:    "single proxy ip multiple ports",
-			pods:    []*coreV1.Pod{pod1},
-			ips:     []string{"128.0.0.1"},
-			ports:   []int32{8080, 9090},
+			name: "single proxy ip multiple ports same target port with different protocols",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "tcp-port",
+					Port:       8080,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+				{
+					Name:       "http-port",
+					Port:       9090,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+			},
+			wantNum: 2,
+		},
+		{
+			name: "single proxy ip multiple ports same target port with overlapping protocols",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "http-7442",
+					Port:       7442,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
+				},
+				{
+					Name:       "tcp-8443",
+					Port:       8443,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
+				},
+				{
+					Name:       "http-7557",
+					Port:       7557,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
+				},
+			},
+			wantNum: 2,
+		},
+		{
+			name: "single proxy ip multiple ports",
+			pods: []*coreV1.Pod{pod1},
+			ips:  []string{"128.0.0.1"},
+			ports: []coreV1.ServicePort{
+				{
+					Name:       "tcp-port",
+					Port:       8080,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+				{
+					Name:       "http-port",
+					Port:       9090,
+					Protocol:   "TCP",
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 9090},
+				},
+			},
 			wantNum: 2,
 		},
 	}
@@ -716,11 +808,12 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 					}
 				}
 
-				createService(controller, "svc1", "nsa",
+				createServiceWithTargetPorts(controller, "svc1", "nsa",
 					map[string]string{
 						annotation.AlphaKubernetesServiceAccounts.Name: "acct4",
 						annotation.AlphaCanonicalServiceAccounts.Name:  "acctvm2@gserviceaccount2.com"},
 					c.ports, map[string]string{"app": "test-app"}, t)
+
 				ev := fx.Wait("service")
 				if ev == nil {
 					t.Fatal("Timeout creating service")
@@ -730,7 +823,7 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 					t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
 				}
 				if len(serviceInstances) != c.wantNum {
-					t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %q, want %q", len(serviceInstances), c.wantNum)
+					t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %d, want %d", len(serviceInstances), c.wantNum)
 				}
 			})
 		}
@@ -1014,6 +1107,33 @@ func TestController_Service(t *testing.T) {
 				if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
 					t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Ports, exp.Ports)
 				}
+			}
+		})
+	}
+}
+
+func TestExternalNameServiceInstances(t *testing.T) {
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
+			defer controller.Stop()
+			createExternalNameService(controller, "svc5", "nsA",
+				[]int32{1, 2, 3}, "foo.co", t, fx.Events)
+
+			converted, err := controller.Services()
+			if err != nil || len(converted) != 1 {
+				t.Fatalf("failed to get services (%v): %v", converted, err)
+			}
+			instances, err := controller.InstancesByPort(converted[0], 1, labels.Collection{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(instances) != 1 {
+				t.Fatalf("expected 1 instance, got %v", instances)
+			}
+			if instances[0].ServicePort.Port != 1 {
+				t.Fatalf("expected port 1, got %v", instances[0].ServicePort.Port)
 			}
 		})
 	}
@@ -1335,6 +1455,28 @@ func updateEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 }
 
+func createServiceWithTargetPorts(controller *Controller, name, namespace string, annotations map[string]string,
+	svcPorts []coreV1.ServicePort, selector map[string]string, t *testing.T) {
+	service := &coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotations,
+		},
+		Spec: coreV1.ServiceSpec{
+			ClusterIP: "10.0.0.1", // FIXME: generate?
+			Ports:     svcPorts,
+			Selector:  selector,
+			Type:      coreV1.ServiceTypeClusterIP,
+		},
+	}
+
+	_, err := controller.client.CoreV1().Services(namespace).Create(service)
+	if err != nil {
+		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
+	}
+}
+
 func createService(controller *Controller, name, namespace string, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T) {
 
@@ -1446,9 +1588,19 @@ func deleteExternalNameService(controller *Controller, name, namespace string, t
 
 func addPods(t *testing.T, controller *Controller, pods ...*coreV1.Pod) {
 	for _, pod := range pods {
-		newPod, err := controller.client.CoreV1().Pods(pod.Namespace).Create(pod)
-		if err != nil {
-			t.Fatalf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
+		p, _ := controller.client.CoreV1().Pods(pod.Namespace).Get(pod.Name, metaV1.GetOptions{})
+		var newPod *v1.Pod
+		var err error
+		if p == nil {
+			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Create(pod)
+			if err != nil {
+				t.Fatalf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
+			}
+		} else {
+			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Update(pod)
+			if err != nil {
+				t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
+			}
 		}
 		// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
 		// events - since PodIP will be "".
