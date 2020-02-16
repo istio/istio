@@ -148,6 +148,8 @@ spec:
           - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
           - --serviceCluster
           - istio-pilot
+          - --binaryPath
+          - {{ .Values.global.sidcar.binaryPath }}
           - --templateFile
           - /etc/istio/proxy/envoy_pilot.yaml.tmpl
         {{- if $.Values.global.controlPlaneSecurityEnabled}}
