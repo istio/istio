@@ -386,7 +386,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					errCode := codes.Code(discReq.ErrorDetail.Code)
 					adsLog.Warnf("ADS:EGDS: ACK ERROR %v %s %s:%s", peerAddr, con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 					incrementXDSRejects(egdsReject, con.node.ID, errCode.String())
-					
+
 					continue
 				}
 
@@ -599,8 +599,11 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
+
+		// If connection ISTIO_VERSION is less than EGDS reqired. Disable EGDS on this connection
+		// and proceed to legacy EDS push.
 		var err error
-		if pushEv.egdsUpdatedGroups != nil {
+		if pushEv.egdsUpdatedGroups != nil && util.IsIstioVersionGE15(con.node) {
 			err = s.pushEgds(pushEv.push, con, versionInfo(), pushEv.egdsUpdatedGroups)
 		} else {
 			err = s.pushEds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices)
