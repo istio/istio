@@ -147,9 +147,6 @@ type Proxy struct {
 	// service instances associated with the proxy
 	ServiceInstances []*ServiceInstance
 
-	// labels associated with the workload
-	WorkloadLabels labels.Collection
-
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
 }
@@ -223,10 +220,31 @@ func (l *PodPortList) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// StringBool defines a boolean that is serialized as a string for legacy reasons
+type StringBool bool
+
+func (s StringBool) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%t"`, s)), nil
+}
+
+func (s *StringBool) UnmarshalJSON(data []byte) error {
+	pls, err := strconv.Unquote(string(data))
+	if err != nil {
+		return err
+	}
+	b, err := strconv.ParseBool(pls)
+	if err != nil {
+		return err
+	}
+	*s = StringBool(b)
+	return nil
+}
+
 // NodeMetadata defines the metadata associated with a proxy
 // Fields should not be assumed to exist on the proxy, especially newly added fields which will not exist
 // on older versions.
 // The JSON field names should never change, as they are needed for backward compatibility with older proxies
+// nolint: maligned
 type NodeMetadata struct {
 	// IstioVersion specifies the Istio version associated with the proxy
 	IstioVersion string `json:"ISTIO_VERSION,omitempty"`
@@ -303,6 +321,7 @@ type NodeMetadata struct {
 	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
 	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
 	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
+	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
 
 	// TLSServerCertChain is the absolute path to server cert-chain file
 	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
@@ -319,13 +338,16 @@ type NodeMetadata struct {
 
 	// SdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
-	SdsTokenPath string `json:"SDS_TOKEN_PATH,omitempty"`
-	UserSds      string `json:"USER_SDS,omitempty"`
-	SdsBase      string `json:"BASE,omitempty"`
+	SdsTokenPath string     `json:"SDS_TOKEN_PATH,omitempty"`
+	UserSds      StringBool `json:"USER_SDS,omitempty"`
+	SdsBase      string     `json:"BASE,omitempty"`
 	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
-	SdsEnabled string `json:"SDS,omitempty"`
+	SdsEnabled StringBool `json:"SDS,omitempty"`
 	// SdsTrustJwt indicates if SDS trust jwt is enabled or not. This is are set to "1" if true
-	SdsTrustJwt string `json:"TRUSTJWT,omitempty"`
+	SdsTrustJwt StringBool `json:"TRUSTJWT,omitempty"`
+
+	// StsPort specifies the port of security token exchange server (STS).
+	StsPort string `json:"STS_PORT,omitempty"`
 
 	InsecurePath string `json:"istio.io/insecurepath,omitempty"`
 
@@ -392,29 +414,35 @@ var (
 // To compare only on major, call this function with { X, -1, -1}.
 // to compare only on major & minor, call this function with {X, Y, -1}.
 func (pversion *IstioVersion) Compare(inv *IstioVersion) int {
-	if pversion.Major > inv.Major {
-		return 1
-	} else if pversion.Major < inv.Major {
-		return -1
+	// check major
+	if r := compareVersion(pversion.Major, inv.Major); r != 0 {
+		return r
 	}
 
-	// check minors
+	// check minor
 	if inv.Minor > -1 {
-		if pversion.Minor > inv.Minor {
-			return 1
-		} else if pversion.Minor < inv.Minor {
-			return -1
+		if r := compareVersion(pversion.Minor, inv.Minor); r != 0 {
+			return r
 		}
+
 		// check patch
 		if inv.Patch > -1 {
-			if pversion.Patch > inv.Patch {
-				return 1
-			} else if pversion.Patch < inv.Patch {
-				return -1
+			if r := compareVersion(pversion.Patch, inv.Patch); r != 0 {
+				return r
 			}
 		}
 	}
 	return 0
+}
+
+func compareVersion(ov, nv int) int {
+	if ov == nv {
+		return 0
+	}
+	if ov < nv {
+		return -1
+	}
+	return 1
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -485,7 +513,8 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	if node.Type == SidecarProxy {
-		node.SidecarScope = ps.getSidecarScope(node, node.WorkloadLabels)
+		workloadLabels := labels.Collection{node.Metadata.Labels}
+		node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
@@ -527,18 +556,10 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) error 
 	return nil
 }
 
-// SetWorkloadLabels will reset the proxy.WorkloadLabels if `force` = true,
-// otherwise only set it when it is nil.
+// SetWorkloadLabels will set the node.Metadata.Labels only when it is nil.
 func (node *Proxy) SetWorkloadLabels(env *Environment) error {
-	// The WorkloadLabels is already parsed from Node metadata["LABELS"]
-	if node.WorkloadLabels != nil {
-		return nil
-	}
-
-	// TODO: remove WorkloadLabels and use node.Metadata.Labels directly
 	// First get the workload labels from node meta
 	if len(node.Metadata.Labels) > 0 {
-		node.WorkloadLabels = labels.Collection{node.Metadata.Labels}
 		return nil
 	}
 
@@ -548,8 +569,9 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) error {
 		log.Errorf("failed to get service proxy labels: %v", err)
 		return err
 	}
-
-	node.WorkloadLabels = l
+	if len(l) > 0 {
+		node.Metadata.Labels = l[0]
+	}
 	return nil
 }
 
@@ -633,19 +655,11 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 		log.Warnf("Istio Version is not found in metadata for %v, which may have undesirable side effects", out.ID)
 	}
 	out.IstioVersion = ParseIstioVersion(metadata.IstioVersion)
-	if len(metadata.Labels) > 0 {
-		out.WorkloadLabels = labels.Collection{metadata.Labels}
-	}
 	return out, nil
 }
 
 // ParseIstioVersion parses a version string and returns IstioVersion struct
 func ParseIstioVersion(ver string) *IstioVersion {
-	if strings.HasPrefix(ver, "master-") {
-		// This proxy is from a master branch build. Assume latest version
-		return MaxIstioVersion
-	}
-
 	// strip the release- prefix if any and extract the version string
 	ver = istioVersionRegexp.FindString(strings.TrimPrefix(ver, "release-"))
 

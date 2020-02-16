@@ -16,10 +16,21 @@ package version
 
 import (
 	"fmt"
+	"io/ioutil"
+	"strconv"
 	"strings"
 
 	goversion "github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v2"
+
+	"istio.io/istio/operator/pkg/httprequest"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/vfs"
+)
+
+const (
+	// releasePrefix is the prefix we used in http://gcr.io/istio-release for releases
+	releasePrefix = "release-"
 )
 
 // CompatibilityMapping is a mapping from an Istio operator version and the corresponding recommended and
@@ -29,6 +40,8 @@ type CompatibilityMapping struct {
 	OperatorVersionRange     goversion.Constraints `json:"operatorVersionRange,omitempty"`
 	SupportedIstioVersions   goversion.Constraints `json:"supportedIstioVersions,omitempty"`
 	RecommendedIstioVersions goversion.Constraints `json:"recommendedIstioVersions,omitempty"`
+	K8sClientVersionRange    goversion.Constraints `json:"k8sClientVersionRange,omitempty"`
+	K8sServerVersionRange    goversion.Constraints `json:"k8sServerVersionRange,omitempty"`
 }
 
 // NewVersionFromString creates a new Version from the provided SemVer formatted string and returns a pointer to it.
@@ -73,6 +86,12 @@ func (v *CompatibilityMapping) MarshalYAML() (interface{}, error) {
 	if v.RecommendedIstioVersions != nil {
 		out["recommendedIstioVersions"] = v.RecommendedIstioVersions.String()
 	}
+	if v.K8sClientVersionRange != nil {
+		out["k8sClientVersionRange"] = v.K8sClientVersionRange.String()
+	}
+	if v.K8sServerVersionRange != nil {
+		out["k8sServerVersionRange"] = v.K8sServerVersionRange.String()
+	}
 	if len(out) == 0 {
 		return nil, nil
 	}
@@ -86,6 +105,8 @@ func (v *CompatibilityMapping) UnmarshalYAML(unmarshal func(interface{}) error) 
 		OperatorVersionRange     string `yaml:"operatorVersionRange"`
 		SupportedIstioVersions   string `yaml:"supportedIstioVersions"`
 		RecommendedIstioVersions string `yaml:"recommendedIstioVersions"`
+		K8sClientVersionRange    string `yaml:"k8sClientVersionRange,omitempty"`
+		K8sServerVersionRange    string `yaml:"k8sServerVersionRange,omitempty"`
 	}
 	tmp := inStruct{}
 	if err := unmarshal(&tmp); err != nil {
@@ -122,6 +143,18 @@ func (v *CompatibilityMapping) UnmarshalYAML(unmarshal func(interface{}) error) 
 			return err
 		}
 	}
+
+	if tmp.K8sClientVersionRange != "" {
+		if v.K8sClientVersionRange, err = goversion.NewConstraint(tmp.K8sClientVersionRange); err != nil {
+			return err
+		}
+	}
+
+	if tmp.K8sServerVersionRange != "" {
+		if v.K8sServerVersionRange, err = goversion.NewConstraint(tmp.K8sServerVersionRange); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -133,6 +166,22 @@ func IsVersionString(path string) bool {
 	}
 	vs := Version{}
 	return yaml.Unmarshal([]byte(path), &vs) == nil
+}
+
+// TagToVersionString converts an istio container tag into a version string
+func TagToVersionString(path string) (string, error) {
+	path = strings.TrimPrefix(path, releasePrefix)
+	ver, err := goversion.NewSemver(path)
+	if err != nil {
+		return "", err
+	}
+	segments := ver.Segments()
+	fmtParts := make([]string, len(segments))
+	for i, s := range segments {
+		str := strconv.Itoa(s)
+		fmtParts[i] = str
+	}
+	return strings.Join(fmtParts, "."), nil
 }
 
 // MajorVersion represents a major version.
@@ -224,4 +273,59 @@ func (v *Version) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	*v = *out
 	return nil
+}
+
+func GetVersionCompatibleMap(versionsURI string, binVersion *goversion.Version) (*CompatibilityMapping, error) {
+	var b []byte
+	var err error
+
+	b, err = loadCompatibleMapFile(versionsURI)
+	if err != nil {
+		return nil, err
+	}
+
+	var versions []*CompatibilityMapping
+	if err = yaml.Unmarshal(b, &versions); err != nil {
+		return nil, err
+	}
+
+	var myVersionMap, closestVersionMap *CompatibilityMapping
+	for _, v := range versions {
+		if v.OperatorVersion.Equal(binVersion) {
+			myVersionMap = v
+			break
+		}
+		if v.OperatorVersionRange.Check(binVersion) {
+			myVersionMap = v
+		}
+		if (closestVersionMap == nil || v.OperatorVersion.GreaterThan(closestVersionMap.OperatorVersion)) &&
+			v.OperatorVersion.LessThanOrEqual(binVersion) {
+			closestVersionMap = v
+		}
+	}
+
+	if myVersionMap == nil {
+		myVersionMap = closestVersionMap
+	}
+
+	if myVersionMap == nil {
+		return nil, fmt.Errorf("this operator version %s was not found in the version map", binVersion.String())
+	}
+	return myVersionMap, nil
+}
+
+func loadCompatibleMapFile(versionsURI string) ([]byte, error) {
+	if versionsURI == "" {
+		return vfs.ReadFile("versions.yaml")
+	}
+	if util.IsHTTPURL(versionsURI) {
+		if b, err := httprequest.Get(versionsURI); err == nil {
+			return b, nil
+		}
+	} else {
+		if b, err := ioutil.ReadFile(versionsURI); err == nil {
+			return b, nil
+		}
+	}
+	return vfs.ReadFile("versions.yaml")
 }

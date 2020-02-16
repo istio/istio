@@ -21,18 +21,19 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // TODO: move this out of 'external' package. Either 'serviceentry' package or
 // merge with aggregate (caching, events), and possibly merge both into the
 // config directory, for a single top-level cache and event system.
 
-var serviceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind()
+var serviceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
 
@@ -96,7 +97,8 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 					pushReq := &model.PushRequest{
 						Full:               true,
 						NamespacesUpdated:  map[string]struct{}{curr.Namespace: {}},
-						ConfigTypesUpdated: map[string]struct{}{serviceEntryKind: {}},
+						ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{serviceEntryKind: {}},
+						Reason:             []model.TriggerReason{model.ServiceUpdate},
 					}
 					c.XdsUpdater.ConfigUpdate(pushReq)
 				} else {
@@ -116,6 +118,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 									ServiceAccount:  instance.Endpoint.ServiceAccount,
 									Network:         instance.Endpoint.Network,
 									Locality:        instance.Endpoint.Locality,
+									LbWeight:        instance.Endpoint.LbWeight,
 									Attributes: model.ServiceAttributes{
 										Name:      instance.Service.Attributes.Name,
 										Namespace: instance.Service.Attributes.Namespace,

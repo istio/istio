@@ -35,8 +35,3 @@ $ kubectl logs -n istio-system $(kubectl get pod -l istio=ingressgateway \
 # $snippet inspect_secrets syntax="bash"
 $ kubectl -n istio-system get secrets
 # $endsnippet
-
-# $snippet inspect_ingressgateway_sds_logs syntax="bash"
-$ kubectl logs -n istio-system $(kubectl get pod -l istio=ingressgateway \
--n istio-system -o jsonpath='{.items[0].metadata.name}') -c ingress-sds
-# $endsnippet

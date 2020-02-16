@@ -23,10 +23,12 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
@@ -36,25 +38,29 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	mixerClient "istio.io/api/mixer/v1/config/client"
+	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 const (
-	wildcardIP           = "0.0.0.0"
-	fakePluginHTTPFilter = "fake-plugin-http-filter"
-	fakePluginTCPFilter  = "fake-plugin-tcp-filter"
+	wildcardIP                     = "0.0.0.0"
+	fakePluginHTTPFilter           = "fake-plugin-http-filter"
+	fakePluginTCPFilter            = "fake-plugin-tcp-filter"
+	fakePluginFilterChainMatchAlpn = "fake-plugin-alpn"
 )
 
 var (
@@ -116,9 +122,11 @@ var (
 		Metadata: &model.NodeMetadata{
 			ConfigNamespace: "not-default",
 			IstioVersion:    "1.4",
+			Labels: map[string]string{
+				"istio": "ingressgateway",
+			},
 		},
 		ConfigNamespace: "not-default",
-		WorkloadLabels:  labels.Collection{{"istio": "ingressgateway"}},
 	}
 	proxyInstances = []*model.ServiceInstance{
 		{
@@ -572,6 +580,91 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
 }
 
+func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
+	services := []*model.Service{
+		{
+			CreationTime: tnow,
+			Hostname:     host.Name("test.com"),
+			Address:      wildcardIP,
+			ClusterVIPs:  make(map[string]string),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "https",
+					Port:     8080,
+					Protocol: protocol.HTTPS,
+				},
+			},
+			Resolution: model.Passthrough,
+			Attributes: model.ServiceAttributes{
+				Namespace: "default",
+			},
+		},
+		{
+			CreationTime: tnow,
+			Hostname:     host.Name("test1.com"),
+			Address:      wildcardIP,
+			ClusterVIPs:  make(map[string]string),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "foo",
+					Port:     9090,
+					Protocol: "unknown",
+				},
+			},
+			Resolution: model.Passthrough,
+			Attributes: model.ServiceAttributes{
+				Namespace: "default",
+			},
+		},
+	}
+	testOutboundListenerFilterTimeoutV14(t, services...)
+}
+
+func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "sidecar-with-http-proxy",
+			Namespace: "default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"default/*"},
+					Port: &networking.Port{
+						Number:   15080,
+						Protocol: "HTTP_PROXY",
+						Name:     "15080",
+					},
+					Bind:        "127.0.0.1",
+					CaptureMode: v1alpha3.CaptureMode_NONE,
+				},
+			},
+		},
+	}
+	services := []*model.Service{buildService("httpbin.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second))}
+
+	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
+
+	if expected := 1; len(listeners) != expected {
+		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+	}
+	l := findListenerByPort(listeners, 15080)
+	if l == nil {
+		t.Fatalf("expected listener on port %d, but not found", 15080)
+	}
+	if len(l.FilterChains) != 1 {
+		t.Fatalf("expectd %d filter chains, found %d", 1, len(l.FilterChains))
+	} else {
+		if !isHTTPFilterChain(l.FilterChains[0]) {
+			t.Fatalf("expected http filter chain, found %s", l.FilterChains[1].Filters[0].Name)
+		}
+		if len(l.ListenerFilters) > 0 {
+			t.Fatalf("expected %d listener filter, found %d", 0, len(l.ListenerFilters))
+		}
+	}
+}
+
 func TestGetActualWildcardAndLocalHost(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -678,6 +771,25 @@ func testOutboundListenerRouteV14(t *testing.T, services ...*model.Service) {
 	}
 }
 
+func testOutboundListenerFilterTimeoutV14(t *testing.T, services ...*model.Service) {
+	p := &fakePlugin{}
+	listeners := buildOutboundListeners(p, &proxy14, nil, nil, services...)
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	}
+
+	if listeners[0].ContinueOnListenerFiltersTimeout {
+		t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v",
+			listeners[0].ContinueOnListenerFiltersTimeout)
+	}
+
+	if !listeners[1].ContinueOnListenerFiltersTimeout || listeners[1].ListenerFiltersTimeout == nil {
+		t.Fatalf("expected timeout enabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+			listeners[1].ContinueOnListenerFiltersTimeout,
+			listeners[1].ListenerFiltersTimeout)
+	}
+}
+
 func testOutboundListenerConflictV14(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	oldestService := getOldestService(services...)
@@ -714,6 +826,12 @@ func testOutboundListenerConflictV14(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
 		}
 
+		if !listeners[0].ContinueOnListenerFiltersTimeout || listeners[0].ListenerFiltersTimeout == nil {
+			t.Fatalf("exptected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+				listeners[0].ContinueOnListenerFiltersTimeout,
+				listeners[0].ListenerFiltersTimeout)
+		}
+
 		f := listeners[0].FilterChains[2].Filters[0]
 		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 		rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
@@ -739,6 +857,12 @@ func testOutboundListenerConflictV14(t *testing.T, services ...*model.Service) {
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
 			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
+		}
+
+		if !listeners[0].ContinueOnListenerFiltersTimeout || listeners[0].ListenerFiltersTimeout == nil {
+			t.Fatalf("exptected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+				listeners[0].ContinueOnListenerFiltersTimeout,
+				listeners[0].ListenerFiltersTimeout)
 		}
 	}
 }
@@ -1621,6 +1745,25 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugi
 	return nil
 }
 
+func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return []plugin.FilterChain{
+		// A filter chain configured by the plugin for mutual TLS support.
+		{
+			FilterChainMatch: &listener.FilterChainMatch{
+				ApplicationProtocols: []string{fakePluginFilterChainMatchAlpn},
+			},
+			TLSContext: &auth.DownstreamTlsContext{},
+			ListenerFilters: []*listener.ListenerFilter{
+				{
+					Name: xdsutil.TlsInspector,
+				},
+			},
+		},
+		// An empty filter chain for the default pass through behavior.
+		{},
+	}
+}
+
 func isHTTPListener(listener *xdsapi.Listener) bool {
 	if listener == nil {
 		return false
@@ -1753,15 +1896,15 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		},
 	}
 	configStore := &fakes.IstioConfigStore{
-		ListStub: func(kind, namespace string) (configs []model.Config, e error) {
+		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
 			switch kind {
-			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind():
+			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				result := make([]model.Config, len(virtualServices))
 				for i := range virtualServices {
 					result[i] = *virtualServices[i]
 				}
 				return result, nil
-			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind():
+			case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 				return []model.Config{envoyFilter}, nil
 			default:
 				return nil, nil
@@ -1975,5 +2118,144 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	if !reflect.DeepEqual(out[2].Filters, incomingFilterChains[0].Filters) {
 		t.Errorf("got %v\nwant %v\ndiff %v", out[2].Filters, incomingFilterChains[0].Filters, cmp.Diff(out[2].Filters, incomingFilterChains[0].Filters))
+	}
+}
+
+func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
+	svcName := "thrift-service-unlimited"
+	svcIP := "127.0.22.2"
+	limitedSvcName := "thrift-service"
+	limitedSvcIP := "127.0.22.3"
+	if err := os.Setenv("PILOT_ENABLE_THRIFT_FILTER", "true"); err != nil {
+		t.Error(err.Error())
+	}
+	defer func() {
+		_ = os.Unsetenv(features.EnableThriftFilter.Name)
+	}()
+	services := []*model.Service{
+		buildService(svcName+".default.svc.cluster.local", svcIP, protocol.Thrift, tnow),
+		buildService(limitedSvcName+".default.svc.cluster.local", limitedSvcIP, protocol.Thrift, tnow)}
+
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					// None
+					CaptureMode: networking.CaptureMode_NONE,
+					Hosts:       []string{"*/*"},
+				},
+			},
+		},
+	}
+
+	configgen := NewConfigGenerator([]plugin.Plugin{p})
+
+	serviceDiscovery := new(fakes.ServiceDiscovery)
+	serviceDiscovery.ServicesReturns(services, nil)
+
+	quotaSpec := &client.Quota{
+		Quota:  "test",
+		Charge: 1,
+	}
+
+	configStore := &fakes.IstioConfigStore{
+		ListStub: func(kind resource.GroupVersionKind, s string) (configs []model.Config, err error) {
+			if kind.String() == collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind().String() {
+				return []model.Config{
+					{
+						ConfigMeta: model.ConfigMeta{
+							Type:      collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(),
+							Version:   collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Version(),
+							Name:      limitedSvcName,
+							Namespace: "default",
+						},
+						Spec: quotaSpec,
+					},
+				}, nil
+			} else if kind.String() == collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind().String() {
+				return []model.Config{
+					{
+						ConfigMeta: model.ConfigMeta{
+							Type:      collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(),
+							Version:   collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Version(),
+							Name:      limitedSvcName,
+							Namespace: "default",
+						},
+						Spec: &mixerClient.QuotaSpecBinding{
+							Services: []*mixerClient.IstioService{
+								{
+									Name:      "thrift-service",
+									Namespace: "default",
+									Domain:    "cluster.local",
+									Service:   "thrift-service.default.svc.cluster.local",
+								},
+							},
+							QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
+								{
+									Name:      "thrift-service",
+									Namespace: "default",
+								},
+							},
+						},
+					},
+				}, nil
+			}
+			return []model.Config{}, nil
+		},
+	}
+
+	m := mesh.DefaultMeshConfig()
+	m.ThriftConfig.RateLimitUrl = "ratelimit.svc.cluster.local"
+	env := model.Environment{
+		PushContext:      model.NewPushContext(),
+		ServiceDiscovery: serviceDiscovery,
+		IstioConfigStore: configStore,
+		Watcher:          mesh.NewFixedWatcher(&m),
+	}
+
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+		t.Error(err.Error())
+	}
+
+	proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
+	proxy.ServiceInstances = proxyInstances
+
+	listeners := configgen.buildSidecarOutboundListeners(&proxy, env.PushContext)
+
+	var thriftProxy thrift_proxy.ThriftProxy
+	thriftListener := findListenerByAddress(listeners, svcIP)
+	chains := thriftListener.GetFilterChains()
+	filters := chains[len(chains)-1].Filters
+	err := ptypes.UnmarshalAny(filters[len(filters)-1].GetTypedConfig(), &thriftProxy)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if len(thriftProxy.ThriftFilters) > 0 {
+		t.Fatal("No thrift filters should have been applied")
+	}
+	thriftListener = findListenerByAddress(listeners, limitedSvcIP)
+	chains = thriftListener.GetFilterChains()
+	filters = chains[len(chains)-1].Filters
+	err = ptypes.UnmarshalAny(filters[len(filters)-1].GetTypedConfig(), &thriftProxy)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if len(thriftProxy.ThriftFilters) == 0 {
+		t.Fatal("Thrift rate limit filter should have been applied")
+	}
+	var rateLimitApplied bool
+	for _, filter := range thriftProxy.ThriftFilters {
+		if filter.Name == "envoy.filters.thrift.rate_limit" {
+			rateLimitApplied = true
+			break
+		}
+	}
+	if !rateLimitApplied {
+		t.Error("No rate limit applied when one should have been")
 	}
 }

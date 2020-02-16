@@ -1,0 +1,12 @@
+metadata:
+  name: something
+spec:
+  initContainers:
+  - name: c0
+  - name: injected0
+  containers:
+  - name: c1
+  - name: injected1
+  volumes:
+  - name: v0
+  - name: injected2

@@ -18,13 +18,15 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
+	"path"
 	"time"
 
 	"go.opencensus.io/stats/view"
 )
 
-// parseCertAndGetExpiryTimestamp parses certificate and returns cert expire time, or return error
-// if fails to parse certificate.
+// ParseCertAndGetExpiryTimestamp parses the first certificate in certByte and returns cert expire
+// time, or return error if fails to parse certificate.
 func ParseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
 	block, _ := pem.Decode(certByte)
 	if block == nil {
@@ -52,4 +54,34 @@ func GetMetricsCounterValue(metricName string) (float64, error) {
 	}
 
 	return rows[0].Data.(*view.SumData).Value, nil
+}
+
+// Output the key and certificate to the given directory.
+// If directory is empty, return nil.
+func OutputKeyCertToDir(dir string, privateKey, certChain, rootCert []byte) error {
+	if len(dir) == 0 {
+		return nil
+	}
+	// Depending on the SDS resource to output, some fields may be nil
+	if privateKey == nil && certChain == nil && rootCert == nil {
+		return fmt.Errorf("the input private key, cert chain, and root cert are nil")
+	}
+
+	if privateKey != nil {
+		if err := ioutil.WriteFile(path.Join(dir, "key.pem"), privateKey, 0777); err != nil {
+			return fmt.Errorf("failed to write private key to file: %v", err)
+		}
+	}
+	if certChain != nil {
+		if err := ioutil.WriteFile(path.Join(dir, "cert-chain.pem"), certChain, 0777); err != nil {
+			return fmt.Errorf("failed to write cert chain to file: %v", err)
+		}
+	}
+	if rootCert != nil {
+		if err := ioutil.WriteFile(path.Join(dir, "root-cert.pem"), rootCert, 0777); err != nil {
+			return fmt.Errorf("failed to write root cert to file: %v", err)
+		}
+	}
+
+	return nil
 }

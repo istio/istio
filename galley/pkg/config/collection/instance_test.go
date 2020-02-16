@@ -20,9 +20,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
+	"istio.io/istio/pkg/config/resource"
 )
 
 func TestInstance_Basics(t *testing.T) {

@@ -56,6 +56,7 @@ func IsSlice(value interface{}) bool {
 	return kindOf(value) == reflect.Slice
 }
 
+// IsStruct reports whether value is a struct type
 func IsStruct(value interface{}) bool {
 	return kindOf(value) == reflect.Struct
 }
@@ -269,6 +270,7 @@ func AppendToSlicePtr(parentSlice interface{}, value interface{}) error {
 	v := reflect.ValueOf(value)
 
 	if !IsSliceInterfacePtr(parentSlice) {
+		// nolint: golint
 		return fmt.Errorf("AppendToSlicePtr parent type is %T, must be *[]interface{}", parentSlice)
 	}
 
@@ -279,7 +281,6 @@ func AppendToSlicePtr(parentSlice interface{}, value interface{}) error {
 	} else {
 		newSlice = reflect.Append(pv.Elem(), v)
 	}
-	fmt.Printf("parentSlice has type %T, newSlice %T", parentSlice, newSlice.Interface())
 	pv.Elem().Set(newSlice)
 	return nil
 }

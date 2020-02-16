@@ -24,7 +24,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // SetupDiscoveryServer creates a DiscoveryServer with the provided configs using the mem registry
@@ -51,7 +51,7 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore, s)
 	go configController.Run(make(chan struct{}))
 	serviceEntryRegistry := serviceregistry.Simple{
-		ProviderID:       "ServiceEntries",
+		ProviderID:       "External",
 		Controller:       serviceEntryStore,
 		ServiceDiscovery: serviceEntryStore,
 	}
@@ -84,6 +84,8 @@ func createEndpoints(numEndpoints int, numServices int) []model.Config {
 		result = append(result, model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+				Group:             collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Group(),
+				Version:           collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 				Name:              fmt.Sprintf("foo-%d", s),
 				Namespace:         "default",
 				CreationTimestamp: time.Now(),

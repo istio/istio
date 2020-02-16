@@ -2,6 +2,8 @@ apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   addonComponents:
+    certManager:
+      enabled: false
     grafana:
       enabled: false
     kiali:
@@ -11,8 +13,6 @@ spec:
     tracing:
       enabled: false
   components:
-    certManager:
-      enabled: false
     citadel:
       enabled: true
       k8s:
@@ -87,8 +87,6 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
       name: istio-ingressgateway
-    nodeAgent:
-      enabled: false
     pilot:
       enabled: true
       k8s:
@@ -199,8 +197,6 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
-  meshConfig:
-    rootNamespace: istio-system
   tag: 1.4-dev
   values:
     certmanager:
@@ -276,16 +272,6 @@ spec:
         - name: tls
           port: 15443
           targetPort: 15443
-        sds:
-          enabled: false
-          image: node-agent-k8s
-          resources:
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
-            requests:
-              cpu: 100m
-              memory: 128Mi
         secretVolumes:
         - mountPath: /etc/istio/ingressgateway-certs
           name: ingressgateway-certs
@@ -531,8 +517,6 @@ spec:
         sessionAffinityEnabled: false
         tolerations: []
         useMCP: true
-    nodeagent:
-      image: node-agent-k8s
     pilot:
       appNamespaces: []
       autoscaleEnabled: true
@@ -622,7 +606,7 @@ spec:
         persist: false
         spanStorageType: badger
         storageClassName: ""
-        tag: "1.14"
+        tag: "1.16"
       nodeSelector: {}
       opencensus:
         exporters:

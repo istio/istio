@@ -18,9 +18,16 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+)
+
+// Golden output files add a lot of noise to pull requests. Use a unique suffix so
+// we can hide them by default. This should match one of the `linuguist-generated=true`
+// lines in istio.io/istio/.gitattributes.
+const (
+	goldenFileSuffixHideChangesInReview = ".golden.yaml"
+	goldenFileSuffixShowChangesInReview = ".golden-show-in-gh-pull-request.yaml"
 )
 
 var (
@@ -34,10 +41,6 @@ func init() {
 		panic(err)
 	}
 	repoRootDir = filepath.Join(wd, "../..")
-
-	if err := syncCharts(); err != nil {
-		panic(err)
-	}
 }
 
 func runCommand(command string) (string, error) {
@@ -49,11 +52,6 @@ func runCommand(command string) (string, error) {
 		return "", err
 	}
 	return out.String(), nil
-}
-
-func syncCharts() error {
-	cmd := exec.Command(filepath.Join(repoRootDir, "scripts/run_update_charts.sh"))
-	return cmd.Run()
 }
 
 func readFile(path string) (string, error) {

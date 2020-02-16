@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/config/protocol"

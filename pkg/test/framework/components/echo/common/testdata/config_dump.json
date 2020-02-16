@@ -1,7 +1,7 @@
 {
   "configs": [
     {
-      "@type": "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump",
+      "@type": "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump",
       "bootstrap": {
         "node": {
           "id": "sidecar~10.40.3.59~a-6bb6dbdcc5-z58cx.apps-1-99281~apps-1-99281.svc.cluster.local",
@@ -22,8 +22,7 @@
           "locality": {
             "region": "us-central1",
             "zone": "us-central1-a"
-          },
-          "build_version": "ecbd1731cedc5d373766ea6e2f1c2e58623b0e28/1.10.0-dev/Clean/RELEASE/BoringSSL"
+          }
         },
         "static_resources": {
           "listeners": [
@@ -39,7 +38,7 @@
                   "filters": [
                     {
                       "name": "envoy.http_connection_manager",
-                      "config": {
+                      "hidden_envoy_deprecated_config": {
                         "route_config": {
                           "virtual_hosts": [
                             {
@@ -77,7 +76,7 @@
               "name": "prometheus_stats",
               "type": "STATIC",
               "connect_timeout": "0.250s",
-              "hosts": [
+              "hidden_envoy_deprecated_hosts": [
                 {
                   "socket_address": {
                     "address": "127.0.0.1",
@@ -90,7 +89,7 @@
               "name": "xds-grpc",
               "type": "STRICT_DNS",
               "connect_timeout": "10s",
-              "hosts": [
+              "hidden_envoy_deprecated_hosts": [
                 {
                   "socket_address": {
                     "address": "istio-pilot.istio-system",
@@ -125,7 +124,7 @@
               "name": "zipkin",
               "type": "STRICT_DNS",
               "connect_timeout": "1s",
-              "hosts": [
+              "hidden_envoy_deprecated_hosts": [
                 {
                   "socket_address": {
                     "address": "zipkin.istio-system",
@@ -158,7 +157,7 @@
         "tracing": {
           "http": {
             "name": "envoy.zipkin",
-            "config": {
+            "hidden_envoy_deprecated_config": {
               "collector_cluster": "zipkin",
               "trace_id_128bit": "true",
               "shared_span_context": "false",
@@ -240,11 +239,12 @@
       "last_updated": "2019-04-14T15:36:45.310Z"
     },
     {
-      "@type": "type.googleapis.com/envoy.admin.v2alpha.ClustersConfigDump",
+      "@type": "type.googleapis.com/envoy.admin.v3.ClustersConfigDump",
       "version_info": "2019-04-14T15:38:43Z/20",
       "static_clusters": [
         {
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "prometheus_stats",
             "type": "STATIC",
             "connect_timeout": "0.250s",
@@ -261,6 +261,7 @@
         },
         {
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "xds-grpc",
             "type": "STRICT_DNS",
             "connect_timeout": "10s",
@@ -299,6 +300,7 @@
         },
         {
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "zipkin",
             "type": "STRICT_DNS",
             "connect_timeout": "1s",
@@ -319,6 +321,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "BlackHoleCluster",
             "type": "STATIC",
             "connect_timeout": "10s"
@@ -328,6 +331,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "PassthroughCluster",
             "type": "ORIGINAL_DST",
             "connect_timeout": "10s",
@@ -338,6 +342,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "inbound|15020|mgmt-15020|mgmtCluster",
             "type": "STATIC",
             "connect_timeout": "10s",
@@ -371,6 +376,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "inbound|3333|mgmt-3333|mgmtCluster",
             "type": "STATIC",
             "connect_timeout": "10s",
@@ -404,6 +410,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "inbound|7070|grpc|a.apps-1-99281.svc.cluster.local",
             "type": "STATIC",
             "connect_timeout": "10s",
@@ -440,6 +447,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "inbound|70|http2-example|a.apps-1-99281.svc.cluster.local",
             "type": "STATIC",
             "connect_timeout": "10s",
@@ -476,6 +484,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "inbound|8080|http-two|a.apps-1-99281.svc.cluster.local",
             "type": "STATIC",
             "connect_timeout": "10s",
@@ -509,6 +518,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "inbound|8080|mgmt-8080|mgmtCluster",
             "type": "STATIC",
             "connect_timeout": "10s",
@@ -542,6 +552,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "inbound|80|http|a.apps-1-99281.svc.cluster.local",
             "type": "STATIC",
             "connect_timeout": "10s",
@@ -575,6 +586,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "inbound|9090|https|a.apps-1-99281.svc.cluster.local",
             "type": "STATIC",
             "connect_timeout": "10s",
@@ -608,6 +620,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "inbound|90|tcp|a.apps-1-99281.svc.cluster.local",
             "type": "STATIC",
             "connect_timeout": "10s",
@@ -641,6 +654,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|10090||headless.apps-1-99281.svc.cluster.local",
             "type": "ORIGINAL_DST",
             "connect_timeout": "10s",
@@ -658,6 +672,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15004||istio-policy.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -692,6 +707,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15004||istio-telemetry.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -726,6 +742,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15010||istio-pilot.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -751,6 +768,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15011||istio-pilot.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -773,6 +791,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15014||istio-citadel.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -795,6 +814,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15014||istio-galley.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -817,6 +837,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15014||istio-pilot.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -839,6 +860,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15014||istio-policy.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -870,6 +892,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15014||istio-telemetry.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -901,6 +924,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15020||istio-ingressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -923,6 +947,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15029||istio-ingressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -945,6 +970,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15030||istio-ingressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -967,6 +993,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15031||istio-ingressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -989,6 +1016,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15032||istio-ingressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1011,6 +1039,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15443||istio-egressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1033,6 +1062,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15443||istio-ingressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1055,6 +1085,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|31400||istio-ingressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1077,6 +1108,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|42422||istio-telemetry.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1108,6 +1140,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|44134||tiller-deploy.kube-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1130,6 +1163,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|443||istio-egressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1152,6 +1186,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|443||istio-galley.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1174,6 +1209,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|443||istio-ingressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1196,6 +1232,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|443||istio-sidecar-injector.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1218,6 +1255,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|443||kubernetes-dashboard.kube-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1240,6 +1278,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|443||kubernetes.default.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1262,6 +1301,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|443||metrics-server.kube-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1284,6 +1324,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|5000||kube-registry.kube-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1306,6 +1347,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|53||kube-dns.kube-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1328,6 +1370,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|7070||a.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1353,6 +1396,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|7070||b.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1378,6 +1422,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|7070||c.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1403,6 +1448,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|7070||d.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1428,6 +1474,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|7070||headless.apps-1-99281.svc.cluster.local",
             "type": "ORIGINAL_DST",
             "connect_timeout": "10s",
@@ -1448,6 +1495,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|7070||t.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1473,6 +1521,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|70||a.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1498,6 +1547,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|70||b.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1523,6 +1573,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|70||c.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1548,6 +1599,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|70||d.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1573,6 +1625,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|70||headless.apps-1-99281.svc.cluster.local",
             "type": "ORIGINAL_DST",
             "connect_timeout": "10s",
@@ -1593,6 +1646,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|70||t.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1618,6 +1672,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|8060||istio-citadel.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1643,6 +1698,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|8080||a.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1665,6 +1721,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|8080||b.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1687,6 +1744,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|8080||c.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1709,6 +1767,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|8080||d.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1731,6 +1790,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|8080||headless.apps-1-99281.svc.cluster.local",
             "type": "ORIGINAL_DST",
             "connect_timeout": "10s",
@@ -1748,6 +1808,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|8080||istio-pilot.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1770,6 +1831,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|8080||t.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1792,6 +1854,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|80||a.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1814,6 +1877,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|80||b.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1836,6 +1900,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|80||c.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1858,6 +1923,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|80||d.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1880,6 +1946,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|80||default-http-backend.kube-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1902,6 +1969,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|80||headless.apps-1-99281.svc.cluster.local",
             "type": "ORIGINAL_DST",
             "connect_timeout": "10s",
@@ -1919,6 +1987,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|80||heapster.kube-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1941,6 +2010,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|80||istio-egressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1966,6 +2036,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|80||istio-ingressgateway.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -1991,6 +2062,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|80||t.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2013,6 +2085,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|9090||a.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2035,6 +2108,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|9090||b.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2057,6 +2131,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|9090||c.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2079,6 +2154,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|9090||d.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2101,6 +2177,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|9090||prometheus.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2123,6 +2200,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|9090||t.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2145,6 +2223,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|9091||istio-policy.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2179,6 +2258,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2213,6 +2293,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|90||a.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2235,6 +2316,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|90||b.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2257,6 +2339,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|90||c.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2279,6 +2362,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|90||d.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2301,6 +2385,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|90||t.apps-1-99281.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2323,6 +2408,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|9901||istio-galley.istio-system.svc.cluster.local",
             "type": "EDS",
             "eds_cluster_config": {
@@ -2348,11 +2434,12 @@
       ]
     },
     {
-      "@type": "type.googleapis.com/envoy.admin.v2alpha.ListenersConfigDump",
+      "@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
       "version_info": "2019-04-14T15:38:43Z/20",
       "static_listeners": [
         {
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "address": {
               "socket_address": {
                 "address": "0.0.0.0",
@@ -2405,6 +2492,7 @@
           "active_state" : {
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.40.3.59_8080",
             "address": {
               "socket_address": {
@@ -2814,6 +2902,7 @@
           "active_state" : {
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.40.3.59_80",
             "address": {
               "socket_address": {
@@ -3199,6 +3288,7 @@
           "active_state" : {
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.40.3.59_9090",
             "address": {
               "socket_address": {
@@ -3386,6 +3476,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.40.3.59_90",
             "address": {
               "socket_address": {
@@ -3573,6 +3664,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.40.3.59_7070",
             "address": {
               "socket_address": {
@@ -3960,6 +4052,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.40.3.59_70",
             "address": {
               "socket_address": {
@@ -4347,6 +4440,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.248.28_15031",
             "address": {
               "socket_address": {
@@ -4430,6 +4524,7 @@
           "active_state" : {
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.247.178_9090",
             "address": {
               "socket_address": {
@@ -4513,6 +4608,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.254.82_90",
             "address": {
               "socket_address": {
@@ -4596,6 +4692,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.241.25_443",
             "address": {
               "socket_address": {
@@ -4679,6 +4776,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.248.28_443",
             "address": {
               "socket_address": {
@@ -4762,6 +4860,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.254.82_9090",
             "address": {
               "socket_address": {
@@ -4845,6 +4944,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.247.178_90",
             "address": {
               "socket_address": {
@@ -4928,6 +5028,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.240.1_443",
             "address": {
               "socket_address": {
@@ -5011,6 +5112,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.253.48_90",
             "address": {
               "socket_address": {
@@ -5094,6 +5196,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.245.70_443",
             "address": {
               "socket_address": {
@@ -5177,6 +5280,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.248.28_15443",
             "address": {
               "socket_address": {
@@ -5260,6 +5364,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.248.28_15020",
             "address": {
               "socket_address": {
@@ -5343,6 +5448,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.252.161_5000",
             "address": {
               "socket_address": {
@@ -5426,6 +5532,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.245.70_15443",
             "address": {
               "socket_address": {
@@ -5509,6 +5616,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.248.28_15032",
             "address": {
               "socket_address": {
@@ -5592,6 +5700,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.248.244_15011",
             "address": {
               "socket_address": {
@@ -5675,6 +5784,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.255.211_443",
             "address": {
               "socket_address": {
@@ -5758,6 +5868,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.241.185_90",
             "address": {
               "socket_address": {
@@ -5841,6 +5952,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.252.166_80",
             "address": {
               "socket_address": {
@@ -5924,6 +6036,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.240.10_53",
             "address": {
               "socket_address": {
@@ -6007,6 +6120,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.240.145_443",
             "address": {
               "socket_address": {
@@ -6090,6 +6204,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.248.28_31400",
             "address": {
               "socket_address": {
@@ -6173,6 +6288,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.255.188_42422",
             "address": {
               "socket_address": {
@@ -6256,6 +6372,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.253.48_9090",
             "address": {
               "socket_address": {
@@ -6339,6 +6456,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.242.41_9090",
             "address": {
               "socket_address": {
@@ -6422,6 +6540,7 @@
           "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.241.185_9090",
             "address": {
               "socket_address": {
@@ -6503,6 +6622,7 @@
         {"name": "10.43.247.229_443", "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.247.229_443",
             "address": {
               "socket_address": {
@@ -6584,6 +6704,7 @@
         {"name": "10.43.252.202_44134", "active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.252.202_44134",
             "address": {
               "socket_address": {
@@ -6665,6 +6786,7 @@
         {"name": "10.43.248.28_15029","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.248.28_15029",
             "address": {
               "socket_address": {
@@ -6746,6 +6868,7 @@
         {"name": "10.43.248.28_15030","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.248.28_15030",
             "address": {
               "socket_address": {
@@ -6827,6 +6950,7 @@
         {"name": "10.43.242.41_90","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.43.242.41_90",
             "address": {
               "socket_address": {
@@ -6908,6 +7032,7 @@
         {"name": "0.0.0.0_10090","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_10090",
             "address": {
               "socket_address": {
@@ -6989,6 +7114,7 @@
         {"name": "0.0.0.0_9901","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_9901",
             "address": {
               "socket_address": {
@@ -7106,6 +7232,7 @@
         {"name": "0.0.0.0_15004","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_15004",
             "address": {
               "socket_address": {
@@ -7223,6 +7350,7 @@
         {"name": "0.0.0.0_8060","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_8060",
             "address": {
               "socket_address": {
@@ -7340,6 +7468,7 @@
         {"name": "0.0.0.0_15010","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_15010",
             "address": {
               "socket_address": {
@@ -7457,6 +7586,7 @@
         {"name": "0.0.0.0_70","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_70",
             "address": {
               "socket_address": {
@@ -7574,6 +7704,7 @@
         {"name": "0.0.0.0_7070","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_7070",
             "address": {
               "socket_address": {
@@ -7691,6 +7822,7 @@
         {"name": "0.0.0.0_15014","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_15014",
             "address": {
               "socket_address": {
@@ -7808,6 +7940,7 @@
         {"name": "0.0.0.0_9090","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_9090",
             "address": {
               "socket_address": {
@@ -7925,6 +8058,7 @@
         {"name": "0.0.0.0_8080","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_8080",
             "address": {
               "socket_address": {
@@ -8042,6 +8176,7 @@
         {"name": "0.0.0.0_80","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_80",
             "address": {
               "socket_address": {
@@ -8159,6 +8294,7 @@
         {"name": "0.0.0.0_9091","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "0.0.0.0_9091",
             "address": {
               "socket_address": {
@@ -8276,6 +8412,7 @@
         {"name": "10.40.3.59_3333","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.40.3.59_3333",
             "address": {
               "socket_address": {
@@ -8314,6 +8451,7 @@
         {"name": "10.40.3.59_15020","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "10.40.3.59_15020",
             "address": {
               "socket_address": {
@@ -8352,6 +8490,7 @@
         {"name": "virtual","active_state" :{
           "version_info": "2019-04-14T15:36:44Z/18",
           "listener": {
+            "@type": "type.googleapis.com/envoy.api.v2.Listener",
             "name": "virtual",
             "address": {
               "socket_address": {
@@ -8379,10 +8518,11 @@
       ]
     },
     {
-      "@type": "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump",
+      "@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
       "static_route_configs": [
         {
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|7070|grpc|a.apps-1-99281.svc.cluster.local",
             "virtual_hosts": [
               {
@@ -8433,6 +8573,7 @@
         },
         {
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|7070|grpc|a.apps-1-99281.svc.cluster.local",
             "virtual_hosts": [
               {
@@ -8483,6 +8624,7 @@
         },
         {
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|70|http2-example|a.apps-1-99281.svc.cluster.local",
             "virtual_hosts": [
               {
@@ -8533,6 +8675,7 @@
         },
         {
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|70|http2-example|a.apps-1-99281.svc.cluster.local",
             "virtual_hosts": [
               {
@@ -8583,6 +8726,7 @@
         },
         {
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|8080|http-two|a.apps-1-99281.svc.cluster.local",
             "virtual_hosts": [
               {
@@ -8633,6 +8777,7 @@
         },
         {
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "virtual_hosts": [
               {
                 "name": "backend",
@@ -8656,6 +8801,7 @@
         },
         {
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|80|http|a.apps-1-99281.svc.cluster.local",
             "virtual_hosts": [
               {
@@ -8706,6 +8852,7 @@
         },
         {
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|80|http|a.apps-1-99281.svc.cluster.local",
             "virtual_hosts": [
               {
@@ -8756,6 +8903,7 @@
         },
         {
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|8080|http-two|a.apps-1-99281.svc.cluster.local",
             "virtual_hosts": [
               {
@@ -8809,6 +8957,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "8060",
             "virtual_hosts": [
               {
@@ -8899,6 +9048,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "70",
             "virtual_hosts": [
               {
@@ -9399,6 +9549,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "15004",
             "virtual_hosts": [
               {
@@ -9569,6 +9720,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "15010",
             "virtual_hosts": [
               {
@@ -9659,6 +9811,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "9901",
             "virtual_hosts": [
               {
@@ -9749,6 +9902,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "9090",
             "virtual_hosts": [
               {
@@ -9839,6 +9993,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "7070",
             "virtual_hosts": [
               {
@@ -10339,6 +10494,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "8080",
             "virtual_hosts": [
               {
@@ -10919,6 +11075,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "15014",
             "virtual_hosts": [
               {
@@ -11329,6 +11486,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "9091",
             "virtual_hosts": [
               {
@@ -11499,6 +11657,7 @@
         {
           "version_info": "2019-04-14T15:36:44Z/18",
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "80",
             "virtual_hosts": [
               {

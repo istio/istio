@@ -1,0 +1,96 @@
+apiVersion: v1
+data:
+  mesh: |-
+    accessLogEncoding: TEXT
+    accessLogFile: ""
+    accessLogFormat: ""
+    certificates: []
+    defaultConfig:
+      concurrency: 2
+      configPath: /etc/istio/proxy
+      connectTimeout: 10s
+      controlPlaneAuthPolicy: NONE
+      discoveryAddress: istiod.istio-system.svc:15012
+      drainDuration: 45s
+      parentShutdownDuration: 1m0s
+      proxyAdminPort: 15000
+      proxyMetadata:
+        TERMINATION_DRAIN_DURATION_SECONDS: "120"
+      serviceCluster: istio-proxy
+      tracing:
+        zipkin:
+          address: zipkin.istio-system:9411
+    disableMixerHttpReports: true
+    disablePolicyChecks: true
+    enableAutoMtls: false
+    enableEnvoyAccessLogService: false
+    enableTracing: true
+    ingressClass: istio
+    ingressControllerMode: STRICT
+    ingressService: istio-ingressgateway
+    localityLbSetting:
+      enabled: true
+    mixerCheckServer: foo
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    protocolDetectionTimeout: 100ms
+    reportBatchMaxEntries: 100
+    reportBatchMaxTime: 1s
+    rootNamespace: istio-control
+    sdsUdsPath: unix:/etc/istio/proxy/SDS
+    trustDomain: cluster.local
+    trustDomainAliases: null
+  meshNetworks: 'networks: {}'
+  values.yaml: |-
+    appNamespaces: []
+    autoscaleEnabled: true
+    autoscaleMax: 5
+    autoscaleMin: 1
+    configMap: true
+    configNamespace: istio-config
+    configSource:
+      subscribedResources: []
+    cpu:
+      targetAverageUtilization: 80
+    deploymentLabels: {}
+    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForOutbound: true
+    enabled: true
+    env: {}
+    hub: ""
+    image: pilot
+    ingress:
+      ingressClass: istio
+      ingressControllerMode: STRICT
+      ingressService: istio-ingressgateway
+    jwksResolverExtraRootCA: ""
+    keepaliveMaxServerConnectionAge: 30m
+    meshNetworks:
+      networks: {}
+    namespace: istio-system
+    nodeSelector: {}
+    plugins: []
+    podAnnotations: {}
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []
+    policy:
+      enabled: false
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2048Mi
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
+    sidecar: false
+    tag: ""
+    tolerations: []
+    traceSampling: 1
+    useMCP: false
+kind: ConfigMap
+metadata:
+  labels:
+    release: istio
+  name: istio
+  namespace: istio-system
+---

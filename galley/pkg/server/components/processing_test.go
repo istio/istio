@@ -26,21 +26,39 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/fake"
 
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 func TestProcessing_StartErrors(t *testing.T) {
 	g := NewGomegaWithT(t)
 	defer resetPatchTable()
+
+	fakeCACertFile, err := ioutil.TempFile("", "")
+	g.Expect(err).To(BeNil())
+	fakeCertFile, err := ioutil.TempFile("", "")
+	g.Expect(err).To(BeNil())
+	fakeKeyFile, err := ioutil.TempFile("", "")
+	g.Expect(err).To(BeNil())
+
+	g.Expect(ioutil.WriteFile(fakeCACertFile.Name(), testcerts.CACert, 0)).To(BeNil())
+	g.Expect(ioutil.WriteFile(fakeCertFile.Name(), testcerts.ServerCert, 0)).To(BeNil())
+	g.Expect(ioutil.WriteFile(fakeKeyFile.Name(), testcerts.ServerKey, 0)).To(BeNil())
+
+	defer func() {
+		_ = os.Remove(fakeCACertFile.Name())
+		_ = os.Remove(fakeCertFile.Name())
+		_ = os.Remove(fakeKeyFile.Name())
+	}()
 loop:
 	for i := 0; ; i++ {
 		resetPatchTable()
@@ -64,6 +82,9 @@ loop:
 		args.APIAddress = "tcp://0.0.0.0:0"
 		args.Insecure = true
 		args.MeshConfigFile = meshCfgFile
+		args.CredentialOptions.CACertificateFile = fakeCACertFile.Name()
+		args.CredentialOptions.CertificateFile = fakeCertFile.Name()
+		args.CredentialOptions.KeyFile = fakeKeyFile.Name()
 
 		switch i {
 		case 0:
@@ -79,7 +100,7 @@ loop:
 			args.AccessListFile = os.TempDir()
 		case 4:
 			args.Insecure = false
-			args.AccessListFile = "invalid file"
+			args.CredentialOptions.CACertificateFile = ""
 		case 5:
 			args.SinkAddress = "localhost:8080"
 			args.SinkAuthMode = "foo"

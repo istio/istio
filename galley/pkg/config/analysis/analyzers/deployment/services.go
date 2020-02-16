@@ -23,9 +23,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 type ServiceAssociationAnalyzer struct{}
@@ -69,7 +69,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c a
 
 	// If there isn't any matching service, generate message: At least one service is needed.
 	if len(matchingSvcs) == 0 {
-		c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewDeploymentRequiresServiceAssociated(r, d.Name))
+		c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewDeploymentRequiresServiceAssociated(r))
 		return
 	}
 

@@ -71,27 +71,9 @@ func StringBoolMapToSlice(m map[string]bool) []string {
 // ReadFilesWithFilter reads files from path, for a directory it recursively reads files and filters the results
 // for single file it directly reads the file. It returns a concatenated output of all matching files' content.
 func ReadFilesWithFilter(path string, filter FileFilter) (string, error) {
-	fi, err := os.Stat(path)
+	fileList, err := FindFiles(path, filter)
 	if err != nil {
 		return "", err
-	}
-	var fileList []string
-	if fi.IsDir() {
-		err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.IsDir() || !filter(path) {
-				return nil
-			}
-			fileList = append(fileList, path)
-			return nil
-		})
-		if err != nil {
-			return "", err
-		}
-	} else {
-		fileList = append(fileList, path)
 	}
 	var sb strings.Builder
 	for _, file := range fileList {
@@ -106,6 +88,33 @@ func ReadFilesWithFilter(path string, filter FileFilter) (string, error) {
 	return sb.String(), nil
 }
 
+// FindFiles reads files from path, and returns the file names that match the filter.
+func FindFiles(path string, filter FileFilter) ([]string, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	var fileList []string
+	if fi.IsDir() {
+		err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() || !filter(path) {
+				return nil
+			}
+			fileList = append(fileList, path)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fileList = append(fileList, path)
+	}
+	return fileList, nil
+}
+
 // ParseValue parses string into a value
 func ParseValue(valueStr string) interface{} {
 	var value interface{}
@@ -116,7 +125,7 @@ func ParseValue(valueStr string) interface{} {
 	} else if v, err := strconv.ParseBool(valueStr); err == nil {
 		value = v
 	} else {
-		value = valueStr
+		value = strings.ReplaceAll(valueStr, "\\,", ",")
 	}
 	return value
 }

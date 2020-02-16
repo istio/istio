@@ -33,10 +33,11 @@ import (
 	api "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	pkgtest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/config"
 )
@@ -219,7 +220,7 @@ var (
 		},
 	}
 
-	mockKind = collections.Mock.Resource().Kind()
+	mockGvk = collections.Mock.Resource().GroupVersionKind()
 )
 
 // Make creates a mock config indexed by a number
@@ -227,7 +228,7 @@ func Make(namespace string, i int) model.Config {
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      mockKind,
+			Type:      mockGvk.Kind,
 			Group:     "test.istio.io",
 			Version:   "v1",
 			Name:      name,
@@ -260,7 +261,7 @@ func Compare(a, b model.Config) bool {
 // CheckMapInvariant validates operational invariants of an empty config registry
 func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n int) {
 	// check that the config descriptor is the mock config descriptor
-	_, contains := r.Schemas().FindByKind(mockKind)
+	_, contains := r.Schemas().FindByGroupVersionKind(mockGvk)
 	if !contains {
 		t.Error("expected config mock types")
 	}
@@ -285,7 +286,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	// check that elements are stored
 	for i, elt := range elts {
-		v1 := r.Get(mockKind, elt.Name, elt.Namespace)
+		v1 := r.Get(mockGvk, elt.Name, elt.Namespace)
 		if v1 == nil || !Compare(elt, *v1) {
 			t.Errorf("wanted %v, got %v", elt, v1)
 		} else {
@@ -301,7 +302,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	invalid := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            mockKind,
+			Type:            mockGvk.Kind,
 			Name:            "invalid",
 			ResourceVersion: revs[0],
 		},
@@ -310,7 +311,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	missing := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            mockKind,
+			Type:            mockGvk.Kind,
 			Name:            "missing",
 			ResourceVersion: revs[0],
 		},
@@ -349,35 +350,35 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// check for missing type
-	if l, _ := r.List("missing", namespace); len(l) > 0 {
+	if l, _ := r.List(resource.GroupVersionKind{}, namespace); len(l) > 0 {
 		t.Errorf("unexpected objects for missing type")
 	}
 
 	// check for missing element
-	if cfg := r.Get(mockKind, "missing", ""); cfg != nil {
+	if cfg := r.Get(mockGvk, "missing", ""); cfg != nil {
 		t.Error("unexpected configuration object found")
 	}
 
 	// check for missing element
-	if cfg := r.Get("missing", "missing", ""); cfg != nil {
+	if cfg := r.Get(resource.GroupVersionKind{}, "missing", ""); cfg != nil {
 		t.Error("unexpected configuration object found")
 	}
 
 	// delete missing elements
-	if err := r.Delete("missing", "missing", ""); err == nil {
+	if err := r.Delete(resource.GroupVersionKind{}, "missing", ""); err == nil {
 		t.Error("expected error on deletion of missing type")
 	}
 
 	// delete missing elements
-	if err := r.Delete(mockKind, "missing", ""); err == nil {
+	if err := r.Delete(mockGvk, "missing", ""); err == nil {
 		t.Error("expected error on deletion of missing element")
 	}
-	if err := r.Delete(mockKind, "missing", "unknown"); err == nil {
+	if err := r.Delete(mockGvk, "missing", "unknown"); err == nil {
 		t.Error("expected error on deletion of missing element in unknown namespace")
 	}
 
 	// list elements
-	l, err := r.List(mockKind, namespace)
+	l, err := r.List(mockGvk, namespace)
 	if err != nil {
 		t.Errorf("List error %#v, %v", l, err)
 	}
@@ -398,7 +399,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	// check that elements are stored
 	for i, elt := range elts {
-		v1 := r.Get(mockKind, elts[i].Name, elts[i].Namespace)
+		v1 := r.Get(mockGvk, elts[i].Name, elts[i].Namespace)
 		if v1 == nil || !Compare(elt, *v1) {
 			t.Errorf("wanted %v, got %v", elt, v1)
 		}
@@ -406,13 +407,13 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	// delete all elements
 	for i := range elts {
-		if err = r.Delete(mockKind, elts[i].Name, elts[i].Namespace); err != nil {
+		if err = r.Delete(mockGvk, elts[i].Name, elts[i].Namespace); err != nil {
 			t.Error(err)
 		}
 	}
 	log.Info("Delete elements")
 
-	l, err = r.List(mockKind, namespace)
+	l, err = r.List(mockGvk, namespace)
 	if err != nil {
 		t.Error(err)
 	}
@@ -478,7 +479,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	stop := make(chan struct{})
 	defer close(stop)
 	added, deleted := atomic.NewInt64(0), atomic.NewInt64(0)
-	cache.RegisterEventHandler(mockKind, func(_, _ model.Config, ev model.Event) {
+	cache.RegisterEventHandler(mockGvk, func(_, _ model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted.Load() != 0 {
@@ -511,9 +512,9 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	o := Make(namespace, 0)
 
 	// validate cache consistency
-	cache.RegisterEventHandler(mockKind, func(_, config model.Config, ev model.Event) {
-		elts, _ := cache.List(mockKind, namespace)
-		elt := cache.Get(o.Type, o.Name, o.Namespace)
+	cache.RegisterEventHandler(mockGvk, func(_, config model.Config, ev model.Event) {
+		elts, _ := cache.List(mockGvk, namespace)
+		elt := cache.Get(o.GroupVersionKind(), o.Name, o.Namespace)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
@@ -538,7 +539,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			}
 
 			log.Infof("Calling Delete(%s)", config.Key())
-			if err := cache.Delete(mockKind, config.Name, config.Namespace); err != nil {
+			if err := cache.Delete(mockGvk, config.Name, config.Namespace); err != nil {
 				t.Error(err)
 			}
 		case model.EventDelete:
@@ -554,7 +555,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	go cache.Run(stop)
 
 	// try warm-up with empty Get
-	if cfg := cache.Get("unknown", "example", namespace); cfg != nil {
+	if cfg := cache.Get(resource.GroupVersionKind{}, "example", namespace); cfg != nil {
 		t.Error("unexpected result for unknown type")
 	}
 
@@ -590,21 +591,21 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	defer close(stop)
 	go cache.Run(stop)
 	pkgtest.Eventually(t, "HasSynced", cache.HasSynced)
-	os, _ := cache.List(mockKind, namespace)
+	os, _ := cache.List(mockGvk, namespace)
 	if len(os) != n {
 		t.Errorf("cache.List => Got %d, expected %d", len(os), n)
 	}
 
 	// remove elements directly through client
 	for i := 0; i < n; i++ {
-		if err := store.Delete(mockKind, keys[i].Name, keys[i].Namespace); err != nil {
+		if err := store.Delete(mockGvk, keys[i].Name, keys[i].Namespace); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check again in the controller cache
 	pkgtest.Eventually(t, "no elements in cache", func() bool {
-		os, _ = cache.List(mockKind, namespace)
+		os, _ = cache.List(mockGvk, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	})
@@ -618,8 +619,8 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 
 	// check directly through the client
 	pkgtest.Eventually(t, "cache and backing store match", func() bool {
-		cs, _ := cache.List(mockKind, namespace)
-		os, _ := store.List(mockKind, namespace)
+		cs, _ := cache.List(mockGvk, namespace)
+		os, _ := store.List(mockGvk, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(cs), n)
 		log.Infof("store.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
@@ -627,7 +628,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {
-		if err := store.Delete(mockKind, keys[i].Name, keys[i].Namespace); err != nil {
+		if err := store.Delete(mockGvk, keys[i].Name, keys[i].Namespace); err != nil {
 			t.Error(err)
 		}
 	}

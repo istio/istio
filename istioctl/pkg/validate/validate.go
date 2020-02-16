@@ -28,8 +28,6 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	mixercrd "istio.io/istio/mixer/pkg/config/crd"
 	mixerstore "istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
@@ -37,6 +35,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -91,7 +92,11 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
-	schema, exists := collections.Pilot.FindByKind(un.GetKind())
+	schema, exists := collections.Pilot.FindByGroupVersionKind(resource.GroupVersionKind{
+		Group:   un.GroupVersionKind().Group,
+		Version: un.GroupVersionKind().Version,
+		Kind:    un.GroupVersionKind().Kind,
+	})
 	if exists {
 		obj, err := convertObjectFromUnstructured(schema, un, "")
 		if err != nil {

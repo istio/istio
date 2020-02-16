@@ -23,13 +23,13 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
@@ -157,7 +157,7 @@ func (s *Source) onCrdEvent(e event.Event) {
 		key := asKey(g, k)
 		r, ok := s.expectedResources[key]
 		if ok {
-			scope.Source.Debugf("Marking resource as available: %v", r.Resource().CanonicalName())
+			scope.Source.Debugf("Marking resource as available: %v", r.Resource().GroupVersionKind())
 			s.foundResources[key] = true
 			s.expectedResources[key] = r
 		}
@@ -187,7 +187,7 @@ func (s *Source) startWatchers() {
 	}
 
 	sort.Slice(resources, func(i, j int) bool {
-		return strings.Compare(resources[i].Resource().CanonicalName(), resources[j].Resource().CanonicalName()) < 0
+		return strings.Compare(resources[i].Resource().GroupVersionKind().String(), resources[j].Resource().GroupVersionKind().String()) < 0
 	})
 
 	scope.Source.Info("Creating watchers for Kubernetes CRDs")
@@ -198,7 +198,7 @@ func (s *Source) startWatchers() {
 		found := s.foundResources[asKey(r.Resource().Group(), r.Resource().Kind())]
 
 		scope.Source.Infof("[%d]", i)
-		scope.Source.Infof("  Source:       %s", r.Resource().CanonicalName())
+		scope.Source.Infof("  Source:       %s", r.Resource().GroupVersionKind())
 		scope.Source.Infof("  Name:  		 %s", r.Name())
 		scope.Source.Infof("  Built-in:     %v", a.IsBuiltIn())
 		scope.Source.Infof("  Disabled:     %v", r.IsDisabled())

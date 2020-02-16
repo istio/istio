@@ -19,8 +19,9 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 func TestProxyNeedsPush(t *testing.T) {
@@ -30,18 +31,18 @@ func TestProxyNeedsPush(t *testing.T) {
 		name       string
 		proxy      *model.Proxy
 		namespaces []string
-		configs    []string
+		configs    []resource.GroupVersionKind
 		want       bool
 	}{
 		{"no namespace or configs", sidecar, nil, nil, true},
-		{"gateway config for sidecar", sidecar, nil, []string{
-			collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind()}, false},
-		{"gateway config for gateway", gateway, nil, []string{
-			collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind()}, true},
-		{"quotaspec config for sidecar", sidecar, nil, []string{
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind()}, true},
-		{"quotaspec config for gateway", gateway, nil, []string{
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind()}, false},
+		{"gateway config for sidecar", sidecar, nil, []resource.GroupVersionKind{
+			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()}, false},
+		{"gateway config for gateway", gateway, nil, []resource.GroupVersionKind{
+			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()}, true},
+		{"quotaspec config for sidecar", sidecar, nil, []resource.GroupVersionKind{
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind()}, true},
+		{"quotaspec config for gateway", gateway, nil, []resource.GroupVersionKind{
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind()}, false},
 	}
 
 	for _, tt := range cases {
@@ -50,7 +51,7 @@ func TestProxyNeedsPush(t *testing.T) {
 			for _, n := range tt.namespaces {
 				ns[n] = struct{}{}
 			}
-			cfgs := map[string]struct{}{}
+			cfgs := map[resource.GroupVersionKind]struct{}{}
 			for _, c := range tt.configs {
 				cfgs[c] = struct{}{}
 			}
@@ -72,7 +73,7 @@ func TestPushTypeFor(t *testing.T) {
 	tests := []struct {
 		name        string
 		proxy       *model.Proxy
-		configTypes []string
+		configTypes []resource.GroupVersionKind
 		expect      map[XdsType]bool
 	}{
 		{
@@ -90,82 +91,82 @@ func TestPushTypeFor(t *testing.T) {
 		{
 			name:        "sidecar updated for sidecar proxy",
 			proxy:       sidecar,
-			configTypes: []string{collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind()},
+			configTypes: []resource.GroupVersionKind{collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind()},
 			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:        "sidecar updated for gateway proxy",
 			proxy:       gateway,
-			configTypes: []string{collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind()},
+			configTypes: []resource.GroupVersionKind{collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind()},
 			expect:      map[XdsType]bool{},
 		},
 		{
 			name:        "quotaSpec updated for sidecar proxy",
 			proxy:       sidecar,
-			configTypes: []string{collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind()},
+			configTypes: []resource.GroupVersionKind{collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind()},
 			expect:      map[XdsType]bool{LDS: true, RDS: true},
 		},
 		{
 			name:        "quotaSpec updated for gateway",
 			proxy:       gateway,
-			configTypes: []string{collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind()},
+			configTypes: []resource.GroupVersionKind{collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind()},
 			expect:      map[XdsType]bool{},
 		},
 		{
 			name:        "authorizationpolicy updated",
 			proxy:       sidecar,
-			configTypes: []string{collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind()},
+			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind()},
 			expect:      map[XdsType]bool{LDS: true},
 		},
 		{
 			name:        "authorizationpolicy updated",
 			proxy:       gateway,
-			configTypes: []string{collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind()},
+			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind()},
 			expect:      map[XdsType]bool{LDS: true},
 		},
 		{
 			name:        "authenticationpolicy updated",
 			proxy:       sidecar,
-			configTypes: []string{collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind()},
+			configTypes: []resource.GroupVersionKind{collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind()},
 			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
 		},
 		{
 			name:        "authenticationpolicy updated",
 			proxy:       gateway,
-			configTypes: []string{collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind()},
+			configTypes: []resource.GroupVersionKind{collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind()},
 			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
 		},
 		{
 			name:        "unknown type updated",
 			proxy:       sidecar,
-			configTypes: []string{"unknown"},
+			configTypes: []resource.GroupVersionKind{{Kind: "unknown"}},
 			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:        "unknown type updated",
 			proxy:       gateway,
-			configTypes: []string{},
+			configTypes: []resource.GroupVersionKind{},
 			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:  "gateway and virtualservice updated for gateway proxy",
 			proxy: gateway,
-			configTypes: []string{collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(),
-				collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind()},
+			configTypes: []resource.GroupVersionKind{collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(),
+				collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()},
 			expect: map[XdsType]bool{LDS: true, RDS: true},
 		},
 		{
 			name:  "virtualservice and destinationrule updated",
 			proxy: sidecar,
-			configTypes: []string{collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-				collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind()},
+			configTypes: []resource.GroupVersionKind{collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()},
 			expect: map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfgs := map[string]struct{}{}
+			cfgs := map[resource.GroupVersionKind]struct{}{}
 			for _, c := range tt.configTypes {
 				cfgs[c] = struct{}{}
 			}

@@ -155,6 +155,9 @@ type WebhookParameters struct {
 	HealthCheckFile string
 
 	Env *model.Environment
+
+	// Use an existing mux instead of creating our own.
+	Mux *http.ServeMux
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -187,9 +190,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	wh := &Webhook{
-		server: &http.Server{
-			Addr: fmt.Sprintf(":%v", p.Port),
-		},
 		Config:                 sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
@@ -205,10 +205,21 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		cert:                   &pair,
 		env:                    p.Env,
 	}
-	// mtls disabled because apiserver webhook cert usage is still TBD.
-	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
-	h := http.NewServeMux()
-	h.HandleFunc("/inject", wh.serveInject)
+
+	var mux *http.ServeMux
+	if p.Mux != nil {
+		p.Mux.HandleFunc("/inject", wh.serveInject)
+		mux = p.Mux
+	} else {
+		wh.server = &http.Server{
+			Addr: fmt.Sprintf(":%v", p.Port),
+			// mtls disabled because apiserver webhook cert usage is still TBD.
+			TLSConfig: &tls.Config{GetCertificate: wh.getCert},
+		}
+		mux = http.NewServeMux()
+		mux.HandleFunc("/inject", wh.serveInject)
+		wh.server.Handler = mux
+	}
 
 	if p.Env != nil {
 		p.Env.Watcher.AddMeshHandler(func() {
@@ -219,27 +230,28 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	if p.MonitoringPort >= 0 {
-		mon, err := startMonitor(h, p.MonitoringPort)
+		mon, err := startMonitor(mux, p.MonitoringPort)
 		if err != nil {
 			return nil, fmt.Errorf("could not start monitoring server %v", err)
 		}
 		wh.mon = mon
 	}
 
-	wh.server.Handler = h
-
 	return wh, nil
 }
 
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
-	go func() {
-		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
-		}
-	}()
+	if wh.server != nil {
+		go func() {
+			if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
+			}
+		}()
+		defer wh.server.Close()
+	}
 	defer wh.watcher.Close()
-	defer wh.server.Close()
+
 	if wh.mon != nil {
 		defer wh.mon.monitoringServer.Close()
 	}
@@ -387,6 +399,8 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 		if first {
 			first = false
 			value = []corev1.Container{add}
+		} else if add.Name == "istio-validation" {
+			path += "/0"
 		} else {
 			path += "/-"
 		}
@@ -468,7 +482,15 @@ func escapeJSONPointerValue(in string) string {
 // adds labels to the target spec, will not overwrite label's value if it already exists
 func addLabels(target map[string]string, added map[string]string) []rfc6902PatchOperation {
 	patches := []rfc6902PatchOperation{}
-	for key, value := range added {
+
+	addedKeys := make([]string, 0, len(added))
+	for key := range added {
+		addedKeys = append(addedKeys, key)
+	}
+	sort.Strings(addedKeys)
+
+	for _, key := range addedKeys {
+		value := added[key]
 		patch := rfc6902PatchOperation{
 			Op:    "add",
 			Path:  "/metadata/labels/" + escapeJSONPointerValue(key),
@@ -525,7 +547,9 @@ func updateAnnotation(target map[string]string, added map[string]string) (patch 
 	return patch
 }
 
-func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotations map[string]string, sic *SidecarInjectionSpec) ([]byte, error) {
+func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotations map[string]string, sic *SidecarInjectionSpec,
+	workloadName string) ([]byte, error) {
+
 	var patch []rfc6902PatchOperation
 
 	// Remove any containers previously injected by kube-inject using
@@ -567,13 +591,53 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
-	patch = append(patch, addLabels(pod.Labels, map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel})...)
+	canonicalSvc, canonicalRev := extractCanonicalServiceLabels(pod.Labels, workloadName)
+	patch = append(patch, addLabels(pod.Labels, map[string]string{
+		model.TLSModeLabelName:                       model.IstioMutualTLSModeLabel,
+		model.IstioCanonicalServiceLabelName:         canonicalSvc,
+		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
 
 	if rewrite {
 		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
 	}
 
 	return json.Marshal(patch)
+}
+
+func extractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
+	return extractCanonicalServiceLabel(podLabels, workloadName), extractCanonicalServiceRevision(podLabels)
+}
+
+func extractCanonicalServiceRevision(podLabels map[string]string) string {
+	if rev, ok := podLabels[model.IstioCanonicalServiceRevisionLabelName]; ok {
+		return rev
+	}
+
+	if rev, ok := podLabels["app.kubernetes.io/version"]; ok {
+		return rev
+	}
+
+	if rev, ok := podLabels["version"]; ok {
+		return rev
+	}
+
+	return "latest"
+}
+
+func extractCanonicalServiceLabel(podLabels map[string]string, workloadName string) string {
+	if svc, ok := podLabels[model.IstioCanonicalServiceLabelName]; ok {
+		return svc
+	}
+
+	if svc, ok := podLabels["app.kubernetes.io/name"]; ok {
+		return svc
+	}
+
+	if svc, ok := podLabels["app"]; ok {
+		return svc
+	}
+
+	return workloadName
 }
 
 // Retain deprecated hardcoded container and volumes names to aid in
@@ -652,8 +716,12 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
 	if wh.meshConfig.SdsUdsPath != "" {
 		var grp = int64(1337)
-		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup: &grp,
+		if pod.Spec.SecurityContext == nil {
+			pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+				FSGroup: &grp,
+			}
+		} else {
+			pod.Spec.SecurityContext.FSGroup = &grp
 		}
 	}
 
@@ -711,7 +779,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		annotations[k] = v
 	}
 
-	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
+	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec, deployMeta.Name)
 	if err != nil {
 		handleError(fmt.Sprintf("AdmissionResponse: err=%v spec=%v\n", err, spec))
 		return toAdmissionResponse(err)

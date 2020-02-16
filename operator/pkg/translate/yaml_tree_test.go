@@ -1,3 +1,17 @@
+// Copyright 2020 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package translate
 
 import (
@@ -42,7 +56,7 @@ func TestTranslateYAMLTree(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
 			outPath := filepath.Join(testDataDir, "output", tt.desc+".yaml")
 
-			translations, err := ReadTranslations(filepath.Join(repoRootDir, "data/translateConfig/translate-ICP-IOP-1.5.yaml"))
+			translations, err := ReadICPtoIOPTranslations(filepath.Join(repoRootDir, "data/translateConfig/translate-ICP-IOP-1.5.yaml"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -52,7 +66,7 @@ func TestTranslateYAMLTree(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			got, err := TranslateICPToIOP(icp, translations)
+			got, err := ICPToIOP(icp, translations)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -77,7 +91,7 @@ func TestTranslateYAMLTree(t *testing.T) {
 }
 
 func refreshGoldenFiles() bool {
-	return os.Getenv("UPDATE_GOLDENS") == "true"
+	return os.Getenv("REFRESH_GOLDENS") == "true"
 }
 
 func readFile(path string) (string, error) {

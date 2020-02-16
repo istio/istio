@@ -23,9 +23,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/mixer/pkg/validate"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
 

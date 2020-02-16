@@ -25,7 +25,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 )
 
 // Ensure that Object can behave as a proto message.

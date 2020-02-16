@@ -15,11 +15,20 @@
 package route
 
 import (
+	"reflect"
 	"testing"
+	"time"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
+	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
-
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 )
 
 func TestIsCatchAllMatch(t *testing.T) {
@@ -395,6 +404,169 @@ func TestCatchAllMatch(t *testing.T) {
 			match := catchAllMatch(tt.http)
 			if tt.match && match == nil {
 				t.Errorf("Expected a catch all match but got nil")
+			}
+		})
+	}
+}
+
+func TestTranslateCORSPolicy(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *networking.CorsPolicy
+		want *route.CorsPolicy
+	}{
+		{
+			name: "deprecated matcher",
+			in: &networking.CorsPolicy{
+				AllowOrigin:      []string{"foo"},
+				AllowMethods:     []string{"allow-method-1", "allow-method-2"},
+				AllowHeaders:     []string{"allow-header-1", "allow-header-2"},
+				ExposeHeaders:    []string{"expose-header-1", "expose-header-2"},
+				MaxAge:           types.DurationProto(time.Minute * 2),
+				AllowCredentials: &types.BoolValue{Value: true},
+			},
+			want: &route.CorsPolicy{
+				AllowOriginStringMatch: []*envoy_type_matcher.StringMatcher{{
+					MatchPattern: &envoy_type_matcher.StringMatcher_Exact{Exact: "foo"},
+				}},
+				AllowMethods:     "allow-method-1,allow-method-2",
+				AllowHeaders:     "allow-header-1,allow-header-2",
+				ExposeHeaders:    "expose-header-1,expose-header-2",
+				MaxAge:           "120",
+				AllowCredentials: &wrappers.BoolValue{Value: true},
+				EnabledSpecifier: &route.CorsPolicy_FilterEnabled{
+					FilterEnabled: &envoy_api_v2_core.RuntimeFractionalPercent{
+						DefaultValue: &envoy_type.FractionalPercent{
+							Numerator:   100,
+							Denominator: envoy_type.FractionalPercent_HUNDRED,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "string matcher",
+			in: &networking.CorsPolicy{
+				AllowOrigins: []*networking.StringMatch{
+					{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+					{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
+					{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
+				},
+			},
+			want: &route.CorsPolicy{
+				AllowOriginStringMatch: []*envoy_type_matcher.StringMatcher{
+					{MatchPattern: &envoy_type_matcher.StringMatcher_Exact{Exact: "exact"}},
+					{MatchPattern: &envoy_type_matcher.StringMatcher_Prefix{Prefix: "prefix"}},
+					{
+						MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+							SafeRegex: &envoy_type_matcher.RegexMatcher{
+								EngineType: regexEngine,
+								Regex:      "regex",
+							},
+						},
+					},
+				},
+				EnabledSpecifier: &route.CorsPolicy_FilterEnabled{
+					FilterEnabled: &envoy_api_v2_core.RuntimeFractionalPercent{
+						DefaultValue: &envoy_type.FractionalPercent{
+							Numerator:   100,
+							Denominator: envoy_type.FractionalPercent_HUNDRED,
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := translateCORSPolicy(tt.in); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("translateCORSPolicy() = \n%v, want \n%v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMirrorPercent(t *testing.T) {
+	cases := []struct {
+		name  string
+		route *networking.HTTPRoute
+		want  *core.RuntimeFractionalPercent
+	}{
+		{
+			name: "zero mirror percent",
+			route: &networking.HTTPRoute{
+				Mirror:        &networking.Destination{},
+				MirrorPercent: &types.UInt32Value{Value: 0.0},
+			},
+			want: nil,
+		},
+		{
+			name: "mirror with no value given",
+			route: &networking.HTTPRoute{
+				Mirror: &networking.Destination{},
+			},
+			want: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   100,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+		},
+		{
+			name: "mirror with actual percent",
+			route: &networking.HTTPRoute{
+				Mirror:        &networking.Destination{},
+				MirrorPercent: &types.UInt32Value{Value: 50},
+			},
+			want: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   50,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+		},
+		{
+			name: "zero mirror percentage",
+			route: &networking.HTTPRoute{
+				Mirror:           &networking.Destination{},
+				MirrorPercentage: &networking.Percent{Value: 0.0},
+			},
+			want: nil,
+		},
+		{
+			name: "mirrorpercentage with actual percent",
+			route: &networking.HTTPRoute{
+				Mirror:           &networking.Destination{},
+				MirrorPercentage: &networking.Percent{Value: 50.0},
+			},
+			want: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   500000,
+					Denominator: xdstype.FractionalPercent_MILLION,
+				},
+			},
+		},
+		{
+			name: "mirrorpercentage takes precedence when both are given",
+			route: &networking.HTTPRoute{
+				Mirror:           &networking.Destination{},
+				MirrorPercent:    &types.UInt32Value{Value: 40},
+				MirrorPercentage: &networking.Percent{Value: 50.0},
+			},
+			want: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   500000,
+					Denominator: xdstype.FractionalPercent_MILLION,
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mp := mirrorPercent(tt.route)
+			if !reflect.DeepEqual(mp, tt.want) {
+				t.Errorf("Unexpected mirro percent want %v, got %v", tt.want, mp)
 			}
 		})
 	}

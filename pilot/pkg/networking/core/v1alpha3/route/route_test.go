@@ -15,7 +15,6 @@
 package route_test
 
 import (
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -26,13 +25,12 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
@@ -58,6 +56,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		DNSDomain:    "foo.com",
 		Metadata:     &model.NodeMetadata{IstioVersion: "1.4.0"},
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 4},
+	}
+	node13version := &model.Proxy{
+		Type:         model.SidecarProxy,
+		IPAddresses:  []string{"1.1.1.1"},
+		ID:           "someID",
+		DNSDomain:    "foo.com",
+		Metadata:     &model.NodeMetadata{IstioVersion: "1.3.0"},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 3},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
@@ -104,11 +110,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with unsafe regex matching on URI", func(t *testing.T) {
-		os.Setenv(features.EnableUnsafeRegex.Name, "true")
-		defer os.Unsetenv(features.EnableUnsafeRegex.Name)
 		g := gomega.NewGomegaWithT(t)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node13version, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		//nolint: staticcheck
@@ -124,12 +128,57 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
 	})
 
-	t.Run("for virtual service with unsafe regex matching on header", func(t *testing.T) {
-		os.Setenv(features.EnableUnsafeRegex.Name, "true")
-		defer os.Unsetenv(features.EnableUnsafeRegex.Name)
+	t.Run("for virtual service with regex matching on without_header", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(true))
+	})
+
+	t.Run("for virtual service with presence matching on header", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(false))
+	})
+
+	t.Run("for virtual service with presence matching on header and without_header", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(true))
+	})
+
+	t.Run("for virtual service with regex matching for all cases on header", func(t *testing.T) {
+
+		cset := createVirtualServiceWithRegexMatchingForAllCasesOnHeader()
+
+		for _, c := range cset {
+			g := gomega.NewGomegaWithT(t)
+			routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, *c, serviceRegistry, 8080, gatewayNames)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(len(routes)).To(gomega.Equal(1))
+			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
+			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
+			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(false))
+		}
+	})
+
+	t.Run("for virtual service with unsafe regex matching on header", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node13version, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		//nolint: staticcheck
@@ -708,6 +757,136 @@ var virtualServiceWithRegexMatchingOnHeader = model.Config{
 									Regex: "Bearer .+?\\..+?\\..+?",
 								},
 							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*model.Config {
+	ret := []*model.Config{}
+	regex := "*"
+	ret = append(ret, &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+			Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+			Name:    "acme",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{},
+			Gateways: []string{"some-gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Name: "presence",
+							Headers: map[string]*networking.StringMatch{
+								"FOO-HEADER": {
+									MatchType: &networking.StringMatch_Regex{
+										Regex: regex,
+									},
+								},
+							},
+						},
+					},
+					Redirect: &networking.HTTPRedirect{
+						Uri:          "example.org",
+						Authority:    "some-authority.default.svc.cluster.local",
+						RedirectCode: 308,
+					},
+				},
+			},
+		},
+	})
+
+	return ret
+}
+
+var virtualServiceWithRegexMatchingOnWithoutHeader = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "without-test",
+						WithoutHeaders: map[string]*networking.StringMatch{
+							"FOO-HEADER": {
+								MatchType: &networking.StringMatch_Regex{
+									Regex: "BAR .+?\\..+?\\..+?",
+								},
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithPresentMatchingOnHeader = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "presence",
+						Headers: map[string]*networking.StringMatch{
+							"FOO-HEADER": nil,
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithPresentMatchingOnWithoutHeader = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "presence",
+						WithoutHeaders: map[string]*networking.StringMatch{
+							"FOO-HEADER": nil,
 						},
 					},
 				},

@@ -49,9 +49,6 @@ var (
 	istioNamespace   string
 	defaultNamespace string
 
-	// input file name
-	file string
-
 	// output format (yaml or short)
 	outputFormat string
 
@@ -72,6 +69,8 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("processing", log.ErrorLevel)
 	o.SetOutputLevel("source", log.ErrorLevel)
 	o.SetOutputLevel("analysis", log.WarnLevel)
+	o.SetOutputLevel("installer", log.WarnLevel)
+	o.SetOutputLevel("translator", log.WarnLevel)
 
 	return o
 }
@@ -157,6 +156,8 @@ debug and diagnose their Istio mesh.
 	manifestCmd := mesh.ManifestCmd()
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(manifestCmd)
+	operatorCmd := mesh.OperatorCmd()
+	rootCmd.AddCommand(operatorCmd)
 
 	profileCmd := mesh.ProfileCmd()
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
@@ -173,13 +174,6 @@ debug and diagnose their Istio mesh.
 		Section: "istioctl CLI",
 		Manual:  "Istio Control",
 	}))
-
-	// Deprecated commands
-	rootCmd.AddCommand(postCmd)
-	rootCmd.AddCommand(putCmd)
-	rootCmd.AddCommand(getCmd)
-	rootCmd.AddCommand(deleteCmd)
-	rootCmd.AddCommand(contextCmd)
 
 	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
 

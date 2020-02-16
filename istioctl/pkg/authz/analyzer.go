@@ -26,7 +26,9 @@ import (
 	"strconv"
 	"strings"
 
-	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoy_admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )
@@ -35,8 +37,8 @@ import (
 type Analyzer struct {
 	nodeIP       string
 	nodeType     string
-	listenerDump *envoy_admin_v2alpha.ListenersConfigDump
-	clusterDump  *envoy_admin_v2alpha.ClustersConfigDump
+	listenerDump *envoy_admin.ListenersConfigDump
+	clusterDump  *envoy_admin.ClustersConfigDump
 }
 
 // NewAnalyzer creates a new analyzer for a given pod based on its envoy config.
@@ -67,9 +69,14 @@ func NewAnalyzer(envoyConfig *configdump.Wrapper) (*Analyzer, error) {
 func (a *Analyzer) getParsedListeners() []*ParsedListener {
 	ret := make([]*ParsedListener, 0)
 	for _, listener := range a.listenerDump.DynamicListeners {
-		ip := listener.ActiveState.Listener.Address.GetSocketAddress().Address
+		listenerTyped := &xdsapi.Listener{}
+		err := ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+		if err != nil {
+			return nil
+		}
+		ip := listenerTyped.Address.GetSocketAddress().Address
 		if ip == a.nodeIP || ip == "0.0.0.0" {
-			if ld := ParseListener(listener.ActiveState.Listener); ld != nil {
+			if ld := ParseListener(listenerTyped); ld != nil {
 				ret = append(ret, ld)
 			}
 		}

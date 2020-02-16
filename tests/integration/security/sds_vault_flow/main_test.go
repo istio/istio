@@ -80,7 +80,6 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
 	cfg.Values["global.controlPlaneSecurityEnabled"] = "false"
 	cfg.Values["global.mtls.enabled"] = "true"
-	cfg.Values["global.sds.enabled"] = "true"
 	cfg.Values["global.sds.udsPath"] = "unix:/var/run/sds/uds_path"
 	cfg.Values["global.sds.customTokenDirectory"] = "/etc/sdstoken"
 	cfg.Values["nodeagent.enabled"] = "true"

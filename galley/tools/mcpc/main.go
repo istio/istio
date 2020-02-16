@@ -34,8 +34,8 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/snapshots"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/snapshots"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )

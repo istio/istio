@@ -23,7 +23,7 @@ import (
 
 const (
 	// OperatorCodeBaseVersion is the version string from the code base.
-	OperatorCodeBaseVersion = "1.5.0"
+	OperatorCodeBaseVersion = "1.6.0"
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 
 func init() {
 	var err error
-	OperatorVersionString := OperatorCodeBaseVersion
+	OperatorVersionString = OperatorCodeBaseVersion
 	// If dockerinfo has a tag (e.g., specified by LDFlags), we will use it as the version of operator
 	tag := buildversion.DockerInfo.Tag
 	if pkgversion.IsVersionString(tag) {

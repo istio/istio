@@ -28,6 +28,9 @@
 # figure out all the tools you need in your environment to make that work.
 export BUILD_WITH_CONTAINER ?= 0
 
+# Version of image used within build container
+IMAGE_VERSION ?= master-2020-01-30T23-36-53
+
 LOCAL_ARCH := $(shell uname -m)
 ifeq ($(LOCAL_ARCH),x86_64)
     TARGET_ARCH ?= amd64
@@ -60,9 +63,9 @@ export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
 export TARGET_OUT_LINUX = /work/out/linux_amd64
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:master-2019-12-15T16-17-48
+IMG ?= gcr.io/istio-testing/build-tools:$(IMAGE_VERSION)
 UID = $(shell id -u)
-GID = `grep docker /etc/group | cut -f3 -d:`
+GID = `grep '^docker:' /etc/group | cut -f3 -d:`
 PWD = $(shell pwd)
 
 $(info Building with the build container: $(IMG).)
@@ -89,7 +92,7 @@ endif
 
 ifneq (,$(wildcard $(HOME)/.kube))
 $(info Using local Kubernetes configuration $(HOME)/.kube)
-CONDITIONAL_HOST_MOUNTS+=--mount type=bind,source="$(HOME)/.kube",destination="/home/.kube",readonly
+CONDITIONAL_HOST_MOUNTS+=--mount type=bind,source="$(HOME)/.kube",destination="/home/.kube"
 endif
 
 ENV_VARS:=
@@ -108,6 +111,7 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
 	-e TARGET_OUT="$(TARGET_OUT)" \
 	-e TARGET_OUT_LINUX="$(TARGET_OUT_LINUX)" \
 	-e USER="${USER}" \
+	-e IMAGE_VERSION="$(IMAGE_VERSION)" \
 	$(ENV_VARS) \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \

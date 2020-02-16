@@ -25,13 +25,15 @@ import (
 func TestProfileDump(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/profile-dump")
 	tests := []struct {
-		desc string
+		desc       string
+		configPath string
 	}{
 		{
 			desc: "all_off",
 		},
 		{
-			desc: "sds_policy_off",
+			desc:       "config_path",
+			configPath: "components",
 		},
 	}
 	for _, tt := range tests {
@@ -39,7 +41,7 @@ func TestProfileDump(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
 			outPath := filepath.Join(testDataDir, "output", tt.desc+".yaml")
 
-			got, err := runProfileDump(inPath)
+			got, err := runProfileDump(inPath, tt.configPath)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -62,6 +64,10 @@ func TestProfileDump(t *testing.T) {
 	}
 }
 
-func runProfileDump(path string) (string, error) {
-	return runCommand("profile dump -f " + path)
+func runProfileDump(profilePath, configPath string) (string, error) {
+	cmd := "profile dump -f " + profilePath
+	if configPath != "" {
+		cmd += " --config-path " + configPath
+	}
+	return runCommand(cmd)
 }

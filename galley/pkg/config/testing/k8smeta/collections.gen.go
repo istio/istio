@@ -4,8 +4,8 @@
 package k8smeta
 
 import (
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 )
 
@@ -20,7 +20,7 @@ var (
 			Group:         "apps",
 			Kind:          "Deployment",
 			Plural:        "deployments",
-			Version:       "apps/v1",
+			Version:       "v1",
 			Proto:         "k8s.io.api.apps.v1.Deployment",
 			ProtoPackage:  "k8s.io/api/apps/v1",
 			ClusterScoped: false,

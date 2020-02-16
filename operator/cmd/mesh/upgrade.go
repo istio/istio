@@ -16,18 +16,17 @@ package mesh
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"strings"
 	"time"
 
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 
+	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/hooks"
 	"istio.io/istio/operator/pkg/manifest"
-	opversion "istio.io/istio/operator/version"
+	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
 
@@ -50,8 +49,8 @@ const (
 )
 
 type upgradeArgs struct {
-	// inFilename is the path to the input IstioOperator CR.
-	inFilename string
+	// inFilenames is an array of paths to the input IstioOperator CR files.
+	inFilenames []string
 	// versionsURI is a URI pointing to a YAML formatted versions mapping.
 	versionsURI string
 	// kubeConfigPath is the path to kube config file.
@@ -68,15 +67,15 @@ type upgradeArgs struct {
 
 // addUpgradeFlags adds upgrade related flags into cobra command
 func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
-	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename",
-		"f", "", "Path to file containing IstioOperator CustomResource")
+	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename",
+		"f", nil, "Path to file containing IstioOperator custom resource")
 	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
-		versionsMapURL, "URI for operator versions to Istio versions map")
+		"", "URI for operator versions to Istio versions map")
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig",
 		"c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
 		"The name of the kubeconfig context to use")
-	cmd.PersistentFlags().BoolVar(&args.skipConfirmation, "skip-confirmation", false,
+	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false,
 		"If skip-confirmation is set, skips the prompting confirmation for value changes in this upgrade")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
 		"Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
@@ -87,7 +86,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 		"Apply the upgrade without eligibility checks")
 }
 
-// Upgrade command upgrades Istio control plane in-place with eligibility checks
+// UpgradeCmd upgrades Istio control plane in-place with eligibility checks
 func UpgradeCmd() *cobra.Command {
 	macArgs := &upgradeArgs{}
 	rootArgs := &rootArgs{}
@@ -115,33 +114,30 @@ func UpgradeCmd() *cobra.Command {
 
 // upgrade is the main function for Upgrade command
 func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
-	args.inFilename = strings.TrimSpace(args.inFilename)
-
-	// Generate IOPS objects
-	targetIOPSYaml, targetIOPS, err := genIOPS(args.inFilename, "", "", "", args.force, l)
-	if err != nil {
-		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilename, err)
-	}
-
-	// Get the target version from the tag in the IOPS
-	targetVersion := targetIOPS.GetTag()
-	if targetVersion != opversion.OperatorVersionString {
-		if !args.force {
-			return fmt.Errorf("the target version %v is not supported by istioctl %v, "+
-				"please download istioctl %v and run upgrade again", targetVersion,
-				opversion.OperatorVersionString, targetVersion)
-		}
-	}
-
 	// Create a kube client from args.kubeConfigPath and  args.context
 	kubeClient, err := manifest.NewClient(args.kubeConfigPath, args.context)
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
+	// Generate IOPS objects
+	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, "", args.force, nil, l)
+	if err != nil {
+		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilenames, err)
+	}
+
+	// Get the target version from the tag in the IOPS
+	targetTag := targetIOPS.Tag
+	targetVersion, err := pkgversion.TagToVersionString(fmt.Sprint(targetTag))
+	if err != nil {
+		if !args.force {
+			return fmt.Errorf("failed to convert the target tag '%s' into a valid version, "+
+				"you can use --force flag to skip the version check if you know the tag is correct", targetTag)
+		}
+	}
 
 	// Get Istio control plane namespace
 	//TODO(elfinhe): support components distributed in multiple namespaces
-	istioNamespace := targetIOPS.MeshConfig.RootNamespace
+	istioNamespace := iop.Namespace(targetIOPS)
 
 	// Read the current Istio version from the the cluster
 	currentVersion, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
@@ -150,30 +146,29 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI, l)
+	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
 	}
 	l.logAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
 
-	// Read the overridden IOPS from args.inFilename
+	// Read the overridden IOPS from args.inFilenames
 	overrideIOPSYaml := ""
-	if args.inFilename != "" {
-		b, err := ioutil.ReadFile(args.inFilename)
+	if args.inFilenames != nil {
+		overrideIOPSYaml, err = ReadLayeredYAMLs(args.inFilenames)
 		if err != nil {
-			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilename, err)
+			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
 		}
-		overrideIOPSYaml = string(b)
 	}
 
-	// Generates IOPS for args.inFilename IOP specs yaml. Param force is set to true to
+	// Generates IOPS for args.inFilenames IOP specs yaml. Param force is set to true to
 	// skip the validation because the code only has the validation proto for the
 	// target version.
-	currentIOPSYaml, _, err := genIOPS(args.inFilename, "", "", currentVersion, true, l)
+	currentIOPSYaml, _, err := GenerateConfig(args.inFilenames, "", true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file: %s for the current version: %s, error: %v",
-			args.inFilename, currentVersion, err)
+			args.inFilenames, currentVersion, err)
 	}
 	checkUpgradeIOPS(currentIOPSYaml, targetIOPSYaml, overrideIOPSYaml, l)
 
@@ -191,8 +186,8 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		return fmt.Errorf("failed in pre-upgrade hooks, error: %v", errs.ToError())
 	}
 
-	// Apply the Istio Control Plane specs reading from inFilename to the cluster
-	err = genApplyManifests(nil, args.inFilename, args.force, rootArgs.dryRun,
+	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
+	err = ApplyManifests(nil, args.inFilenames, args.force, rootArgs.dryRun,
 		rootArgs.verbose, args.kubeConfigPath, args.context, args.wait, upgradeWaitSecWhenApply, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
@@ -250,13 +245,13 @@ func waitForConfirmation(skipConfirmation bool, l *Logger) {
 }
 
 // checkSupportedVersions checks if the upgrade cur -> tar is supported by the tool
-func checkSupportedVersions(cur, tar, versionsURI string, l *Logger) error {
+func checkSupportedVersions(cur, tar, versionsURI string) error {
 	tarGoVersion, err := goversion.NewVersion(tar)
 	if err != nil {
 		return fmt.Errorf("failed to parse the target version: %v", tar)
 	}
 
-	compatibleMap, err := getVersionCompatibleMap(versionsURI, tarGoVersion, l)
+	compatibleMap, err := pkgversion.GetVersionCompatibleMap(versionsURI, tarGoVersion)
 	if err != nil {
 		return err
 	}

@@ -108,6 +108,12 @@ type Options struct {
 
 	// PilotCertProvider is the provider of the Pilot certificate.
 	PilotCertProvider string
+
+	// JWTPath is the path for the JWT token
+	JWTPath string
+
+	// OutputKeyCertToDir is the directory for output the key and certificate
+	OutputKeyCertToDir string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -126,8 +132,10 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, false, options.UseLocalJWT, options.RecycleInterval),
-		gatewaySds:  newSDSService(gatewaySecretCache, true, options.UseLocalJWT, options.RecycleInterval),
+		workloadSds: newSDSService(workloadSecretCache, false, options.UseLocalJWT,
+			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
+		gatewaySds: newSDSService(gatewaySecretCache, true, options.UseLocalJWT,
+			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(&options); err != nil {

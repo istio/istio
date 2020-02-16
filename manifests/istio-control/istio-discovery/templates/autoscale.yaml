@@ -1,8 +1,9 @@
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot{{ .Values.version }}
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -13,11 +14,12 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-pilot{{ .Values.version }}
+    name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   metrics:
   - type: Resource
     resource:
       name: cpu
       targetAverageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
 ---
+{{- end }}
 {{- end }}

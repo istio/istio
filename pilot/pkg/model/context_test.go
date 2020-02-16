@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 )
 
 func TestNodeMetadata(t *testing.T) {
@@ -151,6 +150,39 @@ func TestPodPortList(t *testing.T) {
 	}
 }
 
+func TestStringBool(t *testing.T) {
+	cases := []struct {
+		name   string
+		in     string
+		expect string
+	}{
+		{"1", `"1"`, `"true"`},
+		{"0", `"0"`, `"false"`},
+		{"false", `"false"`, `"false"`},
+		{"true", `"true"`, `"true"`},
+		{"invalid input", `"foo"`, ``},
+		{"no quotes", `true`, ``},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			var out model.StringBool
+			if err := json.Unmarshal([]byte(tt.in), &out); err != nil {
+				if tt.expect == "" {
+					return
+				}
+				t.Fatal(err)
+			}
+			b, err := json.Marshal(out)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(string(b), tt.expect) {
+				t.Fatalf("Expected %v, got %v", tt.expect, string(b))
+			}
+		})
+	}
+}
+
 func TestServiceNode(t *testing.T) {
 	cases := []struct {
 		in  *model.Proxy
@@ -237,9 +269,7 @@ func TestParseMetadata(t *testing.T) {
 					},
 					Labels: map[string]string{"foo": "bar"},
 				},
-				WorkloadLabels: labels.Collection{map[string]string{
-					"foo": "bar",
-				}}},
+			},
 		},
 		{
 			name: "Capture Pod Ports",
@@ -343,6 +373,18 @@ func TestProxyVersion_Compare(t *testing.T) {
 			args:   args{&model.IstioVersion{Major: 2, Minor: 1, Patch: 1}},
 			want:   -1,
 		},
+		{
+			name:   "ignore minor",
+			fields: fields{Major: 2, Minor: 1, Patch: 11},
+			args:   args{&model.IstioVersion{Major: 2, Minor: -1, Patch: 1}},
+			want:   0,
+		},
+		{
+			name:   "ignore patch",
+			fields: fields{Major: 2, Minor: 1, Patch: 11},
+			args:   args{&model.IstioVersion{Major: 2, Minor: 1, Patch: -1}},
+			want:   0,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -378,6 +420,11 @@ func Test_parseIstioVersion(t *testing.T) {
 			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0},
 		},
 		{
+			name: "dev",
+			args: args{ver: "1.5-alpha.f70faea2aa817eeec0b08f6cc3b5078e5dcf3beb"},
+			want: &model.IstioVersion{Major: 1, Minor: 5, Patch: 0},
+		},
+		{
 			name: "release-major.minor-date",
 			args: args{ver: "release-1.2-123214234"},
 			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0},
@@ -385,6 +432,11 @@ func Test_parseIstioVersion(t *testing.T) {
 		{
 			name: "master-date",
 			args: args{ver: "master-123214234"},
+			want: model.MaxIstioVersion,
+		},
+		{
+			name: "master-sha",
+			args: args{ver: "master-0b94e017f5b6c7c4598a4da42ea9d45eeb099e5f"},
 			want: model.MaxIstioVersion,
 		},
 		{
