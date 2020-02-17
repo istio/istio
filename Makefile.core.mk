@@ -625,9 +625,6 @@ show.goenv: ; $(info $(H) go environment...)
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
 
-# Deprecated. This target exists only to satisify old CI tests that cannot be updated atomically, and can be removed.
-localTestEnv:
-
 #-----------------------------------------------------------------------------
 # Target: custom resource definitions
 #-----------------------------------------------------------------------------
