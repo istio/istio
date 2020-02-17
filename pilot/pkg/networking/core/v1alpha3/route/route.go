@@ -972,6 +972,14 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 				},
 			},
 		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpQueryParameterName:
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_QueryParameter_{
+				QueryParameter: &route.RouteAction_HashPolicy_QueryParameter{
+					Name: consistentHash.GetHttpQueryParameterName(),
+				},
+			},
+		}
 	}
 	return nil
 }
