@@ -7011,51 +7011,10 @@ data:
         {{ else -}}
         - "{{ valueOrDefault .DeploymentMeta.Name `istio-proxy` }}.{{ valueOrDefault .DeploymentMeta.Namespace `default` }}"
         {{ end -}}
-        - --drainDuration
-        - "{{ formatDuration .ProxyConfig.DrainDuration }}"
-        - --parentShutdownDuration
-        - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
         - --discoveryAddress
         - "{{ annotation .ObjectMeta `sidecar.istio.io/discoveryAddress` .ProxyConfig.DiscoveryAddress }}"
-      {{- if eq .Values.global.proxy.tracer "lightstep" }}
-        - --lightstepAddress
-        - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
-        - --lightstepAccessToken
-        - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken }}"
-        - --lightstepSecure={{ .ProxyConfig.GetTracing.GetLightstep.GetSecure }}
-        - --lightstepCacertPath
-        - "{{ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}"
-      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
-        - --zipkinAddress
-        - "{{ .ProxyConfig.GetTracing.GetZipkin.GetAddress }}"
-      {{- else if eq .Values.global.proxy.tracer "datadog" }}
-        - --datadogAgentAddress
-        - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
-      {{- end }}
         - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
-        - --connectTimeout
-        - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
-      {{- if .Values.global.proxy.envoyStatsd.enabled }}
-        - --statsdUdpAddress
-        - "{{ .ProxyConfig.StatsdUdpAddress }}"
-      {{- end }}
-      {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-        - --envoyMetricsService
-        - '{{ protoToJSON .ProxyConfig.EnvoyMetricsService }}'
-      {{- end }}
-      {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-        - --envoyAccessLogService
-        - '{{ protoToJSON .ProxyConfig.EnvoyAccessLogService }}'
-      {{- end }}
-        - --proxyAdminPort
-        - "{{ .ProxyConfig.ProxyAdminPort }}"
-        {{ if gt .ProxyConfig.Concurrency 0 -}}
-        - --concurrency
-        - "{{ .ProxyConfig.Concurrency }}"
-        {{ end -}}
-        - --controlPlaneAuthPolicy
-        - NONE
         - --dnsRefreshRate
         - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
       {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
@@ -7111,14 +7070,6 @@ data:
         - name: MESH_CONFIG
           value: |
                  {{ protoToJSON .MeshConfig }}
-      {{- if eq .Values.global.proxy.tracer "datadog" }}
-      {{- if isset .ObjectMeta.Annotations `apm.datadoghq.com/env` }}
-      {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
-        - name: {{ $key }}
-          value: "{{ $value }}"
-      {{- end }}
-      {{- end }}
-      {{- end }}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -7176,18 +7127,6 @@ data:
         {{- else if .Values.global.trustDomain }}
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.trustDomain }}"
-        {{- end }}
-        {{- if eq .Values.global.proxy.tracer "stackdriver" }}
-        - name: STACKDRIVER_TRACING_ENABLED
-          value: "true"
-        - name: STACKDRIVER_TRACING_DEBUG
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
-        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations.Value }}"
-        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes.Value }}"
-        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents.Value }}"
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
