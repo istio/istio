@@ -15,15 +15,15 @@
 package v2
 
 import (
-	"strconv"
 	"encoding/json"
-	"strings"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"net/http/pprof"
 	"sort"
+	"strconv"
+	"strings"
 
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube/inject"
@@ -335,7 +335,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 	}
 }
 
-// VersionLen The Config Version is only used as the nonce prefix, but we can reconstruct it because is is a
+// The Config Version is only used as the nonce prefix, but we can reconstruct it because is is a
 // b64 encoding of a 64 bit array, which will always be 12 chars in length.
 // len = ceil(bitlength/(2^6))+1
 const VersionLen = 12
