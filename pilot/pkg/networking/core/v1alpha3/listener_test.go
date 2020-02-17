@@ -421,9 +421,6 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 }
 
 func TestOutboundListenerTCPWithVS(t *testing.T) {
-	_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "false")
-
-	defer func() { _ = os.Unsetenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") }()
 
 	tests := []struct {
 		name           string
@@ -481,10 +478,6 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 }
 
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
-	_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "false")
-
-	defer func() { _ = os.Unsetenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") }()
-
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
 	svc.Resolution = model.Passthrough
@@ -2068,7 +2061,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 		{
 			FilterChainMatch: &listener.FilterChainMatch{},
 			// This is not a valid config, just for test
-			Filters: buildFallthroughNetworkFilters(push, node, &l),
+			Filters: buildFallthroughNetworkFilters(push, node),
 		},
 	}
 	l.FilterChains = filterChains

@@ -259,7 +259,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	fallthroughNetworkFilters := buildFallthroughNetworkFilters(push, node, nil)
+	fallthroughNetworkFilters := buildFallthroughNetworkFilters(push, node)
 
 	filterChains := []*listener.FilterChain{
 		{
@@ -585,8 +585,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl,
 	return filterChains
 }
 
-func buildFallthroughNetworkFilters(push *model.PushContext, node *model.Proxy,
-	l *xdsapi.Listener) []*listener.Filter {
+func buildFallthroughNetworkFilters(push *model.PushContext, node *model.Proxy) []*listener.Filter {
 	tcpProxy := &tcp_proxy.TcpProxy{
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
@@ -600,22 +599,11 @@ func buildFallthroughNetworkFilters(push *model.PushContext, node *model.Proxy,
 		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
 			// user has provided an explicit destination for all the unknown traffic.
 			// build a cluster out of this destination
-			serviceFound := false
-			for _, service := range push.Services(node) {
-				if string(service.Hostname) == node.SidecarScope.OutboundTrafficPolicy.EgressProxy.Host {
-					serviceFound = true
-					if sockAddr := l.Address.GetSocketAddress(); sockAddr == nil {
-						return nil
-					}
-					listenPort := l.Address.GetSocketAddress().GetPortValue()
-					egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
-						service, int(listenPort))
-					break
-				}
-			}
-			if !serviceFound {
-				return nil
-			}
+			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
+				nil, // service can comeup online later on, so passing nil
+				0)   // listener port is expected to be resolved from EgressProxy
+
+			// In case sidecar is wrapping https traffic into mtls, we want to copy sni from https into mtls for the egress gateway
 			requireSniForwarding = true
 		}
 		tcpProxy = &tcp_proxy.TcpProxy{

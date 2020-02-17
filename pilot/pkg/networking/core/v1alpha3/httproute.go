@@ -188,18 +188,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 			if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
 				// user has provided an explicit destination for all the unknown traffic.
 				// build a cluster out of this destination
-				serviceFound := false
-				for _, service := range push.Services(node) {
-					if string(service.Hostname) == node.SidecarScope.OutboundTrafficPolicy.EgressProxy.Host {
-						serviceFound = true
-						egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
-							service, listenerPort)
-						break
-					}
-				}
-				if !serviceFound {
-					return nil
-				}
+				egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
+					nil, // service is being passe as nil to take care of the case when service becomes available at some later point in time
+					0)
 			}
 			virtualHosts = append(virtualHosts, &route.VirtualHost{
 				Name:    util.PassthroughRouteName,
