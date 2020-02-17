@@ -82,10 +82,6 @@ collections:
     group: "networking.istio.io"
     pilot: true
 
-  - name: "istio/networking/v1alpha3/synthetic/serviceentries"
-    kind: "ServiceEntry"
-    group: "networking.istio.io"
-
   - name: "istio/networking/v1alpha3/sidecars"
     kind: "Sidecar"
     group: "networking.istio.io"
