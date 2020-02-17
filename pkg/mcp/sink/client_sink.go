@@ -61,6 +61,7 @@ func (c *Client) Run(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
+				t.Stop()
 				return
 			case <-t.C:
 			}
@@ -75,13 +76,14 @@ func (c *Client) Run(ctx context.Context) {
 			if err == nil {
 				c.reporter.RecordStreamCreateSuccess()
 				scope.Info("New MCP sink stream created")
-				// stop the ticker
-				t.Stop()
 				break
 			}
 
 			scope.Errorf("Failed to create a new MCP sink stream: %v", err)
 		}
+
+		// stop the ticker
+		t.Stop()
 
 		err := c.ProcessStream(stream)
 		if err != nil && err != io.EOF {
