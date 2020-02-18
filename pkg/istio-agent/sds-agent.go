@@ -15,15 +15,12 @@
 package istioagent
 
 import (
-	"context"
 	"io/ioutil"
 	"net"
 	"os"
 	"path"
 	"strings"
 	"time"
-
-	"istio.io/istio/security/pkg/nodeagent/util"
 
 	"istio.io/istio/pkg/config/constants"
 
@@ -72,7 +69,7 @@ var (
 	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 12*time.Hour, "").Get()
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
-	initialBackoffInMilliSecEnv        = env.RegisterIntVar(InitialBackoffInMilliSec, 2000, "").Get()
+	initialBackoffInMilliSecEnv        = env.RegisterIntVar(InitialBackoffInMilliSec, 0, "").Get()
 	pkcs8KeysEnv                       = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 
 	// Location of K8S CA root.
@@ -260,72 +257,6 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 		}
 	}
 
-	// For sidecar and ingress we need to first get the certificates for the workload.
-	// We'll also save them in files, for backward compat with servers generating files
-	// TODO: use caClient.CSRSign() directly
-
-	// fail hard if we need certs ( control plane security enabled ) and we don't have mounted certs and
-	// we fail to load SDS
-	fail := conf.RequireCerts && conf.CertsPath == ""
-
-	var privateKey, certChain, rootCert []byte
-	tok, err := ioutil.ReadFile(conf.JWTPath)
-	if err != nil && fail {
-		log.Fatala("Failed to read token: ", err)
-	} else {
-		si, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "default",
-			string(tok))
-		if err != nil {
-			if fail {
-				log.Fatalf("Failed to get certificates: %v", err)
-			} else {
-				log.Warnf("Failed to get certificate from CA: %v", err)
-			}
-		} else {
-			log.Infoa("Got initial certificate valid until ", si.ExpireTime)
-		}
-		if si != nil {
-			// For debugging and backward compat - we may not need it long term
-			// The files can be used if an Pilot configured with SDS disabled is used, will generate
-			// file based XDS config instead of SDS.
-			err = ioutil.WriteFile("/etc/istio/proxy/key.pem", si.PrivateKey, 0700)
-			if err != nil {
-				log.Fatalf("Failed to write certs: %v", err)
-			}
-			err = ioutil.WriteFile("/etc/istio/proxy/cert-chain.pem", si.CertificateChain, 0700)
-			if err != nil {
-				log.Fatalf("Failed to write certs: %v", err)
-			}
-			privateKey = si.PrivateKey
-			certChain = si.CertificateChain
-		}
-		sir, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "ROOTCA",
-			string(tok))
-		if err != nil {
-			if fail {
-				log.Fatalf("Failed to get certificates: %v", err)
-			} else {
-				log.Warnf("Failed to get certificate from CA: %v ", err)
-			}
-		}
-		if sir != nil {
-			// For debugging and backward compat - we may not need it long term
-			// TODO: we should concatenate this file with the existing root-cert and possibly pilot-generated roots, for
-			// smooth transition across CAs.
-			err = ioutil.WriteFile("/etc/istio/proxy/root-cert.pem", sir.RootCert, 0700)
-			if err != nil {
-				log.Fatalf("Failed to write certs: %v", err)
-			}
-			rootCert = sir.RootCert
-		}
-	}
-
-	if privateKey != nil && certChain != nil && rootCert != nil {
-		if err = util.OutputKeyCertToDir(serverOptions.OutputKeyCertToDir, privateKey, certChain, rootCert); err != nil {
-			log.Errorf("Failed to output the key and cert: %v", err)
-			return nil, err
-		}
-	}
 	server, err := sds.NewServer(serverOptions, workloadSecretCache, gatewaySecretCache)
 	if err != nil {
 		return nil, err

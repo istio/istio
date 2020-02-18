@@ -2368,6 +2368,8 @@ spec:
                                 - httpCookie
                               - required:
                                 - useSourceIp
+                              - required:
+                                - httpQueryParameterName
                           required:
                           - consistentHash
                         properties:
@@ -2390,6 +2392,10 @@ spec:
                                 type: object
                               httpHeaderName:
                                 description: Hash based on a specific HTTP header.
+                                format: string
+                                type: string
+                              httpQueryParameterName:
+                                description: Hash based on a specific HTTP query parameter.
                                 format: string
                                 type: string
                               minimumRingSize:
@@ -2554,6 +2560,8 @@ spec:
                                       - httpCookie
                                     - required:
                                       - useSourceIp
+                                    - required:
+                                      - httpQueryParameterName
                                 required:
                                 - consistentHash
                               properties:
@@ -2576,6 +2584,11 @@ spec:
                                       type: object
                                     httpHeaderName:
                                       description: Hash based on a specific HTTP header.
+                                      format: string
+                                      type: string
+                                    httpQueryParameterName:
+                                      description: Hash based on a specific HTTP query
+                                        parameter.
                                       format: string
                                       type: string
                                     minimumRingSize:
@@ -2811,6 +2824,8 @@ spec:
                           - httpCookie
                         - required:
                           - useSourceIp
+                        - required:
+                          - httpQueryParameterName
                     required:
                     - consistentHash
                   properties:
@@ -2833,6 +2848,10 @@ spec:
                           type: object
                         httpHeaderName:
                           description: Hash based on a specific HTTP header.
+                          format: string
+                          type: string
+                        httpQueryParameterName:
+                          description: Hash based on a specific HTTP query parameter.
                           format: string
                           type: string
                         minimumRingSize:
@@ -2994,6 +3013,8 @@ spec:
                                 - httpCookie
                               - required:
                                 - useSourceIp
+                              - required:
+                                - httpQueryParameterName
                           required:
                           - consistentHash
                         properties:
@@ -3016,6 +3037,10 @@ spec:
                                 type: object
                               httpHeaderName:
                                 description: Hash based on a specific HTTP header.
+                                format: string
+                                type: string
+                              httpQueryParameterName:
+                                description: Hash based on a specific HTTP query parameter.
                                 format: string
                                 type: string
                               minimumRingSize:
@@ -3177,10 +3202,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -3624,10 +3649,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -3772,10 +3797,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -3843,6 +3868,74 @@ spec:
                     type: object
                 type: object
               type: array
+            inboundTls:
+              properties:
+                caCertificates:
+                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                  format: string
+                  type: string
+                cipherSuites:
+                  description: 'Optional: If specified, only support the specified
+                    cipher list.'
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                credentialName:
+                  format: string
+                  type: string
+                httpsRedirect:
+                  type: boolean
+                maxProtocolVersion:
+                  description: 'Optional: Maximum TLS protocol version.'
+                  enum:
+                  - TLS_AUTO
+                  - TLSV1_0
+                  - TLSV1_1
+                  - TLSV1_2
+                  - TLSV1_3
+                  type: string
+                minProtocolVersion:
+                  description: 'Optional: Minimum TLS protocol version.'
+                  enum:
+                  - TLS_AUTO
+                  - TLSV1_0
+                  - TLSV1_1
+                  - TLSV1_2
+                  - TLSV1_3
+                  type: string
+                mode:
+                  enum:
+                  - PASSTHROUGH
+                  - SIMPLE
+                  - MUTUAL
+                  - AUTO_PASSTHROUGH
+                  - ISTIO_MUTUAL
+                  type: string
+                privateKey:
+                  description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                  format: string
+                  type: string
+                serverCertificate:
+                  description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                  format: string
+                  type: string
+                subjectAltNames:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                verifyCertificateHash:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                verifyCertificateSpki:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+              type: object
             ingress:
               items:
                 properties:
@@ -3859,6 +3952,75 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
+                  inboundTls:
+                    description: Overrides Sidecar level `+"`"+`inboundTls`+"`"+` settings.
+                    properties:
+                      caCertificates:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      cipherSuites:
+                        description: 'Optional: If specified, only support the specified
+                          cipher list.'
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        description: 'Optional: Maximum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        description: 'Optional: Minimum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      serverCertificate:
+                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -3877,8 +4039,25 @@ spec:
                 type: object
               type: array
             outboundTrafficPolicy:
-              description: This allows to configure the outbound traffic policy.
+              description: Configuration for the outbound traffic policy.
               properties:
+                egressProxy:
+                  properties:
+                    host:
+                      description: The name of a service from the service registry.
+                      format: string
+                      type: string
+                    port:
+                      description: Specifies the port on the host that is being addressed.
+                      properties:
+                        number:
+                          type: integer
+                      type: object
+                    subset:
+                      description: The name of a subset within the service.
+                      format: string
+                      type: string
+                  type: object
                 mode:
                   enum:
                   - REGISTRY_ONLY
@@ -3898,10 +4077,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -4260,6 +4439,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                         uri:
                           oneOf:
                           - required:
@@ -4370,6 +4554,10 @@ spec:
                           place.
                         format: string
                         type: string
+                      retryRemoteLocalities:
+                        description: Flag to specify whether the retries should retry
+                          to other localities.
+                        type: boolean
                     type: object
                   rewrite:
                     description: Rewrite HTTP URIs and Authority headers.
@@ -4485,6 +4673,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                         sourceSubnet:
                           description: IPv4 or IPv6 ip address of source with optional
                             subnet.
@@ -4558,6 +4751,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                       type: object
                     type: array
                   route:
@@ -4596,10 +4794,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -9102,6 +9300,9 @@ spec:
                   key: cni_network_config
             - name: CNI_NET_DIR
               value: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
+            # Deploy as a standalone CNI plugin or as chained?
+            - name: CHAINED_CNI_PLUGIN
+              value: "{{ .Values.cni.chained }}"
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
@@ -9228,6 +9429,10 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
   # This can be used to bind a preexisting ClusterRole to the istio/cni ServiceAccount
   # e.g. if you use PodSecurityPolicies
   psp_cluster_role: ""
+
+  # Deploy the config files as plugin chain (value "true") or as standalone files in the conf dir (value "false")?
+  # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
+  chained: true
 
   repair:
     enabled: true
@@ -10409,51 +10614,10 @@ template: |
     {{ else -}}
     - "{{ valueOrDefault .DeploymentMeta.Name `+"`"+`istio-proxy`+"`"+` }}.{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}"
     {{ end -}}
-    - --drainDuration
-    - "{{ formatDuration .ProxyConfig.DrainDuration }}"
-    - --parentShutdownDuration
-    - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
     - --discoveryAddress
     - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/discoveryAddress`+"`"+` .ProxyConfig.DiscoveryAddress }}"
-  {{- if eq .Values.global.proxy.tracer "lightstep" }}
-    - --lightstepAddress
-    - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
-    - --lightstepAccessToken
-    - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken }}"
-    - --lightstepSecure={{ .ProxyConfig.GetTracing.GetLightstep.GetSecure }}
-    - --lightstepCacertPath
-    - "{{ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}"
-  {{- else if eq .Values.global.proxy.tracer "zipkin" }}
-    - --zipkinAddress
-    - "{{ .ProxyConfig.GetTracing.GetZipkin.GetAddress }}"
-  {{- else if eq .Values.global.proxy.tracer "datadog" }}
-    - --datadogAgentAddress
-    - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
-  {{- end }}
     - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
     - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
-    - --connectTimeout
-    - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
-  {{- if .Values.global.proxy.envoyStatsd.enabled }}
-    - --statsdUdpAddress
-    - "{{ .ProxyConfig.StatsdUdpAddress }}"
-  {{- end }}
-  {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-    - --envoyMetricsService
-    - '{{ protoToJSON .ProxyConfig.EnvoyMetricsService }}'
-  {{- end }}
-  {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-    - --envoyAccessLogService
-    - '{{ protoToJSON .ProxyConfig.EnvoyAccessLogService }}'
-  {{- end }}
-    - --proxyAdminPort
-    - "{{ .ProxyConfig.ProxyAdminPort }}"
-    {{ if gt .ProxyConfig.Concurrency 0 -}}
-    - --concurrency
-    - "{{ .ProxyConfig.Concurrency }}"
-    {{ end -}}
-    - --controlPlaneAuthPolicy
-    - NONE
     - --dnsRefreshRate
     - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
@@ -10506,14 +10670,9 @@ template: |
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
-  {{- if eq .Values.global.proxy.tracer "datadog" }}
-  {{- if isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+` }}
-  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
-    - name: {{ $key }}
-      value: "{{ $value }}"
-  {{- end }}
-  {{- end }}
-  {{- end }}
+    - name: MESH_CONFIG
+      value: |
+             {{ protoToJSON .MeshConfig }}
     - name: ISTIO_META_POD_PORTS
       value: |-
         [
@@ -10571,18 +10730,6 @@ template: |
     {{- else if .Values.global.trustDomain }}
     - name: ISTIO_META_MESH_ID
       value: "{{ .Values.global.trustDomain }}"
-    {{- end }}
-    {{- if eq .Values.global.proxy.tracer "stackdriver" }}
-    - name: STACKDRIVER_TRACING_ENABLED
-      value: "true"
-    - name: STACKDRIVER_TRACING_DEBUG
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
-    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations.Value }}"
-    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes.Value }}"
-    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents.Value }}"
     {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
@@ -10884,11 +11031,12 @@ func chartsIstioControlIstioDiscoveryTemplates_helpersTpl() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml = []byte(`{{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
+var _chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot{{ .Values.version }}
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -10899,13 +11047,14 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-pilot{{ .Values.version }}
+    name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   metrics:
   - type: Resource
     resource:
       name: cpu
       targetAverageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
 ---
+{{- end }}
 {{- end }}
 `)
 
@@ -10924,7 +11073,8 @@ func chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml = []byte(`{{/* If we have Istiod enabled and Galley disabled, we may run into issues during upgrade. */}}
+var _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml = []byte(`{{ if .Values.clusterResources }}
+{{/* If we have Istiod enabled and Galley disabled, we may run into issues during upgrade. */}}
 {{/* The old Galley will continuely try to patch its webhook, when we actually want to remove it. */}}
 {{/* This will disable Galley's permission to do so, if galley is disabled. */}}
 {{- if not .Values.galley.enabled }}
@@ -10978,7 +11128,9 @@ rules:
     resources: ["clusterroles"]
     verbs: ["get", "list", "watch"]
 ---
-{{- end }}`)
+{{- end }}
+{{- end }}
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, nil
@@ -11201,16 +11353,18 @@ func chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml() (*asset, 
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml = []byte(`{{- if .Values.pilot.jwksResolverExtraRootCA }}
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if .Values.pilot.jwksResolverExtraRootCA }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: pilot-jwks-extra-cacerts{{ .Values.version }}
+  name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 data:
   extra.pem: {{ .Values.pilot.jwksResolverExtraRootCA | quote }}
+{{- end }}
 {{- end }}
 `)
 
@@ -11229,7 +11383,8 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml() (*asset, error
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml = []byte(`apiVersion: v1
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-validation
@@ -11242,6 +11397,7 @@ data:
     {{- include "validatingwebhookconfiguration.yaml.tpl" . | indent 4}}
 {{- end}}
 ---
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYamlBytes() ([]byte, error) {
@@ -11259,11 +11415,12 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- if .Values.pilot.configMap }}
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if .Values.pilot.configMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio{{ .Values.version }}
+  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -11513,9 +11670,17 @@ data:
         {{- end }}
       {{- end }}
 
+    {{- if not (eq .Values.revision "") }}
+    {{- $defPilotHostname := printf "istiod-%s.%s" .Values.revision .Release.Namespace }}
+    {{- else }}
+    {{- $defPilotHostname := printf "istiod.%s"  .Release.Namespace }}
+    {{- end }}
+    {{- $defPilotHostname := printf "istiod%s.%s" .Values.revision .Release.Namespace }}
+    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
+
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}.svc:15012
+      discoveryAddress: {{ $defPilotHostname }}.svc:15012
 
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
@@ -11551,6 +11716,7 @@ data:
 
 ---
 {{- end }}
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesConfigmapYamlBytes() ([]byte, error) {
@@ -11568,13 +11734,17 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
+var _chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istiod
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
+    {{- if ne .Values.revision ""}}
+    version: {{ .Values.revision }}
+    {{- end }}
     istio: pilot
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
@@ -11592,12 +11762,23 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
+      {{- if ne .Values.revision ""}}
+      app: pilot
+      version: {{ .Values.revision }}
+      {{- else }}
       istio: pilot
+      {{- end }}
   template:
     metadata:
       labels:
         app: pilot
+        {{- if ne .Values.revision ""}}
+        version: {{ .Values.revision }}
+        {{- else }}
+        # Label used by the 'default' service. For versioned deployments we match with app and version.
+        # This avoids default deployment picking the canary
         istio: pilot
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
@@ -11707,8 +11888,10 @@ spec:
             value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
+          - name: INJECTION_WEBHOOK_CONFIG_NAME
+            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           - name: ISTIOD_ADDR
-            value: istio-pilot.{{ .Release.Namespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
           resources:
@@ -11778,11 +11961,11 @@ spec:
           optional: true
       - name: config-volume
         configMap:
-          name: istio{{ .Values.version }}
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:
-          name: pilot-jwks-extra-cacerts{{ .Values.version }}
+          name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
@@ -11795,6 +11978,7 @@ spec:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 ---
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesDeploymentYamlBytes() ([]byte, error) {
@@ -11893,11 +12077,12 @@ func chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml = []byte(`{{- if not .Values.global.omitSidecarInjectorConfigMap }}
+var _chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -11925,6 +12110,7 @@ data:
 {{ .Files.Get "files/injection-template.yaml" | trim | indent 4 }}
 
 {{- end }}
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYamlBytes() ([]byte, error) {
@@ -11942,14 +12128,15 @@ func chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml() (*as
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`{{- if not .Values.global.operatorManageWebhooks }}
+var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
+{{- if not .Values.global.operatorManageWebhooks }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{ else }}
-  name: istio-sidecar-injector-{{ .Release.Namespace }}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- end }}
   labels:
     app: sidecar-injector
@@ -11958,7 +12145,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-        name: istio-pilot
+        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
         namespace: {{ .Release.Namespace }}
         path: "/inject"
       caBundle: ""
@@ -11983,7 +12170,7 @@ webhooks:
         operator: DoesNotExist
       - key: istio.io/rev
         operator: DoesNotExist
-{{- else if .Values.global.revision }}
+{{- else if .Values.revision }}
       matchExpressions:
       - key: istio-injection
         operator: NotIn
@@ -11992,7 +12179,7 @@ webhooks:
       - key: istio.io/rev
         operator: In
         values:
-        - {{ .Values.global.revision }}
+        - {{ .Values.revision }}
 {{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
       matchLabels:
         istio-injection: enabled
@@ -12013,7 +12200,8 @@ webhooks:
         "sidecar.istio.io/inject": "true"
 {{- end }}
 {{- end }}
-{{- end }}`)
+{{- end }}
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, nil
@@ -12030,11 +12218,12 @@ func chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml() (*asset, err
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot{{ .Values.version }}
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -12045,12 +12234,13 @@ spec:
   selector:
     matchLabels:
       app: pilot
-      {{- if ne .Values.version ""}}
-      version: {{ .Values.version }}
+      {{- if ne .Values.revision ""}}
+      version: {{ .Values.revision }}
       {{- end }}
       release: {{ .Release.Name }}
       istio: pilot
 ---
+{{- end }}
 {{- end }}
 `)
 
@@ -12069,10 +12259,12 @@ func chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`apiVersion: v1
+var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+
+apiVersion: v1
 kind: Service
 metadata:
-  name: istio-pilot
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -12094,9 +12286,9 @@ spec:
     name: https-webhook # validation and injection
     targetPort: 15017
   selector:
-    {{- if ne .Values.version ""}}
+    {{- if ne .Values.revision ""}}
     app: pilot
-    version: {{ .Values.version }}
+    version: {{ .Values.revision }}
     {{ else }}
     istio: pilot
     {{- end }}
@@ -12104,7 +12296,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istiod
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
@@ -12118,8 +12310,16 @@ spec:
       targetPort: 15017
   selector:
     app: pilot
+    {{- if ne .Values.revision ""}}
+    version: {{ .Values.revision }}
+    {{- else }}
+    # Label used by the 'default' service. For versioned deployments we match with app and version.
+    # This avoids default deployment picking the canary
     istio: pilot
----`)
+    {{- end }}
+---
+{{- end }}
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesServiceYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesServiceYaml, nil
@@ -12170,7 +12370,8 @@ func chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -12403,6 +12604,7 @@ spec:
 ---
 {{- end}}
 {{- end}}
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14YamlBytes() ([]byte, error) {
@@ -12420,7 +12622,8 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -12837,6 +13040,7 @@ spec:
 ---
 {{- end}}
 {{- end}}
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15YamlBytes() ([]byte, error) {
@@ -12854,7 +13058,8 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -13272,6 +13477,7 @@ spec:
 ---
 {{- end}}
 {{- end}}
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16YamlBytes() ([]byte, error) {
@@ -13289,7 +13495,8 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`{{/* Create a NOP config for Galley's webhook to stop it from blocking config */}}
+var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`{{ if .Values.clusterResources }}
+{{/* Create a NOP config for Galley's webhook to stop it from blocking config */}}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -13300,6 +13507,7 @@ metadata:
     release: {{ .Release.Name }}
     istio: galley
 webhooks:
+{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationNoopYamlBytes() ([]byte, error) {
@@ -13564,6 +13772,9 @@ telemetry:
       #  disable_server_access_logging: false
       #  meshEdgesReportingDuration: 500s
       #  disable_host_header_fallback: true
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
 `)
 
 func chartsIstioControlIstioDiscoveryValuesYamlBytes() ([]byte, error) {
@@ -17938,7 +18149,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(galley_istio_networking_virtualservices) / count(up{job=\"galley\"})",
+          "expr": "avg(galley_istio_networking_virtualservices)",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -18019,7 +18230,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(galley_istio_networking_destinationrules) / count(up{job=\"galley\"})",
+          "expr": "avg(galley_istio_networking_destinationrules)",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -18100,7 +18311,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(galley_istio_networking_gateways) / count(up{job=\"galley\"})",
+          "expr": "avg(galley_istio_networking_gateways)",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -18181,7 +18392,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(galley_istio_authentication_meshpolicies) / count(up{job=\"galley\"})",
+          "expr": "avg(galley_istio_authentication_meshpolicies)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -19736,7 +19947,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -19745,7 +19956,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -19832,7 +20043,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -19841,7 +20052,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}[1m])) by (container)",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}[1m])) by (container)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -19947,7 +20158,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery|istio-proxy\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container }}",
@@ -27586,7 +27797,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -27595,7 +27806,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"istio-proxy\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Sidecar (container)",
@@ -27680,7 +27891,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"discovery\", pod=~\"istio-pilot-.*\"}[1m]))",
+          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Discovery (container)",
@@ -27696,7 +27907,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"istio-proxy\", pod=~\"istio-pilot-.*\"}[1m]))",
+          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -27783,7 +27994,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"discovery\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Discovery",
@@ -27791,7 +28002,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"istio-proxy\", pod=~\"istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Sidecar",
@@ -34088,18 +34299,6 @@ spec:
             - name: ISTIO_META_MESH_ID
               value: "{{ .Values.global.trustDomain }}"
               {{- end }}
-              {{- if eq .Values.global.proxy.tracer "stackdriver" }}
-            - name: STACKDRIVER_TRACING_ENABLED
-              value: "true"
-            - name: STACKDRIVER_TRACING_DEBUG
-              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
-            - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
-            - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
-            - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-              value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
-                  {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30
@@ -39572,7 +39771,7 @@ componentMaps:
     SkipReverseTranslate: true
   Pilot:
     ResourceType:         "Deployment"
-    ResourceName:         "istio-pilot"
+    ResourceName:         "istiod"
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"

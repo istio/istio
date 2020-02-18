@@ -41,22 +41,10 @@ spec:
         - /usr/local/bin/envoy
         - --serviceCluster
         - hello.$(POD_NAMESPACE)
-        - --drainDuration
-        - 45s
-        - --parentShutdownDuration
-        - 1m0s
         - --discoveryAddress
         - istio-pilot:15010
-        - --zipkinAddress
-        - ""
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --connectTimeout
-        - 1s
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
         - --dnsRefreshRate
         - 300s
         - --statusPort
@@ -92,6 +80,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: MESH_CONFIG
+          value: |
+            {}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
