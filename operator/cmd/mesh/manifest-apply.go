@@ -155,6 +155,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool, verbose bool,
 	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
 
+	if err := ValidateSetFlags(setOverlay); err != nil {
+		return err
+	}
+
 	ysf, err := yamlFromSetFlags(setOverlay, force, l)
 	if err != nil {
 		return err
