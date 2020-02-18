@@ -12,6 +12,7 @@ USER 1337:1337
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007
 FROM gcr.io/distroless/static:nonroot as distroless
+WORKDIR /
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
