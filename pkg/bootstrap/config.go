@@ -479,11 +479,11 @@ func readPodLabels() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseDownwardApi(string(b))
+	return ParseDownwardAPI(string(b))
 }
 
 // Fields are stored as format `%s=%q`, we will parse this back to a map
-func ParseDownwardApi(i string) (map[string]string, error) {
+func ParseDownwardAPI(i string) (map[string]string, error) {
 	res := map[string]string{}
 	for _, line := range strings.Split(i, "\n") {
 		sl := strings.SplitN(line, "=", 2)

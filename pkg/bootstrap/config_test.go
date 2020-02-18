@@ -55,7 +55,7 @@ func TestParseDownwardApi(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Using the function kubernetes actually uses to write this, we do a round trip of
 			// map -> file -> map and ensure the input and output are the same
-			got, err := ParseDownwardApi(fieldpath.FormatMap(tt.m))
+			got, err := ParseDownwardAPI(fieldpath.FormatMap(tt.m))
 			if !reflect.DeepEqual(got, tt.m) {
 				t.Fatalf("expected %v, got %v with err: %v", tt.m, got, err)
 			}
