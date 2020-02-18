@@ -4,7 +4,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-pilot-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -20,7 +20,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istiod-pilot-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io

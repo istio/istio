@@ -11042,7 +11042,7 @@ metadata:
   name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ .Values.pilot.autoscaleMax }}
@@ -11156,7 +11156,7 @@ kind: ClusterRole
 metadata:
   name: istio-pilot-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 rules:
 - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -11199,7 +11199,7 @@ kind: ClusterRole
 metadata:
   name: istiod-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 rules:
   # Remove permissions to reconcile webhook configuration. This address the downgrade case
@@ -11311,7 +11311,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-pilot-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11327,7 +11327,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istiod-pilot-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11744,7 +11744,7 @@ metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     {{- if ne .Values.revision ""}}
     version: {{ .Values.revision }}
     {{- end }}
@@ -11766,7 +11766,7 @@ spec:
   selector:
     matchLabels:
       {{- if ne .Values.revision ""}}
-      app: pilot
+      app: istiod
       version: {{ .Values.revision }}
       {{- else }}
       istio: pilot
@@ -11774,7 +11774,7 @@ spec:
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         {{- if ne .Values.revision ""}}
         version: {{ .Values.revision }}
         {{- else }}
@@ -12232,14 +12232,14 @@ metadata:
   name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
     istio: pilot
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: pilot
+      app: istiod
       {{- if ne .Values.revision ""}}
       version: {{ .Values.revision }}
       {{- end }}
@@ -12273,7 +12273,7 @@ metadata:
   name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
     istio: pilot
 spec:
@@ -12293,7 +12293,7 @@ spec:
     targetPort: 15017
   selector:
     {{- if ne .Values.revision ""}}
-    app: pilot
+    app: istiod
     version: {{ .Values.revision }}
     {{ else }}
     istio: pilot
@@ -12315,7 +12315,7 @@ spec:
       name: https-webhook # validation and injection
       targetPort: 15017
   selector:
-    app: pilot
+    app: istiod
     {{- if ne .Values.revision ""}}
     version: {{ .Values.revision }}
     {{- else }}
@@ -12355,7 +12355,7 @@ metadata:
   name: istio-pilot-service-account
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 ---
 {{ end }}

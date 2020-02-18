@@ -7146,7 +7146,7 @@ metadata:
   name: istio-pilot
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 spec:
   maxReplicas: 5
@@ -7220,7 +7220,7 @@ kind: ClusterRole
 metadata:
   name: istio-pilot-istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 rules:
 - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -7263,7 +7263,7 @@ kind: ClusterRole
 metadata:
   name: istiod-istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 rules:
   # Remove permissions to reconcile webhook configuration. This address the downgrade case
@@ -7359,7 +7359,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-pilot-istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7377,7 +7377,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istiod-pilot-istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7607,7 +7607,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: istio
 spec:
@@ -7621,7 +7621,7 @@ spec:
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
@@ -8466,14 +8466,14 @@ metadata:
   name: istio-pilot
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
     istio: pilot
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: pilot
+      app: istiod
       release: istio
       istio: pilot
 ---
@@ -8485,7 +8485,7 @@ metadata:
   name: istio-pilot
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
     istio: pilot
 spec:
@@ -8524,7 +8524,7 @@ spec:
       name: https-webhook # validation and injection
       targetPort: 15017
   selector:
-    app: pilot
+    app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
     istio: pilot
@@ -8537,7 +8537,7 @@ metadata:
   name: istio-pilot-service-account
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 ---
 

@@ -5,7 +5,7 @@ metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     {{- if ne .Values.revision ""}}
     version: {{ .Values.revision }}
     {{- end }}
@@ -27,7 +27,7 @@ spec:
   selector:
     matchLabels:
       {{- if ne .Values.revision ""}}
-      app: pilot
+      app: istiod
       version: {{ .Values.revision }}
       {{- else }}
       istio: pilot
@@ -35,7 +35,7 @@ spec:
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         {{- if ne .Values.revision ""}}
         version: {{ .Values.revision }}
         {{- else }}
