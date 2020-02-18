@@ -88,10 +88,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
 
 	inboundVHost := &route.VirtualHost{
-		Name:                       fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.ServicePort.Port),
-		Domains:                    []string{"*"},
-		Routes:                     []*route.Route{defaultRoute},
-		IncludeRequestAttemptCount: true,
+		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.ServicePort.Port),
+		Domains: []string{"*"},
+		Routes:  []*route.Route{defaultRoute},
 	}
 
 	r := &xdsapi.RouteConfiguration{
