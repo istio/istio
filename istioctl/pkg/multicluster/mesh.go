@@ -70,7 +70,7 @@ func (m *Mesh) SortedClusters() []*Cluster {
 		sortedClusters = append(sortedClusters, other)
 	}
 	sort.Slice(sortedClusters, func(i, j int) bool {
-		return strings.Compare(string(sortedClusters[i].clusterName), string(sortedClusters[j].clusterName)) < 0
+		return strings.Compare(sortedClusters[i].clusterName, sortedClusters[j].clusterName) < 0
 	})
 	return sortedClusters
 }

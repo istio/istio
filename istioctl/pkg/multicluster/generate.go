@@ -86,7 +86,7 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 			ControlPlaneSecurityEnabled: &types.BoolValue{Value: true},
 			MeshNetworks:                meshNetworksJSON,
 			MultiCluster: &operatorV1alpha1.MultiClusterConfig{
-				ClusterName: string(current.clusterName),
+				ClusterName: current.clusterName,
 			},
 			Network: current.Network,
 		},
@@ -268,7 +268,7 @@ func meshNetworkForCluster(env Environment, mesh *Mesh, current *Cluster) (*v1al
 
 		// Use the cluster clusterName for the registry name so we have consistency across the mesh. Pilot
 		// uses a special name for the local cluster against which it is running.
-		registry := string(cluster.clusterName)
+		registry := cluster.clusterName
 		if context == current.Context {
 			registry = string(serviceregistry.Kubernetes)
 		}
