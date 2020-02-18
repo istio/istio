@@ -125,11 +125,33 @@ var (
 	dependencyWaitCh = make(map[name.ComponentName]chan struct{})
 	kubectl          = kubectlcmd.New()
 
-	k8sRESTConfig           *rest.Config
-	currentKubeconfig       string
-	currentContext          string
+	k8sRESTConfig     *rest.Config
+	currentKubeconfig string
+	currentContext    string
+	// TODO: remove whitelist after : https://github.com/kubernetes/kubernetes/issues/66430
+	defaultPilotPruneWhileList = []string{
+		// kubectl apply prune default
+		"core/v1/Pod",
+		"core/v1/ConfigMap",
+		"core/v1/Service",
+		"core/v1/Secret",
+		"core/v1/Endpoints",
+		"core/v1/Namespace",
+		"core/v1/PersistentVolume",
+		"core/v1/PersistentVolumeClaim",
+		"core/v1/ReplicationController",
+		"batch/v1/Job",
+		"batch/v1beta1/CronJob",
+		"extensions/v1beta1/Ingress",
+		"apps/v1/DaemonSet",
+		"apps/v1/Deployment",
+		"apps/v1/ReplicaSet",
+		"apps/v1/StatefulSet",
+		"networking.istio.io/v1alpha3/DestinationRule",
+		"networking.istio.io/v1alpha3/EnvoyFilter",
+	}
 	componentPruneWhiteList = map[name.ComponentName][]string{
-		name.PilotComponentName: {"networking.istio.io/v1alpha3/EnvoyFilter"},
+		name.PilotComponentName: defaultPilotPruneWhileList,
 	}
 )
 

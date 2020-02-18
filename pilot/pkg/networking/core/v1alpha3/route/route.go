@@ -953,7 +953,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		cookie := consistentHash.GetHttpCookie()
 		var ttl *duration.Duration
 		if cookie.GetTtl() != nil {
-			ttl = ptypes.DurationProto(*cookie.GetTtl())
+			ttl = gogo.DurationToProtoDuration(cookie.GetTtl())
 		}
 		return &route.RouteAction_HashPolicy{
 			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
@@ -969,6 +969,14 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 			PolicySpecifier: &route.RouteAction_HashPolicy_ConnectionProperties_{
 				ConnectionProperties: &route.RouteAction_HashPolicy_ConnectionProperties{
 					SourceIp: consistentHash.GetUseSourceIp(),
+				},
+			},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpQueryParameterName:
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_QueryParameter_{
+				QueryParameter: &route.RouteAction_HashPolicy_QueryParameter{
+					Name: consistentHash.GetHttpQueryParameterName(),
 				},
 			},
 		}
