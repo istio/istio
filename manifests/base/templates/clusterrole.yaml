@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-{{ .Release.Namespace }}
+  name: istio-reader-{{ .Values.global.istioNamespace }}
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
@@ -24,7 +24,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-pilot-{{ .Release.Namespace }}
+  name: istio-pilot-{{ .Values.global.istioNamespace }}
   labels:
     app: pilot
     release: {{ .Release.Name }}
@@ -67,7 +67,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-{{ .Release.Namespace }}
+  name: istiod-{{ .Values.global.istioNamespace }}
   labels:
     app: pilot
     release: {{ .Release.Name }}
@@ -89,12 +89,12 @@ rules:
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles/finalizers"]
     resourceNames:
-      - istiod-{{ .Release.Namespace }}
+      - istiod-{{ .Values.global.istioNamespace }}
     verbs: ["update"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles"]
     resourceNames:
-      - istiod-{{ .Release.Namespace }}
+      - istiod-{{ .Values.global.istioNamespace }}
     verbs: ["get"]
 
   # istio configuration

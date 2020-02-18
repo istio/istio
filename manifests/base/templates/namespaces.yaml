@@ -1,8 +1,7 @@
-# To prevent accidental injection into istio control plane namespaces.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ .Release.Namespace }}
+  name: {{ .Values.global.istioNamespace }}
   labels:
     istio-operator-managed: Reconcile
     istio-injection: disabled
