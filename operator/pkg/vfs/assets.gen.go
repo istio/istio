@@ -13465,7 +13465,7 @@ webhooks:
         resources:
         - "*"
     # Fail open until the validation webhook is ready. The webhook controller
-    # will update this to `+"`"+`Ignore`+"`"+` and patch in the `+"`"+`caBundle`+"`"+` when the webhook
+    # will update this to `+"`"+`Fail`+"`"+` and patch in the `+"`"+`caBundle`+"`"+` when the webhook
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
@@ -13481,7 +13481,8 @@ metadata:
     release: {{ .Release.Name }}
     istio: galley
 webhooks:
----`)
+---
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml, nil

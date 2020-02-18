@@ -74,7 +74,7 @@ type Options struct {
 	// useful in cases where validation was previously enabled and
 	// subsequently disabled. The controller can clean up after itself
 	// without relying on the user to manually delete configs.
-	// DEPRECATED: istiod webhook controller shouldn't use this.
+	// Deprecated: istiod webhook controller shouldn't use this.
 	UnregisterValidationWebhook bool
 }
 
@@ -466,12 +466,8 @@ var (
 	scheme *runtime.Scheme
 
 	// defaults per k8s spec
-	defaultFailurePolicy     = kubeApiAdmission.Fail
-	FailurePolicyIgnore      = kubeApiAdmission.Ignore
-	defaultSideEffects       = kubeApiAdmission.SideEffectClassUnknown
-	defaultTimeout           = int32(30)
-	defaultNamespaceSelector = &kubeApiMeta.LabelSelector{}
-	defaultObjectSelector    = &kubeApiMeta.LabelSelector{}
+	defaultFailurePolicy = kubeApiAdmission.Fail
+	FailurePolicyIgnore  = kubeApiAdmission.Ignore
 )
 
 func init() {
