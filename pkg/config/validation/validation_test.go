@@ -2897,7 +2897,7 @@ func TestValidateConnectionPool(t *testing.T) {
 }
 
 func TestValidateLoadBalancer(t *testing.T) {
-	duration := time.Hour
+	duration := types.Duration{Seconds: int64(time.Hour / time.Second)}
 	cases := []struct {
 		name  string
 		in    networking.LoadBalancerSettings
