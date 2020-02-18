@@ -154,7 +154,7 @@ func serverCmd() *cobra.Command {
 
 	// validation webhook server config
 	_ = svr.PersistentFlags().String("validation-webhook-config-file", "", "Setting this file has no effect")
-	svr.PersistentFlags().MarkDeprecated("validation-webhook-config-file", "galley no longer reconciles the entire webhook configuration")
+	_ = svr.PersistentFlags().MarkDeprecated("validation-webhook-config-file", "galley no longer reconciles the entire webhook configuration")
 	svr.PersistentFlags().UintVar(&serverArgs.ValidationWebhookServerArgs.Port, "validation-port",
 		serverArgs.ValidationWebhookServerArgs.Port, "HTTPS port of the validation service.")
 	svr.PersistentFlags().BoolVar(&serverArgs.EnableValidationServer, "enable-validation",
