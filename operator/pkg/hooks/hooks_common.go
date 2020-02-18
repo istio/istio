@@ -36,7 +36,7 @@ type HookCommonParams struct {
 }
 
 var (
-	// TODO: add full list
+	// TODO: [richardwxn] check only http related resources now, add TCP later.
 	CRKindNamesMap = map[string][]string{
 		"instance": {"requestsize", "requestcount, requestduration", "attributes"},
 		"rule":     {"promhttp", "kubeattrgenrulerule"},
@@ -51,13 +51,16 @@ var (
 )
 
 const (
-	// TODO: Instead of failing the upgrade request to v2, give a helpful message and fallback to mixerv1 installation.
-	CustomMixerHelpMessage = ""
+	// Instead of failing the upgrade request to v2, give a helpful message and fallback to mixerv1 installation.
+	// TODO: expose option for v2 templates so user can customize.
+	CustomizedMixerHelpMessage = "Mixer(deprecated) would be installed.\n" +
+		" Please remove the mixer customized resources first and update the v2 filters accordingly,\n" +
+		"or run with --force flag to ignore the customization and proceed with the telemetry v2 installation\n"
 )
 
-// runUpgradeHooks checks a list of hook version map entries and runs the hooks in each entry whose constraints match
+// runHooks checks a list of hook version map entries and runs the hooks in each entry whose constraints match
 // the source/target versions in hc.
-func runUpgradeHooks(hml []hookVersionMapping, kubeClient manifest.ExecClient, hc *HookCommonParams, dryRun bool) util.Errors {
+func runHooks(hml []hookVersionMapping, kubeClient manifest.ExecClient, hc *HookCommonParams, dryRun bool) util.Errors {
 	var errs util.Errors
 	_, err := version.NewVersion(hc.SourceVer)
 	if err != nil {
@@ -146,13 +149,13 @@ func checkMixerTelemetry(kubeClient manifest.ExecClient, params HookCommonParams
 		defaultCR, ok := knMapDefault[nk]
 		if !ok {
 			// for case 1
-			return util.NewErrs(fmt.Errorf("there are extra non default mixer configs in cluster " + CustomMixerHelpMessage))
+			return util.NewErrs(fmt.Errorf("there are extra non default mixer configs in cluster " + CustomizedMixerHelpMessage))
 		}
 		// for case 2
 		diff := util.YAMLDiff(defaultCR, inclusterCR)
 		if diff != "" {
 			return util.NewErrs(fmt.Errorf("customized config exists for %s,"+
-				" diff is: %s. \n" + CustomMixerHelpMessage, nk, diff))
+				" diff is: %s. \n" + CustomizedMixerHelpMessage, nk, diff))
 		}
 	}
 	return nil

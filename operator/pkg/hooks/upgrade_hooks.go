@@ -20,11 +20,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/ghodss/yaml"
-	"github.com/hashicorp/go-version"
-
-	"istio.io/api/operator/v1alpha1"
-	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
 )
@@ -51,11 +46,11 @@ var (
 )
 
 func RunPreUpgradeHooks(kubeClient manifest.ExecClient, hc *HookCommonParams, dryRun bool) util.Errors {
-	return runUpgradeHooks(preUpgradeHooks, kubeClient, hc, dryRun)
+	return runHooks(preUpgradeHooks, kubeClient, hc, dryRun)
 }
 
 func RunPostUpgradeHooks(kubeClient manifest.ExecClient, hc *HookCommonParams, dryRun bool) util.Errors {
-	return runUpgradeHooks(postUpgradeHooks, kubeClient, hc, dryRun)
+	return runHooks(postUpgradeHooks, kubeClient, hc, dryRun)
 }
 
 func checkInitCrdJobs(kubeClient manifest.ExecClient, params HookCommonParams) util.Errors {

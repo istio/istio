@@ -176,24 +176,20 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 
 	waitForConfirmation(args.skipConfirmation, l)
 
-	// Apply the Istio Control Plane specs reading from inFilename to the cluster
-	manifests, iop, opts, err := genApplyManifests(nil, args.inFilename, args.force, rootArgs.dryRun,
-		rootArgs.verbose, args.kubeConfigPath, args.context, args.wait, upgradeWaitSecWhenApply, l)
-	if err != nil {
-		return fmt.Errorf("failed to generate the manifests. Error: %v", err)
-	}
-
-	err = RunPreUpgradeHooks(kubeClient, rootArgs, args, l)
+	err = runPreUpgradeHooks(kubeClient, rootArgs, args, l)
 	if err != nil && !args.force {
 		return fmt.Errorf("failed in pre-upgrade hooks, error: %v", err)
 	}
 
-	if err := ApplyManifest(manifests, iop, opts, l); err != nil {
-		return fmt.Errorf("failed to apply manifests, error: %v", err)
+	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
+	err = ApplyManifests(nil, args.inFilenames, args.force, rootArgs.dryRun,
+		rootArgs.verbose, args.kubeConfigPath, args.context, args.wait, upgradeWaitSecWhenApply, l)
+	if err != nil {
+		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}
 
 	// Run post-upgrade hooks
-	err = RunPostUpgradeHooks(kubeClient, rootArgs, args, l)
+	err = runPostUpgradeHooks(kubeClient, rootArgs, args, l)
 
 	if err != nil && !args.force {
 		return fmt.Errorf("failed in post-upgrade hooks, error: %v", err)

@@ -9,27 +9,22 @@ import (
 )
 
 // runPreApplyHook prepares and triggers the prerun hook for manifest apply command
-func runPreApplyHook(args *rootArgs, maArgs *manifestApplyArgs, l *Logger) error {
-	// Create a kube client from args.kubeConfigPath and  args.context
-	kubeClient, err := manifest.NewClient(maArgs.kubeConfigPath, maArgs.context)
-	if err != nil {
-		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
-	}
-	hparams, err := generateHookParam(kubeClient, maArgs.inFilename, maArgs.force, l)
+func runPreApplyHook(kubeClient *manifest.Client, inFilenames []string, force bool, dryRun bool, l *Logger) error {
+	hparams, err := generateHookParam(kubeClient, inFilenames, force, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate param for hook: %v", err)
 	}
-	errs := hooks.RunPreManifestApplyHooks(kubeClient, hparams, args.dryRun)
-	if len(errs) != 0 && !maArgs.force {
+	errs := hooks.RunPreManifestApplyHooks(kubeClient, hparams, dryRun)
+	if len(errs) != 0 && !force {
 		return errs.ToError()
 	}
 	return nil
 }
 
-// RunPreUpgradeHooks prepares and triggers the prerun hook for upgrade command
-func RunPreUpgradeHooks(kubeClient *manifest.Client, args *rootArgs, ugArgs *upgradeArgs, l *Logger) error {
+// runPreUpgradeHooks prepares and triggers the prerun hook for upgrade command
+func runPreUpgradeHooks(kubeClient *manifest.Client, args *rootArgs, ugArgs *upgradeArgs, l *Logger) error {
 	// Run pre-upgrade hooks
-	hparams, err := generateHookParam(kubeClient, ugArgs.inFilename, ugArgs.force, l)
+	hparams, err := generateHookParam(kubeClient, ugArgs.inFilenames, ugArgs.force, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate param for hook: %v", err)
 	}
@@ -40,9 +35,9 @@ func RunPreUpgradeHooks(kubeClient *manifest.Client, args *rootArgs, ugArgs *upg
 	return nil
 }
 
-// RunPostUpgradeHooks prepares and triggers the postrun hook for upgrade command
-func RunPostUpgradeHooks(kubeClient *manifest.Client, args *rootArgs, maArgs *upgradeArgs, l *Logger) error {
-	hparams, err := generateHookParam(kubeClient, maArgs.inFilename, maArgs.force, l)
+// runPostUpgradeHooks prepares and triggers the postrun hook for upgrade command
+func runPostUpgradeHooks(kubeClient *manifest.Client, args *rootArgs, maArgs *upgradeArgs, l *Logger) error {
+	hparams, err := generateHookParam(kubeClient, maArgs.inFilenames, maArgs.force, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate param for hook: %v", err)
 	}
@@ -53,15 +48,19 @@ func RunPostUpgradeHooks(kubeClient *manifest.Client, args *rootArgs, maArgs *up
 	return nil
 }
 
-func generateHookParam(kubeClient *manifest.Client, inFilename []string, force bool, l *Logger) (*hooks.HookCommonParams, error) {
+func generateHookParam(kubeClient *manifest.Client, inFilenames []string, force bool, l *Logger) (*hooks.HookCommonParams, error) {
 	// Generate IOPS objects
-	_, targetIOPS, err := genIOPS(inFilename, "", "", "", force, kubeClient.Config, l)
+	_, targetIOPS, err := GenerateConfig(inFilenames, "", force, nil, l)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate IOPS from file %s, error: %s", inFilename, err)
+		return nil, fmt.Errorf("failed to generate IOPS from file %s, error: %s", inFilenames, err)
 	}
 
-	targetTag := targetIOPS.GetTag()
-	targetVersion, err := pkgversion.TagToVersionString(targetTag)
+	targetTag := targetIOPS.Tag
+	targetVersion, err := pkgversion.TagToVersionString(fmt.Sprint(targetTag))
+	if err != nil && !force {
+		return nil, fmt.Errorf("failed to convert the target tag '%s' into a valid version, "+
+			"you can use --force flag to skip the version check if you know the tag is correct", targetTag)
+	}
 
 	istioNamespace := targetIOPS.MeshConfig.RootNamespace
 	currentVersion, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)

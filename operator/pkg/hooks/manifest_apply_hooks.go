@@ -11,7 +11,7 @@ var (
 	preManifestApplyHooks = []hookVersionMapping{
 		{
 			sourceVersionConstraint: ">=1.4",
-			targetVersionConstraint: ">=1.4",
+			targetVersionConstraint: ">=1.5",
 			hooks:                   []hook{checkMixerTelemetry},
 		},
 	}
@@ -22,9 +22,9 @@ var (
 
 
 func RunPreManifestApplyHooks(kubeClient manifest.ExecClient, hc *HookCommonParams, dryRun bool) util.Errors {
-	return runUpgradeHooks(preManifestApplyHooks, kubeClient, hc, dryRun)
+	return runHooks(preManifestApplyHooks, kubeClient, hc, dryRun)
 }
 
 func RunPostManifestApplyHooks(kubeClient manifest.ExecClient, hc *HookCommonParams, dryRun bool) util.Errors {
-	return runUpgradeHooks(postManifestApplyHooks, kubeClient, hc, dryRun)
+	return runHooks(postManifestApplyHooks, kubeClient, hc, dryRun)
 }

@@ -74,6 +74,19 @@ func NewClient(kubeconfig, configContext string) (*Client, error) {
 	return &Client{Config: config, restClient: restClient, dynamicClient: dynamicClient}, nil
 }
 
+// NewClient is the constructor for the client wrapper
+func NewClientFromConfig(config *rest.Config) (*Client, error) {
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic client: %v", err)
+	}
+	return &Client{Config: config, restClient: restClient, dynamicClient: dynamicClient}, nil
+}
+
 // GetIstioVersions gets the version for each Istio component
 func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, error) {
 	pods, err := client.GetPods(namespace, map[string]string{
