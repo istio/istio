@@ -17,13 +17,13 @@ package galley
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1beta1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -37,38 +37,35 @@ func TestWebhook(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			env := ctx.Environment().(*kube.Environment)
 
-			got, err := env.GetValidatingWebhookConfiguration(vwcName)
-			if err != nil {
-				t.Fatalf("error getting initial webhook: %v", err)
-			}
-			if err := verifyValidatingWebhookConfiguration(got); err != nil {
-				t.Fatal(err)
-			}
-
 			// clear the updated fields and verify istiod updates them
-			updated := got.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
-			updated.Webhooks[0].ClientConfig.CABundle = nil
-			updated.Webhooks[0].FailurePolicy = &([]kubeApiAdmission.FailurePolicyType{kubeApiAdmission.Ignore}[0])
 
-			if err := env.UpdateValidatingWebhookConfiguration(updated); err != nil {
-				t.Fatalf("could not clear reconciled fields in config: %v", err)
-			}
-
-			timeout := time.After(30 * time.Second)
-			for {
-				select {
-				case <-timeout:
-					t.Fatal("timed out waiting for istiod to update validatingwebhookconfiguration")
-				default:
-					got, err = env.GetValidatingWebhookConfiguration(vwcName)
-					if err != nil {
-						t.Fatalf("error getting initial webhook: %v", err)
-					}
-					if err := verifyValidatingWebhookConfiguration(got); err == nil {
-						return
-					}
+			retry.UntilSuccessOrFail(t, func() error {
+				got, err := env.GetValidatingWebhookConfiguration(vwcName)
+				if err != nil {
+					return fmt.Errorf("error getting initial webhook: %v", err)
 				}
-			}
+				if err := verifyValidatingWebhookConfiguration(got); err != nil {
+					return err
+				}
+
+				updated := got.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
+				updated.Webhooks[0].ClientConfig.CABundle = nil
+				ignore := kubeApiAdmission.Ignore // can't take the address of a constant
+				updated.Webhooks[0].FailurePolicy = &ignore
+
+				return env.UpdateValidatingWebhookConfiguration(updated)
+			})
+
+			retry.UntilSuccessOrFail(t, func() error {
+				got, err := env.GetValidatingWebhookConfiguration(vwcName)
+				if err != nil {
+					t.Fatalf("error getting initial webhook: %v", err)
+				}
+				if err := verifyValidatingWebhookConfiguration(got); err != nil {
+					return fmt.Errorf("validatingwebhookconfiguration not updated yet: %v", err)
+				}
+				return nil
+			})
 		})
 }
 
