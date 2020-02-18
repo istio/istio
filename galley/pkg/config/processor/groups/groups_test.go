@@ -20,17 +20,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/processor/groups"
-	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestDefault(t *testing.T) {
 	g := NewGomegaWithT(t)
 	actual := groups.IndexFunction("bogus", nil)
 	g.Expect(actual).To(Equal(groups.Default))
-}
-
-func TestSyntheticServiceEntry(t *testing.T) {
-	g := NewGomegaWithT(t)
-	actual := groups.IndexFunction(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String(), nil)
-	g.Expect(actual).To(Equal(groups.SyntheticServiceEntry))
 }

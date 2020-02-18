@@ -15,6 +15,7 @@
 package manifest
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -127,6 +128,31 @@ var (
 	k8sRESTConfig     *rest.Config
 	currentKubeconfig string
 	currentContext    string
+	// TODO: remove whitelist after : https://github.com/kubernetes/kubernetes/issues/66430
+	defaultPilotPruneWhileList = []string{
+		// kubectl apply prune default
+		"core/v1/Pod",
+		"core/v1/ConfigMap",
+		"core/v1/Service",
+		"core/v1/Secret",
+		"core/v1/Endpoints",
+		"core/v1/Namespace",
+		"core/v1/PersistentVolume",
+		"core/v1/PersistentVolumeClaim",
+		"core/v1/ReplicationController",
+		"batch/v1/Job",
+		"batch/v1beta1/CronJob",
+		"extensions/v1beta1/Ingress",
+		"apps/v1/DaemonSet",
+		"apps/v1/Deployment",
+		"apps/v1/ReplicaSet",
+		"apps/v1/StatefulSet",
+		"networking.istio.io/v1alpha3/DestinationRule",
+		"networking.istio.io/v1alpha3/EnvoyFilter",
+	}
+	componentPruneWhiteList = map[name.ComponentName][]string{
+		name.PilotComponentName: defaultPilotPruneWhileList,
+	}
 )
 
 func init() {
@@ -351,6 +377,13 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	// Base components include namespaces and CRDs, pruning them will remove user configs, which makes it hard to roll back.
 	if componentName != name.IstioBaseComponentName && opts.Prune == nil {
 		opts.Prune = pointer.BoolPtr(true)
+		pwl, ok := componentPruneWhiteList[componentName]
+		if ok {
+			for _, pw := range pwl {
+				pwa := []string{"--prune-whitelist", pw}
+				opts.ExtraArgs = append(opts.ExtraArgs, pwa...)
+			}
+		}
 	}
 
 	logAndPrint("- Applying manifest for component %s...", componentName)
@@ -728,14 +761,15 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 		}
 		isReady := namespacesReady(namespaces) && podsReady(pods) && deploymentsReady(deployments)
 		if !isReady {
-			logAndPrint("Waiting for resources ready with timeout of %v", opts.WaitTimeout)
+			logAndPrint("  Waiting for resources to become ready...")
 		}
 		return isReady, nil
 	})
 
 	if errPoll != nil {
-		logAndPrint("Failed to wait for resources ready: %v", errPoll)
-		return fmt.Errorf("failed to wait for resources ready: %s", errPoll)
+		msg := fmt.Sprintf("resources not ready after %v: %v", opts.WaitTimeout, errPoll)
+		logAndPrint(msg)
+		return errors.New(msg)
 	}
 	return nil
 }
@@ -787,7 +821,7 @@ func isPodReady(pod *v1.Pod) bool {
 func deploymentsReady(deployments []deployment) bool {
 	for _, v := range deployments {
 		if v.replicaSets.Status.ReadyReplicas < *v.deployment.Spec.Replicas {
-			logAndPrint("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
+			scope.Infof("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
 			return false
 		}
 	}

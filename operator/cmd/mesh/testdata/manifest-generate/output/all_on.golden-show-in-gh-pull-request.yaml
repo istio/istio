@@ -204,6 +204,12 @@ metadata:
 ---
 
 ---
+# AddonComponents grafana component is disabled.
+
+---
+# AddonComponents kiali component is disabled.
+
+---
 # Resources for AddonComponents prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -588,14 +594,127 @@ spec:
             mountPath: /etc/prometheus
           - mountPath: /etc/istio-certs
             name: istio-certs
+        - name: istio-proxy
+          image: "gcr.io/istio-testing/proxyv2:latest"
+          ports:
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+            - proxy
+            - sidecar
+            - --domain
+            - $(POD_NAMESPACE).svc.cluster.local
+            - --configPath
+            - "/etc/istio/proxy"
+            - --binaryPath
+            - "/usr/local/bin/envoy"
+            - --serviceCluster
+            - "istio-proxy-prometheus"
+            - --drainDuration
+            - "45s"
+            - --parentShutdownDuration
+            - "1m0s"
+            - --discoveryAddress
+            - istio-pilot.istio-system.svc:15012
+            - --proxyLogLevel=warning
+            - --proxyComponentLogLevel=misc:error
+            - --connectTimeout
+            - "10s"
+            - --proxyAdminPort
+            - "15000"
+            - --controlPlaneAuthPolicy
+            - NONE
+            - --dnsRefreshRate
+            - "300s"
+            - --statusPort
+            - "15020"
+            - --trust-domain=cluster.local
+            - --controlPlaneBootstrap=false
+          env:
+            - name: OUTPUT_KEY_CERT_TO_DIRECTORY
+              value: "/etc/istio-certs"
+            - name: JWT_POLICY
+              value: third-party-jwt
+            - name: PILOT_CERT_PROVIDER
+              value: citadel
+            # Temp, pending PR to make it default or based on the istiodAddr env
+            - name: CA_ADDR
+              value: istio-pilot.istio-system.svc:15012
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: ISTIO_META_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ISTIO_META_CONFIG_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ISTIO_META_MESH_ID
+              value: "cluster.local"
+          imagePullPolicy: Always
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          volumeMounts:
+            - mountPath: /etc/istio/citadel-ca-cert
+              name: citadel-ca-cert
+            - mountPath: /etc/istio/proxy
+              name: istio-envoy
+            - mountPath: /var/run/secrets/tokens
+              name: istio-token
+            - mountPath: /etc/istio-certs/
+              name: istio-certs
+
       volumes:
       - name: config-volume
         configMap:
           name: prometheus
       - name: istio-certs
-        secret:
+        emptyDir:
+          medium: Memory
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-token
+        projected:
           defaultMode: 420
-          secretName: istio.default
+          sources:
+            - serviceAccountToken:
+                path: istio-token
+                expirationSeconds: 43200
+                audience: istio-ca
+      - name: citadel-ca-cert
+        configMap:
+          defaultMode: 420
+          name: istio-ca-root-cert
+
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -661,6 +780,9 @@ metadata:
     app: prometheus
     release: istio
 ---
+
+---
+# AddonComponents istio-tracing component is disabled.
 
 # Resources for Base component
 
@@ -2779,6 +2901,8 @@ spec:
                                 - httpCookie
                               - required:
                                 - useSourceIp
+                              - required:
+                                - httpQueryParameterName
                           required:
                           - consistentHash
                         properties:
@@ -2801,6 +2925,10 @@ spec:
                                 type: object
                               httpHeaderName:
                                 description: Hash based on a specific HTTP header.
+                                format: string
+                                type: string
+                              httpQueryParameterName:
+                                description: Hash based on a specific HTTP query parameter.
                                 format: string
                                 type: string
                               minimumRingSize:
@@ -2965,6 +3093,8 @@ spec:
                                       - httpCookie
                                     - required:
                                       - useSourceIp
+                                    - required:
+                                      - httpQueryParameterName
                                 required:
                                 - consistentHash
                               properties:
@@ -2987,6 +3117,11 @@ spec:
                                       type: object
                                     httpHeaderName:
                                       description: Hash based on a specific HTTP header.
+                                      format: string
+                                      type: string
+                                    httpQueryParameterName:
+                                      description: Hash based on a specific HTTP query
+                                        parameter.
                                       format: string
                                       type: string
                                     minimumRingSize:
@@ -3222,6 +3357,8 @@ spec:
                           - httpCookie
                         - required:
                           - useSourceIp
+                        - required:
+                          - httpQueryParameterName
                     required:
                     - consistentHash
                   properties:
@@ -3244,6 +3381,10 @@ spec:
                           type: object
                         httpHeaderName:
                           description: Hash based on a specific HTTP header.
+                          format: string
+                          type: string
+                        httpQueryParameterName:
+                          description: Hash based on a specific HTTP query parameter.
                           format: string
                           type: string
                         minimumRingSize:
@@ -3405,6 +3546,8 @@ spec:
                                 - httpCookie
                               - required:
                                 - useSourceIp
+                              - required:
+                                - httpQueryParameterName
                           required:
                           - consistentHash
                         properties:
@@ -3427,6 +3570,10 @@ spec:
                                 type: object
                               httpHeaderName:
                                 description: Hash based on a specific HTTP header.
+                                format: string
+                                type: string
+                              httpQueryParameterName:
+                                description: Hash based on a specific HTTP query parameter.
                                 format: string
                                 type: string
                               minimumRingSize:
@@ -3588,10 +3735,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -4037,10 +4184,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -4186,10 +4333,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -4258,6 +4405,74 @@ spec:
                     type: object
                 type: object
               type: array
+            inboundTls:
+              properties:
+                caCertificates:
+                  description: REQUIRED if mode is `MUTUAL`.
+                  format: string
+                  type: string
+                cipherSuites:
+                  description: 'Optional: If specified, only support the specified
+                    cipher list.'
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                credentialName:
+                  format: string
+                  type: string
+                httpsRedirect:
+                  type: boolean
+                maxProtocolVersion:
+                  description: 'Optional: Maximum TLS protocol version.'
+                  enum:
+                  - TLS_AUTO
+                  - TLSV1_0
+                  - TLSV1_1
+                  - TLSV1_2
+                  - TLSV1_3
+                  type: string
+                minProtocolVersion:
+                  description: 'Optional: Minimum TLS protocol version.'
+                  enum:
+                  - TLS_AUTO
+                  - TLSV1_0
+                  - TLSV1_1
+                  - TLSV1_2
+                  - TLSV1_3
+                  type: string
+                mode:
+                  enum:
+                  - PASSTHROUGH
+                  - SIMPLE
+                  - MUTUAL
+                  - AUTO_PASSTHROUGH
+                  - ISTIO_MUTUAL
+                  type: string
+                privateKey:
+                  description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                  format: string
+                  type: string
+                serverCertificate:
+                  description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                  format: string
+                  type: string
+                subjectAltNames:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                verifyCertificateHash:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                verifyCertificateSpki:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+              type: object
             ingress:
               items:
                 properties:
@@ -4274,6 +4489,75 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
+                  inboundTls:
+                    description: Overrides Sidecar level `inboundTls` settings.
+                    properties:
+                      caCertificates:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      cipherSuites:
+                        description: 'Optional: If specified, only support the specified
+                          cipher list.'
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        description: 'Optional: Maximum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        description: 'Optional: Minimum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      serverCertificate:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -4292,8 +4576,25 @@ spec:
                 type: object
               type: array
             outboundTrafficPolicy:
-              description: This allows to configure the outbound traffic policy.
+              description: Configuration for the outbound traffic policy.
               properties:
+                egressProxy:
+                  properties:
+                    host:
+                      description: The name of a service from the service registry.
+                      format: string
+                      type: string
+                    port:
+                      description: Specifies the port on the host that is being addressed.
+                      properties:
+                        number:
+                          type: integer
+                      type: object
+                    subset:
+                      description: The name of a subset within the service.
+                      format: string
+                      type: string
+                  type: object
                 mode:
                   enum:
                   - REGISTRY_ONLY
@@ -4313,10 +4614,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -4676,6 +4977,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                         uri:
                           oneOf:
                           - required:
@@ -4786,6 +5092,10 @@ spec:
                           place.
                         format: string
                         type: string
+                      retryRemoteLocalities:
+                        description: Flag to specify whether the retries should retry
+                          to other localities.
+                        type: boolean
                     type: object
                   rewrite:
                     description: Rewrite HTTP URIs and Authority headers.
@@ -4901,6 +5211,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                         sourceSubnet:
                           description: IPv4 or IPv6 ip address of source with optional
                             subnet.
@@ -4974,6 +5289,11 @@ spec:
                             format: string
                             type: string
                           type: object
+                        sourceNamespace:
+                          description: Source namespace constraining the applicability
+                            of a rule to workloads in that namespace.
+                          format: string
+                          type: string
                       type: object
                     type: array
                   route:
@@ -5012,10 +5332,10 @@ spec:
   versions:
   - name: v1alpha3
     served: true
-    storage: false
+    storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 ---
 
 
@@ -6806,9 +7126,6 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
           - name: egressgateway-certs
             mountPath: "/etc/istio/egressgateway-certs"
             readOnly: true
@@ -6826,10 +7143,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      - name: istio-certs
-        secret:
-          secretName: istio.default
-          optional: true
       - name: egressgateway-certs
         secret:
           secretName: "istio-egressgateway-certs"
@@ -7666,9 +7979,6 @@ spec:
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
           - name: ingressgateway-certs
             mountPath: "/etc/istio/ingressgateway-certs"
             readOnly: true
@@ -7688,10 +7998,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-ingressgateway-service-account
-          optional: true
       - name: ingressgateway-certs
         secret:
           secretName: "istio-ingressgateway-certs"
@@ -7904,7 +8210,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-pilot
+    name: istiod
   metrics:
   - type: Resource
     resource:
@@ -8299,7 +8605,7 @@ data:
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istio-pilot.istio-system.svc:15012
+      discoveryAddress: istiod.istio-system.svc:15012
 ---
 
 
@@ -8324,6 +8630,8 @@ spec:
     metadata:
       labels:
         app: pilot
+        # Label used by the 'default' service. For versioned deployments we match with app and version.
+        # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -8390,8 +8698,10 @@ spec:
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "false"
+          - name: INJECTION_WEBHOOK_CONFIG_NAME
+            value: istio-sidecar-injector
           - name: ISTIOD_ADDR
-            value: istio-pilot.istio-system.svc:15012
+            value: istiod.istio-system.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
           resources:
@@ -8564,6 +8874,7 @@ data:
           "useILB": false
         },
         "meshNetworks": {},
+        "mountMtlsCerts": false,
         "mtls": {
           "auto": true,
           "enabled": false
@@ -8850,51 +9161,10 @@ data:
         {{ else -}}
         - "{{ valueOrDefault .DeploymentMeta.Name `istio-proxy` }}.{{ valueOrDefault .DeploymentMeta.Namespace `default` }}"
         {{ end -}}
-        - --drainDuration
-        - "{{ formatDuration .ProxyConfig.DrainDuration }}"
-        - --parentShutdownDuration
-        - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
         - --discoveryAddress
         - "{{ annotation .ObjectMeta `sidecar.istio.io/discoveryAddress` .ProxyConfig.DiscoveryAddress }}"
-      {{- if eq .Values.global.proxy.tracer "lightstep" }}
-        - --lightstepAddress
-        - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
-        - --lightstepAccessToken
-        - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken }}"
-        - --lightstepSecure={{ .ProxyConfig.GetTracing.GetLightstep.GetSecure }}
-        - --lightstepCacertPath
-        - "{{ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}"
-      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
-        - --zipkinAddress
-        - "{{ .ProxyConfig.GetTracing.GetZipkin.GetAddress }}"
-      {{- else if eq .Values.global.proxy.tracer "datadog" }}
-        - --datadogAgentAddress
-        - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
-      {{- end }}
         - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
-        - --connectTimeout
-        - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
-      {{- if .Values.global.proxy.envoyStatsd.enabled }}
-        - --statsdUdpAddress
-        - "{{ .ProxyConfig.StatsdUdpAddress }}"
-      {{- end }}
-      {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-        - --envoyMetricsService
-        - '{{ protoToJSON .ProxyConfig.EnvoyMetricsService }}'
-      {{- end }}
-      {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-        - --envoyAccessLogService
-        - '{{ protoToJSON .ProxyConfig.EnvoyAccessLogService }}'
-      {{- end }}
-        - --proxyAdminPort
-        - "{{ .ProxyConfig.ProxyAdminPort }}"
-        {{ if gt .ProxyConfig.Concurrency 0 -}}
-        - --concurrency
-        - "{{ .ProxyConfig.Concurrency }}"
-        {{ end -}}
-        - --controlPlaneAuthPolicy
-        - NONE
         - --dnsRefreshRate
         - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
       {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
@@ -8947,14 +9217,9 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-      {{- if eq .Values.global.proxy.tracer "datadog" }}
-      {{- if isset .ObjectMeta.Annotations `apm.datadoghq.com/env` }}
-      {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
-        - name: {{ $key }}
-          value: "{{ $value }}"
-      {{- end }}
-      {{- end }}
-      {{- end }}
+        - name: MESH_CONFIG
+          value: |
+                 {{ protoToJSON .MeshConfig }}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -9012,18 +9277,6 @@ data:
         {{- else if .Values.global.trustDomain }}
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.trustDomain }}"
-        {{- end }}
-        {{- if eq .Values.global.proxy.tracer "stackdriver" }}
-        - name: STACKDRIVER_TRACING_ENABLED
-          value: "true"
-        - name: STACKDRIVER_TRACING_DEBUG
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
-        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
-        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
-        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
@@ -9093,15 +9346,19 @@ data:
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
+        # SDS channel between istioagent and Envoy
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
+        {{- if .Values.global.mountMtlsCerts }}
+        # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+        {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
           name: lightstep-certs
@@ -9119,6 +9376,7 @@ data:
         configMap:
           name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
       {{- end }}
+      # SDS channel between istioagent and Envoy
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -9136,6 +9394,8 @@ data:
         configMap:
           name: istio-ca-root-cert
       {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           optional: true
@@ -9144,6 +9404,7 @@ data:
           {{ else -}}
           secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
           {{  end -}}
+      {{- end }}
         {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` }}
         {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) }}
       - name: "{{ $index }}"
@@ -9188,7 +9449,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-        name: istio-pilot
+        name: istiod
         namespace: istio-system
         path: "/inject"
       caBundle: ""
@@ -9269,6 +9530,8 @@ spec:
       targetPort: 15017
   selector:
     app: pilot
+    # Label used by the 'default' service. For versioned deployments we match with app and version.
+    # This avoids default deployment picking the canary
     istio: pilot
 ---
 

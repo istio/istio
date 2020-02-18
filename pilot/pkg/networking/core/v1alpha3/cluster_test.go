@@ -422,7 +422,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	ttl := time.Nanosecond * 100
+	ttl := types.Duration{Nanos: 100}
 	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
@@ -456,7 +456,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	ttl := time.Nanosecond * 100
+	ttl := types.Duration{Nanos: 100}
 	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
@@ -2295,4 +2295,47 @@ func getTLSContext(t *testing.T, c *apiv2.Cluster) *envoy_api_v2_auth.UpstreamTl
 		t.Fatalf("Failed to unmarshall tls context: %v", err)
 	}
 	return tlsContext
+}
+
+func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	cfg := NewConfigGenerator([]plugin.Plugin{})
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	service := &model.Service{
+		Hostname:    host.Name("static.test"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports: []*model.Port{
+			{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution:   model.DNSLB,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+	serviceDiscovery.GetProxyServiceInstancesReturns([]*model.ServiceInstance{}, nil)
+	serviceDiscovery.InstancesByPortReturns([]*model.ServiceInstance{}, nil)
+	proxy.ServiceInstances = []*model.ServiceInstance{}
+
+	configStore := &fakes.IstioConfigStore{}
+	proxy := &model.Proxy{
+		ClusterID: "some-cluster-id",
+		Type:      model.SidecarProxy,
+		DNSDomain: "com",
+		Metadata:  &model.NodeMetadata{},
+	}
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+	proxy.SetSidecarScope(env.PushContext)
+	clusters := cfg.BuildClusters(proxy, env.PushContext)
+
+	// Expect to ignore STRICT_DNS cluster without endpoints.
+	g.Expect(len(clusters)).To(Equal(2))
 }

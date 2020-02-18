@@ -40,6 +40,15 @@ import (
 
 var (
 	cacheLog = log.RegisterScope("cache", "cache debugging", 0)
+
+	// The well-known path for an existing certificate chain file
+	existingCertChainFile = defaultCertChainFilePath
+
+	// The well-known path for an existing key file
+	existingKeyFile = defaultKeyFilePath
+
+	// ExistingRootCertFile is the well-known path for an existing root certificate file
+	ExistingRootCertFile = defaultRootCertFilePath
 )
 
 const (
@@ -74,13 +83,13 @@ const (
 	notifyK8sSecretTimeout = 30 * time.Second
 
 	// The well-known path for an existing certificate chain file
-	existingCertChainFile = "./etc/certs/cert-chain.pem"
+	defaultCertChainFilePath = "./etc/certs/cert-chain.pem"
 
 	// The well-known path for an existing key file
-	existingKeyFile = "./etc/certs/key.pem"
+	defaultKeyFilePath = "./etc/certs/key.pem"
 
-	// ExistingRootCertFile is the well-known path for an existing root certificate file
-	ExistingRootCertFile = "./etc/certs/root-cert.pem"
+	// The well-known path for an existing root certificate file
+	defaultRootCertFilePath = "./etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
@@ -244,8 +253,9 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 				logPrefix, err)
 			return nil, err
 		}
-		// This is not stored - envoy will refresh when the cert is about to expire.
-		cacheLog.Infoa("GenerateSecret from file", resourceName)
+		// TODO(JimmyCYJ): need a file watcher to detect file updates and push new secret to clients.
+		cacheLog.Infoa("GenerateSecret from file ", resourceName)
+		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
 
@@ -819,12 +829,15 @@ func (sc *SecretCache) isTokenExpired() bool {
 // Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
 func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 	providedExchangedToken string, connKey ConnKey, isCSR bool) ([]string, error) {
-	sc.randMutex.Lock()
-	randomizedInitialBackOffInMS := sc.rand.Int63n(sc.configOptions.InitialBackoffInMilliSec)
-	sc.randMutex.Unlock()
-	cacheLog.Debugf("Wait for %d millisec for jitter", randomizedInitialBackOffInMS)
-	// Add a jitter to initial CSR to avoid thundering herd problem.
-	time.Sleep(time.Duration(randomizedInitialBackOffInMS) * time.Millisecond)
+
+	if sc.configOptions.InitialBackoffInMilliSec > 0 {
+		sc.randMutex.Lock()
+		randomizedInitialBackOffInMS := sc.rand.Int63n(sc.configOptions.InitialBackoffInMilliSec)
+		sc.randMutex.Unlock()
+		cacheLog.Debugf("Wait for %d millisec for jitter", randomizedInitialBackOffInMS)
+		// Add a jitter to initial CSR to avoid thundering herd problem.
+		time.Sleep(time.Duration(randomizedInitialBackOffInMS) * time.Millisecond)
+	}
 	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
 
 	// Assign a unique request ID for all the retries.

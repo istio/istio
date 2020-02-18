@@ -135,6 +135,9 @@ var (
 		"the provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
+	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_KEY_CERT_TO_DIRECTORY", "",
+		"The output directory for the key and certificate. If empty, no output of key and certificate.").Get()
+	meshConfig = env.RegisterStringVar("MESH_CONFIG", "", "The mesh configuration").Get()
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -221,7 +224,14 @@ var (
 				tlsClientCertChain, tlsClientKey, tlsClientRootCert,
 			}
 
+			meshConfig, err := getMeshConfig()
+			if err != nil {
+				return err
+			}
 			proxyConfig := mesh.DefaultProxyConfig()
+			if meshConfig.DefaultConfig != nil {
+				proxyConfig = *meshConfig.DefaultConfig
+			}
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
@@ -380,7 +390,7 @@ var (
 			if !nodeAgentSDSEnabled { // Not using citadel agent - this is either Pilot or Istiod.
 
 				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
-				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled, pilotCertProvider, jwtPath)
+				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled, pilotCertProvider, jwtPath, outputKeyCertToDir)
 
 				if sa.JWTPath != "" {
 					// If user injected a JWT token for SDS - use SDS.
@@ -566,6 +576,18 @@ var (
 		},
 	}
 )
+
+func getMeshConfig() (meshconfig.MeshConfig, error) {
+	defaultConfig := mesh.DefaultMeshConfig()
+	if meshConfig != "" {
+		mc, err := mesh.ApplyMeshConfigJSON(meshConfig, defaultConfig)
+		if err != nil || mc == nil {
+			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config: %v", err)
+		}
+		return *mc, nil
+	}
+	return defaultConfig, nil
+}
 
 // dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {

@@ -19,10 +19,10 @@ import (
 
 	"istio.io/pkg/env"
 
-	"istio.io/istio/pkg/config/constants"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/pkg/ctrlz"
 )
@@ -130,40 +130,42 @@ type ValidationOptions struct {
 	ValidationDirectory string
 }
 
-var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
 var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
 var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
 
 var revisionVar = env.RegisterStringVar("REVISION", "", "")
 
+// NewPilotArgs constructs pilotArgs with default values.
+func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
+	p := &PilotArgs{}
+
+	// Apply Default Values.
+	p.applyDefaults()
+
+	// Apply custom initialization functions.
+	for _, fn := range initFuncs {
+		fn(p)
+	}
+
+	// Set the ClusterRegistries namespace based on the selected namespace.
+	if p.Namespace != "" {
+		p.Config.ClusterRegistriesNamespace = p.Namespace
+	} else {
+		p.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
+	}
+
+	return p
+}
+
 // Apply default value to PilotArgs
-func (p *PilotArgs) Default() {
-	// If the namespace isn't set, try looking it up from the environment.
-	if p.Namespace == "" {
-		p.Namespace = podNamespaceVar.Get()
-	}
-	if p.PodName == "" {
-		p.PodName = podNameVar.Get()
-	}
-	if p.ServiceAccountName == "" {
-		p.ServiceAccountName = serviceAccountVar.Get()
-	}
-
-	if p.Revision == "" {
-		p.Revision = revisionVar.Get()
-	}
-
-	if p.KeepaliveOptions == nil {
-		p.KeepaliveOptions = istiokeepalive.DefaultOption()
-	}
-	if p.Config.ClusterRegistriesNamespace == "" {
-		if p.Namespace != "" {
-			p.Config.ClusterRegistriesNamespace = p.Namespace
-		} else {
-			p.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
-		}
-	}
-	if p.BasePort == 0 {
-		p.BasePort = 15000
-	}
+func (p *PilotArgs) applyDefaults() {
+	p.Namespace = PodNamespaceVar.Get()
+	p.PodName = podNameVar.Get()
+	p.ServiceAccountName = serviceAccountVar.Get()
+	p.Revision = revisionVar.Get()
+	p.KeepaliveOptions = istiokeepalive.DefaultOption()
+	p.BasePort = 15000
+	p.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
+	p.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 }

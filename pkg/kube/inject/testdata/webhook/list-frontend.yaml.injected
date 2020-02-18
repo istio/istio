@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -46,22 +46,10 @@ spec:
         - /usr/local/bin/envoy
         - --serviceCluster
         - hello.$(POD_NAMESPACE)
-        - --drainDuration
-        - 45s
-        - --parentShutdownDuration
-        - 1m0s
         - --discoveryAddress
         - istio-pilot:15010
-        - --zipkinAddress
-        - ""
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --connectTimeout
-        - 1s
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
         - --dnsRefreshRate
         - 300s
         - --statusPort
@@ -97,6 +85,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: MESH_CONFIG
+          value: |
+            {}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -153,9 +144,6 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
       initContainers:
       - command:
         - istio-iptables
@@ -212,10 +200,6 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
 status: {}
 
 ---
