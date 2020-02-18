@@ -145,6 +145,14 @@
         "tag_name": "connection_security_policy"
       },
       {
+        "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_code"
+      },
+      {
+        "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_policyid"
+      },
+      {
         "regex": "(cache\\.(.+?)\\.)",
         "tag_name": "cache"
       },
@@ -251,7 +259,7 @@
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "7s",
         "lb_policy": "ROUND_ROBIN",
-
+        
         "tls_context": {
           "common_tls_context": {
             "alpn_protocols": [
@@ -336,7 +344,7 @@
             }
           }
         },
-
+        
         "hosts": [
           {
             "socket_address": {"address": "mypilot", "port_value": 1001}
@@ -365,7 +373,7 @@
         },
         "http2_protocol_options": { }
       }
-
+      
       ,
       {
         "name": "zipkin",
@@ -380,7 +388,7 @@
           }
         ]
       }
-
+      
     ],
     "listeners":[
       {
@@ -430,7 +438,7 @@
       }
     ]
   }
-
+  
   ,
   "tracing": {
     "http": {
@@ -444,8 +452,8 @@
       }
     }
   }
-
-
+  
+  
   ,
   "stats_sinks": [
     {
@@ -457,7 +465,7 @@
       }
     }
   ]
-
+  
   ,
   "cluster_manager": {
     "outlier_detection": {

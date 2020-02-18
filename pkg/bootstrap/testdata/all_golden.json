@@ -121,6 +121,14 @@
         "tag_name": "connection_security_policy"
       },
       {
+        "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_code"
+      },
+      {
+        "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_policyid"
+      },
+      {
         "regex": "(cache\\.(.+?)\\.)",
         "tag_name": "cache"
       },
@@ -228,7 +236,7 @@
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "7s",
         "lb_policy": "ROUND_ROBIN",
-
+        
         "tls_context": {
           "common_tls_context": {
             "alpn_protocols": [
@@ -254,7 +262,7 @@
             }
           }
         },
-
+        
         "hosts": [
           {
             "socket_address": {"address": "mypilot", "port_value": 15011}
@@ -283,7 +291,7 @@
         },
         "http2_protocol_options": { }
       }
-
+      
       ,
       {
         "name": "zipkin",
@@ -313,23 +321,23 @@
             "socket_address": {"address": "metrics-service", "port_value": 15000}
           }
         ],
-        "tls_context":{
-          "common_tls_context":{
-             "alpn_protocols":[
+        "tls_context":{ 
+          "common_tls_context":{ 
+             "alpn_protocols":[ 
                 "h2"
              ],
-             "tls_certificates":[
-                {
-                   "certificate_chain":{
+             "tls_certificates":[ 
+                { 
+                   "certificate_chain":{ 
                       "filename":"/etc/istio/ms/client.pem"
                    },
-                   "private_key":{
+                   "private_key":{ 
                       "filename":"/etc/istio/ms/key.pem"
                    }
                 }
              ],
-             "validation_context":{
-                "trusted_ca":{
+             "validation_context":{ 
+                "trusted_ca":{ 
                    "filename":"/etc/istio/ms/ca.pem"
                 }
              }
@@ -352,7 +360,7 @@
            }
         ]
       }
-
+      
     ],
     "listeners":[
       {
@@ -402,7 +410,7 @@
       }
     ]
   }
-
+  
   ,
   "tracing": {
     "http": {
@@ -416,8 +424,8 @@
       }
     }
   }
-
-
+  
+  
   ,
   "stats_sinks": [
 
@@ -442,7 +450,7 @@
     }
 
   ]
-
+  
   ,
   "cluster_manager": {
     "outlier_detection": {

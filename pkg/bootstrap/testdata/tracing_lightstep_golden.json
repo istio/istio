@@ -121,6 +121,14 @@
         "tag_name": "connection_security_policy"
       },
       {
+        "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_code"
+      },
+      {
+        "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_policyid"
+      },
+      {
         "regex": "(cache\\.(.+?)\\.)",
         "tag_name": "cache"
       },
@@ -227,7 +235,7 @@
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-
+        
         "hosts": [
           {
             "socket_address": {"address": "istio-pilot", "port_value": 15010}
@@ -256,12 +264,12 @@
         },
         "http2_protocol_options": { }
       }
-
+      
       ,
       {
         "name": "lightstep",
         "http2_protocol_options": {},
-
+        
         "tls_context": {
           "common_tls_context": {
             "alpn_protocols": [
@@ -274,7 +282,7 @@
             }
           }
         },
-
+        
         "type": "STRICT_DNS",
         "dns_refresh_rate": "60s",
         "dns_lookup_family": "V4_ONLY",
@@ -286,7 +294,7 @@
           }
         ]
       }
-
+      
     ],
     "listeners":[
       {
@@ -336,7 +344,7 @@
       }
     ]
   }
-
+  
   ,
   "tracing": {
     "http": {
@@ -347,7 +355,7 @@
       }
     }
   }
-
+  
   ,
   "cluster_manager": {
     "outlier_detection": {

@@ -32710,6 +32710,8 @@ spec:
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -32743,6 +32745,8 @@ spec:
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -32776,6 +32780,8 @@ spec:
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -32809,6 +32815,8 @@ spec:
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -32971,6 +32979,8 @@ spec:
       - request_protocol
       - response_code
       - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
       - connection_security_policy
     - name: request_duration_seconds
       instance_name: requestduration.instance.{{ .Release.Namespace }}
@@ -32993,6 +33003,8 @@ spec:
       - request_protocol
       - response_code
       - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
       - connection_security_policy
       buckets:
         explicit_buckets:
@@ -33018,6 +33030,8 @@ spec:
       - request_protocol
       - response_code
       - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
       - connection_security_policy
       buckets:
         exponentialBuckets:
@@ -33045,6 +33059,8 @@ spec:
       - request_protocol
       - response_code
       - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
       - connection_security_policy
       buckets:
         exponentialBuckets:
