@@ -46,7 +46,6 @@ func NewClient(client mcp.ResourceSourceClient, options *Options) *Client {
 	return &Client{
 		Sink:   New(options),
 		client: client,
-
 	}
 }
 
