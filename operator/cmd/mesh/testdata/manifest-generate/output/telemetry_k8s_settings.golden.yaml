@@ -109,6 +109,9 @@ spec:
             cpu: 888m
             memory: 999Mi
         securityContext:
+          capabilities:
+            drop:
+            - ALL
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
