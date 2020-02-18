@@ -130,7 +130,7 @@ func apply(mesh *Mesh, env Environment) error {
 			}
 
 			// skip pairs we've already joined
-			id0, id1 := string(first.clusterName), string(second.clusterName)
+			id0, id1 := first.clusterName, second.clusterName
 			if strings.Compare(id0, id1) > 0 {
 				id1, id0 = id0, id1
 			}

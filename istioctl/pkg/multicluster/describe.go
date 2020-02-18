@@ -48,7 +48,7 @@ func secretStateAndServer(env Environment, srs remoteSecrets, c *Cluster) (remot
 	if !ok {
 		return rsStatusNotFound, ""
 	}
-	key := string(c.clusterName)
+	key := c.clusterName
 	kubeconfig, ok := remoteSecret.Data[key]
 	if !ok {
 		return rsStatusConfigMissing, ""

@@ -472,7 +472,7 @@ users:
 					},
 				},
 				Data: map[string][]byte{
-					string(fakeClusterName): []byte(kubeconfig),
+					fakeClusterName: []byte(kubeconfig),
 				},
 			},
 		},
@@ -602,7 +602,7 @@ users:
 					},
 				},
 				Data: map[string][]byte{
-					string(fakeClusterName): []byte(kubeconfig),
+					fakeClusterName: []byte(kubeconfig),
 				},
 			},
 		},
@@ -628,7 +628,7 @@ users:
 					},
 				},
 				Data: map[string][]byte{
-					string(fakeClusterName): []byte(kubeconfig),
+					fakeClusterName: []byte(kubeconfig),
 				},
 			},
 		},
