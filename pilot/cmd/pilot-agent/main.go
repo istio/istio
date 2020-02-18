@@ -51,9 +51,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/spiffe"
@@ -224,151 +222,27 @@ var (
 				tlsClientCertChain, tlsClientKey, tlsClientRootCert,
 			}
 
-			meshConfig, err := getMeshConfig()
-			if err != nil {
-				return err
-			}
-			proxyConfig := mesh.DefaultProxyConfig()
-			if meshConfig.DefaultConfig != nil {
-				proxyConfig = *meshConfig.DefaultConfig
-			}
-
-			// set all flags
-			proxyConfig.CustomConfigFile = customConfigFile
-			proxyConfig.ProxyBootstrapTemplatePath = templateFile
-			proxyConfig.ConfigPath = configPath
-			proxyConfig.BinaryPath = binaryPath
-			proxyConfig.ServiceCluster = serviceCluster
-			proxyConfig.DrainDuration = types.DurationProto(drainDuration)
-			proxyConfig.ParentShutdownDuration = types.DurationProto(parentShutdownDuration)
-			proxyConfig.DiscoveryAddress = discoveryAddress
-			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
-			proxyConfig.StatsdUdpAddress = statsdUDPAddress
-			if envoyMetricsService != "" {
-				if ms := fromJSON(envoyMetricsService); ms != nil {
-					proxyConfig.EnvoyMetricsService = ms
-					appendTLSCerts(ms)
-				}
-			}
-			if envoyAccessLogService != "" {
-				if rs := fromJSON(envoyAccessLogService); rs != nil {
-					proxyConfig.EnvoyAccessLogService = rs
-					appendTLSCerts(rs)
-				}
-			}
-			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
-			proxyConfig.Concurrency = int32(concurrency)
-
-			var pilotSAN []string
-			controlPlaneAuthEnabled := false
-			ns := ""
-			switch controlPlaneAuthPolicy {
-			case meshconfig.AuthenticationPolicy_NONE.String():
-				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
-			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
-				controlPlaneAuthEnabled = true
-				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-				if registryID == serviceregistry.Kubernetes {
-					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
-					discoveryHostname := partDiscoveryAddress[0]
-					parts := strings.Split(discoveryHostname, ".")
-					if len(parts) == 1 {
-						// namespace of pilot is not part of discovery address use
-						// pod namespace e.g. istio-pilot:15005
-						ns = podNamespace
-					} else if len(parts) == 2 {
-						// namespace is found in the discovery address
-						// e.g. istio-pilot.istio-system:15005
-						ns = parts[1]
-					} else {
-						// discovery address is a remote address. For remote clusters
-						// only support the default config, or env variable
-						ns = istioNamespaceVar.Get()
-						if ns == "" {
-							ns = constants.IstioSystemNamespace
-						}
-					}
-				}
-			}
 
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			setSpiffeTrustDomain(podNamespace, role.DNSDomain)
 
 			// Obtain the Pilot and Mixer SANs. Used below to create a Envoy proxy.
-			pilotSAN = getSAN(ns, envoyDiscovery.PilotSvcAccName, pilotIdentity)
+			pilotSAN := getSAN(getControlPlaneNamespace(podNamespace), envoyDiscovery.PilotSvcAccName, pilotIdentity)
 			log.Infof("PilotSAN %#v", pilotSAN)
-			mixerSAN := getSAN(ns, envoyDiscovery.MixerSvcAccName, mixerIdentity)
+			mixerSAN := getSAN(getControlPlaneNamespace(podNamespace), envoyDiscovery.MixerSvcAccName, mixerIdentity)
 			log.Infof("MixerSAN %#v", mixerSAN)
 
-			// resolve statsd address
-			if proxyConfig.StatsdUdpAddress != "" {
-				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
-				if err != nil {
-					// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
-					// (instead of crashing). Mixer is optional.
-					log.Warnf("resolve StatsdUdpAddress failed: %v", err)
-					proxyConfig.StatsdUdpAddress = ""
-				} else {
-					proxyConfig.StatsdUdpAddress = addr
-				}
+			proxyConfig, err := constructProxyConfig()
+			if err != nil {
+				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
-
-			// set tracing config
-			if lightstepAddress != "" {
-				proxyConfig.Tracing = &meshconfig.Tracing{
-					Tracer: &meshconfig.Tracing_Lightstep_{
-						Lightstep: &meshconfig.Tracing_Lightstep{
-							Address:     lightstepAddress,
-							AccessToken: lightstepAccessToken,
-							Secure:      lightstepSecure,
-							CacertPath:  lightstepCacertPath,
-						},
-					},
-				}
-			} else if zipkinAddress != "" {
-				proxyConfig.Tracing = &meshconfig.Tracing{
-					Tracer: &meshconfig.Tracing_Zipkin_{
-						Zipkin: &meshconfig.Tracing_Zipkin{
-							Address: zipkinAddress,
-						},
-					},
-				}
-			} else if datadogAgentAddress != "" {
-				proxyConfig.Tracing = &meshconfig.Tracing{
-					Tracer: &meshconfig.Tracing_Datadog_{
-						Datadog: &meshconfig.Tracing_Datadog{
-							Address: datadogAgentAddress,
-						},
-					},
-				}
-			} else if stackdriverTracingEnabled.Get() {
-				proxyConfig.Tracing = &meshconfig.Tracing{
-					Tracer: &meshconfig.Tracing_Stackdriver_{
-						Stackdriver: &meshconfig.Tracing_Stackdriver{
-							Debug: stackdriverTracingDebug.Get(),
-							MaxNumberOfAnnotations: &types.Int64Value{
-								Value: int64(stackdriverTracingMaxNumberOfAnnotations.Get()),
-							},
-							MaxNumberOfAttributes: &types.Int64Value{
-								Value: int64(stackdriverTracingMaxNumberOfAttributes.Get()),
-							},
-							MaxNumberOfMessageEvents: &types.Int64Value{
-								Value: int64(stackdriverTracingMaxNumberOfMessageEvents.Get()),
-							},
-						},
-					},
-				}
-			}
-
-			if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
-				return err
-			}
-
 			if out, err := gogoprotomarshal.ToYAML(&proxyConfig); err != nil {
 				log.Infof("Failed to serialize to YAML: %v", err)
 			} else {
 				log.Infof("Effective config: %s", out)
 			}
+
+			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 			// Legacy - so pilot-agent can be used with citadel node agent.
 			// Main will be replaced by istio-agent when we clean up - this code can stay here and be removed with the rest.
@@ -535,8 +409,6 @@ var (
 				}
 				defer stsServer.Stop()
 			}
-
-			log.Infof("PilotSAN %#v", pilotSAN)
 
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
