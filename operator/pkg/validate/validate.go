@@ -16,7 +16,9 @@ package validate
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
+	"strings"
 
 	"github.com/ghodss/yaml"
 
@@ -24,6 +26,7 @@ import (
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
@@ -35,8 +38,9 @@ var (
 			return CheckValues(i)
 		},
 		"MeshConfig":                         validateMeshConfig,
-		"Hub":                                validateHub,
-		"Tag":                                validateTag,
+		"Hub":                                Hub,
+		"Tag":                                Tag,
+		"InstallPackagePath":                 InstallPackagePath,
 		"AddonComponents":                    validateAddonComponents,
 		"Components.IngressGateways[*].Name": validateGatewayName,
 		"Components.EgressGateways[*].Name":  validateGatewayName,
@@ -178,12 +182,30 @@ func validateMeshConfig(path util.Path, root interface{}) util.Errors {
 	return nil
 }
 
-func validateHub(path util.Path, val interface{}) util.Errors {
+func Hub(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, ReferenceRegexp)
 }
 
-func validateTag(path util.Path, val interface{}) util.Errors {
+func Tag(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, TagRegexp)
+}
+
+func InstallPackagePath(path util.Path, val interface{}) util.Errors {
+	valStr, ok := val.(string)
+	if !ok {
+		return util.NewErrs(fmt.Errorf("validateInstallPackagePath(%s) bad type %T, want string", path, val))
+	}
+
+	if valStr == "" {
+		// compiled-in charts
+		return nil
+	}
+
+	if _, err := url.ParseRequestURI(val.(string)); err != nil {
+		return util.NewErrs(fmt.Errorf("invalid value %s: %s", path, valStr))
+	}
+
+	return nil
 }
 
 func validateAddonComponents(path util.Path, val interface{}) util.Errors {
@@ -212,4 +234,24 @@ func validateGatewayName(path util.Path, val interface{}) util.Errors {
 		return nil
 	}
 	return validateWithRegex(path, val, ObjectNameRegexp)
+}
+
+// CheckNamespaceName validates namespace name
+func CheckNamespaceName(name string, prefix bool) bool {
+	if prefix {
+		name = maskTrailingDash(name)
+	}
+	return labels.IsDNS1123Label(name)
+}
+
+// CheckRevision validates revision flag
+var CheckRevision = CheckNamespaceName
+
+// maskTrailingDash replaces the final character of a string with a subdomain safe
+// value if is a dash.
+func maskTrailingDash(name string) string {
+	if strings.HasSuffix(name, "-") {
+		return name[:len(name)-2] + "a"
+	}
+	return name
 }

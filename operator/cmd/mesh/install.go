@@ -135,6 +135,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 func InstallManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
 	kubeConfigPath string, context string, waitTimeout time.Duration, l clog.Logger) error {
 
+	if err := ValidateSetFlags(setOverlay); len(err) != 0 {
+		return err
+	}
+
 	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
 	if err != nil {
 		return err

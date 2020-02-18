@@ -5162,3 +5162,63 @@ func Test_validateExportTo(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateDNSRefreshRate(t *testing.T) {
+	type durationCheck struct {
+		duration *types.Duration
+		isValid  bool
+	}
+
+	checks := []durationCheck{
+		{
+			duration: &types.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &types.Duration{Nanos: 99999},
+			isValid:  false,
+		},
+		{
+			duration: &types.Duration{Nanos: 0},
+			isValid:  false,
+		},
+		{
+			duration: &types.Duration{Seconds: 0},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateDNSRefreshRate(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
+		}
+	}
+}
+
+func TestReportBatchMaxEntries(t *testing.T) {
+	type maxEntriesCheck struct {
+		maxEntries string
+		isValid    bool
+	}
+
+	checks := []maxEntriesCheck{
+		{
+			maxEntries: "100",
+			isValid:    true,
+		},
+		{
+			maxEntries: "ten",
+			isValid:    false,
+		},
+		{
+			maxEntries: "0",
+			isValid:    true,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateReportBatchMaxEntries(check.maxEntries); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.maxEntries)
+		}
+	}
+}
