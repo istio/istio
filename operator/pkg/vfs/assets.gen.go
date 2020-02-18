@@ -10055,8 +10055,6 @@ spec:
           - --enableAnalysis=true
   {{- end }}
           - --deployment-namespace={{ .Release.Namespace }}
-          - --validation-webhook-config-file
-          - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort=15014
           - --validation-port=9443
 {{- if $.Values.global.logging.level }}
@@ -10070,9 +10068,6 @@ spec:
               drop:
               - ALL
           volumeMounts:
-          - name: config
-            mountPath: /etc/config
-            readOnly: true
           - name: mesh-config
             mountPath: /etc/mesh-config
             readOnly: true
@@ -10164,9 +10159,6 @@ spec:
         configMap:
           name: galley-envoy-config
   {{- end }}
-      - name: config
-        configMap:
-          name: istio-galley-configuration
       # Different config map from pilot, to allow independent config and rollout.
       # Both are derived from values.yaml.
       - name: mesh-config

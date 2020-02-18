@@ -7618,8 +7618,6 @@ spec:
         - --enable-reconcileWebhookConfiguration=false
         - --enable-server=true
         - --deployment-namespace=istio-system
-        - --validation-webhook-config-file
-        - /etc/config/validatingwebhookconfiguration.yaml
         - --monitoringPort=15014
         - --validation-port=9443
         - --log_output_level=default:info
@@ -7659,9 +7657,6 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
-        - mountPath: /etc/config
-          name: config
-          readOnly: true
         - mountPath: /etc/mesh-config
           name: mesh-config
           readOnly: true
@@ -7714,9 +7709,6 @@ spec:
       - configMap:
           name: galley-envoy-config
         name: envoy-config
-      - configMap:
-          name: istio-galley-configuration
-        name: config
       - configMap:
           name: istio-mesh-galley
         name: mesh-config
