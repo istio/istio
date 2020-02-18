@@ -209,6 +209,10 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		}
 	}
 
+	// Allow authorization with a previously issued certificate, for VMs
+	// Will return a caller with identities extracted from the SAN, should be a spifee identity.
+	caServer.Authenticators = append(caServer.Authenticators, &authenticate.ClientCertAuthenticator{})
+
 	if serverErr := caServer.Run(); serverErr != nil {
 		// stop the registry-related controllers
 		ch <- struct{}{}
