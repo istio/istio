@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"istio.io/istio/operator/version"
+
 	"istio.io/istio/operator/pkg/translate"
 
 	"k8s.io/client-go/discovery"
@@ -126,13 +128,11 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 	if err != nil {
 		return "", nil, err
 	}
-	if util.IsHTTPURL(installPackagePath) {
-		installPackagePath, err := fetchExtractInstallPackageHTTP(installPackagePath)
-		if err != nil {
-			return "", nil, err
-		}
-		// Transform a profileOrPath like "default" or "demo" into a filesystem path like /tmp/istio/1.5.1/install/kubernetes/operator/profiles/default.yaml.
-		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
+
+	// If installPackagePath is a URL, fetch and extract it and continue with the local filesystem path instead.
+	installPackagePath, profileOrPath, err = rewriteURLToLocalInstallPath(installPackagePath, profileOrPath, skipValidation)
+	if err != nil {
+		return "", nil, err
 	}
 
 	// To generate the base profileOrPath for overlaying with user values, we need the installPackagePath where the profiles
@@ -183,7 +183,39 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 	if err != nil {
 		return "", nil, err
 	}
-	return outYAML, finalIOPS, nil
+	// InstallPackagePath may have been a URL, change to extracted to local file path.
+	finalIOPS.InstallPackagePath = installPackagePath
+	return util.ToYAMLWithJSONPB(finalIOPS), finalIOPS, nil
+}
+
+// rewriteURLToLocalInstallPath checks installPackagePath and if it is a URL, it tries to download and extract the
+// Istio release tar at the URL to a local file path. If successful, it returns the resulting local paths to the
+// installation charts and profile file.
+// If installPackagePath is not a URL, it returns installPackagePath and profileOrPath unmodified.
+func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skipValidation bool) (string, string, error) {
+	var err error
+	if util.IsHTTPURL(installPackagePath) {
+		if !skipValidation {
+			_, ver, err := helm.URLToDirname(installPackagePath)
+			if err != nil {
+				return "", "", err
+			}
+			if ver.Minor != version.OperatorBinaryVersion.Minor {
+				return "", "", fmt.Errorf("chart minor version %s doesn't match istioctl version %s, use --force to override", ver, version.OperatorCodeBaseVersion)
+			}
+		}
+
+		installPackagePath, err = fetchExtractInstallPackageHTTP(installPackagePath)
+		if err != nil {
+			return "", "", err
+		}
+		// Transform a profileOrPath like "default" or "demo" into a filesystem path like /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml.
+		profileOrPath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "profiles", profileOrPath+".yaml")
+		// Rewrite installPackagePath to the local file path for further processing.
+		installPackagePath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "charts")
+	}
+
+	return installPackagePath, profileOrPath, nil
 }
 
 // getProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
