@@ -29,6 +29,7 @@ data:
     external_services:
       tracing:
         url: {{ .Values.dashboard.jaegerURL }}
+        in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
       grafana:
         url: {{ .Values.dashboard.grafanaURL }}
       prometheus:
