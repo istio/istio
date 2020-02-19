@@ -464,17 +464,16 @@ func getMeshConfig() (meshconfig.MeshConfig, error) {
 		}
 		return *mc, nil
 	}
-	if b, err := ioutil.ReadFile(meshConfigFile); err == nil {
-		mc, err := mesh.ApplyMeshConfig(string(b), defaultConfig)
-		if err != nil || mc == nil {
-			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config: %v", err)
-		}
-		return *mc, nil
-	} else {
-		log.Warnf("Failed to read mesh config file from %v or MESH_CONFIG. Falling back to defaults: %v", err)
+	b, err := ioutil.ReadFile(meshConfigFile)
+	if err != nil {
+		log.Warnf("Failed to read mesh config file from %v or MESH_CONFIG. Falling back to defaults: %v", meshConfigFile, err)
+		return defaultConfig, nil
 	}
-
-	return defaultConfig, nil
+	mc, err := mesh.ApplyMeshConfig(string(b), defaultConfig)
+	if err != nil || mc == nil {
+		return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config: %v", err)
+	}
+	return *mc, nil
 }
 
 // dedupes the string array and also ignores the empty string.
