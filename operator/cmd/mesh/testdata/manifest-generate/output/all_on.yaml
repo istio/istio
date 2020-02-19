@@ -7502,6 +7502,9 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
+        - mountPath: /etc/config
+          name: config
+          readOnly: true
         - mountPath: /etc/mesh-config
           name: mesh-config
           readOnly: true
@@ -7560,6 +7563,9 @@ spec:
       - configMap:
           name: galley-envoy-config
         name: envoy-config
+      - emptyDir:
+          medium: Memory
+        name: config
       - configMap:
           name: istio-mesh-galley
         name: mesh-config
