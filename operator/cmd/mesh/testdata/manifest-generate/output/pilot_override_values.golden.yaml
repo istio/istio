@@ -121,9 +121,6 @@ spec:
           - name: istiod
             mountPath: /var/lib/istio/local
             readOnly: true
-          - name: validation
-            mountPath: /var/lib/istio/validation
-            readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -150,10 +147,6 @@ spec:
       - name: inject
         configMap:
           name: istio-sidecar-injector
-          optional: true
-      - name: validation
-        configMap:
-          name: istio-validation
           optional: true
       - name: config-volume
         configMap:

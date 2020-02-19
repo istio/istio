@@ -106,9 +106,6 @@ func init() {
 		p.InjectionOptions = bootstrap.InjectionOptions{
 			InjectionDirectory: "./var/lib/istio/inject",
 		}
-		p.ValidationOptions = bootstrap.ValidationOptions{
-			ValidationDirectory: "./var/lib/istio/validation",
-		}
 	})
 
 	// Process commandline args.

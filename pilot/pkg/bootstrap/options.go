@@ -68,7 +68,6 @@ type ServiceArgs struct {
 type PilotArgs struct {
 	DiscoveryOptions         DiscoveryServiceOptions
 	InjectionOptions         InjectionOptions
-	ValidationOptions        ValidationOptions
 	PodName                  string
 	Namespace                string
 	Revision                 string
@@ -123,11 +122,6 @@ type DiscoveryServiceOptions struct {
 type InjectionOptions struct {
 	// Directory of injection related config files.
 	InjectionDirectory string
-}
-
-type ValidationOptions struct {
-	// Directory of config validation related config files.
-	ValidationDirectory string
 }
 
 var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")

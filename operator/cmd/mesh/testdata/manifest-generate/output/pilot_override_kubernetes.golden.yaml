@@ -147,9 +147,6 @@ spec:
         - mountPath: /var/lib/istio/local
           name: istiod
           readOnly: true
-        - mountPath: /var/lib/istio/validation
-          name: validation
-          readOnly: true
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -176,10 +173,6 @@ spec:
           name: istio-sidecar-injector
           optional: true
         name: inject
-      - configMap:
-          name: istio-validation
-          optional: true
-        name: validation
       - configMap:
           name: istio
         name: config-volume

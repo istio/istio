@@ -15,7 +15,6 @@
 package bootstrap
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -24,7 +23,6 @@ import (
 
 	"istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/webhooks/validation/controller"
@@ -39,9 +37,6 @@ var (
 
 	validationWebhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_CONFIG_NAME", validationWebhookConfigNameTemplate,
 		"Name of validatingwegbhookconfiguration to patch, if istioctl is not used.")
-
-	deferToDeploymentName = env.RegisterStringVar("DEFER_VALIDATION_TO_DEPLOYMENT", "",
-		"When set, the controller defers reconciling the validatingwebhookconfiguration to the named deployment.")
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
@@ -68,50 +63,27 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return nil
 	})
 
-	if args.ValidationOptions.ValidationDirectory == "" {
-		log.Infof("Webhook validation config file not found. " +
-			"Not starting the webhook validation config controller. " +
-			"Use istioctl or the operator to manage the config lifecycle")
-		return nil
-	}
-	configValidationPath := filepath.Join(args.ValidationOptions.ValidationDirectory, "config")
-	// If the validation path exists, we will set up the config controller
-	if _, err := os.Stat(configValidationPath); os.IsNotExist(err) {
-		log.Infof("Skipping config validation controller, config not found")
-		return nil
-	}
+	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" {
+		client, err := kube.CreateClientset(args.Config.KubeConfig, "")
+		if err != nil {
+			return err
+		}
 
-	client, err := kube.CreateClientset(args.Config.KubeConfig, "")
-	if err != nil {
-		return err
-	}
+		if webhookConfigName == validationWebhookConfigNameTemplate {
+			webhookConfigName = strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, args.Namespace)
+		}
 
-	webhookConfigName := validationWebhookConfigName.Get()
-	if webhookConfigName == validationWebhookConfigNameTemplate {
-		webhookConfigName = strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, args.Namespace)
-	}
+		o := controller.Options{
+			WatchedNamespace:  args.Namespace,
+			CAPath:            s.caBundlePath,
+			WebhookConfigName: webhookConfigName,
+			ServiceName:       "istiod",
+		}
+		whController, err := controller.New(o, client)
+		if err != nil {
+			return err
+		}
 
-	deferTo := deferToDeploymentName.Get()
-	if deferTo != "" && !labels.IsDNS1123Label(deferTo) {
-		log.Warnf("DEFER_VALIDATION_TO_DEPLOYMENT=%v must be a valid DNS1123 label", deferTo)
-		deferTo = ""
-	}
-
-	o := controller.Options{
-		WatchedNamespace:      args.Namespace,
-		CAPath:                s.caBundlePath,
-		WebhookConfigName:     webhookConfigName,
-		WebhookConfigPath:     configValidationPath,
-		ServiceName:           "istiod",
-		ClusterRoleName:       "istiod-" + args.Namespace,
-		DeferToDeploymentName: deferTo,
-	}
-	whController, err := controller.New(o, client)
-	if err != nil {
-		return err
-	}
-
-	if validationWebhookConfigName.Get() != "" {
 		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
 			log.Infof("Starting validation controller")
 			whController.Start(stop)
