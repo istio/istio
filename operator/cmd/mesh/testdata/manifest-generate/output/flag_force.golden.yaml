@@ -22,7 +22,7 @@ unknown field "badKey" in v1alpha1.GlobalConfig
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot
+  name: istiod
   namespace: istio-system
   labels:
     app: istiod
@@ -99,7 +99,7 @@ kind: ClusterRole
 metadata:
   name: istio-pilot-istio-system
   labels:
-    app: istiod
+    app: pilot
     release: istio
 rules:
 - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -238,7 +238,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-pilot-istio-system
   labels:
-    app: istiod
+    app: pilot
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -246,7 +246,7 @@ roleRef:
   name: istio-pilot-istio-system
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-system
 ---
 
@@ -254,7 +254,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-pilot-istio-system
+  name: istiod-istio-system
   labels:
     app: istiod
     release: istio
@@ -264,7 +264,7 @@ roleRef:
   name: istiod-istio-system
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-system
 ---
 
@@ -438,7 +438,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       securityContext:
         fsGroup: 1337
       containers:
@@ -1274,7 +1274,7 @@ webhooks:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot
+  name: istiod-
   namespace: istio-system
   labels:
     app: istiod
@@ -1296,7 +1296,7 @@ metadata:
   name: istio-pilot
   namespace: istio-system
   labels:
-    app: istiod
+    app: pilot
     release: istio
     istio: pilot
 spec:
@@ -1345,7 +1345,7 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-pilot-service-account
+  name: istiod-service-account
   namespace: istio-system
   labels:
     app: istiod

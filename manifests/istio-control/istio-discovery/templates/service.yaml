@@ -6,7 +6,7 @@ metadata:
   name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istiod
+    app: pilot
     release: {{ .Release.Name }}
     istio: pilot
 spec:

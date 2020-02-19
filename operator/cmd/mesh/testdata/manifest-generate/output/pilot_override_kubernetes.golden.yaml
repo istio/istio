@@ -152,7 +152,7 @@ spec:
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -190,7 +190,7 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: istiod
+    app: pilot
     istio: pilot
     release: istio
   name: istio-pilot

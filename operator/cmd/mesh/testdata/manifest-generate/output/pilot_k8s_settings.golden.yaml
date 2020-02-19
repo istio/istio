@@ -20,23 +20,23 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
+  name: istiod
+  namespace: istio-control
   labels:
     app: istiod
     release: istio
-  name: istio-pilot
-  namespace: istio-control
 spec:
-  maxReplicas: 333
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 444
-    type: Resource
-  minReplicas: 222
+  maxReplicas: 5
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-pilot
+    name: istiod
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
 ---
 
 
@@ -97,7 +97,7 @@ kind: ClusterRole
 metadata:
   name: istio-pilot-istio-control
   labels:
-    app: istiod
+    app: pilot
     release: istio
 rules:
 - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -236,7 +236,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-pilot-istio-control
   labels:
-    app: istiod
+    app: pilot
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -244,7 +244,7 @@ roleRef:
   name: istio-pilot-istio-control
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-control
 ---
 
@@ -252,7 +252,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-pilot-istio-control
+  name: istiod-istio-control
   labels:
     app: istiod
     release: istio
@@ -262,7 +262,7 @@ roleRef:
   name: istiod-istio-control
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-control
 ---
 
@@ -436,7 +436,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       securityContext:
         fsGroup: 1337
       containers:
@@ -1270,7 +1270,7 @@ webhooks:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot
+  name: istiod-
   namespace: istio-control
   labels:
     app: istiod
@@ -1292,7 +1292,7 @@ metadata:
   name: istio-pilot
   namespace: istio-control
   labels:
-    app: istiod
+    app: pilot
     release: istio
     istio: pilot
 spec:
@@ -1341,7 +1341,7 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-pilot-service-account
+  name: istiod-service-account
   namespace: istio-control
   labels:
     app: istiod
