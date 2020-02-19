@@ -16794,17 +16794,17 @@ var _chartsIstioControlIstioDiscoveryFilesGenIstioYaml = []byte(`---
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot
+  name: istiod-
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio-base
     istio: pilot
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: pilot
+      app: istiod
       release: istio-base
       istio: pilot
 ---
@@ -17727,7 +17727,7 @@ spec:
       name: https-webhook # validation and injection
       targetPort: 15017
   selector:
-    app: pilot
+    app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
     istio: pilot
@@ -17742,7 +17742,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: istio-base
 spec:
@@ -17756,7 +17756,7 @@ spec:
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
@@ -17839,6 +17839,9 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -17855,9 +17858,6 @@ spec:
             readOnly: true
           - name: istiod
             mountPath: /var/lib/istio/local
-            readOnly: true
-          - name: validation
-            mountPath: /var/lib/istio/validation
             readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
@@ -17885,10 +17885,6 @@ spec:
       - name: inject
         configMap:
           name: istio-sidecar-injector
-          optional: true
-      - name: validation
-        configMap:
-          name: istio-validation
           optional: true
       - name: config-volume
         configMap:
@@ -17934,10 +17930,10 @@ spec:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot
+  name: istiod
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio-base
 spec:
   maxReplicas: 5
@@ -18021,12 +18017,44 @@ webhooks:
 
 
 ---
-# Source: istio-discovery/templates/validation-template.yaml.tpl
-
-
+# Source: istio-discovery/templates/validatingwebhookconfiguration.yaml
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-istio-system
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio-base
+    istio: istiod
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/validate"
+      caBundle: "" # patched at runtime when the webhook is ready.
+    rules:
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
+        - config.istio.io
+        - rbac.istio.io
+        - security.istio.io
+        - authentication.istio.io
+        - networking.istio.io
+        apiVersions:
+        - "*"
+        resources:
+        - "*"
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `+"`"+`Fail`+"`"+` and patch in the `+"`"+`caBundle`+"`"+` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    sideEffects: None
 ---
-# Source: istio-discovery/templates/validatingwebhookconfiguration-noop.yaml
-
 
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
@@ -18038,6 +18066,7 @@ metadata:
     release: istio-base
     istio: galley
 webhooks:
+---
 
 `)
 
