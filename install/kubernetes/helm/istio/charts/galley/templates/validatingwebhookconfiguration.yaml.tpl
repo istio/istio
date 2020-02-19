@@ -1,3 +1,8 @@
+{{/*
+   This version of the validatingwebhookconfiguration is applied indirectly
+   by galley. This exists to support a smoother upgrade path from istio
+   Rversions < 1.4
+*/}}
 {{ define "validatingwebhookconfiguration.yaml.tpl" }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration

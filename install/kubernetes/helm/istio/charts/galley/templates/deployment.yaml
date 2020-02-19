@@ -76,8 +76,6 @@ spec:
 {{- else }}
           - --enable-reconcileWebhookConfiguration=true
 {{- end }}
-          - --validation-webhook-config-file
-          - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
@@ -99,9 +97,6 @@ spec:
             mountPath: /etc/dnscerts
             readOnly: true
 {{- end }}
-          - name: config
-            mountPath: /etc/config
-            readOnly: true
           - name: mesh-config
             mountPath: /etc/mesh-config
             readOnly: true
@@ -138,9 +133,6 @@ spec:
         secret:
           secretName: dns.istio-galley-service-account
 {{- end }}
-      - name: config
-        configMap:
-          name: istio-galley-configuration
       - name: mesh-config
         configMap:
           name: istio

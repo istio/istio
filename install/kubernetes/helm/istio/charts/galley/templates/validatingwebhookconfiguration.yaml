@@ -1,3 +1,7 @@
+{{/*
+   This version of the validatingwebhookconfiguration is applied directly by
+   helm. Galley only patches the caBundle and failurePolicy.
+*/}}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
