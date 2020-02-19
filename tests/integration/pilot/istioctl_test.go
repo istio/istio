@@ -218,3 +218,163 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
 		})
 }
+
+func TestAddToAndRemoveFromMesh2(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		RunParallel(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-add-to-mesh",
+				Inject: true,
+			})
+
+			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
+			g.ApplyConfigOrFail(t, ns, deployment)
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			// able to remove from mesh when the deployment is auto injected
+			time.Sleep(time.Second)
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "remove-from-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
+
+			// remove from mesh should be clean
+			// users can add it back to mesh successfully
+			time.Sleep(time.Second)
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "add-to-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
+		})
+}
+
+func TestAddToAndRemoveFromMesh3(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		RunParallel(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-add-to-mesh",
+				Inject: true,
+			})
+
+			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
+			g.ApplyConfigOrFail(t, ns, deployment)
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			// able to remove from mesh when the deployment is auto injected
+			time.Sleep(time.Second)
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "remove-from-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
+
+			// remove from mesh should be clean
+			// users can add it back to mesh successfully
+			time.Sleep(time.Second)
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "add-to-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
+		})
+}
+
+func TestAddToAndRemoveFromMesh4(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		RunParallel(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-add-to-mesh",
+				Inject: true,
+			})
+
+			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
+			g.ApplyConfigOrFail(t, ns, deployment)
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			// able to remove from mesh when the deployment is auto injected
+			time.Sleep(time.Second)
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "remove-from-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
+
+			// remove from mesh should be clean
+			// users can add it back to mesh successfully
+			time.Sleep(time.Second)
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "add-to-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
+		})
+}
+
+func TestAddToAndRemoveFromMesh5(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		RunParallel(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-add-to-mesh",
+				Inject: true,
+			})
+
+			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
+			g.ApplyConfigOrFail(t, ns, deployment)
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			// able to remove from mesh when the deployment is auto injected
+			time.Sleep(time.Second)
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "remove-from-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
+
+			// remove from mesh should be clean
+			// users can add it back to mesh successfully
+			time.Sleep(time.Second)
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "add-to-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
+		})
+}
