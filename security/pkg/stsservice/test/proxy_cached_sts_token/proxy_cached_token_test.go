@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package renewststoken
+package proxycachedststoken
 
 import (
 	"testing"
@@ -24,24 +24,22 @@ import (
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
 
-// TestRenewToken verifies when proxy reconnect XDS server and sends token over
-// the new stream, if the original token is expired, gRPC library will call
-// STS server and returns new token to proxy.
-func TestRenewToken(t *testing.T) {
+// TestProxyCachedToken verifies when proxy reconnects XDS server and sends token
+// over the stream, if the original token is not expired, gRPC library does not
+// call STS server to fetch a new token and provides a cached token to proxy.
+func TestProxyCachedToken(t *testing.T) {
 	// Enable this test when gRPC fix is picked by Istio Proxy
 	// https://github.com/grpc/grpc/pull/21641
 	t.Skip("https://github.com/istio/istio/issues/20133")
 	// Sets up callback that verifies token on new XDS stream.
 	cb := xdsService.CreateXdsCallback(t)
-	tokenLifeTimeInSec := 2
-	numCloseStream := 2
-	// Let the XDS streams last longer than token lifetime, so every new
-	// stream should present a new token.
-	cb.SetNumberOfStreamClose(numCloseStream, tokenLifeTimeInSec+1)
+	numCloseStream := 3
+	// Force XDS server to close streams 3 times and keep the 4th stream open.
+	cb.SetNumberOfStreamClose(numCloseStream, 0)
 	// Start all test servers and proxy
-	setup := stsTest.SetUpTest(t, cb, testID.STSRenewTest, false)
-	// Explicitly set token life time to a short duration.
-	setup.AuthServer.SetTokenLifeTime(tokenLifeTimeInSec)
+	setup := stsTest.SetUpTest(t, cb, testID.STSCacheTest, false)
+	// Explicitly set token life time to a long duration.
+	setup.AuthServer.SetTokenLifeTime(3600)
 	// Explicitly set auth server to return different access token to each call.
 	setup.AuthServer.EnableDynamicAccessToken(true)
 	// Verify that initially XDS stream is not set up, stats are not incremented.
@@ -49,17 +47,17 @@ func TestRenewToken(t *testing.T) {
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
 	// Get initial number of calls to auth server. They are not zero due to STS flow test
-	// in the test setup, to make sure the servers are up and ready to serve.
+	// in the test setup phase, which is to make sure the servers are up and ready.
 	initialNumFederatedTokenCall := setup.AuthServer.NumGetFederatedTokenCalls()
 	initialNumAccessTokenCall := setup.AuthServer.NumGetAccessTokenCalls()
 	setup.StartProxy(t)
 	setup.ProxySetUp.WaitEnvoyReady()
-	// Verify that proxy re-connects XDS server after each stream close, and a
-	// different token is received.
+	// Verify that proxy re-connects XDS server after each stream close, and the
+	// same token is received.
 	g.Expect(cb.NumStream()).To(gomega.Equal(numCloseStream + 1))
-	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(numCloseStream + 1))
-	// Verify every time proxy reconnects to XDS server, gRPC STS fetches a new token.
-	g.Expect(setup.AuthServer.NumGetFederatedTokenCalls()).To(gomega.Equal(initialNumFederatedTokenCall + numCloseStream + 1))
-	g.Expect(setup.AuthServer.NumGetAccessTokenCalls()).To(gomega.Equal(initialNumAccessTokenCall + numCloseStream + 1))
+	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(1))
+	// Verify there is only one extra call for each token.
+	g.Expect(setup.AuthServer.NumGetFederatedTokenCalls()).To(gomega.Equal(initialNumFederatedTokenCall + 1))
+	g.Expect(setup.AuthServer.NumGetAccessTokenCalls()).To(gomega.Equal(initialNumAccessTokenCall + 1))
 	setup.TearDown()
 }

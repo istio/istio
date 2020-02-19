@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cachedststoken
+package servercachedshortlivedststoken
 
 import (
 	"testing"
@@ -24,40 +24,39 @@ import (
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
 
-// TestCachedToken verifies when proxy reconnects XDS server and sends token over
-// the stream, if the original token is not expired, gRPC library does not call
-// STS server and provides cached token to proxy.
-func TestCachedToken(t *testing.T) {
-	// Enable this test when gRPC fix is picked by Istio Proxy
-	// https://github.com/grpc/grpc/pull/21641
-	t.Skip("https://github.com/istio/istio/issues/20133")
+// TestServerShortLivedCachedToken verifies when proxy restarts and reconnects XDS server,
+// proxy calls STS server to fetch token. If the original token is going to expire,
+// STS server fetches a new token for the proxy.
+func TestServerShortLivedCachedToken(t *testing.T) {
 	// Sets up callback that verifies token on new XDS stream.
 	cb := xdsService.CreateXdsCallback(t)
-	numCloseStream := 3
-	// Force XDS server to close streams 3 times and keep the 4th stream open.
-	cb.SetNumberOfStreamClose(numCloseStream, 0)
 	// Start all test servers and proxy
-	setup := stsTest.SetUpTest(t, cb, testID.STSCacheTest)
-	// Explicitly set token life time to a long duration.
-	setup.AuthServer.SetTokenLifeTime(3600)
+	setup := stsTest.SetUpTest(t, cb, testID.STSCacheTest, true)
+	// Explicitly set token life time to a short duration, which is below the grace
+	// period (5 minutes) of using cached token. Cached token is not in use.
+	setup.ClearTokenCache()
+	setup.AuthServer.SetTokenLifeTime(300)
 	// Explicitly set auth server to return different access token to each call.
 	setup.AuthServer.EnableDynamicAccessToken(true)
 	// Verify that initially XDS stream is not set up, stats are not incremented.
 	g := gomega.NewWithT(t)
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
-	// Get initial number of calls to auth server. They are not zero due to STS flow test
-	// in the test setup phase, which is to make sure the servers are up and ready.
+	// Get initial number of calls to auth server. There is a warm-up phase where
+	// STS request is sent by HTTP client to make sure components are up and running.
+	// By doing that the token is cached at the STS server.
 	initialNumFederatedTokenCall := setup.AuthServer.NumGetFederatedTokenCalls()
 	initialNumAccessTokenCall := setup.AuthServer.NumGetAccessTokenCalls()
+	// Starting proxy will send a STS request to the STS server. Because cached
+	// token is deleted, the STS server fetches a new token.
 	setup.StartProxy(t)
 	setup.ProxySetUp.WaitEnvoyReady()
-	// Verify that proxy re-connects XDS server after each stream close, and the
-	// same token is received.
-	g.Expect(cb.NumStream()).To(gomega.Equal(numCloseStream + 1))
-	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(1))
-	// Verify there is only one extra call for each token.
-	g.Expect(setup.AuthServer.NumGetFederatedTokenCalls()).To(gomega.Equal(initialNumFederatedTokenCall + 1))
-	g.Expect(setup.AuthServer.NumGetAccessTokenCalls()).To(gomega.Equal(initialNumAccessTokenCall + 1))
+	setup.ProxySetUp.ReStartEnvoy()
+	// Restarting proxy will send another STS request to the STS server. Because
+	// cached token is within grace period, the STS server fetches a new token.
+	g.Expect(cb.NumStream()).To(gomega.Equal(2))
+	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(2))
+	g.Expect(setup.AuthServer.NumGetFederatedTokenCalls()).To(gomega.Equal(initialNumFederatedTokenCall + 2))
+	g.Expect(setup.AuthServer.NumGetAccessTokenCalls()).To(gomega.Equal(initialNumAccessTokenCall + 2))
 	setup.TearDown()
 }
