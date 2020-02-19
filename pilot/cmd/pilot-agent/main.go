@@ -564,6 +564,12 @@ var (
 			if nodeAgentSDSEnabled {
 				tlsCertsToWatch = []string{}
 			}
+			if err := os.Mkdir("/etc/istio/proxy/envoys", 0755); err != nil {
+				log.Warnf("failed to make directory: %v", err)
+			}
+			// Allow restart of envoy to a new version with
+			// kubectl cp envoy POD:/etc/istio/proxy/envoys/v1 -c istio-proxy
+			tlsCertsToWatch = append(tlsCertsToWatch, "/etc/istio/proxy/envoys/v1")
 
 			// Watcher is also kicking envoy start.
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)

@@ -182,8 +182,15 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	args := e.args(fname, epoch, istioBootstrapOverrideVar.Get())
 	log.Infof("Envoy command: %v", args)
 
+	binaryPath := e.Config.BinaryPath
+	if _, err := os.Stat("/etc/istio/proxy/envoys/v1"); err == nil {
+		binaryPath = "/etc/istio/proxy/envoys/v1"
+	} else {
+		log.Errorf("failed to find envoy v1: %v", err)
+	}
+	log.Infof("using %v as binary path", binaryPath)
 	/* #nosec */
-	cmd := exec.Command(e.Config.BinaryPath, args...)
+	cmd := exec.Command(binaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
