@@ -209,7 +209,8 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 		if err != nil {
 			return "", "", err
 		}
-		// Transform a profileOrPath like "default" or "demo" into a filesystem path like /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml.
+		// Transform a profileOrPath like "default" or "demo" into a filesystem path like
+		// /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml.
 		profileOrPath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "profiles", profileOrPath+".yaml")
 		// Rewrite installPackagePath to the local file path for further processing.
 		installPackagePath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "charts")
@@ -337,7 +338,7 @@ func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1
 func getInstallPackagePath(iopYAML string) (string, error) {
 	iop, err := validate.UnmarshalIOP(iopYAML)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	if iop.Spec == nil {
 		return "", nil
