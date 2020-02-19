@@ -4,7 +4,7 @@ metadata:
   name: istiod
   namespace: istio-control
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: istio
 spec:
@@ -18,14 +18,14 @@ spec:
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       securityContext:
         fsGroup: 1337
       containers:
