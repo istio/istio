@@ -381,8 +381,6 @@ spec:
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --dnsRefreshRate
-            - "300s"
             - --statusPort
             - "15020"
             - --trust-domain=cluster.local

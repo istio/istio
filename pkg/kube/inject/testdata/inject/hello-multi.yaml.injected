@@ -50,8 +50,6 @@ spec:
         - istio-pilot:15010
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --dnsRefreshRate
-        - 300s
         - --statusPort
         - "15020"
         - --trust-domain=cluster.local
@@ -270,8 +268,6 @@ spec:
         - istio-pilot:15010
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --dnsRefreshRate
-        - 300s
         - --statusPort
         - "15020"
         - --trust-domain=cluster.local

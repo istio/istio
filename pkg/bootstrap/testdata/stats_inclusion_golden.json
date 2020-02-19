@@ -2,8 +2,12 @@
   "node": {
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "istio-proxy",
-    "locality": {},
-    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","sidecar.istio.io/statsInclusionPrefixes":"cluster_manager,cluster.xds-grpc,listener.","EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT","sidecar.istio.io/extraStatTags":"dlp_status,dlp_error"}
+    "locality": {
+      
+      
+      
+    },
+    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","sidecar.istio.io/extraStatTags":"dlp_status,dlp_error","sidecar.istio.io/statsInclusionRegexps":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"}
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -17,8 +21,8 @@
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
       {
-        "tag_name": "response_code",
-        "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$",
+          "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$",
+          "tag_name": "response_code"
       },
       {
         "tag_name": "response_code_class",
@@ -41,116 +45,116 @@
         "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
       },
       {
-        "regex": "(reporter=\\.=(.+?);\\.;)",
-        "tag_name": "reporter"
+          "regex": "(reporter=\\.=(.+?);\\.;)",
+          "tag_name": "reporter"
       },
       {
-        "regex": "(source_namespace=\\.=(.+?);\\.;)",
-        "tag_name": "source_namespace"
+          "regex": "(source_namespace=\\.=(.+?);\\.;)",
+          "tag_name": "source_namespace"
       },
       {
-        "regex": "(source_workload=\\.=(.+?);\\.;)",
-        "tag_name": "source_workload"
+          "regex": "(source_workload=\\.=(.+?);\\.;)",
+          "tag_name": "source_workload"
       },
       {
-        "regex": "(source_workload_namespace=\\.=(.+?);\\.;)",
-        "tag_name": "source_workload_namespace"
+          "regex": "(source_workload_namespace=\\.=(.+?);\\.;)",
+          "tag_name": "source_workload_namespace"
       },
       {
-        "regex": "(source_principal=\\.=(.+?);\\.;)",
-        "tag_name": "source_principal"
+          "regex": "(source_principal=\\.=(.+?);\\.;)",
+          "tag_name": "source_principal"
       },
       {
-        "regex": "(source_app=\\.=(.+?);\\.;)",
-        "tag_name": "source_app"
+          "regex": "(source_app=\\.=(.+?);\\.;)",
+          "tag_name": "source_app"
       },
       {
-        "regex": "(source_version=\\.=(.+?);\\.;)",
-        "tag_name": "source_version"
+          "regex": "(source_version=\\.=(.+?);\\.;)",
+          "tag_name": "source_version"
       },
       {
-        "regex": "(destination_namespace=\\.=(.+?);\\.;)",
-        "tag_name": "destination_namespace"
+          "regex": "(destination_namespace=\\.=(.+?);\\.;)",
+          "tag_name": "destination_namespace"
       },
       {
-        "regex": "(destination_workload=\\.=(.+?);\\.;)",
-        "tag_name": "destination_workload"
+          "regex": "(destination_workload=\\.=(.+?);\\.;)",
+          "tag_name": "destination_workload"
       },
       {
-        "regex": "(destination_workload_namespace=\\.=(.+?);\\.;)",
-        "tag_name": "destination_workload_namespace"
+          "regex": "(destination_workload_namespace=\\.=(.+?);\\.;)",
+          "tag_name": "destination_workload_namespace"
       },
       {
-        "regex": "(destination_principal=\\.=(.+?);\\.;)",
-        "tag_name": "destination_principal"
+          "regex": "(destination_principal=\\.=(.+?);\\.;)",
+          "tag_name": "destination_principal"
       },
       {
-        "regex": "(destination_app=\\.=(.+?);\\.;)",
-        "tag_name": "destination_app"
+          "regex": "(destination_app=\\.=(.+?);\\.;)",
+          "tag_name": "destination_app"
       },
       {
-        "regex": "(destination_version=\\.=(.+?);\\.;)",
-        "tag_name": "destination_version"
+          "regex": "(destination_version=\\.=(.+?);\\.;)",
+          "tag_name": "destination_version"
       },
       {
-        "regex": "(destination_service=\\.=(.+?);\\.;)",
-        "tag_name": "destination_service"
+          "regex": "(destination_service=\\.=(.+?);\\.;)",
+          "tag_name": "destination_service"
       },
       {
-        "regex": "(destination_service_name=\\.=(.+?);\\.;)",
-        "tag_name": "destination_service_name"
+          "regex": "(destination_service_name=\\.=(.+?);\\.;)",
+          "tag_name": "destination_service_name"
       },
       {
-        "regex": "(destination_service_namespace=\\.=(.+?);\\.;)",
-        "tag_name": "destination_service_namespace"
+          "regex": "(destination_service_namespace=\\.=(.+?);\\.;)",
+          "tag_name": "destination_service_namespace"
       },
       {
         "regex": "(destination_port=\\.=(.+?);\\.;)",
         "tag_name": "destination_port"
       },
       {
-        "regex": "(request_protocol=\\.=(.+?);\\.;)",
-        "tag_name": "request_protocol"
+          "regex": "(request_protocol=\\.=(.+?);\\.;)",
+          "tag_name": "request_protocol"
       },
       {
-        "regex": "(response_flags=\\.=(.+?);\\.;)",
-        "tag_name": "response_flags"
+          "regex": "(response_flags=\\.=(.+?);\\.;)",
+          "tag_name": "response_flags"
       },
       {
-        "regex": "(grpc_response_status=\\.=(.*?);\\.;)",
-        "tag_name": "grpc_response_status"
+          "regex": "(grpc_response_status=\\.=(.*?);\\.;)",
+          "tag_name": "grpc_response_status"
       },
       {
-        "regex": "(connection_security_policy=\\.=(.+?);\\.;)",
-        "tag_name": "connection_security_policy"
+          "regex": "(connection_security_policy=\\.=(.+?);\\.;)",
+          "tag_name": "connection_security_policy"
       },
       {
-        "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
-        "tag_name": "permissive_response_code"
+          "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
+          "tag_name": "permissive_response_code"
       },
       {
-        "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
-        "tag_name": "permissive_response_policyid"
+          "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
+          "tag_name": "permissive_response_policyid"
       },
       {
-        "regex": "(cache\\.(.+?)\\.)",
-        "tag_name": "cache"
+          "regex": "(cache\\.(.+?)\\.)",
+          "tag_name": "cache"
       },
       {
-        "regex": "(component\\.(.+?)\\.)",
-        "tag_name": "component"
+          "regex": "(component\\.(.+?)\\.)",
+          "tag_name": "component"
       },
       {
-        "regex": "(tag\\.(.+?)\\.)",
-        "tag_name": "tag"
+          "regex": "(tag\\.(.+?)\\.)",
+          "tag_name": "tag"
       },
       {
-        "regex": "(dlp_status=\\.=(.*?);\\.;)",
-        "tag_name": "dlp_status"
+          "regex": "(dlp_status=\\.=(.*?);\\.;)",
+          "tag_name": "dlp_status"
       },
       {
-        "regex": "(dlp_error=\\.=(.*?);\\.;)",
-        "tag_name": "dlp_error"
+          "regex": "(dlp_error=\\.=(.*?);\\.;)",
+          "tag_name": "dlp_error"
       },
       {
           "regex": "(source_canonical_service=\\.=(.+?);\\.;)",
@@ -171,15 +175,37 @@
     ],
     "stats_matcher": {
       "inclusion_list": {
-        "patterns": [{"prefix": "reporter="},{
-            "prefix": "cluster_manager"
+        "patterns": [
+          {
+          "prefix": "reporter="
           },
           {
-            "prefix": "cluster.xds-grpc"
+          "prefix": "component"
           },
           {
-            "prefix": "listener."
-          }
+          "prefix": "cluster_manager"
+          },
+          {
+          "prefix": "listener_manager"
+          },
+          {
+          "prefix": "http_mixer_filter"
+          },
+          {
+          "prefix": "tcp_mixer_filter"
+          },
+          {
+          "prefix": "server"
+          },
+          {
+          "prefix": "cluster.xds-grpc"
+          },
+          {
+          "suffix": "ssl_context_update_by_sds"
+          },
+          {
+          "regex": "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"
+          },
         ]
       }
     }
@@ -231,7 +257,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "60s",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -265,6 +291,8 @@
         "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
+      
+      
       
     ],
     "listeners":[
@@ -316,10 +344,13 @@
     ]
   }
   
+  
+  
   ,
   "cluster_manager": {
     "outlier_detection": {
-      "event_log_path": "/dev/stdout"
+      "event_log_path": /dev/stdout
     }
   }
+  
 }
