@@ -129,7 +129,7 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 		return nil, false
 	}
 
-	var cacheHitCount uint64 = 0
+	var cacheHitCount uint64
 	p.mutex.Lock()
 	p.accessTokenCacheHit++
 	cacheHitCount = p.accessTokenCacheHit
