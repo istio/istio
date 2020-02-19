@@ -69,14 +69,14 @@ func TestStatsFilter(t *testing.T) {
 			ingress := getIngressInstance()
 			addr := ingress.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
-			_, destinationQuery := buildQuery()
+			sourceQuery, destinationQuery := buildQuery()
 			retry.UntilSuccessOrFail(t, func() error {
 				util.SendTraffic(ingress, t, "Sending traffic", url, "", 200)
 				// Query client side metrics
-				/*if err := QueryPrometheus(t, sourceQuery, getPromInstance()); err != nil {
+				if err := QueryPrometheus(t, sourceQuery, getPromInstance()); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
-				}*/
+				}
 				if err := QueryPrometheus(t, destinationQuery, getPromInstance()); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
@@ -104,6 +104,8 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.v1.enabled"] = "false"
 	cfg.Values["telemetry.v2.enabled"] = "true"
 	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
+	cfg.Values["global.proxy.logLevel"] = "debug"
+	cfg.Values["global.proxy.componentLogLevel"] = "misc:debug"
 }
 
 func testSetup(ctx resource.Context) (err error) {
