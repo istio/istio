@@ -25,7 +25,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istiod-service-account
+      serviceAccountName: istio-pilot-service-account
       securityContext:
         fsGroup: 1337
       containers:
