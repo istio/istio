@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 
@@ -202,6 +203,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
 
 			// able to remove from mesh when the deployment is auto injected
+			time.Sleep(time.Second)
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "remove-from-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
@@ -209,6 +211,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 			// remove from mesh should be clean
 			// users can add it back to mesh successfully
+			time.Sleep(time.Second)
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "add-to-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
