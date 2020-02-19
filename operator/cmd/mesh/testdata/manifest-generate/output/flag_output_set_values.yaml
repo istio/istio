@@ -7527,6 +7527,9 @@ spec:
             cpu: 500m
             memory: 2048Mi
         securityContext:
+          capabilities:
+            drop:
+            - ALL
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
