@@ -12634,10 +12634,10 @@ var _chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml = []byte(`{{ if or (
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ .Values.pilot.autoscaleMax }}
@@ -12793,7 +12793,7 @@ kind: ClusterRole
 metadata:
   name: istiod-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 rules:
 {{- if .Values.global.istiod.enabled }}
@@ -12915,16 +12915,16 @@ roleRef:
   name: istio-pilot-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: {{ .Release.Namespace }}
 ---
 {{ if .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-pilot-{{ .Release.Namespace }}
+  name: istiod-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -12932,7 +12932,7 @@ roleRef:
   name: istiod-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: {{ .Release.Namespace }}
 
 ---
@@ -13587,7 +13587,7 @@ metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: {{ .Release.Name }}
     {{- if ne .Values.revision ""}}
@@ -13609,14 +13609,14 @@ spec:
   selector:
     matchLabels:
       {{- if ne .Values.revision ""}}
-      app: pilot
+      app: istiod
       version: {{ .Values.revision }}
       {{- end }}
       istio: pilot
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         {{- if ne .Values.revision ""}}
         version: {{ .Values.revision }}
         {{- end }}
@@ -13629,7 +13629,7 @@ spec:
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -14178,17 +14178,17 @@ var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod-{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
     istio: pilot
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: pilot
+      app: istiod
       {{- if ne .Values.revision ""}}
       version: {{ .Values.revision }}
       {{- end }}
@@ -14243,7 +14243,7 @@ spec:
 {{- end }}
   selector:
     {{- if ne .Values.revision ""}}
-    app: pilot
+    app: istiod
     version: {{ .Values.revision }}
     {{ else }}
     istio: pilot
@@ -14266,7 +14266,7 @@ spec:
       name: https-webhook # validation and injection
       targetPort: 15017
   selector:
-    app: pilot
+    app: istiod
     {{- if ne .Values.revision ""}}
     version: {{ .Values.revision }}
     {{- else }}
@@ -14304,10 +14304,10 @@ imagePullSecrets:
 {{- end }}
 {{- end }}
 metadata:
-  name: istio-pilot-service-account
+  name: istiod-service-account
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 ---
 {{ end }}

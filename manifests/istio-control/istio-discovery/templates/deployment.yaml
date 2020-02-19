@@ -5,7 +5,7 @@ metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: {{ .Release.Name }}
     {{- if ne .Values.revision ""}}
@@ -27,14 +27,14 @@ spec:
   selector:
     matchLabels:
       {{- if ne .Values.revision ""}}
-      app: pilot
+      app: istiod
       version: {{ .Values.revision }}
       {{- end }}
       istio: pilot
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         {{- if ne .Values.revision ""}}
         version: {{ .Values.revision }}
         {{- end }}
@@ -47,7 +47,7 @@ spec:
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
