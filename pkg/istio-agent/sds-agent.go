@@ -430,6 +430,9 @@ func applyEnvVars() {
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRefreshGraceDuration = secretRefreshGraceDurationEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
+	// If the secret is not rotated for 3*workloadSdsCacheOptions.SecretTTL,
+	// it is regarded as stale and will be evicted.
+	workloadSdsCacheOptions.EvictionDuration = 3 * workloadSdsCacheOptions.SecretTTL
 
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 

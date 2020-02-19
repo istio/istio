@@ -551,6 +551,12 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
+			// In its current implementation, isTokenExpired() does not really check whether
+			// a token expired or not and always returns true.
+			// When isTokenExpired() returns true, the stream connection to Envoy will
+			// be closed and Envoy will reconnect with a token.
+			// There are multiple ways to obtain a token, e.g., read from a file,
+			// and call a token API, which is up to the Envoy config.
 			if sc.isTokenExpired() {
 				cacheLog.Debugf("%s token expired", logPrefix)
 				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
