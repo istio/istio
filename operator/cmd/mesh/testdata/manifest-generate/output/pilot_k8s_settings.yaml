@@ -13,23 +13,23 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot
-  namespace: istio-control
   labels:
-    app: pilot
+    app: istiod
     release: istio
+  name: istiod
+  namespace: istio-control
 spec:
-  maxReplicas: 5
-  minReplicas: 1
+  maxReplicas: 333
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 444
+    type: Resource
+  minReplicas: 222
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istiod
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      targetAverageUtilization: 80
+    name: istio-pilot
 ---
 
 
@@ -132,7 +132,7 @@ kind: ClusterRole
 metadata:
   name: istiod-istio-control
   labels:
-    app: pilot
+    app: istiod
     release: istio
 rules:
   # Remove permissions to reconcile webhook configuration. This address the downgrade case
@@ -236,7 +236,7 @@ roleRef:
   name: istio-pilot-istio-control
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-control
 ---
 
@@ -244,9 +244,9 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-pilot-istio-control
+  name: istiod-istio-control
   labels:
-    app: pilot
+    app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -254,7 +254,7 @@ roleRef:
   name: istiod-istio-control
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-control
 ---
 
@@ -577,7 +577,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: istio
   name: istiod
@@ -595,7 +595,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
       labels:
-        app: pilot
+        app: istiod
         istio: pilot
     spec:
       affinity:
@@ -734,7 +734,7 @@ spec:
         master: "true"
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -1508,17 +1508,17 @@ webhooks:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot
+  name: istiod-
   namespace: istio-control
   labels:
-    app: pilot
+    app: istiod
     release: istio
     istio: pilot
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: pilot
+      app: istiod
       release: istio
       istio: pilot
 ---
@@ -1569,7 +1569,7 @@ spec:
       name: https-webhook # validation and injection
       targetPort: 15017
   selector:
-    app: pilot
+    app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
     istio: pilot
@@ -1579,10 +1579,10 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-pilot-service-account
+  name: istiod-service-account
   namespace: istio-control
   labels:
-    app: pilot
+    app: istiod
     release: istio
 ---
 
