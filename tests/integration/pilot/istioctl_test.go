@@ -19,7 +19,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/onsi/gomega"
 
@@ -188,14 +187,14 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 				Inject: true,
 			})
 
-			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			g.ApplyConfigOrFail(t, ns, deployment)
-
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			var output string
@@ -203,7 +202,6 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
 
 			// able to remove from mesh when the deployment is auto injected
-			time.Sleep(time.Second)
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "remove-from-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
@@ -211,7 +209,10 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 			// remove from mesh should be clean
 			// users can add it back to mesh successfully
-			time.Sleep(time.Second)
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
+
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "add-to-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
@@ -228,14 +229,14 @@ func TestAddToAndRemoveFromMesh2(t *testing.T) {
 				Inject: true,
 			})
 
-			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			g.ApplyConfigOrFail(t, ns, deployment)
-
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			var output string
@@ -243,7 +244,6 @@ func TestAddToAndRemoveFromMesh2(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
 
 			// able to remove from mesh when the deployment is auto injected
-			time.Sleep(time.Second)
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "remove-from-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
@@ -251,7 +251,10 @@ func TestAddToAndRemoveFromMesh2(t *testing.T) {
 
 			// remove from mesh should be clean
 			// users can add it back to mesh successfully
-			time.Sleep(time.Second)
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
+
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "add-to-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
@@ -268,14 +271,14 @@ func TestAddToAndRemoveFromMesh3(t *testing.T) {
 				Inject: true,
 			})
 
-			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			g.ApplyConfigOrFail(t, ns, deployment)
-
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			var output string
@@ -283,7 +286,6 @@ func TestAddToAndRemoveFromMesh3(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
 
 			// able to remove from mesh when the deployment is auto injected
-			time.Sleep(time.Second)
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "remove-from-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
@@ -291,7 +293,10 @@ func TestAddToAndRemoveFromMesh3(t *testing.T) {
 
 			// remove from mesh should be clean
 			// users can add it back to mesh successfully
-			time.Sleep(time.Second)
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
+
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "add-to-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
@@ -308,14 +313,14 @@ func TestAddToAndRemoveFromMesh4(t *testing.T) {
 				Inject: true,
 			})
 
-			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			g.ApplyConfigOrFail(t, ns, deployment)
-
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			var output string
@@ -323,7 +328,6 @@ func TestAddToAndRemoveFromMesh4(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
 
 			// able to remove from mesh when the deployment is auto injected
-			time.Sleep(time.Second)
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "remove-from-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
@@ -331,7 +335,10 @@ func TestAddToAndRemoveFromMesh4(t *testing.T) {
 
 			// remove from mesh should be clean
 			// users can add it back to mesh successfully
-			time.Sleep(time.Second)
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
+
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "add-to-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
@@ -348,14 +355,14 @@ func TestAddToAndRemoveFromMesh5(t *testing.T) {
 				Inject: true,
 			})
 
-			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			g.ApplyConfigOrFail(t, ns, deployment)
-
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			var output string
@@ -363,7 +370,6 @@ func TestAddToAndRemoveFromMesh5(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
 
 			// able to remove from mesh when the deployment is auto injected
-			time.Sleep(time.Second)
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "remove-from-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
@@ -371,7 +377,10 @@ func TestAddToAndRemoveFromMesh5(t *testing.T) {
 
 			// remove from mesh should be clean
 			// users can add it back to mesh successfully
-			time.Sleep(time.Second)
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
+
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "add-to-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)
