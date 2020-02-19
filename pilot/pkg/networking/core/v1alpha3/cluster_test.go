@@ -135,12 +135,14 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 func TestCommonHttpProtocolOptions(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	directionInfos := []struct {
+	cases := []struct {
 		direction                  model.TrafficDirection
 		clusterIndex               int
 		useDownStreamProtocol      bool
 		sniffingEnabledForInbound  bool
 		sniffingEnabledForOutbound bool
+		proxyType                  model.NodeType
+		clusters                   int
 	}{
 		{
 			direction:                  model.TrafficDirectionOutbound,
@@ -148,18 +150,24 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			useDownStreamProtocol:      false,
 			sniffingEnabledForInbound:  false,
 			sniffingEnabledForOutbound: true,
+			proxyType:                  model.SidecarProxy,
+			clusters:                   8,
 		}, {
 			direction:                  model.TrafficDirectionInbound,
 			clusterIndex:               4,
 			useDownStreamProtocol:      false,
 			sniffingEnabledForInbound:  false,
 			sniffingEnabledForOutbound: true,
+			proxyType:                  model.SidecarProxy,
+			clusters:                   8,
 		}, {
 			direction:                  model.TrafficDirectionOutbound,
 			clusterIndex:               1,
 			useDownStreamProtocol:      true,
 			sniffingEnabledForInbound:  false,
 			sniffingEnabledForOutbound: true,
+			proxyType:                  model.SidecarProxy,
+			clusters:                   8,
 		},
 		{
 			direction:                  model.TrafficDirectionInbound,
@@ -167,6 +175,17 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			useDownStreamProtocol:      true,
 			sniffingEnabledForInbound:  true,
 			sniffingEnabledForOutbound: true,
+			proxyType:                  model.SidecarProxy,
+			clusters:                   8,
+		},
+		{
+			direction:                  model.TrafficDirectionInbound,
+			clusterIndex:               0,
+			useDownStreamProtocol:      true,
+			sniffingEnabledForInbound:  true,
+			sniffingEnabledForOutbound: true,
+			proxyType:                  model.Router,
+			clusters:                   3,
 		},
 	}
 	settings := &networking.ConnectionPoolSettings{
@@ -176,8 +195,8 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		},
 	}
 
-	for _, directionInfo := range directionInfos {
-		if directionInfo.sniffingEnabledForInbound {
+	for _, tc := range cases {
+		if tc.sniffingEnabledForInbound {
 			_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
 		} else {
 			_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "false")
@@ -187,9 +206,9 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		if settings != nil {
 			settingsName = "override"
 		}
-		testName := fmt.Sprintf("%s-%s", directionInfo.direction, settingsName)
+		testName := fmt.Sprintf("%s-%s", tc.direction, settingsName)
 		t.Run(testName, func(t *testing.T) {
-			clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
+			clusters, err := buildTestClusters("*.example.org", 0, tc.proxyType, nil, testMesh,
 				&networking.DestinationRule{
 					Host: "*.example.org",
 					TrafficPolicy: &networking.TrafficPolicy{
@@ -197,12 +216,12 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 					},
 				})
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(len(clusters)).To(Equal(8))
-			cluster := clusters[directionInfo.clusterIndex]
+			g.Expect(len(clusters)).To(Equal(tc.clusters))
+			cluster := clusters[tc.clusterIndex]
 			g.Expect(cluster.CommonHttpProtocolOptions).To(Not(BeNil()))
 			commonHTTPProtocolOptions := cluster.CommonHttpProtocolOptions
 
-			if directionInfo.useDownStreamProtocol {
+			if tc.useDownStreamProtocol && tc.proxyType == model.SidecarProxy {
 				g.Expect(cluster.ProtocolSelection).To(Equal(apiv2.Cluster_USE_DOWNSTREAM_PROTOCOL))
 			} else {
 				g.Expect(cluster.ProtocolSelection).To(Equal(apiv2.Cluster_USE_CONFIGURED_PROTOCOL))
