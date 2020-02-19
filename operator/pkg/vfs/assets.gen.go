@@ -30197,14 +30197,10 @@ data:
         url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
-{{- if .Values.kiali.dashboard.inclusterjaegerURL }}
-        in_cluster_url: {{ .Values.kiali.dashboard.inclusterjaegerURL }}
-{{- end }}
+        in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
-{{- if .Values.kiali.dashboard.inclustergrafanaURL }}
-        in_cluster_url: {{ .Values.kiali.dashboard.inclustergrafanaURL }}
-{{- end }}
+        in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
       prometheus:
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
@@ -30519,9 +30515,9 @@ kiali:
     viewOnlyMode: false # Bind the service account to a role with only read access
 
     grafanaURL: "" # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
-    inclustergrafanaURL: "" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
+    grafanaInClusterURL: "http://grafana:3000" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
     jaegerURL: "" # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
-    inclusterjaegerURL: "" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
+    jaegerInClusterURL: "http://tracing/jaeger" # If you have Jaeger installed and accessible from Kiali pod (typically in cluster), then set this property to enable more tracing charts within Kiali.
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
@@ -38615,7 +38611,9 @@ spec:
         passphraseKey: passphrase
         viewOnlyMode: false
         grafanaURL:
+        grafanaInClusterURL: http://grafana:3000
         jaegerURL:
+        jaegerInClusterURL: http://tracing/jaeger
       prometheusNamespace:
       createDemoSecret: false
       security:

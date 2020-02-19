@@ -494,6 +494,8 @@ spec:
       dashboard:
         auth:
           strategy: login
+        grafanaInClusterURL: http://grafana:3000
+        jaegerInClusterURL: http://tracing/jaeger
         secretName: kiali
         viewOnlyMode: false
       hub: quay.io/kiali
