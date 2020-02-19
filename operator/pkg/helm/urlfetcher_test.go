@@ -15,15 +15,12 @@
 package helm
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type Server struct {
@@ -68,28 +65,13 @@ func (s *Server) moveFiles(origin string) ([]string, error) {
 }
 
 func TestFetch(t *testing.T) {
-
 	tests := []struct {
 		name                    string
 		installationPackageName string
-		verify                  bool
-		verifyFail              bool
 	}{
 		{
 			name:                    "Charts download only",
-			installationPackageName: "istio-installer-1.3.0.tar.gz",
-			verify:                  false,
-		},
-		{
-			name:                    "Charts download and verify",
-			installationPackageName: "istio-installer-1.3.0.tar.gz",
-			verify:                  true,
-		},
-		{
-			name:                    "Charts download but verification fail",
-			installationPackageName: "istio-installer-1.3.0.tar.gz",
-			verify:                  true,
-			verifyFail:              true,
+			installationPackageName: "istio-1.3.0-linux.tar.gz",
 		},
 	}
 	tmp, err := ioutil.TempDir("", InstallationDirectory)
@@ -104,46 +86,19 @@ func TestFetch(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	for _, test := range tests {
+	for _, tt := range tests {
 		outdir := filepath.Join(server.root, "testout")
 		os.RemoveAll(outdir)
 		os.Mkdir(outdir, 0755)
-		fq, err := NewURLFetcher(server.URL()+"/"+test.installationPackageName, tmp+"/testout")
+		fq := NewURLFetcher(server.URL()+"/"+tt.installationPackageName, tmp+"/testout")
+
+		err = fq.Fetch()
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		if test.verify {
-			fq.verify = test.verify
-			savedShaF, err := fq.fetchSha()
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			if test.verifyFail {
-				f, _ := os.OpenFile(savedShaF, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-				_, err := f.Write([]byte{115, 111})
-				if err != nil {
-					fmt.Println("failed to modify sha file")
-				}
-			}
-			err = fq.fetchChart(savedShaF)
-			if test.verifyFail {
-				assert.NotNil(t, err)
-				continue
-			}
-			if err != nil {
-				t.Error(err)
-				return
-			}
-		} else {
-			err = fq.fetchChart("")
-			if err != nil {
-				t.Error(err)
-				return
-			}
-		}
-		ef := filepath.Join(fq.destDir, test.installationPackageName)
+
+		ef := filepath.Join(fq.destDirRoot, tt.installationPackageName)
 		if _, err := os.Stat(ef); err != nil {
 			t.Error(err)
 			return
