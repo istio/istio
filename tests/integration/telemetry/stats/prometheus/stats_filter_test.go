@@ -69,16 +69,16 @@ func TestStatsFilter(t *testing.T) {
 			ingress := getIngressInstance()
 			addr := ingress.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
-			sourceQuery, destinationQuery := buildQuery()
+			_, destinationQuery := buildQuery()
 			retry.UntilSuccessOrFail(t, func() error {
 				util.SendTraffic(ingress, t, "Sending traffic", url, "", 200)
 				// Query client side metrics
-				if err := QueryPrometheus(t, sourceQuery, getPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_requests_tota: \n%s", util.PromDump(promInst, ""))
+				/*if err := QueryPrometheus(t, sourceQuery, getPromInstance()); err != nil {
+					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
-				}
+				}*/
 				if err := QueryPrometheus(t, destinationQuery, getPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, ""))
+					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
 				return nil
