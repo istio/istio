@@ -64,7 +64,7 @@ function download_untar_istio_release() {
 function build_images_legacy() {
   # Build just the images needed for the legacy e2e tests that use the install/ directory
   targets="docker.pilot docker.proxyv2 "
-  targets+="docker.app docker.test_policybackend docker.kubectl "
+  targets+="docker.app docker.test_policybackend "
   targets+="docker.mixer docker.citadel docker.galley docker.sidecar_injector"
   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
