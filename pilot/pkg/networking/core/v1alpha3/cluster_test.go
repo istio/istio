@@ -38,6 +38,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
+	authn_beta "istio.io/api/security/v1beta1"
+	selectorpb "istio.io/api/type/v1beta1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -227,12 +229,13 @@ func buildTestClusters(serviceHostname string, serviceResolution model.Resolutio
 		mesh,
 		destRule,
 		nil, // authnPolicy
+		nil, // peerAuthn
 	)
 }
 
 func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadata(
 		serviceHostname,
 		serviceResolution,
@@ -242,30 +245,34 @@ func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution 
 		mesh,
 		destRule,
 		authnPolicy,
+		peerAuthn,
 		&model.NodeMetadata{},
 		model.MaxIstioVersion)
 }
 
 func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
+	istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, false /* externalService */, nodeType, locality, mesh, destRule,
-		authnPolicy, &model.NodeMetadata{}, istioVersion)
+		authnPolicy, peerAuthn, &model.NodeMetadata{}, istioVersion)
 }
 
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
+	meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution, externalService,
 		nodeType, locality, mesh,
-		destRule, authnPolicy, meta, istioVersion,
+		destRule, authnPolicy, peerAuthn, meta, istioVersion,
 		// Add default sidecar proxy meta
 		[]string{"6.6.6.6", "::1"})
 }
 
 func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
+	meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
@@ -376,6 +383,22 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 					},
 						Spec: authnPolicy,
 					}}, nil
+			}
+			if typ == collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() && peerAuthn != nil {
+				policyName := "default"
+				if peerAuthn.Selector != nil {
+					policyName = "acme"
+				}
+				return []model.Config{
+					{ConfigMeta: model.ConfigMeta{
+						Type:      collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind(),
+						Version:   collections.IstioSecurityV1Beta1Peerauthentications.Resource().Version(),
+						Name:      policyName,
+						Namespace: TestServiceNamespace,
+					},
+						Spec: peerAuthn,
+					}}, nil
+
 			}
 			return nil, nil
 		},
@@ -562,7 +585,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	}
 
 	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, false, model.SidecarProxy,
-		nil, testMesh, destRule, nil, envoyMetadata, model.MaxIstioVersion)
+		nil, testMesh, destRule, nil, nil, envoyMetadata, model.MaxIstioVersion)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	g.Expect(clusters).To(HaveLen(10))
@@ -620,6 +643,7 @@ func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta 
 			},
 		},
 		nil, // authnPolicy
+		nil, // peerAuthn
 		meta,
 		model.MaxIstioVersion,
 	)
@@ -1295,6 +1319,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 			},
 		},
 		nil, // authnPolicy
+		nil, // peerAuthn,
 		&model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
 		model.MaxIstioVersion)
 
@@ -1345,6 +1370,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 			},
 		},
 		nil, // authnPolicy
+		nil, // peerAuthn
 		&model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
 		model.MaxIstioVersion)
 
@@ -1553,6 +1579,7 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) 
 			},
 		},
 		nil, // authnPolicy
+		nil, // peerAuthn
 		&model.IstioVersion{Major: 1, Minor: 2})
 
 	g.Expect(err).NotTo(HaveOccurred())
@@ -1943,6 +1970,7 @@ func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
 				},
 			},
 			nil, // authnPolicy
+			nil, // peerAuthn
 			&model.NodeMetadata{},
 			model.MaxIstioVersion,
 			inAndOut.ips,
@@ -1981,7 +2009,7 @@ func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
 		Peers: []*authn.PeerAuthenticationMethod{},
 	}
 
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy, nil)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// mTLS is disabled by authN policy so autoMTLS does not kick in. No cluster should have TLS context.
@@ -2028,7 +2056,7 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 
 	testMesh.EnableAutoMtls.Value = true
 
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy, nil)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
@@ -2082,7 +2110,17 @@ func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
 		},
 	}
 
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, true, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(
+		TestServiceNHostname,
+		0,
+		true,
+		model.SidecarProxy,
+		nil,
+		testMesh,
+		destRule,
+		authnPolicy,
+		nil, // peerAuthn
+	)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// Service is external, use the TLS settings specified in DR.
@@ -2131,7 +2169,11 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 
 	testMesh.EnableAutoMtls.Value = true
 
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(
+		TestServiceNHostname,
+		0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy,
+		nil, // peerAuthn
+	)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
@@ -2140,6 +2182,126 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, authn policy disable mTLS, so it should not have TLS context.
+	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
+
+	// Sanity check: make sure TLS is not accidentally added to other clusters.
+	for i := 2; i < len(clusters); i++ {
+		cluster := clusters[i]
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
+	}
+}
+
+func TestAutoMTLSClusterWithPeerAuthnStrictMode(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 9090,
+					},
+					Tls: &networking.TLSSettings{
+						Mode: networking.TLSSettings_DISABLE,
+					},
+				},
+			},
+		},
+	}
+
+	// This alpha policy will be ignored.
+	authnPolicy := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{
+			{
+				Params: &authn.PeerAuthenticationMethod_Mtls{
+					Mtls: &authn.MutualTls{
+						Mode: authn.MutualTls_PERMISSIVE,
+					},
+				},
+			},
+		},
+	}
+
+	peerAuthn := &authn_beta.PeerAuthentication{
+		Mtls: &authn_beta.PeerAuthentication_MutualTLS{
+			Mode: authn_beta.PeerAuthentication_MutualTLS_STRICT,
+		},
+	}
+
+	testMesh.EnableAutoMtls.Value = true
+
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy, peerAuthn)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
+	// TlsContext is nil because we use socket match instead
+	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
+
+	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
+	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
+
+	// Sanity check: make sure TLS is not accidentally added to other clusters.
+	for i := 2; i < len(clusters); i++ {
+		cluster := clusters[i]
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
+	}
+}
+
+func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 9090,
+					},
+					Tls: &networking.TLSSettings{
+						Mode: networking.TLSSettings_DISABLE,
+					},
+				},
+			},
+		},
+	}
+
+	// This workload-level beta policy doesn't affect CDS (yet).
+	peerAuthn := &authn_beta.PeerAuthentication{
+		Selector: &selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"version": "v1",
+			},
+		},
+		Mtls: &authn_beta.PeerAuthentication_MutualTLS{
+			Mode: authn_beta.PeerAuthentication_MutualTLS_STRICT,
+		},
+	}
+
+	testMesh.EnableAutoMtls.Value = true
+
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, nil, peerAuthn)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// No policy visible, auto-mTLS should set to PERMISSIVE.
+	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
+	// TlsContext is nil because we use socket match instead
+	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
+
+	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
 	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
 
 	// Sanity check: make sure TLS is not accidentally added to other clusters.
