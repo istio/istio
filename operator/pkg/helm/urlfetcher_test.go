@@ -71,7 +71,7 @@ func TestFetch(t *testing.T) {
 	}{
 		{
 			name:                    "Charts download only",
-			installationPackageName: "istio-installer-1.3.0.tar.gz",
+			installationPackageName: "istio-1.3.0-linux.tar.gz",
 		},
 	}
 	tmp, err := ioutil.TempDir("", InstallationDirectory)
