@@ -40993,10 +40993,6 @@ spec:
       enabled: false
 
   values:
-    pilot:
-      configSource:
-        subscribedResources:
-
     security:
       createMeshPolicy: false
 
