@@ -2002,7 +2002,6 @@ webhooks:
         name: istiod
         namespace: istio-control
         path: "/validate"
-        port: 443
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:

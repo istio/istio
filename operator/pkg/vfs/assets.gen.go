@@ -13446,7 +13446,6 @@ webhooks:
         name: istiod
         namespace: {{ .Release.Namespace }}
         path: "/validate"
-        port: 443
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:
