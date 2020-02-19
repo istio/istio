@@ -589,6 +589,21 @@ spec:
       selfSigned: true
       trustDomain: cluster.local
       workloadCertTtl: 2160h
+    sidecarInjectorWebhook:
+      alwaysInjectSelector: []
+      enableNamespacesByDefault: false
+      enabled: true
+      image: sidecar_injector
+      injectLabel: istio-injection
+      neverInjectSelector: []
+      podAntiAffinityLabelSelector: []
+      podAntiAffinityTermLabelSelector: []
+      replicaCount: 1
+      rewriteAppHTTPProbe: false
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      selfSigned: false
+      tolerations: []
     tracing:
       enabled: false
       ingress:

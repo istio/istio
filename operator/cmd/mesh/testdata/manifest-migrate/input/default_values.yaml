@@ -144,6 +144,22 @@ gateways:
     tolerations: []
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+sidecarInjectorWebhook:
+  enabled: true
+  replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+  image: sidecar_injector
+  enableNamespacesByDefault: false
+  rewriteAppHTTPProbe: false
+  selfSigned: false
+  nodeSelector: {}
+  tolerations: []
+  injectLabel: istio-injection
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+  neverInjectSelector: []
+  alwaysInjectSelector: []
 galley:
   enabled: true
   image: galley

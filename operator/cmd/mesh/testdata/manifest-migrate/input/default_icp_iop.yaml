@@ -539,6 +539,16 @@ spec:
             secretName: istio-ingressgateway-ca-certs
             mountPath: /etc/istio/ingressgateway-ca-certs
 
+    sidecarInjectorWebhook:
+      image: sidecar_injector
+      enableNamespacesByDefault: false
+      rewriteAppHTTPProbe: false
+      selfSigned: false
+      injectLabel: istio-injection
+      objectSelector:
+        enabled: false
+        autoInject: true
+
     prometheus:
       enabled: true
       replicaCount: 1
