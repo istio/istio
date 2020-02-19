@@ -36,7 +36,7 @@ import (
 const (
 	httpTimeOutInSec = 5
 	maxRequestRetry  = 5
-	cacheHitDivisor  = 300
+	cacheHitDivisor  = 50
 	contentType      = "application/json"
 	scope            = "https://www.googleapis.com/auth/cloud-platform"
 	tokenType        = "urn:ietf:params:oauth:token-type:access_token"
@@ -138,14 +138,14 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 	token := v.(stsservice.TokenInfo)
 	remainingLife := time.Until(token.ExpireTime)
 	if cacheHitCount%cacheHitDivisor == 0 {
-		pluginLog.Infof("find a cached access token with remaining lifetime: %s (number of cache hits: %d)",
+		pluginLog.Debugf("find a cached access token with remaining lifetime: %s (number of cache hits: %d)",
 			remainingLife.String(), cacheHitCount)
 	}
 	if remainingLife > time.Duration(defaultGracePeriod)*time.Second {
 		expireInSec := int64(remainingLife.Seconds())
 		if tokenSTS, err := p.generateSTSRespInner(token.Token, expireInSec); err == nil {
 			if cacheHitCount%cacheHitDivisor == 0 {
-				pluginLog.Infof("generated an STS response using a cached access token")
+				pluginLog.Debugf("generated an STS response using a cached access token")
 			}
 			return tokenSTS, true
 		}
