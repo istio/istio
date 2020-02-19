@@ -45,16 +45,19 @@ const (
 	// match bootstrap config in testdata/bootstrap.yaml
 	certPath       = "/tmp/sts-ca-certificates.crt"
 	proxyTokenPath = "/tmp/sts-envoy-token.jwt"
+	// STS server port
+	stsPort = 15463
 )
 
 type Env struct {
 	ProxySetUp *proxyEnv.TestSetup
 	AuthServer *tokenBackend.AuthorizationServer
 
-	stsServer         *stsServer.Server
-	xDSServer         *grpc.Server
-	ProxyListenerPort int
-	initialToken      string // initial token is sent to STS server for token exchange
+	stsServer           *stsServer.Server
+	xDSServer           *grpc.Server
+	ProxyListenerPort   int
+	initialToken        string // initial token is sent to STS server for token exchange
+	tokenExchangePlugin *google.Plugin
 }
 
 func (e *Env) TearDown() {
@@ -94,15 +97,16 @@ func WriteDataToFile(path string, content string) error {
 // SetUpTest starts Envoy, XDS server, STS server, token manager, and a token service backend.
 // Envoy loads a test config that requires token credential to access XDS server.
 // That token credential is provisioned by STS server.
+// enableCache indicates whether to enable token cache at STS server side.
 // Here is a map between ports and servers
 // auth server            : MixerPort
-// STS server             : ServerProxyPort
+// STS server             : stsPort
 // Dynamic proxy listener : ClientProxyPort
 // Static proxy listener  : TCPProxyPort
 // XDS server             : DiscoveryPort
 // test backend           : BackendPort
 // proxy admin            : AdminPort
-func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16) *Env {
+func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableCache bool) *Env {
 	// Set up credential files for bootstrap config
 	jwtToken := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/trustworthy-jwt.jwt", t)
 	if err := WriteDataToFile(proxyTokenPath, jwtToken); err != nil {
@@ -134,11 +138,12 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16) *Env {
 	env.AuthServer = backend
 
 	// Set up STS server
-	stsServer, err := setUpSTS(int(proxySetUp.Ports().ServerProxyPort), backend.URL)
+	stsServer, plugin, err := setUpSTS(stsPort, backend.URL, enableCache)
 	if err != nil {
 		t.Fatalf("failed to start a STS server: %v", err)
 	}
 	env.stsServer = stsServer
+	env.tokenExchangePlugin = plugin
 
 	// Make sure STS server and auth backend are running
 	env.WaitForStsFlowReady(t)
@@ -160,7 +165,7 @@ func SetUpTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16) *Env {
 
 // DumpPortMap dumps port allocation status
 // auth server            : MixerPort
-// STS server             : ServerProxyPort
+// STS server             : stsPort
 // Dynamic proxy listener : ClientProxyPort
 // Static proxy listener  : TCPProxyPort
 // XDS server             : DiscoveryPort
@@ -175,9 +180,13 @@ func (e *Env) DumpPortMap(t *testing.T) {
 		"XDS server\t\t:\t%d\n"+
 		"test backend\t\t:\t%d\n"+
 		"proxy admin\t\t:\t%d", e.ProxySetUp.Ports().MixerPort,
-		e.ProxySetUp.Ports().ServerProxyPort, e.ProxySetUp.Ports().ClientProxyPort,
+		stsPort, e.ProxySetUp.Ports().ClientProxyPort,
 		e.ProxySetUp.Ports().TCPProxyPort, e.ProxySetUp.Ports().DiscoveryPort,
 		e.ProxySetUp.Ports().BackendPort, e.ProxySetUp.Ports().AdminPort)
+}
+
+func (e *Env) ClearTokenCache() {
+	e.tokenExchangePlugin.ClearCache()
 }
 
 func (e *Env) StartProxy(t *testing.T) {
@@ -191,7 +200,7 @@ func (e *Env) StartProxy(t *testing.T) {
 // verifies that the STS flow is ready.
 func (e *Env) WaitForStsFlowReady(t *testing.T) {
 	t.Logf("%s check if all servers in the STS flow are up and ready", time.Now().String())
-	addr, _ := net.ResolveTCPAddr("tcp", fmt.Sprintf("127.0.0.1:%d", e.ProxySetUp.Ports().ServerProxyPort))
+	addr, _ := net.ResolveTCPAddr("tcp", fmt.Sprintf("127.0.0.1:%d", stsPort))
 	stsServerAddress := addr.String()
 	hTTPClient := &http.Client{
 		Transport: &http.Transport{
@@ -234,9 +243,10 @@ func (e *Env) genStsReq(stsAddr string) (req *http.Request) {
 	return req
 }
 
-func setUpSTS(stsPort int, backendURL string) (*stsServer.Server, error) {
+func setUpSTS(stsPort int, backendURL string, enableCache bool) (*stsServer.Server, *google.Plugin, error) {
 	// Create token exchange Google plugin
-	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(tokenBackend.FakeTrustDomain, tokenBackend.FakeProjectNum, tokenBackend.FakeGKEClusterURL, false)
+	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(tokenBackend.FakeTrustDomain,
+		tokenBackend.FakeProjectNum, tokenBackend.FakeGKEClusterURL, enableCache)
 	federatedTokenTestingEndpoint := backendURL + "/v1/identitybindingtoken"
 	accessTokenTestingEndpoint := backendURL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)
@@ -247,7 +257,8 @@ func setUpSTS(stsPort int, backendURL string) (*stsServer.Server, error) {
 	// Create STS server
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("127.0.0.1:%d", stsPort))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create address %v", err)
+		return nil, nil, fmt.Errorf("failed to create address %v", err)
 	}
-	return stsServer.NewServer(stsServer.Config{LocalHostAddr: addr.IP.String(), LocalPort: addr.Port}, tm)
+	server, err := stsServer.NewServer(stsServer.Config{LocalHostAddr: addr.IP.String(), LocalPort: addr.Port}, tm)
+	return server, tokenExchangePlugin, err
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cachedststoken
+package proxycachedststoken
 
 import (
 	"testing"
@@ -24,10 +24,10 @@ import (
 	stsTest "istio.io/istio/security/pkg/stsservice/test"
 )
 
-// TestCachedToken verifies when proxy reconnects XDS server and sends token over
-// the stream, if the original token is not expired, gRPC library does not call
-// STS server and provides cached token to proxy.
-func TestCachedToken(t *testing.T) {
+// TestProxyCachedToken verifies when proxy reconnects XDS server and sends token
+// over the stream, if the original token is not expired, gRPC library does not
+// call STS server to fetch a new token and provides a cached token to proxy.
+func TestProxyCachedToken(t *testing.T) {
 	// Enable this test when gRPC fix is picked by Istio Proxy
 	// https://github.com/grpc/grpc/pull/21641
 	t.Skip("https://github.com/istio/istio/issues/20133")
@@ -37,7 +37,7 @@ func TestCachedToken(t *testing.T) {
 	// Force XDS server to close streams 3 times and keep the 4th stream open.
 	cb.SetNumberOfStreamClose(numCloseStream, 0)
 	// Start all test servers and proxy
-	setup := stsTest.SetUpTest(t, cb, testID.STSCacheTest)
+	setup := stsTest.SetUpTest(t, cb, testID.STSCacheTest, false)
 	// Explicitly set token life time to a long duration.
 	setup.AuthServer.SetTokenLifeTime(3600)
 	// Explicitly set auth server to return different access token to each call.
