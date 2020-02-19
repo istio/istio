@@ -1,4 +1,3 @@
-{{ define "validatingwebhookconfiguration.yaml.tpl" }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -16,7 +15,7 @@ webhooks:
         namespace: {{ .Release.Namespace }}
         path: "/validate"
         port: 443
-      caBundle: ""
+      caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:
         - CREATE
@@ -31,7 +30,21 @@ webhooks:
         - "*"
         resources:
         - "*"
-    failurePolicy: Fail
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
     sideEffects: None
 ---
-{{ end }}
+{{/* Create a NOP config for Galley's webhook to stop it from blocking config */}}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-galley
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: galley
+    release: {{ .Release.Name }}
+    istio: galley
+webhooks:
+---
