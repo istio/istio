@@ -11776,7 +11776,7 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istio-galley-{{ .Release.Namespace }}
+  name: istio-galley
   namespace: {{ .Release.Namespace }}
   labels:
     app: galley
@@ -11869,7 +11869,7 @@ func chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYaml() 
 var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl = []byte(`{{/*
 This version of the validatingwebhookconfiguration is applied indirectly
 by galley. This exists to support a smoother upgrade path from istio
-versions < 1.4
+Rversions < 1.4
 */}}
 {{ define "validatingwebhookconfiguration.yaml.tpl" }}
 {{- if .Values.global.istiod.enabled }}
@@ -11887,7 +11887,7 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istio-galley-{{ .Release.Namespace }}
+  name: istio-galley
   namespace: {{ .Release.Namespace }}
   labels:
     app: galley
