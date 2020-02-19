@@ -106,6 +106,7 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
 	cfg.Values["global.proxy.logLevel"] = "debug"
 	cfg.Values["global.proxy.componentLogLevel"] = "misc:debug"
+	cfg.Values["prometheus.enabled"] = "true"
 }
 
 func testSetup(ctx resource.Context) (err error) {
