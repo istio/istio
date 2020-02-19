@@ -76,7 +76,10 @@ webhooks:
         - serviceentries
         - sidecars
         - virtualservices
-    failurePolicy: Fail
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
     sideEffects: None
   - name: mixer.validation.istio.io
     clientConfig:
@@ -100,6 +103,9 @@ webhooks:
         - handlers
         - instances
         - templates
-    failurePolicy: Fail
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
     sideEffects: None
 {{- end }}
