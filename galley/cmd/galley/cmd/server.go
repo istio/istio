@@ -76,10 +76,6 @@ func serverCmd() *cobra.Command {
 				log.Fatalf("Invalid validation controller args: %v", err)
 			}
 
-			serverArgs.ValidationWebhookControllerArgs.ClusterRoleName = fmt.Sprintf("%s-%s",
-				serverArgs.ValidationWebhookControllerArgs.ServiceName,
-				serverArgs.ValidationWebhookControllerArgs.WatchedNamespace)
-
 			s := server.New(serverArgs)
 			if err := s.Start(); err != nil {
 				log.Fatalf("Error creating server: %v", err)
@@ -157,15 +153,14 @@ func serverCmd() *cobra.Command {
 		"Enable config analysis service")
 
 	// validation webhook server config
+	_ = svr.PersistentFlags().String("validation-webhook-config-file", "", "Setting this file has no effect")
+	_ = svr.PersistentFlags().MarkDeprecated("validation-webhook-config-file", "galley no longer reconciles the entire webhook configuration")
 	svr.PersistentFlags().UintVar(&serverArgs.ValidationWebhookServerArgs.Port, "validation-port",
 		serverArgs.ValidationWebhookServerArgs.Port, "HTTPS port of the validation service.")
 	svr.PersistentFlags().BoolVar(&serverArgs.EnableValidationServer, "enable-validation",
 		serverArgs.EnableValidationServer, "Run galley validation mode")
 
 	// validation webhook controller config
-	svr.PersistentFlags().StringVar(&serverArgs.ValidationWebhookControllerArgs.WebhookConfigPath,
-		"validation-webhook-config-file", "",
-		"File that contains k8s validatingwebhookconfiguration yaml. Required if enable-validation is true.")
 	svr.PersistentFlags().BoolVar(&serverArgs.EnableValidationController,
 		"enable-reconcileWebhookConfiguration", serverArgs.EnableValidationController,
 		"Enable reconciliation for webhook configuration.")

@@ -7266,10 +7266,6 @@ metadata:
     app: pilot
     release: istio
 rules:
-  # Remove permissions to reconcile webhook configuration. This address the downgrade case
-  # where istiod will be uninstalled. Removing the permissions reduces
-  # the likelihood that istiod will reconcile something it shouldn't.
-
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
@@ -7278,18 +7274,7 @@ rules:
   # configuration validation webhook controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
-    verbs: ["*"]
-    # required to set ownerRef on istiod clusterrole.
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles/finalizers"]
-    resourceNames:
-    - istiod-istio-system
-    verbs: ["update"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles"]
-    resourceNames:
-    - istiod-istio-system
-    verbs: ["get"]
+    verbs: ["get", "list", "watch", "update"]
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -7320,8 +7305,7 @@ rules:
     resources: ["ingresses/status"]
     verbs: ["*"]
 
-  # Pilot, injector - not clear why cluster wide.
-  # TODO: remove, too broad permission, should be namespace only
+  # required for CA's namespace controller
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
@@ -7337,12 +7321,6 @@ rules:
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
     verbs: ["create"]
-
-  # Citadel subset
-  # TODO: remove, namespace only
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["create", "get", "update"]
 
   # TODO: remove, no longer needed at cluster
   - apiGroups: [""]
@@ -7387,52 +7365,6 @@ subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
     namespace: istio-system
----
-
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-validation
-  namespace: istio-system
-  labels:
-    release: istio
-data:
-  config: |-    
-    apiVersion: admissionregistration.k8s.io/v1beta1
-    kind: ValidatingWebhookConfiguration
-    metadata:
-      name: istiod-istio-system
-      namespace: istio-system
-      labels:
-        app: istiod
-        release: istio
-        istio: istiod
-    webhooks:
-      - name: validation.istio.io
-        clientConfig:
-          service:
-            name: istiod
-            namespace: istio-system
-            path: "/validate"
-            port: 443
-          caBundle: ""
-        rules:
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - config.istio.io
-            - rbac.istio.io
-            - security.istio.io
-            - authentication.istio.io
-            - networking.istio.io
-            apiVersions:
-            - "*"
-            resources:
-            - "*"
-        failurePolicy: Fail
-        sideEffects: None
 ---
 
 
@@ -7724,9 +7656,6 @@ spec:
           - name: istiod
             mountPath: /var/lib/istio/local
             readOnly: true
-          - name: validation
-            mountPath: /var/lib/istio/validation
-            readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -7753,10 +7682,6 @@ spec:
       - name: inject
         configMap:
           name: istio-sidecar-injector
-          optional: true
-      - name: validation
-        configMap:
-          name: istio-validation
           optional: true
       - name: config-volume
         configMap:
@@ -9251,6 +9176,46 @@ spec:
                   code:
                     local:
                       inline_string: "envoy.wasm.stats"
+---
+
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-istio-system
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+    istio: istiod
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/validate"
+        port: 443
+      caBundle: "" # patched at runtime when the webhook is ready.
+    rules:
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
+        - config.istio.io
+        - rbac.istio.io
+        - security.istio.io
+        - authentication.istio.io
+        - networking.istio.io
+        apiVersions:
+        - "*"
+        resources:
+        - "*"
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    sideEffects: None
 ---
 
 
