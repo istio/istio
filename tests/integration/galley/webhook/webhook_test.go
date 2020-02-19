@@ -46,9 +46,7 @@ import (
 var (
 	webhookControllerApp string
 	deployName           string
-	clusterRolePrefix    string
 	vwcName              string
-	sleepDelay           = 10 * time.Second // How long to wait to give the reconcile loop an opportunity to act
 	i                    istio.Instance
 )
 
@@ -56,12 +54,10 @@ func setup(cfg *istio.Config) {
 	if cfg.IsIstiodEnabled() {
 		webhookControllerApp = "pilot" // i.e. istiod. Switch to 'galley' and change the setup options for non-istiod tests.
 		deployName = "istiod"
-		clusterRolePrefix = "istiod"
 		vwcName = "istiod-istio-system"
 	} else {
 		webhookControllerApp = "galley"
 		deployName = fmt.Sprintf("istio-%v", webhookControllerApp)
-		clusterRolePrefix = "istio-galley"
 		vwcName = "istio-galley"
 	}
 }
