@@ -187,6 +187,9 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 				Inject: true,
 			})
 
+			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
+			g.ApplyConfigOrFail(t, ns, deployment)
+
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, echoConfig(ns, "a")).
@@ -198,6 +201,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			var args []string
 			g := gomega.NewGomegaWithT(t)
 
+			// able to remove from mesh when the deployment is auto injected
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "remove-from-mesh", "service", "a"}
 			output = istioCtl.InvokeOrFail(t, args)

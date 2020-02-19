@@ -193,7 +193,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		}
 		res.Spec.Template.Annotations[annotation.SidecarInject.Name] = "false"
 		if _, err := client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q due to %v", depName, name, err))
 			continue
 		}
 		d := &appsv1.Deployment{
@@ -204,7 +204,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 			},
 		}
 		if _, err := client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment status %q for service %q due to %v", depName, name, err))
 			continue
 		}
 		fmt.Fprintf(writer, "deployment %q updated successfully with Istio sidecar un-injected.\n", depName)
