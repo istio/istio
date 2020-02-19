@@ -138,7 +138,8 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 	token := v.(stsservice.TokenInfo)
 	remainingLife := time.Until(token.ExpireTime)
 	if cacheHitCount%cacheHitDivisor == 0 {
-		pluginLog.Infof("find a cached access token with remaining lifetime: %s", remainingLife.String())
+		pluginLog.Infof("find a cached access token with remaining lifetime: %s (number of cache hits: %d)",
+			remainingLife.String(), cacheHitCount)
 	}
 	if remainingLife > time.Duration(defaultGracePeriod)*time.Second {
 		expireInSec := int64(remainingLife.Seconds())
