@@ -9195,7 +9195,6 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/validate"
-        port: 443
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:
