@@ -6722,6 +6722,9 @@ spec:
           requests:
             cpu: 10m
         securityContext:
+          capabilities:
+            drop:
+            - ALL
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
@@ -7492,6 +7495,9 @@ spec:
           requests:
             cpu: 100m
         securityContext:
+          capabilities:
+            drop:
+            - ALL
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
@@ -8693,6 +8699,9 @@ spec:
             cpu: 500m
             memory: 2048Mi
         securityContext:
+          capabilities:
+            drop:
+            - ALL
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
@@ -10223,6 +10232,9 @@ spec:
           requests:
             cpu: 10m
         securityContext:
+          capabilities:
+            drop:
+            - ALL
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
@@ -12495,6 +12507,9 @@ spec:
             cpu: 1000m
             memory: 1G
         securityContext:
+          capabilities:
+            drop:
+            - ALL
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
