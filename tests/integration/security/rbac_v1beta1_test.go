@@ -285,3 +285,51 @@ func TestV1beta1_WorkloadSelector(t *testing.T) {
 			rbacUtil.RunRBACTest(t, cases)
 		})
 }
+
+// TestV1beta1_RequestHeaders tests v1beta1 authorization with "request.headers".
+func TestV1beta1_RequestHeaders(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-request-headers",
+				Inject: true,
+			})
+
+			var a, b echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				BuildOrFail(t)
+
+			newTestCase := func(path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase("/allow", true),
+				newTestCase("/deny", false),
+			}
+
+			args := map[string]string{
+				"Namespace": ns.Name(),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsStringOrFail(t, "testdata/rbac/v1beta1-request-headers.yaml.tmpl"))
+
+			g.ApplyConfigOrFail(t, ns, policies...)
+			defer g.DeleteConfigOrFail(t, ns, policies...)
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}

@@ -66,7 +66,7 @@ func (principal *Principal) ValidateForTCP(forTCP bool) error {
 
 	for _, p := range principal.Properties {
 		for key := range p {
-			if strings.HasPrefix(key, "request.auth.") || key == attrSrcUser {
+			if strings.HasPrefix(key, "request.") || key == attrSrcUser {
 				return fmt.Errorf("property(%v)", p)
 			}
 		}
