@@ -89,8 +89,12 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 
 const (
 	// configNameNotApplicable is used to represent the name of the authentication policy or
-	// destination rule when they are not specified.
+	// destination rule when they are not specified and AutoMTLS is enabled
 	configNameNotApplicable = "-"
+
+	// noConfigConfigured is used when the authentication policy or destination rule
+	// are not specified
+	noConfigConfigured = "None"
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
@@ -423,7 +427,7 @@ func configName(config *model.ConfigMeta) string {
 	if config != nil {
 		return fmt.Sprintf("%s/%s", config.Namespace, config.Name)
 	}
-	return configNameNotApplicable
+	return noConfigConfigured
 }
 
 // Authenticationz dumps the authn tls-check info.
@@ -505,11 +509,11 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 		Port:                     port.Port,
 		AuthenticationPolicyName: authnPolicyName,
 		ServerProtocol:           serverMTLSMode.String(),
-		ClientProtocol:           configNameNotApplicable,
+		ClientProtocol:           noConfigConfigured,
 	}
 
 	var rule *networking.DestinationRule
-	destinationRuleName := configNameNotApplicable
+	destinationRuleName := noConfigConfigured
 
 	if destConfig != nil {
 		rule = destConfig.Spec.(*networking.DestinationRule)
@@ -531,6 +535,9 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 		info.DestinationRuleName = destinationRuleName
 		if c != nil {
 			info.ClientProtocol = c.GetMode().String()
+		} else if autoMTLSEnabled {
+			info.ClientProtocol = configNameNotApplicable
+			info.DestinationRuleName = configNameNotApplicable
 		}
 		if ss == "" {
 			info.Host = string(hostname)
