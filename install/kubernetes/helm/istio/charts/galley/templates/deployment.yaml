@@ -97,10 +97,9 @@ spec:
             mountPath: /etc/dnscerts
             readOnly: true
 {{- end }}
-          # galley expects /etc/config/ to exist even though it doesn't include any files.
           - name: config
-            emptyDir:
-              medium: Memory
+            mountPath: /etc/config
+            readOnly: true
           - name: mesh-config
             mountPath: /etc/mesh-config
             readOnly: true
