@@ -376,6 +376,56 @@ func (s *session) waitForDispatched() {
 	}
 }
 
+func (s *session) handleSetCookie(directive *mixerpb.RouteDirective, headerName, setCookieStr string) {
+	pos := 0
+	inputLen := len(setCookieStr)
+
+	// skips whitespace, returning true if there are more chars to read
+	skipSpace := func() bool {
+		for pos < inputLen && (setCookieStr[pos] == '\t' || setCookieStr[pos] == ' ') {
+			pos++
+		}
+		return pos < inputLen
+	}
+
+	hasNextCookie := func() bool {
+		return pos < len(setCookieStr)
+	}
+
+	nextCookie := func() string {
+		start := pos
+		for skipSpace() {
+			if setCookieStr[pos] == ',' {
+				lastComma := pos
+				pos++
+				skipSpace()
+				nextStart := pos
+				for pos < inputLen && setCookieStr[pos] != '=' && setCookieStr[pos] != ';' && setCookieStr[pos] != ',' {
+					pos++
+				}
+				if pos < inputLen && setCookieStr[pos] == '=' {
+					// pos is inside the next cookie, so back up and return it
+					pos = nextStart
+					return setCookieStr[start:lastComma]
+				}
+				pos = lastComma
+			}
+			pos++
+		}
+		return setCookieStr[start:]
+	}
+
+	// append each parsed cookie
+	for hasNextCookie() {
+		directive.ResponseHeaderOperations = append(directive.ResponseHeaderOperations,
+			mixerpb.HeaderOperation{
+				Operation: mixerpb.APPEND,
+				Name:      headerName,
+				Value:     nextCookie(),
+			})
+	}
+}
+
 func (s *session) handleDirectResponse(st rpc.Status, response *descriptor.DirectHttpResponse) {
 	if s.checkResult.RouteDirective == nil {
 		s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
@@ -396,25 +446,7 @@ func (s *session) handleDirectResponse(st rpc.Status, response *descriptor.Direc
 					Value:     value,
 				})
 		} else { // append Set-Cookie headers in multiple lines
-			// Folded cookie syntax can be complicated. See, for example,
-			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Syntax.
-			// Unfortunately, the net/http library does not expose/support cookie parsing.
-			// Here we handle a much simpler syntax - a comma separated list of cookies.
-			// The simplification comes at the cost of preventing the use of 'Expires'
-			// cookie attribute. A more robust parser would require 100-150 LOC and could
-			// be modeled after the following JS or Java code:
-			// https://github.com/nfriedly/set-cookie-parser/blob/master/lib/set-cookie.js
-			// or
-			// https://github.com/google/j2objc/commit/16820fdbc8f76ca0c33472810ce0cb03d20efe25
-			cookies := strings.Split(value, ",")
-			for _, cv := range cookies {
-				directive.ResponseHeaderOperations = append(directive.ResponseHeaderOperations,
-					mixerpb.HeaderOperation{
-						Operation: mixerpb.APPEND,
-						Name:      header,
-						Value:     cv,
-					})
-			}
+			s.handleSetCookie(directive, header, value)
 		}
 	}
 }
