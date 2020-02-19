@@ -201,6 +201,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 						},
 					},
 				},
+				IncludeRequestAttemptCount: true,
 			})
 		} else {
 			virtualHosts = append(virtualHosts, &route.VirtualHost{
@@ -218,6 +219,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 						},
 					},
 				},
+				IncludeRequestAttemptCount: true,
 			})
 		}
 	}
@@ -315,9 +317,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
-					Name:    name,
-					Domains: []string{hostname, domainName(hostname, virtualHostWrapper.Port)},
-					Routes:  virtualHostWrapper.Routes,
+					Name:                       name,
+					Domains:                    []string{hostname, domainName(hostname, virtualHostWrapper.Port)},
+					Routes:                     virtualHostWrapper.Routes,
+					IncludeRequestAttemptCount: true,
 				})
 			} else {
 				push.AddMetric(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
@@ -330,9 +333,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 				uniques[name] = struct{}{}
 				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
-					Name:    name,
-					Domains: domains,
-					Routes:  virtualHostWrapper.Routes,
+					Name:                       name,
+					Domains:                    domains,
+					Routes:                     virtualHostWrapper.Routes,
+					IncludeRequestAttemptCount: true,
 				})
 			} else {
 				push.AddMetric(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
