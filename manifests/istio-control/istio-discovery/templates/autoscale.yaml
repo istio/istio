@@ -3,10 +3,10 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ .Values.pilot.autoscaleMax }}

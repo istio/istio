@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authn_v1alpha1_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
@@ -210,12 +209,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			}
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
-			serviceMTLSMode := model.MTLSUnknown
-			if !service.MeshExternal {
-				// Only need the authentication MTLS mode when service is not external.
-				policy, _ := push.AuthenticationPolicyForWorkload(service, port)
-				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(policy)
-			}
+			serviceMTLSMode := push.BestEffortInferServiceMTLSMode(service, port)
 			clusters = append(clusters, defaultCluster)
 			destinationRule := castDestinationRuleOrDefault(destRule)
 
@@ -1249,8 +1243,12 @@ func setUpstreamProtocol(node *model.Proxy, cluster *apiv2.Cluster, port *model.
 		}
 	}
 
-	if (util.IsProtocolSniffingEnabledForInboundPort(node, port) && direction == model.TrafficDirectionInbound) ||
-		(util.IsProtocolSniffingEnabledForOutboundPort(node, port) && direction == model.TrafficDirectionOutbound) {
+	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled.
+	// Since protocol detection is disabled for gateway and use_downstream_protocol is used
+	// under protocol detection for cluster to select upstream connection protocol when
+	// the service port is unnamed. use_downstream_protocol should be disabled for gateway.
+	if node.Type == model.SidecarProxy && ((util.IsProtocolSniffingEnabledForInboundPort(node, port) && direction == model.TrafficDirectionInbound) ||
+		(util.IsProtocolSniffingEnabledForOutboundPort(node, port) && direction == model.TrafficDirectionOutbound)) {
 		// setup http2 protocol options for upstream connection.
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
