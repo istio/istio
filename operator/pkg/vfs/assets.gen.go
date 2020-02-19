@@ -11757,13 +11757,10 @@ func chartsIstioControlIstioConfigTemplatesServiceaccountYaml() (*asset, error) 
 	return a, nil
 }
 
-var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYaml = []byte(`{{ /*
-
-   This version of the validatingwebhookconfiguration is applied directly by
-   istio/operator. Galley only patches the caBundle and failurePolicy.
-
-*/ }}
-
+var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYaml = []byte(`{{/*
+This version of the validatingwebhookconfiguration is applied directly by
+istio/operator. Galley only patches the caBundle and failurePolicy.
+*/}}
 {{- if .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
@@ -11869,13 +11866,11 @@ func chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYaml() 
 	return a, nil
 }
 
-var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl = []byte(`{{ /*
-
-    This version of the validatingwebhookconfiguration is applied indirectly
-    by galley. This exists to support a smoother upgrade path from istio
-    versions < 1.4
-
-*/ }}
+var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl = []byte(`{{/*
+This version of the validatingwebhookconfiguration is applied indirectly
+by galley. This exists to support a smoother upgrade path from istio
+versions < 1.4
+*/}}
 {{ define "validatingwebhookconfiguration.yaml.tpl" }}
 {{- if .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
@@ -15062,7 +15057,6 @@ webhooks:
         name: istiod
         namespace: {{ .Release.Namespace }}
         path: "/validate"
-        port: 443
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:
@@ -15083,6 +15077,18 @@ webhooks:
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-galley
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: galley
+    release: {{ .Release.Name }}
+    istio: galley
+webhooks:
+---
 {{- else }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
