@@ -571,15 +571,6 @@ spec:
       image: citadel
       selfSigned: true
       trustDomain: cluster.local
-    sidecarInjectorWebhook:
-      enableNamespacesByDefault: false
-      image: sidecar_injector
-      injectLabel: istio-injection
-      objectSelector:
-        autoInject: true
-        enabled: false
-      rewriteAppHTTPProbe: false
-      selfSigned: false
     telemetry:
       enabled: true
       v1:

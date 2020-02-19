@@ -155,14 +155,6 @@ spec:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
-    sidecarInjector:
-      enabled: true
-      k8s:
-        replicaCount: 1
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
     telemetry:
       enabled: true
       k8s:
@@ -584,15 +576,6 @@ spec:
       enableNamespacesByDefault: true
       image: citadel
       selfSigned: true
-    sidecarInjectorWebhook:
-      enableNamespacesByDefault: false
-      image: sidecar_injector
-      injectLabel: istio-injection
-      objectSelector:
-        autoInject: true
-        enabled: false
-      rewriteAppHTTPProbe: false
-      selfSigned: false
     telemetry:
       enabled: true
       v2:
