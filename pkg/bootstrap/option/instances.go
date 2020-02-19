@@ -86,10 +86,6 @@ func DiscoveryAddress(value string) Instance {
 	return newOption("discovery_address", value)
 }
 
-func DNSRefreshRate(value string) Instance {
-	return newOption("dns_refresh_rate", value)
-}
-
 func Localhost(value LocalhostValue) Instance {
 	return newOption("localhost", value)
 }

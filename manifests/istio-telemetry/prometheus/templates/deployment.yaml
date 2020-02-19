@@ -123,8 +123,6 @@ spec:
             - --controlPlaneAuthPolicy
             - NONE
               {{- end }}
-            - --dnsRefreshRate
-            - "300s"
             - --statusPort
             - "15020"
               {{- if .Values.global.trustDomain }}

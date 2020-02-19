@@ -266,7 +266,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
@@ -444,7 +444,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -474,7 +474,7 @@
         },
         {{ end }}
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -490,7 +490,7 @@
         "name": "datadog_agent",
         "connect_timeout": "1s",
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -511,7 +511,7 @@
       {{ if .envoy_metrics_service_tcp_keepalive }}
         "upstream_connection_options": {{ .envoy_metrics_service_tcp_keepalive }},
       {{ end }}
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -534,7 +534,7 @@
       {{ if .envoy_accesslog_service_tcp_keepalive }}
         "upstream_connection_options": {{ .envoy_accesslog_service_tcp_keepalive }},
       {{ end }}
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
