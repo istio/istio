@@ -59,8 +59,8 @@ export TARGET_OUT ?= $(shell pwd)/out/$(TARGET_OS)_$(TARGET_ARCH)
 export TARGET_OUT_LINUX ?= $(shell pwd)/out/linux_amd64
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
-export TARGET_OUT = /work/src/istio.io/istio/out/$(TARGET_OS)_$(TARGET_ARCH)
-export TARGET_OUT_LINUX = /work/src/istio.io/istio/out/linux_amd64
+export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
+export TARGET_OUT_LINUX = /work/out/linux_amd64
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
 IMG ?= gcr.io/istio-testing/build-tools:$(IMAGE_VERSION)
@@ -101,9 +101,6 @@ ENV_VARS+=-e HUB="$(HUB)"
 endif
 ifdef TAG
 ENV_VARS+=-e TAG="$(TAG)"
-endif
-ifdef GOPRIVATE
-ENV_VARS+=-e GOPRIVATE="$(GOPRIVATE)"
 endif
 
 RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
