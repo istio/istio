@@ -13,6 +13,7 @@
 // charts/base/templates/namespaces.yaml
 // charts/base/templates/serviceaccount.yaml
 // charts/base/templates/services.yaml
+// charts/base/templates/validatingwebhookconfiguration.yaml
 // charts/base/values.yaml
 // charts/gateways/istio-egress/Chart.yaml
 // charts/gateways/istio-egress/NOTES.txt
@@ -77,7 +78,6 @@
 // charts/istio-control/istio-discovery/templates/autoscale.yaml
 // charts/istio-control/istio-discovery/templates/clusterrole-galley-disable-webhook.yaml
 // charts/istio-control/istio-discovery/templates/configmap-jwks.yaml
-// charts/istio-control/istio-discovery/templates/configmap-validation.yaml
 // charts/istio-control/istio-discovery/templates/configmap.yaml
 // charts/istio-control/istio-discovery/templates/deployment.yaml
 // charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml
@@ -88,7 +88,6 @@
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml
-// charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml
 // charts/istio-control/istio-discovery/values.yaml
 // charts/istio-policy/Chart.yaml
 // charts/istio-policy/templates/_affinity.tpl
@@ -12908,6 +12907,70 @@ func chartsBaseTemplatesServicesYaml() (*asset, error) {
 	return a, nil
 }
 
+var _chartsBaseTemplatesValidatingwebhookconfigurationYaml = []byte(`apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-{{ .Values.global.istioNamespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+    istio: istiod
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: {{ .Values.global.istioNamespace }}
+        path: "/validate"
+      caBundle: "" # patched at runtime when the webhook is ready.
+    rules:
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
+        - config.istio.io
+        - rbac.istio.io
+        - security.istio.io
+        - authentication.istio.io
+        - networking.istio.io
+        apiVersions:
+        - "*"
+        resources:
+        - "*"
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `+"`"+`Fail`+"`"+` and patch in the `+"`"+`caBundle`+"`"+` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    sideEffects: None
+---
+{{/* Create a NOP config for Galley's webhook to stop it from blocking config */}}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-galley
+  labels:
+    app: galley
+    release: {{ .Release.Name }}
+    istio: galley
+webhooks:
+---
+`)
+
+func chartsBaseTemplatesValidatingwebhookconfigurationYamlBytes() ([]byte, error) {
+	return _chartsBaseTemplatesValidatingwebhookconfigurationYaml, nil
+}
+
+func chartsBaseTemplatesValidatingwebhookconfigurationYaml() (*asset, error) {
+	bytes, err := chartsBaseTemplatesValidatingwebhookconfigurationYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/base/templates/validatingwebhookconfiguration.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _chartsBaseValuesYaml = []byte(`global:
 
   # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
@@ -18804,38 +18867,6 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml() (*asset, error
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml = []byte(`{{ if and (eq .Values.revision "") (not .Values.clusterResources) }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-validation
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-data:
-{{- if .Values.global.configValidation }}
-  config: |-
-    {{- include "validatingwebhookconfiguration.yaml.tpl" . | indent 4}}
-{{- end}}
----
-{{- end }}
-`)
-
-func chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/configmap-validation.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if .Values.pilot.configMap }}
 apiVersion: v1
@@ -20874,72 +20905,6 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml() (*asset, erro
 	}
 
 	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml = []byte(`apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istiod-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istiod
-    release: {{ .Release.Name }}
-    istio: istiod
-webhooks:
-  - name: validation.istio.io
-    clientConfig:
-      service:
-        name: istiod
-        namespace: {{ .Release.Namespace }}
-        path: "/validate"
-      caBundle: "" # patched at runtime when the webhook is ready.
-    rules:
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
-        - config.istio.io
-        - rbac.istio.io
-        - security.istio.io
-        - authentication.istio.io
-        - networking.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-    # Fail open until the validation webhook is ready. The webhook controller
-    # will update this to `+"`"+`Fail`+"`"+` and patch in the `+"`"+`caBundle`+"`"+` when the webhook
-    # endpoint is ready.
-    failurePolicy: Ignore
-    sideEffects: None
----
-{{/* Create a NOP config for Galley's webhook to stop it from blocking config */}}
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: galley
-    release: {{ .Release.Name }}
-    istio: galley
-webhooks:
----
-`)
-
-func chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -47569,6 +47534,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/base/templates/namespaces.yaml":                                                  chartsBaseTemplatesNamespacesYaml,
 	"charts/base/templates/serviceaccount.yaml":                                              chartsBaseTemplatesServiceaccountYaml,
 	"charts/base/templates/services.yaml":                                                    chartsBaseTemplatesServicesYaml,
+	"charts/base/templates/validatingwebhookconfiguration.yaml":                              chartsBaseTemplatesValidatingwebhookconfigurationYaml,
 	"charts/base/values.yaml":                                                                chartsBaseValuesYaml,
 	"charts/gateways/istio-egress/Chart.yaml":                                                chartsGatewaysIstioEgressChartYaml,
 	"charts/gateways/istio-egress/NOTES.txt":                                                 chartsGatewaysIstioEgressNotesTxt,
@@ -47633,7 +47599,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/autoscale.yaml":                          chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml,
 	"charts/istio-control/istio-discovery/templates/clusterrole-galley-disable-webhook.yaml": chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml,
 	"charts/istio-control/istio-discovery/templates/configmap-jwks.yaml":                     chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml,
-	"charts/istio-control/istio-discovery/templates/configmap-validation.yaml":               chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml,
 	"charts/istio-control/istio-discovery/templates/configmap.yaml":                          chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml,
 	"charts/istio-control/istio-discovery/templates/deployment.yaml":                         chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml,
 	"charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml":                   chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml,
@@ -47644,7 +47609,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml":                    chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml,
 	"charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml":                    chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml,
 	"charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml":                    chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml,
-	"charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml":     chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml,
 	"charts/istio-control/istio-discovery/values.yaml":                                       chartsIstioControlIstioDiscoveryValuesYaml,
 	"charts/istio-policy/Chart.yaml":                                                         chartsIstioPolicyChartYaml,
 	"charts/istio-policy/templates/_affinity.tpl":                                            chartsIstioPolicyTemplates_affinityTpl,
@@ -47831,13 +47795,14 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			}},
 			"kustomization.yaml": &bintree{chartsBaseKustomizationYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
-				"clusterrole.yaml":        &bintree{chartsBaseTemplatesClusterroleYaml, map[string]*bintree{}},
-				"clusterrolebinding.yaml": &bintree{chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-				"crds.yaml":               &bintree{chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
-				"endpoints.yaml":          &bintree{chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
-				"namespaces.yaml":         &bintree{chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
-				"serviceaccount.yaml":     &bintree{chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
-				"services.yaml":           &bintree{chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
+				"clusterrole.yaml":                    &bintree{chartsBaseTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrolebinding.yaml":             &bintree{chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+				"crds.yaml":                           &bintree{chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
+				"endpoints.yaml":                      &bintree{chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
+				"namespaces.yaml":                     &bintree{chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
+				"serviceaccount.yaml":                 &bintree{chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
+				"services.yaml":                       &bintree{chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
+				"validatingwebhookconfiguration.yaml": &bintree{chartsBaseTemplatesValidatingwebhookconfigurationYaml, map[string]*bintree{}},
 			}},
 			"values.yaml": &bintree{chartsBaseValuesYaml, map[string]*bintree{}},
 		}},
@@ -47927,7 +47892,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"autoscale.yaml":                          &bintree{chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
 					"clusterrole-galley-disable-webhook.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, map[string]*bintree{}},
 					"configmap-jwks.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml, map[string]*bintree{}},
-					"configmap-validation.yaml":               &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapValidationYaml, map[string]*bintree{}},
 					"configmap.yaml":                          &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml, map[string]*bintree{}},
 					"deployment.yaml":                         &bintree{chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml, map[string]*bintree{}},
 					"enable-mesh-mtls.yaml":                   &bintree{chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml, map[string]*bintree{}},
@@ -47938,7 +47902,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"telemetryv2_1.4.yaml":                    &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml, map[string]*bintree{}},
 					"telemetryv2_1.5.yaml":                    &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml, map[string]*bintree{}},
 					"telemetryv2_1.6.yaml":                    &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml, map[string]*bintree{}},
-					"validatingwebhookconfiguration.yaml":     &bintree{chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioControlIstioDiscoveryValuesYaml, map[string]*bintree{}},
 			}},
