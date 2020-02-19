@@ -74,7 +74,7 @@ func TestStatsFilter(t *testing.T) {
 				util.SendTraffic(ingress, t, "Sending traffic", url, "", 200)
 				// Query client side metrics
 				if err := QueryPrometheus(t, sourceQuery, getPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
+					t.Logf("prometheus values for istio_requests_tota: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
 				if err := QueryPrometheus(t, destinationQuery, getPromInstance()); err != nil {
