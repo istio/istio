@@ -7143,10 +7143,10 @@ spec:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-pilot
+  name: istiod
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 spec:
   maxReplicas: 5
@@ -7263,7 +7263,7 @@ kind: ClusterRole
 metadata:
   name: istiod-istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 rules:
   # sidecar injection controller
@@ -7345,7 +7345,7 @@ roleRef:
   name: istio-pilot-istio-system
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-system
 ---
 
@@ -7353,9 +7353,9 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-pilot-istio-system
+  name: istiod-istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7363,7 +7363,7 @@ roleRef:
   name: istiod-istio-system
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-system
 ---
 
@@ -7539,7 +7539,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: istio
 spec:
@@ -7553,14 +7553,14 @@ spec:
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       securityContext:
         fsGroup: 1337
       containers:
@@ -8388,17 +8388,17 @@ webhooks:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot
+  name: istiod-
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
     istio: pilot
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: pilot
+      app: istiod
       release: istio
       istio: pilot
 ---
@@ -8449,7 +8449,7 @@ spec:
       name: https-webhook # validation and injection
       targetPort: 15017
   selector:
-    app: pilot
+    app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
     istio: pilot
@@ -8459,10 +8459,10 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-pilot-service-account
+  name: istiod-service-account
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 ---
 

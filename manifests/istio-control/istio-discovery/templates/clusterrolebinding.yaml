@@ -12,15 +12,15 @@ roleRef:
   name: istio-pilot-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-pilot-{{ .Release.Namespace }}
+  name: istiod-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -28,7 +28,7 @@ roleRef:
   name: istiod-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: {{ .Release.Namespace }}
 ---
 {{ end }}

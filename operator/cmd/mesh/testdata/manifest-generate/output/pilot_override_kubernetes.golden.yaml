@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: istio
   name: istiod
@@ -20,7 +20,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
       labels:
-        app: pilot
+        app: istiod
         istio: pilot
     spec:
       affinity:
@@ -149,7 +149,7 @@ spec:
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory

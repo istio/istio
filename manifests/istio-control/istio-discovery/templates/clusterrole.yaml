@@ -47,7 +47,7 @@ kind: ClusterRole
 metadata:
   name: istiod-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 rules:
   # sidecar injection controller
