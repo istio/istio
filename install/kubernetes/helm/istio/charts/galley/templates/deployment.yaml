@@ -97,6 +97,10 @@ spec:
             mountPath: /etc/dnscerts
             readOnly: true
 {{- end }}
+          # galley expects /etc/config/ to exist even though it doesn't include any files.
+          - name: config
+            emptyDir:
+              medium: Memory
           - name: mesh-config
             mountPath: /etc/mesh-config
             readOnly: true
@@ -133,6 +137,10 @@ spec:
         secret:
           secretName: dns.istio-galley-service-account
 {{- end }}
+      # galley expects /etc/config to exist even though it doesn't include any files.
+      - name: config
+        emptyDir:
+          medium: Memory
       - name: mesh-config
         configMap:
           name: istio

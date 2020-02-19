@@ -104,6 +104,9 @@ spec:
             mountPath: /etc/dnscerts
             readOnly: true
   {{- end }}
+          - name: config
+            mountPath: /etc/config
+            readOnly: true
           - name: mesh-config
             mountPath: /etc/mesh-config
             readOnly: true
@@ -205,6 +208,10 @@ spec:
         configMap:
           name: galley-envoy-config
   {{- end }}
+      # galley expects /etc/config to exist even though it doesn't include any files.
+      - name: config
+        emptyDir:
+          medium: Memory
       # Different config map from pilot, to allow independent config and rollout.
       # Both are derived from values.yaml.
       - name: mesh-config
