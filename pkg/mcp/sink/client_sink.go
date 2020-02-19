@@ -36,6 +36,9 @@ var (
 type Client struct {
 	client mcp.ResourceSourceClient
 	*Sink
+	// reconnectTestProbe is the function called on reconnect
+	// This is used only for testing
+	reconnectTestProbe func()
 }
 
 // NewClient returns a new instance of Client.
@@ -45,8 +48,6 @@ func NewClient(client mcp.ResourceSourceClient, options *Options) *Client {
 		client: client,
 	}
 }
-
-var reconnectTestProbe = func() {}
 
 func (c *Client) Run(ctx context.Context) {
 	var err error
@@ -69,8 +70,8 @@ func (c *Client) Run(ctx context.Context) {
 			scope.Info("(re)trying to establish new MCP sink stream")
 			stream, err = c.client.EstablishResourceStream(ctx)
 
-			if reconnectTestProbe != nil {
-				reconnectTestProbe()
+			if c.reconnectTestProbe != nil {
+				c.reconnectTestProbe()
 			}
 
 			if err == nil {
