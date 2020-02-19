@@ -410,6 +410,11 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 	var caOpts *ca.IstioCAOptions
 	var err error
 
+	maxCertTTL := maxWorkloadCertTTL.Get()
+	if SelfSignedCACertTTL.Get().Seconds() > maxCertTTL.Seconds() {
+		maxCertTTL = SelfSignedCACertTTL.Get()
+	}
+
 	signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
 
 	// If not found, will default to ca-cert.pem. May contain multiple roots.
@@ -438,7 +443,7 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
 			selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			SelfSignedCACertTTL.Get(), opts.TrustDomain, true,
+			maxCertTTL, opts.TrustDomain, true,
 			opts.Namespace, -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
@@ -455,7 +460,7 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 		s.caBundlePath = certChainFile
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), opts.Namespace, client)
+			rootCertFile, workloadCertTTL.Get(), maxCertTTL, opts.Namespace, client)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an Citadel: %v", err)
 		}
