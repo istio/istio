@@ -61,7 +61,6 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 	--istio.test.hub=${HUB} \
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
-	--log_output_level=tf:debug,mcp:debug \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	${_INTEGRATION_TEST_INSTALL_TYPE} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))

@@ -125,13 +125,13 @@ func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (mode
 			return nil, true, err
 		}
 
-		scopes.Framework.Infof("WaitForQuiesce running: %q", query)
+		scopes.Framework.Debugf("WaitForQuiesce running: %q", query)
 
 		v, _, err := c.api.Query(context.Background(), query, time.Now())
 		if err != nil {
 			return nil, false, fmt.Errorf("error querying Prometheus: %v", err)
 		}
-		scopes.Framework.Infof("WaitForQuiesce received: %v", v)
+		scopes.Framework.Debugf("WaitForQuiesce received: %v", v)
 
 		if previous == nil {
 			previous = v
