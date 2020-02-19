@@ -47,13 +47,9 @@ kind: ClusterRole
 metadata:
   name: istiod-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 rules:
-  # Remove permissions to reconcile webhook configuration. This address the downgrade case
-  # where istiod will be uninstalled. Removing the permissions reduces
-  # the likelihood that istiod will reconcile something it shouldn't.
-
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
@@ -62,18 +58,7 @@ rules:
   # configuration validation webhook controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
-    verbs: ["*"]
-    # required to set ownerRef on istiod clusterrole.
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles/finalizers"]
-    resourceNames:
-    - istiod-{{ .Release.Namespace }}
-    verbs: ["update"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles"]
-    resourceNames:
-    - istiod-{{ .Release.Namespace }}
-    verbs: ["get"]
+    verbs: ["get", "list", "watch", "update"]
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -104,8 +89,7 @@ rules:
     resources: ["ingresses/status"]
     verbs: ["*"]
 
-  # Pilot, injector - not clear why cluster wide.
-  # TODO: remove, too broad permission, should be namespace only
+  # required for CA's namespace controller
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
@@ -121,12 +105,6 @@ rules:
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
     verbs: ["create"]
-
-  # Citadel subset
-  # TODO: remove, namespace only
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["create", "get", "update"]
 
   # TODO: remove, no longer needed at cluster
   - apiGroups: [""]
