@@ -573,7 +573,6 @@ spec:
       trustDomain: cluster.local
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
-      image: sidecar_injector
       injectLabel: istio-injection
       objectSelector:
         autoInject: true
