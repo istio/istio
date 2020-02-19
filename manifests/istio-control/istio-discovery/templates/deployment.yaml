@@ -5,7 +5,7 @@ metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istiod
     {{- if ne .Values.revision ""}}
     version: {{ .Values.revision }}
     {{- end }}
@@ -27,7 +27,7 @@ spec:
   selector:
     matchLabels:
       {{- if ne .Values.revision ""}}
-      app: pilot
+      app: istiod
       version: {{ .Values.revision }}
       {{- else }}
       istio: pilot
@@ -35,7 +35,7 @@ spec:
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         {{- if ne .Values.revision ""}}
         version: {{ .Values.revision }}
         {{- else }}
@@ -49,7 +49,7 @@ spec:
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -168,6 +168,9 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -186,9 +189,6 @@ spec:
             readOnly: true
           - name: istiod
             mountPath: /var/lib/istio/local
-            readOnly: true
-          - name: validation
-            mountPath: /var/lib/istio/validation
             readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
@@ -218,10 +218,6 @@ spec:
       - name: inject
         configMap:
           name: istio-sidecar-injector
-          optional: true
-      - name: validation
-        configMap:
-          name: istio-validation
           optional: true
       - name: config-volume
         configMap:

@@ -26,7 +26,7 @@ spec:
     targetPort: 15017
   selector:
     {{- if ne .Values.revision ""}}
-    app: pilot
+    app: istiod
     version: {{ .Values.revision }}
     {{ else }}
     istio: pilot
@@ -48,7 +48,7 @@ spec:
       name: https-webhook # validation and injection
       targetPort: 15017
   selector:
-    app: pilot
+    app: istiod
     {{- if ne .Values.revision ""}}
     version: {{ .Values.revision }}
     {{- else }}

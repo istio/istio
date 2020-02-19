@@ -829,6 +829,10 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 				t.Fatalf("unexpected vhost domain %s in vhost %s, for route %s", domain, vhost.Name, routeName)
 			}
 		}
+
+		if !vhost.GetIncludeRequestAttemptCount() {
+			t.Fatal("Expected that include request attempt count is set to true, but set to false")
+		}
 	}
 	if (expectedNumberOfRoutes >= 0) && (numberOfRoutes != expectedNumberOfRoutes) {
 		t.Errorf("Wrong number of routes. expected: %v, Got: %v", expectedNumberOfRoutes, numberOfRoutes)

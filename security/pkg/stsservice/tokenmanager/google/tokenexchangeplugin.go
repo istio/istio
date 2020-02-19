@@ -36,6 +36,7 @@ import (
 const (
 	httpTimeOutInSec = 5
 	maxRequestRetry  = 5
+	cacheHitDivisor  = 50
 	contentType      = "application/json"
 	scope            = "https://www.googleapis.com/auth/cloud-platform"
 	tokenType        = "urn:ietf:params:oauth:token-type:access_token"
@@ -63,6 +64,10 @@ type Plugin struct {
 	gcpProjectNumber string
 	gkeClusterURL    string
 	enableCache      bool
+
+	// Counts numbers of access token cache hits.
+	mutex               sync.RWMutex
+	accessTokenCacheHit uint64
 }
 
 // CreateTokenManagerPlugin creates a plugin that fetches token from a Google OAuth 2.0 authorization server.
@@ -124,13 +129,24 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 		return nil, false
 	}
 
+	var cacheHitCount uint64
+	p.mutex.Lock()
+	p.accessTokenCacheHit++
+	cacheHitCount = p.accessTokenCacheHit
+	p.mutex.Unlock()
+
 	token := v.(stsservice.TokenInfo)
 	remainingLife := time.Until(token.ExpireTime)
-	pluginLog.Infof("find a cached access token with remaining lifetime: %s", remainingLife.String())
+	if cacheHitCount%cacheHitDivisor == 0 {
+		pluginLog.Debugf("find a cached access token with remaining lifetime: %s (number of cache hits: %d)",
+			remainingLife.String(), cacheHitCount)
+	}
 	if remainingLife > time.Duration(defaultGracePeriod)*time.Second {
 		expireInSec := int64(remainingLife.Seconds())
 		if tokenSTS, err := p.generateSTSRespInner(token.Token, expireInSec); err == nil {
-			pluginLog.Infof("generated an STS response using a cached access token")
+			if cacheHitCount%cacheHitDivisor == 0 {
+				pluginLog.Debugf("generated an STS response using a cached access token")
+			}
 			return tokenSTS, true
 		}
 	}
@@ -374,11 +390,15 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 	} else {
 		tokenExp = exp
 	}
+	// Update cache and reset cache hit counter.
 	p.tokens.Store(accessToken, stsservice.TokenInfo{
 		TokenType:  accessToken,
 		IssueTime:  time.Now(),
 		ExpireTime: tokenExp,
 		Token:      respData.AccessToken})
+	p.mutex.Lock()
+	p.accessTokenCacheHit = 0
+	p.mutex.Unlock()
 	return respData, nil
 }
 
