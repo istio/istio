@@ -1,11 +1,10 @@
 {{ /*
 
-    This version of the validatingwebhookconfiguration is applied indirectly
-    by galley. This exists to support a smoother upgrade path from istio
-    versions < 1.4
+   This version of the validatingwebhookconfiguration is applied directly by
+   istio/operator. Galley only patches the caBundle and failurePolicy.
 
 */ }}
-{{ define "validatingwebhookconfiguration.yaml.tpl" }}
+
 {{- if .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
@@ -92,6 +91,5 @@ webhooks:
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
-{{- end }}
 {{- end }}
 ---

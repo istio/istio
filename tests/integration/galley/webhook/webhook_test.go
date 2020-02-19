@@ -26,14 +26,13 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	kubeApiAdmission "k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/webhooks/validation/server"
-
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	tkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/webhooks/validation/server"
 )
 
 var (
@@ -76,53 +76,39 @@ func TestWebhook(t *testing.T) {
 
 			istioNs := i.Settings().IstioNamespace
 
-			// Verify the controller re-creates the webhook when it is deleted.
-			ctx.NewSubTest("recreateOnDelete").
-				Run(func(t framework.TestContext) {
-					startVersion := getVwcResourceVersion(vwcName, t, env)
+			ctx.NewSubTest("update").
+				Run(func(ctx framework.TestContext) {
+					env := ctx.Environment().(*kube.Environment)
 
-					if err := env.DeleteValidatingWebhook(vwcName); err != nil {
-						t.Fatalf("Error deleting validation webhook: %v", err)
-					}
+					// clear the updated fields and verify istiod updates them
 
-					time.Sleep(sleepDelay)
-					version := getVwcResourceVersion(vwcName, t, env)
-					if version == startVersion {
-						t.Fatalf("ValidatingWebhookConfiguration was not re-created after deletion")
-					}
-				})
+					retry.UntilSuccessOrFail(t, func() error {
+						got, err := env.GetValidatingWebhookConfiguration(vwcName)
+						if err != nil {
+							return fmt.Errorf("error getting initial webhook: %v", err)
+						}
+						if err := verifyValidatingWebhookConfiguration(got); err != nil {
+							return err
+						}
 
-			// Verify that scaling up/down doesn't modify webhook configuration
-			ctx.NewSubTest("scaling").
-				Run(func(t framework.TestContext) {
-					startGen := getVwcGeneration(vwcName, t, env)
+						updated := got.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
+						updated.Webhooks[0].ClientConfig.CABundle = nil
+						ignore := kubeApiAdmission.Ignore // can't take the address of a constant
+						updated.Webhooks[0].FailurePolicy = &ignore
 
-					// Scale up
-					scaleDeployment(istioNs, deployName, 2, t, env)
-					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-					time.Sleep(sleepDelay)
-					gen := getVwcGeneration(vwcName, t, env)
-					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up to 2")
-					}
+						return env.UpdateValidatingWebhookConfiguration(updated)
+					})
 
-					// Scale down to zero
-					scaleDeployment(istioNs, deployName, 0, t, env)
-					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-					time.Sleep(sleepDelay)
-					gen = getVwcGeneration(vwcName, t, env)
-					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale down to zero")
-					}
-
-					// Scale back to 1
-					scaleDeployment(istioNs, deployName, 1, t, env)
-					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-					time.Sleep(sleepDelay)
-					gen = getVwcGeneration(vwcName, t, env)
-					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up back to 1")
-					}
+					retry.UntilSuccessOrFail(t, func() error {
+						got, err := env.GetValidatingWebhookConfiguration(vwcName)
+						if err != nil {
+							t.Fatalf("error getting initial webhook: %v", err)
+						}
+						if err := verifyValidatingWebhookConfiguration(got); err != nil {
+							return fmt.Errorf("validatingwebhookconfiguration not updated yet: %v", err)
+						}
+						return nil
+					})
 				})
 
 			// Verify that the webhook's key and cert are reloaded, e.g. on rotation
@@ -150,18 +136,6 @@ func TestWebhook(t *testing.T) {
 						}
 						return errors.New("no change to cert serial numbers")
 					}, retry.Timeout(5*time.Minute))
-				})
-
-			// NOTE: Keep this as the last test! It deletes the webhook's clusterrole. All subsequent kube tests will fail.
-			// Verify that removing clusterrole results in the webhook configuration being removed.
-			ctx.NewSubTest("webhookUninstall").
-				Run(func(t framework.TestContext) {
-					env.DeleteClusterRole(fmt.Sprintf("%v-%v", clusterRolePrefix, istioNs))
-
-					// Verify webhook config is deleted
-					if err := env.WaitForValidatingWebhookDeletion(vwcName); err != nil {
-						t.Fatal(err)
-					}
 				})
 		})
 }
@@ -191,26 +165,6 @@ func scaleDeployment(namespace, deployment string, replicas int, t test.Failer, 
 			return nil
 		}, retry.Timeout(5*time.Minute))
 	}
-}
-
-func getVwcGeneration(vwcName string, t test.Failer, env *kube.Environment) int64 {
-	t.Helper()
-
-	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
-	if err != nil {
-		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
-	}
-	return vwc.GetGeneration()
-}
-
-func getVwcResourceVersion(vwcName string, t test.Failer, env *kube.Environment) string {
-	t.Helper()
-
-	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
-	if err != nil {
-		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
-	}
-	return vwc.GetResourceVersion()
 }
 
 func startWebhookPortForwarderOrFail(t test.Failer, env *kube.Environment, cfg istio.Config) (addr string, done func()) {
@@ -298,6 +252,20 @@ func fetchWebhookCertSerialNumbersOrFail(t test.Failer, addr string) []string { 
 	}
 	sort.Strings(sn)
 	return sn
+}
+
+func verifyValidatingWebhookConfiguration(c *kubeApiAdmission.ValidatingWebhookConfiguration) error {
+	if len(c.Webhooks) != 1 {
+		return fmt.Errorf("only one webhook expected. Found %v", len(c.Webhooks))
+	}
+	wh := c.Webhooks[0]
+	if *wh.FailurePolicy != kubeApiAdmission.Fail {
+		return fmt.Errorf("wrong failure policy. c %v wanted %v", *wh.FailurePolicy, kubeApiAdmission.Fail)
+	}
+	if len(wh.ClientConfig.CABundle) == 0 {
+		return fmt.Errorf("caBundle not matched")
+	}
+	return nil
 }
 
 func TestMain(m *testing.M) {

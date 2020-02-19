@@ -17,14 +17,12 @@ package bootstrap
 import (
 	"time"
 
-	"istio.io/pkg/env"
-
-	"istio.io/istio/pkg/config/constants"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -68,7 +66,6 @@ type ServiceArgs struct {
 type PilotArgs struct {
 	DiscoveryOptions         DiscoveryServiceOptions
 	InjectionOptions         InjectionOptions
-	ValidationOptions        ValidationOptions
 	PodName                  string
 	Namespace                string
 	Revision                 string
@@ -123,11 +120,6 @@ type DiscoveryServiceOptions struct {
 type InjectionOptions struct {
 	// Directory of injection related config files.
 	InjectionDirectory string
-}
-
-type ValidationOptions struct {
-	// Directory of config validation related config files.
-	ValidationDirectory string
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
