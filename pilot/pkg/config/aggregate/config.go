@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/log"
 )
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
@@ -62,7 +63,10 @@ func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
 			result.getVersion = store.Version
 			result.getResourceAtVersion = store.GetResourceAtVersion
 		} else {
-			store.SetLedger(l)
+			err := store.SetLedger(l)
+			if err != nil {
+				log.Warnf("Config Store %v cannot track distribution in aggregate", store)
+			}
 		}
 	}
 
