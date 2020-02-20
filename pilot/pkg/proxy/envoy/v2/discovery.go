@@ -112,6 +112,10 @@ type DiscoveryServer struct {
 
 	// debugHandlers is the list of all the supported debug handlers.
 	debugHandlers map[string]string
+
+	// adsClients reflect active gRPC channels, for both ADS and EDS.
+	adsClients      map[string]*XdsConnection
+	adsClientsMutex sync.RWMutex
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -145,6 +149,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		pushQueue:               NewPushQueue(),
 		DebugConfigs:            features.DebugConfigs,
 		debugHandlers:           map[string]string{},
+		adsClients:              map[string]*XdsConnection{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
