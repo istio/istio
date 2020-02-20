@@ -88,4 +88,12 @@ const (
 
 	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMapDataName = "ca-cert-ns.pem"
+
+	// PodInfoLabelsPath is the filepath that pod labels will be stored
+	// This is typically set by the downward API
+	PodInfoLabelsPath = "./etc/istio/pod/labels"
+
+	// PodInfoAnnotationsPath is the filepath that pod annotations will be stored
+	// This is typically set by the downward API
+	PodInfoAnnotationsPath = "./etc/istio/pod/annotations"
 )

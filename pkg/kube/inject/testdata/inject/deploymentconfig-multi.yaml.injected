@@ -28,7 +28,7 @@ items:
       metadata:
         annotations:
           sidecar.istio.io/interceptionMode: REDIRECT
-          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
+          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
           traffic.sidecar.istio.io/excludeInboundPorts: "15020"
           traffic.sidecar.istio.io/includeInboundPorts: "80"
           traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -116,9 +116,6 @@ items:
                 fieldPath: metadata.namespace
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {"app":"hello","tier":"backend","track":"stable"}
           - name: ISTIO_META_WORKLOAD_NAME
             value: hello
           - name: ISTIO_META_OWNER
@@ -163,6 +160,8 @@ items:
             name: istio-envoy
           - mountPath: /var/run/secrets/tokens
             name: istio-token
+          - mountPath: /etc/istio/pod
+            name: podinfo
         initContainers:
         - command:
           - istio-iptables
@@ -209,6 +208,15 @@ items:
         - emptyDir:
             medium: Memory
           name: istio-envoy
+        - downwardAPI:
+            items:
+            - fieldRef:
+                fieldPath: metadata.labels
+              path: labels
+            - fieldRef:
+                fieldPath: metadata.annotations
+              path: annotations
+          name: podinfo
         - name: istio-token
           projected:
             sources:
