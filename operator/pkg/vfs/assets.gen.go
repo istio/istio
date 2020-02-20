@@ -9341,8 +9341,6 @@ spec:
                 fieldPath: spec.nodeName
           - name: "REPAIR_LABEL-PODS"
             value: "{{.Values.cni.repair.labelPods}}"
-          - name: "REPAIR_CREATE-EVENTS"
-            value: "{{.Values.cni.repair.createEvents}}"
           # Set to true to enable pod deletion
           - name: "REPAIR_DELETE-PODS"
             value: "{{.Values.cni.repair.deletePods}}"
@@ -9450,11 +9448,10 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
 
   repair:
     enabled: true
-    hub: gcr.io/istio-testing
-    tag: latest
+    hub: ""
+    tag: ""
 
     labelPods: "true"
-    createEvents: "true"
     deletePods: "true"
 
     initContainerName: "istio-validation"
