@@ -360,9 +360,6 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	}
 	testTCPEndpoints("127.0.0.4", adsc, t)
 
-	// Update the endpoint with different label - expect full
-	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v2"}, nil)
-
 	upd, err = adsc.Wait("", 5*time.Second)
 	if upd != "cds" || err != nil {
 		t.Fatal("Expecting full push after label update", err, upd)

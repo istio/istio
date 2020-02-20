@@ -107,13 +107,6 @@ func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, ports map[string]uin
 	}
 }
 
-func (fx *FakeXdsUpdater) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
-	select {
-	case fx.Events <- XdsEvent{Type: "workload", ID: id}:
-	default:
-	}
-}
-
 func (fx *FakeXdsUpdater) Wait(et string) *XdsEvent {
 	t := time.NewTimer(5 * time.Second)
 

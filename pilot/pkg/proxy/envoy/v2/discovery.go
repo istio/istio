@@ -130,10 +130,6 @@ type DiscoveryServer struct {
 	// incremental updates.
 	EndpointShardsByService map[string]*EndpointShards
 
-	// WorkloadsById keeps track of information about a workload, based on direct notifications
-	// from registry. This acts as a cache and allows detecting changes.
-	WorkloadsByID map[string]*Workload
-
 	// edsUpdates keeps track of all service updates since last full push.
 	// Key is the hostname (servicename). Value is set when any shard part of the service is
 	// updated. For 1.0.3+ it is used only for tracking incremental
@@ -171,13 +167,6 @@ type EndpointShards struct {
 	ServiceAccounts map[string]bool
 }
 
-// Workload has the minimal info we need to detect if we need to push workloads, and to
-// cache data to avoid expensive model allocations.
-type Workload struct {
-	// Labels
-	Labels map[string]string
-}
-
 func intEnv(envVal string, def int) int {
 	if len(envVal) == 0 {
 		return def
@@ -202,7 +191,6 @@ func NewDiscoveryServer(
 		ConfigController:        configCache,
 		KubeController:          kuebController,
 		EndpointShardsByService: map[string]*EndpointShards{},
-		WorkloadsByID:           map[string]*Workload{},
 		edsUpdates:              map[string]struct{}{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),

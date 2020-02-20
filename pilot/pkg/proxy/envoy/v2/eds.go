@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -502,39 +501,6 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
 
 	s.startPush(version, push, false, edsUpdates)
-}
-
-// WorkloadUpdate is called when workload labels/annotations are updated.
-func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if labels == nil {
-		// No push needed - the Endpoints object will also be triggered.
-		delete(s.WorkloadsByID, id)
-		return
-	}
-	w, f := s.WorkloadsByID[id]
-	if !f {
-		// First time this workload has been seen. Likely never connected, no need to
-		// push
-		s.WorkloadsByID[id] = &Workload{
-			Labels: labels,
-		}
-		return
-	}
-	if reflect.DeepEqual(w.Labels, labels) {
-		// No label change.
-		return
-	}
-
-	w.Labels = labels
-	// Label changes require recomputing the config.
-	// TODO: we can do a push for the affected workload only, but we need to confirm
-	// no other workload can be affected. Safer option is to fallback to full push.
-
-	adsLog.Infof("Label change, full push %s ", id)
-	s.ConfigUpdate(true)
 }
 
 // EDSUpdate computes destination address membership across all clusters and networks.
