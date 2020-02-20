@@ -176,6 +176,7 @@ func (c *SyntheticServiceEntryController) GetLedger() ledger.Ledger {
 	log.Warnf("GetLedger: %s", errUnsupported)
 	return nil
 }
+
 // SetLedger is not implemented
 func (c *SyntheticServiceEntryController) SetLedger(ledger.Ledger) error {
 	log.Warnf("SetLedger: %s", errUnsupported)
