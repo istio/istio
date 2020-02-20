@@ -90,6 +90,7 @@ type Ports struct {
 	MixerPort       uint16
 	BackendPort     uint16
 	DiscoveryPort   uint16
+	STSPort         uint16
 
 	// Pilot ports, used when testing mixer-pilot integration.
 	PilotGrpcPort uint16
@@ -141,6 +142,7 @@ func NewPorts(name uint16) *Ports {
 		MixerPort:       base + 4,
 		BackendPort:     base + 5,
 		DiscoveryPort:   base + 6,
+		STSPort:         base + 7,
 	}
 }
 
@@ -155,5 +157,6 @@ func NewEnvoyPorts(ports *Ports, name uint16) *Ports {
 		MixerPort:       ports.MixerPort,
 		BackendPort:     ports.BackendPort,
 		DiscoveryPort:   ports.DiscoveryPort,
+		STSPort:         ports.STSPort,
 	}
 }
