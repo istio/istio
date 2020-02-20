@@ -91,6 +91,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	i.id = ctx.TrackResource(i)
 
 	defer func() {
+		log.Errorf("Echo done with err: %v", err)
 		if err != nil {
 			i.Dump()
 			_ = i.Close()
@@ -121,6 +122,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 
 	// Wait until the pilot agent and the echo application are ready to receive traffic.
 	if err = w.waitForReady(); err != nil {
+		i.Dump()
 		return nil, err
 	}
 

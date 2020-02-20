@@ -225,12 +225,6 @@ var (
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			setSpiffeTrustDomain(podNamespace, role.DNSDomain)
 
-			// Obtain the Pilot and Mixer SANs. Used below to create a Envoy proxy.
-			pilotSAN := getSAN(getControlPlaneNamespace(podNamespace), envoyDiscovery.PilotSvcAccName, pilotIdentity)
-			log.Infof("PilotSAN %#v", pilotSAN)
-			mixerSAN := getSAN(getControlPlaneNamespace(podNamespace), envoyDiscovery.MixerSvcAccName, mixerIdentity)
-			log.Infof("MixerSAN %#v", mixerSAN)
-
 			proxyConfig, err := constructProxyConfig()
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
@@ -240,6 +234,12 @@ var (
 			} else {
 				log.Infof("Effective config: %s", out)
 			}
+
+			// Obtain the Pilot and Mixer SANs. Used below to create a Envoy proxy.
+			pilotSAN := getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.PilotSvcAccName, pilotIdentity)
+			log.Infof("PilotSAN %#v", pilotSAN)
+			mixerSAN := getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
+			log.Infof("MixerSAN %#v", mixerSAN)
 
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
