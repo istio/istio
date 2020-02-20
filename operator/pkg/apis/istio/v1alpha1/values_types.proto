@@ -93,7 +93,7 @@ message CNIRepairConfig {
   // Controls whether various repair behaviors are enabled.
   string labelPods = 5;
 
-  string createEvents = 6;
+  string createEvents = 6 [deprecated=true];
 
   string deletePods = 7;
 
