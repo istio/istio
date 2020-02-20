@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"istio.io/istio/operator/pkg/apis"
+	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controller"
 	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/pkg/ctrlz"
@@ -123,6 +124,13 @@ func run() {
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Fatalf("Could not add all controllers to operator manager: %v", err)
+	}
+
+	// Make sure to set `ENABLE_WEBHOOKS=false` when running locally
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err = (&iop.IstioOperator{}).SetupWebhookWithManager(mgr); err != nil {
+			log.Fatalf("Could not create a webhook: %v", err)
+		}
 	}
 
 	log.Info("Starting the Cmd.")
