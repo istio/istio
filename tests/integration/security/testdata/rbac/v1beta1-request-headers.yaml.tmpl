@@ -1,0 +1,16 @@
+# The following policy allows request to path "/allow" to workload b.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-b
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "b"
+  rules:
+  - when:
+    - key: request.headers[:path]
+      values: ["/allow"]
+---
