@@ -556,7 +556,7 @@
           "version_info": "2019-08-27 17:19:57.597297632 +0000 UTC m=+64.076469895",
           "last_updated": "2019-08-27T17:19:57.894Z",
           "secret": {
-            "@type": "type.googleapis.com/envoy.api.v2.auth.Secret",
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret",
             "name": "default",
             "tls_certificate": {
               "certificate_chain": {
