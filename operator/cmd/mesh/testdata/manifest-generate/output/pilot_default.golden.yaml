@@ -18,6 +18,8 @@
 
 # Cni component is disabled.
 
+# EgressGateways istio-egressgateway component is disabled.
+
 # Galley component is disabled.
 
 apiVersion: autoscaling/v2beta1
@@ -270,7 +272,7 @@ data:
           address: zipkin.istio-system:9411
     disableMixerHttpReports: true
     disablePolicyChecks: true
-    enableAutoMtls: false
+    enableAutoMtls: true
     enableEnvoyAccessLogService: false
     enableTracing: true
     ingressClass: istio
@@ -329,11 +331,9 @@ data:
         memory: 2048Mi
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
-    sidecar: false
     tag: ""
     tolerations: []
     traceSampling: 1
-    useMCP: false
 kind: ConfigMap
 metadata:
   labels:
@@ -409,7 +409,7 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr=
+        - --secureGrpcAddr=:15011
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
@@ -545,7 +545,7 @@ data:
         "certificates": [],
         "configNamespace": "istio-system",
         "configValidation": true,
-        "controlPlaneSecurityEnabled": false,
+        "controlPlaneSecurityEnabled": true,
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
           "enabled": true
@@ -586,7 +586,7 @@ data:
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "mtls": {
-          "auto": false,
+          "auto": true,
           "enabled": false
         },
         "multiCluster": {
