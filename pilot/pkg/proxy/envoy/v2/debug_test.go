@@ -34,7 +34,7 @@ import (
 
 func TestSyncz(t *testing.T) {
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
-		_, tearDown := initLocalPilotTestEnv(t)
+		s, tearDown := initLocalPilotTestEnv(t)
 		defer tearDown()
 
 		adsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
@@ -80,10 +80,10 @@ func TestSyncz(t *testing.T) {
 		}
 
 		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp"), &model.NodeMetadata{})
-		verifySyncStatus(t, node.ID, true, true)
+		verifySyncStatus(t, s.EnvoyXdsServer, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
-		_, tearDown := initLocalPilotTestEnv(t)
+		s, tearDown := initLocalPilotTestEnv(t)
 		defer tearDown()
 
 		adsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
@@ -127,17 +127,17 @@ func TestSyncz(t *testing.T) {
 			t.Fatal(err)
 		}
 		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp2"), &model.NodeMetadata{})
-		verifySyncStatus(t, node.ID, true, false)
+		verifySyncStatus(t, s.EnvoyXdsServer, node.ID, true, false)
 	})
 }
 
-func getSyncStatus(t *testing.T) []v2.SyncStatus {
+func getSyncStatus(t *testing.T, server *v2.DiscoveryServer) []v2.SyncStatus {
 	req, err := http.NewRequest("GET", "/debug", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
-	syncz := http.HandlerFunc(v2.Syncz)
+	syncz := http.HandlerFunc(server.Syncz)
 	syncz.ServeHTTP(rr, req)
 	got := []v2.SyncStatus{}
 	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
@@ -146,12 +146,12 @@ func getSyncStatus(t *testing.T) []v2.SyncStatus {
 	return got
 }
 
-func verifySyncStatus(t *testing.T, nodeID string, wantSent, wantAcked bool) {
+func verifySyncStatus(t *testing.T, s *v2.DiscoveryServer, nodeID string, wantSent, wantAcked bool) {
 	// This is a mostly horrible hack because the single pilot instance is shared across multiple tests
 	// This makes this test contaminated by others and gives it horrible timing windows
 	attempts := 5
 	for i := 0; i < attempts; i++ {
-		gotStatus := getSyncStatus(t)
+		gotStatus := getSyncStatus(t, s)
 		var errorHandler func(string, ...interface{})
 		if i == attempts-1 {
 			errorHandler = t.Errorf
