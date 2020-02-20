@@ -434,10 +434,10 @@ func TestRewriteAppProbe(t *testing.T) {
 
 			// The version string is a maintenance pain for this test. Strip the version string before comparing.
 			gotBytes := got.Bytes()
-			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
-
-			wantBytes := stripVersion(wantedBytes)
 			gotBytes = stripVersion(gotBytes)
+
+			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
+			wantBytes := stripVersion(wantedBytes)
 
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 		})
