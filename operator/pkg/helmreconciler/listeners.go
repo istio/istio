@@ -23,8 +23,8 @@ import (
 	"k8s.io/helm/pkg/manifest"
 
 	"istio.io/api/operator/v1alpha1"
+	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
-	iop "istio.io/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/pkg/log"
 )
 
