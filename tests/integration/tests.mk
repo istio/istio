@@ -52,8 +52,8 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples | grep -v /istioio)
 
 # Generate integration test targets for local environment.
-test.integration.local: | $(JUNIT_REPORT)
-	$(GO) test -p 1 ${T} -race ./tests/integration/... \
+test.integration.%.local: | $(JUNIT_REPORT)
+	$(GO) test -p 1 ${T} -race ./tests/integration/$(subst .,/,$*)/... \
 	--istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 

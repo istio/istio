@@ -37,4 +37,4 @@ export TAG="${TAG:-"istio-testing"}"
 make docker.app_sidecar docker.app
 
 export T="-v"
-make test.integration.local
+make "$@"
