@@ -147,9 +147,25 @@ func TestAuthNPolicies(t *testing.T) {
 	authNPolicies := map[string]*authn.Policy{
 		constants.DefaultAuthenticationPolicyName: {},
 
+		"mtls-strict-svc": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-strict-svc-port",
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			},
+			}},
+
 		"mtls-strict-svc-port": {
 			Targets: []*authn.TargetSelector{{
 				Name: "mtls-strict-svc-port",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 80,
+						},
+					},
+				},
 			}},
 			Peers: []*authn.PeerAuthenticationMethod{{
 				Params: &authn.PeerAuthenticationMethod_Mtls{},
@@ -260,6 +276,14 @@ func TestAuthNPolicies(t *testing.T) {
 			port:                    Port{Port: 80},
 			expectedPolicy:          authNPolicies["mtls-strict-svc-port"],
 			expectedPolicyName:      "mtls-strict-svc-port",
+			expectedPolicyNamespace: testNamespace,
+		},
+		{
+			hostname:                "mtls-strict-svc-port.test-namespace.svc.cluster.local",
+			namespace:               testNamespace,
+			port:                    Port{Port: 90},
+			expectedPolicy:          authNPolicies["mtls-strict-svc"],
+			expectedPolicyName:      "mtls-strict-svc",
 			expectedPolicyNamespace: testNamespace,
 		},
 		{
