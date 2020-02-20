@@ -5816,6 +5816,19 @@ metadata:
     release: istio
 ---
 
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-galley
+  namespace: istio-system
+  labels:
+    app: galley
+    release: istio
+    istio: galley
+webhooks: {}
+---
+
 # Resources for AddonComponents prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1

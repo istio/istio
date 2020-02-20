@@ -6350,6 +6350,19 @@ metadata:
     release: istio
 ---
 
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-galley
+  namespace: istio-system
+  labels:
+    app: galley
+    release: istio
+    istio: galley
+webhooks: {}
+---
+
 # Citadel component is disabled.
 
 # Cni component is disabled.
