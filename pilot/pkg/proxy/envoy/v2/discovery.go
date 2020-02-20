@@ -112,6 +112,15 @@ type DiscoveryServer struct {
 
 	// debugHandlers is the list of all the supported debug handlers.
 	debugHandlers map[string]string
+
+	// adsClients reflect active gRPC channels, for both ADS and EDS.
+	adsClients      map[string]*XdsConnection
+	adsClientsMutex sync.RWMutex
+
+	// Map of sidecar IDs to XdsConnections, first key is sidecarID, second key is connID
+	// This is a map due to an edge case during envoy restart whereby the 'old' envoy
+	// reconnects after the 'new/restarted' envoy
+	adsSidecarIDConnectionsMap map[string]map[string]*XdsConnection
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -137,14 +146,16 @@ type EndpointShards struct {
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServer {
 	out := &DiscoveryServer{
-		Env:                     env,
-		ConfigGenerator:         core.NewConfigGenerator(plugins),
-		EndpointShardsByService: map[string]map[string]*EndpointShards{},
-		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
-		pushChannel:             make(chan *model.PushRequest, 10),
-		pushQueue:               NewPushQueue(),
-		DebugConfigs:            features.DebugConfigs,
-		debugHandlers:           map[string]string{},
+		Env:                        env,
+		ConfigGenerator:            core.NewConfigGenerator(plugins),
+		EndpointShardsByService:    map[string]map[string]*EndpointShards{},
+		concurrentPushLimit:        make(chan struct{}, features.PushThrottle),
+		pushChannel:                make(chan *model.PushRequest, 10),
+		pushQueue:                  NewPushQueue(),
+		DebugConfigs:               features.DebugConfigs,
+		debugHandlers:              map[string]string{},
+		adsClients:                 map[string]*XdsConnection{},
+		adsSidecarIDConnectionsMap: map[string]map[string]*XdsConnection{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
