@@ -1606,6 +1606,98 @@ func TestComposePeerAuthentication(t *testing.T) {
 			},
 		},
 		{
+			name: "multiple mesh policy",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:              "now",
+						Namespace:         "root-namespace",
+						CreationTimestamp: now,
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:              "second ago",
+						Namespace:         "root-namespace",
+						CreationTimestamp: now.Add(time.Second * -1),
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:              "second later",
+						Namespace:         "root-namespace",
+						CreationTimestamp: now.Add(time.Second * -1),
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+			},
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
+		},
+		{
+			name: "multiple namespace policy",
+			configs: []*model.Config{
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:              "now",
+						Namespace:         "my-ns",
+						CreationTimestamp: now,
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:              "second ago",
+						Namespace:         "my-ns",
+						CreationTimestamp: now.Add(time.Second * -1),
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+						},
+					},
+				},
+				{
+					ConfigMeta: model.ConfigMeta{
+						Name:              "second later",
+						Namespace:         "my-ns",
+						CreationTimestamp: now.Add(time.Second * -1),
+					},
+					Spec: &v1beta1.PeerAuthentication{
+						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+			},
+			want: &v1beta1.PeerAuthentication{
+				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
+		},
+		{
 			name: "multiple workload policy",
 			configs: []*model.Config{
 				{
