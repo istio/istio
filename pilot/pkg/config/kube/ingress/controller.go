@@ -195,7 +195,7 @@ func (c *controller) GetLedger() ledger.Ledger {
 }
 
 func (c *controller) SetLedger(ledger.Ledger) error {
-	return errors.New("SetLedger operation is not supported by kube ingress controller")
+	return errors.New("this SetLedger operation is not supported by kube ingress controller")
 }
 
 func (c *controller) HasSynced() bool {
