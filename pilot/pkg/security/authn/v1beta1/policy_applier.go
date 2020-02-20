@@ -146,7 +146,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
 	// If beta mTLS policy (PeerAuthentication) is not used for this workload, fallback to alpha policy.
 	if a.consolidatedPeerPolicy == nil && a.hasAlphaMTLSPolicy {
-		authnLog.Debug("InboundFilterChain: fallback to alpha policy applier")
+		authnLog.Debugf("InboundFilterChain [%v:%d]: fallback to alpha policy applier", node.ID, endpointPort)
 		return a.alphaApplier.InboundFilterChain(endpointPort, sdsUdsPath, node)
 	}
 	effectiveMTLSMode := model.MTLSPermissive
@@ -184,7 +184,7 @@ func NewPolicyApplier(rootNamespace string,
 		processedJwtRules:      processedJwtRules,
 		consolidatedPeerPolicy: composePeerAuthentication(rootNamespace, peerPolicies),
 		alphaApplier:           alpha_applier.NewPolicyApplier(policy),
-		hasAlphaMTLSPolicy:     alpha_applier.GetMutualTLS(policy) != nil,
+		hasAlphaMTLSPolicy:     policy != nil,
 	}
 }
 
