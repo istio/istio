@@ -98,7 +98,7 @@ func WriteDataToFile(path string, content string) error {
 // enableCache indicates whether to enable token cache at STS server side.
 // Here is a map between ports and servers
 // auth server            : MixerPort
-// STS server             : stsPort
+// STS server             : STSPort
 // Dynamic proxy listener : ClientProxyPort
 // Static proxy listener  : TCPProxyPort
 // XDS server             : DiscoveryPort
@@ -163,7 +163,7 @@ func SetupTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableC
 
 // DumpPortMap dumps port allocation status
 // auth server            : MixerPort
-// STS server             : stsPort
+// STS server             : STSPort
 // Dynamic proxy listener : ClientProxyPort
 // Static proxy listener  : TCPProxyPort
 // XDS server             : DiscoveryPort
