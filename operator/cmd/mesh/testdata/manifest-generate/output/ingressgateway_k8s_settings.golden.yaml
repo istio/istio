@@ -152,9 +152,6 @@ spec:
           - name: ISTIO_META_ROUTER_MODE
             value: sni-dnat
           
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {"app":"istio-ingressgateway","istio":"ingressgateway"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
@@ -165,6 +162,8 @@ spec:
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
+          - name: podinfo
+            mountPath: /etc/istio/pod
           - name: ingressgateway-certs
             mountPath: "/etc/istio/ingressgateway-certs"
             readOnly: true
@@ -175,6 +174,15 @@ spec:
       - name: citadel-ca-cert
         configMap:
           name: istio-ca-root-cert
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
       - name: ingressgatewaysdsudspath
         emptyDir: {}
       - name: istio-token

@@ -141,9 +141,6 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_ROUTER_MODE
           value: sni-dnat
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-            {"app":"istio-egressgateway","istio":"egressgateway"}
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         image: gcr.io/istio-testing/proxyv2:latest
@@ -178,6 +175,8 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
+        - mountPath: /etc/istio/pod
+          name: podinfo
         - mountPath: /etc/istio/egressgateway-certs
           name: egressgateway-certs
           readOnly: true
@@ -189,6 +188,15 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
       - name: istio-token
         projected:
           sources:

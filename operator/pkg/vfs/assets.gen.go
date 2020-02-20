@@ -7132,9 +7132,6 @@ spec:
             value: |
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           volumeMounts:
@@ -7153,6 +7150,8 @@ spec:
             mountPath: /etc/certs
             readOnly: true
           {{- end }}
+          - name: podinfo
+            mountPath: /etc/istio/pod
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -7167,6 +7166,15 @@ spec:
         configMap:
           name: istio-ca-root-cert
       {{- end }}
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
@@ -8169,9 +8177,6 @@ spec:
             value: |
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           volumeMounts:
@@ -8192,6 +8197,8 @@ spec:
             mountPath: /etc/certs
             readOnly: true
           {{- end }}
+          - name: podinfo
+            mountPath: /etc/istio/pod
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -8206,6 +8213,15 @@ spec:
         configMap:
           name: istio-ca-root-cert
 {{- end }}
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
       - name: ingressgatewaysdsudspath
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
@@ -10700,11 +10716,6 @@ template: |
       value: |
              {{ toJSON .ObjectMeta.Annotations }}
     {{ end }}
-    {{ if .ObjectMeta.Labels }}
-    - name: ISTIO_METAJSON_LABELS
-      value: |
-             {{ toJSON .ObjectMeta.Labels }}
-    {{ end }}
     {{- if .DeploymentMeta.Name }}
     - name: ISTIO_META_WORKLOAD_NAME
       value: {{ .DeploymentMeta.Name }}
@@ -10805,6 +10816,8 @@ template: |
       name: istio-certs
       readOnly: true
     {{- end }}
+    - name: podinfo
+      mountPath: /etc/istio/pod
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
       name: lightstep-certs
@@ -10826,6 +10839,15 @@ template: |
   - emptyDir:
       medium: Memory
     name: istio-envoy
+  - name: podinfo
+    downwardAPI:
+      items:
+        - path: "labels"
+          fieldRef:
+            fieldPath: metadata.labels
+        - path: "annotations"
+          fieldRef:
+            fieldPath: metadata.annotations
   {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:

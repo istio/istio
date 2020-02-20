@@ -13,7 +13,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6,15020
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/includeInboundPorts: ""
@@ -103,9 +103,6 @@ spec:
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
             {"traffic.sidecar.istio.io/excludeInboundPorts":"4,5,6","traffic.sidecar.istio.io/excludeOutboundIPRanges":"10.96.0.2/24,10.96.0.3/24","traffic.sidecar.istio.io/includeInboundPorts":"","traffic.sidecar.istio.io/includeOutboundIPRanges":""}
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-            {"app":"traffic"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: traffic
         - name: ISTIO_META_OWNER
@@ -150,6 +147,8 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        - mountPath: /etc/istio/pod
+          name: podinfo
       initContainers:
       - command:
         - istio-iptables
@@ -196,6 +195,15 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
       - name: istio-token
         projected:
           sources:

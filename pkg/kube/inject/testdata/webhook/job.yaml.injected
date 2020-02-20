@@ -139,6 +139,8 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        - mountPath: /etc/istio/pod
+          name: podinfo
       initContainers:
       - command:
         - istio-iptables
@@ -186,6 +188,15 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
       - name: istio-token
         projected:
           sources:
