@@ -126,7 +126,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		Address: galleyHostPort,
 	})
 
-	bootstrapArgs.MCPMaxMessageSize = 1024 * 1024 * 4
+	bootstrapArgs.MCPOptions.MaxMessageSize = 1024 * 1024 * 4
 
 	var err error
 	// Create the server for the discovery service.
