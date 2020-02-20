@@ -113,14 +113,7 @@ spec:
         - name: SDS_ENABLED
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
-<<<<<<< HEAD
           value: REDIRECT
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-            {"app":"hello","tier":"backend","track":"stable"}
-=======
-          value: TPROXY
->>>>>>> 1b6d3a2a0... Read labels and annotations from downward API (#21184)
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER
