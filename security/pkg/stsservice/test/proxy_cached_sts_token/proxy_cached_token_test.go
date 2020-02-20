@@ -37,7 +37,7 @@ func TestProxyCachedToken(t *testing.T) {
 	// Force XDS server to close streams 3 times and keep the 4th stream open.
 	cb.SetNumberOfStreamClose(numCloseStream, 0)
 	// Start all test servers and proxy
-	setup := stsTest.SetUpTest(t, cb, testID.STSCacheTest, false)
+	setup := stsTest.SetupTest(t, cb, testID.STSCacheTest, false)
 	// Explicitly set token life time to a long duration.
 	setup.AuthServer.SetTokenLifeTime(3600)
 	// Explicitly set auth server to return different access token to each call.
@@ -51,7 +51,7 @@ func TestProxyCachedToken(t *testing.T) {
 	initialNumFederatedTokenCall := setup.AuthServer.NumGetFederatedTokenCalls()
 	initialNumAccessTokenCall := setup.AuthServer.NumGetAccessTokenCalls()
 	setup.StartProxy(t)
-	setup.ProxySetUp.WaitEnvoyReady()
+	setup.ProxySetup.WaitEnvoyReady()
 	// Verify that proxy re-connects XDS server after each stream close, and the
 	// same token is received.
 	g.Expect(cb.NumStream()).To(gomega.Equal(numCloseStream + 1))
