@@ -14,6 +14,8 @@
 
 package stsservice
 
+import "time"
+
 // StsRequestParameters stores all STS request attributes defined in
 // https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.1
 type StsRequestParameters struct {
@@ -94,9 +96,10 @@ type TokenManager interface {
 
 // TokenInfo stores token information maintained at TokenManager.
 type TokenInfo struct {
-	TokenType  string `json:"token_type"`
-	IssueTime  string `json:"issue_time"`
-	ExpireTime string `json:"expire_time"`
+	TokenType  string    `json:"token_type"`
+	IssueTime  time.Time `json:"issue_time"`
+	ExpireTime time.Time `json:"expire_time"`
+	Token      string    `json:"token"`
 }
 
 // TokensDump stores information about all generated tokens.

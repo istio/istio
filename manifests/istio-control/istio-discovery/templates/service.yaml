@@ -1,7 +1,9 @@
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-pilot
+  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -23,9 +25,9 @@ spec:
     name: https-webhook # validation and injection
     targetPort: 15017
   selector:
-    {{- if ne .Values.version ""}}
-    app: pilot
-    version: {{ .Values.version }}
+    {{- if ne .Values.revision ""}}
+    app: istiod
+    version: {{ .Values.revision }}
     {{ else }}
     istio: pilot
     {{- end }}
@@ -33,7 +35,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istiod
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
@@ -46,6 +48,13 @@ spec:
       name: https-webhook # validation and injection
       targetPort: 15017
   selector:
-    app: pilot
+    app: istiod
+    {{- if ne .Values.revision ""}}
+    version: {{ .Values.revision }}
+    {{- else }}
+    # Label used by the 'default' service. For versioned deployments we match with app and version.
+    # This avoids default deployment picking the canary
     istio: pilot
+    {{- end }}
 ---
+{{- end }}

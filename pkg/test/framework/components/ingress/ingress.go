@@ -91,6 +91,9 @@ type Instance interface {
 	// HTTPSAddress returns the external HTTPS address of the ingress gateway (or the
 	// NodePort address, when running under Minikube).
 	HTTPSAddress() net.TCPAddr
+	// TCPAddress returns the external TCP address of the ingress gateway (or the NodePort address,
+	// when running under Minikube).
+	TCPAddress() net.TCPAddr
 
 	//  Call makes a call through ingress.
 	Call(options CallOptions) (CallResponse, error)

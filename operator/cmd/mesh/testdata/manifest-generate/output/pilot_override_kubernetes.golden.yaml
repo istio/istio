@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: istio
   name: istiod
@@ -20,7 +20,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
       labels:
-        app: pilot
+        app: istiod
         istio: pilot
     spec:
       affinity:
@@ -96,8 +96,10 @@ spec:
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "false"
+        - name: INJECTION_WEBHOOK_CONFIG_NAME
+          value: istio-sidecar-injector
         - name: ISTIOD_ADDR
-          value: istio-pilot.istio-control.svc:15012
+          value: istiod.istio-control.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
         envFrom:
@@ -122,6 +124,9 @@ spec:
             cpu: 500m
             memory: 2048Mi
         securityContext:
+          capabilities:
+            drop:
+            - ALL
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
@@ -142,12 +147,9 @@ spec:
         - mountPath: /var/lib/istio/local
           name: istiod
           readOnly: true
-        - mountPath: /var/lib/istio/validation
-          name: validation
-          readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -171,10 +173,6 @@ spec:
           name: istio-sidecar-injector
           optional: true
         name: inject
-      - configMap:
-          name: istio-validation
-          optional: true
-        name: validation
       - configMap:
           name: istio
         name: config-volume

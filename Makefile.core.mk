@@ -336,9 +336,7 @@ lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
 
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
-	@bin/check_helm.sh
 	@bin/check_samples.sh
-	@bin/check_dashboards.sh
 	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
 	@testlinter
 	@envvarlinter galley istioctl mixer pilot security sidecar-injector
@@ -357,7 +355,7 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds update-golden gen-charts operator-proto
+gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden
 
 gen-check: gen check-clean-repo
 
@@ -624,9 +622,6 @@ show.goenv: ; $(info $(H) go environment...)
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
-
-# Deprecated. This target exists only to satisify old CI tests that cannot be updated atomically, and can be removed.
-localTestEnv:
 
 #-----------------------------------------------------------------------------
 # Target: custom resource definitions

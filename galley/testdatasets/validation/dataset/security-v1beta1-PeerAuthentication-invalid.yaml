@@ -3,3 +3,4 @@ kind: "PeerAuthentication"
 metadata:
   name: invalid-peer-authentication
 spec:
+  portLevelMtls: {}

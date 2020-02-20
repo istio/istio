@@ -111,11 +111,13 @@ func TestClientSink(t *testing.T) {
 	reestablishStreamDelay = 100 * time.Millisecond
 	defer func() { reestablishStreamDelay = prevDelay }()
 
-	reconnectChan := make(chan struct{}, 10)
-	reconnectTestProbe = func() {
-		reconnectChan <- struct{}{}
+	reconnectChan := make(chan struct{}, 1)
+	c.reconnectTestProbe = func() {
+		select {
+		case reconnectChan <- struct{}{}:
+		default:
+		}
 	}
-	defer func() { reconnectTestProbe = nil }()
 
 	h.changes[test.FakeType0Collection] = nil
 

@@ -520,25 +520,9 @@ func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]
 	return refs
 }
 
-// QuotaSpecByDestination selects Mixerclient quota specifications
-// associated with destination service instances.
-func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	log.Debugf("QuotaSpecByDestination(%v)", instance)
-	bindings, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
-	if err != nil {
-		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
-		return nil
-	}
-
-	log.Debugf("QuotaSpecByDestination bindings[%d] %v", len(bindings), bindings)
-	specs, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
-	if err != nil {
-		log.Warnf("Unable to fetch QuotaSpecs: %v", err)
-		return nil
-	}
-
-	log.Debugf("QuotaSpecByDestination specs[%d] %v", len(specs), specs)
-
+// filterQuotaSpecsByDestination provides QuotaSpecByDestination filtering logic as a
+// function that can be called on cached binding + spec sets
+func filterQuotaSpecsByDestination(instance *ServiceInstance, bindings []Config, specs []Config) []Config {
 	// Build the set of quota spec references bound to the service instance.
 	refs := findQuotaSpecRefs(instance, bindings)
 	log.Debugf("QuotaSpecByDestination refs:%v", refs)
@@ -558,6 +542,28 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 		log.Warnf("Some matched QuotaSpecs were not found: %v", refs)
 	}
 	return out
+}
+
+// QuotaSpecByDestination selects Mixerclient quota specifications
+// associated with destination service instances.
+func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
+	log.Debugf("QuotaSpecByDestination(%v)", instance)
+	bindings, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
+	if err != nil {
+		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
+		return nil
+	}
+
+	log.Debugf("QuotaSpecByDestination bindings[%d] %v", len(bindings), bindings)
+	specs, err := store.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
+	if err != nil {
+		log.Warnf("Unable to fetch QuotaSpecs: %v", err)
+		return nil
+	}
+
+	log.Debugf("QuotaSpecByDestination specs[%d] %v", len(specs), specs)
+
+	return filterQuotaSpecsByDestination(instance, bindings, specs)
 }
 
 func (store *istioConfigStore) ServiceRoles(namespace string) []Config {

@@ -210,6 +210,7 @@ func TestGolden(t *testing.T) {
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionPrefixes": "prefix1,prefix2",
 				"sidecar.istio.io/statsInclusionSuffixes": "suffix1,suffix2",
+				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			stats: stats{prefixes: "prefix1,prefix2",
 				suffixes: "suffix1,suffix2"},
@@ -218,6 +219,7 @@ func TestGolden(t *testing.T) {
 			base: "stats_inclusion",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionSuffixes": upstreamStatsSuffixes + "," + downstreamStatsSuffixes,
+				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			stats: stats{
 				suffixes: upstreamStatsSuffixes + "," + downstreamStatsSuffixes},
@@ -226,6 +228,7 @@ func TestGolden(t *testing.T) {
 			base: "stats_inclusion",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionPrefixes": "http.{pod_ip}_",
+				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			// {pod_ip} is unrolled
 			stats: stats{prefixes: "http.10.3.3.3_,http.10.4.4.4_,http.10.5.5.5_,http.10.6.6.6_"},
@@ -234,6 +237,7 @@ func TestGolden(t *testing.T) {
 			base: "stats_inclusion",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionRegexps": "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
+				"sidecar.istio.io/extraStatTags":         "dlp_status,dlp_error",
 			},
 			stats: stats{regexps: "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"},
 		},

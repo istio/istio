@@ -15,6 +15,7 @@
 package manifest
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -127,6 +128,31 @@ var (
 	k8sRESTConfig     *rest.Config
 	currentKubeconfig string
 	currentContext    string
+	// TODO: remove whitelist after : https://github.com/kubernetes/kubernetes/issues/66430
+	defaultPilotPruneWhileList = []string{
+		// kubectl apply prune default
+		"core/v1/Pod",
+		"core/v1/ConfigMap",
+		"core/v1/Service",
+		"core/v1/Secret",
+		"core/v1/Endpoints",
+		"core/v1/Namespace",
+		"core/v1/PersistentVolume",
+		"core/v1/PersistentVolumeClaim",
+		"core/v1/ReplicationController",
+		"batch/v1/Job",
+		"batch/v1beta1/CronJob",
+		"extensions/v1beta1/Ingress",
+		"apps/v1/DaemonSet",
+		"apps/v1/Deployment",
+		"apps/v1/ReplicaSet",
+		"apps/v1/StatefulSet",
+		"networking.istio.io/v1alpha3/DestinationRule",
+		"networking.istio.io/v1alpha3/EnvoyFilter",
+	}
+	componentPruneWhiteList = map[name.ComponentName][]string{
+		name.PilotComponentName: defaultPilotPruneWhileList,
+	}
 )
 
 func init() {
@@ -351,6 +377,13 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	// Base components include namespaces and CRDs, pruning them will remove user configs, which makes it hard to roll back.
 	if componentName != name.IstioBaseComponentName && opts.Prune == nil {
 		opts.Prune = pointer.BoolPtr(true)
+		pwl, ok := componentPruneWhiteList[componentName]
+		if ok {
+			for _, pw := range pwl {
+				pwa := []string{"--prune-whitelist", pw}
+				opts.ExtraArgs = append(opts.ExtraArgs, pwa...)
+			}
+		}
 	}
 
 	logAndPrint("- Applying manifest for component %s...", componentName)
@@ -484,39 +517,56 @@ func buildComponentApplyOutput(stdout string, stderr string, objects object.K8sO
 	}
 }
 
+func istioCustomResources(group string) bool {
+	switch group {
+	case "config.istio.io",
+		"rbac.istio.io",
+		"security.istio.io",
+		"authentication.istio.io",
+		"networking.istio.io":
+		return true
+	}
+	return false
+}
+
 // DefaultObjectOrder is default sorting function used to sort k8s objects.
 func DefaultObjectOrder() func(o *object.K8sObject) int {
 	return func(o *object.K8sObject) int {
 		gk := o.Group + "/" + o.Kind
-		switch gk {
+		switch {
 		// Create CRDs asap - both because they are slow and because we will likely create instances of them soon
-		case "apiextensions.k8s.io/CustomResourceDefinition":
+		case gk == "apiextensions.k8s.io/CustomResourceDefinition":
 			return -1000
 
 			// We need to create ServiceAccounts, Roles before we bind them with a RoleBinding
-		case "/ServiceAccount", "rbac.authorization.k8s.io/ClusterRole":
+		case gk == "/ServiceAccount" || gk == "rbac.authorization.k8s.io/ClusterRole":
 			return 1
-		case "rbac.authorization.k8s.io/ClusterRoleBinding":
+		case gk == "rbac.authorization.k8s.io/ClusterRoleBinding":
 			return 2
 
-			// Validation webook maybe impact CRs applied later
-		case "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+			// validatingwebhookconfiguration is configured to FAIL-OPEN in the default install. For the
+			// re-install case we want to apply the validatingwebhookconfiguration first to reset any
+			// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
+		case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
 			return 3
 
+		case istioCustomResources(o.Group):
+			return 4
+
 			// Pods might need configmap or secrets - avoid backoff by creating them first
-		case "/ConfigMap", "/Secrets":
+		case gk == "/ConfigMap" || gk == "/Secrets":
 			return 100
 
 			// Create the pods after we've created other things they might be waiting for
-		case "extensions/Deployment", "app/Deployment":
+		case gk == "extensions/Deployment" || gk == "app/Deployment":
 			return 1000
 
 			// Autoscalers typically act on a deployment
-		case "autoscaling/HorizontalPodAutoscaler":
+		case gk == "autoscaling/HorizontalPodAutoscaler":
 			return 1001
 
 			// Create services late - after pods have been started
-		case "/Service":
+		case gk == "/Service":
 			return 10000
 
 		default:
@@ -728,14 +778,15 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 		}
 		isReady := namespacesReady(namespaces) && podsReady(pods) && deploymentsReady(deployments)
 		if !isReady {
-			logAndPrint("Waiting for resources ready with timeout of %v", opts.WaitTimeout)
+			logAndPrint("  Waiting for resources to become ready...")
 		}
 		return isReady, nil
 	})
 
 	if errPoll != nil {
-		logAndPrint("Failed to wait for resources ready: %v", errPoll)
-		return fmt.Errorf("failed to wait for resources ready: %s", errPoll)
+		msg := fmt.Sprintf("resources not ready after %v: %v", opts.WaitTimeout, errPoll)
+		logAndPrint(msg)
+		return errors.New(msg)
 	}
 	return nil
 }
@@ -787,7 +838,7 @@ func isPodReady(pod *v1.Pod) bool {
 func deploymentsReady(deployments []deployment) bool {
 	for _, v := range deployments {
 		if v.replicaSets.Status.ReadyReplicas < *v.deployment.Spec.Replicas {
-			logAndPrint("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
+			scope.Infof("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
 			return false
 		}
 	}

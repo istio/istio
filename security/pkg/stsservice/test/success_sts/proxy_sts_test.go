@@ -45,7 +45,7 @@ func TestProxySTS(t *testing.T) {
 	cb := xdsService.CreateXdsCallback(t)
 	cb.SetExpectedToken(expectedToken)
 	// Start all test servers and proxy
-	setup := stsTest.SetUpTest(t, cb, testID.STSTest)
+	setup := stsTest.SetUpTest(t, cb, testID.STSTest, false)
 	// Verify that initially XDS stream is not set up, stats do not update initial stats
 	g := gomega.NewWithT(t)
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))

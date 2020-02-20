@@ -233,6 +233,15 @@ No
 No
 </td>
 </tr>
+<tr id="CNIConfig-chained">
+<td><code>chained</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="CNIConfig-podAnnotations" class="deprecated ">
 <td><code>podAnnotations</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -2179,6 +2188,17 @@ No
 <td><code>string</code></td>
 <td>
 <p>Configures the revision this control plane is a part of</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-mountMtlsCerts">
+<td><code>mountMtlsCerts</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.</p>
 
 </td>
 <td>
@@ -5048,6 +5068,21 @@ No
 <td><code>security</code></td>
 <td><code><a href="#PrometheusSecurityConfig">PrometheusSecurityConfig</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PrometheusConfig-provisionPrometheusCert">
+<td><code>provisionPrometheusCert</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Configure whether provisions a certificate to Prometheus through Istio Agent.
+When this option is set as true, a sidecar is deployed along Prometheus to
+provision a certificate through Istio Agent to Prometheus. The provisioned certificate
+is shared with Prometheus through mounted files.
+When this option is set as false, this certificate provisioning mechanism is disabled.</p>
+
 </td>
 <td>
 No
@@ -7957,6 +7992,8 @@ No
 <td><code>version</code></td>
 <td><code>string</code></td>
 <td>
+<p>Deprecated.</p>
+
 </td>
 <td>
 No
@@ -7994,6 +8031,15 @@ No
 <tr id="Values-kustomize">
 <td><code>kustomize</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-revision">
+<td><code>revision</code></td>
+<td><code>string</code></td>
 <td>
 </td>
 <td>

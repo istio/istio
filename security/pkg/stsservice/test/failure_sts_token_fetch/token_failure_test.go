@@ -33,7 +33,7 @@ func TestTokenFetchFailureOne(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
-	setup := stsTest.SetUpTest(t, cb, testID.STSFailureTest)
+	setup := stsTest.SetUpTest(t, cb, testID.STSFailureTest, false)
 
 	// Get initial number of calls to auth server. They are not zero due to STS flow test
 	// in the test setup, to make sure the servers are up and ready to serve.
@@ -64,7 +64,7 @@ func TestTokenFetchFailureTwo(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
-	setup := stsTest.SetUpTest(t, cb, testID.STSFailureTest)
+	setup := stsTest.SetUpTest(t, cb, testID.STSFailureTest, false)
 
 	// Get initial number of calls to auth server. They are not zero due to STS flow test
 	// in the test setup, to make sure the servers are up and ready to serve.
