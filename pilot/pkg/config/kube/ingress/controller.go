@@ -18,6 +18,7 @@ package ingress
 
 import (
 	"errors"
+	"istio.io/pkg/ledger"
 	"reflect"
 	"time"
 
@@ -83,6 +84,14 @@ type controller struct {
 	queue                  queue.Instance
 	informer               cache.SharedIndexInformer
 	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
+}
+
+func (c *controller) GetLedger() ledger.Ledger {
+	panic("implement me")
+}
+
+func (c *controller) SetLedger(ledger.Ledger) error {
+	panic("implement me")
 }
 
 var (

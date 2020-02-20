@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"istio.io/pkg/ledger"
 	"sort"
 	"strings"
 	"time"
@@ -172,6 +173,10 @@ type ConfigStore interface {
 	Version() string
 
 	GetResourceAtVersion(version string, key string) (resourceVersion string, err error)
+
+	GetLedger() ledger.Ledger
+
+	SetLedger(ledger.Ledger) error
 }
 
 // Key function for the configuration objects

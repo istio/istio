@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"istio.io/pkg/ledger"
 	"reflect"
 	"regexp"
 	"testing"
@@ -891,4 +892,12 @@ func (*fakeStore) Version() string {
 }
 func (*fakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return "not implemented", nil
+}
+
+func (s *fakeStore) GetLedger() ledger.Ledger {
+	panic("implement me")
+}
+
+func (s *fakeStore) SetLedger(ledger.Ledger) error {
+	panic("implement me")
 }

@@ -17,6 +17,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"istio.io/pkg/ledger"
 	"reflect"
 	"time"
 
@@ -263,6 +264,14 @@ func (c *controller) Version() string {
 
 func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return c.client.GetResourceAtVersion(version, key)
+}
+
+func (c *controller) GetLedger() ledger.Ledger {
+	return c.client.GetLedger()
+}
+
+func (c *controller) SetLedger(l ledger.Ledger) error {
+	return c.client.SetLedger(l)
 }
 
 func (c *controller) HasSynced() bool {

@@ -172,6 +172,14 @@ func (c *SyntheticServiceEntryController) GetResourceAtVersion(string, string) (
 	return "", nil
 }
 
+func (c *SyntheticServiceEntryController) GetLedger() ledger.Ledger {
+	panic("implement me")
+}
+
+func (c *SyntheticServiceEntryController) SetLedger(ledger.Ledger) error {
+	panic("implement me")
+}
+
 // Run is not implemented
 func (c *SyntheticServiceEntryController) Run(<-chan struct{}) {
 	log.Warnf("run: %s", errUnsupported)

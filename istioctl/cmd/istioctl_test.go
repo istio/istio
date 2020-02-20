@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"bytes"
+	"istio.io/pkg/ledger"
 	"regexp"
 	"sort"
 	"strings"
@@ -32,6 +33,14 @@ import (
 // a stable List() which helps with testing `istioctl get` output.
 type sortedConfigStore struct {
 	store model.ConfigStore
+}
+
+func (cs sortedConfigStore) GetLedger() ledger.Ledger {
+	return cs.store.GetLedger()
+}
+
+func (cs sortedConfigStore) SetLedger(l ledger.Ledger) error {
+	return cs.store.SetLedger(l)
 }
 
 type testCase struct {

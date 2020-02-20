@@ -16,6 +16,7 @@ package memory
 
 import (
 	"errors"
+	"istio.io/pkg/ledger"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -53,6 +54,14 @@ func (c *controller) Version() string {
 
 func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return c.configStore.GetResourceAtVersion(version, key)
+}
+
+func (c *controller) GetLedger() ledger.Ledger {
+	return c.configStore.GetLedger()
+}
+
+func (c *controller) SetLedger(l ledger.Ledger) error {
+	return c.configStore.SetLedger(l)
 }
 
 func (c *controller) Run(stop <-chan struct{}) {

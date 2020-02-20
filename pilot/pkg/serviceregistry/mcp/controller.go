@@ -245,6 +245,15 @@ func (c *controller) GetResourceAtVersion(version string, key string) (resourceV
 	return c.ledger.GetPreviousValue(version, key)
 }
 
+func (c *controller) GetLedger() ledger.Ledger {
+	return c.ledger
+}
+
+func (c *controller) SetLedger(l ledger.Ledger) error {
+	c.ledger = l
+	return nil
+}
+
 // Run is not implemented
 func (c *controller) Run(<-chan struct{}) {
 	log.Warnf("Run: %s", errUnsupported)
