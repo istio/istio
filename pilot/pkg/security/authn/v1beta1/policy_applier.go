@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -153,7 +152,7 @@ func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPat
 	if a.consolidatedPeerPolicy != nil {
 		effectiveMTLSMode = a.getMutualTLSModeForPort(endpointPort)
 	}
-	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v : %d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
+	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node)
 }
 
@@ -362,26 +361,33 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // replaced with config from workload-level, UNSET in workload-level config will be replaced with
 // one in namespace-level and so on.
 func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v1beta1.PeerAuthentication {
-	var meshPolicy, namespacePolicy, workloadPolicy *v1beta1.PeerAuthentication
-	// Creation time associate with the selected workloadPolicy above. Initially set to max time.
-	workloadPolicyCreationTime := time.Unix(1<<63-1, 0)
+	var meshCfg, namespaceCfg, workloadCfg *model.Config
 
 	for _, cfg := range configs {
 		spec := cfg.Spec.(*v1beta1.PeerAuthentication)
-		if cfg.Namespace == rootNamespace && spec.Selector == nil {
-			meshPolicy = spec
-		} else if spec.Selector == nil {
-			namespacePolicy = spec
+		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
+			// Namespace-level or mesh-level policy
+			if cfg.Namespace == rootNamespace {
+				if meshCfg == nil || cfg.CreationTimestamp.Before(meshCfg.CreationTimestamp) {
+					authnLog.Debugf("Switch selected mesh policy to %s.%s (%v)", cfg.Name, cfg.Namespace, cfg.CreationTimestamp)
+					meshCfg = cfg
+				}
+			} else {
+				if namespaceCfg == nil || cfg.CreationTimestamp.Before(namespaceCfg.CreationTimestamp) {
+					authnLog.Debugf("Switch selected namespace policy to %s.%s (%v)", cfg.Name, cfg.Namespace, cfg.CreationTimestamp)
+					namespaceCfg = cfg
+				}
+			}
 		} else if cfg.Namespace != rootNamespace {
-			// Assign to the (selected) workloadPolicy, if it is not set or have a newer timestamp.
-			if workloadPolicy == nil || cfg.CreationTimestamp.Before(workloadPolicyCreationTime) {
-				workloadPolicy = spec
-				workloadPolicyCreationTime = cfg.CreationTimestamp
+			// Workload level policy, aka the one with selector and not in root namespace.
+			if workloadCfg == nil || cfg.CreationTimestamp.Before(workloadCfg.CreationTimestamp) {
+				authnLog.Debugf("Switch selected workload policy to %s.%s (%v)", cfg.Name, cfg.Namespace, cfg.CreationTimestamp)
+				workloadCfg = cfg
 			}
 		}
 	}
 
-	if meshPolicy == nil && namespacePolicy == nil && workloadPolicy == nil {
+	if meshCfg == nil && namespaceCfg == nil && workloadCfg == nil {
 		// Return nil so that caller can fallback to apply alpha policy. Once we deprecate alpha API,
 		// this special case can be removed.
 		return nil
@@ -396,15 +402,20 @@ func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v
 
 	// Process in mesh, namespace, workload order to resolve inheritance (UNSET)
 
-	if meshPolicy != nil && !isMtlsModeUnset(meshPolicy.Mtls) {
+	if meshCfg != nil && !isMtlsModeUnset(meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
 		// If mesh policy is defined, update parentPolicy to mesh policy.
-		outputPolicy.Mtls = meshPolicy.Mtls
+		outputPolicy.Mtls = meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls
 	}
 
-	if namespacePolicy != nil && !isMtlsModeUnset(namespacePolicy.Mtls) {
+	if namespaceCfg != nil && !isMtlsModeUnset(namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
 		// If namespace policy is defined, update output policy to namespace policy. This means namespace
 		// policy overwrite mesh policy.
-		outputPolicy.Mtls = namespacePolicy.Mtls
+		outputPolicy.Mtls = namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls
+	}
+
+	var workloadPolicy *v1beta1.PeerAuthentication
+	if workloadCfg != nil {
+		workloadPolicy = workloadCfg.Spec.(*v1beta1.PeerAuthentication)
 	}
 
 	if workloadPolicy != nil && !isMtlsModeUnset(workloadPolicy.Mtls) {
