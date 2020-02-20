@@ -1,3 +1,8 @@
+{{/*
+   This version of the validatingwebhookconfiguration is applied indirectly
+   by galley. This exists to support a smoother upgrade path from istio
+   Rversions < 1.4
+*/}}
 {{ define "validatingwebhookconfiguration.yaml.tpl" }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
@@ -71,7 +76,10 @@ webhooks:
         - serviceentries
         - sidecars
         - virtualservices
-    failurePolicy: Fail
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
     sideEffects: None
   - name: mixer.validation.istio.io
     clientConfig:
@@ -95,6 +103,9 @@ webhooks:
         - handlers
         - instances
         - templates
-    failurePolicy: Fail
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
     sideEffects: None
 {{- end }}

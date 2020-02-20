@@ -44,9 +44,6 @@ var (
 		InjectionOptions: bootstrap.InjectionOptions{
 			InjectionDirectory: "./var/lib/istio/inject",
 		},
-		ValidationOptions: bootstrap.ValidationOptions{
-			ValidationDirectory: "./var/lib/istio/validation",
-		},
 
 		MCPMaxMessageSize:        1024 * 1024 * 4, // default grpc maximum message size
 		MCPInitialConnWindowSize: 1024 * 1024,     // default grpc InitialWindowSize

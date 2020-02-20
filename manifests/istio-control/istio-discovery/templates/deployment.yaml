@@ -189,9 +189,6 @@ spec:
           - name: istiod
             mountPath: /var/lib/istio/local
             readOnly: true
-          - name: validation
-            mountPath: /var/lib/istio/validation
-            readOnly: true
           {{- end }}
 {{- if and .Values.global.controlPlaneSecurityEnabled (not .Values.global.istiod.enabled) }}
         - name: istio-proxy
@@ -303,10 +300,6 @@ spec:
       - name: inject
         configMap:
           name: istio-sidecar-injector
-          optional: true
-      - name: validation
-        configMap:
-          name: istio-validation
           optional: true
 
       {{- else }}
