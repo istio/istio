@@ -36,8 +36,8 @@ namespace - nor is it a good practice. Ingress secrets and access should be sepa
 
 ```shell script
     helm3 install -n istio-system istio-ingress manifests/gateways/istio-ingress -f manifests/global.yaml
-    kubectl create ns istio-ingress-canary
 
+    kubectl create ns istio-ingress-canary
     helm3 install -n istio-ingress-canary istio-ingress-canary manifests/gateways/istio-ingress \
       -f manifests/global.yaml --set revision=canary
 ```
