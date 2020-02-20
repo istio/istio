@@ -395,6 +395,17 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
 	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
 	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+	if serverOptions.UseLocalJWT {
+		workloadSdsCacheOptions.FetchToken = func() (s string, e error) {
+			// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
+			tok, err := ioutil.ReadFile(serverOptions.JWTPath)
+			if err != nil {
+				log.Errorf("Failed to get credential token: %v", err)
+				return "", err
+			}
+			return string(tok), nil
+		}
+	}
 	workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
 	return
 }

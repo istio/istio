@@ -129,6 +129,10 @@ type Options struct {
 
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
+
+	// FetchToken defines a function to fetch a new token. If provided, this can be used during cert rotation
+	// to get a new token.
+	FetchToken func() (string, error)
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -214,7 +218,7 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(ConnKey,
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
 	atomic.StoreUint64(&ret.rootCertChangedCount, 0)
 	atomic.StoreUint32(&ret.skipTokenExpireCheck, 1)
-	go ret.keyCertRotationJob()
+	go ret.keyCertRotationJob(options.FetchToken)
 	return ret
 }
 
@@ -403,13 +407,13 @@ func (sc *SecretCache) Close() {
 	sc.closing <- true
 }
 
-func (sc *SecretCache) keyCertRotationJob() {
+func (sc *SecretCache) keyCertRotationJob(fetchToken func() (string, error)) {
 	// Wake up once in a while and refresh stale items.
 	sc.rotationTicker = time.NewTicker(sc.configOptions.RotationInterval)
 	for {
 		select {
 		case <-sc.rotationTicker.C:
-			sc.rotate(false /*updateRootFlag*/)
+			sc.rotate(false /*updateRootFlag*/, fetchToken)
 		case <-sc.closing:
 			if sc.rotationTicker != nil {
 				sc.rotationTicker.Stop()
@@ -495,7 +499,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 	})
 }
 
-func (sc *SecretCache) rotate(updateRootFlag bool) {
+func (sc *SecretCache) rotate(updateRootFlag bool, fetchToken func() (string, error)) {
 	// Skip secret rotation for kubernetes secrets.
 	if !sc.fetcher.UseCaClient {
 		return
@@ -553,9 +557,18 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
 			if sc.isTokenExpired() {
 				cacheLog.Debugf("%s token expired", logPrefix)
-				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-
-				return true
+				if fetchToken != nil {
+					t, err := fetchToken()
+					if err != nil {
+						cacheLog.Errorf("failed to fetch new token, closing connection: %v", err)
+						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+						return true
+					}
+					e.Token = t
+				} else {
+					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+					return true
+				}
 			}
 
 			wg.Add(1)
@@ -793,7 +806,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 
 	if rootCertChanged {
 		cacheLog.Info("Root cert has changed, start rotating root cert for SDS clients")
-		sc.rotate(true /*updateRootFlag*/)
+		sc.rotate(true, nil)
 	}
 
 	return &model.SecretItem{
