@@ -16,11 +16,12 @@ package cmd
 
 import (
 	"bytes"
-	"istio.io/pkg/ledger"
 	"regexp"
 	"sort"
 	"strings"
 	"testing"
+
+	"istio.io/pkg/ledger"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"

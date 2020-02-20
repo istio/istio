@@ -16,10 +16,11 @@ package model
 
 import (
 	"fmt"
-	"istio.io/pkg/ledger"
 	"sort"
 	"strings"
 	"time"
+
+	"istio.io/pkg/ledger"
 
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	"github.com/mitchellh/copystructure"

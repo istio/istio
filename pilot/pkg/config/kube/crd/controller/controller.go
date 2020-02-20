@@ -17,9 +17,10 @@ package controller
 import (
 	"errors"
 	"fmt"
-	"istio.io/pkg/ledger"
 	"reflect"
 	"time"
+
+	"istio.io/pkg/ledger"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

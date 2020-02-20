@@ -16,11 +16,12 @@ package model
 
 import (
 	"fmt"
-	"istio.io/pkg/ledger"
 	"reflect"
 	"regexp"
 	"testing"
 	"time"
+
+	"istio.io/pkg/ledger"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"

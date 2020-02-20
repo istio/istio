@@ -18,9 +18,10 @@ package ingress
 
 import (
 	"errors"
-	"istio.io/pkg/ledger"
 	"reflect"
 	"time"
+
+	"istio.io/pkg/ledger"
 
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/informers/extensions/v1beta1"

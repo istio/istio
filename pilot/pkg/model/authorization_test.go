@@ -16,9 +16,10 @@ package model
 
 import (
 	"fmt"
-	"istio.io/pkg/ledger"
 	"reflect"
 	"testing"
+
+	"istio.io/pkg/ledger"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"

@@ -16,6 +16,7 @@ package memory
 
 import (
 	"errors"
+
 	"istio.io/pkg/ledger"
 
 	"istio.io/istio/pilot/pkg/model"
