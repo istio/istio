@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/config/constants"
+
 	oidc "github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -150,7 +152,7 @@ func (s *Server) EnableCA() bool {
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopCh <-chan struct{}) {
+func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *CAOptions, stopCh <-chan struct{}) {
 	if !s.EnableCA() {
 		return
 	}
@@ -210,12 +212,17 @@ func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopC
 	}
 	log.Info("Istiod CA has started")
 
-	nc, err := NewNamespaceController(ca, s.kubeClient.CoreV1())
+	nc, err := NewNamespaceController(func() map[string]string {
+		return map[string]string{
+			constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
+		}
+	}, s.kubeClient.CoreV1())
 	if err != nil {
 		log.Warnf("failed to start istiod namespace controller, error: %v", err)
 	} else {
-		nc.Run(stopCh)
-		log.Info("istiod namespace controller has started")
+		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
+			nc.Run(stop)
+		})
 	}
 }
 
@@ -344,6 +351,11 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 	var caOpts *ca.IstioCAOptions
 	var err error
 
+	maxCertTTL := maxWorkloadCertTTL.Get()
+	if SelfSignedCACertTTL.Get().Seconds() > maxCertTTL.Seconds() {
+		maxCertTTL = SelfSignedCACertTTL.Get()
+	}
+
 	signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
 
 	// If not found, will default to ca-cert.pem. May contain multiple roots.
@@ -372,7 +384,7 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
 			selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			SelfSignedCACertTTL.Get(), opts.TrustDomain, true,
+			maxCertTTL, opts.TrustDomain, true,
 			opts.Namespace, -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
@@ -389,7 +401,7 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 		s.caBundlePath = certChainFile
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), opts.Namespace, client)
+			rootCertFile, workloadCertTTL.Get(), maxCertTTL, opts.Namespace, client)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an Citadel: %v", err)
 		}

@@ -33,23 +33,26 @@ const (
 )
 
 var (
+	peerAuthenticationGvk    = collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind()
 	requestAuthenticationGvk = collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind()
 )
 
-func TestGetJwtPoliciesForWorkload(t *testing.T) {
-	policies := getTestAuthenticationPolicies(createTestConfigs(), t)
+func TestGetPoliciesForWorkload(t *testing.T) {
+	policies := getTestAuthenticationPolicies(createTestConfigs(true /* with mesh peer authn */), t)
 
 	cases := []struct {
-		name              string
-		workloadNamespace string
-		workloadLabels    labels.Collection
-		want              []*Config
+		name                   string
+		workloadNamespace      string
+		workloadLabels         labels.Collection
+		wantRequestAuthn       []*Config
+		wantPeerAuthn          []*Config
+		wantNamespaceMutualTLS MutualTLSMode
 	}{
 		{
 			name:              "Empty workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{},
-			want: []*Config{
+			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
 						Type:      requestAuthenticationGvk.Kind,
@@ -71,12 +74,43 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
+			wantPeerAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
 		},
 		{
 			name:              "Empty workload labels in bar",
 			workloadNamespace: "bar",
 			workloadLabels:    labels.Collection{},
-			want: []*Config{
+			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
 						Type:      requestAuthenticationGvk.Kind,
@@ -98,12 +132,29 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
+			wantPeerAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSPermissive,
 		},
 		{
 			name:              "Empty workload labels in baz",
 			workloadNamespace: "baz",
 			workloadLabels:    labels.Collection{},
-			want: []*Config{
+			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
 						Type:      requestAuthenticationGvk.Kind,
@@ -115,12 +166,29 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
+			wantPeerAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSPermissive,
 		},
 		{
 			name:              "Match workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1", "other": "labels"}},
-			want: []*Config{
+			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
 						Type:      requestAuthenticationGvk.Kind,
@@ -175,12 +243,62 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					},
 				},
 			},
+			wantPeerAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "peer-with-selector",
+						Namespace: "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"version": "v1",
+							},
+						},
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_DISABLE,
+						},
+					},
+				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
 		},
 		{
 			name:              "Match workload labels in bar",
 			workloadNamespace: "bar",
 			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1"}},
-			want: []*Config{
+			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
 						Type:      requestAuthenticationGvk.Kind,
@@ -218,12 +336,29 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					},
 				},
 			},
+			wantPeerAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSPermissive,
 		},
 		{
 			name:              "Paritial match workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin"}},
-			want: []*Config{
+			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
 						Type:      requestAuthenticationGvk.Kind,
@@ -261,13 +396,180 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					},
 				},
 			},
+			wantPeerAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels); !reflect.DeepEqual(tc.want, got) {
-				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.want), printConfigs(got))
+			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
+			}
+			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
+			}
+			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
+				t.Fatalf("want %s\n, but got %s\n", tc.wantNamespaceMutualTLS, got)
+			}
+		})
+	}
+}
+
+func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
+	policies := getTestAuthenticationPolicies(createTestConfigs(false /* with mesh peer authn */), t)
+
+	cases := []struct {
+		name                   string
+		workloadNamespace      string
+		workloadLabels         labels.Collection
+		wantPeerAuthn          []*Config
+		wantNamespaceMutualTLS MutualTLSMode
+	}{
+		{
+			name:              "Empty workload labels in foo",
+			workloadNamespace: "foo",
+			workloadLabels:    labels.Collection{},
+			wantPeerAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
+		},
+		{
+			name:                   "Empty workload labels in bar",
+			workloadNamespace:      "bar",
+			workloadLabels:         labels.Collection{},
+			wantPeerAuthn:          []*Config{},
+			wantNamespaceMutualTLS: MTLSUnknown,
+		},
+		{
+			name:                   "Empty workload labels in baz",
+			workloadNamespace:      "baz",
+			workloadLabels:         labels.Collection{},
+			wantPeerAuthn:          []*Config{},
+			wantNamespaceMutualTLS: MTLSUnknown,
+		},
+		{
+			name:              "Match workload labels in foo",
+			workloadNamespace: "foo",
+			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1", "other": "labels"}},
+			wantPeerAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "peer-with-selector",
+						Namespace: "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"version": "v1",
+							},
+						},
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_DISABLE,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
+		},
+		{
+			name:                   "Match workload labels in bar",
+			workloadNamespace:      "bar",
+			workloadLabels:         labels.Collection{{"app": "httpbin", "version": "v1"}},
+			wantPeerAuthn:          []*Config{},
+			wantNamespaceMutualTLS: MTLSUnknown,
+		},
+		{
+			name:              "Paritial match workload labels in foo",
+			workloadNamespace: "foo",
+			workloadLabels:    labels.Collection{{"app": "httpbin"}},
+			wantPeerAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      peerAuthenticationGvk.Kind,
+						Version:   peerAuthenticationGvk.Version,
+						Group:     peerAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
+			}
+			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
+				t.Fatalf("want %s, but got %s", tc.wantNamespaceMutualTLS, got)
 			}
 		})
 	}
@@ -285,10 +587,15 @@ func getTestAuthenticationPolicies(configs []*Config, t *testing.T) *Authenticat
 		IstioConfigStore: MakeIstioStore(configStore),
 		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
 	}
-	return initAuthenticationPolicies(environment)
+	authnPolicy, err := initAuthenticationPolicies(environment)
+	if err != nil {
+		t.Fatalf("getTestAuthenticationPolicies %v", err)
+	}
+
+	return authnPolicy
 }
 
-func createTestConfig(name string, namespace string, selector *selectorpb.WorkloadSelector) *Config {
+func createTestRequestAuthenticationResource(name string, namespace string, selector *selectorpb.WorkloadSelector) *Config {
 	return &Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind(),
@@ -303,7 +610,26 @@ func createTestConfig(name string, namespace string, selector *selectorpb.Worklo
 	}
 }
 
-func createTestConfigs() []*Config {
+func createTestPeerAuthenticationResource(name string, namespace string,
+	selector *selectorpb.WorkloadSelector, mode securityBeta.PeerAuthentication_MutualTLS_Mode) *Config {
+	return &Config{
+		ConfigMeta: ConfigMeta{
+			Type:      collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind(),
+			Version:   collections.IstioSecurityV1Beta1Peerauthentications.Resource().Version(),
+			Group:     collections.IstioSecurityV1Beta1Peerauthentications.Resource().Group(),
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: &securityBeta.PeerAuthentication{
+			Selector: selector,
+			Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+				Mode: mode,
+			},
+		},
+	}
+}
+
+func createTestConfigs(withMeshPeerAuthn bool) []*Config {
 	configs := make([]*Config, 0)
 
 	selector := &selectorpb.WorkloadSelector{
@@ -312,15 +638,31 @@ func createTestConfigs() []*Config {
 			"version": "v1",
 		},
 	}
-	configs = append(configs, createTestConfig("default", rootNamespace, nil),
-		createTestConfig("global-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
+	configs = append(configs, createTestRequestAuthenticationResource("default", rootNamespace, nil),
+		createTestRequestAuthenticationResource("global-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
 			MatchLabels: map[string]string{
 				"app": "httpbin",
 			},
 		}),
-		createTestConfig("default", "foo", nil),
-		createTestConfig("default", "bar", nil),
-		createTestConfig("with-selector", "foo", selector))
+		createTestRequestAuthenticationResource("default", "foo", nil),
+		createTestRequestAuthenticationResource("default", "bar", nil),
+		createTestRequestAuthenticationResource("with-selector", "foo", selector),
+		createTestPeerAuthenticationResource("global-peer-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v2",
+			},
+		}, securityBeta.PeerAuthentication_MutualTLS_UNSET),
+		createTestPeerAuthenticationResource("default", "foo", nil, securityBeta.PeerAuthentication_MutualTLS_STRICT),
+		createTestPeerAuthenticationResource("peer-with-selector", "foo", &selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"version": "v1",
+			},
+		}, securityBeta.PeerAuthentication_MutualTLS_DISABLE))
+
+	if withMeshPeerAuthn {
+		configs = append(configs, createTestPeerAuthenticationResource("default", rootNamespace, nil, securityBeta.PeerAuthentication_MutualTLS_UNSET))
+	}
 
 	return configs
 }

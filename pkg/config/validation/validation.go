@@ -1670,14 +1670,6 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		}
 
 		var errs error
-		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
-		if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
-			errs = appendErrors(errs, fmt.Errorf("default request authentication cannot have workload selector"))
-		} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
-			errs = appendErrors(errs,
-				fmt.Errorf("request authentication with empty workload selector must be named %q", constants.DefaultAuthenticationPolicyName))
-		}
-
 		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
 
 		for _, rule := range in.JwtRules {
@@ -1718,6 +1710,38 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 	return
 }
+
+// ValidatePeerAuthentication checks that peer authentication spec is well-formed.
+var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthentication",
+	func(name, namespace string, msg proto.Message) error {
+		in, ok := msg.(*security_beta.PeerAuthentication)
+		if !ok {
+			return errors.New("cannot cast to PeerAuthentication")
+		}
+
+		var errs error
+		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
+
+		if emptySelector && len(in.PortLevelMtls) != 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("mesh/namespace peer authentication cannot have port level mTLS"))
+		}
+
+		if in.PortLevelMtls != nil && len(in.PortLevelMtls) == 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("port level mTLS, if defined, must have at least one element"))
+		}
+
+		for port := range in.PortLevelMtls {
+			if port == 0 {
+				errs = appendErrors(errs, fmt.Errorf("port cannot be 0"))
+			}
+		}
+
+		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
+
+		return errs
+	})
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
 var ValidateServiceRole = registerValidateFunc("ValidateServiceRole",

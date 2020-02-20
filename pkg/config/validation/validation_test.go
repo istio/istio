@@ -5642,7 +5642,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "empty spec with non default name",
 			configName: someName,
 			in:         &security_beta.RequestAuthentication{},
-			valid:      false,
+			valid:      true,
 		},
 		{
 			name:       "default name with non empty selector",
@@ -5654,11 +5654,11 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name:       "empty jwt rule",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{},
@@ -5668,7 +5668,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		},
 		{
 			name:       "empty issuer",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -5680,7 +5680,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		},
 		{
 			name:       "bad JwksUri - no protocol",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -5693,7 +5693,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		},
 		{
 			name:       "bad JwksUri - invalid port",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -5705,8 +5705,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "bad selector - empy value",
-			configName: constants.DefaultAuthenticationPolicyName,
+			name:       "empy value",
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -5721,11 +5721,11 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name:       "bad selector - empy key",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -5799,6 +5799,120 @@ func TestValidateRequestAuthentication(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ValidateRequestAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
+				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
+			}
+		})
+	}
+}
+
+func TestValidatePeerAuthentication(t *testing.T) {
+	cases := []struct {
+		name       string
+		configName string
+		in         proto.Message
+		valid      bool
+	}{
+		{
+			name:       "empty spec",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in:         &security_beta.PeerAuthentication{},
+			valid:      true,
+		},
+		{
+			name:       "empty mtls",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.PeerAuthentication{
+				Selector: &api.WorkloadSelector{},
+			},
+			valid: true,
+		},
+		{
+			name:       "empty spec with non default name",
+			configName: someName,
+			in:         &security_beta.PeerAuthentication{},
+			valid:      true,
+		},
+		{
+			name:       "default name with non empty selector",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.PeerAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "empty port level mtls",
+			configName: "foo",
+			in: &security_beta.PeerAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				PortLevelMtls: map[uint32]*security_beta.PeerAuthentication_MutualTLS{},
+			},
+			valid: false,
+		},
+		{
+			name:       "empty selector with port level mtls",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.PeerAuthentication{
+				PortLevelMtls: map[uint32]*security_beta.PeerAuthentication_MutualTLS{
+					8080: {
+						Mode: security_beta.PeerAuthentication_MutualTLS_UNSET,
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "port 0",
+			configName: "foo",
+			in: &security_beta.PeerAuthentication{
+				PortLevelMtls: map[uint32]*security_beta.PeerAuthentication_MutualTLS{
+					0: {
+						Mode: security_beta.PeerAuthentication_MutualTLS_UNSET,
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "unset mode",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.PeerAuthentication{
+				Mtls: &security_beta.PeerAuthentication_MutualTLS{
+					Mode: security_beta.PeerAuthentication_MutualTLS_UNSET,
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "port level",
+			configName: "port-level",
+			in: &security_beta.PeerAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				PortLevelMtls: map[uint32]*security_beta.PeerAuthentication_MutualTLS{
+					8080: {
+						Mode: security_beta.PeerAuthentication_MutualTLS_UNSET,
+					},
+				},
+			},
+			valid: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidatePeerAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
 				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
 			}
 		})

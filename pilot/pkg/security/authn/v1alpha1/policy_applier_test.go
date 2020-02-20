@@ -990,25 +990,46 @@ func TestOnInboundFilterChains(t *testing.T) {
 			},
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
+				Metadata: &model.NodeMetadata{
+					SdsEnabled: true,
+				},
 			},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
 							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
-								constructSDSConfig(authn_model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
+								authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
 							},
 							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 									DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
-									ValidationContextSdsSecretConfig: constructSDSConfig(authn_model.SDSRootResourceName, "/tmp/sdsuds.sock"),
+									ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, "/tmp/sdsuds.sock"),
 								},
 							},
 							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
+				},
+			},
+		},
+		{
+			name: "mTLS policy using SDS without node meta",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
+					},
+				},
+			},
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: tlsContext,
 				},
 			},
 		},
@@ -1068,46 +1089,14 @@ func TestOnInboundFilterChains(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		got := NewPolicyApplier(c.in).InboundFilterChain(
-			c.sdsUdsPath,
-			c.node,
-		)
-		if !reflect.DeepEqual(got, c.expected) {
-			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
-		}
-	}
-}
-
-func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
-	gRPCConfig := &core.GrpcService_GoogleGrpc{
-		TargetUri:  sdsudspath,
-		StatPrefix: authn_model.SDSStatPrefix,
-		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-			},
-		},
-	}
-
-	gRPCConfig.CredentialsFactoryName = authn_model.FileBasedMetadataPlugName
-	gRPCConfig.CallCredentials = authn_model.ConstructgRPCCallCredentials(authn_model.K8sSATrustworthyJwtFileName, authn_model.K8sSAJwtTokenHeaderKey)
-
-	return &auth.SdsSecretConfig{
-		Name: name,
-		SdsConfig: &core.ConfigSource{
-			InitialFetchTimeout: features.InitialFetchTimeout,
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType: core.ApiConfigSource_GRPC,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: gRPCConfig,
-							},
-						},
-					},
-				},
-			},
-		},
+		t.Run(c.name, func(t *testing.T) {
+			got := NewPolicyApplier(c.in).InboundFilterChain(8080,
+				c.sdsUdsPath,
+				c.node,
+			)
+			if !reflect.DeepEqual(got, c.expected) {
+				t.Errorf("[%v] unexpected filter chains, got \n%v, want \n%v", c.name, got, c.expected)
+			}
+		})
 	}
 }

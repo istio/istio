@@ -5,8 +5,10 @@ apiMapping:
     outPath: "global.tag"
   K8SDefaults:
     outPath: "global.resources"
-  DefaultNamespace:
+  MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
+  Revision:
+    outPath: "global.revision"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
@@ -50,9 +52,10 @@ componentMaps:
   Base:
     ToHelmValuesTreeRoot: "global"
     HelmSubdir:           "base"
+    SkipReverseTranslate: true
   Pilot:
     ResourceType:         "Deployment"
-    ResourceName:         "istio-pilot"
+    ResourceName:         "istiod"
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"
@@ -98,6 +101,7 @@ componentMaps:
     ContainerName:        "certmanager"
     HelmSubdir:           "security/certmanager"
     ToHelmValuesTreeRoot: "certmanager"
+    SkipReverseTranslate: true
   IngressGateways:
     ResourceType:         "Deployment"
     ResourceName:         "istio-ingressgateway"
@@ -134,6 +138,7 @@ componentMaps:
     ContainerName:        "prometheus"
     HelmSubdir:           "istio-telemetry/prometheus-operator"
     ToHelmValuesTreeRoot: "prometheus"
+    SkipReverseTranslate: true
   Kiali:
     ResourceType:         "Deployment"
     ResourceName:         "kiali"

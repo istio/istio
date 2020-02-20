@@ -41,6 +41,10 @@ var (
 	_ = udpa.TypedStruct{}
 )
 
+const (
+	RevisionLabel = "istio.io/rev"
+)
+
 // ConfigMeta is metadata attached to each configuration unit.
 // The revision is optional, and if provided, identifies the
 // last update operation on the object.

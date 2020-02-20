@@ -76,8 +76,6 @@ spec:
 {{- else }}
           - --enable-reconcileWebhookConfiguration=true
 {{- end }}
-          - --validation-webhook-config-file
-          - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
@@ -138,9 +136,10 @@ spec:
         secret:
           secretName: dns.istio-galley-service-account
 {{- end }}
+      # galley expects /etc/config to exist even though it doesn't include any files.
       - name: config
-        configMap:
-          name: istio-galley-configuration
+        emptyDir:
+          medium: Memory
       - name: mesh-config
         configMap:
           name: istio

@@ -44,9 +44,6 @@ var (
 		InjectionOptions: bootstrap.InjectionOptions{
 			InjectionDirectory: "./var/lib/istio/inject",
 		},
-		ValidationOptions: bootstrap.ValidationOptions{
-			ValidationDirectory: "./var/lib/istio/validation",
-		},
 
 		MCPMaxMessageSize:        1024 * 1024 * 4, // default grpc maximum message size
 		MCPInitialConnWindowSize: 1024 * 1024,     // default grpc InitialWindowSize
@@ -94,6 +91,9 @@ var (
 			}
 
 			cmd.WaitSignal(stop)
+			// Wait until we shut down. In theory this could block forever; in practice we will get
+			// forcibly shut down after 30s in Kubernetes.
+			discoveryServer.WaitUntilCompletion()
 			return nil
 		},
 	}

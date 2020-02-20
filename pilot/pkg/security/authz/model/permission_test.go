@@ -354,12 +354,12 @@ func TestPermission_Generate(t *testing.T) {
           rules:
           - orRules:
               rules:
-              - header:
-                  exactMatch: /hello
-                  name: :path
-              - header:
-                  exactMatch: /world
-                  name: :path`,
+              - urlPath:
+                  path:
+                    exact: /hello
+              - urlPath:
+                  path:
+                    exact: /world`,
 		},
 		{
 			name: "permission with notPaths",
@@ -372,12 +372,12 @@ func TestPermission_Generate(t *testing.T) {
           - notRule:
               orRules:
                 rules:
-                - header:
-                    exactMatch: /hello
-                    name: :path
-                - header:
-                    exactMatch: /world
-                    name: :path`,
+                - urlPath:
+                    path:
+                      exact: /hello
+                - urlPath:
+                    path:
+                      exact: /world`,
 		},
 		{
 			name: "permission with ports",

@@ -68,6 +68,7 @@ const (
 	// Envoy config attributes for ServiceRole rules.
 	methodHeader = ":method"
 	pathHeader   = ":path"
+	pathMatcher  = "path-matcher"
 	hostHeader   = ":authority"
 )
 

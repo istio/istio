@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -92,7 +93,6 @@ type Config struct {
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
-	StsPort             int
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -123,8 +123,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath),
-		option.STSPort(cfg.StsPort))
+		option.OutlierLogPath(cfg.OutlierLogPath))
 
 	// Support passing extra info from node environment as metadata
 	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""
@@ -198,6 +197,7 @@ func getStatsOptions(meta *model.NodeMetadata, nodeIPs []string) []option.Instan
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes, requiredEnvoyStatsMatcherInclusionPrefixes)),
 		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, requiredEnvoyStatsMatcherInclusionSuffix)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "")),
+		option.EnvoyExtraStatTags(parseOption(meta.ExtraStatTags, "")),
 	}
 }
 
@@ -445,13 +445,13 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	// Set SDS configuration on the metadata, if provided.
 	if sdsEnabled {
 		// sds is enabled
-		meta.SdsEnabled = "1"
-		meta.SdsTrustJwt = "1"
+		meta.SdsEnabled = true
+		meta.SdsTrustJwt = true
 	}
 
 	// Add STS port into node metadata if it is not 0.
 	if stsPort != 0 {
-		meta.StsPort = string(stsPort)
+		meta.StsPort = strconv.Itoa(stsPort)
 	}
 
 	return meta, untypedMeta, nil

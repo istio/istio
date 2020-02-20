@@ -367,6 +367,14 @@ func (a *Accessor) GetValidatingWebhookConfiguration(name string) (*kubeApiAdmis
 	return whc, nil
 }
 
+// UpdateValidatingWebhookConfiguration updates the specified ValidatingWebhookConfiguration.
+func (a *Accessor) UpdateValidatingWebhookConfiguration(config *kubeApiAdmissions.ValidatingWebhookConfiguration) error {
+	if _, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(config); err != nil {
+		return fmt.Errorf("could not update validating webhook config: %s", config.Name)
+	}
+	return nil
+}
+
 // GetCustomResourceDefinitions gets the CRDs
 func (a *Accessor) GetCustomResourceDefinitions() ([]kubeApiExt.CustomResourceDefinition, error) {
 	crd, err := a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().List(kubeApiMeta.ListOptions{})

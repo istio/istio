@@ -39,7 +39,7 @@ func TestRenewToken(t *testing.T) {
 	// stream should present a new token.
 	cb.SetNumberOfStreamClose(numCloseStream, tokenLifeTimeInSec+1)
 	// Start all test servers and proxy
-	setup := stsTest.SetUpTest(t, cb, testID.STSRenewTest)
+	setup := stsTest.SetUpTest(t, cb, testID.STSRenewTest, false)
 	// Explicitly set token life time to a short duration.
 	setup.AuthServer.SetTokenLifeTime(tokenLifeTimeInSec)
 	// Explicitly set auth server to return different access token to each call.
