@@ -5397,6 +5397,23 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
+		{"sidecar egress proxy with ALLOW_ANY, service hostname invalid fqdn", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+				EgressProxy: &networking.Destination{
+					Host:   "foobar*123",
+					Subset: "shiny",
+					Port: &networking.PortSelector{
+						Number: 5000,
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
 		{"sidecar egress proxy(without Port) with ALLOW_ANY", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,

@@ -782,20 +782,14 @@ func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) 
 			return
 		}
 
-		errs = appendErrors(errs, validateSidecarOutboundEgressProxy(tp.EgressProxy))
-	}
-	return
-}
+		errs = appendErrors(errs, ValidateFQDN(tp.EgressProxy.GetHost()))
 
-func validateSidecarOutboundEgressProxy(ep *networking.Destination) (errs error) {
-	if ep == nil {
-		return
+		if tp.EgressProxy.Port == nil {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy port must be non-nil"))
+			return
+		}
+		errs = appendErrors(errs, validateDestination(tp.EgressProxy))
 	}
-	if ep.Port == nil {
-		errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy port must be non-nil."))
-		return
-	}
-	errs = appendErrors(errs, validateDestination(ep))
 	return
 }
 

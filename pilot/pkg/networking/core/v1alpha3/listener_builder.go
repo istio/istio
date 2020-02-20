@@ -27,6 +27,8 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	"istio.io/istio/pkg/util/gogo"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -285,6 +287,12 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	}
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
+	var listFilter []*listener.ListenerFilter
+	if util.IsAllowAnyOutbound(node) && node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
+		listFilter = append(listFilter, &listener.ListenerFilter{
+			Name: xdsutil.TlsInspector,
+		})
+	}
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
@@ -292,8 +300,13 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		Address:          util.BuildAddress(actualWildcard, uint32(push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
+		ListenerFilters:  listFilter,
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
+	}
+	ipTablesListener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(push.Mesh.ProtocolDetectionTimeout)
+	if ipTablesListener.ListenerFiltersTimeout != nil {
+		ipTablesListener.ContinueOnListenerFiltersTimeout = true
 	}
 	configgen.onVirtualOutboundListener(node, push, ipTablesListener)
 	builder.virtualListener = ipTablesListener
