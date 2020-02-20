@@ -37,6 +37,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("telemetry_test", m).
+		RequireEnvironment(environment.Kube).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.Values["grafana.enabled"] = "true"
