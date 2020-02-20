@@ -117,6 +117,8 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.enabled"] = "true"
 	cfg.Values["telemetry.v1.enabled"] = "false"
 	cfg.Values["telemetry.v2.enabled"] = "true"
+	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
+	cfg.Values["prometheus.enabled"] = "true"
 }
 
 func testsetup(ctx resource.Context) (err error) {
@@ -169,6 +171,7 @@ func buildQuery() (destinationQuery string) {
 		"destination_version":            "v1",
 		"destination_workload_namespace": bookinfoNs.Name(),
 		"destination_service_namespace":  bookinfoNs.Name(),
+		"destination_service_name":       "mongodb",
 		"source_app":                     "ratings",
 		"source_version":                 "v2",
 		"source_workload":                "ratings-v2",
