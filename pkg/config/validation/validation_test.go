@@ -5354,6 +5354,80 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
+		{"ALLOW_ANY sidecar egress policy with no egress proxy ", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"sidecar egress proxy with RESGISTRY_ONLY(default)", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				EgressProxy: &networking.Destination{
+					Host:   "foo.bar",
+					Subset: "shiny",
+					Port: &networking.PortSelector{
+						Number: 5000,
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"sidecar egress proxy with ALLOW_ANY", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+				EgressProxy: &networking.Destination{
+					Host:   "foo.bar",
+					Subset: "shiny",
+					Port: &networking.PortSelector{
+						Number: 5000,
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"sidecar egress proxy with ALLOW_ANY, service hostname invalid fqdn", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+				EgressProxy: &networking.Destination{
+					Host:   "foobar*123",
+					Subset: "shiny",
+					Port: &networking.PortSelector{
+						Number: 5000,
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"sidecar egress proxy(without Port) with ALLOW_ANY", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+				EgressProxy: &networking.Destination{
+					Host:   "foo.bar",
+					Subset: "shiny",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
 	}
 
 	for _, tt := range tests {

@@ -2183,37 +2183,33 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
 func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 	node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
-	if features.EnableFallthroughRoute.Get() {
+	wildcardMatch := &listener.FilterChainMatch{}
+	for _, fc := range l.FilterChains {
+		if isMatchAllFilterChain(fc) {
+			// We can only have one wildcard match. If the filter chain already has one, skip it
+			// This happens in the case of HTTP, which will get a fallthrough route added later,
+			// or TCP, which is not supported
+			return
+		}
+	}
 
-		wildcardMatch := &listener.FilterChainMatch{}
-		for _, fc := range l.FilterChains {
+	if currentListenerEntry != nil {
+		for _, fc := range currentListenerEntry.listener.FilterChains {
 			if isMatchAllFilterChain(fc) {
-				// We can only have one wildcard match. If the filter chain already has one, skip it
-				// This happens in the case of HTTP, which will get a fallthrough route added later,
-				// or TCP, which is not supported
+				// We can only have one wildcard match. If the existing filter chain already has one, skip it
+				// This can happen when there are multiple https services
 				return
 			}
 		}
-
-		if currentListenerEntry != nil {
-			for _, fc := range currentListenerEntry.listener.FilterChains {
-				if isMatchAllFilterChain(fc) {
-					// We can only have one wildcard match. If the existing filter chain already has one, skip it
-					// This can happen when there are multiple https services
-					return
-				}
-			}
-		}
-
-		tcpFilter := newTCPProxyOutboundListenerFilter(opts.push, node)
-
-		opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
-			networkFilters: []*listener.Filter{tcpFilter},
-			isFallThrough:  true,
-		})
-		l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
-
 	}
+
+	fallthroughNetworkFilters := buildFallthroughNetworkFilters(opts.push, node)
+
+	opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
+		networkFilters: fallthroughNetworkFilters,
+		isFallThrough:  true,
+	})
+	l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
 }
 
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
