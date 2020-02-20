@@ -264,7 +264,7 @@ var (
 			if !nodeAgentSDSEnabled { // Not using citadel agent - this is either Pilot or Istiod.
 
 				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
-				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled, pilotCertProvider, jwtPath, outputKeyCertToDir)
+				sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, controlPlaneAuthEnabled, pilotCertProvider, jwtPath, outputKeyCertToDir)
 
 				if sa.JWTPath != "" {
 					// If user injected a JWT token for SDS - use SDS.
@@ -644,7 +644,8 @@ func init() {
 	proxyCmd.PersistentFlags().DurationVar(&parentShutdownDuration, "parentShutdownDuration",
 		timeDuration(values.ParentShutdownDuration),
 		"The time in seconds that Envoy will wait before shutting down the parent process during a hot restart")
-	proxyCmd.PersistentFlags().StringVar(&discoveryAddress, "discoveryAddress", values.DiscoveryAddress,
+	// TODO remove this flag entirely once ingress can read mesh config
+	proxyCmd.PersistentFlags().StringVar(&discoveryAddress, "discoveryAddress", "",
 		"Address of the discovery service exposing xDS (e.g. istio-pilot:8080)")
 	proxyCmd.PersistentFlags().StringVar(&zipkinAddress, "zipkinAddress", "",
 		"Address of the Zipkin service (e.g. zipkin:9411)")

@@ -25,6 +25,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		proxyConfig = *meshConfig.DefaultConfig
 	}
 
+	// TODO(https://github.com/istio/istio/issues/21222) remove all of these flag overrides
 	proxyConfig.CustomConfigFile = customConfigFile
 	proxyConfig.ProxyBootstrapTemplatePath = templateFile
 	proxyConfig.ConfigPath = configPath
@@ -32,7 +33,9 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	proxyConfig.ServiceCluster = serviceCluster
 	proxyConfig.DrainDuration = types.DurationProto(drainDuration)
 	proxyConfig.ParentShutdownDuration = types.DurationProto(parentShutdownDuration)
-	proxyConfig.DiscoveryAddress = discoveryAddress
+	if discoveryAddress != "" {
+		proxyConfig.DiscoveryAddress = discoveryAddress
+	}
 	proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 	proxyConfig.StatsdUdpAddress = statsdUDPAddress
 
@@ -116,7 +119,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	}
 	annotations, err := readPodAnnotations()
 	if err != nil {
-		return meshconfig.ProxyConfig{}, err
+		log.Warnf("failed to read pod annotations: %v", err)
 	}
 	return applyAnnotations(proxyConfig, annotations), nil
 }
