@@ -68,6 +68,8 @@ const (
 	STSRenewTest
 	STSFailureTest
 	STSTimeoutTest
+	STSServerCacheTest
+	STSShortLivedCacheTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
@@ -76,7 +78,7 @@ const (
 const (
 	portBase uint16 = 20000
 	// Maximum number of ports used in each test.
-	portNum uint16 = 7
+	portNum uint16 = 8
 	// Number of ports used by Envoy in each test.
 	envoyPortNum uint16 = 4
 )
