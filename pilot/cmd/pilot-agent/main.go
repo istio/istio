@@ -455,12 +455,16 @@ var (
 	}
 )
 
+// getMeshConfig gets the mesh config to use for proxy configuration
+// 1. Search for MESH_CONFIG env var. This is set in the injection template
+// 2. Attempt to read --meshConfigFile. This is used for gateways
+// 3. If neither is found, we can fallback to default settings
 func getMeshConfig() (meshconfig.MeshConfig, error) {
 	defaultConfig := mesh.DefaultMeshConfig()
 	if meshConfig != "" {
 		mc, err := mesh.ApplyMeshConfigJSON(meshConfig, defaultConfig)
 		if err != nil || mc == nil {
-			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config: %v", err)
+			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config [%v]: %v", meshConfig, err)
 		}
 		return *mc, nil
 	}
@@ -471,7 +475,7 @@ func getMeshConfig() (meshconfig.MeshConfig, error) {
 	}
 	mc, err := mesh.ApplyMeshConfig(string(b), defaultConfig)
 	if err != nil || mc == nil {
-		return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config: %v", err)
+		return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config [%v]: %v", string(b), err)
 	}
 	return *mc, nil
 }
