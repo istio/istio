@@ -66,23 +66,21 @@ type ServiceArgs struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions         DiscoveryServiceOptions
-	InjectionOptions         InjectionOptions
-	PodName                  string
-	Namespace                string
-	Revision                 string
-	ServiceAccountName       string
-	Mesh                     MeshArgs
-	Config                   ConfigArgs
-	Service                  ServiceArgs
-	MeshConfig               *meshconfig.MeshConfig
-	NetworksConfigFile       string
-	CtrlZOptions             *ctrlz.Options
-	Plugins                  []string
-	MCPMaxMessageSize        int
-	MCPInitialWindowSize     int
-	MCPInitialConnWindowSize int
-	KeepaliveOptions         *istiokeepalive.Options
+	DiscoveryOptions   DiscoveryServiceOptions
+	InjectionOptions   InjectionOptions
+	PodName            string
+	Namespace          string
+	Revision           string
+	ServiceAccountName string
+	Mesh               MeshArgs
+	Config             ConfigArgs
+	Service            ServiceArgs
+	MeshConfig         *meshconfig.MeshConfig
+	NetworksConfigFile string
+	CtrlZOptions       *ctrlz.Options
+	Plugins            []string
+	MCPOptions         MCPOptions
+	KeepaliveOptions   *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
 }
@@ -117,6 +115,12 @@ type DiscoveryServiceOptions struct {
 type InjectionOptions struct {
 	// Directory of injection related config files.
 	InjectionDirectory string
+}
+
+type MCPOptions struct {
+	MaxMessageSize        int
+	InitialWindowSize     int
+	InitialConnWindowSize int
 }
 
 var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
