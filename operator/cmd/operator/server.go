@@ -37,6 +37,10 @@ import (
 const (
 	metricsHost       = "0.0.0.0"
 	metricsPort int32 = 8383
+
+	// K8s rate control settings. These are 10x the defaults for faster loop time in the controller.
+	minClientQPS   = 50
+	minClientBurst = 100
 )
 
 func serverCmd() *cobra.Command {
@@ -99,6 +103,14 @@ func run() {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		log.Fatalf("Could not get apiserver config: %v", err)
+	}
+
+	// Bump up the client API server rates to speed up the reconcile loop.
+	if cfg.QPS < minClientQPS {
+		cfg.QPS = minClientQPS
+	}
+	if cfg.Burst < minClientBurst {
+		cfg.Burst = minClientBurst
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
