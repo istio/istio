@@ -3,15 +3,15 @@
     "id": "{{ .nodeID }}",
     "cluster": "{{ .cluster }}",
     "locality": {
-      {{ if .region }}
+      {{- if .region }}
       "region": "{{ .region }}",
-      {{ end }}
-      {{ if .zone }}
+      {{- end }}
+      {{- if .zone }}
       "zone": "{{ .zone }}",
-      {{ end }}
-      {{ if .sub_zone }}
+      {{- end }}
+      {{- if .sub_zone }}
       "sub_zone": "{{ .sub_zone }}",
-      {{ end }}
+      {{- end }}
     },
     "metadata": {{ .meta_json_str }}
   },
@@ -239,30 +239,44 @@
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-          {
-            "socket_address": {
-              "protocol": "TCP",
-              "address": "{{ .localhost }}",
-              "port_value": {{ .config.ProxyAdminPort }}
-            }
-          }
-        ]
+        "load_assignment": {
+          "cluster_name": "prometheus_stats",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {
+                    "protocol": "TCP",
+                    "address": "{{ .localhost }}",
+                    "port_value": {{ .config.ProxyAdminPort }}
+                  }
+                }
+              }
+            }]
+          }]
+        }
       },
-      {{- if eq .sds_uds_path "unix:/etc/istio/proxy/SDS" }}
       {
         "name": "sds-grpc",
         "type": "STATIC",
         "http2_protocol_options": {},
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
-        "hosts": [{
-          "pipe": {
-            "path": "/etc/istio/proxy/SDS"
-           }
-        }]
+        "load_assignment": {
+          "cluster_name": "sds-grpc",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "pipe": {
+                    "path": "/etc/istio/proxy/SDS"
+                  }
+                }
+              }
+            }]
+          }]
+        }
       },
-      {{- end }}
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
@@ -270,151 +284,54 @@
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
-        {{ if eq .config.ControlPlaneAuthPolicy 1 }}
-        {{ if .sds_uds_path }}
-        "tls_context": {
-          "common_tls_context": {
-            "alpn_protocols": [
-              "h2"
-            ],
-            {{ if eq .sds_uds_path "unix:/etc/istio/proxy/SDS" }}
-             "tls_certificate_sds_secret_configs":[
-              {
-                "name":"default",
-                "sds_config":{
-                  "api_config_source":{
-                    "api_type":"GRPC",
-                    "grpc_services":[
-                      {
-                        "envoy_grpc":{
-                          "cluster_name": "sds-grpc"
+        "transport_socket": {
+          "name": "envoy.transport_sockets.tls",
+          "typed_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext",
+            "common_tls_context": {
+              "alpn_protocols": [
+                "h2"
+              ],
+              "tls_certificate_sds_secret_configs": [
+                {
+                  "name": "default",
+                  "sds_config": {
+                    "api_config_source": {
+                      "api_type": "GRPC",
+                      "grpc_services": [
+                        {
+                          "envoy_grpc": { "cluster_name": "sds-grpc" }
                         }
-                      }
-                    ]
+                      ]
+                    }
                   }
                 }
-              }
-            ],
-            "validation_context": {
-              "trusted_ca": {
-                {{ if eq .pilot_cert_provider "kubernetes" }}
-                "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-                {{ else if eq .pilot_cert_provider "istiod" }}
-                "filename": "./var/run/secrets/istio/root-cert.pem"
-                {{ end }}
-              },
-              "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
-            }
-            {{ else }}
-            "tls_certificate_sds_secret_configs":[
-              {
-                "name":"default",
-                "sds_config":{
-                  "api_config_source":{
-                    "api_type":"GRPC",
-                    "grpc_services":[
-                      {
-                        "google_grpc":{
-                          "target_uri": "{{ .sds_uds_path }}",
-                          "channel_credentials":{
-                            "local_credentials":{
-                            }
-                          },
-                          "call_credentials":[
-                            {
-                              "from_plugin":{
-                                "name":"envoy.grpc_credentials.file_based_metadata",
-                                "config":{
-                                  "secret_data":{
-                                    "filename": "{{ .sds_token_path }}"
-                                  },
-                                  "header_key":"istio_sds_credentials_header-bin"
-                                }
-                              }
-                            }
-                          ],
-                          "credentials_factory_name":"envoy.grpc_credentials.file_based_metadata",
-                          "stat_prefix":"sdsstat"
-                        }
-                      }
-                    ]
-                  }
-                }
-              }
-            ],
-            "combined_validation_context":{
-              "default_validation_context":{
-                "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
-              },
-              "validation_context_sds_secret_config":{
-                "name":"ROOTCA",
-                "sds_config":{
-                  "api_config_source":{
-                    "api_type":"GRPC",
-                    "grpc_services":[
-                      {
-                        "google_grpc":{
-                          "target_uri": "{{ .sds_uds_path }}",
-                          "channel_credentials":{
-                            "local_credentials":{
-                            }
-                          },
-                          "call_credentials":[
-                            {
-                              "from_plugin":{
-                                "name":"envoy.grpc_credentials.file_based_metadata",
-                                "config":{
-                                  "secret_data":{
-                                    "filename": "{{ .sds_token_path }}"
-                                  },
-                                  "header_key":"istio_sds_credentials_header-bin"
-                                }
-                              }
-                            }
-                          ],
-                          "credentials_factory_name":"envoy.grpc_credentials.file_based_metadata",
-                          "stat_prefix":"sdsstat"
-                        }
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-            {{ end }}
-          },
-        },
-        {{ else }}
-        "tls_context": {
-          "common_tls_context": {
-            "alpn_protocols": [
-              "h2"
-            ],
-            "tls_certificates": [
-              {
-                "certificate_chain": {
-                  "filename": "/etc/certs/cert-chain.pem"
+              ],
+              "validation_context": {
+                "trusted_ca": {
+                    {{- if eq .pilot_cert_provider "kubernetes" }}
+                  "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+                      {{- else if eq .pilot_cert_provider "istiod" }}
+                    "filename": "./var/run/secrets/istio/root-cert.pem"
+                      {{- end }}
                 },
-                "private_key": {
-                  "filename": "/etc/certs/key.pem"
-                }
+                "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
               }
-            ],
-            "validation_context": {
-              "trusted_ca": {
-                "filename": "/etc/certs/root-cert.pem"
-              },
-              "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
             }
           }
         },
-        {{ end }}
-        {{ end }}
-        "hosts": [
-          {
-            "socket_address": {{ .pilot_grpc_address }}
-          }
-        ],
+        "load_assignment": {
+          "cluster_name": "xds-rgpc",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {{ .pilot_grpc_address }}
+                }
+              }
+            }]
+          }]
+        },
         "circuit_breakers": {
           "thresholds": [
             {
@@ -448,11 +365,18 @@
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-          {
-            "socket_address": {{ .zipkin }}
-          }
-        ]
+        "load_assignment": {
+          "cluster_name": "zipkin",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {{ .zipkin }}
+                }
+              }
+            }]
+          }]
+        }
       }
       {{ else if .lightstep }}
       ,
@@ -478,11 +402,18 @@
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-          {
-            "socket_address": {{ .lightstep }}
-          }
-        ]
+        "load_assignment": {
+          "cluster_name": "lightstep",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {{ .lightstep }}
+                }
+              }
+            }]
+          }]
+        }
       }
       {{ else if .datadog }}
       ,
@@ -493,11 +424,18 @@
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-          {
-            "socket_address": {{ .datadog }}
-          }
-        ]
+        "load_assignment": {
+          "cluster_name": "datadog_agent",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {{ .datadog }}
+                }
+              }
+            }]
+          }]
+        }
       }
       {{ end }}
       {{ if .envoy_metrics_service_address }}
@@ -516,11 +454,18 @@
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "http2_protocol_options": {},
-        "hosts": [
-          {
-            "socket_address": {{ .envoy_metrics_service_address }}
-          }
-        ]
+        "load_assignment": {
+          "cluster_name": "envoy_metrics_service",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {{ .envoy_metrics_service_address }}
+                }
+              }
+            }]
+          }]
+        }
       }
       {{ end }}
       {{ if .envoy_accesslog_service_address }}
@@ -539,11 +484,18 @@
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "http2_protocol_options": {},
-        "hosts": [
-          {
-            "socket_address": {{ .envoy_accesslog_service_address }}
-          }
-        ]
+        "load_assignment": {
+          "cluster_name": "envoy_accesslog_service",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {{ .envoy_accesslog_service_address }}
+                }
+              }
+            }]
+          }]
+        }
       }
       {{ end }}
     ],
@@ -561,7 +513,8 @@
             "filters": [
               {
                 "name": "envoy.http_connection_manager",
-                "config": {
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "stats",
                   "route_config": {
@@ -600,7 +553,8 @@
   "tracing": {
     "http": {
       "name": "envoy.zipkin",
-      "config": {
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.trace.v2.ZipkinConfig",
         "collector_cluster": "zipkin",
         "collector_endpoint": "/api/v2/spans",
         "collector_endpoint_version": "HTTP_JSON",
@@ -614,7 +568,8 @@
   "tracing": {
     "http": {
       "name": "envoy.lightstep",
-      "config": {
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.trace.v2.LightstepConfig",
         "collector_cluster": "lightstep",
         "access_token_file": "{{ .lightstepToken}}"
       }
@@ -625,7 +580,8 @@
   "tracing": {
     "http": {
       "name": "envoy.tracers.datadog",
-      "config": {
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.trace.v2.DatadogConfig",
         "collector_cluster": "datadog_agent",
         "service_name": "{{ .cluster }}"
       }
@@ -636,7 +592,8 @@
   "tracing": {
     "http": {
       "name": "envoy.tracers.opencensus",
-      "config": {
+      "typed_config": {
+      "@type": "type.googleapis.com/envoy.config.trace.v2.OpenCensusConfig",
       "stackdriver_exporter_enabled": true,
       "stackdriver_project_id": "{{ .stackdriverProjectID }}",
       {{ if .sts_port }}
