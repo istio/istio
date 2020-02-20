@@ -39,15 +39,6 @@ import (
 var (
 	adsLog = istiolog.RegisterScope("ads", "ads debugging", 0)
 
-	// adsClients reflect active gRPC channels, for both ADS and EDS.
-	adsClients      = map[string]*XdsConnection{}
-	adsClientsMutex sync.RWMutex
-
-	// Map of sidecar IDs to XdsConnections, first key is sidecarID, second key is connID
-	// This is a map due to an edge case during envoy restart whereby the 'old' envoy
-	// reconnects after the 'new/restarted' envoy
-	adsSidecarIDConnectionsMap = map[string]map[string]*XdsConnection{}
-
 	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
 	SendTimeout = 5 * time.Second
@@ -578,24 +569,24 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	return nil
 }
 
-func adsClientCount() int {
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
-	return len(adsClients)
+func (s *DiscoveryServer) adsClientCount() int {
+	s.adsClientsMutex.RLock()
+	defer s.adsClientsMutex.RUnlock()
+	return len(s.adsClients)
 }
 
 func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	var connection *XdsConnection
 
-	adsClientsMutex.RLock()
-	for _, v := range adsClients {
+	s.adsClientsMutex.RLock()
+	for _, v := range s.adsClients {
 		if v.node.ClusterID == clusterID && v.node.IPAddresses[0] == ip {
 			connection = v
 			break
 		}
 
 	}
-	adsClientsMutex.RUnlock()
+	s.adsClientsMutex.RUnlock()
 
 	// It is possible that the envoy has not connected to this pilot, maybe connected to another pilot
 	if connection == nil {
@@ -635,7 +626,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	}
 
 	adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
-		version, len(req.Push.Services(nil)), adsClientCount())
+		version, len(req.Push.Services(nil)), s.adsClientCount())
 	monServices.Record(float64(len(req.Push.Services(nil))))
 
 	t0 := time.Now()
@@ -669,13 +660,13 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
-	adsClientsMutex.RLock()
+	s.adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
 	pending := []*XdsConnection{}
-	for _, v := range adsClients {
+	for _, v := range s.adsClients {
 		pending = append(pending, v)
 	}
-	adsClientsMutex.RUnlock()
+	s.adsClientsMutex.RUnlock()
 
 	if adsLog.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
@@ -690,42 +681,42 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
-	adsClientsMutex.Lock()
-	defer adsClientsMutex.Unlock()
-	adsClients[conID] = con
-	xdsClients.Record(float64(len(adsClients)))
+	s.adsClientsMutex.Lock()
+	defer s.adsClientsMutex.Unlock()
+	s.adsClients[conID] = con
+	xdsClients.Record(float64(len(s.adsClients)))
 	if con.node != nil {
 		node := con.node
 
-		if _, ok := adsSidecarIDConnectionsMap[node.ID]; !ok {
-			adsSidecarIDConnectionsMap[node.ID] = map[string]*XdsConnection{conID: con}
+		if _, ok := s.adsSidecarIDConnectionsMap[node.ID]; !ok {
+			s.adsSidecarIDConnectionsMap[node.ID] = map[string]*XdsConnection{conID: con}
 		} else {
-			adsSidecarIDConnectionsMap[node.ID][conID] = con
+			s.adsSidecarIDConnectionsMap[node.ID][conID] = con
 		}
 	}
 }
 
 func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
-	adsClientsMutex.Lock()
-	defer adsClientsMutex.Unlock()
+	s.adsClientsMutex.Lock()
+	defer s.adsClientsMutex.Unlock()
 
 	for _, c := range con.Clusters {
 		s.removeEdsCon(c, conID)
 	}
 
-	if _, exist := adsClients[conID]; !exist {
+	if _, exist := s.adsClients[conID]; !exist {
 		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)
 		totalXDSInternalErrors.Increment()
 	} else {
-		delete(adsClients, conID)
+		delete(s.adsClients, conID)
 	}
 
-	xdsClients.Record(float64(len(adsClients)))
+	xdsClients.Record(float64(len(s.adsClients)))
 	if con.node != nil {
 		node := con.node
-		delete(adsSidecarIDConnectionsMap[node.ID], conID)
-		if len(adsSidecarIDConnectionsMap[node.ID]) == 0 {
-			delete(adsSidecarIDConnectionsMap, node.ID)
+		delete(s.adsSidecarIDConnectionsMap[node.ID], conID)
+		if len(s.adsSidecarIDConnectionsMap[node.ID]) == 0 {
+			delete(s.adsSidecarIDConnectionsMap, node.ID)
 		}
 	}
 }

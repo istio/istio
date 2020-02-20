@@ -34,42 +34,47 @@ import (
 )
 
 const (
-	describeSvcAOutput = `Service: a
+	describeSvcAOutput = `Service: a.*
    Port: grpc 7070/GRPC targets pod port 7070
    Port: http 80/HTTP targets pod port 8090
 7070 DestinationRule: a for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is .*, clients configured automatically
-7070 VirtualService: a
+7070 Pod is PERMISSIVE, clients configured automatically
+7070 VirtualService: a.*
    when headers are end-user=jason
-80 DestinationRule: a for "a"
+80 DestinationRule: a.* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 Pod is .*, clients configured automatically
-80 VirtualService: a
+80 Pod is PERMISSIVE, clients configured automatically
+80 VirtualService: a.*
    when headers are end-user=jason
 `
 
 	describePodAOutput = `Pod: .*
    Pod Ports: 7070 \(app\), 8090 \(app\), 8080 \(app\), 3333 \(app\), 15090 \(istio-proxy\)
 --------------------
-Service: a
+Service: a.*
    Port: grpc 7070\/GRPC targets pod port 7070
    Port: http 80\/HTTP targets pod port 8090
 7070 DestinationRule: a for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is .*, clients configured automatically
-7070 VirtualService: a
+7070 Pod is PERMISSIVE, clients configured automatically
+7070 VirtualService: a.*
    when headers are end-user=jason
-80 DestinationRule: a for "a"
+80 DestinationRule: a.* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 Pod is .*, clients configured automatically
-80 VirtualService: a
+80 Pod is PERMISSIVE, clients configured automatically
+80 VirtualService: a.*
    when headers are end-user=jason
 `
+
+	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
+Next Step: Add related labels to the deployment to align with Istio's requirement: https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
+`
+	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
 
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
@@ -135,6 +140,9 @@ func TestDescribe(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
@@ -171,4 +179,46 @@ func getPodID(i echo.Instance) (string, error) {
 	}
 
 	return "", fmt.Errorf("no workloads")
+}
+
+func TestAddToAndRemoveFromMesh(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		RunParallel(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-add-to-mesh",
+				Inject: true,
+			})
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			// able to remove from mesh when the deployment is auto injected
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "remove-from-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
+
+			// remove from mesh should be clean
+			// users can add it back to mesh successfully
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "add-to-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
+		})
 }

@@ -373,7 +373,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, req *model.PushRequest) {
 	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-		version, req.EdsUpdates, adsClientCount())
+		version, req.EdsUpdates, s.adsClientCount())
 	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
