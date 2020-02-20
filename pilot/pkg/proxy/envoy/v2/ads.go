@@ -39,11 +39,6 @@ import (
 var (
 	adsLog = istiolog.RegisterScope("ads", "ads debugging", 0)
 
-	// Map of sidecar IDs to XdsConnections, first key is sidecarID, second key is connID
-	// This is a map due to an edge case during envoy restart whereby the 'old' envoy
-	// reconnects after the 'new/restarted' envoy
-	adsSidecarIDConnectionsMap = map[string]map[string]*XdsConnection{}
-
 	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
 	SendTimeout = 5 * time.Second
@@ -693,10 +688,10 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	if con.node != nil {
 		node := con.node
 
-		if _, ok := adsSidecarIDConnectionsMap[node.ID]; !ok {
-			adsSidecarIDConnectionsMap[node.ID] = map[string]*XdsConnection{conID: con}
+		if _, ok := s.adsSidecarIDConnectionsMap[node.ID]; !ok {
+			s.adsSidecarIDConnectionsMap[node.ID] = map[string]*XdsConnection{conID: con}
 		} else {
-			adsSidecarIDConnectionsMap[node.ID][conID] = con
+			s.adsSidecarIDConnectionsMap[node.ID][conID] = con
 		}
 	}
 }
@@ -719,9 +714,9 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	xdsClients.Record(float64(len(s.adsClients)))
 	if con.node != nil {
 		node := con.node
-		delete(adsSidecarIDConnectionsMap[node.ID], conID)
-		if len(adsSidecarIDConnectionsMap[node.ID]) == 0 {
-			delete(adsSidecarIDConnectionsMap, node.ID)
+		delete(s.adsSidecarIDConnectionsMap[node.ID], conID)
+		if len(s.adsSidecarIDConnectionsMap[node.ID]) == 0 {
+			delete(s.adsSidecarIDConnectionsMap, node.ID)
 		}
 	}
 }

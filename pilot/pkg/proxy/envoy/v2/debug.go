@@ -437,7 +437,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		s.adsClientsMutex.RLock()
 		defer s.adsClientsMutex.RUnlock()
 
-		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		connections, ok := s.adsSidecarIDConnectionsMap[proxyID]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
 			// Need to dump an empty JSON array so istioctl can peacefully ignore.
@@ -620,7 +620,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		s.adsClientsMutex.RLock()
 		defer s.adsClientsMutex.RUnlock()
-		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		connections, ok := s.adsSidecarIDConnectionsMap[proxyID]
 		if !ok || len(connections) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance"))
@@ -787,7 +787,7 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		s.adsClientsMutex.RLock()
 		defer s.adsClientsMutex.RUnlock()
-		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		connections, ok := s.adsSidecarIDConnectionsMap[proxyID]
 		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
 		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
 		if !ok || len(connections) == 0 {
