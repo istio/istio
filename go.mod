@@ -20,11 +20,9 @@ require (
 	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/Masterminds/semver v1.4.2
-	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9
-	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/aws/aws-sdk-go v1.23.20
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/cactus/go-statsd-client v3.1.1+incompatible
@@ -37,7 +35,6 @@ require (
 	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-oidc v2.1.0+incompatible
-	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
 	github.com/d4l3k/messagediff v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dchest/siphash v1.1.0 // indirect
@@ -45,23 +42,19 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
-	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
 	github.com/envoyproxy/go-control-plane v0.9.2-0.20200122210702-14108a6abe04
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fluent/fluent-logger-golang v1.3.0
-	github.com/frankban/quicktest v1.4.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.1.0
-	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/go-openapi/spec v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.6 // indirect
 	github.com/go-redis/redis v6.10.2+incompatible
-	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
@@ -89,7 +82,6 @@ require (
 	github.com/hashicorp/vault/api v1.0.3
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/huandu/xstrings v1.2.1 // indirect
-	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kr/pretty v0.1.0
 	github.com/kylelemons/godebug v1.1.0
@@ -101,7 +93,6 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
-	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/onsi/gomega v1.7.1
 	github.com/open-policy-agent/opa v0.8.2
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -130,7 +121,6 @@ require (
 	github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c // indirect
 	github.com/uber/jaeger-client-go v0.0.0-20190228190846-ecf2d03a9e80
 	github.com/uber/jaeger-lib v2.0.0+incompatible // indirect
-	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/yashtewari/glob-intersection v0.0.0-20180206001645-7af743e8ec84 // indirect
 	github.com/yl2chen/cidranger v0.0.0-20180214081945-928b519e5268
 	github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3 // indirect
@@ -151,6 +141,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.7
 	istio.io/api v0.0.0-20200218013118-7fd43ea7fc2b
 	istio.io/gogo-genproto v0.0.0-20200122005450-9b171d92064b
+	istio.io/operator v0.0.0-20200114230340-c3e0b6a19ee9
 	istio.io/pkg v0.0.0-20200131182711-9ba13e0e34bb
 	k8s.io/api v0.17.2
 	k8s.io/apiextensions-apiserver v0.17.2
