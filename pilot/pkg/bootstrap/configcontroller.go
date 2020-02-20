@@ -324,9 +324,9 @@ func grpcDial(ctx context.Context,
 		Timeout: args.KeepaliveOptions.Timeout,
 	})
 
-	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(args.MCPInitialWindowSize))
-	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(args.MCPInitialConnWindowSize))
-	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
+	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(args.MCPOptions.InitialWindowSize))
+	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(args.MCPOptions.InitialConnWindowSize))
+	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPOptions.MaxMessageSize))
 
 	return grpc.DialContext(
 		ctx,
