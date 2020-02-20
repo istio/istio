@@ -220,7 +220,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 		statPrefix := clusterName
 		// If stat name is configured, build the stat prefix from configured pattern.
 		if len(push.Mesh.OutboundClusterStatName) != 0 && service != nil {
-			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(routes[0].Destination.Host),
+			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, routes[0].Destination.Host,
 				routes[0].Destination.Subset, port, service.Attributes)
 		}
 		return buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, port)
