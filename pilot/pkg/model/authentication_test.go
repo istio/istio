@@ -679,9 +679,13 @@ func createTestConfigs(withMeshPeerAuthn bool) []*Config {
 		}, securityBeta.PeerAuthentication_MutualTLS_DISABLE))
 
 	if withMeshPeerAuthn {
-		configs = append(configs, createTestPeerAuthenticationResource("ignored-newer", rootNamespace, baseTimestamp.Add(time.Second*2), nil, securityBeta.PeerAuthentication_MutualTLS_UNSET))
-		configs = append(configs, createTestPeerAuthenticationResource("default", rootNamespace, baseTimestamp, nil, securityBeta.PeerAuthentication_MutualTLS_UNSET))
-		configs = append(configs, createTestPeerAuthenticationResource("ignored-another-newer", rootNamespace, baseTimestamp.Add(time.Second), nil, securityBeta.PeerAuthentication_MutualTLS_UNSET))
+		configs = append(configs,
+			createTestPeerAuthenticationResource("ignored-newer", rootNamespace, baseTimestamp.Add(time.Second*2),
+				nil, securityBeta.PeerAuthentication_MutualTLS_UNSET),
+			createTestPeerAuthenticationResource("default", rootNamespace, baseTimestamp,
+				nil, securityBeta.PeerAuthentication_MutualTLS_UNSET),
+			createTestPeerAuthenticationResource("ignored-another-newer", rootNamespace, baseTimestamp.Add(time.Second),
+				nil, securityBeta.PeerAuthentication_MutualTLS_UNSET))
 	}
 
 	return configs
