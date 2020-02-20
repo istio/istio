@@ -134,7 +134,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	}
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
-	return buildNetworkFiltersStack(node, port, tcpFilter, clusterName, clusterName)
+	return buildNetworkFiltersStack(node, port, tcpFilter, statPrefix, clusterName)
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
@@ -214,14 +214,13 @@ func buildNetworkFiltersStack(_ *model.Proxy, port *model.Port, tcpFilter *liste
 func buildOutboundNetworkFilters(node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
 	port *model.Port, configMeta model.ConfigMeta) []*listener.Filter {
-
 	if len(routes) == 1 {
 		service := node.SidecarScope.ServiceForHostname(host.Name(routes[0].Destination.Host), push.ServiceByHostnameAndNamespace)
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		statPrefix := clusterName
 		// If stat name is configured, build the alternate stats name.
 		if len(push.Mesh.OutboundClusterStatName) != 0 && service != nil {
-			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), routes[0].Destination.Subset, service.Ports[0], service.Attributes)
+			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(routes[0].Destination.Host), routes[0].Destination.Subset, port, service.Attributes)
 		}
 		return buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, port)
 	}
