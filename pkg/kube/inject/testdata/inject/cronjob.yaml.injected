@@ -8,7 +8,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
@@ -38,22 +38,10 @@ spec:
             - /usr/local/bin/envoy
             - --serviceCluster
             - hellocron.default
-            - --drainDuration
-            - 45s
-            - --parentShutdownDuration
-            - 1m0s
             - --discoveryAddress
             - istio-pilot:15010
-            - --zipkinAddress
-            - ""
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
-            - --connectTimeout
-            - 1s
-            - --proxyAdminPort
-            - "15000"
-            - --controlPlaneAuthPolicy
-            - NONE
             - --dnsRefreshRate
             - 300s
             - --statusPort
@@ -89,6 +77,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+            - name: MESH_CONFIG
+              value: |
+                {}
             - name: ISTIO_META_POD_PORTS
               value: |-
                 [
@@ -149,9 +140,8 @@ spec:
               name: istio-envoy
             - mountPath: /var/run/secrets/tokens
               name: istio-token
-            - mountPath: /etc/certs/
-              name: istio-certs
-              readOnly: true
+            - mountPath: /etc/istio/pod
+              name: podinfo
           initContainers:
           - command:
             - istio-iptables
@@ -191,14 +181,23 @@ spec:
                 - ALL
               privileged: false
               readOnlyRootFilesystem: false
-              runAsGroup: 1337
-              runAsNonRoot: true
-              runAsUser: 1337
+              runAsGroup: 0
+              runAsNonRoot: false
+              runAsUser: 0
           restartPolicy: OnFailure
           volumes:
           - emptyDir:
               medium: Memory
             name: istio-envoy
+          - downwardAPI:
+              items:
+              - fieldRef:
+                  fieldPath: metadata.labels
+                path: labels
+              - fieldRef:
+                  fieldPath: metadata.annotations
+                path: annotations
+            name: podinfo
           - name: istio-token
             projected:
               sources:
@@ -209,10 +208,6 @@ spec:
           - configMap:
               name: istio-ca-root-cert
             name: citadel-ca-cert
-          - name: istio-certs
-            secret:
-              optional: true
-              secretName: istio.default
   schedule: '*/1 * * * *'
 status: {}
 ---

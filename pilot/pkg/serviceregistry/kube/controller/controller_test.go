@@ -505,8 +505,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"1.1.1.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
-				WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
+				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					Labels: map[string]string{
+						"app": "prod-app",
+					}},
 			})
 			if err != nil {
 				t.Fatalf("got err getting service instances")
@@ -563,8 +565,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
-				WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
+				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					Labels: map[string]string{
+						"app": "prod-app",
+					}},
 			})
 			if err != nil {
 				t.Fatalf("got err getting service instances")
@@ -618,8 +622,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.2"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
-				Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
-				WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
+				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					Labels: map[string]string{
+						"app": "prod-app",
+					}},
 			})
 			if err != nil {
 				t.Fatalf("got err getting service instances")
@@ -1101,6 +1107,33 @@ func TestController_Service(t *testing.T) {
 				if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
 					t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Ports, exp.Ports)
 				}
+			}
+		})
+	}
+}
+
+func TestExternalNameServiceInstances(t *testing.T) {
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
+			defer controller.Stop()
+			createExternalNameService(controller, "svc5", "nsA",
+				[]int32{1, 2, 3}, "foo.co", t, fx.Events)
+
+			converted, err := controller.Services()
+			if err != nil || len(converted) != 1 {
+				t.Fatalf("failed to get services (%v): %v", converted, err)
+			}
+			instances, err := controller.InstancesByPort(converted[0], 1, labels.Collection{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(instances) != 1 {
+				t.Fatalf("expected 1 instance, got %v", instances)
+			}
+			if instances[0].ServicePort.Port != 1 {
+				t.Fatalf("expected port 1, got %v", instances[0].ServicePort.Port)
 			}
 		})
 	}

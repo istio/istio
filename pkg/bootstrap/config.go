@@ -18,11 +18,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
+
+	"istio.io/istio/pkg/config/constants"
 
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/oauth2/google"
@@ -92,7 +96,6 @@ type Config struct {
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
-	StsPort             int
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -123,8 +126,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath),
-		option.STSPort(cfg.StsPort))
+		option.OutlierLogPath(cfg.OutlierLogPath))
 
 	// Support passing extra info from node environment as metadata
 	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""
@@ -198,6 +200,7 @@ func getStatsOptions(meta *model.NodeMetadata, nodeIPs []string) []option.Instan
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes, requiredEnvoyStatsMatcherInclusionPrefixes)),
 		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, requiredEnvoyStatsMatcherInclusionSuffix)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "")),
+		option.EnvoyExtraStatTags(parseOption(meta.ExtraStatTags, "")),
 	}
 }
 
@@ -451,10 +454,48 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	// Add STS port into node metadata if it is not 0.
 	if stsPort != 0 {
-		meta.StsPort = string(stsPort)
+		meta.StsPort = strconv.Itoa(stsPort)
+	}
+
+	// Add all pod labels found from filesystem
+	// These are typically volume mounted by the downward API
+	lbls, err := readPodLabels()
+	if err == nil {
+		if meta.Labels == nil {
+			meta.Labels = map[string]string{}
+		}
+		for k, v := range lbls {
+			meta.Labels[k] = v
+		}
+	} else {
+		log.Warnf("failed to read pod labels: %v", err)
 	}
 
 	return meta, untypedMeta, nil
+}
+
+func readPodLabels() (map[string]string, error) {
+	b, err := ioutil.ReadFile(constants.PodInfoLabelsPath)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownwardAPI(string(b))
+}
+
+// Fields are stored as format `%s=%q`, we will parse this back to a map
+func ParseDownwardAPI(i string) (map[string]string, error) {
+	res := map[string]string{}
+	for _, line := range strings.Split(i, "\n") {
+		sl := strings.SplitN(line, "=", 2)
+		if len(sl) != 2 {
+			continue
+		}
+		key := sl[0]
+		// Strip the leading/trailing quotes
+		val := sl[1][1 : len(sl[1])-1]
+		res[key] = val
+	}
+	return res, nil
 }
 
 func removeDuplicates(values []string) []string {

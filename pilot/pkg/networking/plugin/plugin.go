@@ -20,9 +20,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
@@ -38,6 +40,8 @@ const (
 	ListenerProtocolTCP
 	// ListenerProtocolHTTP is an HTTP listener.
 	ListenerProtocolHTTP
+	// ListenerProtocolThrift is a Thrift listener.
+	ListenerProtocolThrift
 	// ListenerProtocolAuto enables auto protocol detection
 	ListenerProtocolAuto
 
@@ -75,6 +79,11 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
 		return ListenerProtocolHTTP
 	case protocol.TCP, protocol.HTTPS, protocol.TLS,
 		protocol.Mongo, protocol.Redis, protocol.MySQL:
+		return ListenerProtocolTCP
+	case protocol.Thrift:
+		if features.EnableThriftFilter.Get() {
+			return ListenerProtocolThrift
+		}
 		return ListenerProtocolTCP
 	case protocol.UDP:
 		return ListenerProtocolUnknown
@@ -137,6 +146,8 @@ type FilterChain struct {
 	ListenerProtocol ListenerProtocol
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
+	// Thrift is the set of Thrift filters for this filter chain
+	Thrift []*thrift_proxy.ThriftFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []*listener.Filter
 	// IsFallthrough indicates if the filter chain is fallthrough.
@@ -195,4 +206,7 @@ type Plugin interface {
 	// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
 	// Can be used to add additional filters.
 	OnInboundPassthrough(in *InputParams, mutable *MutableObjects) error
+
+	// OnInboundPassthroughFilterChains is called whenever a plugin needs to setup custom pass through filter chain.
+	OnInboundPassthroughFilterChains(in *InputParams) []FilterChain
 }

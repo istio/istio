@@ -1809,6 +1809,7 @@ kind: "PeerAuthentication"
 metadata:
   name: invalid-peer-authentication
 spec:
+  portLevelMtls: {}
 `)
 
 func datasetSecurityV1beta1PeerauthenticationInvalidYamlBytes() ([]byte, error) {

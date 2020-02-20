@@ -263,24 +263,6 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
-	// IstioNetworkingV1Alpha3SyntheticServiceentries describes the collection
-	// istio/networking/v1alpha3/synthetic/serviceentries
-	IstioNetworkingV1Alpha3SyntheticServiceentries = collection.Builder{
-		Name:         "istio/networking/v1alpha3/synthetic/serviceentries",
-		VariableName: "IstioNetworkingV1Alpha3SyntheticServiceentries",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "ServiceEntry",
-			Plural:        "serviceentries",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.ServiceEntry",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceEntry,
-		}.MustBuild(),
-	}.MustBuild()
-
 	// IstioNetworkingV1Alpha3Virtualservices describes the collection
 	// istio/networking/v1alpha3/virtualservices
 	IstioNetworkingV1Alpha3Virtualservices = collection.Builder{
@@ -730,6 +712,23 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SCoreV1Configmaps describes the collection k8s/core/v1/configmaps
+	K8SCoreV1Configmaps = collection.Builder{
+		Name:         "k8s/core/v1/configmaps",
+		VariableName: "K8SCoreV1Configmaps",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "",
+			Kind:          "ConfigMap",
+			Plural:        "configmaps",
+			Version:       "v1",
+			Proto:         "k8s.io.api.core.v1.ConfigMap",
+			ProtoPackage:  "k8s.io/api/core/v1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SCoreV1Endpoints describes the collection k8s/core/v1/endpoints
 	K8SCoreV1Endpoints = collection.Builder{
 		Name:         "k8s/core/v1/endpoints",
@@ -1100,7 +1099,6 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
-		MustAdd(IstioNetworkingV1Alpha3SyntheticServiceentries).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioPolicyV1Beta1Attributemanifests).
 		MustAdd(IstioPolicyV1Beta1Handlers).
@@ -1126,6 +1124,7 @@ var (
 		MustAdd(K8SConfigIstioIoV1Alpha2Quotaspecs).
 		MustAdd(K8SConfigIstioIoV1Alpha2Rules).
 		MustAdd(K8SConfigIstioIoV1Alpha2Templates).
+		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
 		MustAdd(K8SCoreV1Namespaces).
 		MustAdd(K8SCoreV1Nodes).
@@ -1164,7 +1163,6 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
-		MustAdd(IstioNetworkingV1Alpha3SyntheticServiceentries).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioPolicyV1Beta1Attributemanifests).
 		MustAdd(IstioPolicyV1Beta1Handlers).
@@ -1194,6 +1192,7 @@ var (
 		MustAdd(K8SConfigIstioIoV1Alpha2Quotaspecs).
 		MustAdd(K8SConfigIstioIoV1Alpha2Rules).
 		MustAdd(K8SConfigIstioIoV1Alpha2Templates).
+		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
 		MustAdd(K8SCoreV1Namespaces).
 		MustAdd(K8SCoreV1Nodes).

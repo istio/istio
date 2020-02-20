@@ -71,6 +71,11 @@ Service: a\..*
 80 VirtualService: a\..*
    when headers are end-user=jason
 `
+
+	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
+Next Step: Add related labels to the deployment to align with Istio's requirement: https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
+`
+	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
 
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
@@ -136,6 +141,9 @@ func TestDescribe(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
@@ -175,6 +183,45 @@ func getPodID(i echo.Instance) (string, error) {
 	}
 
 	return "", fmt.Errorf("no workloads")
+}
+
+func TestAddToAndRemoveFromMesh(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		RunParallel(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-add-to-mesh",
+				Inject: true,
+			})
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			// able to remove from mesh when the deployment is auto injected
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "remove-from-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
+
+			// remove from mesh should be clean
+			// users can add it back to mesh successfully
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "add-to-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
+		})
 }
 
 func TestProxyConfig(t *testing.T) {

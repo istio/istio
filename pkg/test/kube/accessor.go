@@ -367,6 +367,14 @@ func (a *Accessor) GetValidatingWebhookConfiguration(name string) (*kubeApiAdmis
 	return whc, nil
 }
 
+// UpdateValidatingWebhookConfiguration updates the specified ValidatingWebhookConfiguration.
+func (a *Accessor) UpdateValidatingWebhookConfiguration(config *kubeApiAdmissions.ValidatingWebhookConfiguration) error {
+	if _, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(config); err != nil {
+		return fmt.Errorf("could not update validating webhook config: %s", config.Name)
+	}
+	return nil
+}
+
 // GetCustomResourceDefinitions gets the CRDs
 func (a *Accessor) GetCustomResourceDefinitions() ([]kubeApiExt.CustomResourceDefinition, error) {
 	crd, err := a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().List(kubeApiMeta.ListOptions{})
@@ -389,6 +397,11 @@ func (a *Accessor) GetService(ns string, name string) (*kubeApiCore.Service, err
 // GetSecret returns secret resource with the given namespace.
 func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 	return a.set.CoreV1().Secrets(ns)
+}
+
+// GetConfigMap returns the config resource with the given name and namespace.
+func (a *Accessor) GetConfigMap(name, ns string) (*kubeApiCore.ConfigMap, error) {
+	return a.set.CoreV1().ConfigMaps(ns).Get(name, kubeApiMeta.GetOptions{})
 }
 
 // CreateSecret takes the representation of a secret and creates it in the given namespace.

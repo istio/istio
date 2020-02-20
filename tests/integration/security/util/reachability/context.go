@@ -127,6 +127,7 @@ func (rc *Context) Run(testCases []TestCase) {
 			// Apply the policy.
 			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(ctx, func() error {
+				ctx.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
 				return rc.g.ApplyConfig(c.Namespace, policyYAML)
 			})
@@ -136,7 +137,9 @@ func (rc *Context) Run(testCases []TestCase) {
 
 			// Give some time for the policy propagate.
 			// TODO: query pilot or app to know instead of sleep.
+			ctx.Logf("[%s] [%v] Wait for config propagate to endpoints...", testName, time.Now())
 			time.Sleep(10 * time.Second)
+			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
 
 			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
 				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {

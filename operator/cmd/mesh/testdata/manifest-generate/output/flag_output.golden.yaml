@@ -1,5 +1,15 @@
 # Base component is disabled.
 
+# AddonComponents grafana component is disabled.
+
+---
+# AddonComponents kiali component is disabled.
+
+---
+# AddonComponents prometheus component is disabled.
+
+---
+# AddonComponents istio-tracing component is disabled.
 
 # Citadel component is disabled.
 
@@ -12,23 +22,23 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  labels:
-    app: pilot
-    release: istio
-  name: istio-pilot
+  name: istiod
   namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
 spec:
   maxReplicas: 5
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-pilot
+    name: istiod
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
 ---
 
 
@@ -132,13 +142,9 @@ kind: ClusterRole
 metadata:
   name: istiod-istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 rules:
-  # Remove permissions to reconcile webhook configuration. This address the downgrade case
-  # where istiod will be uninstalled. Removing the permissions reduces
-  # the likelihood that istiod will reconcile something it shouldn't.
-
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
@@ -147,18 +153,7 @@ rules:
   # configuration validation webhook controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
-    verbs: ["*"]
-    # required to set ownerRef on istiod clusterrole.
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles/finalizers"]
-    resourceNames:
-    - istiod-istio-system
-    verbs: ["update"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles"]
-    resourceNames:
-    - istiod-istio-system
-    verbs: ["get"]
+    verbs: ["get", "list", "watch", "update"]
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -189,8 +184,7 @@ rules:
     resources: ["ingresses/status"]
     verbs: ["*"]
 
-  # Pilot, injector - not clear why cluster wide.
-  # TODO: remove, too broad permission, should be namespace only
+  # required for CA's namespace controller
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
@@ -206,12 +200,6 @@ rules:
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
     verbs: ["create"]
-
-  # Citadel subset
-  # TODO: remove, namespace only
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["create", "get", "update"]
 
   # TODO: remove, no longer needed at cluster
   - apiGroups: [""]
@@ -236,7 +224,7 @@ roleRef:
   name: istio-pilot-istio-system
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-system
 ---
 
@@ -244,9 +232,9 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-pilot-istio-system
+  name: istiod-istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -254,226 +242,8 @@ roleRef:
   name: istiod-istio-system
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: istio-system
----
-
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: istio-system
-  name: pilot-envoy-config
-  labels:
-    release: istio
-data:
-  envoy.yaml.tmpl: |-
-    admin:
-      access_log_path: /dev/null
-      address:
-        socket_address:
-          address: 127.0.0.1
-          port_value: 15000
-
-    static_resources:
-      clusters:
-      - name: in.15010
-        http2_protocol_options: {}
-        connect_timeout: 1.000s
-
-        hosts:
-        - socket_address:
-            address: 127.0.0.1
-            port_value: 15010
-
-        circuit_breakers:
-          thresholds:
-          - max_connections: 100000
-            max_pending_requests: 100000
-            max_requests: 100000
-            max_retries: 3
-
-    # TODO: telemetry using EDS
-    # TODO: other pilots using EDS, load balancing
-    # TODO: galley using EDS
-
-      - name: out.galley.15019
-        http2_protocol_options: {}
-        connect_timeout: 1.000s
-        type: STRICT_DNS
-
-        circuit_breakers:
-          thresholds:
-            - max_connections: 100000
-              max_pending_requests: 100000
-              max_requests: 100000
-              max_retries: 3
-
-        tls_context:
-          common_tls_context:
-            tls_certificates:
-            - certificate_chain:
-                filename: /etc/certs/cert-chain.pem
-              private_key:
-                filename: /etc/certs/key.pem
-            validation_context:
-              trusted_ca:
-                filename: /etc/certs/root-cert.pem
-              verify_subject_alt_name:
-              - spiffe://cluster.local/ns/istio-system/sa/istio-galley-service-account
-
-        hosts:
-          - socket_address:
-              address: istio-galley.istio-system
-              port_value: 15019
-
-
-      listeners:
-      - name: "in.15011"
-        address:
-          socket_address:
-            address: 0.0.0.0
-            port_value: 15011
-        filter_chains:
-        - filters:
-          - name: envoy.http_connection_manager
-            #typed_config
-            #"@type": "type.googleapis.com/",
-            config:
-              codec_type: HTTP2
-              stat_prefix: "15011"
-              stream_idle_timeout: 0s
-              http2_protocol_options:
-                max_concurrent_streams: 1073741824
-
-              access_log:
-              - name: envoy.file_access_log
-                config:
-                  path: /dev/stdout
-
-              http_filters:
-              - name: envoy.router
-
-              route_config:
-                name: "15011"
-
-                virtual_hosts:
-                - name: istio-pilot
-
-                  domains:
-                  - '*'
-
-                  routes:
-                  - match:
-                      prefix: /
-                    route:
-                      cluster: in.15010
-                      timeout: 0.000s
-                    decorator:
-                      operation: xDS
-
-          tls_context:
-            require_client_certificate: true
-            common_tls_context:
-              validation_context:
-                trusted_ca:
-                  filename: /etc/certs/root-cert.pem
-
-              alpn_protocols:
-              - h2
-
-              tls_certificates:
-              - certificate_chain:
-                  filename: /etc/certs/cert-chain.pem
-                private_key:
-                  filename: /etc/certs/key.pem
-
-
-      # Manual 'whitebox' mode
-      - name: "local.15019"
-        address:
-          socket_address:
-            address: 127.0.0.1
-            port_value: 15019
-        filter_chains:
-          - filters:
-              - name: envoy.http_connection_manager
-                config:
-                  codec_type: HTTP2
-                  stat_prefix: "15019"
-                  stream_idle_timeout: 0s
-                  http2_protocol_options:
-                    max_concurrent_streams: 1073741824
-
-                  access_log:
-                    - name: envoy.file_access_log
-                      config:
-                        path: /dev/stdout
-
-                  http_filters:
-                    - name: envoy.router
-
-                  route_config:
-                    name: "15019"
-
-                    virtual_hosts:
-                      - name: istio-galley
-
-                        domains:
-                          - '*'
-
-                        routes:
-                          - match:
-                              prefix: /
-                            route:
-                              cluster: out.galley.15019
-                              timeout: 0.000s
----
-
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-validation
-  namespace: istio-system
-  labels:
-    release: istio
-data:
-  config: |-    
-    apiVersion: admissionregistration.k8s.io/v1beta1
-    kind: ValidatingWebhookConfiguration
-    metadata:
-      name: istiod-istio-system
-      namespace: istio-system
-      labels:
-        app: istiod
-        release: istio
-        istio: istiod
-    webhooks:
-      - name: validation.istio.io
-        clientConfig:
-          service:
-            name: istiod
-            namespace: istio-system
-            path: "/validate"
-            port: 443
-          caBundle: ""
-        rules:
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - config.istio.io
-            - rbac.istio.io
-            - security.istio.io
-            - authentication.istio.io
-            - networking.istio.io
-            apiVersions:
-            - "*"
-            resources:
-            - "*"
-        failurePolicy: Fail
-        sideEffects: None
 ---
 
 
@@ -489,7 +259,7 @@ data:
       configPath: /etc/istio/proxy
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istio-pilot.istio-system.svc:15012
+      discoveryAddress: istiod.istio-system.svc:15012
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
@@ -579,9 +349,9 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
-    app: pilot
-    release: istio
+    app: istiod
     istio: pilot
+    release: istio
 spec:
   strategy:
     rollingUpdate:
@@ -593,14 +363,14 @@ spec:
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       securityContext:
         fsGroup: 1337
       containers:
@@ -662,8 +432,10 @@ spec:
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "false"
+          - name: INJECTION_WEBHOOK_CONFIG_NAME
+            value: istio-sidecar-injector
           - name: ISTIOD_ADDR
-            value: istio-pilot.istio-system.svc:15012
+            value: istiod.istio-system.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
           resources:
@@ -674,6 +446,9 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -690,9 +465,6 @@ spec:
             readOnly: true
           - name: istiod
             mountPath: /var/lib/istio/local
-            readOnly: true
-          - name: validation
-            mountPath: /var/lib/istio/validation
             readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
@@ -721,17 +493,9 @@ spec:
         configMap:
           name: istio-sidecar-injector
           optional: true
-      - name: validation
-        configMap:
-          name: istio-validation
-          optional: true
-
       - name: config-volume
         configMap:
           name: istio
-      - name: pilot-envoy-config
-        configMap:
-          name: pilot-envoy-config
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -840,6 +604,7 @@ data:
           "useILB": false
         },
         "meshNetworks": {},
+        "mountMtlsCerts": false,
         "mtls": {
           "auto": false,
           "enabled": false
@@ -929,11 +694,9 @@ data:
           }
         },
         "sds": {
-          "enabled": false,
           "token": {
             "aud": "istio-ca"
-          },
-          "udsPath": ""
+          }
         },
         "securityNamespace": "istio-system",
         "sts": {
@@ -1054,6 +817,7 @@ data:
       {{- end }}
         securityContext:
           allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+          privileged: {{ .Values.global.proxy.privileged }}
           capabilities:
         {{- if not .Values.istio_cni.enabled }}
             add:
@@ -1062,11 +826,16 @@ data:
         {{- end }}
             drop:
             - ALL
-          privileged: {{ .Values.global.proxy.privileged }}
           readOnlyRootFilesystem: false
+        {{- if not .Values.istio_cni.enabled }}
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
+        {{- else }}
           runAsGroup: 1337
-          runAsNonRoot: true
           runAsUser: 1337
+          runAsNonRoot: true
+        {{- end }}
         restartPolicy: Always
       {{ end -}}
       {{- if eq .Values.global.proxy.enableCoreDump true }}
@@ -1122,59 +891,10 @@ data:
         {{ else -}}
         - "{{ valueOrDefault .DeploymentMeta.Name `istio-proxy` }}.{{ valueOrDefault .DeploymentMeta.Namespace `default` }}"
         {{ end -}}
-        - --drainDuration
-        - "{{ formatDuration .ProxyConfig.DrainDuration }}"
-        - --parentShutdownDuration
-        - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
         - --discoveryAddress
         - "{{ annotation .ObjectMeta `sidecar.istio.io/discoveryAddress` .ProxyConfig.DiscoveryAddress }}"
-      {{- if eq .Values.global.proxy.tracer "lightstep" }}
-        - --lightstepAddress
-        - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
-        - --lightstepAccessToken
-        - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken }}"
-        - --lightstepSecure={{ .ProxyConfig.GetTracing.GetLightstep.GetSecure }}
-        - --lightstepCacertPath
-        - "{{ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}"
-      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
-        - --zipkinAddress
-        - "{{ .ProxyConfig.GetTracing.GetZipkin.GetAddress }}"
-      {{- else if eq .Values.global.proxy.tracer "datadog" }}
-        - --datadogAgentAddress
-        - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
-      {{- end }}
         - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
-        - --connectTimeout
-        - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
-      {{- if .Values.global.proxy.envoyStatsd.enabled }}
-        - --statsdUdpAddress
-        - "{{ .ProxyConfig.StatsdUdpAddress }}"
-      {{- end }}
-      {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-        - --envoyMetricsService
-        - '{{ protoToJSON .ProxyConfig.EnvoyMetricsService }}'
-      {{- end }}
-      {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-        - --envoyAccessLogService
-        - '{{ protoToJSON .ProxyConfig.EnvoyAccessLogService }}'
-      {{- end }}
-        - --proxyAdminPort
-        - "{{ .ProxyConfig.ProxyAdminPort }}"
-        {{ if gt .ProxyConfig.Concurrency 0 -}}
-        - --concurrency
-        - "{{ .ProxyConfig.Concurrency }}"
-        {{ end -}}
-        {{- if .Values.global.istiod.enabled }}
-        - --controlPlaneAuthPolicy
-        - NONE
-        {{- else if .Values.global.controlPlaneSecurityEnabled }}
-        - --controlPlaneAuthPolicy
-        - MUTUAL_TLS
-        {{- else }}
-        - --controlPlaneAuthPolicy
-        - NONE
-        {{- end }}
         - --dnsRefreshRate
         - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
       {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
@@ -1227,14 +947,9 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-      {{- if eq .Values.global.proxy.tracer "datadog" }}
-      {{- if isset .ObjectMeta.Annotations `apm.datadoghq.com/env` }}
-      {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
-        - name: {{ $key }}
-          value: "{{ $value }}"
-      {{- end }}
-      {{- end }}
-      {{- end }}
+        - name: MESH_CONFIG
+          value: |
+                 {{ protoToJSON .MeshConfig }}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -1269,11 +984,6 @@ data:
           value: |
                  {{ toJSON .ObjectMeta.Annotations }}
         {{ end }}
-        {{ if .ObjectMeta.Labels }}
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-                 {{ toJSON .ObjectMeta.Labels }}
-        {{ end }}
         {{- if .DeploymentMeta.Name }}
         - name: ISTIO_META_WORKLOAD_NAME
           value: {{ .DeploymentMeta.Name }}
@@ -1292,18 +1002,6 @@ data:
         {{- else if .Values.global.trustDomain }}
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.trustDomain }}"
-        {{- end }}
-        {{- if eq .Values.global.proxy.tracer "stackdriver" }}
-        - name: STACKDRIVER_TRACING_ENABLED
-          value: "true"
-        - name: STACKDRIVER_TRACING_DEBUG
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
-        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
-        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
-        - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
@@ -1373,15 +1071,21 @@ data:
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
+        # SDS channel between istioagent and Envoy
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
+        {{- if .Values.global.mountMtlsCerts }}
+        # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+        {{- end }}
+        - name: podinfo
+          mountPath: /etc/istio/pod
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
           name: lightstep-certs
@@ -1399,9 +1103,19 @@ data:
         configMap:
           name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
       {{- end }}
+      # SDS channel between istioagent and Envoy
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
       {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
@@ -1416,6 +1130,8 @@ data:
         configMap:
           name: istio-ca-root-cert
       {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           optional: true
@@ -1424,6 +1140,7 @@ data:
           {{ else -}}
           secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
           {{  end -}}
+      {{- end }}
         {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` }}
         {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) }}
       - name: "{{ $index }}"
@@ -1468,7 +1185,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-        name: istio-pilot
+        name: istiod
         namespace: istio-system
         path: "/inject"
       caBundle: ""
@@ -1487,17 +1204,17 @@ webhooks:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot
+  name: istiod-
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
     istio: pilot
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: pilot
+      app: istiod
       release: istio
       istio: pilot
 ---
@@ -1548,7 +1265,9 @@ spec:
       name: https-webhook # validation and injection
       targetPort: 15017
   selector:
-    app: pilot
+    app: istiod
+    # Label used by the 'default' service. For versioned deployments we match with app and version.
+    # This avoids default deployment picking the canary
     istio: pilot
 ---
 
@@ -1556,10 +1275,10 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-pilot-service-account
+  name: istiod-service-account
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 ---
 
@@ -2279,6 +1998,45 @@ spec:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
+  name: istiod-istio-system
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+    istio: istiod
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/validate"
+      caBundle: "" # patched at runtime when the webhook is ready.
+    rules:
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
+        - config.istio.io
+        - rbac.istio.io
+        - security.istio.io
+        - authentication.istio.io
+        - networking.istio.io
+        apiVersions:
+        - "*"
+        resources:
+        - "*"
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    sideEffects: None
+---
+
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
   name: istio-galley
   namespace: istio-system
   labels:
@@ -2289,7 +2047,6 @@ webhooks:
 ---
 
 # Policy component is disabled.
-
 
 # Telemetry component is disabled.
 

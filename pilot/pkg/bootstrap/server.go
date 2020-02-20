@@ -29,6 +29,10 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/rest"
+
+	"istio.io/istio/pilot/pkg/leaderelection"
+
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
@@ -122,7 +126,6 @@ type Server struct {
 	grpcServer          *grpc.Server
 	secureHTTPServer    *http.Server
 	secureGRPCServer    *grpc.Server
-	secureHTTPServerDNS *http.Server
 	secureGRPCServerDNS *grpc.Server
 	mux                 *http.ServeMux // debug
 	httpsMux            *http.ServeMux // webhooks
@@ -139,34 +142,37 @@ type Server struct {
 	HTTPListener net.Listener
 	GRPCListener net.Listener
 
-	basePort int
-
 	// for test
 	forceStop bool
 
 	// nil if injection disabled
 	injectionWebhook *inject.Webhook
 
+	leaderElection *leaderelection.LeaderElection
+
 	webhookCertMu sync.Mutex
 	webhookCert   *tls.Certificate
 	jwtPath       string
+
+	// requiredTerminations keeps track of components that should block server exit if they are not stopped
+	// This allows important cleanup tasks to be completed.
+	// Note: this is still best effort; a process can die at any time.
+	requiredTerminations sync.WaitGroup
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args *PilotArgs) (*Server, error) {
-	// TODO(hzxuzhonghu): move out of NewServer
-	args.Default()
 	e := &model.Environment{
 		ServiceDiscovery: aggregate.NewController(),
 		PushContext:      model.NewPushContext(),
 	}
 
 	s := &Server{
-		basePort:       args.BasePort,
 		clusterID:      getClusterID(args),
 		environment:    e,
 		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
 		forceStop:      args.ForceStop,
+		mux:            http.NewServeMux(),
 	}
 
 	log.Infof("Primary Cluster name: %s", s.clusterID)
@@ -177,6 +183,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("kube client: %v", err)
 	}
+	s.initLeaderElection(args)
 	fileWatcher := filewatcher.NewWatcher()
 	if err := s.initMeshConfiguration(args, fileWatcher); err != nil {
 		return nil, fmt.Errorf("mesh: %v", err)
@@ -268,6 +275,19 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil
 	})
 
+	if s.leaderElection != nil {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			// We mark this as a required termination as an optimization. Without this, when we exit the lock is
+			// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
+			s.requiredTerminations.Add(1)
+			go func() {
+				s.leaderElection.Run(stop)
+				s.requiredTerminations.Done()
+			}()
+			return nil
+		})
+	}
+
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
 		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
@@ -339,11 +359,20 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	return nil
 }
 
+// WaitUntilCompletion waits for everything marked as a "required termination" to complete.
+// This should be called before exiting.
+func (s *Server) WaitUntilCompletion() {
+	s.requiredTerminations.Wait()
+}
+
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.Service.Registries) {
 		var err error
-		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "")
+		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "", func(config *rest.Config) {
+			config.QPS = 20
+			config.Burst = 40
+		})
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
@@ -370,7 +399,6 @@ func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) 
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	s.mux = http.NewServeMux()
 	s.mux.HandleFunc("/ready", s.httpServerReadyHandler)
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, s.injectionWebhook)
@@ -624,8 +652,11 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 		return err
 	}
 
-	// TODO: parse the file to determine expiration date. Restart listener before expiration
-	certificate, err := tls.LoadX509KeyPair(cert, key)
+	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect
+	dnsGrpc := fmt.Sprintf(":%s", port)
+
+	// create secure grpc listener
+	l, err := net.Listen("tcp", dnsGrpc)
 	if err != nil {
 		return err
 	}
@@ -635,66 +666,19 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 	s.secureGRPCServerDNS = grpc.NewServer(opts...)
 	s.EnvoyXdsServer.Register(s.secureGRPCServerDNS)
 
-	s.secureHTTPServerDNS = &http.Server{
-		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{certificate},
-			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-				// For now accept any certs - pilot is not authenticating the caller, TLS used for
-				// privacy
-				return nil
-			},
-			NextProtos: []string{"h2", "http/1.1"},
-			ClientAuth: tls.NoClientCert, // auth will be based on JWT token signed by K8S
-		},
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.ProtoMajor == 2 && strings.HasPrefix(
-				r.Header.Get("Content-Type"), "application/grpc") {
-				s.secureGRPCServerDNS.ServeHTTP(w, r)
-			} else {
-				s.mux.ServeHTTP(w, r)
-			}
-		}),
-	}
-
-	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect
-	dnsGrpc := fmt.Sprintf(":%s", port)
-
-	// create secure grpc listener
-	secureGrpcListener, err := net.Listen("tcp", dnsGrpc)
-	if err != nil {
-		return err
-	}
-
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
 			if !s.waitForCacheSync(stop) {
 				return
 			}
-
-			log.Infof("starting DNS cert based grpc=%s", dnsGrpc)
-			// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
-			// on a listener
-			err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
-			msg := fmt.Sprintf("Stopped listening on %s %v", dnsGrpc, err)
-			select {
-			case <-stop:
-				log.Info(msg)
-			default:
-				panic(fmt.Sprintf("%s due to error: %v", msg, err))
+			if err := s.secureGRPCServerDNS.Serve(l); err != nil {
+				log.Errorf("error from GRPC server: %v", err)
 			}
 		}()
 
 		go func() {
 			<-stop
-			if s.forceStop {
-				s.secureGRPCServerDNS.Stop()
-				_ = s.secureHTTPServerDNS.Close()
-			} else {
-				s.secureGRPCServerDNS.GracefulStop()
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				_ = s.secureHTTPServerDNS.Shutdown(ctx)
-			}
+			s.secureGRPCServerDNS.Stop()
 		}()
 		return nil
 	})
@@ -842,6 +826,12 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 	}
 
 	return nil
+}
+
+func (s *Server) initLeaderElection(args *PilotArgs) {
+	if s.kubeClient != nil {
+		s.leaderElection = leaderelection.NewLeaderElection(args.Namespace, args.PodName, s.kubeClient)
+	}
 }
 
 func fileExists(path string) bool {

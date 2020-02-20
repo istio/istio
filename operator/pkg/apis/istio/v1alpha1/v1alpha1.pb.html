@@ -233,6 +233,15 @@ No
 No
 </td>
 </tr>
+<tr id="CNIConfig-chained">
+<td><code>chained</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="CNIConfig-podAnnotations" class="deprecated ">
 <td><code>podAnnotations</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -335,6 +344,15 @@ No
 </tr>
 <tr id="CNIRepairConfig-brokenPodLabelValue">
 <td><code>brokenPodLabelValue</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-initContainerName">
+<td><code>initContainerName</code></td>
 <td><code>string</code></td>
 <td>
 </td>
@@ -1283,7 +1301,7 @@ No
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
-<p>Controls whether Galley is enabled.</p>
+<p>Controls whether Galley is enabled</p>
 
 </td>
 <td>
@@ -2165,6 +2183,28 @@ No
 No
 </td>
 </tr>
+<tr id="GlobalConfig-revision">
+<td><code>revision</code></td>
+<td><code>string</code></td>
+<td>
+<p>Configures the revision this control plane is a part of</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-mountMtlsCerts">
+<td><code>mountMtlsCerts</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="GlobalConfig-defaultNodeSelector" class="deprecated ">
 <td><code>defaultNodeSelector</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -2815,11 +2855,12 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="IstiodConfig-enabled">
+<tr id="IstiodConfig-enabled" class="deprecated ">
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
-<p>If enabled, all control plane functionality will be handled by a single deployment.</p>
+<p>If enabled, all control plane functionality will be handled by a single deployment.
+Deprecated. This field is always ignored and assumed true.</p>
 
 </td>
 <td>
@@ -3034,6 +3075,15 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-prometheusAddr" class="deprecated ">
+<td><code>prometheusAddr</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No
@@ -5023,6 +5073,21 @@ No
 No
 </td>
 </tr>
+<tr id="PrometheusConfig-provisionPrometheusCert">
+<td><code>provisionPrometheusCert</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Configure whether provisions a certificate to Prometheus through Istio Agent.
+When this option is set as true, a sidecar is deployed along Prometheus to
+provision a certificate through Istio Agent to Prometheus. The provisioned certificate
+is shared with Prometheus through mounted files.
+When this option is set as false, this certificate provisioning mechanism is disabled.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="PrometheusConfig-replicaCount" class="deprecated ">
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
@@ -5617,6 +5682,15 @@ No
 No
 </td>
 </tr>
+<tr id="ProxyConfig-outlierLogPath">
+<td><code>outlierLogPath</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="ProxyConfig-resources" class="deprecated ">
 <td><code>resources</code></td>
 <td><code><a href="#Resources">Resources</a></code></td>
@@ -5625,6 +5699,15 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="ProxyConfig-enableCoreDumpImage" class="deprecated ">
+<td><code>enableCoreDumpImage</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No
@@ -7909,6 +7992,8 @@ No
 <td><code>version</code></td>
 <td><code>string</code></td>
 <td>
+<p>Deprecated.</p>
+
 </td>
 <td>
 No
@@ -7946,6 +8031,15 @@ No
 <tr id="Values-kustomize">
 <td><code>kustomize</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-revision">
+<td><code>revision</code></td>
+<td><code>string</code></td>
 <td>
 </td>
 <td>

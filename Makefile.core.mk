@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 VERSION ?= 1.6-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.6-dev.1
+BASE_VERSION ?= 1.6-dev.0
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -271,7 +271,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/tools/mixgen \
   ./galley/cmd/galley \
   ./security/cmd/node_agent \
-  ./security/cmd/node_agent_k8s \
   ./security/cmd/istio_ca \
   ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
@@ -279,10 +278,10 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/test/policybackend \
   ./tools/istio-iptables \
   ./tools/istio-clean-iptables \
-  ./operator/cmd/manager
+  ./operator/cmd/operator
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent istio_ca istioctl galley sdsclient
 
 .PHONY: build
 build: depend
@@ -337,9 +336,7 @@ lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
 
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
-	@bin/check_helm.sh
 	@bin/check_samples.sh
-	@bin/check_dashboards.sh
 	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
 	@testlinter
 	@envvarlinter galley istioctl mixer pilot security sidecar-injector
@@ -352,11 +349,13 @@ go-gen:
 gen-charts:
 	@operator/scripts/run_update_charts.sh
 
-update-golden:
-	@UPDATE_GOLDENS=true go test ./operator/cmd/mesh/...
+refresh-goldens:
+	@REFRESH_GOLDENS=true go test ./operator/...
 	@REFRESH_GOLDENS=true go test ./pkg/kube/inject/...
 
-gen: go-gen mirror-licenses format update-crds update-golden gen-charts operator-proto
+update-golden: refresh-goldens
+
+gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden
 
 gen-check: gen check-clean-repo
 
@@ -623,9 +622,6 @@ show.goenv: ; $(info $(H) go environment...)
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
-
-# Deprecated. This target exists only to satisify old CI tests that cannot be updated atomically, and can be removed.
-localTestEnv:
 
 #-----------------------------------------------------------------------------
 # Target: custom resource definitions

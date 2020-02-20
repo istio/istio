@@ -27,15 +27,12 @@ func TestManifestMigrate(t *testing.T) {
 	tests := []struct {
 		desc string
 	}{
-		/* TODO: implement for 1.5.
 		{
 			desc: "default_values",
 		},
 		{
 			desc: "overlay_values",
 		},
-
-		*/
 		{
 			desc: "default_icp_iop",
 		},

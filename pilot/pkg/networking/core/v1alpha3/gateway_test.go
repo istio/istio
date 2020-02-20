@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -107,18 +108,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 										ApiType: core.ApiConfigSource_GRPC,
 										GrpcServices: []*core.GrpcService{
 											{
-												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  "unix:/var/run/sds/uds_path",
-														StatPrefix: model.SDSStatPrefix,
-														ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-															CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-																LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-															},
-														},
-														CallCredentials:        model.ConstructgRPCCallCredentials(model.K8sSATrustworthyJwtFileName, model.K8sSAJwtTokenHeaderKey),
-														CredentialsFactoryName: model.FileBasedMetadataPlugName,
-													},
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
 												},
 											},
 										},
@@ -139,18 +130,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											ApiType: core.ApiConfigSource_GRPC,
 											GrpcServices: []*core.GrpcService{
 												{
-													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  "unix:/var/run/sds/uds_path",
-															StatPrefix: model.SDSStatPrefix,
-															ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-																CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-																	LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-																},
-															},
-															CallCredentials:        model.ConstructgRPCCallCredentials(model.K8sSATrustworthyJwtFileName, model.K8sSAJwtTokenHeaderKey),
-															CredentialsFactoryName: model.FileBasedMetadataPlugName,
-														},
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
 													},
 												},
 											},
@@ -944,6 +925,75 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		})
 	}
 
+}
+
+func TestBuildGatewayListeners(t *testing.T) {
+	cases := []struct {
+		name              string
+		node              *pilot_model.Proxy
+		gateway           *networking.Gateway
+		expectedListeners []string
+	}{
+		{
+			"targetPort overrides service port",
+			&pilot_model.Proxy{
+				ServiceInstances: []*pilot_model.ServiceInstance{
+					{
+						Service: &pilot_model.Service{
+							Hostname: "test",
+						},
+						ServicePort: &pilot_model.Port{
+							Port: 80,
+						},
+						Endpoint: &pilot_model.IstioEndpoint{
+							EndpointPort: 8080,
+						},
+					},
+				},
+			},
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					},
+				},
+			},
+			[]string{"0.0.0.0_8080"},
+		},
+		{
+			"multiple ports",
+			&pilot_model.Proxy{},
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					},
+					{
+						Port: &networking.Port{Name: "http", Number: 801, Protocol: "HTTP"},
+					},
+				},
+			},
+			[]string{"0.0.0.0_80", "0.0.0.0_801"},
+		},
+	}
+
+	for _, tt := range cases {
+		p := &fakePlugin{}
+		configgen := NewConfigGenerator([]plugin.Plugin{p})
+		env := buildEnv(t, []pilot_model.Config{{Spec: tt.gateway}}, []pilot_model.Config{})
+		proxy14Gateway.SetGatewaysForProxy(env.PushContext)
+		proxy14Gateway.ServiceInstances = tt.node.ServiceInstances
+		builder := configgen.buildGatewayListeners(&proxy14Gateway, env.PushContext, &ListenerBuilder{})
+		var listeners []string
+		for _, l := range builder.gatewayListeners {
+			listeners = append(listeners, l.Name)
+		}
+		sort.Strings(listeners)
+		sort.Strings(tt.expectedListeners)
+		if !reflect.DeepEqual(listeners, tt.expectedListeners) {
+			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxy14Gateway.MergedGateway.Servers)
+		}
+	}
 }
 
 func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pilot_model.Config) pilot_model.Environment {

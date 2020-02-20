@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/go-version"
 
 	"istio.io/api/operator/v1alpha1"
+	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
@@ -145,7 +146,7 @@ func checkConstraint(verStr, constraintStr string) (bool, error) {
 }
 
 func checkInitCrdJobs(kubeClient manifest.ExecClient, currentIOPS, _ *v1alpha1.IstioOperatorSpec) util.Errors {
-	pl, err := kubeClient.PodsForSelector(currentIOPS.MeshConfig.RootNamespace, "")
+	pl, err := kubeClient.PodsForSelector(iop.Namespace(currentIOPS), "")
 	if err != nil {
 		return util.NewErrs(fmt.Errorf("failed to list pods: %v", err))
 	}

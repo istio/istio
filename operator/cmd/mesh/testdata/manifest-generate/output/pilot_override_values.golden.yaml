@@ -4,9 +4,9 @@ metadata:
   name: istiod
   namespace: istio-control
   labels:
-    app: pilot
-    release: istio
+    app: istiod
     istio: pilot
+    release: istio
 spec:
   strategy:
     rollingUpdate:
@@ -18,14 +18,14 @@ spec:
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       securityContext:
         fsGroup: 1337
       containers:
@@ -87,8 +87,10 @@ spec:
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "false"
+          - name: INJECTION_WEBHOOK_CONFIG_NAME
+            value: istio-sidecar-injector
           - name: ISTIOD_ADDR
-            value: istio-pilot.istio-control.svc:15012
+            value: istiod.istio-control.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
           resources:
@@ -99,6 +101,9 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -115,9 +120,6 @@ spec:
             readOnly: true
           - name: istiod
             mountPath: /var/lib/istio/local
-            readOnly: true
-          - name: validation
-            mountPath: /var/lib/istio/validation
             readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
@@ -146,17 +148,9 @@ spec:
         configMap:
           name: istio-sidecar-injector
           optional: true
-      - name: validation
-        configMap:
-          name: istio-validation
-          optional: true
-
       - name: config-volume
         configMap:
           name: istio
-      - name: pilot-envoy-config
-        configMap:
-          name: pilot-envoy-config
       affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

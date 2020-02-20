@@ -76,6 +76,10 @@ type PushContext struct {
 	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
+	// QuotaSpec has all quota specs
+	QuotaSpec []Config `json:"-"`
+	// QuotaSpecBindings has all quota bindings
+	QuotaSpecBinding []Config `json:"-"`
 
 	// VirtualService related
 	privateVirtualServicesByNamespace map[string][]Config
@@ -409,6 +413,13 @@ var (
 		"Number of conflicting tcp listeners with current tcp listener.",
 	)
 
+	// ProxyStatusConflictOutboundListenerTCPOverThrift metric tracks number of
+	// TCP listeners that conflicted with existing Thrift listeners on same port
+	ProxyStatusConflictOutboundListenerTCPOverThrift = monitoring.NewGauge(
+		"pilot_conflict_outbound_listener_tcp_over_current_thrift",
+		"Number of conflicting tcp listeners with current thrift listener.",
+	)
+
 	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
 	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
 	ProxyStatusConflictOutboundListenerHTTPOverTCP = monitoring.NewGauge(
@@ -427,6 +438,13 @@ var (
 	DuplicatedClusters = monitoring.NewGauge(
 		"pilot_duplicate_envoy_clusters",
 		"Duplicate envoy clusters caused by service entries with same hostname",
+	)
+
+	// DNSNoEndpointClusters tracks dns clusters without endpoints
+	DNSNoEndpointClusters = monitoring.NewGauge(
+		"pilot_dns_cluster_without_endpoints",
+		"DNS clusters without endpoints caused by the endpoint field in "+
+			"STRICT_DNS type cluster is not set or the corresponding subset cannot select any endpoint",
 	)
 
 	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
@@ -915,6 +933,14 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initQuotaSpecs(env); err != nil {
+		return err
+	}
+
+	if err := ps.initQuotaSpecBindings(env); err != nil {
+		return err
+	}
+
 	// Must be initialized in the end
 	if err := ps.initSidecarScopes(env); err != nil {
 		return err
@@ -928,7 +954,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
 
 	for k := range pushReq.ConfigTypesUpdated {
 		switch k {
@@ -955,6 +981,9 @@ func (ps *PushContext) updateContext(
 			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
 			collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
 			authnChanged = true
+		case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(),
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
+			quotasChanged = true
 		}
 	}
 
@@ -1022,6 +1051,18 @@ func (ps *PushContext) updateContext(
 	} else {
 		ps.gatewaysByNamespace = oldPushContext.gatewaysByNamespace
 		ps.allGateways = oldPushContext.allGateways
+	}
+
+	if quotasChanged {
+		if err := ps.initQuotaSpecs(env); err != nil {
+			return err
+		}
+		if err := ps.initQuotaSpecBindings(env); err != nil {
+			return err
+		}
+	} else {
+		ps.QuotaSpec = oldPushContext.QuotaSpec
+		ps.QuotaSpecBinding = oldPushContext.QuotaSpecBinding
 	}
 
 	// Must be initialized in the end
@@ -1436,7 +1477,7 @@ func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *
 			matchedMeta = policiesByPort[i].configMeta
 		}
 
-		if port != nil && port.Match(policyByPort.portSelector) {
+		if port != nil && policyByPort.portSelector != nil && port.Match(policyByPort.portSelector) {
 			matchedPolicy = policiesByPort[i].policy
 			matchedMeta = policiesByPort[i].configMeta
 			break
@@ -1578,7 +1619,12 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, efw := range ps.envoyFiltersByNamespace[ps.Mesh.RootNamespace] {
-			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+			var workloadLabels labels.Collection
+			// This should never happen except in tests.
+			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+				workloadLabels = labels.Collection{proxy.Metadata.Labels}
+			}
+			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
 				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 			}
 		}
@@ -1587,7 +1633,12 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
-			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+			var workloadLabels labels.Collection
+			// This should never happen except in tests.
+			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+				workloadLabels = labels.Collection{proxy.Metadata.Labels}
+			}
+			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
 				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 			}
 		}
@@ -1659,7 +1710,12 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			out = append(out, cfg)
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
-			if proxy.WorkloadLabels.IsSupersetOf(gatewaySelector) {
+			var workloadLabels labels.Collection
+			// This should never happen except in tests.
+			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+				workloadLabels = labels.Collection{proxy.Metadata.Labels}
+			}
+			if workloadLabels.IsSupersetOf(gatewaySelector) {
 				out = append(out, cfg)
 			}
 		}
@@ -1696,6 +1752,18 @@ func (ps *PushContext) initMeshNetworks() {
 
 		ps.networkGateways[network] = gateways
 	}
+}
+
+func (ps *PushContext) initQuotaSpecs(env *Environment) error {
+	var err error
+	ps.QuotaSpec, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
+	return err
+}
+
+func (ps *PushContext) initQuotaSpecBindings(env *Environment) error {
+	var err error
+	ps.QuotaSpecBinding, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
+	return err
 }
 
 func getNetworkRegistry(network *meshconfig.Network) string {
@@ -1739,4 +1807,37 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 	}
 
 	return nil
+}
+
+func (ps *PushContext) QuotaSpecByDestination(instance *ServiceInstance) []Config {
+	return filterQuotaSpecsByDestination(instance, ps.QuotaSpecBinding, ps.QuotaSpec)
+}
+
+// BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
+// policies (both alpha and beta) in the system. The function always returns MTLSUnknown for external service.
+// The resulst is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
+// to compute the correct service mTLS mode without knowing service to workload binding. For now, this
+// function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
+// This function is used to give a hint for auto-mTLS configuration on client side.
+func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Port) MutualTLSMode {
+	if service.MeshExternal {
+		// Only need the authentication MTLS mode when service is not external.
+		return MTLSUnknown
+	}
+
+	// First , check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
+	// If the mode is not unknown, use it.
+	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
+		return serviceMTLSMode
+	}
+
+	// Namespace/Mesh PeerAuthentication does not exist, check alpha authN policy.
+	policy, _ := ps.AuthenticationPolicyForWorkload(service, port)
+	if policy != nil {
+		// If alpha authN policy exist, used the mode defined by the policy.
+		return v1alpha1PolicyToMutualTLSMode(policy)
+	}
+
+	// When all are failed, default to permissive.
+	return MTLSPermissive
 }

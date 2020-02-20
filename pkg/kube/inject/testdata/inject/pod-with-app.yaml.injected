@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   annotations:
-    sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+    sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
   creationTimestamp: null
   labels:
     app: hello
@@ -85,9 +85,6 @@ spec:
     volumeMounts:
     - mountPath: /etc/istio/proxy
       name: istio-envoy
-    - mountPath: /etc/certs/
-      name: istio-certs
-      readOnly: true
   initContainers:
   - args:
     - -p
@@ -118,16 +115,12 @@ spec:
         - ALL
       privileged: false
       readOnlyRootFilesystem: false
-      runAsGroup: 1337
-      runAsNonRoot: true
-      runAsUser: 1337
+      runAsGroup: 0
+      runAsNonRoot: false
+      runAsUser: 0
   volumes:
   - emptyDir:
       medium: Memory
     name: istio-envoy
-  - name: istio-certs
-    secret:
-      optional: true
-      secretName: istio.default
 status: {}
 ---

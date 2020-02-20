@@ -146,9 +146,9 @@ var ignoredCRDs = []string{
 	"/v1/Pod",
 	"/v1/Secret",
 	"/v1/Service",
+	"/v1/ConfigMap",
 	"apps/v1/Deployment",
 	"extensions/v1beta1/Ingress",
-	"networking.istio.io/v1alpha3/SyntheticServiceEntry",
 }
 
 func TestEnsureNoMissingCRDs(t *testing.T) {

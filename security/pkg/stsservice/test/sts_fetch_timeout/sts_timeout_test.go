@@ -32,7 +32,7 @@ func TestTokenFetchTimeoutOne(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
-	setup := stsTest.SetUpTest(t, cb, testID.STSTimeoutTest)
+	setup := stsTest.SetupTest(t, cb, testID.STSTimeoutTest, false)
 
 	// Get initial number of calls to auth server. They are not zero due to STS flow test
 	// in the test setup, to make sure the servers are up and ready to serve.
@@ -43,7 +43,7 @@ func TestTokenFetchTimeoutOne(t *testing.T) {
 	setup.AuthServer.BlockFederatedTokenRequest(true)
 
 	g := gomega.NewWithT(t)
-	g.Expect(setup.ProxySetUp.SetUp()).To(gomega.HaveOccurred())
+	g.Expect(setup.ProxySetup.SetUp()).To(gomega.HaveOccurred())
 
 	numFederatedTokenCall := setup.AuthServer.NumGetFederatedTokenCalls()
 	numAccessTokenCall := setup.AuthServer.NumGetAccessTokenCalls()
@@ -53,7 +53,7 @@ func TestTokenFetchTimeoutOne(t *testing.T) {
 	g.Expect(numAccessTokenCall).To(gomega.Equal(initialNumAccessTokenCall))
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
-	setup.ProxySetUp.SilentlyStopProxy(true)
+	setup.ProxySetup.SilentlyStopProxy(true)
 	setup.TearDown()
 }
 
@@ -65,7 +65,7 @@ func TestTokenFetchTimeoutTwo(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
-	setup := stsTest.SetUpTest(t, cb, testID.STSTimeoutTest)
+	setup := stsTest.SetupTest(t, cb, testID.STSTimeoutTest, false)
 
 	// Get initial number of calls to auth server. They are not zero due to STS flow test
 	// in the test setup, to make sure the servers are up and ready to serve.
@@ -76,7 +76,7 @@ func TestTokenFetchTimeoutTwo(t *testing.T) {
 	setup.AuthServer.BlockAccessTokenRequest(true)
 
 	g := gomega.NewWithT(t)
-	g.Expect(setup.ProxySetUp.SetUp()).To(gomega.HaveOccurred())
+	g.Expect(setup.ProxySetup.SetUp()).To(gomega.HaveOccurred())
 
 	numFederatedTokenCall := setup.AuthServer.NumGetFederatedTokenCalls()
 	numAccessTokenCall := setup.AuthServer.NumGetAccessTokenCalls()
@@ -86,6 +86,6 @@ func TestTokenFetchTimeoutTwo(t *testing.T) {
 	g.Expect(numAccessTokenCall).To(gomega.BeNumerically(">", initialNumAccessTokenCall+1))
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
-	setup.ProxySetUp.SilentlyStopProxy(true)
+	setup.ProxySetup.SilentlyStopProxy(true)
 	setup.TearDown()
 }

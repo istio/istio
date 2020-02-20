@@ -36,8 +36,8 @@ spec:
           image: "gcr.io/istio-testing/proxyv2:latest"
           ports:
             - containerPort: 15020
-            - containerPort: 80
-            - containerPort: 443
+            - containerPort: 8080
+            - containerPort: 8443
             - containerPort: 15029
             - containerPort: 15030
             - containerPort: 15031
@@ -152,9 +152,6 @@ spec:
           - name: ISTIO_META_ROUTER_MODE
             value: sni-dnat
           
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {"app":"istio-ingressgateway","istio":"ingressgateway"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
@@ -165,10 +162,8 @@ spec:
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
+          - name: podinfo
+            mountPath: /etc/istio/pod
           - name: ingressgateway-certs
             mountPath: "/etc/istio/ingressgateway-certs"
             readOnly: true
@@ -179,6 +174,15 @@ spec:
       - name: citadel-ca-cert
         configMap:
           name: istio-ca-root-cert
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
       - name: ingressgatewaysdsudspath
         emptyDir: {}
       - name: istio-token
@@ -188,10 +192,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-ingressgateway-service-account
-          optional: true
       - name: ingressgateway-certs
         secret:
           secretName: "istio-ingressgateway-certs"
@@ -257,9 +257,10 @@ spec:
     targetPort: 15020
   - name: http2
     port: 80
-    targetPort: 80
+    targetPort: 8080
   - name: https
     port: 443
+    targetPort: 8443
   - name: kiali
     port: 15029
     targetPort: 15029

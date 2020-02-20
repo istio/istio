@@ -27,6 +27,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/operator/pkg/tpath"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -881,7 +883,11 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 // This allows us to fully simulate what will actually happen at run time.
 func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, values string) {
 	t.Helper()
-	manifests, _, err := operator.GenManifests(nil, settings, false, nil, nil)
+	oy, err := tpath.AddSpecRoot(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifests, _, err := operator.GenManifests(nil, oy, false, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
@@ -1060,9 +1066,6 @@ func normalizeAndCompareDeployments(got, want *appsv1.Deployment, t *testing.T) 
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
 	getAnnotations(got)[annotation.SidecarStatus.Name] = getAnnotations(want)[annotation.SidecarStatus.Name]
-	gotIstioCerts := istioCerts(got)
-	wantIstioCerts := istioCerts(want)
-	gotIstioCerts.Secret.DefaultMode = wantIstioCerts.Secret.DefaultMode
 	gotIstioInit := istioInit(got, t)
 	wantIstioInit := istioInit(want, t)
 	gotIstioInit.Image = wantIstioInit.Image
@@ -1111,16 +1114,6 @@ func normalizeAndCompareDeployments(got, want *appsv1.Deployment, t *testing.T) 
 
 func getAnnotations(d *appsv1.Deployment) map[string]string {
 	return d.Spec.Template.ObjectMeta.Annotations
-}
-
-func istioCerts(d *appsv1.Deployment) *corev1.Volume {
-	for i := 0; i < len(d.Spec.Template.Spec.Volumes); i++ {
-		v := &d.Spec.Template.Spec.Volumes[i]
-		if v.Name == "istio-certs" {
-			return v
-		}
-	}
-	return nil
 }
 
 func istioInit(d *appsv1.Deployment, t *testing.T) *corev1.Container {
@@ -1330,7 +1323,12 @@ func TestRunAndServe(t *testing.T) {
       "op": "add",
       "path": "/metadata/labels/service.istio.io~1canonical-name",
       "value": "test"
-    }
+	},
+	{
+		"op": "add",
+		"path": "/metadata/labels/service.istio.io~1canonical-revision",
+		"value": "latest"
+	}
 ]`)
 
 	cases := []struct {

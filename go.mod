@@ -139,7 +139,8 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
 	golang.org/x/tools v0.0.0-20191216173652-a0e659d51361
 	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.5 // indirect
@@ -148,7 +149,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.7
-	istio.io/api v0.0.0-20200201001607-7b905a0a6e49
+	istio.io/api v0.0.0-20200218013118-7fd43ea7fc2b
 	istio.io/gogo-genproto v0.0.0-20200122005450-9b171d92064b
 	istio.io/pkg v0.0.0-20200131182711-9ba13e0e34bb
 	k8s.io/api v0.17.2

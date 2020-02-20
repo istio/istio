@@ -191,7 +191,7 @@ func TestIngressClass(t *testing.T) {
 		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: "nginx", shouldProcess: false},
 		{ingressMode: meshconfig.MeshConfig_OFF, ingressClass: istio, shouldProcess: false},
 		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: istio, shouldProcess: true},
-		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: istio, shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
 		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
 		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: "", shouldProcess: false},
 		{ingressMode: -1, shouldProcess: false},

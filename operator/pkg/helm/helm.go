@@ -149,8 +149,9 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 // GenerateHubTagOverlay creates an IstioOperatorSpec overlay YAML for hub and tag.
 func GenerateHubTagOverlay(hub, tag string) (string, error) {
 	hubTagYAMLTemplate := `
-hub: {{.Hub}}
-tag: {{.Tag}}
+spec:
+  hub: {{.Hub}}
+  tag: {{.Tag}}
 `
 	ts := struct {
 		Hub string
