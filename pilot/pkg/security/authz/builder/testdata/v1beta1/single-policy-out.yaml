@@ -22,12 +22,12 @@ rules:
                   name: :method
           - orRules:
               rules:
-              - header:
-                  exactMatch: rule[0]-to[0]-path[1]
-                  name: :path
-              - header:
-                  exactMatch: rule[0]-to[0]-path[2]
-                  name: :path
+              - urlPath:
+                  path:
+                    exact: rule[0]-to[0]-path[1]
+              - urlPath:
+                  path:
+                    exact: rule[0]-to[0]-path[2]
           - orRules:
               rules:
               - destinationPort: 9001
@@ -60,12 +60,12 @@ rules:
                   name: :method
           - orRules:
               rules:
-              - header:
-                  exactMatch: rule[0]-to[1]-path[1]
-                  name: :path
-              - header:
-                  exactMatch: rule[0]-to[1]-path[2]
-                  name: :path
+              - urlPath:
+                  path:
+                    exact: rule[0]-to[1]-path[1]
+              - urlPath:
+                  path:
+                    exact: rule[0]-to[1]-path[2]
           - orRules:
               rules:
               - destinationPort: 9011
@@ -253,12 +253,12 @@ rules:
                   name: :method
           - orRules:
               rules:
-              - header:
-                  exactMatch: rule[1]-to[0]-path[1]
-                  name: :path
-              - header:
-                  exactMatch: rule[1]-to[0]-path[2]
-                  name: :path
+              - urlPath:
+                  path:
+                    exact: rule[1]-to[0]-path[1]
+              - urlPath:
+                  path:
+                    exact: rule[1]-to[0]-path[2]
           - orRules:
               rules:
               - destinationPort: 9101
@@ -283,12 +283,12 @@ rules:
                   name: :method
           - orRules:
               rules:
-              - header:
-                  exactMatch: rule[1]-to[1]-path[1]
-                  name: :path
-              - header:
-                  exactMatch: rule[1]-to[1]-path[2]
-                  name: :path
+              - urlPath:
+                  path:
+                    exact: rule[1]-to[1]-path[1]
+              - urlPath:
+                  path:
+                    exact: rule[1]-to[1]-path[2]
           - orRules:
               rules:
               - destinationPort: 9111
