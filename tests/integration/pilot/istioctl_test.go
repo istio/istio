@@ -41,7 +41,7 @@ const (
    Matching subsets: v1
    No Traffic Policy
 7070 Pod is PERMISSIVE, clients configured automatically
-7070 VirtualService: a
+7070 VirtualService: a.*
    when headers are end-user=jason
 80 DestinationRule: a.* for "a"
    Matching subsets: v1
@@ -54,20 +54,20 @@ const (
 	describePodAOutput = `Pod: .*
    Pod Ports: 7070 \(app\), 8090 \(app\), 8080 \(app\), 3333 \(app\), 15090 \(istio-proxy\)
 --------------------
-Service: a
+Service: a.*
    Port: grpc 7070\/GRPC targets pod port 7070
    Port: http 80\/HTTP targets pod port 8090
 7070 DestinationRule: a for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is .*, clients configured automatically
-7070 VirtualService: a
+7070 Pod is PERMISSIVE, clients configured automatically
+7070 VirtualService: a.*
    when headers are end-user=jason
-80 DestinationRule: a for "a"
+80 DestinationRule: a.* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 Pod is .*, clients configured automatically
-80 VirtualService: a
+80 Pod is PERMISSIVE, clients configured automatically
+80 VirtualService: a.*
    when headers are end-user=jason
 `
 
