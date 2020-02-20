@@ -49,7 +49,7 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # filter out non-standard test directories
-TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples | grep -v /istioio)
+TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
 
 # Generate integration test targets for local environment.
 test.integration.%.local: | $(JUNIT_REPORT)
@@ -64,16 +64,6 @@ test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
 	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-test.integration.istioio.kube.presubmit: istioctl | $(JUNIT_REPORT)
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/istioio/... -timeout 30m \
-	--istio.test.select -postsubmit,-flaky \
-	--istio.test.env kube \
-	${_INTEGRATION_TEST_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-test.integration.istioio.kube.postsubmit: test.integration.istioio.kube.presubmit
-	SNIPPETS_GCS_PATH="istio-snippets/$(shell git rev-parse HEAD)" prow/upload-istioio-snippets.sh
 
 # Generate presubmit integration test targets for each component in local environment.
 test.integration.%.local.presubmit: | $(JUNIT_REPORT)
