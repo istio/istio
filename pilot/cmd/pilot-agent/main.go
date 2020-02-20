@@ -242,6 +242,11 @@ var (
 			log.Infof("MixerSAN %#v", mixerSAN)
 
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
+			if controlPlaneAuthEnabled {
+				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+			} else {
+				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
+			}
 
 			// Legacy - so pilot-agent can be used with citadel node agent.
 			// Main will be replaced by istio-agent when we clean up - this code can stay here and be removed with the rest.

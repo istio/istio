@@ -23,13 +23,12 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test"
-	"istio.io/pkg/log"
-
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/test"
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/docker"
@@ -211,8 +210,6 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 func (w *workload) waitForReady() (err error) {
 	// Wait until the workload is ready.
 	if err := retry.UntilSuccess(w.readinessProbe, retry.Delay(2*time.Second), retry.Timeout(20*time.Second)); err != nil {
-		log.Errorf("howardjohn: failed")
-		w.Dump()
 		return fmt.Errorf("failed waiting for Echo container %s: %v", w.container.Name, err)
 	}
 
@@ -242,7 +239,6 @@ func (w *workload) Sidecar() echo.Sidecar {
 }
 
 func (w *workload) Dump() {
-	log.Errorf("howardjohn: dumping %+v", w)
 	if w.container == nil {
 		return
 	}
