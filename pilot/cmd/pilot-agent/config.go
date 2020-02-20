@@ -15,8 +15,11 @@
 package main
 
 import (
-	"github.com/gogo/protobuf/types"
 	"io/ioutil"
+	"strings"
+
+	"github.com/gogo/protobuf/types"
+
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/proxy"
@@ -26,7 +29,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/pkg/log"
-	"strings"
 )
 
 func constructProxyConfig() (meshconfig.ProxyConfig, error) {
