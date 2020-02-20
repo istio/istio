@@ -85,7 +85,6 @@ type PilotArgs struct {
 	KeepaliveOptions         *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
-	BasePort  int
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -159,7 +158,6 @@ func (p *PilotArgs) applyDefaults() {
 	p.ServiceAccountName = serviceAccountVar.Get()
 	p.Revision = revisionVar.Get()
 	p.KeepaliveOptions = istiokeepalive.DefaultOption()
-	p.BasePort = 15000
 	p.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
 	p.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 }
