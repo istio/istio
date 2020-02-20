@@ -59,7 +59,6 @@ type Options struct {
 	ClusterID    string
 	DomainSuffix string
 	XDSUpdater   model.XDSUpdater
-	ConfigLedger ledger.Ledger
 }
 
 // SyntheticServiceEntryController is a temporary storage for the changes received
@@ -172,12 +171,15 @@ func (c *SyntheticServiceEntryController) GetResourceAtVersion(string, string) (
 	return "", nil
 }
 
+// GetLedger is not implemented
 func (c *SyntheticServiceEntryController) GetLedger() ledger.Ledger {
-	panic("implement me")
+	log.Warnf("GetLedger: %s", errUnsupported)
+	return nil
 }
-
+// SetLedger is not implemented
 func (c *SyntheticServiceEntryController) SetLedger(ledger.Ledger) error {
-	panic("implement me")
+	log.Warnf("SetLedger: %s", errUnsupported)
+	return nil
 }
 
 // Run is not implemented

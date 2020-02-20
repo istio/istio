@@ -87,14 +87,6 @@ type controller struct {
 	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
 }
 
-func (c *controller) GetLedger() ledger.Ledger {
-	panic("implement me")
-}
-
-func (c *controller) SetLedger(ledger.Ledger) error {
-	panic("implement me")
-}
-
 var (
 	// TODO: move to features ( and remove in 1.2 )
 	ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
@@ -194,6 +186,14 @@ func (c *controller) Version() string {
 }
 
 func (c *controller) GetResourceAtVersion(string, string) (resourceVersion string, err error) {
+	panic("implement me")
+}
+
+func (c *controller) GetLedger() ledger.Ledger {
+	panic("implement me")
+}
+
+func (c *controller) SetLedger(ledger.Ledger) error {
 	panic("implement me")
 }
 
