@@ -31,11 +31,11 @@ TODO: remove the need to pass -n istio-system
 
 - 'ingress' to install a Gateway
 
+Helm3 requires namespaces to be created explicitly, currently we don't support insalling multiple gateways in same
+namespace - nor is it a good practice. Ingress secrets and access should be separated from control plane.
+
 ```shell script
     helm3 install -n istio-system istio-ingress manifests/gateways/istio-ingress -f manifests/global.yaml
-    # Helm3 requires namespaces to be created explicitly
-    # Currently we don't support insalling multiple gateways in same namespace - nor is it a good practice,
-    # Ingress secrets and access should be separated from control plane.
     kubectl create ns istio-ingress-canary
 
     helm3 install -n istio-ingress-canary istio-ingress-canary manifests/gateways/istio-ingress \
