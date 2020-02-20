@@ -23,12 +23,12 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test"
-
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/test"
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/docker"
