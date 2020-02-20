@@ -48,7 +48,7 @@ func buildInboundNetworkFilters(push *model.PushContext, node *model.Proxy, inst
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
 		instance.Service.Hostname, instance.ServicePort.Port)
 	statPrefix := clusterName
-	// If stat name is configured, build the alternate stats name.
+	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(push.Mesh.InboundClusterStatName) != 0 {
 		statPrefix = util.BuildStatPrefix(push.Mesh.InboundClusterStatName, string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
@@ -218,7 +218,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 		service := node.SidecarScope.ServiceForHostname(host.Name(routes[0].Destination.Host), push.ServiceByHostnameAndNamespace)
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		statPrefix := clusterName
-		// If stat name is configured, build the alternate stats name.
+		// If stat name is configured, build the stat prefix from configured pattern.
 		if len(push.Mesh.OutboundClusterStatName) != 0 && service != nil {
 			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(routes[0].Destination.Host), routes[0].Destination.Subset, port, service.Attributes)
 		}
