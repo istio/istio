@@ -64,13 +64,17 @@ var (
 	pluginNamesEnv             = env.RegisterStringVar(pluginNames, "", "").Get()
 	enableIngressGatewaySDSEnv = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
 
-	trustDomainEnv                     = env.RegisterStringVar(trustDomain, "", "").Get()
-	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
-	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 12*time.Hour, "").Get()
-	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
-	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
-	initialBackoffInMilliSecEnv        = env.RegisterIntVar(InitialBackoffInMilliSec, 0, "").Get()
-	pkcs8KeysEnv                       = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
+	trustDomainEnv = env.RegisterStringVar(trustDomain, "", "").Get()
+	secretTTLEnv   = env.RegisterDurationVar(secretTTL, 24*time.Hour,
+		"The cert lifetime requested by istio agent").Get()
+	secretRefreshGraceDurationEnv = env.RegisterDurationVar(SecretRefreshGraceDuration, secretTTLEnv/2,
+		"The grace period for the cert rotation, by default it's half of the cert lifetime").Get()
+	secretRotationIntervalEnv = env.RegisterDurationVar(SecretRotationInterval, secretRefreshGraceDurationEnv/10,
+		"The ticker to detect and rotate the certificates, by default it's 1/10 of the grace period").Get()
+	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute,
+		"The ticker to detect and close stale connections").Get()
+	initialBackoffInMilliSecEnv = env.RegisterIntVar(InitialBackoffInMilliSec, 0, "").Get()
+	pkcs8KeysEnv                = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 
 	// Location of K8S CA root.
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
@@ -427,11 +431,11 @@ func applyEnvVars() {
 	serverOptions.CAEndpoint = caEndpointEnv
 	serverOptions.TrustDomain = trustDomainEnv
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
+	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	workloadSdsCacheOptions.SecretRefreshGraceDuration = secretRefreshGraceDurationEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
-
-	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
-
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
+	// Disable the secret eviction for istio agent.
+	workloadSdsCacheOptions.EvictionDuration = 0
 }
