@@ -190,11 +190,12 @@ func (c *controller) GetResourceAtVersion(string, string) (resourceVersion strin
 }
 
 func (c *controller) GetLedger() ledger.Ledger {
-	panic("implement me")
+	log.Warnf("GetLedger: %s", errors.New("this operation is not supported by kube ingress controller"))
+	return nil
 }
 
 func (c *controller) SetLedger(ledger.Ledger) error {
-	panic("implement me")
+	return errors.New("SetLedger operation is not supported by kube ingress controller")
 }
 
 func (c *controller) HasSynced() bool {
