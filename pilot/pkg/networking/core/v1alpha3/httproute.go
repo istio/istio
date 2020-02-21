@@ -181,7 +181,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	util.SortVirtualHosts(virtualHosts)
 
 	if !useSniffing {
-		virtualHosts = append(virtualHosts, buildPassthroughVirtualHost(node))
+		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node))
 	}
 
 	out := &xdsapi.RouteConfiguration{
@@ -477,7 +477,7 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (string, stri
 	return uniqHostame, sharedSuffixes
 }
 
-func buildPassthroughVirtualHost(node *model.Proxy) *route.VirtualHost {
+func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 	// This needs to be the last virtual host, as routes are evaluated in order.
 	if util.IsAllowAnyOutbound(node) {
 		egressCluster := util.PassthroughCluster
@@ -486,8 +486,7 @@ func buildPassthroughVirtualHost(node *model.Proxy) *route.VirtualHost {
 			// user has provided an explicit destination for all the unknown traffic.
 			// build a cluster out of this destination
 			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
-				nil, // service is being passe as nil to take care of the case when service becomes available at some later point in time
-				0)
+				nil,0)
 		}
 
 		return &route.VirtualHost{

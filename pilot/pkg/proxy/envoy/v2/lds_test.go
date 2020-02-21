@@ -14,8 +14,11 @@
 package v2_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,13 +83,13 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// 7071 (inbound), 2001 (service - also as http proxy), 18010 (fortio), 15006 (virtual inbound)
+		// 7071 (inbound), 127.0.0.1:2001 (service - also as http proxy), 18010 (fortio),
+		// 15006 (virtual inbound), virtual outbound
 		// We do not get mixer on 9091 because there are no services defined in istio-system namespace
 		// in the none.yaml setup
-		if len(ldsr.GetHTTPListeners()) != 4 {
-			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
-			// for the service (the http proxy is already covering this)
-			t.Error("HTTP listeners, expecting 4 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())
+		expectedListeners := []string{"10.11.0.1_7071", "10.11.0.1_18080", "virtualInbound", "127.0.0.1_2001", "virtualOutbound"}
+		if err = checkLDSListeners(ldsr.GetHTTPListeners(), expectedListeners); err != nil {
+			t.Error(err)
 		}
 
 		// s1tcp:2000 outbound, bind=true (to reach other instances of the service)
@@ -418,11 +421,11 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		return
 	}
 
-	// Expect 3 HTTP listeners for outbound 8081, inbound 9080 and one virtualInbound which has the same inbound 9080
-	// as a filter chain. Since the adsclient code treats any listener with a HTTP connection manager filter in ANY
-	// filter chain,  as a HTTP listener, we end up getting both 9080 and virtualInbound.
-	if len(adsResponse.GetHTTPListeners()) != 3 {
-		t.Fatalf("Expected 3 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
+	// Expect 4 HTTP listeners for outbound 8081, inbound 9080, virtualOutbound, and one virtualInbound
+	// which has the same inbound 9080 as a filter chain.
+	expectedListeners := []string{"0.0.0.0_8081", "98.1.1.1_9080", "virtualInbound", "virtualOutbound"}
+	if err = checkLDSListeners(adsResponse.GetHTTPListeners(), expectedListeners); err != nil {
+		t.Fatal(err)
 	}
 
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
@@ -483,6 +486,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
+	expectedListeners := []string{"virtualInbound", "virtualOutbound", "0.0.0.0_8081"}
 	tests := []struct {
 		name            string
 		ip              string
@@ -531,13 +535,11 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 			}
 
 			// Expect 1 HTTP listeners for 8081, 1 hybrid listeners for 15006 (virtual inbound)
-			if len(adsResponse.GetHTTPListeners()) != 2 {
-				t.Fatalf("Expected 1 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
+			if err = checkLDSListeners(adsResponse.GetHTTPListeners(), expectedListeners); err != nil {
+				t.Fatal(err)
 			}
-			// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
-			// instead of looking at it as a listener with multiple filter chains
-			l := adsResponse.GetHTTPListeners()["0.0.0.0_8081"]
 
+			l := adsResponse.GetHTTPListeners()["0.0.0.0_8081"]
 			expectLuaFilter(t, l, test.expectLuaFilter)
 		})
 	}
@@ -592,6 +594,21 @@ func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *v2.MemServiceD
 		t.Fatal("Unexpected type of Mock ServiceRegistry")
 	}
 	return registry
+}
+
+func checkLDSListeners(listenerMap map[string]*xdsapi.Listener, expectedNames []string) error {
+	gotNames := make([]string, 0)
+	for n, _ := range listenerMap {
+		gotNames = append(gotNames, n)
+	}
+	sort.Strings(gotNames)
+	sort.Strings(expectedNames)
+	gS := strings.Join(gotNames, ",")
+	eS := strings.Join(expectedNames, ",")
+	if gS != eS {
+		return fmt.Errorf("unexpected listeners:\ngot:%s\nwant:%s\n", gS, eS)
+	}
+	return nil
 }
 
 // TODO: helper to test the http listener content

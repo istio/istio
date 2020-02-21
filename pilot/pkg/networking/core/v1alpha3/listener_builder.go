@@ -269,8 +269,6 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	// blackhole/passthrough depending on the outbound traffic policy. When passthrough is enabled,
 	// this has the risk of triggering infinite loops when requests are sent to the pod's IP, as it will
 	// send requests to itself. To block this we add an additional filter chain before that will always blackhole.
-	// Add this as the first filter chain in the virtual outbound. Unsure of the resolution priority in Envoy
-	// when we have TransportSocket, ALPN, etc. in different filter chain matches.
 	if features.RestrictPodIPTrafficLoops.Get() {
 		var cidrRanges []*core.CidrRange
 		for _, ip := range node.IPAddresses {
@@ -600,39 +598,35 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 }
 
 func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {
-	tcpProxy := &tcp_proxy.TcpProxy{
-		StatPrefix:       util.BlackHoleCluster,
-		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-	}
-	requireSniForwarding := false
+
+	filterStack := make([]*listener.Filter, 0)
+	// always add the filter for forwarding downstream sni if egress proxy is set. This will be a no-op
+	// if there is nothing to be done. But if the sidecar is wrapping https traffic into mtls for egress gateway,
+	// this filter will copy sni from https into mtls for the egress gateway
+	filterStack = append(filterStack, &listener.Filter{Name: util.ForwardDownstreamSniFilter})
+
+	var egressCluster string
+
 	if util.IsAllowAnyOutbound(node) {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
-		egressCluster := util.PassthroughCluster
+		egressCluster = util.PassthroughCluster
 
 		// no need to check for nil value as the previous if check has checked
 		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
 			// user has provided an explicit destination for all the unknown traffic.
 			// build a cluster out of this destination
 			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
-				nil, // service can comeup online later on, so passing nil
-				0)   // listener port is expected to be resolved from EgressProxy
-
-			// In case sidecar is wrapping https traffic into mtls, we want to copy sni from https into mtls for the egress gateway
-			requireSniForwarding = true
+				nil, 0)
 		}
-		tcpProxy = &tcp_proxy.TcpProxy{
-			StatPrefix:       egressCluster,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: egressCluster},
-		}
-		setAccessLog(push, node, tcpProxy)
+	} else {
+		 egressCluster = util.BlackHoleCluster
 	}
 
-	filterStack := make([]*listener.Filter, 0)
-	// always add the filter for forwarding downstream sni if egress proxy is set
-	if requireSniForwarding {
-		filterStack = append(filterStack, &listener.Filter{Name: util.ForwardDownstreamSniFilter})
+	tcpProxy := &tcp_proxy.TcpProxy{
+		StatPrefix:       egressCluster,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: egressCluster},
 	}
-
+	setAccessLog(push, node, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       xdsutil.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
@@ -650,7 +644,7 @@ func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 	// Add two filter chains: one for TLS traffic and one for TCP traffic so that we can get
-	// some telemetry out of TLS. We can add the TLS inspector regardless of outbound traffic policy
+	// some telemetry out of TLS traffic. We can add the TLS filter chain regardless of outbound traffic policy
 	// because we always want to get telemetry
 	filterChains := []*listener.FilterChain{
 		{
@@ -688,7 +682,7 @@ func buildOutboundCatchAllHTTPFilterChains(_ *ConfigGeneratorImpl,
 		routeConfig: &xdsapi.RouteConfiguration{
 			Name:             VirtualOutboundListenerName,
 			ValidateClusters: proto.BoolFalse,
-			VirtualHosts:     []*route.VirtualHost{buildPassthroughVirtualHost(node)},
+			VirtualHosts:     []*route.VirtualHost{buildCatchAllVirtualHost(node)},
 		},
 	}
 
