@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	securityBeta "istio.io/api/security/v1beta1"
@@ -35,6 +36,7 @@ const (
 var (
 	peerAuthenticationGvk    = collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind()
 	requestAuthenticationGvk = collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind()
+	baseTimestamp            = time.Date(2020, 2, 2, 2, 2, 2, 0, time.UTC)
 )
 
 func TestGetPoliciesForWorkload(t *testing.T) {
@@ -77,11 +79,12 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "foo",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -91,11 +94,12 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -135,11 +139,12 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -169,11 +174,12 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -246,11 +252,12 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "foo",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -260,11 +267,12 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "peer-with-selector",
-						Namespace: "foo",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "peer-with-selector",
+						Namespace:         "foo",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
@@ -279,11 +287,12 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -339,11 +348,12 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -399,11 +409,12 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "foo",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -413,11 +424,12 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -462,11 +474,12 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "foo",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -498,11 +511,12 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "foo",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -512,11 +526,12 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 				},
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "peer-with-selector",
-						Namespace: "foo",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "peer-with-selector",
+						Namespace:         "foo",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
@@ -546,11 +561,12 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 			wantPeerAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Type:      peerAuthenticationGvk.Kind,
-						Version:   peerAuthenticationGvk.Version,
-						Group:     peerAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "foo",
+						Type:              peerAuthenticationGvk.Kind,
+						Version:           peerAuthenticationGvk.Version,
+						Group:             peerAuthenticationGvk.Group,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
 					},
 					Spec: &securityBeta.PeerAuthentication{
 						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
@@ -610,15 +626,16 @@ func createTestRequestAuthenticationResource(name string, namespace string, sele
 	}
 }
 
-func createTestPeerAuthenticationResource(name string, namespace string,
+func createTestPeerAuthenticationResource(name string, namespace string, timestamp time.Time,
 	selector *selectorpb.WorkloadSelector, mode securityBeta.PeerAuthentication_MutualTLS_Mode) *Config {
 	return &Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind(),
-			Version:   collections.IstioSecurityV1Beta1Peerauthentications.Resource().Version(),
-			Group:     collections.IstioSecurityV1Beta1Peerauthentications.Resource().Group(),
-			Name:      name,
-			Namespace: namespace,
+			Type:              collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind(),
+			Version:           collections.IstioSecurityV1Beta1Peerauthentications.Resource().Version(),
+			Group:             collections.IstioSecurityV1Beta1Peerauthentications.Resource().Group(),
+			Name:              name,
+			Namespace:         namespace,
+			CreationTimestamp: timestamp,
 		},
 		Spec: &securityBeta.PeerAuthentication{
 			Selector: selector,
@@ -647,21 +664,28 @@ func createTestConfigs(withMeshPeerAuthn bool) []*Config {
 		createTestRequestAuthenticationResource("default", "foo", nil),
 		createTestRequestAuthenticationResource("default", "bar", nil),
 		createTestRequestAuthenticationResource("with-selector", "foo", selector),
-		createTestPeerAuthenticationResource("global-peer-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
+		createTestPeerAuthenticationResource("global-peer-with-selector", rootNamespace, baseTimestamp, &selectorpb.WorkloadSelector{
 			MatchLabels: map[string]string{
 				"app":     "httpbin",
 				"version": "v2",
 			},
 		}, securityBeta.PeerAuthentication_MutualTLS_UNSET),
-		createTestPeerAuthenticationResource("default", "foo", nil, securityBeta.PeerAuthentication_MutualTLS_STRICT),
-		createTestPeerAuthenticationResource("peer-with-selector", "foo", &selectorpb.WorkloadSelector{
+		createTestPeerAuthenticationResource("default", "foo", baseTimestamp, nil, securityBeta.PeerAuthentication_MutualTLS_STRICT),
+		createTestPeerAuthenticationResource("ignored-newer-default", "foo", baseTimestamp.Add(time.Second), nil, securityBeta.PeerAuthentication_MutualTLS_STRICT),
+		createTestPeerAuthenticationResource("peer-with-selector", "foo", baseTimestamp, &selectorpb.WorkloadSelector{
 			MatchLabels: map[string]string{
 				"version": "v1",
 			},
 		}, securityBeta.PeerAuthentication_MutualTLS_DISABLE))
 
 	if withMeshPeerAuthn {
-		configs = append(configs, createTestPeerAuthenticationResource("default", rootNamespace, nil, securityBeta.PeerAuthentication_MutualTLS_UNSET))
+		configs = append(configs,
+			createTestPeerAuthenticationResource("ignored-newer", rootNamespace, baseTimestamp.Add(time.Second*2),
+				nil, securityBeta.PeerAuthentication_MutualTLS_UNSET),
+			createTestPeerAuthenticationResource("default", rootNamespace, baseTimestamp,
+				nil, securityBeta.PeerAuthentication_MutualTLS_UNSET),
+			createTestPeerAuthenticationResource("ignored-another-newer", rootNamespace, baseTimestamp.Add(time.Second),
+				nil, securityBeta.PeerAuthentication_MutualTLS_UNSET))
 	}
 
 	return configs
