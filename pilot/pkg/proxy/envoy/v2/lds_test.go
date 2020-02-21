@@ -598,7 +598,7 @@ func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *v2.MemServiceD
 
 func checkLDSListeners(listenerMap map[string]*xdsapi.Listener, expectedNames []string) error {
 	gotNames := make([]string, 0)
-	for n, _ := range listenerMap {
+	for n := range listenerMap {
 		gotNames = append(gotNames, n)
 	}
 	sort.Strings(gotNames)
