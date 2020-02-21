@@ -18,7 +18,6 @@ import (
 	"errors"
 
 	"github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -47,7 +46,7 @@ func (o *KubeOptions) prepare(flags *pflag.FlagSet) {
 	}
 
 	if o.Namespace == "" {
-		o.Namespace = v1.NamespaceDefault
+		o.Namespace = defaultIstioNamespace
 
 		configAccess := clientcmd.NewDefaultPathOptions()
 		configAccess.GlobalFile = o.Kubeconfig
