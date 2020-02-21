@@ -1,4 +1,7 @@
 *                                                                @costinm @linsun @rshriram @howardjohn
+Makefile*                                                        @istio/wg-test-and-release-maintainers
+/common/                                                         @istio/wg-test-and-release-maintainers
+/common-protos/                                                  @istio/wg-test-and-release-maintainers
 /bin/                                                            @istio/wg-test-and-release-maintainers
 /cmd/istiod/                                                     @istio/wg-environments-maintainers
 /galley/                                                         @istio/wg-networking-maintainers
