@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
@@ -317,9 +318,8 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 		"create a secret with this service account's credentials.")
 	flagset.StringVar(&o.ClusterName, "name", "",
 		"Name of the local cluster whose credentials are stored "+
-			"in the secret. Must be DNS1123 label as it will be used for the "+
-			"k8s secret name. Defaults to the UUID of the kube-system namespace "+
-			"in the local cluster if not set.")
+			"in the secret. If a name is not specified the kube-system namespace's UUID of "+
+			"the local cluster will be used.")
 	var supportedAuthType []string
 	for _, at := range []RemoteSecretAuthType{RemoteSecretAuthTypeBearerToken, RemoteSecretAuthTypePlugin} {
 		supportedAuthType = append(supportedAuthType, string(at))
@@ -332,6 +332,17 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 	flagset.StringToString("auth-plugin-config", o.AuthPluginConfig,
 		fmt.Sprintf("authenticator plug-in configuration. --auth-type=%v must be set with this option",
 			RemoteSecretAuthTypePlugin))
+}
+
+func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {
+	o.KubeOptions.prepare(flags)
+
+	if o.ClusterName != "" {
+		if !labels.IsDNS1123Label(o.ClusterName) {
+			return fmt.Errorf("%v is not a valid DNS 1123 label", o.ClusterName)
+		}
+	}
+	return nil
 }
 
 func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, env Environment) (*v1.Secret, error) {

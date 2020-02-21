@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	. "github.com/onsi/gomega"
+	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -651,4 +653,26 @@ users:
 			}
 		})
 	}
+}
+
+func TestRemoteSecretOptions(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	o := RemoteSecretOptions{}
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	o.addFlags(flags)
+	g.Expect(flags.Parse([]string{
+		"--name",
+		"valid-name",
+	})).Should(Succeed())
+	g.Expect(o.prepare(flags)).Should(Succeed())
+
+	o = RemoteSecretOptions{}
+	flags = pflag.NewFlagSet("test", pflag.ContinueOnError)
+	o.addFlags(flags)
+	g.Expect(flags.Parse([]string{
+		"--name",
+		"?-invalid-name",
+	})).Should(Succeed())
+	g.Expect(o.prepare(flags)).Should(Not(Succeed()))
 }
