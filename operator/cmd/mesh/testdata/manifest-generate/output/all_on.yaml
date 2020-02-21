@@ -8586,7 +8586,6 @@ data:
         zipkin:
           # Address of the Zipkin collector
           address: zipkin.istio-system:9411
-
       # If port is 15012, will use SDS.
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
@@ -11095,7 +11094,7 @@ data:
         - mountPath: /var/run/sds
           name: sds-uds-path
           readOnly: true
-        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+        {{- if and (eq .Values.global.jwtPolicy "third-party-jwt") .Values.global.istiod.enabled }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
@@ -11133,7 +11132,7 @@ data:
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      {{- if and (eq .Values.global.jwtPolicy "third-party-jwt") .Values.global.istiod.enabled }}
       - name: istio-token
         projected:
           sources:

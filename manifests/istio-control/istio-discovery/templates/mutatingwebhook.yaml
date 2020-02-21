@@ -1,5 +1,5 @@
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
-{{- if not .Values.global.operatorManageWebhooks }}
+{{- if and (not .Values.global.operatorManageWebhooks) .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
