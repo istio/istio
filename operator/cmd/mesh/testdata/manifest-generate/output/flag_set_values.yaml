@@ -7331,7 +7331,6 @@ data:
         zipkin:
           # Address of the Zipkin collector
           address: zipkin.istio-system:9411
-
       # If port is 15012, will use SDS.
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
