@@ -6553,6 +6553,8 @@ spec:
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod    
   - port: 15014
     name: http-monitoring
   clusterIP: None
