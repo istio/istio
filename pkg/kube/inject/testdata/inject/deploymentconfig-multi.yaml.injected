@@ -55,8 +55,6 @@ items:
           - hello.$(POD_NAMESPACE)
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
-          - --dnsRefreshRate
-          - 300s
           - --statusPort
           - "15020"
           - --trust-domain=cluster.local

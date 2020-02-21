@@ -79,7 +79,6 @@ var (
 // Config for creating a bootstrap file.
 type Config struct {
 	Node                string
-	DNSRefreshRate      string
 	Proxy               *meshAPI.ProxyConfig
 	PlatEnv             platform.Environment
 	PilotSubjectAltName []string
@@ -120,7 +119,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PodIP(cfg.PodIP),
 		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
 		option.MixerSubjectAltName(cfg.MixerSubjectAltName),
-		option.DNSRefreshRate(cfg.DNSRefreshRate),
 		option.SDSTokenPath(cfg.SDSTokenPath),
 		option.SDSUDSPath(cfg.SDSUDSPath),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),

@@ -127,12 +127,6 @@ func TestOptions(t *testing.T) {
 			expected: "fake",
 		},
 		{
-			testName: "dns refresh rate",
-			key:      "dns_refresh_rate",
-			option:   option.DNSRefreshRate("1s"),
-			expected: "1s",
-		},
-		{
 			testName: "localhost v4",
 			key:      "localhost",
 			option:   option.Localhost(option.LocalhostIPv4),
