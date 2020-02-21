@@ -62,6 +62,15 @@ func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersi
 	return cr.ledger.GetPreviousValue(version, key)
 }
 
+func (cr *store) GetLedger() ledger.Ledger {
+	return cr.ledger
+}
+
+func (cr *store) SetLedger(l ledger.Ledger) error {
+	cr.ledger = l
+	return nil
+}
+
 func (cr *store) Schemas() collection.Schemas {
 	return cr.schemas
 }

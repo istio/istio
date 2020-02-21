@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/pkg/ledger"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -867,6 +869,14 @@ type authzFakeStore struct {
 		ns  string
 		cfg Config
 	}
+}
+
+func (fs *authzFakeStore) GetLedger() ledger.Ledger {
+	panic("implement me")
+}
+
+func (fs *authzFakeStore) SetLedger(ledger.Ledger) error {
+	panic("implement me")
 }
 
 func (fs *authzFakeStore) add(config Config) {
