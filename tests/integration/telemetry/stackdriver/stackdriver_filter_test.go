@@ -47,13 +47,12 @@ const (
 )
 
 var (
-	ist           istio.Instance
-	echoNsInst    namespace.Instance
-	galInst       galley.Instance
-	sdInst        stackdriver.Instance
-	srv           echo.Instance
-	clt           echo.Instance
-	usingOperator bool
+	ist        istio.Instance
+	echoNsInst namespace.Instance
+	galInst    galley.Instance
+	sdInst     stackdriver.Instance
+	srv        echo.Instance
+	clt        echo.Instance
 )
 
 func getIstioInstance() *istio.Instance {
@@ -102,11 +101,6 @@ func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			if !usingOperator {
-				// TODO(bianpengyuan): remove this condition when operator is used in all tests.
-				// Helm based installation does not have option to install Stackdriver filter.
-				t.Skip("Stackdriver filter test only runs with operator.")
-			}
 			srvReceived := false
 			cltReceived := false
 			retry.UntilSuccessOrFail(t, func() error {
@@ -158,7 +152,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	usingOperator = cfg.Operator
 	// disable mixer telemetry and enable stackdriver filter
 	cfg.Values["telemetry.enabled"] = "true"
 	cfg.Values["telemetry.v1.enabled"] = "false"
