@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/strcase"
@@ -87,6 +88,13 @@ const (
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
 	EnvoyTLSSocketName = "envoy.transport_sockets.tls"
+
+	// StatName patterns
+	serviceStatPattern         = "%SERVICE%"
+	serviceFQDNStatPattern     = "%SERVICE_FQDN%"
+	servicePortStatPattern     = "%SERVICE_PORT%"
+	servicePortNameStatPattern = "%SERVICE_PORT_NAME%"
+	subsetNameStatPattern      = "%SUBSET_NAME%"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -563,6 +571,25 @@ func IsAllowAnyOutbound(node *model.Proxy) bool {
 	return node.SidecarScope != nil &&
 		node.SidecarScope.OutboundTrafficPolicy != nil &&
 		node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
+}
+
+// BuildStatPrefix builds a stat prefix based on the stat pattern.
+func BuildStatPrefix(statPattern string, host string, subset string, port *model.Port, attributes model.ServiceAttributes) string {
+	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
+	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, host)
+	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
+	prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(port.Port))
+	prefix = strings.ReplaceAll(prefix, servicePortNameStatPattern, port.Name)
+	return prefix
+}
+
+// shotHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
+// For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
+func shortHostName(host string, attributes model.ServiceAttributes) string {
+	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
+		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
+	}
+	return host
 }
 
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
