@@ -98,7 +98,9 @@ istioctl --Kubeconfig=c0.yaml x create-remote-secret --name c0 --auth-type=plugi
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
-			opts.prepare(c.Flags())
+			if err := opts.prepare(c.Flags()); err != nil {
+				return err
+			}
 			env, err := NewEnvironmentFromCobra(opts.Kubeconfig, opts.Context, c)
 			if err != nil {
 				return err
