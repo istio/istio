@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -34,40 +35,40 @@ import (
 )
 
 const (
-	describeSvcAOutput = `Service: a.*
+	describeSvcAOutput = `Service: a\..*
    Port: grpc 7070/GRPC targets pod port 7070
    Port: http 80/HTTP targets pod port 8090
-7070 DestinationRule: a for "a"
+7070 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is PERMISSIVE, clients configured automatically
-7070 VirtualService: a.*
+7070 Pod is .*, clients configured automatically
+7070 VirtualService: a\..*
    when headers are end-user=jason
-80 DestinationRule: a.* for "a"
+80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 Pod is PERMISSIVE, clients configured automatically
-80 VirtualService: a.*
+80 Pod is .*, clients configured automatically
+80 VirtualService: a\..*
    when headers are end-user=jason
 `
 
 	describePodAOutput = `Pod: .*
    Pod Ports: 7070 \(app\), 8090 \(app\), 8080 \(app\), 3333 \(app\), 15090 \(istio-proxy\)
 --------------------
-Service: a.*
+Service: a\..*
    Port: grpc 7070\/GRPC targets pod port 7070
    Port: http 80\/HTTP targets pod port 8090
-7070 DestinationRule: a for "a"
+7070 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is PERMISSIVE, clients configured automatically
-7070 VirtualService: a.*
+7070 Pod is .*, clients configured automatically
+7070 VirtualService: a\..*
    when headers are end-user=jason
-80 DestinationRule: a.* for "a"
+80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 Pod is PERMISSIVE, clients configured automatically
-80 VirtualService: a.*
+80 Pod is .*, clients configured automatically
+80 VirtualService: a\..*
    when headers are end-user=jason
 `
 
@@ -154,13 +155,16 @@ func TestDescribe(t *testing.T) {
 			var args []string
 			g := gomega.NewGomegaWithT(t)
 
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"x", "describe", "pod", podID}
+			// When this test passed the namespace through --namespace it was flakey
+			// because istioctl uses a global variable for namespace, and this test may
+			// run in parallel.
+			args = []string{"--namespace=dummy",
+				"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, ns.Name())}
 			output = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(describePodAOutput))
 
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"x", "describe", "svc", "a"}
+			args = []string{"--namespace=dummy",
+				"x", "describe", "svc", fmt.Sprintf("a.%s", ns.Name())}
 			output = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(describeSvcAOutput))
 		})
@@ -195,9 +199,6 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			if err := a.WaitUntilCallable(a); err != nil {
-				t.Fatal(err)
-			}
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			var output string
@@ -221,4 +222,78 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			output = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
 		})
+}
+
+func TestProxyConfig(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		RunParallel(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "istioctl-pc",
+				Inject: true,
+			})
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			podID, err := getPodID(a)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "bootstrap", podID}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.HaveKey("bootstrap"))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "cluster", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "endpoint", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "listener", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "route", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"pc", "secret", podID, "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
+		})
+}
+
+func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
+	t.Helper()
+	var val interface{}
+
+	// this is guarded by prettyPrint
+	if err := json.Unmarshal([]byte(s), &val); err != nil {
+		t.Fatalf("Could not unmarshal %s response %s", context, s)
+	}
+	return val
 }
