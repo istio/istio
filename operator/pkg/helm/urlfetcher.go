@@ -15,10 +15,7 @@
 package helm
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -26,80 +23,65 @@ import (
 	"path/filepath"
 	"strings"
 
+	"istio.io/istio/operator/pkg/version"
+
 	"github.com/mholt/archiver"
 
 	"istio.io/istio/operator/pkg/httprequest"
-	"istio.io/istio/operator/pkg/util"
 )
 
 const (
-	// installationPathTemplate is used to construct installation url based on version
-	installationPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-linux.tar.gz"
 	// InstallationDirectory is temporary folder name for caching downloaded installation packages.
 	InstallationDirectory = "istio-install-packages"
-	// ChartsFilePath is file path of installation packages to helm charts.
-	ChartsFilePath = "install/kubernetes/operator/charts"
-	// ProfilesFilePath is file path of installation packages to profiles.
-	ProfilesFilePath = "install/kubernetes/operator/profiles"
-	// SHAFileSuffix is the default SHA file suffix
-	SHAFileSuffix = ".sha256"
+	// OperatorSubdirFilePath is file path of installation packages to helm charts.
+	OperatorSubdirFilePath = "install/kubernetes/operator"
 )
 
 // URLFetcher is used to fetch and manipulate charts from remote url
 type URLFetcher struct {
-	// url is url to download the charts
+	// url is the source URL where release tar is downloaded from. It should be in the form https://.../istio-{version}-{platform}.tar.gz
+	// i.e. the full URL path to the Istio release tar.
 	url string
-	// verifyURL is url to download the verification file
-	verifyURL string
-	// verify indicates whether the downloaded tar should be verified
-	verify bool
-	// destDir is path of charts downloaded to, empty as default to temp dir
-	destDir string
+	// destDirRoot is the root dir where charts are downloaded and extracted. If set to "", the destination dir will be
+	// set to the default value, which is static for caching purposes.
+	destDirRoot string
 }
 
-// NewURLFetcher creates an URLFetcher pointing to installation package URL and destination,
+// NewURLFetcher creates an URLFetcher pointing to installation package URL and destination dir to extract it into,
 // and returns a pointer to it.
-func NewURLFetcher(insPackageURL string, destDir string) (*URLFetcher, error) {
-	if destDir == "" {
-		destDir = filepath.Join(os.TempDir(), InstallationDirectory)
+// url is the source URL where release tar is downloaded from. It should be in the form https://.../istio-{version}-{platform}.tar.gz
+// i.e. the full URL path to the Istio release tar.
+// destDirRoot is the root dir where charts are downloaded and extracted. If set to "", the destination dir will be set
+// to the default value, which is static for caching purposes.
+func NewURLFetcher(url string, destDirRoot string) *URLFetcher {
+	if destDirRoot == "" {
+		destDirRoot = filepath.Join(os.TempDir(), InstallationDirectory)
 	}
-	if _, err := os.Stat(destDir); os.IsNotExist(err) {
-		err := os.Mkdir(destDir, os.ModeDir|os.ModePerm)
+	return &URLFetcher{
+		url:         url,
+		destDirRoot: destDirRoot,
+	}
+}
+
+// DestDir returns path of destination dir that the tar was extracted to.
+func (f *URLFetcher) DestDir() string {
+	// checked for error during download.
+	subdir, _, _ := URLToDirname(f.url)
+	return filepath.Join(f.destDirRoot, subdir)
+}
+
+// Fetch fetches and untars the charts.
+func (f *URLFetcher) Fetch() error {
+	if _, _, err := URLToDirname(f.url); err != nil {
+		return err
+	}
+	if _, err := os.Stat(f.destDirRoot); os.IsNotExist(err) {
+		err := os.Mkdir(f.destDirRoot, os.ModeDir|os.ModePerm)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	uf := &URLFetcher{
-		url:       insPackageURL,
-		verifyURL: insPackageURL + SHAFileSuffix,
-		verify:    true,
-		destDir:   destDir,
-	}
-	return uf, nil
-}
-
-// DestDir returns path of destination dir.
-func (f *URLFetcher) DestDir() string {
-	return f.destDir
-}
-
-// FetchBundles fetches the charts, sha and version file
-func (f *URLFetcher) FetchBundles() util.Errors {
-	errs := util.Errors{}
-	// check whether install package already cached locally at destDir, skip downloading if yes.
-	fn := path.Base(f.url)
-	_, err := os.Stat(filepath.Join(f.destDir, fn))
-	if err == nil {
-		return errs
-	}
-	shaF, err := f.fetchSha()
-	errs = util.AppendErr(errs, err)
-	return util.AppendErr(errs, f.fetchChart(shaF))
-}
-
-// fetchChart fetches the charts and verifies charts against SHA file if required
-func (f *URLFetcher) fetchChart(shaF string) error {
-	saved, err := DownloadTo(f.url, f.destDir)
+	saved, err := DownloadTo(f.url, f.destDirRoot)
 	if err != nil {
 		return err
 	}
@@ -108,52 +90,16 @@ func (f *URLFetcher) fetchChart(shaF string) error {
 		return err
 	}
 	defer file.Close()
-	if f.verify {
-		// verify with sha file
-		_, err := os.Stat(shaF)
-		if os.IsNotExist(err) {
-			shaF, err = f.fetchSha()
-			if err != nil {
-				return fmt.Errorf("failed to get sha file: %s", err)
-			}
-		}
-		hashAll, err := ioutil.ReadFile(shaF)
-		if err != nil {
-			return fmt.Errorf("failed to read sha file: %s", err)
-		}
-		// SHA file has structure of "sha_value filename"
-		hash := strings.Split(string(hashAll), " ")[0]
-		h := sha256.New()
-		if _, err := io.Copy(h, file); err != nil {
-			scope.Error(err.Error())
-		}
-		sum := h.Sum(nil)
-		actualHash := hex.EncodeToString(sum)
-		if !strings.EqualFold(actualHash, hash) {
-			return fmt.Errorf("checksum of charts file located at: %s does not match expected SHA file: %s", saved, shaF)
-		}
-	}
+
 	targz := archiver.TarGz{Tar: &archiver.Tar{OverwriteExisting: true}}
-	return targz.Unarchive(saved, f.destDir)
+	return targz.Unarchive(saved, f.destDirRoot)
 }
 
-// fetchsha downloads the SHA file from url
-func (f *URLFetcher) fetchSha() (string, error) {
-	if f.verifyURL == "" {
-		return "", fmt.Errorf("SHA file url is empty")
-	}
-	shaF, err := DownloadTo(f.verifyURL, f.destDir)
+// DownloadTo downloads from remote srcURL to dest local file path
+func DownloadTo(srcURL, dest string) (string, error) {
+	u, err := url.Parse(srcURL)
 	if err != nil {
-		return "", err
-	}
-	return shaF, nil
-}
-
-// DownloadTo downloads from remote url to dest local file path
-func DownloadTo(ref, dest string) (string, error) {
-	u, err := url.Parse(ref)
-	if err != nil {
-		return "", fmt.Errorf("invalid chart URL: %s", ref)
+		return "", fmt.Errorf("invalid chart URL: %s", srcURL)
 	}
 	data, err := httprequest.Get(u.String())
 	if err != nil {
@@ -169,7 +115,19 @@ func DownloadTo(ref, dest string) (string, error) {
 	return destFile, nil
 }
 
-// InstallURLFromVersion generates default installation url from version number.
-func InstallURLFromVersion(version string) string {
-	return fmt.Sprintf(installationPathTemplate, version, version)
+// URLToDirname, given an input URL pointing to an Istio release tar, returns the subdirectory name that the tar would
+// be extracted to and the version in the URL. The input URLs are expected to have the form
+// https://.../istio-{version}-{platform}[optional suffix].tar.gz.
+func URLToDirname(url string) (string, *version.Version, error) {
+	fn := path.Base(url)
+	fv := strings.Split(fn, "-")
+	if len(fv) < 2 || fv[0] != "istio" {
+		return "", nil, fmt.Errorf("wrong format for release tar name, got: %s, expect https://.../istio-{version}-{platform}.tar.gz", url)
+	}
+	ver, err := version.NewVersionFromString(fv[1])
+	if err != nil {
+		return "", nil, err
+	}
+	// get rid of the suffix
+	return fn[:strings.LastIndex(fn, "-")], ver, nil
 }
