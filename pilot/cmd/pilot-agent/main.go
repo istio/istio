@@ -77,6 +77,8 @@ var (
 	stsPort            int
 	tokenManagerPlugin string
 
+	meshConfigFile string
+
 	// proxy config flags (named identically)
 	configPath               string
 	controlPlaneBootstrap    bool
@@ -334,6 +336,11 @@ var (
 						option.SDSUDSPath(sdsUDSPath),
 					}
 
+					if stsPort > 0 {
+						opts = append(opts, option.STSEnabled(true),
+							option.STSPort(stsPort))
+					}
+
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
 					if proxyIPv6 {
 						opts = append(opts, option.Localhost(option.LocalhostIPv6),
@@ -451,16 +458,29 @@ var (
 	}
 )
 
+// getMeshConfig gets the mesh config to use for proxy configuration
+// 1. Search for MESH_CONFIG env var. This is set in the injection template
+// 2. Attempt to read --meshConfigFile. This is used for gateways
+// 3. If neither is found, we can fallback to default settings
 func getMeshConfig() (meshconfig.MeshConfig, error) {
 	defaultConfig := mesh.DefaultMeshConfig()
 	if meshConfig != "" {
 		mc, err := mesh.ApplyMeshConfigJSON(meshConfig, defaultConfig)
 		if err != nil || mc == nil {
-			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config: %v", err)
+			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config [%v]: %v", meshConfig, err)
 		}
 		return *mc, nil
 	}
-	return defaultConfig, nil
+	b, err := ioutil.ReadFile(meshConfigFile)
+	if err != nil {
+		log.Warnf("Failed to read mesh config file from %v or MESH_CONFIG. Falling back to defaults: %v", meshConfigFile, err)
+		return defaultConfig, nil
+	}
+	mc, err := mesh.ApplyMeshConfig(string(b), defaultConfig)
+	if err != nil || mc == nil {
+		return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config [%v]: %v", string(b), err)
+	}
+	return *mc, nil
 }
 
 // dedupes the string array and also ignores the empty string.
@@ -626,6 +646,8 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
+	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "/etc/istio/config/mesh",
+		"File name for Istio mesh configuration. If not specified, a default mesh will be used. MESH_CONFIG environment variable takes precedence.")
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,

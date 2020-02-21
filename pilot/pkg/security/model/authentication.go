@@ -55,8 +55,8 @@ const (
 	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
 	IngressGatewaySdsUdsPath = "unix:/var/run/ingress_gateway/sds"
 
-	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA.
-	IngressGatewaySdsCaSuffix = "-cacert"
+	// SdsCaSuffix is the suffix of the sds resource name for root CA.
+	SdsCaSuffix = "-cacert"
 
 	// IstioJwtFilterName is the name for the Istio Jwt filter. This should be the same
 	// as the name defined in
@@ -73,8 +73,8 @@ const (
 	AuthnFilterName = "istio_authn"
 )
 
-// ConstructSdsSecretConfigForGatewayListener constructs SDS secret configuration for ingress gateway.
-func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.SdsSecretConfig {
+// ConstructSdsSecretConfigWithCustomUds constructs SDS secret configuration for ingress gateway.
+func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
@@ -104,7 +104,7 @@ func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.S
 	}
 }
 
-// ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
+// ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
 func ConstructSdsSecretConfig(name, sdsUdsPath string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil

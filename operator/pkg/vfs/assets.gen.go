@@ -7135,6 +7135,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
           {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
@@ -7191,6 +7193,10 @@ spec:
           secretName: istio.default
           optional: true
       {{- end }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -7540,6 +7546,9 @@ gateways:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
 `)
 
 func chartsGatewaysIstioEgressValuesYamlBytes() ([]byte, error) {
@@ -8180,6 +8189,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
 {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
@@ -8240,6 +8251,10 @@ spec:
           secretName: istio.istio-ingressgateway-service-account
           optional: true
       {{- end }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -9041,6 +9056,9 @@ gateways:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
 `)
 
 func chartsGatewaysIstioIngressValuesYamlBytes() ([]byte, error) {
