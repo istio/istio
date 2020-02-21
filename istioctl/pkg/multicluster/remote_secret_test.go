@@ -22,10 +22,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	. "github.com/onsi/gomega"
+	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd/api"
 
@@ -433,38 +434,38 @@ users:
     token: token
 `
 
-	fakeUID := types.UID("fake-uid-0")
+	fakeClusterName := "fake-clusterName-0"
 	cases := []struct {
-		name       string
-		uid        types.UID
-		context    string
-		server     string
-		in         *v1.Secret
-		want       *v1.Secret
-		wantErrStr string
+		name        string
+		clusterName string
+		context     string
+		server      string
+		in          *v1.Secret
+		want        *v1.Secret
+		wantErrStr  string
 	}{
 		{
-			name:       "missing caData",
-			in:         makeSecret("", "", "token"),
-			context:    "c0",
-			uid:        fakeUID,
-			wantErrStr: errMissingRootCAKey.Error(),
+			name:        "missing caData",
+			in:          makeSecret("", "", "token"),
+			context:     "c0",
+			clusterName: fakeClusterName,
+			wantErrStr:  errMissingRootCAKey.Error(),
 		},
 		{
-			name:       "missing token",
-			in:         makeSecret("", "caData", ""),
-			context:    "c0",
-			uid:        fakeUID,
-			wantErrStr: errMissingTokenKey.Error(),
+			name:        "missing token",
+			in:          makeSecret("", "caData", ""),
+			context:     "c0",
+			clusterName: fakeClusterName,
+			wantErrStr:  errMissingTokenKey.Error(),
 		},
 		{
-			name:    "success",
-			in:      makeSecret("", "caData", "token"),
-			context: "c0",
-			uid:     fakeUID,
+			name:        "success",
+			in:          makeSecret("", "caData", "token"),
+			context:     "c0",
+			clusterName: fakeClusterName,
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: remoteSecretNameFromUID(fakeUID),
+					Name: remoteSecretNameFromClusterName(fakeClusterName),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": "c0",
 					},
@@ -473,7 +474,7 @@ users:
 					},
 				},
 				Data: map[string][]byte{
-					string(fakeUID): []byte(kubeconfig),
+					fakeClusterName: []byte(kubeconfig),
 				},
 			},
 		},
@@ -482,7 +483,7 @@ users:
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemoteSecretFromTokenAndServer(c.in, c.uid, c.context, c.server)
+			got, err := createRemoteSecretFromTokenAndServer(c.in, c.clusterName, c.context, c.server)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)
@@ -562,30 +563,30 @@ users:
         k1: v1
       name: foobar
 `
-	fakeUID := types.UID("fake-uid-0")
+	fakeClusterName := "fake-clusterName-0"
 
 	cases := []struct {
 		name               string
 		in                 *v1.Secret
 		context            string
-		uid                types.UID
+		clusterName        string
 		server             string
 		authProviderConfig *api.AuthProviderConfig
 		want               *v1.Secret
 		wantErrStr         string
 	}{
 		{
-			name:       "error on missing caData",
-			in:         makeSecret("", "", "token"),
-			context:    "c0",
-			uid:        fakeUID,
-			wantErrStr: errMissingRootCAKey.Error(),
+			name:        "error on missing caData",
+			in:          makeSecret("", "", "token"),
+			context:     "c0",
+			clusterName: fakeClusterName,
+			wantErrStr:  errMissingRootCAKey.Error(),
 		},
 		{
-			name:    "success on missing token",
-			in:      makeSecret("", "caData", ""),
-			context: "c0",
-			uid:     fakeUID,
+			name:        "success on missing token",
+			in:          makeSecret("", "caData", ""),
+			context:     "c0",
+			clusterName: fakeClusterName,
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{
@@ -594,7 +595,7 @@ users:
 			},
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: remoteSecretNameFromUID(fakeUID),
+					Name: remoteSecretNameFromClusterName(fakeClusterName),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": "c0",
 					},
@@ -603,15 +604,15 @@ users:
 					},
 				},
 				Data: map[string][]byte{
-					string(fakeUID): []byte(kubeconfig),
+					fakeClusterName: []byte(kubeconfig),
 				},
 			},
 		},
 		{
-			name:    "success",
-			in:      makeSecret("", "caData", "token"),
-			context: "c0",
-			uid:     types.UID("fake-uid-0"),
+			name:        "success",
+			in:          makeSecret("", "caData", "token"),
+			context:     "c0",
+			clusterName: fakeClusterName,
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{
@@ -620,7 +621,7 @@ users:
 			},
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: remoteSecretNameFromUID(fakeUID),
+					Name: remoteSecretNameFromClusterName(fakeClusterName),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": "c0",
 					},
@@ -629,7 +630,7 @@ users:
 					},
 				},
 				Data: map[string][]byte{
-					string(fakeUID): []byte(kubeconfig),
+					fakeClusterName: []byte(kubeconfig),
 				},
 			},
 		},
@@ -638,7 +639,7 @@ users:
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemoteSecretFromPlugin(c.in, c.context, c.server, c.uid, c.authProviderConfig)
+			got, err := createRemoteSecretFromPlugin(c.in, c.context, c.server, c.clusterName, c.authProviderConfig)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)
@@ -652,4 +653,26 @@ users:
 			}
 		})
 	}
+}
+
+func TestRemoteSecretOptions(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	o := RemoteSecretOptions{}
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	o.addFlags(flags)
+	g.Expect(flags.Parse([]string{
+		"--name",
+		"valid-name",
+	})).Should(Succeed())
+	g.Expect(o.prepare(flags)).Should(Succeed())
+
+	o = RemoteSecretOptions{}
+	flags = pflag.NewFlagSet("test", pflag.ContinueOnError)
+	o.addFlags(flags)
+	g.Expect(flags.Parse([]string{
+		"--name",
+		"?-invalid-name",
+	})).Should(Succeed())
+	g.Expect(o.prepare(flags)).Should(Not(Succeed()))
 }
