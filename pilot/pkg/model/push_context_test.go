@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -915,4 +917,12 @@ func (*fakeStore) Version() string {
 }
 func (*fakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return "not implemented", nil
+}
+
+func (s *fakeStore) GetLedger() ledger.Ledger {
+	panic("implement me")
+}
+
+func (s *fakeStore) SetLedger(ledger.Ledger) error {
+	panic("implement me")
 }
