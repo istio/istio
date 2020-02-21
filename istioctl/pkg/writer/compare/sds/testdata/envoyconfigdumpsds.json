@@ -551,7 +551,7 @@
           "version_info": "2019-08-27 17:19:57.597297632 +0000 UTC m=+64.076469895",
           "last_updated": "2019-08-27T17:19:57.894Z",
           "secret": {
-            "@type": "type.googleapis.com/envoy.api.v2.auth.Secret",
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret",
             "name": "default",
             "tls_certificate": {
               "certificate_chain": {
@@ -568,7 +568,7 @@
           "version_info": "2019-08-27 17:19:57.599480353 +0000 UTC m=+64.078652614",
           "last_updated": "2019-08-27T17:19:57.840Z",
           "secret": {
-            "@type": "type.googleapis.com/envoy.api.v2.auth.Secret",
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret",
             "name": "default",
             "tls_certificate": {
               "certificate_chain": {
@@ -585,7 +585,7 @@
           "version_info": "2019-08-27 17:19:57.997545301 +0000 UTC m=+64.476717645",
           "last_updated": "2019-08-27T17:19:58.010Z",
           "secret": {
-            "@type": "type.googleapis.com/envoy.api.v2.auth.Secret",
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret",
             "name": "ROOTCA",
             "validation_context": {
               "trusted_ca": {
@@ -599,7 +599,7 @@
           "version_info": "2019-08-27 17:19:57.997540399 +0000 UTC m=+64.476712736",
           "last_updated": "2019-08-27T17:19:58.038Z",
           "secret": {
-            "@type": "type.googleapis.com/envoy.api.v2.auth.Secret",
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret",
             "name": "ROOTCA",
             "validation_context": {
               "trusted_ca": {

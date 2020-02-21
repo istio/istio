@@ -381,8 +381,6 @@ spec:
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --dnsRefreshRate
-            - "300s"
             - --statusPort
             - "15020"
             - --trust-domain=cluster.local
@@ -761,6 +759,8 @@ spec:
             cpu: 111m
             memory: 222Mi
         volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
         - mountPath: /etc/istio/citadel-ca-cert
           name: citadel-ca-cert
         - mountPath: /var/run/secrets/tokens
@@ -799,6 +799,10 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
+      - configMap:
+          name: istio
+          optional: true
+        name: config-volume
       - name: ingressgateway-certs
         secret:
           optional: true

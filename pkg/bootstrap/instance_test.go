@@ -34,6 +34,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
+	"istio.io/istio/pilot/test/util"
+
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
@@ -263,10 +265,9 @@ func TestGolden(t *testing.T) {
 			}
 
 			fn, err := New(Config{
-				Node:           "sidecar~1.2.3.4~foo~bar",
-				DNSRefreshRate: "60s",
-				Proxy:          proxyConfig,
-				PlatEnv:        &fakePlatform{},
+				Node:    "sidecar~1.2.3.4~foo~bar",
+				Proxy:   proxyConfig,
+				PlatEnv: &fakePlatform{},
 				PilotSubjectAltName: []string{
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"},
 				LocalEnv:       localEnv,
@@ -300,7 +301,10 @@ func TestGolden(t *testing.T) {
 				return
 			}
 
-			golden, err := ioutil.ReadFile("testdata/" + c.base + "_golden.json")
+			goldenFile := "testdata/" + c.base + "_golden.json"
+			util.RefreshGoldenFile(read, goldenFile, t)
+
+			golden, err := ioutil.ReadFile(goldenFile)
 			if err != nil {
 				golden = []byte{}
 			}

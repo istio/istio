@@ -43,6 +43,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -57,7 +58,6 @@ import (
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 	alpn_filter "istio.io/istio/security/proto/envoy/config/filter/http/alpn/v2alpha1"
-	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -566,13 +566,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 			instance := configgen.findOrCreateServiceInstance(node.ServiceInstances, ingressListener,
 				sidecarScope.Config.Name, sidecarScope.Config.Namespace)
-
 			listenerOpts := buildListenerOpts{
-				push:       push,
-				proxy:      node,
-				bind:       bind,
-				port:       listenPort.Port,
-				bindToPort: bindToPort,
+				push:        push,
+				proxy:       node,
+				bind:        bind,
+				port:        listenPort.Port,
+				bindToPort:  bindToPort,
+				userTLSOpts: ingressListener.InboundTls,
 			}
 
 			// we don't need to set other fields of the endpoint here as
@@ -704,16 +704,23 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 
 	tlsInspectorEnabled := false
 	hasTLSContext := false
-allChainsLabel:
 	for _, c := range allChains {
 		for _, lf := range c.ListenerFilters {
 			if lf.Name == wellknown.TlsInspector {
 				tlsInspectorEnabled = true
-				break allChainsLabel
 			}
 		}
 
 		hasTLSContext = hasTLSContext || c.TLSContext != nil
+	}
+
+	// only apply inbound tls options when no authentication applies
+	if !hasTLSContext && listenerOpts.userTLSOpts != nil {
+		downstreamTLSContext := buildSidecarListenerTLSContext(listenerOpts.userTLSOpts, node.Metadata, listenerOpts.push.Mesh.SdsUdsPath)
+		for i := range allChains {
+			// set downstream tls context according to inbound tls options
+			allChains[i].TLSContext = downstreamTLSContext
+		}
 	}
 
 	var filterChainMatchOption []FilterChainMatchOptions
@@ -825,6 +832,75 @@ allChainsLabel:
 		instanceHostname: pluginParams.ServiceInstance.Service.Hostname,
 	}
 	return mutable.Listener
+}
+
+func buildSidecarListenerTLSContext(userTLSOpts *networking.Server_TLSOptions, metadata *model.NodeMetadata, sdsUdsPath string) *auth.DownstreamTlsContext {
+	if userTLSOpts == nil ||
+		(userTLSOpts.Mode != networking.Server_TLSOptions_SIMPLE &&
+			userTLSOpts.Mode != networking.Server_TLSOptions_MUTUAL) {
+		return nil
+	}
+
+	tls := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			AlpnProtocols: util.ALPNHttp,
+		},
+	}
+
+	if userTLSOpts.Mode == networking.Server_TLSOptions_MUTUAL {
+		tls.RequireClientCertificate = proto.BoolTrue
+	} else {
+		tls.RequireClientCertificate = proto.BoolFalse
+	}
+
+	// user sds enabled
+	if metadata.UserSds && userTLSOpts.CredentialName != "" {
+		util.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, userTLSOpts, sdsUdsPath)
+	} else {
+		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
+		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+			{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: userTLSOpts.ServerCertificate,
+					},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: userTLSOpts.PrivateKey,
+					},
+				},
+			},
+		}
+		if len(userTLSOpts.CaCertificates) != 0 {
+			trustedCa := &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: userTLSOpts.CaCertificates,
+				},
+			}
+
+			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa:            trustedCa,
+					VerifySubjectAltName: userTLSOpts.SubjectAltNames,
+				},
+			}
+		}
+	}
+
+	// Set TLS parameters if they are non-default
+	if len(userTLSOpts.CipherSuites) > 0 ||
+		userTLSOpts.MinProtocolVersion != networking.Server_TLSOptions_TLS_AUTO ||
+		userTLSOpts.MaxProtocolVersion != networking.Server_TLSOptions_TLS_AUTO {
+
+		tls.CommonTlsContext.TlsParams = &auth.TlsParameters{
+			TlsMinimumProtocolVersion: convertTLSProtocol(userTLSOpts.MinProtocolVersion),
+			TlsMaximumProtocolVersion: convertTLSProtocol(userTLSOpts.MaxProtocolVersion),
+			CipherSuites:              userTLSOpts.CipherSuites,
+		}
+	}
+
+	return tls
 }
 
 type inboundListenerEntry struct {
@@ -1864,6 +1940,7 @@ type buildListenerOpts struct {
 	proxy             *model.Proxy
 	bind              string
 	port              int
+	userTLSOpts       *networking.Server_TLSOptions
 	filterChainOpts   []*filterChainOpts
 	bindToPort        bool
 	skipUserFilters   bool
@@ -2183,37 +2260,33 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
 func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 	node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
-	if features.EnableFallthroughRoute.Get() {
+	wildcardMatch := &listener.FilterChainMatch{}
+	for _, fc := range l.FilterChains {
+		if isMatchAllFilterChain(fc) {
+			// We can only have one wildcard match. If the filter chain already has one, skip it
+			// This happens in the case of HTTP, which will get a fallthrough route added later,
+			// or TCP, which is not supported
+			return
+		}
+	}
 
-		wildcardMatch := &listener.FilterChainMatch{}
-		for _, fc := range l.FilterChains {
+	if currentListenerEntry != nil {
+		for _, fc := range currentListenerEntry.listener.FilterChains {
 			if isMatchAllFilterChain(fc) {
-				// We can only have one wildcard match. If the filter chain already has one, skip it
-				// This happens in the case of HTTP, which will get a fallthrough route added later,
-				// or TCP, which is not supported
+				// We can only have one wildcard match. If the existing filter chain already has one, skip it
+				// This can happen when there are multiple https services
 				return
 			}
 		}
-
-		if currentListenerEntry != nil {
-			for _, fc := range currentListenerEntry.listener.FilterChains {
-				if isMatchAllFilterChain(fc) {
-					// We can only have one wildcard match. If the existing filter chain already has one, skip it
-					// This can happen when there are multiple https services
-					return
-				}
-			}
-		}
-
-		tcpFilter := newTCPProxyOutboundListenerFilter(opts.push, node)
-
-		opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
-			networkFilters: []*listener.Filter{tcpFilter},
-			isFallThrough:  true,
-		})
-		l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
-
 	}
+
+	fallthroughNetworkFilters := buildFallthroughNetworkFilters(opts.push, node)
+
+	opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
+		networkFilters: fallthroughNetworkFilters,
+		isFallThrough:  true,
+	})
+	l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
 }
 
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.

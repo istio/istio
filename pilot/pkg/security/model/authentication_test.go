@@ -111,7 +111,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 }
 
-func TestConstructSdsSecretConfigForGatewayListener(t *testing.T) {
+func TestConstructSdsSecretConfigWithCustomUds(t *testing.T) {
 	cases := []struct {
 		serviceAccount string
 		sdsUdsPath     string
@@ -156,7 +156,7 @@ func TestConstructSdsSecretConfigForGatewayListener(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfigForGatewayListener(c.serviceAccount, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfigWithCustomUds(c.serviceAccount, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
 	}

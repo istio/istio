@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/pkg/ledger"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -32,6 +34,14 @@ import (
 // a stable List() which helps with testing `istioctl get` output.
 type sortedConfigStore struct {
 	store model.ConfigStore
+}
+
+func (cs sortedConfigStore) GetLedger() ledger.Ledger {
+	return cs.store.GetLedger()
+}
+
+func (cs sortedConfigStore) SetLedger(l ledger.Ledger) error {
+	return cs.store.SetLedger(l)
 }
 
 type testCase struct {
