@@ -41,8 +41,6 @@ spec:
         - status.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --dnsRefreshRate
-        - 300s
         - --statusPort
         - "123"
         - --trust-domain=cluster.local

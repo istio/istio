@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/informers/extensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
@@ -185,6 +187,15 @@ func (c *controller) Version() string {
 
 func (c *controller) GetResourceAtVersion(string, string) (resourceVersion string, err error) {
 	panic("implement me")
+}
+
+func (c *controller) GetLedger() ledger.Ledger {
+	log.Warnf("GetLedger: %s", errors.New("this operation is not supported by kube ingress controller"))
+	return nil
+}
+
+func (c *controller) SetLedger(ledger.Ledger) error {
+	return errors.New("this SetLedger operation is not supported by kube ingress controller")
 }
 
 func (c *controller) HasSynced() bool {

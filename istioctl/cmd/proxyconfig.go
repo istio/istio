@@ -262,6 +262,9 @@ func setupClustersEnvoyConfigWriter(debug []byte, out io.Writer) (*clusters.Conf
 }
 
 func proxyConfig() *cobra.Command {
+	// output format (yaml or short)
+	var outputFormat string
+
 	configCmd := &cobra.Command{
 		Use:   "proxy-config",
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",

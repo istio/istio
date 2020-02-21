@@ -49,9 +49,6 @@ var (
 	istioNamespace   string
 	defaultNamespace string
 
-	// output format (yaml or short)
-	outputFormat string
-
 	// Create a kubernetes.ExecClient (or mockExecClient)
 	clientExecFactory = newExecClient
 

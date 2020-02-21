@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -430,75 +429,9 @@ func buildGatewayListenerTLSContext(
 	if enableIngressSds && server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
-		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			authn_model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, authn_model.IngressGatewaySdsUdsPath),
-		}
-		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
-		// at gateway agent. Otherwise, use the static certificate validation context config.
-		if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
-			defaultValidationContext := &auth.CertificateValidationContext{
-				VerifySubjectAltName:  server.Tls.SubjectAltNames,
-				VerifyCertificateSpki: server.Tls.VerifyCertificateSpki,
-				VerifyCertificateHash: server.Tls.VerifyCertificateHash,
-			}
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: defaultValidationContext,
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigForGatewayListener(
-						server.Tls.CredentialName+authn_model.IngressGatewaySdsCaSuffix, authn_model.IngressGatewaySdsUdsPath),
-				},
-			}
-		} else if len(server.Tls.SubjectAltNames) > 0 {
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					VerifySubjectAltName: server.Tls.SubjectAltNames,
-				},
-			}
-		}
+		util.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
 	} else if server.Tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
-		// global SDS must be enabled if the sds path is non-default, configure TLS with SDS
-		if sdsPath != "" {
-			// configure egress with SDS
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, sdsPath),
-				},
-			}
-			tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsPath)}
-		} else {
-			// global SDS disabled, fall back on using mounted certificates
-			caCertificates := model.GetOrDefault(metadata.TLSServerRootCert, constants.DefaultRootCert)
-			trustedCa := &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: caCertificates,
-				},
-			}
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa:            trustedCa,
-					VerifySubjectAltName: server.Tls.SubjectAltNames,
-				},
-			}
-
-			certChainPath := model.GetOrDefault(metadata.TLSServerCertChain, constants.DefaultCertChain)
-			privateKeyPath := model.GetOrDefault(metadata.TLSServerKey, constants.DefaultKey)
-			tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: certChainPath,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: privateKeyPath,
-						},
-					},
-				},
-			}
-		}
+		util.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
 	} else {
 		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{

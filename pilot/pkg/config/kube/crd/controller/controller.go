@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -263,6 +265,14 @@ func (c *controller) Version() string {
 
 func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return c.client.GetResourceAtVersion(version, key)
+}
+
+func (c *controller) GetLedger() ledger.Ledger {
+	return c.client.GetLedger()
+}
+
+func (c *controller) SetLedger(l ledger.Ledger) error {
+	return c.client.SetLedger(l)
 }
 
 func (c *controller) HasSynced() bool {

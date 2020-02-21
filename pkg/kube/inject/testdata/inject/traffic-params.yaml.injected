@@ -39,8 +39,6 @@ spec:
         - traffic.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --dnsRefreshRate
-        - 300s
         - --trust-domain=cluster.local
         - --controlPlaneBootstrap=false
         - --concurrency

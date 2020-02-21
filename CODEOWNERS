@@ -47,7 +47,6 @@
 /tests/integration/pilot/                                        @istio/wg-networking-maintainers
 /tests/integration/qualification/                                @istio/wg-test-and-release-maintainers
 /tests/integration/security/                                     @istio/wg-security-maintainers
-/tests/integration/istioio/                                      @istio/wg-docs-maintainers @istio/wg-test-and-release-maintainers
 /tests/integration/istioctl/                                     @istio/wg-user-experience-maintainers
 /tools/                                                          @istio/wg-test-and-release-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
