@@ -133,9 +133,6 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
 	seenNamespaceOrMeshConfig := make(map[string]time.Time)
 
 	for _, config := range configs {
-		policy.peerAuthentications[config.Namespace] =
-			append(policy.peerAuthentications[config.Namespace], config)
-
 		// Mesh & namespace level policy are those that have empty selector.
 		spec := config.Spec.(*v1beta1.PeerAuthentication)
 		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
@@ -163,6 +160,11 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
 				foundNamespaceMTLS[config.Namespace] = mode
 			}
 		}
+
+		// Add the config to the map by namespace for future look up. This is done after namespace/mesh
+		// singleton check so there should be at most one namespace/mesh config is added to the map.
+		policy.peerAuthentications[config.Namespace] =
+			append(policy.peerAuthentications[config.Namespace], config)
 	}
 
 	// Process found namespace-level policy.

@@ -754,9 +754,9 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	}
 
 	// Add beta policies
-	configStore.Create(*createTestPeerAuthenticationResource("default", betaNamespace, nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
+	configStore.Create(*createTestPeerAuthenticationResource("default", betaNamespace, time.Now(), nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
 	// workload level beta policy.
-	configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", alphaNamespace, &selectorpb.WorkloadSelector{
+	configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", alphaNamespace, time.Now(), &selectorpb.WorkloadSelector{
 		MatchLabels: map[string]string{
 			"app":     "httpbin",
 			"version": "v1",
