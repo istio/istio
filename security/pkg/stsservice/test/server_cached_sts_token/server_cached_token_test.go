@@ -34,7 +34,7 @@ func TestServerCachedToken(t *testing.T) {
 	// Sets up callback that verifies token on new XDS stream.
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers and proxy
-	setup := stsTest.SetUpTest(t, cb, testID.STSCacheTest, true)
+	setup := stsTest.SetupTest(t, cb, testID.STSServerCacheTest, true)
 	// Explicitly set token life time to a long duration.
 	setup.AuthServer.SetTokenLifeTime(3600)
 	// Explicitly set auth server to return different access token to each call.
@@ -51,8 +51,8 @@ func TestServerCachedToken(t *testing.T) {
 	// Starting proxy will send a STS request to the STS server, and gets a cached
 	// token. This token is used to set up gRPC stream with XDS server.
 	setup.StartProxy(t)
-	setup.ProxySetUp.WaitEnvoyReady()
-	setup.ProxySetUp.ReStartEnvoy()
+	setup.ProxySetup.WaitEnvoyReady()
+	setup.ProxySetup.ReStartEnvoy()
 	// Restarting proxy will send another STS request to the STS server, and gets
 	// a cached token. This token is used to set up a new gRPC stream with the XDS
 	// server.

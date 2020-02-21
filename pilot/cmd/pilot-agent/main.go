@@ -449,6 +449,11 @@ var (
 						option.SDSUDSPath(sdsUDSPath),
 					}
 
+					if stsPort > 0 {
+						opts = append(opts, option.STSEnabled(true),
+							option.STSPort(stsPort))
+					}
+
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
 					if proxyIPv6 {
 						opts = append(opts, option.Localhost(option.LocalhostIPv6),

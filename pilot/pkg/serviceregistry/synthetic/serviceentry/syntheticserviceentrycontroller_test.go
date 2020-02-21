@@ -124,7 +124,6 @@ var (
 
 	testControllerOptions = &serviceentry.Options{
 		DomainSuffix: "cluster.local",
-		ConfigLedger: &model.DisabledLedger{},
 	}
 )
 

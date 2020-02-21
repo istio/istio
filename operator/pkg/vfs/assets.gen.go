@@ -229,6 +229,7 @@
 // profiles/empty.yaml
 // profiles/minimal.yaml
 // profiles/remote.yaml
+// profiles/separate.yaml
 // translateConfig/names-1.5.yaml
 // translateConfig/reverseTranslateConfig-1.4.yaml
 // translateConfig/reverseTranslateConfig-1.5.yaml
@@ -7005,9 +7006,6 @@ spec:
             value: |
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           - name: SDS_ENABLED
@@ -7039,6 +7037,8 @@ spec:
             mountPath: /etc/certs
             readOnly: true
           {{- end }}
+          - name: podinfo
+            mountPath: /etc/istio/pod
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -7053,6 +7053,15 @@ spec:
         configMap:
           name: istio-ca-root-cert
       {{- end }}
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
 {{- if .Values.global.istiod.enabled }}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
@@ -8124,9 +8133,6 @@ spec:
             value: |
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           - name: SDS_ENABLED
@@ -8165,6 +8171,8 @@ spec:
             mountPath: /etc/certs
             readOnly: true
           {{- end }}
+          - name: podinfo
+            mountPath: /etc/istio/pod
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -8179,6 +8187,15 @@ spec:
         configMap:
           name: istio-ca-root-cert
 {{- end }}
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
       - name: ingressgatewaysdsudspath
         emptyDir: {}
 {{- if .Values.global.istiod.enabled }}
@@ -9918,7 +9935,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - mountPath: /var/run/sds
       name: sds-uds-path
       readOnly: true
-    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+    {{- if and (eq .Values.global.jwtPolicy "third-party-jwt") .Values.global.istiod.enabled }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
     {{- end }}
@@ -9956,7 +9973,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   - name: sds-uds-path
     hostPath:
       path: /var/run/sds
-  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+  {{- if and (eq .Values.global.jwtPolicy "third-party-jwt") .Values.global.istiod.enabled }}
   - name: istio-token
     projected:
       sources:
@@ -12392,11 +12409,6 @@ template: |
       value: |
              {{ toJSON .ObjectMeta.Annotations }}
     {{ end }}
-    {{ if .ObjectMeta.Labels }}
-    - name: ISTIO_METAJSON_LABELS
-      value: |
-             {{ toJSON .ObjectMeta.Labels }}
-    {{ end }}
     {{- if .DeploymentMeta.Name }}
     - name: ISTIO_META_WORKLOAD_NAME
       value: {{ .DeploymentMeta.Name }}
@@ -12509,6 +12521,8 @@ template: |
       name: istio-certs
       readOnly: true
     {{- end }}
+    - name: podinfo
+      mountPath: /etc/istio/pod
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
       name: lightstep-certs
@@ -12530,6 +12544,15 @@ template: |
   - emptyDir:
       medium: Memory
     name: istio-envoy
+  - name: podinfo
+    downwardAPI:
+      items:
+        - path: "labels"
+          fieldRef:
+            fieldPath: metadata.labels
+        - path: "annotations"
+          fieldRef:
+            fieldPath: metadata.annotations
   {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:
@@ -13539,19 +13562,17 @@ data:
         {{- end }}
       {{- end }}
 
-    {{- if .Values.global.istiod.enabled }}
-    {{- if not (eq .Values.revision "") }}
-    {{- $defPilotHostname := printf "istiod-%s.%s" .Values.revision .Release.Namespace }}
-    {{- else }}
-    {{- $defPilotHostname := printf "istiod.%s"  .Release.Namespace }}
-    {{- end }}
-    {{- $defPilotHostname := printf "istiod%s.%s" .Values.revision .Release.Namespace }}
+    {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
     {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
-
+    {{- if .Values.global.istiod.enabled }}
       # If port is 15012, will use SDS.
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: {{ $defPilotHostname }}.svc:15012
+      {{- if .Values.global.remotePilotAddress }}
+      discoveryAddress: {{ .Values.global.remotePilotAddress }}
+      {{- else }}
+      discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
+      {{- end }}
 
     {{- else if .Values.global.controlPlaneSecurityEnabled }}
       #
@@ -14077,7 +14098,7 @@ func chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml() (*asset, erro
 }
 
 var _chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-{{- if not .Values.global.omitSidecarInjectorConfigMap }}
+{{- if and (not .Values.global.omitSidecarInjectorConfigMap) .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14128,7 +14149,7 @@ func chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml() (*as
 }
 
 var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
-{{- if not .Values.global.operatorManageWebhooks }}
+{{- if and (not .Values.global.operatorManageWebhooks) .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -35770,8 +35791,7 @@ spec:
             mountPath: /etc/prometheus
           - mountPath: /etc/istio-certs
             name: istio-certs
-
-{{- if .Values.prometheus.provisionPrometheusCert }}
+{{- if and .Values.prometheus.provisionPrometheusCert .Values.global.istiod.enabled }}
         - name: istio-proxy
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           ports:
@@ -41013,6 +41033,47 @@ func profilesRemoteYaml() (*asset, error) {
 	return a, nil
 }
 
+var _profilesSeparateYaml = []byte(`# The separate profile will disable istiod and bring back the old microservices model
+# This will be removed in future (1.6) releases
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    sidecarInjector:
+      enabled: true
+    citadel:
+      enabled: true
+    galley:
+      enabled: true
+    telemetry:
+      enabled: true
+  values:
+    telemetry:
+      v1:
+        enabled: true
+      v2:
+        enabled: false
+    global:
+      pilotCertProvider: kubernetes
+      mountMtlsCerts: true
+      istiod:
+        enabled: false`)
+
+func profilesSeparateYamlBytes() ([]byte, error) {
+	return _profilesSeparateYaml, nil
+}
+
+func profilesSeparateYaml() (*asset, error) {
+	bytes, err := profilesSeparateYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "profiles/separate.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _translateconfigNames15Yaml = []byte(`BundledAddonComponentNames:
   - "Prometheus"
   - "Kiali"
@@ -42136,6 +42197,7 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/empty.yaml":                                                                    profilesEmptyYaml,
 	"profiles/minimal.yaml":                                                                  profilesMinimalYaml,
 	"profiles/remote.yaml":                                                                   profilesRemoteYaml,
+	"profiles/separate.yaml":                                                                 profilesSeparateYaml,
 	"translateConfig/names-1.5.yaml":                                                         translateconfigNames15Yaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                        translateconfigReversetranslateconfig14Yaml,
 	"translateConfig/reverseTranslateConfig-1.5.yaml":                                        translateconfigReversetranslateconfig15Yaml,
@@ -42518,11 +42580,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{
-		"default.yaml": &bintree{profilesDefaultYaml, map[string]*bintree{}},
-		"demo.yaml":    &bintree{profilesDemoYaml, map[string]*bintree{}},
-		"empty.yaml":   &bintree{profilesEmptyYaml, map[string]*bintree{}},
-		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
-		"remote.yaml":  &bintree{profilesRemoteYaml, map[string]*bintree{}},
+		"default.yaml":  &bintree{profilesDefaultYaml, map[string]*bintree{}},
+		"demo.yaml":     &bintree{profilesDemoYaml, map[string]*bintree{}},
+		"empty.yaml":    &bintree{profilesEmptyYaml, map[string]*bintree{}},
+		"minimal.yaml":  &bintree{profilesMinimalYaml, map[string]*bintree{}},
+		"remote.yaml":   &bintree{profilesRemoteYaml, map[string]*bintree{}},
+		"separate.yaml": &bintree{profilesSeparateYaml, map[string]*bintree{}},
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"names-1.5.yaml":                  &bintree{translateconfigNames15Yaml, map[string]*bintree{}},

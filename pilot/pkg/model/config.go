@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	"github.com/mitchellh/copystructure"
 
@@ -172,6 +174,10 @@ type ConfigStore interface {
 	Version() string
 
 	GetResourceAtVersion(version string, key string) (resourceVersion string, err error)
+
+	GetLedger() ledger.Ledger
+
+	SetLedger(ledger.Ledger) error
 }
 
 // Key function for the configuration objects

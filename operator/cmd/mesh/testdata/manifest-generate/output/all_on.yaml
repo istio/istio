@@ -6957,9 +6957,6 @@ spec:
           - name: ISTIO_META_ROUTER_MODE
             value: sni-dnat
           
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {"app":"istio-egressgateway","istio":"egressgateway"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           - name: SDS_ENABLED
@@ -6971,6 +6968,8 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
           
+          - name: podinfo
+            mountPath: /etc/istio/pod
           - name: egressgateway-certs
             mountPath: "/etc/istio/egressgateway-certs"
             readOnly: true
@@ -6981,6 +6980,15 @@ spec:
       - name: citadel-ca-cert
         configMap:
           name: istio-ca-root-cert
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
       - name: istio-token
         projected:
           sources:
@@ -7822,9 +7830,6 @@ spec:
           - name: ISTIO_META_ROUTER_MODE
             value: sni-dnat
           
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {"app":"istio-ingressgateway","istio":"ingressgateway"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           - name: SDS_ENABLED
@@ -7838,6 +7843,8 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
 
+          - name: podinfo
+            mountPath: /etc/istio/pod
           - name: ingressgateway-certs
             mountPath: "/etc/istio/ingressgateway-certs"
             readOnly: true
@@ -7848,6 +7855,15 @@ spec:
       - name: citadel-ca-cert
         configMap:
           name: istio-ca-root-cert
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
       - name: ingressgatewaysdsudspath
         emptyDir: {}
       - name: istio-token
@@ -8570,7 +8586,6 @@ data:
         zipkin:
           # Address of the Zipkin collector
           address: zipkin.istio-system:9411
-
       # If port is 15012, will use SDS.
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
@@ -9276,11 +9291,6 @@ data:
           value: |
                  {{ toJSON .ObjectMeta.Annotations }}
         {{ end }}
-        {{ if .ObjectMeta.Labels }}
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-                 {{ toJSON .ObjectMeta.Labels }}
-        {{ end }}
         {{- if .DeploymentMeta.Name }}
         - name: ISTIO_META_WORKLOAD_NAME
           value: {{ .DeploymentMeta.Name }}
@@ -9393,6 +9403,8 @@ data:
           name: istio-certs
           readOnly: true
         {{- end }}
+        - name: podinfo
+          mountPath: /etc/istio/pod
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
           name: lightstep-certs
@@ -9414,6 +9426,15 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
       {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
@@ -11073,7 +11094,7 @@ data:
         - mountPath: /var/run/sds
           name: sds-uds-path
           readOnly: true
-        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+        {{- if and (eq .Values.global.jwtPolicy "third-party-jwt") .Values.global.istiod.enabled }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
@@ -11111,7 +11132,7 @@ data:
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      {{- if and (eq .Values.global.jwtPolicy "third-party-jwt") .Values.global.istiod.enabled }}
       - name: istio-token
         projected:
           sources:

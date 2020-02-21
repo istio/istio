@@ -1422,7 +1422,7 @@ func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *
 			matchedMeta = policiesByPort[i].configMeta
 		}
 
-		if port != nil && port.Match(policyByPort.portSelector) {
+		if port != nil && policyByPort.portSelector != nil && port.Match(policyByPort.portSelector) {
 			matchedPolicy = policiesByPort[i].policy
 			matchedMeta = policiesByPort[i].configMeta
 			break

@@ -56,8 +56,7 @@ spec:
             mountPath: /etc/prometheus
           - mountPath: /etc/istio-certs
             name: istio-certs
-
-{{- if .Values.prometheus.provisionPrometheusCert }}
+{{- if and .Values.prometheus.provisionPrometheusCert .Values.global.istiod.enabled }}
         - name: istio-proxy
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           ports:

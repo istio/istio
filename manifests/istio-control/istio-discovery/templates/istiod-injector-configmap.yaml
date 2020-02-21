@@ -1,5 +1,5 @@
 {{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-{{- if not .Values.global.omitSidecarInjectorConfigMap }}
+{{- if and (not .Values.global.omitSidecarInjectorConfigMap) .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
