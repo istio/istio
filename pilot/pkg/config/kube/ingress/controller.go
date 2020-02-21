@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/informers/extensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
@@ -30,12 +32,13 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -68,8 +71,8 @@ var (
 		collections.IstioNetworkingV1Alpha3Virtualservices,
 		collections.IstioNetworkingV1Alpha3Gateways)
 
-	virtualServiceKind = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind()
-	gatewayKind        = collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind()
+	virtualServiceGvk = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()
+	gatewayGvk        = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
 )
 
 // Control needs RBAC permissions to write to Pods.
@@ -161,7 +164,9 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	for _, f := range c.virtualServiceHandlers {
 		f(model.Config{}, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type: virtualServiceKind,
+				Type:    virtualServiceGvk.Kind,
+				Version: virtualServiceGvk.Version,
+				Group:   virtualServiceGvk.Group,
 			},
 		}, event)
 	}
@@ -169,9 +174,9 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	return nil
 }
 
-func (c *controller) RegisterEventHandler(kind string, f func(model.Config, model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func(model.Config, model.Config, model.Event)) {
 	switch kind {
-	case virtualServiceKind:
+	case virtualServiceGvk:
 		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
 	}
 }
@@ -182,6 +187,15 @@ func (c *controller) Version() string {
 
 func (c *controller) GetResourceAtVersion(string, string) (resourceVersion string, err error) {
 	panic("implement me")
+}
+
+func (c *controller) GetLedger() ledger.Ledger {
+	log.Warnf("GetLedger: %s", errors.New("this operation is not supported by kube ingress controller"))
+	return nil
+}
+
+func (c *controller) SetLedger(ledger.Ledger) error {
+	return errors.New("this SetLedger operation is not supported by kube ingress controller")
 }
 
 func (c *controller) HasSynced() bool {
@@ -203,8 +217,9 @@ func (c *controller) Schemas() collection.Schemas {
 }
 
 //TODO: we don't return out of this function now
-func (c *controller) Get(typ, name, namespace string) *model.Config {
-	if typ != gatewayKind && typ != virtualServiceKind {
+func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
+	if typ != collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind() &&
+		typ != collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind() {
 		return nil
 	}
 
@@ -227,8 +242,9 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 	return nil
 }
 
-func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	if typ != gatewayKind && typ != virtualServiceKind {
+func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+	if typ != collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind() &&
+		typ != collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind() {
 		return nil, errUnsupportedOp
 	}
 
@@ -247,15 +263,15 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		}
 
 		switch typ {
-		case virtualServiceKind:
+		case virtualServiceGvk:
 			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
-		case gatewayKind:
+		case gatewayGvk:
 			gateways := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			out = append(out, gateways)
 		}
 	}
 
-	if typ == virtualServiceKind {
+	if typ == virtualServiceGvk {
 		for _, obj := range ingressByHost {
 			out = append(out, *obj)
 		}
@@ -272,6 +288,6 @@ func (c *controller) Update(_ model.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Delete(_, _, _ string) error {
+func (c *controller) Delete(_ resource.GroupVersionKind, _, _ string) error {
 	return errUnsupportedOp
 }

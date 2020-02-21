@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/pkg/ledger"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -28,10 +30,11 @@ import (
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 func TestGetAuthorizationPolicies(t *testing.T) {
@@ -39,6 +42,8 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	roleCfg := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Serviceroles.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Serviceroles.Resource().Group(),
 			Name:      "test-role-1",
 			Namespace: testNS,
 		},
@@ -49,6 +54,8 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	bindingCfg := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
 			Name:      "test-binding-1",
 			Namespace: testNS,
 		},
@@ -60,6 +67,8 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	invalidateBindingCfg := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
 			Name:      "test-binding-1",
 			Namespace: testNS,
 		},
@@ -822,21 +831,31 @@ func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *Authorizat
 }
 
 func newConfig(name, ns string, spec proto.Message) Config {
-	var kind string
+	var kind, version, group string
 
 	switch spec.(type) {
 	case *rbacproto.RbacConfig:
 		kind = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind()
+		version = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Version()
+		group = collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Group()
 	case *rbacproto.ServiceRole:
 		kind = collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind()
+		version = collections.IstioRbacV1Alpha1Serviceroles.Resource().Version()
+		group = collections.IstioRbacV1Alpha1Serviceroles.Resource().Group()
 	case *rbacproto.ServiceRoleBinding:
 		kind = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind()
+		version = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version()
+		group = collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group()
 	case *authpb.AuthorizationPolicy:
 		kind = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind()
+		version = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Version()
+		group = collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Group()
 	}
 	return Config{
 		ConfigMeta: ConfigMeta{
 			Type:      kind,
+			Version:   version,
+			Group:     group,
 			Name:      name,
 			Namespace: ns,
 		},
@@ -846,19 +865,27 @@ func newConfig(name, ns string, spec proto.Message) Config {
 
 type authzFakeStore struct {
 	data []struct {
-		typ string
+		typ resource.GroupVersionKind
 		ns  string
 		cfg Config
 	}
 }
 
+func (fs *authzFakeStore) GetLedger() ledger.Ledger {
+	panic("implement me")
+}
+
+func (fs *authzFakeStore) SetLedger(ledger.Ledger) error {
+	panic("implement me")
+}
+
 func (fs *authzFakeStore) add(config Config) {
 	fs.data = append(fs.data, struct {
-		typ string
+		typ resource.GroupVersionKind
 		ns  string
 		cfg Config
 	}{
-		typ: config.Type,
+		typ: config.GroupVersionKind(),
 		ns:  config.Namespace,
 		cfg: config,
 	})
@@ -868,11 +895,11 @@ func (fs *authzFakeStore) Schemas() collection.Schemas {
 	return collection.SchemasFor()
 }
 
-func (fs *authzFakeStore) Get(_, _, _ string) *Config {
+func (fs *authzFakeStore) Get(_ resource.GroupVersionKind, _, _ string) *Config {
 	return nil
 }
 
-func (fs *authzFakeStore) List(typ, namespace string) ([]Config, error) {
+func (fs *authzFakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
 	var configs []Config
 	for _, data := range fs.data {
 		if data.typ == typ {
@@ -885,7 +912,7 @@ func (fs *authzFakeStore) List(typ, namespace string) ([]Config, error) {
 	return configs, nil
 }
 
-func (fs *authzFakeStore) Delete(_, _, _ string) error {
+func (fs *authzFakeStore) Delete(_ resource.GroupVersionKind, _, _ string) error {
 	return fmt.Errorf("not implemented")
 }
 func (fs *authzFakeStore) Create(Config) (string, error) {

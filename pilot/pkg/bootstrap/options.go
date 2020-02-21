@@ -19,10 +19,10 @@ import (
 
 	"istio.io/pkg/env"
 
-	"istio.io/istio/pkg/config/constants"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/pkg/ctrlz"
 )
@@ -66,31 +66,35 @@ type ServiceArgs struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions         DiscoveryServiceOptions
-	InjectionOptions         InjectionOptions
-	Namespace                string
-	Mesh                     MeshArgs
-	Config                   ConfigArgs
-	Service                  ServiceArgs
-	MeshConfig               *meshconfig.MeshConfig
-	NetworksConfigFile       string
-	CtrlZOptions             *ctrlz.Options
-	Plugins                  []string
-	MCPMaxMessageSize        int
-	MCPInitialWindowSize     int
-	MCPInitialConnWindowSize int
-	KeepaliveOptions         *istiokeepalive.Options
+	DiscoveryOptions   DiscoveryServiceOptions
+	InjectionOptions   InjectionOptions
+	PodName            string
+	Namespace          string
+	Revision           string
+	ServiceAccountName string
+	Mesh               MeshArgs
+	Config             ConfigArgs
+	Service            ServiceArgs
+	MeshConfig         *meshconfig.MeshConfig
+	NetworksConfigFile string
+	CtrlZOptions       *ctrlz.Options
+	Plugins            []string
+	MCPOptions         MCPOptions
+	KeepaliveOptions   *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
-	BasePort  int
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
 // service instance.
 type DiscoveryServiceOptions struct {
-	// The listening address for HTTP. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// The listening address for HTTP (debug). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	HTTPAddr string
+
+	// The listening address for HTTPS (webhooks). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	HTTPSAddr string
 
 	// The listening address for GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
@@ -101,10 +105,6 @@ type DiscoveryServiceOptions struct {
 	// "" means disabling secure GRPC, used in test.
 	SecureGrpcAddr string
 
-	// The listening address for secure GRPC with DNS-based certificates. Default is :15012, if certificates are available.
-	// Will not start otherwise.
-	SecureGrpcDNSAddr string
-
 	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	MonitoringAddr string
@@ -113,30 +113,51 @@ type DiscoveryServiceOptions struct {
 }
 
 type InjectionOptions struct {
+	// Directory of injection related config files.
 	InjectionDirectory string
-	Port               int
 }
 
-var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+type MCPOptions struct {
+	MaxMessageSize        int
+	InitialWindowSize     int
+	InitialConnWindowSize int
+}
+
+var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
+var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
+
+var revisionVar = env.RegisterStringVar("REVISION", "", "")
+
+// NewPilotArgs constructs pilotArgs with default values.
+func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
+	p := &PilotArgs{}
+
+	// Apply Default Values.
+	p.applyDefaults()
+
+	// Apply custom initialization functions.
+	for _, fn := range initFuncs {
+		fn(p)
+	}
+
+	// Set the ClusterRegistries namespace based on the selected namespace.
+	if p.Namespace != "" {
+		p.Config.ClusterRegistriesNamespace = p.Namespace
+	} else {
+		p.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
+	}
+
+	return p
+}
 
 // Apply default value to PilotArgs
-func (p *PilotArgs) Default() {
-	// If the namespace isn't set, try looking it up from the environment.
-	if p.Namespace == "" {
-		p.Namespace = podNamespaceVar.Get()
-	}
-
-	if p.KeepaliveOptions == nil {
-		p.KeepaliveOptions = istiokeepalive.DefaultOption()
-	}
-	if p.Config.ClusterRegistriesNamespace == "" {
-		if p.Namespace != "" {
-			p.Config.ClusterRegistriesNamespace = p.Namespace
-		} else {
-			p.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
-		}
-	}
-	if p.BasePort == 0 {
-		p.BasePort = 15000
-	}
+func (p *PilotArgs) applyDefaults() {
+	p.Namespace = PodNamespaceVar.Get()
+	p.PodName = podNameVar.Get()
+	p.ServiceAccountName = serviceAccountVar.Get()
+	p.Revision = revisionVar.Get()
+	p.KeepaliveOptions = istiokeepalive.DefaultOption()
+	p.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
+	p.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 }

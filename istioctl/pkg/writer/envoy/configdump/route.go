@@ -22,6 +22,7 @@ import (
 	"text/tabwriter"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 )
@@ -95,12 +96,22 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*xdsapi.RouteConfiguration,
 	routes := make([]*xdsapi.RouteConfiguration, 0)
 	for _, route := range routeDump.DynamicRouteConfigs {
 		if route.RouteConfig != nil {
-			routes = append(routes, route.RouteConfig)
+			routeTyped := &xdsapi.RouteConfiguration{}
+			err = ptypes.UnmarshalAny(route.RouteConfig, routeTyped)
+			if err != nil {
+				return nil, err
+			}
+			routes = append(routes, routeTyped)
 		}
 	}
 	for _, route := range routeDump.StaticRouteConfigs {
 		if route.RouteConfig != nil {
-			routes = append(routes, route.RouteConfig)
+			routeTyped := &xdsapi.RouteConfiguration{}
+			err = ptypes.UnmarshalAny(route.RouteConfig, routeTyped)
+			if err != nil {
+				return nil, err
+			}
+			routes = append(routes, routeTyped)
 		}
 	}
 	if len(routes) == 0 {

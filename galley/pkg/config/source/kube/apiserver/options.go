@@ -17,9 +17,9 @@ package apiserver
 import (
 	"time"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Options for the kube controller

@@ -17,7 +17,10 @@ package namespace
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
+	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -39,11 +42,45 @@ type kubeNamespace struct {
 	id   resource.ID
 	name string
 	a    *k.Accessor
+	ctx  resource.Context
+}
+
+func (n *kubeNamespace) Dump() {
+	scopes.CI.Errorf("=== Dumping Namespace %s State...", n.name)
+
+	d, err := n.ctx.CreateTmpDirectory(n.name + "-state")
+	if err != nil {
+		scopes.CI.Errorf("Unable to create directory for dumping %s contents: %v", n.name, err)
+		return
+	}
+
+	pods, err := n.a.GetPods(n.name)
+	if err != nil {
+		scopes.CI.Errorf("Unable to get pods from the namespace: %v", err)
+		return
+	}
+
+	for _, pod := range pods {
+		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
+		for _, container := range containers {
+			l, err := n.a.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
+			if err != nil {
+				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+				continue
+			}
+
+			fname := path.Join(d, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
+			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+				scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+			}
+		}
+	}
 }
 
 var _ Instance = &kubeNamespace{}
 var _ io.Closer = &kubeNamespace{}
 var _ resource.Resource = &kubeNamespace{}
+var _ resource.Dumper = &kubeNamespace{}
 
 func (n *kubeNamespace) Name() string {
 	return n.name
@@ -103,7 +140,7 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 		return nil, err
 	}
 
-	n := &kubeNamespace{name: ns, a: env.Accessor}
+	n := &kubeNamespace{name: ns, a: env.Accessor, ctx: ctx}
 	id := ctx.TrackResource(n)
 	n.id = id
 

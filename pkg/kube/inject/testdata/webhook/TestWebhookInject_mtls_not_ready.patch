@@ -52,5 +52,15 @@
     "value": {
       "sidecar.istio.io/status": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
     }
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels/service.istio.io~1canonical-name",
+    "value": ""
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels/service.istio.io~1canonical-revision",
+    "value": "latest"
   }
 ]

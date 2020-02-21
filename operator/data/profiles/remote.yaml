@@ -14,23 +14,18 @@ spec:
       enabled: false
     citadel:
       enabled: false
-    nodeAgent:
-      enabled: false
     galley:
       enabled: false
     cni:
       enabled: false
 
-  values:
-    pilot:
-      configSource:
-        subscribedResources:
-
-    security:
-      createMeshPolicy: false
-
+  addonComponents:
     prometheus:
       enabled: false
+
+  values:
+    security:
+      createMeshPolicy: false
 
     global:
       istioRemote: true

@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/golang/protobuf/ptypes/duration"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -35,7 +36,7 @@ import (
 const bearerTokenPrefix = "Bearer "
 
 var (
-	googleCAClientLog = log.RegisterScope("googleCAClientLog", "Google CA client debugging", 0)
+	googleCAClientLog = log.RegisterScope("googleca", "Google CA client debugging", 0)
 	gkeClusterURL     = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 
@@ -76,11 +77,12 @@ func NewGoogleCAClient(endpoint string, tls bool) (caClientInterface.Client, err
 }
 
 // CSR Sign calls Google CA to sign a CSR.
-func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
+func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &gcapb.MeshCertificateRequest{
-		Csr:              string(csrPEM),
-		ValidityDuration: certValidTTLInSec,
+		RequestId: reqID,
+		Csr:       string(csrPEM),
+		Validity:  &duration.Duration{Seconds: certValidTTLInSec},
 	}
 
 	// If the token doesn't have "Bearer " prefix, add it.

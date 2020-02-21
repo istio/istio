@@ -141,36 +141,6 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 	}
 }
 
-func TestStateMetrics(t *testing.T) {
-	framework.
-		NewTest(t).
-		RequiresEnvironment(environment.Kube).
-		Run(func(ctx framework.TestContext) {
-			g.ApplyConfigOrFail(
-				t,
-				bookinfoNs,
-				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-				bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			)
-			defer g.DeleteConfigOrFail(t,
-				bookinfoNs,
-				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-				bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			)
-
-			util.AllowRuleSync(t)
-
-			query := fmt.Sprintf("sum(galley_istio_networking_destinationrules{namespace=\"%s\",version=\"v1alpha3\"})", bookinfoNs.Name())
-			util.ValidateMetric(t, prom, query, "galley_istio_networking_destinationrules", 4)
-
-			query = fmt.Sprintf("sum(galley_istio_networking_virtualservices{namespace=\"%s\"})", bookinfoNs.Name())
-			util.ValidateMetric(t, prom, query, "galley_istio_networking_virtualservices", 5)
-
-			query = fmt.Sprintf("sum(galley_istio_networking_gateways{namespace=\"%s\"})", bookinfoNs.Name())
-			util.ValidateMetric(t, prom, query, "galley_istio_networking_gateways", 1)
-		})
-}
-
 // Port of TestTcpMetric
 func TestTcpMetric(t *testing.T) {
 	framework.
@@ -222,7 +192,25 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_metrics", m).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  prometheus:
+    enabled: true
+  global:
+    disablePolicyChecks: false
+  telemetry:
+    v1:
+      enabled: true
+    v2:
+      enabled: false
+components:
+  policy:
+    enabled: true
+  telemetry:
+    enabled: true`
+		})).
 		Setup(testsetup).
 		Run()
 }

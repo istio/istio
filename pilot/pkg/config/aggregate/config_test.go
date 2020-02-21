@@ -20,12 +20,12 @@ import (
 
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/aggregate/fakes"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 func TestAggregateStoreBasicMake(t *testing.T) {
@@ -85,7 +85,7 @@ func TestAggregateStoreGet(t *testing.T) {
 	store, err := aggregate.Make(stores)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	c := store.Get("SomeConfig", "other", "")
+	c := store.Get(resource.GroupVersionKind{Kind: "SomeConfig"}, "other", "")
 	g.Expect(c).To(gomega.Equal(configReturn))
 }
 
@@ -121,7 +121,7 @@ func TestAggregateStoreList(t *testing.T) {
 	store, err := aggregate.Make(stores)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	l, err := store.List("SomeConfig", "")
+	l, err := store.List(resource.GroupVersionKind{Kind: "SomeConfig"}, "")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(l).To(gomega.HaveLen(2))
 }
@@ -140,7 +140,7 @@ func TestAggregateStoreFails(t *testing.T) {
 	t.Run("Fails to Delete", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		err = store.Delete("not", "gonna", "work")
+		err = store.Delete(resource.GroupVersionKind{Kind: "not"}, "gonna", "work")
 		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
 	})
 
@@ -199,10 +199,10 @@ func TestAggregateStoreCache(t *testing.T) {
 	t.Run("it registers an event handler", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		cacheStore.RegisterEventHandler("SomeConfig", func(model.Config, model.Config, model.Event) {})
+		cacheStore.RegisterEventHandler(resource.GroupVersionKind{Kind: "SomeConfig"}, func(model.Config, model.Config, model.Event) {})
 
 		typ, h := store1.RegisterEventHandlerArgsForCall(0)
-		g.Expect(typ).To(gomega.Equal("SomeConfig"))
+		g.Expect(typ).To(gomega.Equal(resource.GroupVersionKind{Kind: "SomeConfig"}))
 		g.Expect(h).ToNot(gomega.BeNil())
 	})
 }

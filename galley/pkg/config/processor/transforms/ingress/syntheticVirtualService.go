@@ -23,9 +23,9 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/synthesize"
+	"istio.io/istio/pkg/config/resource"
 )
 
 // syntheticVirtualService represents an in-memory state that maps ingress resources to a synthesized Virtual Service.

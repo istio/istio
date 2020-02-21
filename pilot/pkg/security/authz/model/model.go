@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	"github.com/hashicorp/go-multierror"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	security "istio.io/api/security/v1beta1"
@@ -109,7 +110,12 @@ type Model struct {
 	Principals  []Principal
 }
 
-type KeyValues map[string][]string
+type Values struct {
+	Values    []string
+	NotValues []string
+}
+
+type KeyValues map[string]Values
 
 // NewModelV1alpha1 constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
 // is converted to the permission and the ServiceRoleBinding is converted to the principal.
@@ -129,7 +135,7 @@ func NewModelV1alpha1(trustDomainBundle trustdomain.Bundle, role *istio_rbac.Ser
 
 		constraints := KeyValues{}
 		for _, constraint := range accessRule.Constraints {
-			constraints[constraint.Key] = constraint.Values
+			constraints[constraint.Key] = Values{Values: constraint.Values}
 		}
 		permission.Constraints = []KeyValues{constraints}
 
@@ -157,11 +163,11 @@ func NewModelV1alpha1(trustDomainBundle trustdomain.Bundle, role *istio_rbac.Ser
 
 			property := KeyValues{}
 			for k, v := range subject.Properties {
-				values := []string{v}
+				values := Values{Values: []string{v}}
 				if k == attrSrcPrincipal {
 					// TODO(pitlv2109): Refactor this by creating a method for Principal
 					// that searches and replaces all trust domains in both v1alpha1 and v1beta1.
-					values = trustDomainBundle.ReplaceTrustDomainAliases([]string{v})
+					values = Values{Values: trustDomainBundle.ReplaceTrustDomainAliases([]string{v})}
 				}
 				property[k] = values
 			}
@@ -183,12 +189,28 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 	for _, when := range rule.When {
 		if isSupportedPrincipal(when.Key) {
 			values := when.Values
+			notValues := when.NotValues
 			if when.Key == attrSrcPrincipal {
-				values = trustDomainBundle.ReplaceTrustDomainAliases(when.Values)
+				if len(values) > 0 {
+					values = trustDomainBundle.ReplaceTrustDomainAliases(when.Values)
+				}
+				if len(notValues) > 0 {
+					notValues = trustDomainBundle.ReplaceTrustDomainAliases(when.NotValues)
+				}
 			}
-			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{when.Key: values})
+			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{
+				when.Key: Values{
+					Values:    values,
+					NotValues: notValues,
+				},
+			})
 		} else if isSupportedPermission(when.Key) {
-			conditionsForPermission = append(conditionsForPermission, KeyValues{when.Key: when.Values})
+			conditionsForPermission = append(conditionsForPermission, KeyValues{
+				when.Key: Values{
+					Values:    when.Values,
+					NotValues: when.NotValues,
+				},
+			})
 		} else {
 			rbacLog.Errorf("ignored unsupported condition: %v", when)
 		}
@@ -196,14 +218,25 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 
 	for _, from := range rule.From {
 		if source := from.Source; source != nil {
-			names := trustDomainBundle.ReplaceTrustDomainAliases(source.Principals)
+			names := source.Principals
+			if len(names) > 0 {
+				names = trustDomainBundle.ReplaceTrustDomainAliases(names)
+			}
+			notNames := source.NotPrincipals
+			if len(notNames) > 0 {
+				notNames = trustDomainBundle.ReplaceTrustDomainAliases(notNames)
+			}
 			principal := Principal{
-				IPs:               source.IpBlocks,
-				Names:             names,
-				Namespaces:        source.Namespaces,
-				RequestPrincipals: source.RequestPrincipals,
-				Properties:        conditionsForPrincipal,
-				v1beta1:           true,
+				IPs:                  source.IpBlocks,
+				NotIPs:               source.NotIpBlocks,
+				Names:                names,
+				NotNames:             notNames,
+				Namespaces:           source.Namespaces,
+				NotNamespaces:        source.NotNamespaces,
+				RequestPrincipals:    source.RequestPrincipals,
+				NotRequestPrincipals: source.NotRequestPrincipals,
+				Properties:           conditionsForPrincipal,
+				v1beta1:              true,
 			}
 			m.Principals = append(m.Principals, principal)
 		}
@@ -226,9 +259,13 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 		if operation := to.Operation; operation != nil {
 			permission := Permission{
 				Methods:     operation.Methods,
+				NotMethods:  operation.NotMethods,
 				Hosts:       operation.Hosts,
+				NotHosts:    operation.NotHosts,
 				Ports:       operation.Ports,
+				NotPorts:    operation.NotPorts,
 				Paths:       operation.Paths,
+				NotPaths:    operation.NotPaths,
 				Constraints: conditionsForPermission,
 				v1beta1:     true,
 			}
@@ -288,4 +325,20 @@ func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rba
 		return nil
 	}
 	return policy
+}
+
+// ValidateForTCPFilter validates that the model is valid for building a RBAC TCP filter.
+func (m *Model) ValidateForTCPFilter() error {
+	var errs *multierror.Error
+	for _, permission := range m.Permissions {
+		if err := permission.ValidateForTCP(true); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	for _, principal := range m.Principals {
+		if err := principal.ValidateForTCP(true); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs.ErrorOrNil()
 }

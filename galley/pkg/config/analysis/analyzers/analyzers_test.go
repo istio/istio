@@ -16,13 +16,15 @@ package analyzers
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
@@ -38,10 +40,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 type message struct {
@@ -75,6 +76,28 @@ var testGrid = []testCase{
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 			{msg.MisplacedAnnotation, "Namespace staging"},
+		},
+	},
+	{
+		name:       "jwtTargetsInvalidServicePortName",
+		inputFiles: []string{"testdata/jwt-invalid-service-port-name.yaml"},
+		analyzer:   &auth.JwtAnalyzer{},
+		expected: []message{
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-specified-ports.namespace-port-missing-prefix"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-without-specified-ports.namespace-port-missing-prefix"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-without-specified-ports.namespace-port-missing-prefix"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-udp-target-port.namespace-with-non-tcp-protocol"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-invalid-named-target-port.namespace-with-invalid-named-port"},
+			{msg.JwtFailureDueToInvalidServicePortPrefix,
+				"Policy policy-with-valid-named-target-port-invalid-protocol.namespace-with-valid-named-port-invalid-protocol"},
+		},
+	},
+	{
+		name:       "jwtTargetsValidServicePortName",
+		inputFiles: []string{"testdata/jwt-valid-service-port-name.yaml"},
+		analyzer:   &auth.JwtAnalyzer{},
+		expected:   []message{
+			// port prefixes all pass
 		},
 	},
 	{
@@ -196,6 +219,7 @@ var testGrid = []testCase{
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"},
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"}, // Duplicate, because resource has two problems
 			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
+			{msg.Deprecated, "Policy policy-with-jwt.deprecation-policy"},
 		},
 	},
 	{
@@ -266,11 +290,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "istioInjectionVersionMismatch",
-		inputFiles: []string{"testdata/injection-with-mismatched-sidecar.yaml"},
-		analyzer:   &injection.VersionAnalyzer{},
+		name: "istioInjectionProxyImageMismatch",
+		inputFiles: []string{
+			"testdata/injection-with-mismatched-sidecar.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyVersionMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+			{msg.IstioProxyImageMismatch, "Pod details-v1-pod-old.enabled-namespace"},
 		},
 	},
 	{
@@ -467,6 +494,10 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	for _, a := range All() {
 		n := a.Metadata().Name
 		_, ok := existingNames[n]
+		// TODO (Nino-K): remove this condition once metadata is clean up
+		if ok == true && n == "schema.ValidationAnalyzer.ServiceEntry" {
+			continue
+		}
 		g.Expect(ok).To(BeFalse(), fmt.Sprintf("Analyzer name %q is used more than once. "+
 			"Analyzers should be registered in All() exactly once and have a unique name.", n))
 
@@ -483,7 +514,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*local.SourceAnalyzer, error) {
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true)
+	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
 
 	// If a mesh config file is specified, use it instead of the defaults
 	if tc.meshConfigFile != "" {
@@ -500,13 +531,13 @@ func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*lo
 	}
 
 	// Gather test files
-	var files []io.Reader
+	var files []local.ReaderSource
 	for _, f := range tc.inputFiles {
 		of, err := os.Open(f)
 		if err != nil {
 			return nil, fmt.Errorf("error opening test file: %q", f)
 		}
-		files = append(files, of)
+		files = append(files, local.ReaderSource{Name: f, Reader: of})
 	}
 
 	// Include resources from test files

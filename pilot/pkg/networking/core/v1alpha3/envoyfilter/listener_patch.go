@@ -217,8 +217,8 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 				copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
 				fc.Filters[insertPosition] = clonedVal
 			}
-		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
-			// insert before without a filter match is same as insert in the beginning
+		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+			// insert before/first without a filter match is same as insert in the beginning
 			if !hasNetworkFilterMatch(cp) {
 				fc.Filters = append([]*xdslistener.Filter{proto.Clone(cp.Value).(*xdslistener.Filter)}, fc.Filters...)
 				continue
@@ -232,9 +232,16 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 				}
 			}
 
+			// If matching filter is not found, then don't insert and continue.
 			if insertPosition == -1 {
 				continue
 			}
+
+			// In case of INSERT_FIRST, if a match is found, still insert it at the top of the filterchain.
+			if cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+				insertPosition = 0
+			}
+
 			clonedVal := proto.Clone(cp.Value).(*xdslistener.Filter)
 			fc.Filters = append(fc.Filters, clonedVal)
 			copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])

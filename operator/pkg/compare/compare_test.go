@@ -293,8 +293,8 @@ metadata:
 `,
 			want: `metadata:
   labels:
-    '[1]': label2 -> label5
-    '[2]': label3 -> label6
+    '[#1]': label2 -> label5
+    '[#2]': label3 -> label6
 `,
 		},
 		{
@@ -352,10 +352,10 @@ metadata:
 `,
 			want: `metadata:
   labels:
+    '[#0]': label0 -> label4
     '[?->1]': -> label5
     '[?->2]': -> label2
     '[?->3]': -> label3
-    '[0]': label0 -> label4
     '[2->5]': label2 -> label0
 `,
 		},

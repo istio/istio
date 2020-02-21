@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -37,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -61,6 +59,24 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	errs := &multierror.Error{}
 	listeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
 	for portNumber, servers := range mergedGateway.Servers {
+		var si *model.ServiceInstance
+		services := make(map[host.Name]struct{}, len(node.ServiceInstances))
+		for _, w := range node.ServiceInstances {
+			if w.ServicePort.Port == int(portNumber) {
+				if si == nil {
+					si = w
+				}
+				services[w.Service.Hostname] = struct{}{}
+			}
+		}
+		if len(services) != 1 {
+			log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
+				len(services), portNumber, services)
+		}
+		// if we found a ServiceInstance with matching ServicePort, listen on TargetPort
+		if si != nil && si.Endpoint != nil {
+			portNumber = si.Endpoint.EndpointPort
+		}
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 		opts := buildListenerOpts{
@@ -125,21 +141,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			}
 		}
 		// end shady logic
-
-		var si *model.ServiceInstance
-		services := make(map[host.Name]struct{}, len(node.ServiceInstances))
-		for _, w := range node.ServiceInstances {
-			if w.Endpoint.EndpointPort == portNumber {
-				if si == nil {
-					si = w
-				}
-				services[w.Service.Hostname] = struct{}{}
-			}
-		}
-		if len(services) != 1 {
-			log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
-				len(services), portNumber, services)
-		}
 
 		pluginParams := &plugin.InputParams{
 			ListenerProtocol:           listenerProtocol,
@@ -361,6 +362,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					ServerName:          EnvoyServerName,
 					HttpProtocolOptions: httpProtoOpts,
 				},
+				addGRPCWebFilter: serverProto == protocol.GRPCWeb,
 			},
 		}
 	}
@@ -368,18 +370,14 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	// Build a filter chain for the HTTPS server
 	// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 	// where HTTPS server's TLS mode is not passthrough and not nil
-	enableIngressSdsAgent := false
 	// If proxy sends metadata USER_SDS, then create SDS config for
 	// gateway listener.
-	if len(node.Metadata.UserSds) > 0 {
-		enableIngressSdsAgent, _ = strconv.ParseBool(node.Metadata.UserSds)
-	}
 	return &filterChainOpts{
 		// This works because we validate that only HTTPS servers can have same port but still different port names
 		// and that no two non-HTTPS servers can be on same port or share port names.
 		// Validation is done per gateway and also during merging
 		sniHosts:   getSNIHostsForServer(server),
-		tlsContext: buildGatewayListenerTLSContext(server, enableIngressSdsAgent, sdsPath, node.Metadata),
+		tlsContext: buildGatewayListenerTLSContext(server, bool(node.Metadata.UserSds), sdsPath, node.Metadata),
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
@@ -431,77 +429,9 @@ func buildGatewayListenerTLSContext(
 	if enableIngressSds && server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
-		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			authn_model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, authn_model.IngressGatewaySdsUdsPath),
-		}
-		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
-		// at gateway agent. Otherwise, use the static certificate validation context config.
-		if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
-			defaultValidationContext := &auth.CertificateValidationContext{
-				VerifySubjectAltName:  server.Tls.SubjectAltNames,
-				VerifyCertificateSpki: server.Tls.VerifyCertificateSpki,
-				VerifyCertificateHash: server.Tls.VerifyCertificateHash,
-			}
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: defaultValidationContext,
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigForGatewayListener(
-						server.Tls.CredentialName+authn_model.IngressGatewaySdsCaSuffix, authn_model.IngressGatewaySdsUdsPath),
-				},
-			}
-		} else if len(server.Tls.SubjectAltNames) > 0 {
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					VerifySubjectAltName: server.Tls.SubjectAltNames,
-				},
-			}
-		}
+		util.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
 	} else if server.Tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
-		// global SDS must be enabled if the sds path is non-default, configure TLS with SDS
-		if sdsPath != "" {
-			// configure egress with SDS
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(
-						authn_model.SDSRootResourceName, sdsPath, metadata),
-				},
-			}
-			tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-				authn_model.ConstructSdsSecretConfig(
-					authn_model.SDSDefaultResourceName, sdsPath, metadata)}
-		} else {
-			// global SDS disabled, fall back on using mounted certificates
-			caCertificates := model.GetOrDefault(metadata.TLSServerRootCert, constants.DefaultRootCert)
-			trustedCa := &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: caCertificates,
-				},
-			}
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa:            trustedCa,
-					VerifySubjectAltName: server.Tls.SubjectAltNames,
-				},
-			}
-
-			certChainPath := model.GetOrDefault(metadata.TLSServerCertChain, constants.DefaultCertChain)
-			privateKeyPath := model.GetOrDefault(metadata.TLSServerKey, constants.DefaultKey)
-			tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: certChainPath,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: privateKeyPath,
-						},
-					},
-				},
-			}
-		}
+		util.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
 	} else {
 		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
@@ -591,16 +521,12 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 		// Validation ensures that non-passthrough servers will have certs
 		if filters := buildGatewayNetworkFiltersFromTCPRoutes(node,
 			push, server, gatewaysForWorkload); len(filters) > 0 {
-			enableIngressSdsAgent := false
 			// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
 			// gateway listener.
-			if len(node.Metadata.UserSds) > 0 {
-				enableIngressSdsAgent, _ = strconv.ParseBool(node.Metadata.UserSds)
-			}
 			return []*filterChainOpts{
 				{
 					sniHosts:       getSNIHostsForServer(server),
-					tlsContext:     buildGatewayListenerTLSContext(server, enableIngressSdsAgent, push.Mesh.SdsUdsPath, node.Metadata),
+					tlsContext:     buildGatewayListenerTLSContext(server, bool(node.Metadata.UserSds), push.Mesh.SdsUdsPath, node.Metadata),
 					networkFilters: filters,
 				},
 			}

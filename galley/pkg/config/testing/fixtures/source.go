@@ -14,7 +14,7 @@
 
 package fixtures
 
-import "istio.io/istio/galley/pkg/config/event"
+import "istio.io/istio/pkg/config/event"
 
 // Source is a test implementation of event.Source
 type Source struct {

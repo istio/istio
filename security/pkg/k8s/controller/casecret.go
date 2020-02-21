@@ -20,12 +20,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"istio.io/pkg/log"
 )
-
-var caSecretControllerLog = log.RegisterScope("caSecretController",
-	"Self-signed root cert secret controller log", 0)
 
 // CaSecretController manages the self-signed signing CA secret.
 type CaSecretController struct {
@@ -51,11 +46,11 @@ func (csc *CaSecretController) LoadCASecretWithRetry(secretName, namespace strin
 		if scrtErr == nil {
 			return caSecret, scrtErr
 		}
-		caSecretControllerLog.Errorf("Failed on loading CA secret %s:%s.",
+		k8sControllerLog.Errorf("Failed on loading CA secret %s:%s.",
 			namespace, secretName)
 
 		if time.Since(start) > timeout {
-			caSecretControllerLog.Errorf("Timeout on loading CA secret %s:%s.",
+			k8sControllerLog.Errorf("Timeout on loading CA secret %s:%s.",
 				namespace, secretName)
 			return caSecret, scrtErr
 		}
@@ -72,11 +67,11 @@ func (csc *CaSecretController) UpdateCASecretWithRetry(caSecret *v1.Secret,
 		if scrtErr == nil {
 			return nil
 		}
-		caSecretControllerLog.Errorf("Failed on updating CA secret %s:%s.",
+		k8sControllerLog.Errorf("Failed on updating CA secret %s:%s.",
 			caSecret.Namespace, caSecret.Name)
 
 		if time.Since(start) > timeout {
-			caSecretControllerLog.Errorf("Timeout on updating CA secret %s:%s.",
+			k8sControllerLog.Errorf("Timeout on updating CA secret %s:%s.",
 				caSecret.Namespace, caSecret.Name)
 			return scrtErr
 		}

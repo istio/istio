@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
@@ -36,8 +35,8 @@ import (
 )
 
 var (
-	webhookConfigName = env.RegisterStringVar("WEBHOOK", "",
-		"Name of webhook config to patch, if istioctl is not used.")
+	injectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
+		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
 )
 
 const (
@@ -57,44 +56,44 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 	}
 
 	// If the injection path exists, we will set up injection
-	if _, err := os.Stat(filepath.Join(injectPath, "config")); !os.IsNotExist(err) {
-		parameters := inject.WebhookParameters{
-			ConfigFile:          filepath.Join(injectPath, "config"),
-			ValuesFile:          filepath.Join(injectPath, "values"),
-			MeshFile:            args.Mesh.ConfigFile,
-			Env:                 s.environment,
-			CertFile:            filepath.Join(dnsCertDir, "cert-chain.pem"),
-			KeyFile:             filepath.Join(dnsCertDir, "key.pem"),
-			Port:                args.InjectionOptions.Port,
-			HealthCheckFile:     "",
-			HealthCheckInterval: 0,
-			// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
-			MonitoringPort: -1,
-		}
-
-		wh, err := inject.NewWebhook(parameters)
-		if err != nil {
-			return fmt.Errorf("failed to create injection webhook: %v", err)
-		}
-		// Patch cert if a webhook config name is provided.
-		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
-		// operator or CI/CD
-		if webhookConfigName.Get() != "" {
-			s.addStartFunc(func(stop <-chan struct{}) error {
-				if err := patchCertLoop(s.kubeClient, stop); err != nil {
-					return multierror.Prefix(err, "failed to start patch cert loop")
-				}
-				return nil
-			})
-		}
-		s.webhook = wh
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			go wh.Run(stop)
-			return nil
-		})
+	if _, err := os.Stat(filepath.Join(injectPath, "config")); os.IsNotExist(err) {
+		log.Infof("Skipping sidecar injector, template not found")
 		return nil
 	}
-	log.Infof("Skipping sidecar injector, template not found")
+
+	parameters := inject.WebhookParameters{
+		ConfigFile: filepath.Join(injectPath, "config"),
+		ValuesFile: filepath.Join(injectPath, "values"),
+		MeshFile:   args.Mesh.ConfigFile,
+		Env:        s.environment,
+		CertFile:   filepath.Join(dnsCertDir, "cert-chain.pem"),
+		KeyFile:    filepath.Join(dnsCertDir, "key.pem"),
+		// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
+		MonitoringPort: -1,
+		Mux:            s.httpsMux,
+	}
+
+	wh, err := inject.NewWebhook(parameters)
+	if err != nil {
+		return fmt.Errorf("failed to create injection webhook: %v", err)
+	}
+	// Patch cert if a webhook config name is provided.
+	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
+	// operator or CI/CD
+	if injectionWebhookConfigName.Get() != "" {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			// No leader election - different istiod revisions will patch their own cert.
+			if err := s.patchCertLoop(s.kubeClient, stop); err != nil {
+				log.Errorf("failed to start patch cert loop: %v", err)
+			}
+			return nil
+		})
+	}
+	s.injectionWebhook = wh
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go wh.Run(stop)
+		return nil
+	})
 	return nil
 }
 
@@ -104,18 +103,18 @@ const delayedRetryTime = time.Second
 // - pass the existing k8s client
 // - use the K8S root instead of citadel root CA
 // - removed the watcher - the k8s CA is already mounted at startup, no more delay waiting for it
-func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
+func (s *Server) patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 
 	// K8S own CA
-	caCertPem, err := ioutil.ReadFile(defaultCACertPath)
+	caCertPem, err := ioutil.ReadFile(s.caBundlePath)
 	if err != nil {
-		log.Warna("Skipping webhook patch, missing CA path ", defaultCACertPath)
+		log.Warna("Skipping webhook patch, missing CA path ", s.caBundlePath)
 		return err
 	}
 
 	var retry bool
 	if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-		webhookConfigName.Get(), webhookName, caCertPem); err != nil {
+		injectionWebhookConfigName.Get(), webhookName, caCertPem); err != nil {
 		log.Warna("Error patching Webhook ", err)
 		retry = true
 	}
@@ -126,7 +125,7 @@ func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 		client.AdmissionregistrationV1beta1().RESTClient(),
 		"mutatingwebhookconfigurations",
 		"",
-		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", webhookConfigName.Get())))
+		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", injectionWebhookConfigName.Get())))
 
 	_, controller := cache.NewInformer(
 		watchlist,
@@ -160,14 +159,14 @@ func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 		for {
 			select {
 			case <-delayedRetryC:
-				if retry := doPatch(client, webhookConfigName.Get(), webhookName, caCertPem); retry {
+				if retry := doPatch(client, injectionWebhookConfigName.Get(), webhookName, caCertPem); retry {
 					delayedRetryC = time.After(delayedRetryTime)
 				} else {
 					log.Infof("Retried patch succeeded")
 					delayedRetryC = nil
 				}
 			case <-shouldPatch:
-				if retry := doPatch(client, webhookConfigName.Get(), webhookName, caCertPem); retry {
+				if retry := doPatch(client, injectionWebhookConfigName.Get(), webhookName, caCertPem); retry {
 					if delayedRetryC == nil {
 						delayedRetryC = time.After(delayedRetryTime)
 					}

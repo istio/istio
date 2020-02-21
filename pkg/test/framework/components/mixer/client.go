@@ -49,10 +49,6 @@ type client struct {
 	args    *server.Args
 	server  *server.Server
 	workdir string
-
-	// AttributeManifest is injected into the configuration in the local environment. in Kubernetes, it
-	// should already exist as part of Istio deployment.
-	attributeManifest string
 }
 
 // Report implements DeployedMixer.Report.

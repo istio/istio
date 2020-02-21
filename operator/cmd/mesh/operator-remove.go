@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/pkg/log"
 )
 
 type operatorRemoveArgs struct {
@@ -78,7 +77,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *Logger, delet
 		l.logAndFatal(err)
 	}
 
-	log.Infof("Using the following manifest to install operator:\n%s\n", mstr)
+	scope.Infof("Using the following manifest to remove operator:\n%s\n", mstr)
 
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,
@@ -88,13 +87,13 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *Logger, delet
 		Context:     orArgs.context,
 	}
 
-	if err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	if _, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		l.logAndFatal(err)
 	}
 
 	success := deleteManifestFunc(mstr, "Operator", opts, l)
 	if !success {
-		l.logAndPrint("\n*** Errors were logged during deleteManifestFunc operation. Please check logs above. ***\n")
+		l.logAndPrint("\n*** Errors were logged during manifest deletion. Please check logs above. ***\n")
 		return
 	}
 

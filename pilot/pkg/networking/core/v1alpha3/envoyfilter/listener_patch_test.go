@@ -38,12 +38,13 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -58,8 +59,8 @@ var (
 
 func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
 	return &fakes.IstioConfigStore{
-		ListStub: func(kind, namespace string) (configs []model.Config, e error) {
-			if kind == collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind() {
+		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
+			if kind == collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind() {
 				// to emulate returning multiple envoy filter configs
 				for i, cp := range configPatches {
 					configs = append(configs, model.Config{
@@ -131,6 +132,27 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+				Value:     buildPatchStruct(`{"name":"filter0"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 12345,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{Name: "filter1"},
+						},
+					},
+				},
+				Proxy: &networking.EnvoyFilter_ProxyMatch{
+					ProxyVersion: `^1\.[5-9](.*?)$`,
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
 				Value:     buildPatchStruct(`{"name":"filter0"}`),
 			},
 		},
@@ -269,6 +291,27 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
 				Value:     buildPatchStruct(`{"name": "http-filter3"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      xdsutil.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+				Value:     buildPatchStruct(`{"name": "http-filter0"}`),
 			},
 		},
 		{

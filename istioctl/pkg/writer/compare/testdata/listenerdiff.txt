@@ -1,6 +1,6 @@
 --- Pilot Listeners
 +++ Envoy Listeners
-@@ -82,17 +82,14 @@
+@@ -83,17 +83,14 @@
                                                     "name": "mixer"
                                                  },
                                            {
@@ -14,7 +14,7 @@
                                                  }
                                         ],
                                   "route_config": {
+                                           "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
                                            "name": "8080",
                                            "validate_clusters": false,
                                            "virtual_hosts": [
-                                                    {

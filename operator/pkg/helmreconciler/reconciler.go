@@ -24,6 +24,7 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -100,24 +101,15 @@ func (h *HelmReconciler) Reconcile() error {
 		return err
 	}
 
-	// handle the defined callbacks to the generated manifests for each subchart chart.
-	//for chartName, manifests := range manifestMap {
-	//	newManifests, err := h.customizer.Listener().BeginChart(chartName, manifests)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	manifestMap[chartName] = newManifests
-	//}
 	status := h.processRecursive(manifestMap)
 
 	// Delete any resources not in the manifest but managed by operator.
 	var errs util.Errors
 	if h.needUpdateAndPrune {
-		errs = util.AppendErr(errs, h.customizer.Listener().BeginPrune(false))
-		errs = util.AppendErr(errs, h.Prune(false))
-		errs = util.AppendErr(errs, h.customizer.Listener().EndPrune())
+		errs = util.AppendErr(errs, h.Prune(allObjectHashes(manifestMap), false))
 	}
 	errs = util.AppendErr(errs, h.customizer.Listener().EndReconcile(h.instance, status))
+
 	return errs.ToError()
 }
 
@@ -173,7 +165,6 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 				delete(componentStatus, c)
 			} else {
 				componentStatus[c].Status = status
-				componentStatus[c].StatusString = v1alpha1.InstallStatus_Status_name[int32(status)]
 				if errString != "" {
 					componentStatus[c].Error = errString
 				}
@@ -189,8 +180,28 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 	}
 	wg.Wait()
 
+	// Update overall status
+	// - If all components are HEALTHY, overall status is HEALTHY.
+	// - If one or more components are RECONCILING and others are HEALTHY, overall status is RECONCILING.
+	// - If one or more components are UPDATING and others are HEALTHY, overall status is UPDATING.
+	// - If components are a mix of RECONCILING, UPDATING and HEALTHY, overall status is UPDATING.
+	// - If any component is in ERROR state, overall status is ERROR.
+	overallStatus := v1alpha1.InstallStatus_HEALTHY
+	for _, cs := range componentStatus {
+		if cs.Status == v1alpha1.InstallStatus_ERROR {
+			overallStatus = v1alpha1.InstallStatus_ERROR
+			break
+		} else if cs.Status == v1alpha1.InstallStatus_UPDATING {
+			overallStatus = v1alpha1.InstallStatus_UPDATING
+			break
+		} else if cs.Status == v1alpha1.InstallStatus_RECONCILING {
+			overallStatus = v1alpha1.InstallStatus_RECONCILING
+			break
+		}
+	}
+
 	out := &v1alpha1.InstallStatus{
-		//TODO: add overall status logic
+		Status:          overallStatus,
 		ComponentStatus: componentStatus,
 	}
 
@@ -212,7 +223,7 @@ func (h *HelmReconciler) Delete() error {
 	if err != nil {
 		allErrors = append(allErrors, err)
 	}
-	err = h.Prune(true)
+	err = h.Prune(nil, true)
 	if err != nil {
 		allErrors = append(allErrors, err)
 	}
@@ -229,6 +240,23 @@ func (h *HelmReconciler) Delete() error {
 
 	// return any errors
 	return err
+}
+
+// allObjectHashes returns a map with object hashes of all the objects contained in cmm as the keys.
+func allObjectHashes(cmm ChartManifestsMap) map[string]bool {
+	ret := make(map[string]bool)
+	for _, mm := range cmm {
+		for _, m := range mm {
+			objs, err := object.ParseK8sObjectsFromYAMLManifest(m.Content)
+			if err != nil {
+				log.Error(err.Error())
+			}
+			for _, o := range objs {
+				ret[o.Hash()] = true
+			}
+		}
+	}
+	return ret
 }
 
 // GetClient returns the kubernetes client associated with this HelmReconciler

@@ -23,6 +23,8 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/operator/pkg/manifest"
+
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/yaml"
 
@@ -208,7 +210,13 @@ func pathToStringList(path cmp.Path) (up []string) {
 		case cmp.MapIndex:
 			up = append(up, fmt.Sprintf("%v", t.Key()))
 		case cmp.SliceIndex:
-			up = append(up, fmt.Sprintf("%v", t.String()))
+			// Create an element, but never an NPath
+			s := t.String()
+			if util.IsNPathElement(s) {
+				// Convert e.g. [0] to [#0]
+				s = fmt.Sprintf("%c%c%s", s[0], '#', s[1:])
+			}
+			up = append(up, s)
 		}
 	}
 	return
@@ -264,6 +272,39 @@ func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, 
 	}
 
 	return manifestDiff(aosm, bosm, im, verbose)
+}
+
+// SelectAndIgnoreFromOutput selects and ignores subset from the manifest string
+func SelectAndIgnoreFromOutput(ms string, selectResources string, ignoreResources string) (string, error) {
+	sm := getObjPathMap(selectResources)
+	im := getObjPathMap(ignoreResources)
+	ao, err := object.ParseK8sObjectsFromYAMLManifest(ms)
+	if err != nil {
+		return "", err
+	}
+	aom := ao.ToMap()
+	slrs, err := filterResourceWithSelectAndIgnore(aom, sm, im)
+	if err != nil {
+		return "", err
+	}
+	var sb strings.Builder
+	for _, ko := range slrs {
+		yl, err := ko.YAML()
+		if err != nil {
+			return "", err
+		}
+		sb.WriteString(string(yl) + object.YAMLSeparator)
+	}
+	k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(sb.String())
+	if err != nil {
+		return "", err
+	}
+	k8sObjects.Sort(manifest.DefaultObjectOrder())
+	sortdManifests, err := k8sObjects.YAMLManifest()
+	if err != nil {
+		return "", err
+	}
+	return sortdManifests, nil
 }
 
 // renameResource filter the input resources with selected and ignored filter.

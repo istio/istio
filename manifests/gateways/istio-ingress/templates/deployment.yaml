@@ -47,7 +47,9 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
           command:
             - /bin/sh
           args:
@@ -57,44 +59,18 @@ spec:
             privileged: true
 {{- end }}
       containers:
-{{- if and $gateway.sds.enabled (not .Values.global.istiod.enabled) }}
-        - name: ingress-sds
-{{- if contains "/" $gateway.sds.image }}
-          image: "{{ $gateway.sds.image }}"
-{{- else }}
-          image: "{{ .Values.global.hub }}/{{ $gateway.sds.image }}:{{ .Values.global.tag }}"
-{{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
-          resources:
-{{- if $gateway.sds.resources }}
-{{ toYaml $gateway.sds.resources | indent 12 }}
-{{- else }}
-{{ toYaml .Values.global.defaultResources | indent 12 }}
-{{- end }}
-          env:
-          - name: "ENABLE_WORKLOAD_SDS"
-            value: "false"
-          - name: "ENABLE_INGRESS_GATEWAY_SDS"
-            value: "true"
-          - name: "INGRESS_GATEWAY_NAMESPACE"
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          volumeMounts:
-          - name: ingressgatewaysdsudspath
-            mountPath: /var/run/ingress_gateway
-{{- end }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
 {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
           ports:
             {{- range $key, $val := $gateway.ports }}
-            - containerPort: {{ $val.port }}
+            - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
             {{- range $key, $val := $gateway.meshExpansionPorts }}
             - containerPort: {{ $val.port }}
@@ -151,7 +127,9 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
-          {{- if .Values.global.istiod.enabled }}
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
@@ -160,25 +138,6 @@ spec:
           {{- else }}
           - istio-pilot.istio-system.svc:15012
           {{- end }}
-          {{- else if .Values.global.controlPlaneSecurityEnabled }}
-          - --controlPlaneAuthPolicy
-          - MUTUAL_TLS
-          - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}:15011
-          {{- else }}
-          - istio-pilot:15011
-          {{- end }}
-        {{- else }}
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}:15010
-          {{- else }}
-          - istio-pilot:15010
-          {{- end }}
-        {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -199,12 +158,14 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
-{{- if .Values.global.istiod.enabled }}
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
             value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-{{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -258,10 +219,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- if $gateway.sds.enabled }}
-          - name: ISTIO_META_USER_SDS
-            value: "true"
-          {{- end }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: {{ $val }}
@@ -276,34 +233,30 @@ spec:
             value: |
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {{ $gateway.labels | toJson }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
-          - name: SDS_ENABLED
-            value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
-{{- if .Values.global.istiod.enabled }}
+          - name: config-volume
+            mountPath: /etc/istio/config
+{{- if eq .Values.global.pilotCertProvider "citadel" }}
+          - mountPath: /etc/istio/citadel-ca-cert
+            name: citadel-ca-cert
+{{- end }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-{{ else }}
-          {{ if .Values.global.sds.enabled }}
-          - name: sdsudspath
-            mountPath: /var/run/sds
-            readOnly: true
-          - name: istio-token
-            mountPath: /var/run/secrets/tokens
-          {{- end }}
-          {{- if $gateway.sds.enabled }}
+{{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-          {{- end }}
-{{- end }}
+          {{- if .Values.global.mountMtlsCerts }}
+          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- end }}
+          - name: podinfo
+            mountPath: /etc/istio/pod
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -313,23 +266,23 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-{{- if .Values.global.istiod.enabled }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: istio-token
-              expirationSeconds: 43200
-              audience: {{ .Values.global.sds.token.aud }}
-{{- else }}
-      {{- if $gateway.sds.enabled }}
+{{- if eq .Values.global.pilotCertProvider "citadel" }}
+      - name: citadel-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+{{- end }}
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
       - name: ingressgatewaysdsudspath
         emptyDir: {}
-      {{- end }}
-      {{- if .Values.global.sds.enabled }}
-      - name: sdsudspath
-        hostPath:
-          path: /var/run/sds
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -337,11 +290,17 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
-      {{- end }}
 {{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           secretName: istio.istio-ingressgateway-service-account
+          optional: true
+      {{- end }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           optional: true
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}

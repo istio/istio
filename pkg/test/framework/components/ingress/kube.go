@@ -55,8 +55,8 @@ type kubeComponent struct {
 	env       *kube.Environment
 }
 
-// getHTTPAddressInner returns the ingress gateway address for plain text http requests.
-func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
+// getAddressInner returns the ingress gateway address for plain text  requests.
+func getAddressInner(env *kube.Environment, ns string, port int) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 	// port.
 	if env.Settings().Minikube {
@@ -88,13 +88,13 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 
 		var nodePort int32
 		for _, svcPort := range svc.Spec.Ports {
-			if svcPort.Protocol == "TCP" && svcPort.Port == 80 {
+			if svcPort.Protocol == "TCP" && svcPort.Port == int32(port) {
 				nodePort = svcPort.NodePort
 				break
 			}
 		}
 		if nodePort == 0 {
-			return nil, false, fmt.Errorf("no port 80 found in service: %s/%s", ns, "istio-ingressgateway")
+			return nil, false, fmt.Errorf("no port %d found in service: %s/%s", port, ns, "istio-ingressgateway")
 		}
 
 		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
@@ -111,7 +111,7 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return net.TCPAddr{IP: net.ParseIP(ip), Port: 80}, true, nil
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: port}, true, nil
 }
 
 // getHTTPSAddressInner returns the ingress gateway address for https requests.
@@ -186,7 +186,18 @@ func (c *kubeComponent) ID() resource.ID {
 // HTTPAddress returns HTTP address of ingress gateway.
 func (c *kubeComponent) HTTPAddress() net.TCPAddr {
 	address, err := retry.Do(func() (interface{}, bool, error) {
-		return getHTTPAddressInner(c.env, c.namespace)
+		return getAddressInner(c.env, c.namespace, 80)
+	}, retryTimeout, retryDelay)
+	if err != nil {
+		return net.TCPAddr{}
+	}
+	return address.(net.TCPAddr)
+}
+
+// TCPAddress returns TCP address of ingress gateway.
+func (c *kubeComponent) TCPAddress() net.TCPAddr {
+	address, err := retry.Do(func() (interface{}, bool, error) {
+		return getAddressInner(c.env, c.namespace, 15029)
 	}, retryTimeout, retryDelay)
 	if err != nil {
 		return net.TCPAddr{}
@@ -276,7 +287,7 @@ func (c *kubeComponent) createRequest(options CallOptions) (*http.Request, error
 
 func (c *kubeComponent) Call(options CallOptions) (CallResponse, error) {
 	if err := options.sanitize(); err != nil {
-		scopes.Framework.Fatalf("CallOptions sanitization failure, error %v", err)
+		scopes.Framework.Fatalf("CallOptions sanitization failure. config: %+v, error:%v", options, err)
 	}
 	client, err := c.createClient(options)
 	if err != nil {
@@ -345,8 +356,8 @@ func (c *kubeComponent) adminRequest(path string) (string, error) {
 }
 
 type statEntry struct {
-	Name  string `json:"name"`
-	Value int    `json:"value"`
+	Name  string      `json:"name"`
+	Value json.Number `json:"value"`
 }
 
 type stats struct {
@@ -364,7 +375,11 @@ func (c *kubeComponent) unmarshalStats(statsJSON string) (map[string]int, error)
 	}
 
 	for _, v := range statsArray.StatList {
-		statsMap[v.Name] = v.Value
+		if v.Value == "" {
+			continue
+		}
+		tmp, _ := v.Value.Float64()
+		statsMap[v.Name] = int(tmp)
 	}
 	return statsMap, nil
 }

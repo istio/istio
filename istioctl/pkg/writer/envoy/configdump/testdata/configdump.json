@@ -1,7 +1,7 @@
 {
   "configs": [
     {
-      "@type": "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump",
+      "@type": "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump",
       "bootstrap": {
         "node": {
           "id": "sidecar~172.30.77.243~details-v1-9cb87c69-t2fdz.default~default.svc.cluster.local",
@@ -115,11 +115,12 @@
       }
     },
     {
-      "@type": "type.googleapis.com/envoy.admin.v2alpha.ClustersConfigDump",
+      "@type": "type.googleapis.com/envoy.admin.v3.ClustersConfigDump",
       "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
       "staticClusters": [
         {
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "xds-grpc",
             "type": "STRICT_DNS",
             "connectTimeout": "10s",
@@ -154,6 +155,7 @@
         {
           "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
           "cluster": {
+            "@type": "type.googleapis.com/envoy.api.v2.Cluster",
             "name": "outbound|15004||istio-policy.istio-system.svc.cluster.local",
             "type": "EDS",
             "edsClusterConfig": {
@@ -179,13 +181,14 @@
       ]
     },
     {
-      "@type": "type.googleapis.com/envoy.admin.v2alpha.ListenersConfigDump",
+      "@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
       "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
       "dynamicListeners": [
         {
           "activeState": {
             "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
             "listener": {
+              "@type": "type.googleapis.com/envoy.api.v2.Listener",
               "name": "172.21.134.116_443",
               "address": {
                 "socketAddress": {
@@ -244,6 +247,7 @@
                         "deprecated_v1": true,
                         "value": {
                           "route_config": {
+                            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
                             "routes": [
                               {
                                 "cluster": "outbound|443||istio-galley.istio-system.svc.cluster.local",
@@ -270,6 +274,7 @@
           "activeState": {
             "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
             "listener": {
+              "@type": "type.googleapis.com/envoy.api.v2.Listener",
               "name": "0.0.0.0_8080",
               "address": {
                 "socketAddress": {
@@ -360,6 +365,7 @@
                           }
                         ],
                         "route_config": {
+                          "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
                           "name": "8080",
                           "validate_clusters": false,
                           "virtual_hosts": [
@@ -406,14 +412,71 @@
               }
             }
           }
+        },
+        {
+          "activeState": {
+            "listener": {
+              "@type": "type.googleapis.com/envoy.api.v2.Listener",
+              "name": "0.0.0.0_8081",
+              "address": {
+                "socketAddress": {
+                  "address": "0.0.0.0",
+                  "portValue": 8081
+                }
+              },
+              "filterChains": [
+                {
+                  "filters": [
+                    {
+                      "name": "envoy.tcp_proxy",
+                      "typed_config": {
+                        "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy",
+                        "cluster": "BlackHoleCluster"
+                       }
+                    },
+                    {
+                      "name": "envoy.http_connection_manager"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "activeState": {
+            "listener": {
+              "@type": "type.googleapis.com/envoy.api.v2.Listener",
+              "name": "0.0.0.0_8082",
+              "address": {
+                "socketAddress": {
+                  "address": "0.0.0.0",
+                  "portValue": 8082
+                }
+              },
+              "filterChains": [
+                {
+                  "filters": [
+                    {
+                      "name": "envoy.http_connection_manager"
+                    },
+                    {
+                      "name": "envoy.tcp_proxy"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
       ]
     },
     {
-      "@type": "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump",
+      "@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
       "staticRouteConfigs": [
         {
           "route_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|9080||productpage.default.svc.cluster.local",
             "virtualHosts": [
               {
@@ -469,6 +532,7 @@
         {
           "versionInfo": "2018-06-19 06:21:16.597131985 +0000 UTC m=+38444.053119011",
           "routeConfig": {
+            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "15004",
             "virtualHosts": [
               {

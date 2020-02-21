@@ -31,8 +31,8 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
 
-	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pkg/config/schema"
 	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"

@@ -60,7 +60,7 @@ const (
 	caKeySize = 2048
 )
 
-var pkiCaLog = log.RegisterScope("pkiCaLog", "Citadel CA log", 0)
+var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
 
 // caTypes is the enum for the CA type.
 type caTypes int

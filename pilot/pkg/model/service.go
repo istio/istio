@@ -146,6 +146,12 @@ const (
 
 	// IstioMutualTLSModeLabel implies that the endpoint is ready to receive Istio mTLS connections.
 	IstioMutualTLSModeLabel = "istio"
+
+	// IstioCanonicalServiceLabelName is the name of label for the Istio Canonical Service for a workload instance.
+	IstioCanonicalServiceLabelName = "service.istio.io/canonical-name"
+
+	// IstioCanonicalServiceRevisionLabelName is the name of label for the Istio Canonical Service revision for a workload instance.
+	IstioCanonicalServiceRevisionLabelName = "service.istio.io/canonical-revision"
 )
 
 // Port represents a network port where a service is listening for
@@ -586,7 +592,7 @@ func ParseServiceKey(s string) (hostname host.Name, ports PortList, lc labels.Co
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
-	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
+	return string(direction) + "|" + strconv.Itoa(port) + "|" + subsetName + "|" + string(hostname)
 }
 
 // BuildDNSSrvSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
@@ -594,7 +600,7 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host
 // This is used only for the SNI-DNAT router. Do not use for other purposes.
 // The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
 func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
-	return fmt.Sprintf("%s_.%d_.%s_.%s", direction, port, subsetName, hostname)
+	return string(direction) + "_." + strconv.Itoa(port) + "_." + subsetName + "_." + string(hostname)
 }
 
 // IsValidSubsetKey checks if a string is valid for subset key parsing.

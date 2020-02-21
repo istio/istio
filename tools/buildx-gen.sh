@@ -20,7 +20,7 @@ out="${1}"
 config="${out}/docker-bake.hcl"
 shift
 
-variants=$(for i in ${DOCKER_ALL_VARIANTS}; do echo "\"${i}\""; done | xargs -d'\n' | sed -e 's/ /, /g')
+variants=\"$(for i in ${DOCKER_ALL_VARIANTS}; do echo "\"${i}\""; done | xargs | sed -e 's/ /\", \"/g')\"
 cat <<EOF > "${config}"
 group "all" {
     targets = [${variants}]
@@ -30,7 +30,7 @@ EOF
 # Generate the top header. This defines a group to build all images for each variant
 for variant in ${DOCKER_ALL_VARIANTS}; do
   # Get all images. Transform from `docker.target` to `"target"` as a comma seperated list
-  images=$(for i in "$@"; do echo "\"${i#docker.}-${variant}\""; done | xargs -d'\n' | sed -e 's/ /, /g')
+  images=\"$(for i in "$@"; do echo "\"${i#docker.}-${variant}\""; done | xargs | sed -e 's/ /\", \"/g')\"
   cat <<EOF >> "${config}"
 group "${variant}" {
     targets = [${images}]

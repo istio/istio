@@ -36,7 +36,9 @@ spec:
       containers:
         - name: citadel
           image: "{{ .Values.global.hub }}/{{ .Values.security.image }}:{{ .Values.global.tag }}"
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
           args:
             {{- if .Values.global.sds.enabled }}
             - --sds-enabled=true
@@ -104,11 +106,20 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
 {{- if not .Values.security.selfSigned }}
           volumeMounts:
           - name: cacerts
             mountPath: /etc/cacerts
             readOnly: true
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: cacerts
         secret:

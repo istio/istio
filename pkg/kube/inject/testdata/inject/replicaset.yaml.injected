@@ -12,7 +12,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -33,42 +33,27 @@ spec:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
-        - --configPath
-        - /etc/istio/proxy
-        - --binaryPath
-        - /usr/local/bin/envoy
         - --serviceCluster
         - hello.$(POD_NAMESPACE)
-        - --drainDuration
-        - 45s
-        - --parentShutdownDuration
-        - 1m0s
-        - --discoveryAddress
-        - istio-pilot:15010
-        - --dnsRefreshRate
-        - 300s
-        - --connectTimeout
-        - 1s
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
         - --statusPort
         - "15020"
+        - --trust-domain=cluster.local
+        - --controlPlaneBootstrap=false
         - --concurrency
         - "2"
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: citadel
+        - name: CA_ADDR
+          value: istio-pilot.istio-system.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: ISTIO_META_POD_PORTS
-          value: |-
-            [
-                {"name":"http","containerPort":80}
-            ]
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -81,8 +66,20 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: MESH_CONFIG
+          value: |
+            {}
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"name":"http","containerPort":80}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -91,19 +88,16 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: SDS_ENABLED
-          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-            {"app":"hello"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/replicasets/hello
-        image: docker.io/istio/proxyv2:unittest
-        imagePullPolicy: IfNotPresent
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        image: gcr.io/istio-testing/proxyv2:latest
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -134,11 +128,14 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
+        - mountPath: /etc/istio/citadel-ca-cert
+          name: citadel-ca-cert
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        - mountPath: /etc/istio/pod
+          name: podinfo
       initContainers:
       - command:
         - istio-iptables
@@ -158,8 +155,8 @@ spec:
         - '*'
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:unittest
-        imagePullPolicy: IfNotPresent
+        image: gcr.io/istio-testing/proxyv2:latest
+        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:
@@ -185,10 +182,25 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - configMap:
+          name: istio-ca-root-cert
+        name: citadel-ca-cert
 status:
   replicas: 0
 ---

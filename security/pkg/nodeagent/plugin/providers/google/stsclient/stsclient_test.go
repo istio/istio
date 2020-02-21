@@ -22,18 +22,19 @@ import (
 )
 
 func TestGetFederatedToken(t *testing.T) {
+	GKEClusterURL = mock.FakeGKEClusterURL
 	r := NewPlugin()
 
-	ms, err := mock.StartNewServer(t)
+	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
-	secureTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
+	SecureTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
 	defer func() {
 		if err := ms.Stop(); err != nil {
 			t.Logf("failed to stop mock server: %v", err)
 		}
-		secureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
+		SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	}()
 
 	token, _, _, err := r.ExchangeToken(context.Background(), mock.FakeTrustDomain, mock.FakeSubjectToken)

@@ -75,8 +75,9 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			out.Patches[cp.ApplyTo] = make([]*EnvoyFilterConfigPatchWrapper, 0)
 		}
 		if cpw.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER ||
-			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
-			// insert_before or after is applicable only for network filter and http filter
+			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE ||
+			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+			// insert_before, after or first is applicable only for network filter and http filter
 			// TODO: insert before/after is also applicable to http_routes
 			// convert the rest to add
 			if cpw.ApplyTo != networking.EnvoyFilter_HTTP_FILTER && cpw.ApplyTo != networking.EnvoyFilter_NETWORK_FILTER {

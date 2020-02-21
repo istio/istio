@@ -127,6 +127,10 @@
           "tag_name": "response_flags"
       },
       {
+          "regex": "(grpc_response_status=\\.=(.*?);\\.;)",
+          "tag_name": "grpc_response_status"
+      },
+      {
           "regex": "(connection_security_policy=\\.=(.+?);\\.;)",
           "tag_name": "connection_security_policy"
       },
@@ -149,6 +153,28 @@
       {
           "regex": "(tag\\.(.+?)\\.)",
           "tag_name": "tag"
+      },
+      {{- range $a, $tag := .extraStatTags }}
+      {
+          "regex": "({{ $tag }}=\\.=(.*?);\\.;)",
+          "tag_name": "{{ $tag }}"
+      },
+      {{- end }}
+      {
+          "regex": "(source_canonical_service=\\.=(.+?);\\.;)",
+          "tag_name": "source_canonical_service"
+      },
+      {
+          "regex": "(destination_canonical_service=\\.=(.+?);\\.;)",
+          "tag_name": "destination_canonical_service"
+      },
+      {
+          "regex": "(source_canonical_revision=\\.=(.+?);\\.;)",
+          "tag_name": "source_canonical_revision"
+      },
+      {
+          "regex": "(destination_canonical_revision=\\.=(.+?);\\.;)",
+          "tag_name": "destination_canonical_revision"
       }
     ],
     "stats_matcher": {
@@ -223,10 +249,24 @@
           }
         ]
       },
+      {{- if eq .sds_uds_path "unix:/etc/istio/proxy/SDS" }}
+      {
+        "name": "sds-grpc",
+        "type": "STATIC",
+        "http2_protocol_options": {},
+        "connect_timeout": "{{ .connect_timeout }}",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [{
+          "pipe": {
+            "path": "/etc/istio/proxy/SDS"
+           }
+        }]
+      },
+      {{- end }}
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
@@ -246,13 +286,8 @@
                     "api_type":"GRPC",
                     "grpc_services":[
                       {
-                        "google_grpc":{
-                          "target_uri": "{{ .sds_uds_path }}",
-                          "channel_credentials":{
-                            "local_credentials":{
-                            }
-                          },
-                          "stat_prefix":"sdsstat"
+                        "envoy_grpc":{
+                          "cluster_name": "sds-grpc"
                         }
                       }
                     ]
@@ -401,6 +436,7 @@
             "keepalive_time": 300
           }
         },
+        "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
       {{ if .zipkin }}
@@ -408,7 +444,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -438,7 +474,7 @@
         },
         {{ end }}
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -454,7 +490,7 @@
         "name": "datadog_agent",
         "connect_timeout": "1s",
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -475,7 +511,7 @@
       {{ if .envoy_metrics_service_tcp_keepalive }}
         "upstream_connection_options": {{ .envoy_metrics_service_tcp_keepalive }},
       {{ end }}
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -498,7 +534,7 @@
       {{ if .envoy_accesslog_service_tcp_keepalive }}
         "upstream_connection_options": {{ .envoy_accesslog_service_tcp_keepalive }},
       {{ end }}
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",

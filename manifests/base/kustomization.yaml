@@ -4,5 +4,3 @@ kind: Kustomization
 resources:
   - files/crd-all.gen.yaml
   - files/crd-mixer.yaml
-  - files/crd-certmanager-10.yaml
-  - files/crd-certmanager-11.yaml

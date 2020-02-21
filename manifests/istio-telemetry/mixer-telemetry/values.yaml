@@ -40,6 +40,8 @@ mixer:
     useAdapterCRDs: false
 
   telemetry:
+    hub: ""
+    tag: ""
     image: mixer
     enabled: true
     replicaCount: 1
@@ -82,9 +84,6 @@ mixer:
     # A positive time value indicates the maximum wait time since the last request will telemetry data
     # be batched before being sent to the mixer server
     reportBatchMaxTime: 1s
-
-    # Indicate if Galley is enabled to send MCP queries
-    useMCP: true
 
     nodeSelector: {}
     tolerations: []

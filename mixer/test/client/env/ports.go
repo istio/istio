@@ -63,6 +63,13 @@ const (
 	SidecarTest
 	SidecarConsumerOnlyTest
 	TracingHeaderTest
+	STSTest
+	STSCacheTest
+	STSRenewTest
+	STSFailureTest
+	STSTimeoutTest
+	STSServerCacheTest
+	STSShortLivedCacheTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
@@ -71,7 +78,7 @@ const (
 const (
 	portBase uint16 = 20000
 	// Maximum number of ports used in each test.
-	portNum uint16 = 7
+	portNum uint16 = 8
 	// Number of ports used by Envoy in each test.
 	envoyPortNum uint16 = 4
 )
@@ -85,6 +92,7 @@ type Ports struct {
 	MixerPort       uint16
 	BackendPort     uint16
 	DiscoveryPort   uint16
+	STSPort         uint16
 
 	// Pilot ports, used when testing mixer-pilot integration.
 	PilotGrpcPort uint16
@@ -136,6 +144,7 @@ func NewPorts(name uint16) *Ports {
 		MixerPort:       base + 4,
 		BackendPort:     base + 5,
 		DiscoveryPort:   base + 6,
+		STSPort:         base + 7,
 	}
 }
 
@@ -150,5 +159,6 @@ func NewEnvoyPorts(ports *Ports, name uint16) *Ports {
 		MixerPort:       ports.MixerPort,
 		BackendPort:     ports.BackendPort,
 		DiscoveryPort:   ports.DiscoveryPort,
+		STSPort:         ports.STSPort,
 	}
 }

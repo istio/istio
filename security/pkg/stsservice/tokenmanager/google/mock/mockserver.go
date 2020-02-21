@@ -15,12 +15,12 @@
 package mock
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -37,6 +37,7 @@ var (
 	FakeTrustDomain    = "FakeTrustDomain"
 	FakeSubjectToken   = "FakeSubjectToken"
 	FakeProjectNum     = "1234567"
+	FakeGKEClusterURL  = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
 )
 
 type federatedTokenRequest struct {
@@ -45,7 +46,7 @@ type federatedTokenRequest struct {
 	RequestedTokenType string `json:"requestedTokenType"`
 	SubjectTokenType   string `json:"subjectTokenType"`
 	SubjectToken       string `json:"subjectToken"`
-	Scope              string `json:"Scope"`
+	Scope              string `json:"scope"`
 }
 
 type federatedTokenResponse struct {
@@ -56,18 +57,19 @@ type federatedTokenResponse struct {
 }
 
 type accessTokenRequest struct {
-	Name      string            `json:"Name"`
-	Delegates []string          `json:"Delegates"` // nolint: structcheck, unused
-	Scope     []string          `json:"Scope"`
+	Name      string            `json:"name"`
+	Delegates []string          `json:"delegates"` // nolint: structcheck, unused
+	Scope     []string          `json:"scope"`
 	LifeTime  duration.Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
 type accessTokenResponse struct {
-	AccessToken string            `json:"accessToken"`
-	ExpireTime  duration.Duration `json:"expireTime"`
+	AccessToken string `json:"accessToken"`
+	ExpireTime  string `json:"expireTime"`
 }
 
-// AuthorizationServer is the in-memory secure token service.
+// AuthorizationServer mocks google secure token server.
+// nolint: maligned
 type AuthorizationServer struct {
 	Port   int
 	URL    string
@@ -81,26 +83,58 @@ type AuthorizationServer struct {
 	mutex                       sync.RWMutex
 	generateFederatedTokenError error
 	generateAccessTokenError    error
+	accessTokenLife             int // life of issued access token in seconds
+	accessToken                 string
+	enableDynamicAccessToken    bool // whether generates different token each time
+	numGetFederatedTokenCalls   int
+	numGetAccessTokenCalls      int
+	blockFederatedTokenRequest  bool
+	blockAccessTokenRequest     bool
 }
 
-// StartNewServer creates a mock server and starts it
-func StartNewServer(t *testing.T) (*AuthorizationServer, error) {
+type Config struct {
+	Port         int
+	SubjectToken string
+	TrustDomain  string
+	AccessToken  string
+}
+
+// StartNewServer creates a mock server and starts it. The server listens on
+// port for requests. If port is 0, a randomly chosen port is in use.
+func StartNewServer(t *testing.T, conf Config) (*AuthorizationServer, error) {
+	st := FakeSubjectToken
+	if conf.SubjectToken != "" {
+		st = conf.SubjectToken
+	}
+	aud := fmt.Sprintf("identitynamespace:%s:%s", FakeTrustDomain, FakeGKEClusterURL)
+	if conf.TrustDomain != "" {
+		aud = fmt.Sprintf("identitynamespace:%s:%s", conf.TrustDomain, FakeGKEClusterURL)
+	}
+	token := FakeAccessToken
+	if conf.AccessToken != "" {
+		token = conf.AccessToken
+	}
 	server := &AuthorizationServer{
 		t: t,
 		expectedFederatedTokenRequest: federatedTokenRequest{
-			Audience:           FakeTrustDomain,
+			Audience:           aud,
 			GrantType:          "urn:ietf:params:oauth:grant-type:token-exchange",
 			RequestedTokenType: "urn:ietf:params:oauth:token-type:access_token",
 			SubjectTokenType:   "urn:ietf:params:oauth:token-type:jwt",
-			SubjectToken:       FakeSubjectToken,
+			SubjectToken:       st,
 			Scope:              "https://www.googleapis.com/auth/cloud-platform",
 		},
 		expectedAccessTokenRequest: accessTokenRequest{
 			Name:  fmt.Sprintf("projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum),
 			Scope: []string{"https://www.googleapis.com/auth/cloud-platform"},
 		},
+		accessTokenLife:            3600,
+		accessToken:                token,
+		enableDynamicAccessToken:   false,
+		blockFederatedTokenRequest: false,
+		blockAccessTokenRequest:    false,
 	}
-	return server, server.Start()
+	return server, server.Start(conf.Port)
 }
 
 func (ms *AuthorizationServer) SetGenFedTokenError(err error) {
@@ -109,33 +143,78 @@ func (ms *AuthorizationServer) SetGenFedTokenError(err error) {
 	ms.generateFederatedTokenError = err
 }
 
+func (ms *AuthorizationServer) BlockFederatedTokenRequest(block bool) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.blockFederatedTokenRequest = block
+}
+
+func (ms *AuthorizationServer) BlockAccessTokenRequest(block bool) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.blockAccessTokenRequest = block
+}
+
 func (ms *AuthorizationServer) SetGenAcsTokenError(err error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 	ms.generateAccessTokenError = err
 }
 
+// SetTokenLifeTime sets life time of issued access token to d seconds
+func (ms *AuthorizationServer) SetTokenLifeTime(d int) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.accessTokenLife = d
+}
+
+// SetAccessToken sets the issued access token to token
+func (ms *AuthorizationServer) SetAccessToken(token string) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.accessToken = token
+}
+
+// SetAccessToken sets the issued access token to token
+func (ms *AuthorizationServer) EnableDynamicAccessToken(enable bool) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.enableDynamicAccessToken = enable
+}
+
+func (ms *AuthorizationServer) NumGetAccessTokenCalls() int {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	return ms.numGetAccessTokenCalls
+}
+
+func (ms *AuthorizationServer) NumGetFederatedTokenCalls() int {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	return ms.numGetFederatedTokenCalls
+}
+
 // Start starts the mock server.
-func (ms *AuthorizationServer) Start() error {
+func (ms *AuthorizationServer) Start(port int) error {
 	atEndpoint := fmt.Sprintf("/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/identitybindingtoken", ms.getFederatedToken)
 	mux.HandleFunc(atEndpoint, ms.getAccessToken)
 	ms.t.Logf("Registered handler for endpoints:\n%s\n%s", atEndpoint, "/v1/identitybindingtoken")
 	server := &http.Server{
-		Addr:    ":",
+		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
 		Handler: mux,
 	}
-	ln, err := net.Listen("tcp", ":0")
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		log.Errorf("Server failed to listen %v", err)
 		return err
 	}
+	// If passed in port is 0, get the actual chosen port.
+	port = ln.Addr().(*net.TCPAddr).Port
 
-	port := ln.Addr().(*net.TCPAddr).Port
 	ms.Port = port
 	ms.URL = fmt.Sprintf("http://localhost:%d", port)
-	server.Addr = ":" + strconv.Itoa(port)
 
 	go func() {
 		if err := server.Serve(ln); err != nil {
@@ -154,8 +233,7 @@ func (ms *AuthorizationServer) Stop() error {
 	if ms.server == nil {
 		return nil
 	}
-
-	return ms.server.Close()
+	return ms.server.Shutdown(context.TODO())
 }
 
 func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *http.Request) {
@@ -167,12 +245,17 @@ func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *htt
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	var fakeErr error
-	var want federatedTokenRequest
+
 	ms.mutex.Lock()
-	want = ms.expectedFederatedTokenRequest
-	fakeErr = ms.generateFederatedTokenError
+	ms.numGetFederatedTokenCalls++
+	want := ms.expectedFederatedTokenRequest
+	fakeErr := ms.generateFederatedTokenError
+	blockRequest := ms.blockFederatedTokenRequest
 	ms.mutex.Unlock()
+
+	if blockRequest {
+		time.Sleep(1 * time.Hour)
+	}
 
 	if req.Header.Get("Content-Type") != "application/json" {
 		ms.t.Errorf("Content-Type header does not match\nwant %s\n got %s",
@@ -207,12 +290,21 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		return
 	}
 
-	var fakeErr error
-	want := accessTokenRequest{}
 	ms.mutex.Lock()
-	want = ms.expectedAccessTokenRequest
-	fakeErr = ms.generateAccessTokenError
+	ms.numGetAccessTokenCalls++
+	want := ms.expectedAccessTokenRequest
+	fakeErr := ms.generateAccessTokenError
+	tokenLife := time.Now().Add(time.Duration(ms.accessTokenLife) * time.Second)
+	token := ms.accessToken
+	if ms.enableDynamicAccessToken {
+		token += time.Now().String()
+	}
+	blockRequest := ms.blockAccessTokenRequest
 	ms.mutex.Unlock()
+
+	if blockRequest {
+		time.Sleep(1 * time.Hour)
+	}
 
 	if req.Header.Get("Authorization") != "" {
 		auth := req.Header.Get("Authorization")
@@ -238,10 +330,8 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		return
 	}
 	resp := accessTokenResponse{
-		AccessToken: FakeAccessToken,
-		ExpireTime: duration.Duration{
-			Seconds: 3600,
-		},
+		AccessToken: token,
+		ExpireTime:  tokenLife.Format(time.RFC3339Nano),
 	}
 
 	_ = json.NewEncoder(w).Encode(resp)

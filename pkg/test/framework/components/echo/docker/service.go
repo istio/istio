@@ -19,7 +19,7 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"

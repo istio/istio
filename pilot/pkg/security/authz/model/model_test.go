@@ -89,7 +89,7 @@ func TestNewServiceMetadata(t *testing.T) {
 	}
 }
 
-func TestNewModel(t *testing.T) {
+func TestNewModelV1alpha1(t *testing.T) {
 	role := &istio_rbac.ServiceRole{
 		Rules: []*istio_rbac.AccessRule{
 			fullRule("perm-1"),
@@ -198,7 +198,12 @@ func TestNewModelV1beta1(t *testing.T) {
 				Permissions: []Permission{
 					{
 						Constraints: []KeyValues{
-							{"destination.ip": []string{"value-destination.ip-1", "value-destination.ip-2"}},
+							{
+								"destination.ip": Values{
+									Values:    []string{"value-destination.ip-1", "value-destination.ip-2"},
+									NotValues: []string{"not-value-destination.ip-1", "not-value-destination.ip-2"},
+								},
+							},
 						},
 						v1beta1: true,
 					},
@@ -228,7 +233,12 @@ func TestNewModelV1beta1(t *testing.T) {
 				Principals: []Principal{
 					{
 						Properties: []KeyValues{
-							{"request.headers": []string{"value-request.headers-1", "value-request.headers-2"}},
+							{
+								"request.headers": Values{
+									Values:    []string{"value-request.headers-1", "value-request.headers-2"},
+									NotValues: []string{"not-value-request.headers-1", "not-value-request.headers-2"},
+								},
+							},
 						},
 						v1beta1: true,
 					},
@@ -241,30 +251,40 @@ func TestNewModelV1beta1(t *testing.T) {
 				From: []*security.Rule_From{
 					{
 						Source: &security.Source{
-							Principals:        []string{"p1", "p2"},
-							RequestPrincipals: []string{"rp1", "rp2"},
-							IpBlocks:          []string{"1.1.1.1", "2.2.2.2"},
-							Namespaces:        []string{"ns1", "ns2"},
+							Principals:           []string{"p1", "p2"},
+							NotPrincipals:        []string{"np1", "np2"},
+							RequestPrincipals:    []string{"rp1", "rp2"},
+							NotRequestPrincipals: []string{"nrp1", "nrp2"},
+							IpBlocks:             []string{"1.1.1.1", "2.2.2.2"},
+							NotIpBlocks:          []string{"11.1.1.1", "22.2.2.2"},
+							Namespaces:           []string{"ns1", "ns2"},
+							NotNamespaces:        []string{"nns1", "nns2"},
 						},
 					},
 					{
 						Source: &security.Source{
-							Principals: []string{"p3"},
+							Principals:    []string{"p3"},
+							NotPrincipals: []string{"np3"},
 						},
 					},
 				},
 				To: []*security.Rule_To{
 					{
 						Operation: &security.Operation{
-							Hosts:   []string{"h1", "h2"},
-							Ports:   []string{"10", "20"},
-							Paths:   []string{"/p1", "/p2"},
-							Methods: []string{"m1", "m2"},
+							Hosts:      []string{"h1", "h2"},
+							NotHosts:   []string{"nh1", "nh2"},
+							Ports:      []string{"10", "20"},
+							NotPorts:   []string{"110", "220"},
+							Paths:      []string{"/p1", "/p2"},
+							NotPaths:   []string{"/np1", "/np2"},
+							Methods:    []string{"m1", "m2"},
+							NotMethods: []string{"nm1", "nm2"},
 						},
 					},
 					{
 						Operation: &security.Operation{
-							Hosts: []string{"h3"},
+							Hosts:    []string{"h3"},
+							NotHosts: []string{"nh3"},
 						},
 					},
 				},
@@ -291,60 +311,200 @@ func TestNewModelV1beta1(t *testing.T) {
 			want: Model{
 				Permissions: []Permission{
 					{
-						Hosts:   []string{"h1", "h2"},
-						Paths:   []string{"/p1", "/p2"},
-						Methods: []string{"m1", "m2"},
-						Ports:   []string{"10", "20"},
+						Hosts:      []string{"h1", "h2"},
+						NotHosts:   []string{"nh1", "nh2"},
+						Paths:      []string{"/p1", "/p2"},
+						NotPaths:   []string{"/np1", "/np2"},
+						Methods:    []string{"m1", "m2"},
+						NotMethods: []string{"nm1", "nm2"},
+						Ports:      []string{"10", "20"},
+						NotPorts:   []string{"110", "220"},
 						Constraints: []KeyValues{
-							{"destination.ip": []string{"value-destination.ip-1", "value-destination.ip-2"}},
-							{"destination.port": []string{"value-destination.port-1", "value-destination.port-2"}},
-							{"connection.sni": []string{"value-connection.sni-1", "value-connection.sni-2"}},
+							{
+								"destination.ip": Values{
+									Values:    []string{"value-destination.ip-1", "value-destination.ip-2"},
+									NotValues: []string{"not-value-destination.ip-1", "not-value-destination.ip-2"},
+								},
+							},
+							{
+								"destination.port": Values{
+									Values:    []string{"value-destination.port-1", "value-destination.port-2"},
+									NotValues: []string{"not-value-destination.port-1", "not-value-destination.port-2"},
+								},
+							},
+							{
+								"connection.sni": Values{
+									Values:    []string{"value-connection.sni-1", "value-connection.sni-2"},
+									NotValues: []string{"not-value-connection.sni-1", "not-value-connection.sni-2"},
+								},
+							},
 						},
 						v1beta1: true,
 					},
 					{
-						Hosts: []string{"h3"},
+						Hosts:    []string{"h3"},
+						NotHosts: []string{"nh3"},
 						Constraints: []KeyValues{
-							{"destination.ip": []string{"value-destination.ip-1", "value-destination.ip-2"}},
-							{"destination.port": []string{"value-destination.port-1", "value-destination.port-2"}},
-							{"connection.sni": []string{"value-connection.sni-1", "value-connection.sni-2"}},
+							{
+								"destination.ip": Values{
+									Values:    []string{"value-destination.ip-1", "value-destination.ip-2"},
+									NotValues: []string{"not-value-destination.ip-1", "not-value-destination.ip-2"},
+								},
+							},
+							{
+								"destination.port": Values{
+									Values:    []string{"value-destination.port-1", "value-destination.port-2"},
+									NotValues: []string{"not-value-destination.port-1", "not-value-destination.port-2"},
+								},
+							},
+							{
+								"connection.sni": Values{
+									Values:    []string{"value-connection.sni-1", "value-connection.sni-2"},
+									NotValues: []string{"not-value-connection.sni-1", "not-value-connection.sni-2"},
+								},
+							},
 						},
 						v1beta1: true,
 					},
 				},
 				Principals: []Principal{
 					{
-						Names:             []string{"p1", "p2"},
-						Namespaces:        []string{"ns1", "ns2"},
-						IPs:               []string{"1.1.1.1", "2.2.2.2"},
-						RequestPrincipals: []string{"rp1", "rp2"},
+						Names:                []string{"p1", "p2"},
+						NotNames:             []string{"np1", "np2"},
+						Namespaces:           []string{"ns1", "ns2"},
+						NotNamespaces:        []string{"nns1", "nns2"},
+						IPs:                  []string{"1.1.1.1", "2.2.2.2"},
+						NotIPs:               []string{"11.1.1.1", "22.2.2.2"},
+						RequestPrincipals:    []string{"rp1", "rp2"},
+						NotRequestPrincipals: []string{"nrp1", "nrp2"},
 						Properties: []KeyValues{
-							{"request.headers": []string{"value-request.headers-1", "value-request.headers-2"}},
-							{"source.ip": []string{"value-source.ip-1", "value-source.ip-2"}},
-							{"source.namespace": []string{"value-source.namespace-1", "value-source.namespace-2"}},
-							{"source.user": []string{"value-source.user-1", "value-source.user-2"}},
-							{"source.principal": []string{"value-source.principal-1", "value-source.principal-2"}},
-							{"request.auth.principal": []string{"value-request.auth.principal-1", "value-request.auth.principal-2"}},
-							{"request.auth.audiences": []string{"value-request.auth.audiences-1", "value-request.auth.audiences-2"}},
-							{"request.auth.presenter": []string{"value-request.auth.presenter-1", "value-request.auth.presenter-2"}},
-							{"request.auth.claims": []string{"value-request.auth.claims-1", "value-request.auth.claims-2"}},
-							{"request.auth.claims[groups]": []string{"value-request.auth.claims[groups]-1", "value-request.auth.claims[groups]-2"}},
+							{
+								"request.headers": Values{
+									Values:    []string{"value-request.headers-1", "value-request.headers-2"},
+									NotValues: []string{"not-value-request.headers-1", "not-value-request.headers-2"},
+								},
+							},
+							{
+								"source.ip": Values{
+									Values:    []string{"value-source.ip-1", "value-source.ip-2"},
+									NotValues: []string{"not-value-source.ip-1", "not-value-source.ip-2"},
+								},
+							},
+							{
+								"source.namespace": Values{
+									Values:    []string{"value-source.namespace-1", "value-source.namespace-2"},
+									NotValues: []string{"not-value-source.namespace-1", "not-value-source.namespace-2"},
+								},
+							},
+							{
+								"source.user": Values{
+									Values:    []string{"value-source.user-1", "value-source.user-2"},
+									NotValues: []string{"not-value-source.user-1", "not-value-source.user-2"},
+								},
+							},
+							{
+								"source.principal": Values{
+									Values:    []string{"value-source.principal-1", "value-source.principal-2"},
+									NotValues: []string{"not-value-source.principal-1", "not-value-source.principal-2"},
+								},
+							},
+							{
+								"request.auth.principal": Values{
+									Values:    []string{"value-request.auth.principal-1", "value-request.auth.principal-2"},
+									NotValues: []string{"not-value-request.auth.principal-1", "not-value-request.auth.principal-2"},
+								},
+							},
+							{
+								"request.auth.audiences": Values{
+									Values:    []string{"value-request.auth.audiences-1", "value-request.auth.audiences-2"},
+									NotValues: []string{"not-value-request.auth.audiences-1", "not-value-request.auth.audiences-2"},
+								},
+							},
+							{
+								"request.auth.presenter": Values{
+									Values:    []string{"value-request.auth.presenter-1", "value-request.auth.presenter-2"},
+									NotValues: []string{"not-value-request.auth.presenter-1", "not-value-request.auth.presenter-2"},
+								},
+							},
+							{
+								"request.auth.claims": Values{
+									Values:    []string{"value-request.auth.claims-1", "value-request.auth.claims-2"},
+									NotValues: []string{"not-value-request.auth.claims-1", "not-value-request.auth.claims-2"},
+								},
+							},
+							{
+								"request.auth.claims[groups]": Values{
+									Values:    []string{"value-request.auth.claims[groups]-1", "value-request.auth.claims[groups]-2"},
+									NotValues: []string{"not-value-request.auth.claims[groups]-1", "not-value-request.auth.claims[groups]-2"},
+								},
+							},
 						},
 						v1beta1: true,
 					},
 					{
-						Names: []string{"p3"},
+						Names:    []string{"p3"},
+						NotNames: []string{"np3"},
 						Properties: []KeyValues{
-							{"request.headers": []string{"value-request.headers-1", "value-request.headers-2"}},
-							{"source.ip": []string{"value-source.ip-1", "value-source.ip-2"}},
-							{"source.namespace": []string{"value-source.namespace-1", "value-source.namespace-2"}},
-							{"source.user": []string{"value-source.user-1", "value-source.user-2"}},
-							{"source.principal": []string{"value-source.principal-1", "value-source.principal-2"}},
-							{"request.auth.principal": []string{"value-request.auth.principal-1", "value-request.auth.principal-2"}},
-							{"request.auth.audiences": []string{"value-request.auth.audiences-1", "value-request.auth.audiences-2"}},
-							{"request.auth.presenter": []string{"value-request.auth.presenter-1", "value-request.auth.presenter-2"}},
-							{"request.auth.claims": []string{"value-request.auth.claims-1", "value-request.auth.claims-2"}},
-							{"request.auth.claims[groups]": []string{"value-request.auth.claims[groups]-1", "value-request.auth.claims[groups]-2"}},
+							{
+								"request.headers": Values{
+									Values:    []string{"value-request.headers-1", "value-request.headers-2"},
+									NotValues: []string{"not-value-request.headers-1", "not-value-request.headers-2"},
+								},
+							},
+							{
+								"source.ip": Values{
+									Values:    []string{"value-source.ip-1", "value-source.ip-2"},
+									NotValues: []string{"not-value-source.ip-1", "not-value-source.ip-2"},
+								},
+							},
+							{
+								"source.namespace": Values{
+									Values:    []string{"value-source.namespace-1", "value-source.namespace-2"},
+									NotValues: []string{"not-value-source.namespace-1", "not-value-source.namespace-2"},
+								},
+							},
+							{
+								"source.user": Values{
+									Values:    []string{"value-source.user-1", "value-source.user-2"},
+									NotValues: []string{"not-value-source.user-1", "not-value-source.user-2"},
+								},
+							},
+							{
+								"source.principal": Values{
+									Values:    []string{"value-source.principal-1", "value-source.principal-2"},
+									NotValues: []string{"not-value-source.principal-1", "not-value-source.principal-2"},
+								},
+							},
+							{
+								"request.auth.principal": Values{
+									Values:    []string{"value-request.auth.principal-1", "value-request.auth.principal-2"},
+									NotValues: []string{"not-value-request.auth.principal-1", "not-value-request.auth.principal-2"},
+								},
+							},
+							{
+								"request.auth.audiences": Values{
+									Values:    []string{"value-request.auth.audiences-1", "value-request.auth.audiences-2"},
+									NotValues: []string{"not-value-request.auth.audiences-1", "not-value-request.auth.audiences-2"},
+								},
+							},
+							{
+								"request.auth.presenter": Values{
+									Values:    []string{"value-request.auth.presenter-1", "value-request.auth.presenter-2"},
+									NotValues: []string{"not-value-request.auth.presenter-1", "not-value-request.auth.presenter-2"},
+								},
+							},
+							{
+								"request.auth.claims": Values{
+									Values:    []string{"value-request.auth.claims-1", "value-request.auth.claims-2"},
+									NotValues: []string{"not-value-request.auth.claims-1", "not-value-request.auth.claims-2"},
+								},
+							},
+							{
+								"request.auth.claims[groups]": Values{
+									Values:    []string{"value-request.auth.claims[groups]-1", "value-request.auth.claims[groups]-2"},
+									NotValues: []string{"not-value-request.auth.claims[groups]-1", "not-value-request.auth.claims[groups]-2"},
+								},
+							},
 						},
 						v1beta1: true,
 					},
@@ -474,5 +634,73 @@ func TestModel_Generate(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestModel_Validate(t *testing.T) {
+	testCases := []struct {
+		name        string
+		permissions []Permission
+		principals  []Principal
+		wantError   bool
+	}{
+		{
+			name: "invalid permission",
+			permissions: []Permission{
+				{
+					Methods: []string{"GET"},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid principal",
+			principals: []Principal{
+				{
+					RequestPrincipals: []string{"id"},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid permission and principal",
+			permissions: []Permission{
+				{
+					Methods: []string{"GET"},
+				},
+			},
+			principals: []Principal{
+				{
+					RequestPrincipals: []string{"id"},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "valid permission and principal",
+			permissions: []Permission{
+				{
+					Ports: []string{"80"},
+				},
+			},
+			principals: []Principal{
+				{
+					Namespaces: []string{"ns"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		m := Model{
+			Permissions: tc.permissions,
+			Principals:  tc.principals,
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			got := m.ValidateForTCPFilter()
+			if tc.wantError != (got != nil) {
+				t.Errorf("wantError %v but got error %v", tc.wantError, got)
+			}
+		})
 	}
 }

@@ -20,13 +20,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/tombstone"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 type watcher struct {
@@ -57,11 +57,11 @@ func (w *watcher) start() {
 		panic("watcher.start: already started")
 	}
 
-	scope.Source.Debugf("Starting watcher for %q (%q)", w.schema.Name(), w.schema.Resource().CanonicalName())
+	scope.Source.Debugf("Starting watcher for %q (%q)", w.schema.Name(), w.schema.Resource().GroupVersionKind())
 
 	informer, err := w.adapter.NewInformer()
 	if err != nil {
-		scope.Source.Errorf("unable to start watcher for %q: %v", w.schema.Resource().CanonicalName(), err)
+		scope.Source.Errorf("unable to start watcher for %q: %v", w.schema.Resource().GroupVersionKind(), err)
 		// Send a FullSync event, even if the informer is not available. This will ensure that the processing backend
 		// will still work, in absence of CRDs.
 		w.handler.Handle(event.FullSyncFor(w.schema))

@@ -24,6 +24,7 @@ metadata:
   name: bar
 ---
 # Pod that's injected. No warning
+apiVersion: v1
 kind: Pod
 metadata:
   name: injectedpod
@@ -36,6 +37,7 @@ spec:
     name: istio-proxy
 ---
 # Pod that's not injected and should be. Should generate warning
+apiVersion: v1
 kind: Pod
 metadata:
   name: noninjectedpod
@@ -46,6 +48,7 @@ spec:
     name: server
 ---
 # Pod that explicitly disables injection. Should not generate a warning.
+apiVersion: v1
 kind: Pod
 metadata:
   name: podinjectiondisabled

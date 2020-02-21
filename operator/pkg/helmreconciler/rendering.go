@@ -18,19 +18,25 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
+
+	jsonpatch "github.com/evanphx/json-patch"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"istio.io/istio/operator/pkg/tpath"
+
+	util2 "k8s.io/kubectl/pkg/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
-	kubectl "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/component/controlplane"
+	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
-	istiomanifest "istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
@@ -40,6 +46,27 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
+
+// ObjectCache is a cache of objects.
+type ObjectCache struct {
+	// cache is a cache keyed by object Hash() function.
+	cache map[string]*object.K8sObject
+	mu    *sync.RWMutex
+}
+
+var (
+	// objectCaches holds the latest copy of each object applied by the controller, keyed by the IstioOperator CR name
+	// and the object Hash() function.
+	objectCaches   = make(map[string]*ObjectCache)
+	objectCachesMu sync.RWMutex
+)
+
+// FlushObjectCaches flushes all K8s object caches.
+func (h *HelmReconciler) FlushObjectCaches() {
+	objectCachesMu.Lock()
+	defer objectCachesMu.Unlock()
+	objectCaches = make(map[string]*ObjectCache)
+}
 
 func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, error) {
 	iop, ok := in.GetInputConfig().(*valuesv1alpha1.IstioOperator)
@@ -83,7 +110,7 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 	profile := iop.Profile
 
 	// This contains the IstioOperator CR.
-	baseCRYAML, err := helm.ReadProfileYAML(profile)
+	baseIOPYAML, err := helm.ReadProfileYAML(profile)
 	if err != nil {
 		return nil, fmt.Errorf("could not read the profile values for %s: %s", profile, err)
 	}
@@ -98,15 +125,10 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 		if err != nil {
 			return nil, fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
 		}
-		baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
+		baseIOPYAML, err = util.OverlayYAML(defaultYAML, baseIOPYAML)
 		if err != nil {
 			return nil, fmt.Errorf("could not overlay the profile over the default %s: %s", profile, err)
 		}
-	}
-
-	_, baseYAML, err := unmarshalAndValidateIOP(baseCRYAML)
-	if err != nil {
-		return nil, err
 	}
 
 	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
@@ -118,13 +140,17 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 		if err != nil {
 			return nil, err
 		}
-		baseYAML, err = util.OverlayYAML(baseYAML, buildHubTagOverlayYAML)
+		baseIOPYAML, err = util.OverlayYAML(baseIOPYAML, buildHubTagOverlayYAML)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	overlayYAML, err := util.MarshalWithJSONPB(iop)
+	if err != nil {
+		return nil, err
+	}
+	baseYAML, err := tpath.GetSpecSubtree(baseIOPYAML)
 	if err != nil {
 		return nil, err
 	}
@@ -137,32 +163,11 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 	return unmarshalAndValidateIOPSpec(mergedYAML)
 }
 
-// unmarshalAndValidateIOP unmarshals the IstioOperator in the crYAML string and validates it.
-// If successful, it returns both a struct and string YAML representations of the IstioOperatorSpec embedded in iop.
-func unmarshalAndValidateIOP(crYAML string) (*v1alpha1.IstioOperatorSpec, string, error) {
-	// TODO: add GroupVersionKind handling as appropriate.
-	if crYAML == "" {
-		return &v1alpha1.IstioOperatorSpec{}, "", nil
-	}
-	iops, _, err := istiomanifest.ParseK8SYAMLToIstioOperatorSpec(crYAML)
-	if err != nil {
-		return nil, "", fmt.Errorf("could not parse the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)
-	}
-	if errs := validate.CheckIstioOperatorSpec(iops, false); len(errs) != 0 {
-		return nil, "", fmt.Errorf("input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s", errs, crYAML)
-	}
-	iopsYAML, err := util.MarshalWithJSONPB(iops)
-	if err != nil {
-		return nil, "", fmt.Errorf("could not marshal: %s", err)
-	}
-	return iops, iopsYAML, nil
-}
-
 // unmarshalAndValidateIOPSpec unmarshals the IstioOperatorSpec in the iopsYAML string and validates it.
 // If successful, it returns a struct representation of iopsYAML.
 func unmarshalAndValidateIOPSpec(iopsYAML string) (*v1alpha1.IstioOperatorSpec, error) {
 	iops := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(iopsYAML, iops); err != nil {
+	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
 		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
 	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
@@ -174,20 +179,87 @@ func unmarshalAndValidateIOPSpec(iopsYAML string) (*v1alpha1.IstioOperatorSpec, 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
 func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error) {
 	var errs []error
-	log.Infof("Processing resources from manifest: %s", manifest.Name)
-	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
+	crName := h.instance.Name + "-" + manifest.Name
+	log.Infof("Processing resources from manifest: %s for CR %s", manifest.Name, crName)
+	allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 	if err != nil {
 		return 0, err
 	}
-	for _, obj := range objects {
-		err = h.ProcessObject(manifest.Name, obj.UnstructuredObject())
-		if err != nil {
-			errs = append(errs, err)
+
+	objectCachesMu.Lock()
+
+	// Create and/or get the cache corresponding to the CR crName we're processing. Per crName partitioning is required to
+	// prune the cache to remove any objects not in the manifest generated for a given CR.
+	if objectCaches[crName] == nil {
+		objectCaches[crName] = &ObjectCache{
+			cache: make(map[string]*object.K8sObject),
+			mu:    &sync.RWMutex{},
 		}
 	}
-	return len(objects), utilerrors.NewAggregate(errs)
+	objectCache := objectCaches[crName]
+
+	objectCachesMu.Unlock()
+
+	// Ensure that for a given CR crName only one control loop uses the per-crName cache at any time.
+	objectCache.mu.Lock()
+	defer objectCache.mu.Unlock()
+
+	// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR crName and no
+	// other controller is allowed to work on at the same time.
+	var deployedObjects int
+	var changedObjects object.K8sObjects
+	var changedObjectKeys []string
+	allObjectsMap := make(map[string]bool)
+
+	// Check which objects in the manifest have changed from those in the cache.
+	for _, obj := range allObjects {
+		oh := obj.Hash()
+		allObjectsMap[oh] = true
+		if co, ok := objectCache.cache[oh]; ok && obj.Equal(co) {
+			// Object is in the cache and unchanged.
+			deployedObjects++
+			continue
+		}
+		changedObjects = append(changedObjects, obj)
+		changedObjectKeys = append(changedObjectKeys, oh)
+	}
+
+	if len(changedObjectKeys) > 0 {
+		log.Infof("The following objects differ between generated manifest and cache: \n - %s", strings.Join(changedObjectKeys, "\n - "))
+	} else {
+		log.Infof("Generated manifest objects are the same as cached for component %s.", manifest.Name)
+	}
+
+	// For each changed object, write it to the API server.
+	for _, obj := range changedObjects {
+		err = h.ProcessObject(manifest.Name, obj.UnstructuredObject())
+		if err != nil {
+			log.Error(err.Error())
+			errs = append(errs, err)
+			continue
+		}
+		deployedObjects++
+		// Update the cache with the latest object.
+		objectCache.cache[obj.Hash()] = obj
+	}
+
+	// Prune anything not in the manifest out of the cache.
+	var removeKeys []string
+	for k := range objectCache.cache {
+		if !allObjectsMap[k] {
+			removeKeys = append(removeKeys, k)
+		}
+	}
+	for _, k := range removeKeys {
+		log.Infof("Pruning object %s from cache.", k)
+		delete(objectCache.cache, k)
+	}
+
+	return deployedObjects, utilerrors.NewAggregate(errs)
 }
 
+// ProcessObject creates or updates an object in the API server depending on whether it already exists.
+// It mutates obj.
 func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstructured) error {
 	if obj.GetKind() == "List" {
 		allErrors := []error{}
@@ -211,7 +283,7 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 		return err
 	}
 
-	err = kubectl.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
+	err = util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
 	if err != nil {
 		log.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
@@ -220,45 +292,34 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 	receiver.SetGroupVersionKind(mutatedObj.GetObjectKind().GroupVersionKind())
 	objectKey, _ := client.ObjectKeyFromObject(mutatedObj)
 
-	var patch Patch
-
-	err = h.client.Get(context.TODO(), objectKey, receiver)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Infof("creating resource: %s", objectKey)
-			err = h.client.Create(context.TODO(), mutatedObj)
-			if err == nil {
-				// special handling
-				if err = h.customizer.Listener().ResourceCreated(mutatedObj); err != nil {
-					log.Errorf("unexpected error occurred during postprocessing of new resource: %s", err)
-				}
-			} else {
-				listenerErr := h.customizer.Listener().ResourceError(mutatedObj, err)
-				if listenerErr != nil {
-					log.Errorf("unexpected error occurred invoking ResourceError on listener: %s", listenerErr)
-				}
-			}
+	if err = h.client.Get(context.TODO(), objectKey, receiver); apierrors.IsNotFound(err) {
+		log.Infof("creating resource: %s", objectKey)
+		return h.client.Create(context.TODO(), mutatedObj)
+	} else if err == nil {
+		log.Infof("updating resource: %s", objectKey)
+		if err := applyOverlay(receiver, mutatedObj); err != nil {
+			return err
 		}
-	} else if h.needUpdateAndPrune {
-		if patch, err = h.CreatePatch(receiver, mutatedObj); err == nil && patch != nil {
-			log.Info("updating existing resource")
-			mutatedObj, err = patch.Apply()
-			if err == nil {
-				if err = h.customizer.Listener().ResourceUpdated(mutatedObj, receiver); err != nil {
-					log.Errorf("unexpected error occurred during postprocessing of updated resource: %s", err)
-				}
-			} else {
-				listenerErr := h.customizer.Listener().ResourceError(obj, err)
-				if listenerErr != nil {
-					log.Errorf("unexpected error occurred invoking ResourceError on listener: %s", listenerErr)
-				}
-			}
-		}
-	}
-	if err != nil {
-		log.Errorf("error occurred reconciling resource: %s", err)
+		return h.client.Update(context.TODO(), receiver)
 	}
 	return err
+}
+
+// applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
+func applyOverlay(current, overlay runtime.Object) error {
+	cj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, current)
+	if err != nil {
+		return err
+	}
+	uj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, overlay)
+	if err != nil {
+		return err
+	}
+	merged, err := jsonpatch.MergePatch(cj, uj)
+	if err != nil {
+		return err
+	}
+	return runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
 }
 
 func toChartManifestsMap(m name.ManifestMap) ChartManifestsMap {

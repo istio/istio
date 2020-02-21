@@ -3345,7 +3345,7 @@ message PodSpec {
   // +optional
   optional string hostname = 16;
 
-  // If specified, the fully qualified Pod hostname will be `<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>`.
+  // If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
   // If not specified, the pod will not have a domainname at all.
   // +optional
   optional string subdomain = 17;

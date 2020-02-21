@@ -31,10 +31,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -337,7 +335,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	// resolved Traffic to such clusters will blackhole.
 
 	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, node.WorkloadLabels, gatewayNames) {
+	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames) {
 		return nil
 	}
 
@@ -359,12 +357,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.Name = routeName
 		// add a name to the route
 	}
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.TypedPerFilterConfig = make(map[string]*any.Any)
-	} else {
-		out.PerFilterConfig = make(map[string]*structpb.Struct)
-	}
-
+	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
@@ -433,21 +426,10 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
-			var percent uint32 = 100
-			if in.MirrorPercent != nil {
-				percent = in.MirrorPercent.GetValue()
-			}
-
-			if percent > 0 {
-				n := GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port)
+			if mp := mirrorPercent(in); mp != nil {
 				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
-					Cluster: n,
-					RuntimeFraction: &core.RuntimeFractionalPercent{
-						DefaultValue: &xdstype.FractionalPercent{
-							Numerator:   percent,
-							Denominator: xdstype.FractionalPercent_HUNDRED,
-						},
-					},
+					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port),
+					RuntimeFraction: mp,
 				}
 			}
 		}
@@ -528,6 +510,33 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 // SortHeaderValueOption type and the functions below (Len, Less and Swap) are for sort.Stable for type HeaderValueOption
 type SortHeaderValueOption []*core.HeaderValueOption
 
+// mirrorPercent computes the mirror percent to be used based on "Mirror" data in route.
+func mirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
+	switch {
+	case in.MirrorPercentage != nil:
+		if in.MirrorPercentage.GetValue() > 0 {
+			return &core.RuntimeFractionalPercent{
+				DefaultValue: translatePercentToFractionalPercent(in.MirrorPercentage),
+			}
+		}
+		// If zero percent is provided explicitly, we should not mirror.
+		return nil
+	case in.MirrorPercent != nil:
+		if in.MirrorPercent.GetValue() > 0 {
+			return &core.RuntimeFractionalPercent{
+				DefaultValue: translateIntegerToFractionalPercent((int32(in.MirrorPercent.GetValue()))),
+			}
+		}
+		// If zero percent is provided explicitly, we should not mirror.
+		return nil
+	default:
+		// Default to 100 percent if percent is not given.
+		return &core.RuntimeFractionalPercent{
+			DefaultValue: translateIntegerToFractionalPercent(100),
+		}
+	}
+}
+
 // Len is i the sort.Interface for SortHeaderValueOption
 func (b SortHeaderValueOption) Len() int {
 	return len(b)
@@ -574,6 +583,14 @@ func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *ro
 	for name, stringMatch := range in.Headers {
 		matcher := translateHeaderMatch(name, stringMatch, node)
 		out.Headers = append(out.Headers, &matcher)
+	}
+
+	if util.IsIstioVersionGE14(node) {
+		for name, stringMatch := range in.WithoutHeaders {
+			matcher := translateHeaderMatch(name, stringMatch, node)
+			matcher.InvertMatch = true
+			out.Headers = append(out.Headers, &matcher)
+		}
 	}
 
 	// guarantee ordering of headers
@@ -638,19 +655,53 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) route.Que
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
-		out.Value = m.Exact
+		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
+			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}},
+		}
 	case *networking.StringMatch_Regex:
-		out.Value = m.Regex
-		out.Regex = proto.BoolTrue
+		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
+			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+						MaxProgramSize: &wrappers.UInt32Value{
+							Value: uint32(maxRegExProgramSize),
+						},
+					}},
+					Regex: m.Regex,
+				},
+			},
+			}}
 	}
 
 	return out
+}
+
+// isCatchAllHeaderMatch determines if the given header is matched with all strings or not.
+// Currently, if the regex has "*" value, it returns true
+func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
+	catchall := false
+
+	if in == nil {
+		return true
+	}
+
+	switch m := in.MatchType.(type) {
+	case *networking.StringMatch_Regex:
+		catchall = m.Regex == "*"
+	}
+
+	return catchall
 }
 
 // translateHeaderMatch translates to HeaderMatcher
 func translateHeaderMatch(name string, in *networking.StringMatch, node *model.Proxy) route.HeaderMatcher {
 	out := route.HeaderMatcher{
 		Name: name,
+	}
+
+	if isCatchAllHeaderMatch(in) {
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_PresentMatch{PresentMatch: true}
+		return out
 	}
 
 	switch m := in.MatchType.(type) {
@@ -751,7 +802,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 	if ps != nil {
 		switch ps.(type) {
 		case *route.RouteMatch_Prefix:
-			path = fmt.Sprintf("%s*", m.GetPrefix())
+			path = m.GetPrefix() + "*"
 		case *route.RouteMatch_Path:
 			path = m.GetPath()
 		case *route.RouteMatch_Regex:
@@ -768,9 +819,9 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
 		// Parse host and port from cluster name.
 		_, _, h, p := model.ParseSubsetKey(c)
-		return fmt.Sprintf("%s:%d%s", h, p, path)
+		return string(h) + ":" + strconv.Itoa(p) + path
 	}
-	return fmt.Sprintf("%s:%d%s", vsName, port, path)
+	return vsName + ":" + strconv.Itoa(port) + path
 }
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
@@ -820,8 +871,8 @@ func translatePercentToFractionalPercent(p *networking.Percent) *xdstype.Fractio
 // envoy.type.FractionalPercent instance.
 func translateIntegerToFractionalPercent(p int32) *xdstype.FractionalPercent {
 	return &xdstype.FractionalPercent{
-		Numerator:   uint32(p * 10000),
-		Denominator: xdstype.FractionalPercent_MILLION,
+		Numerator:   uint32(p),
+		Denominator: xdstype.FractionalPercent_HUNDRED,
 	}
 }
 
@@ -902,7 +953,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		cookie := consistentHash.GetHttpCookie()
 		var ttl *duration.Duration
 		if cookie.GetTtl() != nil {
-			ttl = ptypes.DurationProto(*cookie.GetTtl())
+			ttl = gogo.DurationToProtoDuration(cookie.GetTtl())
 		}
 		return &route.RouteAction_HashPolicy{
 			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
@@ -918,6 +969,14 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 			PolicySpecifier: &route.RouteAction_HashPolicy_ConnectionProperties_{
 				ConnectionProperties: &route.RouteAction_HashPolicy_ConnectionProperties{
 					SourceIp: consistentHash.GetUseSourceIp(),
+				},
+			},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpQueryParameterName:
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_QueryParameter_{
+				QueryParameter: &route.RouteAction_HashPolicy_QueryParameter{
+					Name: consistentHash.GetHttpQueryParameterName(),
 				},
 			},
 		}

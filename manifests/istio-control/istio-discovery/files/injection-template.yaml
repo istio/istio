@@ -120,74 +120,20 @@ template: |
     - sidecar
     - --domain
     - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-    - --configPath
-    - "/etc/istio/proxy"
-    - --binaryPath
-    - "/usr/local/bin/envoy"
     - --serviceCluster
     {{ if ne "" (index .ObjectMeta.Labels "app") -}}
     - "{{ index .ObjectMeta.Labels `app` }}.$(POD_NAMESPACE)"
     {{ else -}}
     - "{{ valueOrDefault .DeploymentMeta.Name `istio-proxy` }}.{{ valueOrDefault .DeploymentMeta.Namespace `default` }}"
     {{ end -}}
-    - --drainDuration
-    - "{{ formatDuration .ProxyConfig.DrainDuration }}"
-    - --parentShutdownDuration
-    - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
-    - --discoveryAddress
-    - "{{ annotation .ObjectMeta `sidecar.istio.io/discoveryAddress` .ProxyConfig.DiscoveryAddress }}"
-  {{- if eq .Values.global.proxy.tracer "lightstep" }}
-    - --lightstepAddress
-    - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
-    - --lightstepAccessToken
-    - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken }}"
-    - --lightstepSecure={{ .ProxyConfig.GetTracing.GetLightstep.GetSecure }}
-    - --lightstepCacertPath
-    - "{{ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}"
-  {{- else if eq .Values.global.proxy.tracer "zipkin" }}
-    - --zipkinAddress
-    - "{{ .ProxyConfig.GetTracing.GetZipkin.GetAddress }}"
-  {{- else if eq .Values.global.proxy.tracer "datadog" }}
-    - --datadogAgentAddress
-    - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
-  {{- end }}
     - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
     - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
-    - --connectTimeout
-    - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
-  {{- if .Values.global.proxy.envoyStatsd.enabled }}
-    - --statsdUdpAddress
-    - "{{ .ProxyConfig.StatsdUdpAddress }}"
-  {{- end }}
-  {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-    - --envoyMetricsService
-    - '{{ protoToJSON .ProxyConfig.EnvoyMetricsService }}'
-  {{- end }}
-  {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-    - --envoyAccessLogService
-    - '{{ protoToJSON .ProxyConfig.EnvoyAccessLogService }}'
-  {{- end }}
-    - --proxyAdminPort
-    - "{{ .ProxyConfig.ProxyAdminPort }}"
-    {{ if gt .ProxyConfig.Concurrency 0 -}}
-    - --concurrency
-    - "{{ .ProxyConfig.Concurrency }}"
-    {{ end -}}
-    {{- if .Values.global.istiod.enabled }}
-    - --controlPlaneAuthPolicy
-    - NONE
-    {{- else if .Values.global.controlPlaneSecurityEnabled }}
-    - --controlPlaneAuthPolicy
-    - MUTUAL_TLS
-    {{- else }}
-    - --controlPlaneAuthPolicy
-    - NONE
-    {{- end }}
-    - --dnsRefreshRate
-    - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
     - "{{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}"
+  {{- end }}
+  {{- if .Values.global.sts.servicePort }}
+    - --stsPort={{ .Values.global.sts.servicePort }}
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -201,6 +147,8 @@ template: |
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
     {{- end }}
     env:
+    - name: JWT_POLICY
+      value: {{ .Values.global.jwtPolicy }}
     - name: PILOT_CERT_PROVIDER
       value: {{ .Values.global.pilotCertProvider }}
     # Temp, pending PR to make it default or based on the istiodAddr env
@@ -230,14 +178,9 @@ template: |
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
-  {{- if eq .Values.global.proxy.tracer "datadog" }}
-  {{- if isset .ObjectMeta.Annotations `apm.datadoghq.com/env` }}
-  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
-    - name: {{ $key }}
-      value: "{{ $value }}"
-  {{- end }}
-  {{- end }}
-  {{- end }}
+    - name: MESH_CONFIG
+      value: |
+             {{ protoToJSON .MeshConfig }}
     - name: ISTIO_META_POD_PORTS
       value: |-
         [
@@ -261,8 +204,6 @@ template: |
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-    - name: SDS_ENABLED
-      value: "{{ .Values.global.sds.enabled }}"
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
@@ -273,11 +214,6 @@ template: |
     - name: ISTIO_METAJSON_ANNOTATIONS
       value: |
              {{ toJSON .ObjectMeta.Annotations }}
-    {{ end }}
-    {{ if .ObjectMeta.Labels }}
-    - name: ISTIO_METAJSON_LABELS
-      value: |
-             {{ toJSON .ObjectMeta.Labels }}
     {{ end }}
     {{- if .DeploymentMeta.Name }}
     - name: ISTIO_META_WORKLOAD_NAME
@@ -298,23 +234,15 @@ template: |
     - name: ISTIO_META_MESH_ID
       value: "{{ .Values.global.trustDomain }}"
     {{- end }}
-    {{- if eq .Values.global.proxy.tracer "stackdriver" }}
-    - name: STACKDRIVER_TRACING_ENABLED
-      value: "true"
-    - name: STACKDRIVER_TRACING_DEBUG
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
-    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
-    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
-    - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-      value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
-    {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
       - name: {{ $key }}
         value: "{{ $value }}"
     {{- end }}
+    {{- end }}
+    {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+    - name: {{ $key }}
+      value: "{{ $value }}"
     {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
     {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
@@ -329,9 +257,14 @@ template: |
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
+        {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
         add:
+        {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
         - NET_ADMIN
+        {{- end }}
+        {{ if eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true` -}}
+        - NET_BIND_SERVICE
+        {{- end }}
         {{- end }}
         drop:
         - ALL
@@ -339,7 +272,7 @@ template: |
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
       fsGroup: 1337
-      {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
+      {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -369,13 +302,21 @@ template: |
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
+    # SDS channel between istioagent and Envoy
     - mountPath: /etc/istio/proxy
       name: istio-envoy
+    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
+    {{- end }}
+    {{- if .Values.global.mountMtlsCerts }}
+    # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
     - mountPath: /etc/certs/
       name: istio-certs
       readOnly: true
+    {{- end }}
+    - name: podinfo
+      mountPath: /etc/istio/pod
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
       name: lightstep-certs
@@ -393,9 +334,20 @@ template: |
     configMap:
       name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
   {{- end }}
+  # SDS channel between istioagent and Envoy
   - emptyDir:
       medium: Memory
     name: istio-envoy
+  - name: podinfo
+    downwardAPI:
+      items:
+        - path: "labels"
+          fieldRef:
+            fieldPath: metadata.labels
+        - path: "annotations"
+          fieldRef:
+            fieldPath: metadata.annotations
+  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:
       sources:
@@ -403,11 +355,14 @@ template: |
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
+  {{- end }}
   {{- if eq .Values.global.pilotCertProvider "citadel" }}
   - name: citadel-ca-cert
     configMap:
       name: istio-ca-root-cert
   {{- end }}
+  {{- if .Values.global.mountMtlsCerts }}
+  # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
   - name: istio-certs
     secret:
       optional: true
@@ -416,6 +371,7 @@ template: |
       {{ else -}}
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
+  {{- end }}
     {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` }}
     {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) }}
   - name: "{{ $index }}"
@@ -435,3 +391,13 @@ template: |
       - {{ render . }}
       {{- end }}
   {{- end }}
+  podRedirectAnnot:
+    sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
+    traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
+    traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
+    traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) }}"
+    traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+  {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
+    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
+  {{- end }}
+    traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"

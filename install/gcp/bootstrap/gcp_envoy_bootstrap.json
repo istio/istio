@@ -60,7 +60,16 @@
               }
             },
             "call_credentials": {
+            {{ if .sts }}
+            "sts_service": {
+              "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+              "scope": "https://www.googleapis.com/auth/cloud-platform",
+            }
+            {{ else }}
               "google_compute_engine": {}
+            {{ end }}
             }
           }
         }
@@ -99,4 +108,18 @@
     }
   }}
   {{ end }}
+  ,
+  "layered_runtime": {
+    "layers": [
+      {
+        "name": "rtds_layer",
+        "rtds_layer": {
+          "name": "traffic_director_runtime",
+          "rtds_config": {
+            "ads": {}
+           }
+       }
+      }
+     ]
+  }
 }

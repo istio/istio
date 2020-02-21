@@ -86,7 +86,7 @@ resources:
     kind: "Deployment"
     plural: "deployments"
     group: "apps"
-    version: "apps/v1"
+    version: "v1"
     proto: "k8s.io.api.apps.v1.Deployment"
     protoPackage: "k8s.io/api/apps/v1"
 

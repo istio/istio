@@ -20,20 +20,24 @@ import (
 	"reflect"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/config/schema/resource"
+
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/queue"
 )
 
@@ -42,7 +46,7 @@ import (
 type controller struct {
 	client *Client
 	queue  queue.Instance
-	kinds  map[string]*cacheHandler
+	kinds  map[resource.GroupVersionKind]*cacheHandler
 }
 
 type cacheHandler struct {
@@ -90,7 +94,7 @@ func NewController(client *Client, options controller2.Options) model.ConfigStor
 	out := &controller{
 		client: client,
 		queue:  queue.NewQueue(1 * time.Second),
-		kinds:  make(map[string]*cacheHandler),
+		kinds:  make(map[resource.GroupVersionKind]*cacheHandler),
 	}
 
 	// add stores for CRD kinds
@@ -102,9 +106,9 @@ func NewController(client *Client, options controller2.Options) model.ConfigStor
 }
 
 func (c *controller) addInformer(schema collection.Schema, namespace string, resyncPeriod time.Duration) {
-	kind := schema.Resource().Kind()
+	kind := schema.Resource().GroupVersionKind()
 	schemaType := crd.SupportedTypes[kind]
-	c.kinds[kind] = c.newCacheHandler(schema, schemaType.Object.DeepCopyObject(), kind, resyncPeriod,
+	c.kinds[kind] = c.newCacheHandler(schema, schemaType.Object.DeepCopyObject(), kind.Kind, resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 			result = schemaType.Collection.DeepCopyObject()
 			rc, ok := c.client.clientset[schema.Resource().APIVersion()]
@@ -246,7 +250,7 @@ func (h *cacheHandler) onEvent(old, curr interface{}, event model.Event) error {
 	return nil
 }
 
-func (c *controller) RegisterEventHandler(kind string, f func(model.Config, model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func(model.Config, model.Config, model.Event)) {
 	h, exists := c.kinds[kind]
 	if !exists {
 		return
@@ -261,6 +265,14 @@ func (c *controller) Version() string {
 
 func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return c.client.GetResourceAtVersion(version, key)
+}
+
+func (c *controller) GetLedger() ledger.Ledger {
+	return c.client.GetLedger()
+}
+
+func (c *controller) SetLedger(l ledger.Ledger) error {
+	return c.client.SetLedger(l)
 }
 
 func (c *controller) HasSynced() bool {
@@ -292,8 +304,8 @@ func (c *controller) Schemas() collection.Schemas {
 	return c.client.Schemas()
 }
 
-func (c *controller) Get(typ, name, namespace string) *model.Config {
-	s, exists := c.client.Schemas().FindByKind(typ)
+func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
+	s, exists := c.client.Schemas().FindByGroupVersionKind(typ)
 	if !exists {
 		return nil
 	}
@@ -333,12 +345,12 @@ func (c *controller) Update(config model.Config) (string, error) {
 	return c.client.Update(config)
 }
 
-func (c *controller) Delete(typ, name, namespace string) error {
+func (c *controller) Delete(typ resource.GroupVersionKind, name, namespace string) error {
 	return c.client.Delete(typ, name, namespace)
 }
 
-func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	s, ok := c.client.Schemas().FindByKind(typ)
+func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+	s, ok := c.client.Schemas().FindByGroupVersionKind(typ)
 	if !ok {
 		return nil, fmt.Errorf("missing type %q", typ)
 	}
@@ -364,7 +376,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
 			handleValidationFailure(item, err)
-		} else {
+		} else if c.client.objectInEnvironment(config) {
 			out = append(out, *config)
 		}
 	}

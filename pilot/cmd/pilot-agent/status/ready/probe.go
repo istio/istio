@@ -17,7 +17,7 @@ package ready
 import (
 	"fmt"
 
-	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
@@ -37,7 +37,7 @@ func (p *Probe) Check() error {
 	if err := p.checkConfigStatus(); err != nil {
 		return err
 	}
-	return p.checkServerState()
+	return p.isEnvoyReady()
 }
 
 // checkConfigStatus checks to make sure initial configs have been received from Pilot.
@@ -61,15 +61,19 @@ func (p *Probe) checkConfigStatus() error {
 	return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
 }
 
-// checkServerState checks to ensure that Envoy is in the READY state
-func (p *Probe) checkServerState() error {
-	state, err := util.GetServerState(p.LocalHostAddr, p.AdminPort)
+// isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.
+func (p *Probe) isEnvoyReady() error {
+	state, ws, err := util.GetReadinessStats(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
-		return fmt.Errorf("failed to get server info: %v", err)
+		return fmt.Errorf("failed to get readiness stats: %v", err)
 	}
 
 	if state != nil && admin.ServerInfo_State(*state) != admin.ServerInfo_LIVE {
 		return fmt.Errorf("server is not live, current state is: %v", admin.ServerInfo_State(*state).String())
+	}
+
+	if !ws {
+		return fmt.Errorf("workers have not yet started")
 	}
 
 	return nil

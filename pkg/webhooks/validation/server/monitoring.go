@@ -26,12 +26,12 @@ import (
 )
 
 const (
-	errorStr = "error"
-	group    = "group"
-	version  = "version"
-	resource = "resource"
-	reason   = "reason"
-	status   = "status"
+	errorStr    = "error"
+	group       = "group"
+	version     = "version"
+	resourceTag = "resource"
+	reason      = "reason"
+	status      = "status"
 )
 
 var (
@@ -98,7 +98,7 @@ func init() {
 	if VersionTag, err = tag.NewKey(version); err != nil {
 		panic(err)
 	}
-	if ResourceTag, err = tag.NewKey(resource); err != nil {
+	if ResourceTag, err = tag.NewKey(resourceTag); err != nil {
 		panic(err)
 	}
 	if ReasonTag, err = tag.NewKey(reason); err != nil {

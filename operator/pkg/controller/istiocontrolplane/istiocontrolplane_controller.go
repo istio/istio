@@ -42,8 +42,8 @@ import (
 
 const (
 	finalizer = "istio-finalizer.install.istio.io"
-	// finalizerMaxRetries defines the maximum number of attempts to add finalizers.
-	finalizerMaxRetries = 10
+	// finalizerMaxRetries defines the maximum number of attempts to remove the finalizer.
+	finalizerMaxRetries = 1
 )
 
 /**
@@ -139,12 +139,17 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		log.Info("Deleting IstioOperator")
 
 		reconciler, err := r.factory.New(iop, r.client)
-		if err == nil {
-			err = reconciler.Delete()
-		} else {
+		if err != nil {
 			log.Errorf("failed to create reconciler: %s", err)
+			return reconcile.Result{}, err
 		}
-		// TODO: for now, nuke the resources, regardless of errors
+
+		err = reconciler.Delete()
+		if err != nil {
+			log.Errorf("failed to remove owned resources: %s", err)
+			return reconcile.Result{}, err
+		}
+
 		finalizers.Delete(finalizer)
 		iop.SetFinalizers(finalizers.List())
 		finalizerError := r.client.Update(context.TODO(), iop)
@@ -159,6 +164,13 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 			finalizerError = r.client.Update(context.TODO(), iop)
 		}
 		if finalizerError != nil {
+			if errors.IsNotFound(finalizerError) {
+				log.Infof("Could not remove finalizer from %v: the object was deleted", request)
+				return reconcile.Result{}, nil
+			} else if errors.IsConflict(finalizerError) {
+				log.Infof("Could not remove finalizer from %v due to conflict. Operation will be retried in next reconcile attempt", request)
+				return reconcile.Result{}, nil
+			}
 			log.Errorf("error removing finalizer: %s", finalizerError)
 			return reconcile.Result{}, finalizerError
 		}
@@ -169,6 +181,13 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		iop.SetFinalizers(finalizers.List())
 		err := r.client.Update(context.TODO(), iop)
 		if err != nil {
+			if errors.IsNotFound(err) {
+				log.Infof("Could not add finalizer to %v: the object was deleted", request)
+				return reconcile.Result{}, nil
+			} else if errors.IsConflict(err) {
+				log.Infof("Could not add finalizer to %v due to conflict. Operation will be retried in next reconcile attempt", request)
+				return reconcile.Result{}, nil
+			}
 			log.Errorf("Failed to update IstioOperator with finalizer, %v", err)
 			return reconcile.Result{}, err
 		}

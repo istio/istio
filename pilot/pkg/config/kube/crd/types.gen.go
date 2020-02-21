@@ -25,8 +25,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 type SchemaType struct {
@@ -55,239 +56,250 @@ var SupportedSchemas = collection.NewSchemasBuilder().
 	MustAdd(collections.IstioRbacV1Alpha1Servicerolebindings).
 	MustAdd(collections.IstioRbacV1Alpha1Serviceroles).
 	MustAdd(collections.IstioSecurityV1Beta1Authorizationpolicies).
+	MustAdd(collections.IstioSecurityV1Beta1Peerauthentications).
 	MustAdd(collections.IstioSecurityV1Beta1Requestauthentications).
 	Build()
 
 // SupportedTypes maps kind to the resource information for the type.
-var SupportedTypes = map[string]SchemaType{
-	collections.Mock.Resource().Kind(): {
+var SupportedTypes = map[resource.GroupVersionKind]SchemaType{
+	collections.Mock.Resource().GroupVersionKind(): {
 		Schema: collections.Mock,
-		Object: &MockConfig{
+		Object: &Mock{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "MockConfig",
 				APIVersion: collections.Mock.Resource().APIVersion(),
 			},
 		},
-		Collection: &MockConfigList{},
+		Collection: &MockList{},
 	},
-	collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(): {
+	collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(): {
 		Schema: collections.IstioAuthenticationV1Alpha1Meshpolicies,
-		Object: &MeshPolicy{
+		Object: &IstioAuthenticationV1Alpha1Meshpolicies{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "MeshPolicy",
 				APIVersion: collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().APIVersion(),
 			},
 		},
-		Collection: &MeshPolicyList{},
+		Collection: &IstioAuthenticationV1Alpha1MeshpoliciesList{},
 	},
-	collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(): {
+	collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(): {
 		Schema: collections.IstioAuthenticationV1Alpha1Policies,
-		Object: &Policy{
+		Object: &IstioAuthenticationV1Alpha1Policies{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Policy",
 				APIVersion: collections.IstioAuthenticationV1Alpha1Policies.Resource().APIVersion(),
 			},
 		},
-		Collection: &PolicyList{},
+		Collection: &IstioAuthenticationV1Alpha1PoliciesList{},
 	},
-	collections.IstioConfigV1Alpha2Httpapispecbindings.Resource().Kind(): {
+	collections.IstioConfigV1Alpha2Httpapispecbindings.Resource().GroupVersionKind(): {
 		Schema: collections.IstioConfigV1Alpha2Httpapispecbindings,
-		Object: &HTTPAPISpecBinding{
+		Object: &IstioConfigV1Alpha2Httpapispecbindings{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "HTTPAPISpecBinding",
 				APIVersion: collections.IstioConfigV1Alpha2Httpapispecbindings.Resource().APIVersion(),
 			},
 		},
-		Collection: &HTTPAPISpecBindingList{},
+		Collection: &IstioConfigV1Alpha2HttpapispecbindingsList{},
 	},
-	collections.IstioConfigV1Alpha2Httpapispecs.Resource().Kind(): {
+	collections.IstioConfigV1Alpha2Httpapispecs.Resource().GroupVersionKind(): {
 		Schema: collections.IstioConfigV1Alpha2Httpapispecs,
-		Object: &HTTPAPISpec{
+		Object: &IstioConfigV1Alpha2Httpapispecs{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "HTTPAPISpec",
 				APIVersion: collections.IstioConfigV1Alpha2Httpapispecs.Resource().APIVersion(),
 			},
 		},
-		Collection: &HTTPAPISpecList{},
+		Collection: &IstioConfigV1Alpha2HttpapispecsList{},
 	},
-	collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().Kind(): {
+	collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(): {
 		Schema: collections.IstioMixerV1ConfigClientQuotaspecbindings,
-		Object: &QuotaSpecBinding{
+		Object: &IstioMixerV1ConfigClientQuotaspecbindings{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "QuotaSpecBinding",
 				APIVersion: collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().APIVersion(),
 			},
 		},
-		Collection: &QuotaSpecBindingList{},
+		Collection: &IstioMixerV1ConfigClientQuotaspecbindingsList{},
 	},
-	collections.IstioMixerV1ConfigClientQuotaspecs.Resource().Kind(): {
+	collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {
 		Schema: collections.IstioMixerV1ConfigClientQuotaspecs,
-		Object: &QuotaSpec{
+		Object: &IstioMixerV1ConfigClientQuotaspecs{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "QuotaSpec",
 				APIVersion: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().APIVersion(),
 			},
 		},
-		Collection: &QuotaSpecList{},
+		Collection: &IstioMixerV1ConfigClientQuotaspecsList{},
 	},
-	collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(): {
+	collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(): {
 		Schema: collections.IstioNetworkingV1Alpha3Destinationrules,
-		Object: &DestinationRule{
+		Object: &IstioNetworkingV1Alpha3Destinationrules{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "DestinationRule",
 				APIVersion: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().APIVersion(),
 			},
 		},
-		Collection: &DestinationRuleList{},
+		Collection: &IstioNetworkingV1Alpha3DestinationrulesList{},
 	},
-	collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().Kind(): {
+	collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(): {
 		Schema: collections.IstioNetworkingV1Alpha3Envoyfilters,
-		Object: &EnvoyFilter{
+		Object: &IstioNetworkingV1Alpha3Envoyfilters{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "EnvoyFilter",
 				APIVersion: collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().APIVersion(),
 			},
 		},
-		Collection: &EnvoyFilterList{},
+		Collection: &IstioNetworkingV1Alpha3EnvoyfiltersList{},
 	},
-	collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind(): {
+	collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {
 		Schema: collections.IstioNetworkingV1Alpha3Gateways,
-		Object: &Gateway{
+		Object: &IstioNetworkingV1Alpha3Gateways{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Gateway",
 				APIVersion: collections.IstioNetworkingV1Alpha3Gateways.Resource().APIVersion(),
 			},
 		},
-		Collection: &GatewayList{},
+		Collection: &IstioNetworkingV1Alpha3GatewaysList{},
 	},
-	collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(): {
+	collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {
 		Schema: collections.IstioNetworkingV1Alpha3Serviceentries,
-		Object: &ServiceEntry{
+		Object: &IstioNetworkingV1Alpha3Serviceentries{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ServiceEntry",
 				APIVersion: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().APIVersion(),
 			},
 		},
-		Collection: &ServiceEntryList{},
+		Collection: &IstioNetworkingV1Alpha3ServiceentriesList{},
 	},
-	collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(): {
+	collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(): {
 		Schema: collections.IstioNetworkingV1Alpha3Sidecars,
-		Object: &Sidecar{
+		Object: &IstioNetworkingV1Alpha3Sidecars{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Sidecar",
 				APIVersion: collections.IstioNetworkingV1Alpha3Sidecars.Resource().APIVersion(),
 			},
 		},
-		Collection: &SidecarList{},
+		Collection: &IstioNetworkingV1Alpha3SidecarsList{},
 	},
-	collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(): {
+	collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(): {
 		Schema: collections.IstioNetworkingV1Alpha3Virtualservices,
-		Object: &VirtualService{
+		Object: &IstioNetworkingV1Alpha3Virtualservices{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "VirtualService",
 				APIVersion: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().APIVersion(),
 			},
 		},
-		Collection: &VirtualServiceList{},
+		Collection: &IstioNetworkingV1Alpha3VirtualservicesList{},
 	},
-	collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(): {
+	collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(): {
 		Schema: collections.IstioRbacV1Alpha1Clusterrbacconfigs,
-		Object: &ClusterRbacConfig{
+		Object: &IstioRbacV1Alpha1Clusterrbacconfigs{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ClusterRbacConfig",
 				APIVersion: collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().APIVersion(),
 			},
 		},
-		Collection: &ClusterRbacConfigList{},
+		Collection: &IstioRbacV1Alpha1ClusterrbacconfigsList{},
 	},
-	collections.IstioRbacV1Alpha1Rbacconfigs.Resource().Kind(): {
+	collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(): {
 		Schema: collections.IstioRbacV1Alpha1Rbacconfigs,
-		Object: &RbacConfig{
+		Object: &IstioRbacV1Alpha1Rbacconfigs{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "RbacConfig",
 				APIVersion: collections.IstioRbacV1Alpha1Rbacconfigs.Resource().APIVersion(),
 			},
 		},
-		Collection: &RbacConfigList{},
+		Collection: &IstioRbacV1Alpha1RbacconfigsList{},
 	},
-	collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(): {
+	collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(): {
 		Schema: collections.IstioRbacV1Alpha1Servicerolebindings,
-		Object: &ServiceRoleBinding{
+		Object: &IstioRbacV1Alpha1Servicerolebindings{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ServiceRoleBinding",
 				APIVersion: collections.IstioRbacV1Alpha1Servicerolebindings.Resource().APIVersion(),
 			},
 		},
-		Collection: &ServiceRoleBindingList{},
+		Collection: &IstioRbacV1Alpha1ServicerolebindingsList{},
 	},
-	collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(): {
+	collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(): {
 		Schema: collections.IstioRbacV1Alpha1Serviceroles,
-		Object: &ServiceRole{
+		Object: &IstioRbacV1Alpha1Serviceroles{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ServiceRole",
 				APIVersion: collections.IstioRbacV1Alpha1Serviceroles.Resource().APIVersion(),
 			},
 		},
-		Collection: &ServiceRoleList{},
+		Collection: &IstioRbacV1Alpha1ServicerolesList{},
 	},
-	collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(): {
+	collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(): {
 		Schema: collections.IstioSecurityV1Beta1Authorizationpolicies,
-		Object: &AuthorizationPolicy{
+		Object: &IstioSecurityV1Beta1Authorizationpolicies{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "AuthorizationPolicy",
 				APIVersion: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().APIVersion(),
 			},
 		},
-		Collection: &AuthorizationPolicyList{},
+		Collection: &IstioSecurityV1Beta1AuthorizationpoliciesList{},
 	},
-	collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind(): {
+	collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(): {
+		Schema: collections.IstioSecurityV1Beta1Peerauthentications,
+		Object: &IstioSecurityV1Beta1Peerauthentications{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "PeerAuthentication",
+				APIVersion: collections.IstioSecurityV1Beta1Peerauthentications.Resource().APIVersion(),
+			},
+		},
+		Collection: &IstioSecurityV1Beta1PeerauthenticationsList{},
+	},
+	collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(): {
 		Schema: collections.IstioSecurityV1Beta1Requestauthentications,
-		Object: &RequestAuthentication{
+		Object: &IstioSecurityV1Beta1Requestauthentications{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "RequestAuthentication",
 				APIVersion: collections.IstioSecurityV1Beta1Requestauthentications.Resource().APIVersion(),
 			},
 		},
-		Collection: &RequestAuthenticationList{},
+		Collection: &IstioSecurityV1Beta1RequestauthenticationsList{},
 	},
 }
 
-// MockConfig is the generic Kubernetes API Object wrapper
-type MockConfig struct {
+// Mock is the generic Kubernetes API Object wrapper
+type Mock struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *MockConfig) GetSpec() map[string]interface{} {
+func (in *Mock) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *MockConfig) SetSpec(spec map[string]interface{}) {
+func (in *Mock) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *MockConfig) GetObjectMeta() metav1.ObjectMeta {
+func (in *Mock) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *MockConfig) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *Mock) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// MockConfigList is the generic Kubernetes API list wrapper
-type MockConfigList struct {
+// MockList is the generic Kubernetes API list wrapper
+type MockList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []MockConfig `json:"items"`
+	Items           []Mock `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *MockConfigList) GetItems() []IstioObject {
+func (in *MockList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -296,25 +308,25 @@ func (in *MockConfigList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *MockConfig) DeepCopyInto(out *MockConfig) {
+func (in *Mock) DeepCopyInto(out *Mock) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new MockConfig.
-func (in *MockConfig) DeepCopy() *MockConfig {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new Mock.
+func (in *Mock) DeepCopy() *Mock {
 	if in == nil {
 		return nil
 	}
-	out := new(MockConfig)
+	out := new(Mock)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *MockConfig) DeepCopyObject() runtime.Object {
+func (in *Mock) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -323,31 +335,31 @@ func (in *MockConfig) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *MockConfigList) DeepCopyInto(out *MockConfigList) {
+func (in *MockList) DeepCopyInto(out *MockList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]MockConfig, len(*in))
+		*out = make([]Mock, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new MockConfigList.
-func (in *MockConfigList) DeepCopy() *MockConfigList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new MockList.
+func (in *MockList) DeepCopy() *MockList {
 	if in == nil {
 		return nil
 	}
-	out := new(MockConfigList)
+	out := new(MockList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *MockConfigList) DeepCopyObject() runtime.Object {
+func (in *MockList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -355,42 +367,42 @@ func (in *MockConfigList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// MeshPolicy is the generic Kubernetes API Object wrapper
-type MeshPolicy struct {
+// IstioAuthenticationV1Alpha1Meshpolicies is the generic Kubernetes API Object wrapper
+type IstioAuthenticationV1Alpha1Meshpolicies struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *MeshPolicy) GetSpec() map[string]interface{} {
+func (in *IstioAuthenticationV1Alpha1Meshpolicies) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *MeshPolicy) SetSpec(spec map[string]interface{}) {
+func (in *IstioAuthenticationV1Alpha1Meshpolicies) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *MeshPolicy) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioAuthenticationV1Alpha1Meshpolicies) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *MeshPolicy) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioAuthenticationV1Alpha1Meshpolicies) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// MeshPolicyList is the generic Kubernetes API list wrapper
-type MeshPolicyList struct {
+// IstioAuthenticationV1Alpha1MeshpoliciesList is the generic Kubernetes API list wrapper
+type IstioAuthenticationV1Alpha1MeshpoliciesList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []MeshPolicy `json:"items"`
+	Items           []IstioAuthenticationV1Alpha1Meshpolicies `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *MeshPolicyList) GetItems() []IstioObject {
+func (in *IstioAuthenticationV1Alpha1MeshpoliciesList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -399,25 +411,25 @@ func (in *MeshPolicyList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *MeshPolicy) DeepCopyInto(out *MeshPolicy) {
+func (in *IstioAuthenticationV1Alpha1Meshpolicies) DeepCopyInto(out *IstioAuthenticationV1Alpha1Meshpolicies) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new MeshPolicy.
-func (in *MeshPolicy) DeepCopy() *MeshPolicy {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioAuthenticationV1Alpha1Meshpolicies.
+func (in *IstioAuthenticationV1Alpha1Meshpolicies) DeepCopy() *IstioAuthenticationV1Alpha1Meshpolicies {
 	if in == nil {
 		return nil
 	}
-	out := new(MeshPolicy)
+	out := new(IstioAuthenticationV1Alpha1Meshpolicies)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *MeshPolicy) DeepCopyObject() runtime.Object {
+func (in *IstioAuthenticationV1Alpha1Meshpolicies) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -426,31 +438,31 @@ func (in *MeshPolicy) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *MeshPolicyList) DeepCopyInto(out *MeshPolicyList) {
+func (in *IstioAuthenticationV1Alpha1MeshpoliciesList) DeepCopyInto(out *IstioAuthenticationV1Alpha1MeshpoliciesList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]MeshPolicy, len(*in))
+		*out = make([]IstioAuthenticationV1Alpha1Meshpolicies, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new MeshPolicyList.
-func (in *MeshPolicyList) DeepCopy() *MeshPolicyList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioAuthenticationV1Alpha1MeshpoliciesList.
+func (in *IstioAuthenticationV1Alpha1MeshpoliciesList) DeepCopy() *IstioAuthenticationV1Alpha1MeshpoliciesList {
 	if in == nil {
 		return nil
 	}
-	out := new(MeshPolicyList)
+	out := new(IstioAuthenticationV1Alpha1MeshpoliciesList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *MeshPolicyList) DeepCopyObject() runtime.Object {
+func (in *IstioAuthenticationV1Alpha1MeshpoliciesList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -458,42 +470,42 @@ func (in *MeshPolicyList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// Policy is the generic Kubernetes API Object wrapper
-type Policy struct {
+// IstioAuthenticationV1Alpha1Policies is the generic Kubernetes API Object wrapper
+type IstioAuthenticationV1Alpha1Policies struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *Policy) GetSpec() map[string]interface{} {
+func (in *IstioAuthenticationV1Alpha1Policies) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *Policy) SetSpec(spec map[string]interface{}) {
+func (in *IstioAuthenticationV1Alpha1Policies) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *Policy) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioAuthenticationV1Alpha1Policies) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *Policy) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioAuthenticationV1Alpha1Policies) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// PolicyList is the generic Kubernetes API list wrapper
-type PolicyList struct {
+// IstioAuthenticationV1Alpha1PoliciesList is the generic Kubernetes API list wrapper
+type IstioAuthenticationV1Alpha1PoliciesList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []Policy `json:"items"`
+	Items           []IstioAuthenticationV1Alpha1Policies `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *PolicyList) GetItems() []IstioObject {
+func (in *IstioAuthenticationV1Alpha1PoliciesList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -502,25 +514,25 @@ func (in *PolicyList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *Policy) DeepCopyInto(out *Policy) {
+func (in *IstioAuthenticationV1Alpha1Policies) DeepCopyInto(out *IstioAuthenticationV1Alpha1Policies) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new Policy.
-func (in *Policy) DeepCopy() *Policy {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioAuthenticationV1Alpha1Policies.
+func (in *IstioAuthenticationV1Alpha1Policies) DeepCopy() *IstioAuthenticationV1Alpha1Policies {
 	if in == nil {
 		return nil
 	}
-	out := new(Policy)
+	out := new(IstioAuthenticationV1Alpha1Policies)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *Policy) DeepCopyObject() runtime.Object {
+func (in *IstioAuthenticationV1Alpha1Policies) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -529,31 +541,31 @@ func (in *Policy) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *PolicyList) DeepCopyInto(out *PolicyList) {
+func (in *IstioAuthenticationV1Alpha1PoliciesList) DeepCopyInto(out *IstioAuthenticationV1Alpha1PoliciesList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]Policy, len(*in))
+		*out = make([]IstioAuthenticationV1Alpha1Policies, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new PolicyList.
-func (in *PolicyList) DeepCopy() *PolicyList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioAuthenticationV1Alpha1PoliciesList.
+func (in *IstioAuthenticationV1Alpha1PoliciesList) DeepCopy() *IstioAuthenticationV1Alpha1PoliciesList {
 	if in == nil {
 		return nil
 	}
-	out := new(PolicyList)
+	out := new(IstioAuthenticationV1Alpha1PoliciesList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *PolicyList) DeepCopyObject() runtime.Object {
+func (in *IstioAuthenticationV1Alpha1PoliciesList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -561,42 +573,42 @@ func (in *PolicyList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// HTTPAPISpecBinding is the generic Kubernetes API Object wrapper
-type HTTPAPISpecBinding struct {
+// IstioConfigV1Alpha2Httpapispecbindings is the generic Kubernetes API Object wrapper
+type IstioConfigV1Alpha2Httpapispecbindings struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *HTTPAPISpecBinding) GetSpec() map[string]interface{} {
+func (in *IstioConfigV1Alpha2Httpapispecbindings) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *HTTPAPISpecBinding) SetSpec(spec map[string]interface{}) {
+func (in *IstioConfigV1Alpha2Httpapispecbindings) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *HTTPAPISpecBinding) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioConfigV1Alpha2Httpapispecbindings) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *HTTPAPISpecBinding) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioConfigV1Alpha2Httpapispecbindings) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// HTTPAPISpecBindingList is the generic Kubernetes API list wrapper
-type HTTPAPISpecBindingList struct {
+// IstioConfigV1Alpha2HttpapispecbindingsList is the generic Kubernetes API list wrapper
+type IstioConfigV1Alpha2HttpapispecbindingsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []HTTPAPISpecBinding `json:"items"`
+	Items           []IstioConfigV1Alpha2Httpapispecbindings `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *HTTPAPISpecBindingList) GetItems() []IstioObject {
+func (in *IstioConfigV1Alpha2HttpapispecbindingsList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -605,25 +617,25 @@ func (in *HTTPAPISpecBindingList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *HTTPAPISpecBinding) DeepCopyInto(out *HTTPAPISpecBinding) {
+func (in *IstioConfigV1Alpha2Httpapispecbindings) DeepCopyInto(out *IstioConfigV1Alpha2Httpapispecbindings) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new HTTPAPISpecBinding.
-func (in *HTTPAPISpecBinding) DeepCopy() *HTTPAPISpecBinding {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioConfigV1Alpha2Httpapispecbindings.
+func (in *IstioConfigV1Alpha2Httpapispecbindings) DeepCopy() *IstioConfigV1Alpha2Httpapispecbindings {
 	if in == nil {
 		return nil
 	}
-	out := new(HTTPAPISpecBinding)
+	out := new(IstioConfigV1Alpha2Httpapispecbindings)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *HTTPAPISpecBinding) DeepCopyObject() runtime.Object {
+func (in *IstioConfigV1Alpha2Httpapispecbindings) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -632,31 +644,31 @@ func (in *HTTPAPISpecBinding) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *HTTPAPISpecBindingList) DeepCopyInto(out *HTTPAPISpecBindingList) {
+func (in *IstioConfigV1Alpha2HttpapispecbindingsList) DeepCopyInto(out *IstioConfigV1Alpha2HttpapispecbindingsList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]HTTPAPISpecBinding, len(*in))
+		*out = make([]IstioConfigV1Alpha2Httpapispecbindings, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new HTTPAPISpecBindingList.
-func (in *HTTPAPISpecBindingList) DeepCopy() *HTTPAPISpecBindingList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioConfigV1Alpha2HttpapispecbindingsList.
+func (in *IstioConfigV1Alpha2HttpapispecbindingsList) DeepCopy() *IstioConfigV1Alpha2HttpapispecbindingsList {
 	if in == nil {
 		return nil
 	}
-	out := new(HTTPAPISpecBindingList)
+	out := new(IstioConfigV1Alpha2HttpapispecbindingsList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *HTTPAPISpecBindingList) DeepCopyObject() runtime.Object {
+func (in *IstioConfigV1Alpha2HttpapispecbindingsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -664,42 +676,42 @@ func (in *HTTPAPISpecBindingList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// HTTPAPISpec is the generic Kubernetes API Object wrapper
-type HTTPAPISpec struct {
+// IstioConfigV1Alpha2Httpapispecs is the generic Kubernetes API Object wrapper
+type IstioConfigV1Alpha2Httpapispecs struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *HTTPAPISpec) GetSpec() map[string]interface{} {
+func (in *IstioConfigV1Alpha2Httpapispecs) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *HTTPAPISpec) SetSpec(spec map[string]interface{}) {
+func (in *IstioConfigV1Alpha2Httpapispecs) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *HTTPAPISpec) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioConfigV1Alpha2Httpapispecs) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *HTTPAPISpec) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioConfigV1Alpha2Httpapispecs) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// HTTPAPISpecList is the generic Kubernetes API list wrapper
-type HTTPAPISpecList struct {
+// IstioConfigV1Alpha2HttpapispecsList is the generic Kubernetes API list wrapper
+type IstioConfigV1Alpha2HttpapispecsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []HTTPAPISpec `json:"items"`
+	Items           []IstioConfigV1Alpha2Httpapispecs `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *HTTPAPISpecList) GetItems() []IstioObject {
+func (in *IstioConfigV1Alpha2HttpapispecsList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -708,25 +720,25 @@ func (in *HTTPAPISpecList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *HTTPAPISpec) DeepCopyInto(out *HTTPAPISpec) {
+func (in *IstioConfigV1Alpha2Httpapispecs) DeepCopyInto(out *IstioConfigV1Alpha2Httpapispecs) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new HTTPAPISpec.
-func (in *HTTPAPISpec) DeepCopy() *HTTPAPISpec {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioConfigV1Alpha2Httpapispecs.
+func (in *IstioConfigV1Alpha2Httpapispecs) DeepCopy() *IstioConfigV1Alpha2Httpapispecs {
 	if in == nil {
 		return nil
 	}
-	out := new(HTTPAPISpec)
+	out := new(IstioConfigV1Alpha2Httpapispecs)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *HTTPAPISpec) DeepCopyObject() runtime.Object {
+func (in *IstioConfigV1Alpha2Httpapispecs) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -735,31 +747,31 @@ func (in *HTTPAPISpec) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *HTTPAPISpecList) DeepCopyInto(out *HTTPAPISpecList) {
+func (in *IstioConfigV1Alpha2HttpapispecsList) DeepCopyInto(out *IstioConfigV1Alpha2HttpapispecsList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]HTTPAPISpec, len(*in))
+		*out = make([]IstioConfigV1Alpha2Httpapispecs, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new HTTPAPISpecList.
-func (in *HTTPAPISpecList) DeepCopy() *HTTPAPISpecList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioConfigV1Alpha2HttpapispecsList.
+func (in *IstioConfigV1Alpha2HttpapispecsList) DeepCopy() *IstioConfigV1Alpha2HttpapispecsList {
 	if in == nil {
 		return nil
 	}
-	out := new(HTTPAPISpecList)
+	out := new(IstioConfigV1Alpha2HttpapispecsList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *HTTPAPISpecList) DeepCopyObject() runtime.Object {
+func (in *IstioConfigV1Alpha2HttpapispecsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -767,42 +779,42 @@ func (in *HTTPAPISpecList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// QuotaSpecBinding is the generic Kubernetes API Object wrapper
-type QuotaSpecBinding struct {
+// IstioMixerV1ConfigClientQuotaspecbindings is the generic Kubernetes API Object wrapper
+type IstioMixerV1ConfigClientQuotaspecbindings struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *QuotaSpecBinding) GetSpec() map[string]interface{} {
+func (in *IstioMixerV1ConfigClientQuotaspecbindings) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *QuotaSpecBinding) SetSpec(spec map[string]interface{}) {
+func (in *IstioMixerV1ConfigClientQuotaspecbindings) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *QuotaSpecBinding) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioMixerV1ConfigClientQuotaspecbindings) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *QuotaSpecBinding) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioMixerV1ConfigClientQuotaspecbindings) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// QuotaSpecBindingList is the generic Kubernetes API list wrapper
-type QuotaSpecBindingList struct {
+// IstioMixerV1ConfigClientQuotaspecbindingsList is the generic Kubernetes API list wrapper
+type IstioMixerV1ConfigClientQuotaspecbindingsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []QuotaSpecBinding `json:"items"`
+	Items           []IstioMixerV1ConfigClientQuotaspecbindings `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *QuotaSpecBindingList) GetItems() []IstioObject {
+func (in *IstioMixerV1ConfigClientQuotaspecbindingsList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -811,25 +823,25 @@ func (in *QuotaSpecBindingList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *QuotaSpecBinding) DeepCopyInto(out *QuotaSpecBinding) {
+func (in *IstioMixerV1ConfigClientQuotaspecbindings) DeepCopyInto(out *IstioMixerV1ConfigClientQuotaspecbindings) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new QuotaSpecBinding.
-func (in *QuotaSpecBinding) DeepCopy() *QuotaSpecBinding {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioMixerV1ConfigClientQuotaspecbindings.
+func (in *IstioMixerV1ConfigClientQuotaspecbindings) DeepCopy() *IstioMixerV1ConfigClientQuotaspecbindings {
 	if in == nil {
 		return nil
 	}
-	out := new(QuotaSpecBinding)
+	out := new(IstioMixerV1ConfigClientQuotaspecbindings)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *QuotaSpecBinding) DeepCopyObject() runtime.Object {
+func (in *IstioMixerV1ConfigClientQuotaspecbindings) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -838,31 +850,31 @@ func (in *QuotaSpecBinding) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *QuotaSpecBindingList) DeepCopyInto(out *QuotaSpecBindingList) {
+func (in *IstioMixerV1ConfigClientQuotaspecbindingsList) DeepCopyInto(out *IstioMixerV1ConfigClientQuotaspecbindingsList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]QuotaSpecBinding, len(*in))
+		*out = make([]IstioMixerV1ConfigClientQuotaspecbindings, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new QuotaSpecBindingList.
-func (in *QuotaSpecBindingList) DeepCopy() *QuotaSpecBindingList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioMixerV1ConfigClientQuotaspecbindingsList.
+func (in *IstioMixerV1ConfigClientQuotaspecbindingsList) DeepCopy() *IstioMixerV1ConfigClientQuotaspecbindingsList {
 	if in == nil {
 		return nil
 	}
-	out := new(QuotaSpecBindingList)
+	out := new(IstioMixerV1ConfigClientQuotaspecbindingsList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *QuotaSpecBindingList) DeepCopyObject() runtime.Object {
+func (in *IstioMixerV1ConfigClientQuotaspecbindingsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -870,42 +882,42 @@ func (in *QuotaSpecBindingList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// QuotaSpec is the generic Kubernetes API Object wrapper
-type QuotaSpec struct {
+// IstioMixerV1ConfigClientQuotaspecs is the generic Kubernetes API Object wrapper
+type IstioMixerV1ConfigClientQuotaspecs struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *QuotaSpec) GetSpec() map[string]interface{} {
+func (in *IstioMixerV1ConfigClientQuotaspecs) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *QuotaSpec) SetSpec(spec map[string]interface{}) {
+func (in *IstioMixerV1ConfigClientQuotaspecs) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *QuotaSpec) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioMixerV1ConfigClientQuotaspecs) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *QuotaSpec) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioMixerV1ConfigClientQuotaspecs) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// QuotaSpecList is the generic Kubernetes API list wrapper
-type QuotaSpecList struct {
+// IstioMixerV1ConfigClientQuotaspecsList is the generic Kubernetes API list wrapper
+type IstioMixerV1ConfigClientQuotaspecsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []QuotaSpec `json:"items"`
+	Items           []IstioMixerV1ConfigClientQuotaspecs `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *QuotaSpecList) GetItems() []IstioObject {
+func (in *IstioMixerV1ConfigClientQuotaspecsList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -914,25 +926,25 @@ func (in *QuotaSpecList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *QuotaSpec) DeepCopyInto(out *QuotaSpec) {
+func (in *IstioMixerV1ConfigClientQuotaspecs) DeepCopyInto(out *IstioMixerV1ConfigClientQuotaspecs) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new QuotaSpec.
-func (in *QuotaSpec) DeepCopy() *QuotaSpec {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioMixerV1ConfigClientQuotaspecs.
+func (in *IstioMixerV1ConfigClientQuotaspecs) DeepCopy() *IstioMixerV1ConfigClientQuotaspecs {
 	if in == nil {
 		return nil
 	}
-	out := new(QuotaSpec)
+	out := new(IstioMixerV1ConfigClientQuotaspecs)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *QuotaSpec) DeepCopyObject() runtime.Object {
+func (in *IstioMixerV1ConfigClientQuotaspecs) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -941,31 +953,31 @@ func (in *QuotaSpec) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *QuotaSpecList) DeepCopyInto(out *QuotaSpecList) {
+func (in *IstioMixerV1ConfigClientQuotaspecsList) DeepCopyInto(out *IstioMixerV1ConfigClientQuotaspecsList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]QuotaSpec, len(*in))
+		*out = make([]IstioMixerV1ConfigClientQuotaspecs, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new QuotaSpecList.
-func (in *QuotaSpecList) DeepCopy() *QuotaSpecList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioMixerV1ConfigClientQuotaspecsList.
+func (in *IstioMixerV1ConfigClientQuotaspecsList) DeepCopy() *IstioMixerV1ConfigClientQuotaspecsList {
 	if in == nil {
 		return nil
 	}
-	out := new(QuotaSpecList)
+	out := new(IstioMixerV1ConfigClientQuotaspecsList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *QuotaSpecList) DeepCopyObject() runtime.Object {
+func (in *IstioMixerV1ConfigClientQuotaspecsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -973,42 +985,42 @@ func (in *QuotaSpecList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// DestinationRule is the generic Kubernetes API Object wrapper
-type DestinationRule struct {
+// IstioNetworkingV1Alpha3Destinationrules is the generic Kubernetes API Object wrapper
+type IstioNetworkingV1Alpha3Destinationrules struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *DestinationRule) GetSpec() map[string]interface{} {
+func (in *IstioNetworkingV1Alpha3Destinationrules) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *DestinationRule) SetSpec(spec map[string]interface{}) {
+func (in *IstioNetworkingV1Alpha3Destinationrules) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *DestinationRule) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioNetworkingV1Alpha3Destinationrules) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *DestinationRule) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioNetworkingV1Alpha3Destinationrules) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// DestinationRuleList is the generic Kubernetes API list wrapper
-type DestinationRuleList struct {
+// IstioNetworkingV1Alpha3DestinationrulesList is the generic Kubernetes API list wrapper
+type IstioNetworkingV1Alpha3DestinationrulesList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []DestinationRule `json:"items"`
+	Items           []IstioNetworkingV1Alpha3Destinationrules `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *DestinationRuleList) GetItems() []IstioObject {
+func (in *IstioNetworkingV1Alpha3DestinationrulesList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -1017,25 +1029,25 @@ func (in *DestinationRuleList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *DestinationRule) DeepCopyInto(out *DestinationRule) {
+func (in *IstioNetworkingV1Alpha3Destinationrules) DeepCopyInto(out *IstioNetworkingV1Alpha3Destinationrules) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new DestinationRule.
-func (in *DestinationRule) DeepCopy() *DestinationRule {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3Destinationrules.
+func (in *IstioNetworkingV1Alpha3Destinationrules) DeepCopy() *IstioNetworkingV1Alpha3Destinationrules {
 	if in == nil {
 		return nil
 	}
-	out := new(DestinationRule)
+	out := new(IstioNetworkingV1Alpha3Destinationrules)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *DestinationRule) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3Destinationrules) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1044,31 +1056,31 @@ func (in *DestinationRule) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *DestinationRuleList) DeepCopyInto(out *DestinationRuleList) {
+func (in *IstioNetworkingV1Alpha3DestinationrulesList) DeepCopyInto(out *IstioNetworkingV1Alpha3DestinationrulesList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]DestinationRule, len(*in))
+		*out = make([]IstioNetworkingV1Alpha3Destinationrules, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new DestinationRuleList.
-func (in *DestinationRuleList) DeepCopy() *DestinationRuleList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3DestinationrulesList.
+func (in *IstioNetworkingV1Alpha3DestinationrulesList) DeepCopy() *IstioNetworkingV1Alpha3DestinationrulesList {
 	if in == nil {
 		return nil
 	}
-	out := new(DestinationRuleList)
+	out := new(IstioNetworkingV1Alpha3DestinationrulesList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *DestinationRuleList) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3DestinationrulesList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1076,42 +1088,42 @@ func (in *DestinationRuleList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// EnvoyFilter is the generic Kubernetes API Object wrapper
-type EnvoyFilter struct {
+// IstioNetworkingV1Alpha3Envoyfilters is the generic Kubernetes API Object wrapper
+type IstioNetworkingV1Alpha3Envoyfilters struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *EnvoyFilter) GetSpec() map[string]interface{} {
+func (in *IstioNetworkingV1Alpha3Envoyfilters) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *EnvoyFilter) SetSpec(spec map[string]interface{}) {
+func (in *IstioNetworkingV1Alpha3Envoyfilters) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *EnvoyFilter) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioNetworkingV1Alpha3Envoyfilters) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *EnvoyFilter) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioNetworkingV1Alpha3Envoyfilters) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// EnvoyFilterList is the generic Kubernetes API list wrapper
-type EnvoyFilterList struct {
+// IstioNetworkingV1Alpha3EnvoyfiltersList is the generic Kubernetes API list wrapper
+type IstioNetworkingV1Alpha3EnvoyfiltersList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []EnvoyFilter `json:"items"`
+	Items           []IstioNetworkingV1Alpha3Envoyfilters `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *EnvoyFilterList) GetItems() []IstioObject {
+func (in *IstioNetworkingV1Alpha3EnvoyfiltersList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -1120,25 +1132,25 @@ func (in *EnvoyFilterList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *EnvoyFilter) DeepCopyInto(out *EnvoyFilter) {
+func (in *IstioNetworkingV1Alpha3Envoyfilters) DeepCopyInto(out *IstioNetworkingV1Alpha3Envoyfilters) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new EnvoyFilter.
-func (in *EnvoyFilter) DeepCopy() *EnvoyFilter {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3Envoyfilters.
+func (in *IstioNetworkingV1Alpha3Envoyfilters) DeepCopy() *IstioNetworkingV1Alpha3Envoyfilters {
 	if in == nil {
 		return nil
 	}
-	out := new(EnvoyFilter)
+	out := new(IstioNetworkingV1Alpha3Envoyfilters)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *EnvoyFilter) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3Envoyfilters) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1147,31 +1159,31 @@ func (in *EnvoyFilter) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *EnvoyFilterList) DeepCopyInto(out *EnvoyFilterList) {
+func (in *IstioNetworkingV1Alpha3EnvoyfiltersList) DeepCopyInto(out *IstioNetworkingV1Alpha3EnvoyfiltersList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]EnvoyFilter, len(*in))
+		*out = make([]IstioNetworkingV1Alpha3Envoyfilters, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new EnvoyFilterList.
-func (in *EnvoyFilterList) DeepCopy() *EnvoyFilterList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3EnvoyfiltersList.
+func (in *IstioNetworkingV1Alpha3EnvoyfiltersList) DeepCopy() *IstioNetworkingV1Alpha3EnvoyfiltersList {
 	if in == nil {
 		return nil
 	}
-	out := new(EnvoyFilterList)
+	out := new(IstioNetworkingV1Alpha3EnvoyfiltersList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *EnvoyFilterList) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3EnvoyfiltersList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1179,42 +1191,42 @@ func (in *EnvoyFilterList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// Gateway is the generic Kubernetes API Object wrapper
-type Gateway struct {
+// IstioNetworkingV1Alpha3Gateways is the generic Kubernetes API Object wrapper
+type IstioNetworkingV1Alpha3Gateways struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *Gateway) GetSpec() map[string]interface{} {
+func (in *IstioNetworkingV1Alpha3Gateways) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *Gateway) SetSpec(spec map[string]interface{}) {
+func (in *IstioNetworkingV1Alpha3Gateways) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *Gateway) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioNetworkingV1Alpha3Gateways) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *Gateway) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioNetworkingV1Alpha3Gateways) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// GatewayList is the generic Kubernetes API list wrapper
-type GatewayList struct {
+// IstioNetworkingV1Alpha3GatewaysList is the generic Kubernetes API list wrapper
+type IstioNetworkingV1Alpha3GatewaysList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []Gateway `json:"items"`
+	Items           []IstioNetworkingV1Alpha3Gateways `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *GatewayList) GetItems() []IstioObject {
+func (in *IstioNetworkingV1Alpha3GatewaysList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -1223,25 +1235,25 @@ func (in *GatewayList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *Gateway) DeepCopyInto(out *Gateway) {
+func (in *IstioNetworkingV1Alpha3Gateways) DeepCopyInto(out *IstioNetworkingV1Alpha3Gateways) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new Gateway.
-func (in *Gateway) DeepCopy() *Gateway {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3Gateways.
+func (in *IstioNetworkingV1Alpha3Gateways) DeepCopy() *IstioNetworkingV1Alpha3Gateways {
 	if in == nil {
 		return nil
 	}
-	out := new(Gateway)
+	out := new(IstioNetworkingV1Alpha3Gateways)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *Gateway) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3Gateways) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1250,31 +1262,31 @@ func (in *Gateway) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *GatewayList) DeepCopyInto(out *GatewayList) {
+func (in *IstioNetworkingV1Alpha3GatewaysList) DeepCopyInto(out *IstioNetworkingV1Alpha3GatewaysList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]Gateway, len(*in))
+		*out = make([]IstioNetworkingV1Alpha3Gateways, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new GatewayList.
-func (in *GatewayList) DeepCopy() *GatewayList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3GatewaysList.
+func (in *IstioNetworkingV1Alpha3GatewaysList) DeepCopy() *IstioNetworkingV1Alpha3GatewaysList {
 	if in == nil {
 		return nil
 	}
-	out := new(GatewayList)
+	out := new(IstioNetworkingV1Alpha3GatewaysList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *GatewayList) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3GatewaysList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1282,42 +1294,42 @@ func (in *GatewayList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// ServiceEntry is the generic Kubernetes API Object wrapper
-type ServiceEntry struct {
+// IstioNetworkingV1Alpha3Serviceentries is the generic Kubernetes API Object wrapper
+type IstioNetworkingV1Alpha3Serviceentries struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *ServiceEntry) GetSpec() map[string]interface{} {
+func (in *IstioNetworkingV1Alpha3Serviceentries) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *ServiceEntry) SetSpec(spec map[string]interface{}) {
+func (in *IstioNetworkingV1Alpha3Serviceentries) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *ServiceEntry) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioNetworkingV1Alpha3Serviceentries) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *ServiceEntry) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioNetworkingV1Alpha3Serviceentries) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// ServiceEntryList is the generic Kubernetes API list wrapper
-type ServiceEntryList struct {
+// IstioNetworkingV1Alpha3ServiceentriesList is the generic Kubernetes API list wrapper
+type IstioNetworkingV1Alpha3ServiceentriesList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []ServiceEntry `json:"items"`
+	Items           []IstioNetworkingV1Alpha3Serviceentries `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *ServiceEntryList) GetItems() []IstioObject {
+func (in *IstioNetworkingV1Alpha3ServiceentriesList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -1326,25 +1338,25 @@ func (in *ServiceEntryList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *ServiceEntry) DeepCopyInto(out *ServiceEntry) {
+func (in *IstioNetworkingV1Alpha3Serviceentries) DeepCopyInto(out *IstioNetworkingV1Alpha3Serviceentries) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ServiceEntry.
-func (in *ServiceEntry) DeepCopy() *ServiceEntry {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3Serviceentries.
+func (in *IstioNetworkingV1Alpha3Serviceentries) DeepCopy() *IstioNetworkingV1Alpha3Serviceentries {
 	if in == nil {
 		return nil
 	}
-	out := new(ServiceEntry)
+	out := new(IstioNetworkingV1Alpha3Serviceentries)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *ServiceEntry) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3Serviceentries) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1353,31 +1365,31 @@ func (in *ServiceEntry) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *ServiceEntryList) DeepCopyInto(out *ServiceEntryList) {
+func (in *IstioNetworkingV1Alpha3ServiceentriesList) DeepCopyInto(out *IstioNetworkingV1Alpha3ServiceentriesList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]ServiceEntry, len(*in))
+		*out = make([]IstioNetworkingV1Alpha3Serviceentries, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ServiceEntryList.
-func (in *ServiceEntryList) DeepCopy() *ServiceEntryList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3ServiceentriesList.
+func (in *IstioNetworkingV1Alpha3ServiceentriesList) DeepCopy() *IstioNetworkingV1Alpha3ServiceentriesList {
 	if in == nil {
 		return nil
 	}
-	out := new(ServiceEntryList)
+	out := new(IstioNetworkingV1Alpha3ServiceentriesList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *ServiceEntryList) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3ServiceentriesList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1385,42 +1397,42 @@ func (in *ServiceEntryList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// Sidecar is the generic Kubernetes API Object wrapper
-type Sidecar struct {
+// IstioNetworkingV1Alpha3Sidecars is the generic Kubernetes API Object wrapper
+type IstioNetworkingV1Alpha3Sidecars struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *Sidecar) GetSpec() map[string]interface{} {
+func (in *IstioNetworkingV1Alpha3Sidecars) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *Sidecar) SetSpec(spec map[string]interface{}) {
+func (in *IstioNetworkingV1Alpha3Sidecars) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *Sidecar) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioNetworkingV1Alpha3Sidecars) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *Sidecar) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioNetworkingV1Alpha3Sidecars) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// SidecarList is the generic Kubernetes API list wrapper
-type SidecarList struct {
+// IstioNetworkingV1Alpha3SidecarsList is the generic Kubernetes API list wrapper
+type IstioNetworkingV1Alpha3SidecarsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []Sidecar `json:"items"`
+	Items           []IstioNetworkingV1Alpha3Sidecars `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *SidecarList) GetItems() []IstioObject {
+func (in *IstioNetworkingV1Alpha3SidecarsList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -1429,25 +1441,25 @@ func (in *SidecarList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *Sidecar) DeepCopyInto(out *Sidecar) {
+func (in *IstioNetworkingV1Alpha3Sidecars) DeepCopyInto(out *IstioNetworkingV1Alpha3Sidecars) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new Sidecar.
-func (in *Sidecar) DeepCopy() *Sidecar {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3Sidecars.
+func (in *IstioNetworkingV1Alpha3Sidecars) DeepCopy() *IstioNetworkingV1Alpha3Sidecars {
 	if in == nil {
 		return nil
 	}
-	out := new(Sidecar)
+	out := new(IstioNetworkingV1Alpha3Sidecars)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *Sidecar) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3Sidecars) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1456,31 +1468,31 @@ func (in *Sidecar) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *SidecarList) DeepCopyInto(out *SidecarList) {
+func (in *IstioNetworkingV1Alpha3SidecarsList) DeepCopyInto(out *IstioNetworkingV1Alpha3SidecarsList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]Sidecar, len(*in))
+		*out = make([]IstioNetworkingV1Alpha3Sidecars, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new SidecarList.
-func (in *SidecarList) DeepCopy() *SidecarList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3SidecarsList.
+func (in *IstioNetworkingV1Alpha3SidecarsList) DeepCopy() *IstioNetworkingV1Alpha3SidecarsList {
 	if in == nil {
 		return nil
 	}
-	out := new(SidecarList)
+	out := new(IstioNetworkingV1Alpha3SidecarsList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *SidecarList) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3SidecarsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1488,42 +1500,42 @@ func (in *SidecarList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// VirtualService is the generic Kubernetes API Object wrapper
-type VirtualService struct {
+// IstioNetworkingV1Alpha3Virtualservices is the generic Kubernetes API Object wrapper
+type IstioNetworkingV1Alpha3Virtualservices struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *VirtualService) GetSpec() map[string]interface{} {
+func (in *IstioNetworkingV1Alpha3Virtualservices) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *VirtualService) SetSpec(spec map[string]interface{}) {
+func (in *IstioNetworkingV1Alpha3Virtualservices) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *VirtualService) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioNetworkingV1Alpha3Virtualservices) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *VirtualService) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioNetworkingV1Alpha3Virtualservices) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// VirtualServiceList is the generic Kubernetes API list wrapper
-type VirtualServiceList struct {
+// IstioNetworkingV1Alpha3VirtualservicesList is the generic Kubernetes API list wrapper
+type IstioNetworkingV1Alpha3VirtualservicesList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []VirtualService `json:"items"`
+	Items           []IstioNetworkingV1Alpha3Virtualservices `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *VirtualServiceList) GetItems() []IstioObject {
+func (in *IstioNetworkingV1Alpha3VirtualservicesList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -1532,25 +1544,25 @@ func (in *VirtualServiceList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *VirtualService) DeepCopyInto(out *VirtualService) {
+func (in *IstioNetworkingV1Alpha3Virtualservices) DeepCopyInto(out *IstioNetworkingV1Alpha3Virtualservices) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new VirtualService.
-func (in *VirtualService) DeepCopy() *VirtualService {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3Virtualservices.
+func (in *IstioNetworkingV1Alpha3Virtualservices) DeepCopy() *IstioNetworkingV1Alpha3Virtualservices {
 	if in == nil {
 		return nil
 	}
-	out := new(VirtualService)
+	out := new(IstioNetworkingV1Alpha3Virtualservices)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *VirtualService) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3Virtualservices) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1559,31 +1571,31 @@ func (in *VirtualService) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *VirtualServiceList) DeepCopyInto(out *VirtualServiceList) {
+func (in *IstioNetworkingV1Alpha3VirtualservicesList) DeepCopyInto(out *IstioNetworkingV1Alpha3VirtualservicesList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]VirtualService, len(*in))
+		*out = make([]IstioNetworkingV1Alpha3Virtualservices, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new VirtualServiceList.
-func (in *VirtualServiceList) DeepCopy() *VirtualServiceList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3VirtualservicesList.
+func (in *IstioNetworkingV1Alpha3VirtualservicesList) DeepCopy() *IstioNetworkingV1Alpha3VirtualservicesList {
 	if in == nil {
 		return nil
 	}
-	out := new(VirtualServiceList)
+	out := new(IstioNetworkingV1Alpha3VirtualservicesList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *VirtualServiceList) DeepCopyObject() runtime.Object {
+func (in *IstioNetworkingV1Alpha3VirtualservicesList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1591,42 +1603,42 @@ func (in *VirtualServiceList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// ClusterRbacConfig is the generic Kubernetes API Object wrapper
-type ClusterRbacConfig struct {
+// IstioRbacV1Alpha1Clusterrbacconfigs is the generic Kubernetes API Object wrapper
+type IstioRbacV1Alpha1Clusterrbacconfigs struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *ClusterRbacConfig) GetSpec() map[string]interface{} {
+func (in *IstioRbacV1Alpha1Clusterrbacconfigs) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *ClusterRbacConfig) SetSpec(spec map[string]interface{}) {
+func (in *IstioRbacV1Alpha1Clusterrbacconfigs) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *ClusterRbacConfig) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioRbacV1Alpha1Clusterrbacconfigs) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *ClusterRbacConfig) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioRbacV1Alpha1Clusterrbacconfigs) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// ClusterRbacConfigList is the generic Kubernetes API list wrapper
-type ClusterRbacConfigList struct {
+// IstioRbacV1Alpha1ClusterrbacconfigsList is the generic Kubernetes API list wrapper
+type IstioRbacV1Alpha1ClusterrbacconfigsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []ClusterRbacConfig `json:"items"`
+	Items           []IstioRbacV1Alpha1Clusterrbacconfigs `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *ClusterRbacConfigList) GetItems() []IstioObject {
+func (in *IstioRbacV1Alpha1ClusterrbacconfigsList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -1635,25 +1647,25 @@ func (in *ClusterRbacConfigList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *ClusterRbacConfig) DeepCopyInto(out *ClusterRbacConfig) {
+func (in *IstioRbacV1Alpha1Clusterrbacconfigs) DeepCopyInto(out *IstioRbacV1Alpha1Clusterrbacconfigs) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ClusterRbacConfig.
-func (in *ClusterRbacConfig) DeepCopy() *ClusterRbacConfig {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioRbacV1Alpha1Clusterrbacconfigs.
+func (in *IstioRbacV1Alpha1Clusterrbacconfigs) DeepCopy() *IstioRbacV1Alpha1Clusterrbacconfigs {
 	if in == nil {
 		return nil
 	}
-	out := new(ClusterRbacConfig)
+	out := new(IstioRbacV1Alpha1Clusterrbacconfigs)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *ClusterRbacConfig) DeepCopyObject() runtime.Object {
+func (in *IstioRbacV1Alpha1Clusterrbacconfigs) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1662,31 +1674,31 @@ func (in *ClusterRbacConfig) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *ClusterRbacConfigList) DeepCopyInto(out *ClusterRbacConfigList) {
+func (in *IstioRbacV1Alpha1ClusterrbacconfigsList) DeepCopyInto(out *IstioRbacV1Alpha1ClusterrbacconfigsList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]ClusterRbacConfig, len(*in))
+		*out = make([]IstioRbacV1Alpha1Clusterrbacconfigs, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ClusterRbacConfigList.
-func (in *ClusterRbacConfigList) DeepCopy() *ClusterRbacConfigList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioRbacV1Alpha1ClusterrbacconfigsList.
+func (in *IstioRbacV1Alpha1ClusterrbacconfigsList) DeepCopy() *IstioRbacV1Alpha1ClusterrbacconfigsList {
 	if in == nil {
 		return nil
 	}
-	out := new(ClusterRbacConfigList)
+	out := new(IstioRbacV1Alpha1ClusterrbacconfigsList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *ClusterRbacConfigList) DeepCopyObject() runtime.Object {
+func (in *IstioRbacV1Alpha1ClusterrbacconfigsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1694,42 +1706,42 @@ func (in *ClusterRbacConfigList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// RbacConfig is the generic Kubernetes API Object wrapper
-type RbacConfig struct {
+// IstioRbacV1Alpha1Rbacconfigs is the generic Kubernetes API Object wrapper
+type IstioRbacV1Alpha1Rbacconfigs struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *RbacConfig) GetSpec() map[string]interface{} {
+func (in *IstioRbacV1Alpha1Rbacconfigs) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *RbacConfig) SetSpec(spec map[string]interface{}) {
+func (in *IstioRbacV1Alpha1Rbacconfigs) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *RbacConfig) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioRbacV1Alpha1Rbacconfigs) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *RbacConfig) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioRbacV1Alpha1Rbacconfigs) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// RbacConfigList is the generic Kubernetes API list wrapper
-type RbacConfigList struct {
+// IstioRbacV1Alpha1RbacconfigsList is the generic Kubernetes API list wrapper
+type IstioRbacV1Alpha1RbacconfigsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []RbacConfig `json:"items"`
+	Items           []IstioRbacV1Alpha1Rbacconfigs `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *RbacConfigList) GetItems() []IstioObject {
+func (in *IstioRbacV1Alpha1RbacconfigsList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -1738,25 +1750,25 @@ func (in *RbacConfigList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *RbacConfig) DeepCopyInto(out *RbacConfig) {
+func (in *IstioRbacV1Alpha1Rbacconfigs) DeepCopyInto(out *IstioRbacV1Alpha1Rbacconfigs) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new RbacConfig.
-func (in *RbacConfig) DeepCopy() *RbacConfig {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioRbacV1Alpha1Rbacconfigs.
+func (in *IstioRbacV1Alpha1Rbacconfigs) DeepCopy() *IstioRbacV1Alpha1Rbacconfigs {
 	if in == nil {
 		return nil
 	}
-	out := new(RbacConfig)
+	out := new(IstioRbacV1Alpha1Rbacconfigs)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *RbacConfig) DeepCopyObject() runtime.Object {
+func (in *IstioRbacV1Alpha1Rbacconfigs) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1765,31 +1777,31 @@ func (in *RbacConfig) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *RbacConfigList) DeepCopyInto(out *RbacConfigList) {
+func (in *IstioRbacV1Alpha1RbacconfigsList) DeepCopyInto(out *IstioRbacV1Alpha1RbacconfigsList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]RbacConfig, len(*in))
+		*out = make([]IstioRbacV1Alpha1Rbacconfigs, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new RbacConfigList.
-func (in *RbacConfigList) DeepCopy() *RbacConfigList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioRbacV1Alpha1RbacconfigsList.
+func (in *IstioRbacV1Alpha1RbacconfigsList) DeepCopy() *IstioRbacV1Alpha1RbacconfigsList {
 	if in == nil {
 		return nil
 	}
-	out := new(RbacConfigList)
+	out := new(IstioRbacV1Alpha1RbacconfigsList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *RbacConfigList) DeepCopyObject() runtime.Object {
+func (in *IstioRbacV1Alpha1RbacconfigsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1797,42 +1809,42 @@ func (in *RbacConfigList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// ServiceRoleBinding is the generic Kubernetes API Object wrapper
-type ServiceRoleBinding struct {
+// IstioRbacV1Alpha1Servicerolebindings is the generic Kubernetes API Object wrapper
+type IstioRbacV1Alpha1Servicerolebindings struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *ServiceRoleBinding) GetSpec() map[string]interface{} {
+func (in *IstioRbacV1Alpha1Servicerolebindings) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *ServiceRoleBinding) SetSpec(spec map[string]interface{}) {
+func (in *IstioRbacV1Alpha1Servicerolebindings) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *ServiceRoleBinding) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioRbacV1Alpha1Servicerolebindings) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *ServiceRoleBinding) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioRbacV1Alpha1Servicerolebindings) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// ServiceRoleBindingList is the generic Kubernetes API list wrapper
-type ServiceRoleBindingList struct {
+// IstioRbacV1Alpha1ServicerolebindingsList is the generic Kubernetes API list wrapper
+type IstioRbacV1Alpha1ServicerolebindingsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []ServiceRoleBinding `json:"items"`
+	Items           []IstioRbacV1Alpha1Servicerolebindings `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *ServiceRoleBindingList) GetItems() []IstioObject {
+func (in *IstioRbacV1Alpha1ServicerolebindingsList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -1841,25 +1853,25 @@ func (in *ServiceRoleBindingList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *ServiceRoleBinding) DeepCopyInto(out *ServiceRoleBinding) {
+func (in *IstioRbacV1Alpha1Servicerolebindings) DeepCopyInto(out *IstioRbacV1Alpha1Servicerolebindings) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ServiceRoleBinding.
-func (in *ServiceRoleBinding) DeepCopy() *ServiceRoleBinding {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioRbacV1Alpha1Servicerolebindings.
+func (in *IstioRbacV1Alpha1Servicerolebindings) DeepCopy() *IstioRbacV1Alpha1Servicerolebindings {
 	if in == nil {
 		return nil
 	}
-	out := new(ServiceRoleBinding)
+	out := new(IstioRbacV1Alpha1Servicerolebindings)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *ServiceRoleBinding) DeepCopyObject() runtime.Object {
+func (in *IstioRbacV1Alpha1Servicerolebindings) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1868,31 +1880,31 @@ func (in *ServiceRoleBinding) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *ServiceRoleBindingList) DeepCopyInto(out *ServiceRoleBindingList) {
+func (in *IstioRbacV1Alpha1ServicerolebindingsList) DeepCopyInto(out *IstioRbacV1Alpha1ServicerolebindingsList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]ServiceRoleBinding, len(*in))
+		*out = make([]IstioRbacV1Alpha1Servicerolebindings, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ServiceRoleBindingList.
-func (in *ServiceRoleBindingList) DeepCopy() *ServiceRoleBindingList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioRbacV1Alpha1ServicerolebindingsList.
+func (in *IstioRbacV1Alpha1ServicerolebindingsList) DeepCopy() *IstioRbacV1Alpha1ServicerolebindingsList {
 	if in == nil {
 		return nil
 	}
-	out := new(ServiceRoleBindingList)
+	out := new(IstioRbacV1Alpha1ServicerolebindingsList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *ServiceRoleBindingList) DeepCopyObject() runtime.Object {
+func (in *IstioRbacV1Alpha1ServicerolebindingsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1900,42 +1912,42 @@ func (in *ServiceRoleBindingList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// ServiceRole is the generic Kubernetes API Object wrapper
-type ServiceRole struct {
+// IstioRbacV1Alpha1Serviceroles is the generic Kubernetes API Object wrapper
+type IstioRbacV1Alpha1Serviceroles struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *ServiceRole) GetSpec() map[string]interface{} {
+func (in *IstioRbacV1Alpha1Serviceroles) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *ServiceRole) SetSpec(spec map[string]interface{}) {
+func (in *IstioRbacV1Alpha1Serviceroles) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *ServiceRole) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioRbacV1Alpha1Serviceroles) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *ServiceRole) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioRbacV1Alpha1Serviceroles) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// ServiceRoleList is the generic Kubernetes API list wrapper
-type ServiceRoleList struct {
+// IstioRbacV1Alpha1ServicerolesList is the generic Kubernetes API list wrapper
+type IstioRbacV1Alpha1ServicerolesList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []ServiceRole `json:"items"`
+	Items           []IstioRbacV1Alpha1Serviceroles `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *ServiceRoleList) GetItems() []IstioObject {
+func (in *IstioRbacV1Alpha1ServicerolesList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -1944,25 +1956,25 @@ func (in *ServiceRoleList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *ServiceRole) DeepCopyInto(out *ServiceRole) {
+func (in *IstioRbacV1Alpha1Serviceroles) DeepCopyInto(out *IstioRbacV1Alpha1Serviceroles) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ServiceRole.
-func (in *ServiceRole) DeepCopy() *ServiceRole {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioRbacV1Alpha1Serviceroles.
+func (in *IstioRbacV1Alpha1Serviceroles) DeepCopy() *IstioRbacV1Alpha1Serviceroles {
 	if in == nil {
 		return nil
 	}
-	out := new(ServiceRole)
+	out := new(IstioRbacV1Alpha1Serviceroles)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *ServiceRole) DeepCopyObject() runtime.Object {
+func (in *IstioRbacV1Alpha1Serviceroles) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -1971,31 +1983,31 @@ func (in *ServiceRole) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *ServiceRoleList) DeepCopyInto(out *ServiceRoleList) {
+func (in *IstioRbacV1Alpha1ServicerolesList) DeepCopyInto(out *IstioRbacV1Alpha1ServicerolesList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]ServiceRole, len(*in))
+		*out = make([]IstioRbacV1Alpha1Serviceroles, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ServiceRoleList.
-func (in *ServiceRoleList) DeepCopy() *ServiceRoleList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioRbacV1Alpha1ServicerolesList.
+func (in *IstioRbacV1Alpha1ServicerolesList) DeepCopy() *IstioRbacV1Alpha1ServicerolesList {
 	if in == nil {
 		return nil
 	}
-	out := new(ServiceRoleList)
+	out := new(IstioRbacV1Alpha1ServicerolesList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *ServiceRoleList) DeepCopyObject() runtime.Object {
+func (in *IstioRbacV1Alpha1ServicerolesList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -2003,42 +2015,42 @@ func (in *ServiceRoleList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// AuthorizationPolicy is the generic Kubernetes API Object wrapper
-type AuthorizationPolicy struct {
+// IstioSecurityV1Beta1Authorizationpolicies is the generic Kubernetes API Object wrapper
+type IstioSecurityV1Beta1Authorizationpolicies struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *AuthorizationPolicy) GetSpec() map[string]interface{} {
+func (in *IstioSecurityV1Beta1Authorizationpolicies) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *AuthorizationPolicy) SetSpec(spec map[string]interface{}) {
+func (in *IstioSecurityV1Beta1Authorizationpolicies) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *AuthorizationPolicy) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioSecurityV1Beta1Authorizationpolicies) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *AuthorizationPolicy) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioSecurityV1Beta1Authorizationpolicies) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// AuthorizationPolicyList is the generic Kubernetes API list wrapper
-type AuthorizationPolicyList struct {
+// IstioSecurityV1Beta1AuthorizationpoliciesList is the generic Kubernetes API list wrapper
+type IstioSecurityV1Beta1AuthorizationpoliciesList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []AuthorizationPolicy `json:"items"`
+	Items           []IstioSecurityV1Beta1Authorizationpolicies `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *AuthorizationPolicyList) GetItems() []IstioObject {
+func (in *IstioSecurityV1Beta1AuthorizationpoliciesList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -2047,25 +2059,25 @@ func (in *AuthorizationPolicyList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *AuthorizationPolicy) DeepCopyInto(out *AuthorizationPolicy) {
+func (in *IstioSecurityV1Beta1Authorizationpolicies) DeepCopyInto(out *IstioSecurityV1Beta1Authorizationpolicies) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new AuthorizationPolicy.
-func (in *AuthorizationPolicy) DeepCopy() *AuthorizationPolicy {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioSecurityV1Beta1Authorizationpolicies.
+func (in *IstioSecurityV1Beta1Authorizationpolicies) DeepCopy() *IstioSecurityV1Beta1Authorizationpolicies {
 	if in == nil {
 		return nil
 	}
-	out := new(AuthorizationPolicy)
+	out := new(IstioSecurityV1Beta1Authorizationpolicies)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *AuthorizationPolicy) DeepCopyObject() runtime.Object {
+func (in *IstioSecurityV1Beta1Authorizationpolicies) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -2074,31 +2086,31 @@ func (in *AuthorizationPolicy) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *AuthorizationPolicyList) DeepCopyInto(out *AuthorizationPolicyList) {
+func (in *IstioSecurityV1Beta1AuthorizationpoliciesList) DeepCopyInto(out *IstioSecurityV1Beta1AuthorizationpoliciesList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]AuthorizationPolicy, len(*in))
+		*out = make([]IstioSecurityV1Beta1Authorizationpolicies, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new AuthorizationPolicyList.
-func (in *AuthorizationPolicyList) DeepCopy() *AuthorizationPolicyList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioSecurityV1Beta1AuthorizationpoliciesList.
+func (in *IstioSecurityV1Beta1AuthorizationpoliciesList) DeepCopy() *IstioSecurityV1Beta1AuthorizationpoliciesList {
 	if in == nil {
 		return nil
 	}
-	out := new(AuthorizationPolicyList)
+	out := new(IstioSecurityV1Beta1AuthorizationpoliciesList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *AuthorizationPolicyList) DeepCopyObject() runtime.Object {
+func (in *IstioSecurityV1Beta1AuthorizationpoliciesList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -2106,42 +2118,42 @@ func (in *AuthorizationPolicyList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// RequestAuthentication is the generic Kubernetes API Object wrapper
-type RequestAuthentication struct {
+// IstioSecurityV1Beta1Peerauthentications is the generic Kubernetes API Object wrapper
+type IstioSecurityV1Beta1Peerauthentications struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              map[string]interface{} `json:"spec"`
 }
 
 // GetSpec from a wrapper
-func (in *RequestAuthentication) GetSpec() map[string]interface{} {
+func (in *IstioSecurityV1Beta1Peerauthentications) GetSpec() map[string]interface{} {
 	return in.Spec
 }
 
 // SetSpec for a wrapper
-func (in *RequestAuthentication) SetSpec(spec map[string]interface{}) {
+func (in *IstioSecurityV1Beta1Peerauthentications) SetSpec(spec map[string]interface{}) {
 	in.Spec = spec
 }
 
 // GetObjectMeta from a wrapper
-func (in *RequestAuthentication) GetObjectMeta() metav1.ObjectMeta {
+func (in *IstioSecurityV1Beta1Peerauthentications) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
 // SetObjectMeta for a wrapper
-func (in *RequestAuthentication) SetObjectMeta(metadata metav1.ObjectMeta) {
+func (in *IstioSecurityV1Beta1Peerauthentications) SetObjectMeta(metadata metav1.ObjectMeta) {
 	in.ObjectMeta = metadata
 }
 
-// RequestAuthenticationList is the generic Kubernetes API list wrapper
-type RequestAuthenticationList struct {
+// IstioSecurityV1Beta1PeerauthenticationsList is the generic Kubernetes API list wrapper
+type IstioSecurityV1Beta1PeerauthenticationsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []RequestAuthentication `json:"items"`
+	Items           []IstioSecurityV1Beta1Peerauthentications `json:"items"`
 }
 
 // GetItems from a wrapper
-func (in *RequestAuthenticationList) GetItems() []IstioObject {
+func (in *IstioSecurityV1Beta1PeerauthenticationsList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i := range in.Items {
 		out[i] = &in.Items[i]
@@ -2150,25 +2162,25 @@ func (in *RequestAuthenticationList) GetItems() []IstioObject {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *RequestAuthentication) DeepCopyInto(out *RequestAuthentication) {
+func (in *IstioSecurityV1Beta1Peerauthentications) DeepCopyInto(out *IstioSecurityV1Beta1Peerauthentications) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.Spec = in.Spec
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new RequestAuthentication.
-func (in *RequestAuthentication) DeepCopy() *RequestAuthentication {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioSecurityV1Beta1Peerauthentications.
+func (in *IstioSecurityV1Beta1Peerauthentications) DeepCopy() *IstioSecurityV1Beta1Peerauthentications {
 	if in == nil {
 		return nil
 	}
-	out := new(RequestAuthentication)
+	out := new(IstioSecurityV1Beta1Peerauthentications)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *RequestAuthentication) DeepCopyObject() runtime.Object {
+func (in *IstioSecurityV1Beta1Peerauthentications) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}
@@ -2177,31 +2189,134 @@ func (in *RequestAuthentication) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *RequestAuthenticationList) DeepCopyInto(out *RequestAuthenticationList) {
+func (in *IstioSecurityV1Beta1PeerauthenticationsList) DeepCopyInto(out *IstioSecurityV1Beta1PeerauthenticationsList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]RequestAuthentication, len(*in))
+		*out = make([]IstioSecurityV1Beta1Peerauthentications, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
 
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new RequestAuthenticationList.
-func (in *RequestAuthenticationList) DeepCopy() *RequestAuthenticationList {
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioSecurityV1Beta1PeerauthenticationsList.
+func (in *IstioSecurityV1Beta1PeerauthenticationsList) DeepCopy() *IstioSecurityV1Beta1PeerauthenticationsList {
 	if in == nil {
 		return nil
 	}
-	out := new(RequestAuthenticationList)
+	out := new(IstioSecurityV1Beta1PeerauthenticationsList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *RequestAuthenticationList) DeepCopyObject() runtime.Object {
+func (in *IstioSecurityV1Beta1PeerauthenticationsList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// IstioSecurityV1Beta1Requestauthentications is the generic Kubernetes API Object wrapper
+type IstioSecurityV1Beta1Requestauthentications struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              map[string]interface{} `json:"spec"`
+}
+
+// GetSpec from a wrapper
+func (in *IstioSecurityV1Beta1Requestauthentications) GetSpec() map[string]interface{} {
+	return in.Spec
+}
+
+// SetSpec for a wrapper
+func (in *IstioSecurityV1Beta1Requestauthentications) SetSpec(spec map[string]interface{}) {
+	in.Spec = spec
+}
+
+// GetObjectMeta from a wrapper
+func (in *IstioSecurityV1Beta1Requestauthentications) GetObjectMeta() metav1.ObjectMeta {
+	return in.ObjectMeta
+}
+
+// SetObjectMeta for a wrapper
+func (in *IstioSecurityV1Beta1Requestauthentications) SetObjectMeta(metadata metav1.ObjectMeta) {
+	in.ObjectMeta = metadata
+}
+
+// IstioSecurityV1Beta1RequestauthenticationsList is the generic Kubernetes API list wrapper
+type IstioSecurityV1Beta1RequestauthenticationsList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []IstioSecurityV1Beta1Requestauthentications `json:"items"`
+}
+
+// GetItems from a wrapper
+func (in *IstioSecurityV1Beta1RequestauthenticationsList) GetItems() []IstioObject {
+	out := make([]IstioObject, len(in.Items))
+	for i := range in.Items {
+		out[i] = &in.Items[i]
+	}
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *IstioSecurityV1Beta1Requestauthentications) DeepCopyInto(out *IstioSecurityV1Beta1Requestauthentications) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioSecurityV1Beta1Requestauthentications.
+func (in *IstioSecurityV1Beta1Requestauthentications) DeepCopy() *IstioSecurityV1Beta1Requestauthentications {
+	if in == nil {
+		return nil
+	}
+	out := new(IstioSecurityV1Beta1Requestauthentications)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *IstioSecurityV1Beta1Requestauthentications) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *IstioSecurityV1Beta1RequestauthenticationsList) DeepCopyInto(out *IstioSecurityV1Beta1RequestauthenticationsList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	out.ListMeta = in.ListMeta
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]IstioSecurityV1Beta1Requestauthentications, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioSecurityV1Beta1RequestauthenticationsList.
+func (in *IstioSecurityV1Beta1RequestauthenticationsList) DeepCopy() *IstioSecurityV1Beta1RequestauthenticationsList {
+	if in == nil {
+		return nil
+	}
+	out := new(IstioSecurityV1Beta1RequestauthenticationsList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *IstioSecurityV1Beta1RequestauthenticationsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}

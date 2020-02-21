@@ -21,8 +21,10 @@ import (
 	"text/tabwriter"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 const (
@@ -57,16 +59,31 @@ func (l *ListenerFilter) Verify(listener *xdsapi.Listener) bool {
 	return true
 }
 
+// retrieveListenerType classifies a Listener as HTTP|TCP|HTTP+TCP|UNKNOWN
 func retrieveListenerType(l *xdsapi.Listener) string {
+	nHTTP := 0
+	nTCP := 0
 	for _, filterChain := range l.GetFilterChains() {
 		for _, filter := range filterChain.GetFilters() {
 			if filter.Name == HTTPListener {
-				return "HTTP"
+				nHTTP++
 			} else if filter.Name == TCPListener {
-				return "TCP"
+				if !strings.Contains(string(filter.GetTypedConfig().GetValue()), util.BlackHoleCluster) {
+					nTCP++
+				}
 			}
 		}
 	}
+
+	if nHTTP > 0 {
+		if nTCP == 0 {
+			return "HTTP"
+		}
+		return "HTTP+TCP"
+	} else if nTCP > 0 {
+		return "TCP"
+	}
+
 	return "UNKNOWN"
 }
 
@@ -136,13 +153,23 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*xdsapi.Listener, error)
 	listeners := make([]*xdsapi.Listener, 0)
 	for _, listener := range listenerDump.DynamicListeners {
 		if listener.ActiveState != nil && listener.ActiveState.Listener != nil {
-			listeners = append(listeners, listener.ActiveState.Listener)
+			listenerTyped := &xdsapi.Listener{}
+			err = ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+			if err != nil {
+				return nil, err
+			}
+			listeners = append(listeners, listenerTyped)
 		}
 	}
 
 	for _, listener := range listenerDump.StaticListeners {
 		if listener.Listener != nil {
-			listeners = append(listeners, listener.Listener)
+			listenerTyped := &xdsapi.Listener{}
+			err = ptypes.UnmarshalAny(listener.Listener, listenerTyped)
+			if err != nil {
+				return nil, err
+			}
+			listeners = append(listeners, listenerTyped)
 		}
 	}
 	if len(listeners) == 0 {

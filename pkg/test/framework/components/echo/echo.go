@@ -17,7 +17,7 @@ package echo
 import (
 	"context"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"

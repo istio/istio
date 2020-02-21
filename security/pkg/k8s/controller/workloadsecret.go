@@ -82,7 +82,7 @@ const (
 	caPrivateKeyID = "ca-key.pem"
 )
 
-var k8sControllerLog = log.RegisterScope("k8sController", "Citadel kubernetes controller log", 0)
+var k8sControllerLog = log.RegisterScope("secretcontroller", "Citadel kubernetes controller log", 0)
 
 // DNSNameEntry stores the service name and namespace to construct the DNS id.
 // Service accounts matching the ServiceName and Namespace will have additional DNS SANs:

@@ -232,13 +232,16 @@ global:
         cpu: 10m
         memory: 10Mi
 
-  # imagePullPolicy is applied to istio control plane components.
-  # local tests require IfNotPresent, to avoid uploading to dockerhub.
-  imagePullPolicy: IfNotPresent
+  # Specify image pull policy if default behavior isn't desired.
+  # Default behavior: latest images will be Always else IfNotPresent.
+  imagePullPolicy: ""
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: true
+
+  # Use the user-specified, secret volume mounted key and certs for Pilot and workloads.
+  mountMtlsCerts: false
 
   # disablePolicyChecks disables mixer policy checks.
   # if mixer.policy.enabled==true then disablePolicyChecks has affect.
@@ -393,7 +396,7 @@ global:
 
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
-  useMCP: true
+  useMCP: false
 
   # The trust domain corresponds to the trust root of a system
   # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
@@ -406,7 +409,7 @@ global:
   #  The trust domain aliases represent the aliases of trust_domain.
   #  For example, if we have
   #  trustDomain: td1
-  #  trustDomainAliases: [“td2”, "td3"]
+  #  trustDomainAliases: ["td2", "td3"]
   #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
   #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
   trustDomainAliases: []
@@ -469,6 +472,10 @@ global:
     token:
       aud: istio-ca
 
+  sts:
+    # The service port used by Security Token Service (STS) server to handle token exchange requests.
+    # Setting this port to a non-zero value enables STS server.
+    servicePort: 0
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #
@@ -559,10 +566,13 @@ global:
 
   # Configure the Pilot certificate provider.
   # Currently, two providers are supported: "kubernetes" and "citadel".
-  # TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
-  # with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
-  # we may change the default value of this option as "citadel".
-  pilotCertProvider: "kubernetes"
+  # As some platforms may not have k8s signing APIs,
+  # set Citadel as the default provider for Pilot certificate.
+  pilotCertProvider: "citadel"
+
+  # Configure the policy for validating JWT.
+  # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
+  jwtPolicy: "third-party-jwt"
 
 # Internal setting - used when generating helm templates for kustomize.
 # clusterResources controls the inclusion of cluster-wide resources when generating the charts/installing.
@@ -574,6 +584,3 @@ clusterResources: true
 # Version is set as 'version' label and part of the resource names when installing.
 # It is used to support multiple version in same namespace, similar with normal app traffic shift.
 version: ""
-
-certmanager:
-  enabled: false

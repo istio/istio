@@ -17,8 +17,8 @@ package status
 import (
 	"sync"
 
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // use a sentinel value as the last item in a work queue. This allows doing a simple null check on the next to

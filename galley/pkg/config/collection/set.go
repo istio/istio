@@ -18,7 +18,7 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Set of collections

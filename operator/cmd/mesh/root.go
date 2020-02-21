@@ -24,12 +24,13 @@ import (
 )
 
 const (
-	SetFlagHelpStr = `Set a value in IstioOperator CustomResource. e.g. --set policy.enabled=true.
-Overrides the corresponding path value in the selected profile or passed through IstioOperator CR
-customization file`
+	SetFlagHelpStr = `Override an IstioOperator value, e.g. to choose a profile
+(--set profile=demo), enable or disable components (--set components.policy.enabled=true), or override Istio 
+settings (--set values.global.mtls.enabled=true). See documentation for more info: 
+https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb/#IstioControlPlaneSpec`
 	skipConfirmationFlagHelpStr = `skipConfirmation determines whether the user is prompted for confirmation. 
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
-	filenameFlagHelpStr = `Path to file containing IstioOperator CustomResource
+	filenameFlagHelpStr = `Path to file containing IstioOperator custom resource
 This flag can be specified multiple times to overlay multiple files. Multiple files are overlaid in left to right order.`
 )
 

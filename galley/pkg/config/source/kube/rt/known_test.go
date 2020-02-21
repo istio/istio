@@ -22,6 +22,8 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/api/extensions/v1beta1"
 
+	"istio.io/istio/pkg/config/schema/resource"
+
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +38,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := data.GetEndpoints()
 
-		objMeta, objResource := parse(t, []byte(input), "", "Endpoints")
+		objMeta, objResource := parse(t, []byte(input), "", "Endpoints", "v1")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*coreV1.Endpoints)
@@ -50,7 +52,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := data.GetNamespace()
 
-		objMeta, objResource := parse(t, []byte(input), "", "Namespace")
+		objMeta, objResource := parse(t, []byte(input), "", "Namespace", "v1")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*coreV1.NamespaceSpec)
@@ -64,7 +66,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := data.GetIngress()
 
-		objMeta, objResource := parse(t, []byte(input), "extensions", "Ingress")
+		objMeta, objResource := parse(t, []byte(input), "extensions", "Ingress", "v1beta1")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*v1beta1.IngressSpec)
@@ -78,7 +80,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := data.GetNode()
 
-		objMeta, objResource := parse(t, []byte(input), "", "Node")
+		objMeta, objResource := parse(t, []byte(input), "", "Node", "v1")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*coreV1.NodeSpec)
@@ -92,7 +94,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := data.GetPod()
 
-		objMeta, objResource := parse(t, []byte(input), "", "Pod")
+		objMeta, objResource := parse(t, []byte(input), "", "Pod", "v1")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*coreV1.Pod)
@@ -106,7 +108,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := data.GetService()
 
-		objMeta, objResource := parse(t, []byte(input), "", "Service")
+		objMeta, objResource := parse(t, []byte(input), "", "Service", "v1")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*coreV1.ServiceSpec)
@@ -120,7 +122,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := data.GetDeployment()
 
-		objMeta, objResource := parse(t, []byte(input), "apps", "Deployment")
+		objMeta, objResource := parse(t, []byte(input), "apps", "Deployment", "v1")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*appsV1.Deployment)
@@ -173,12 +175,16 @@ func TestExtractResource(t *testing.T) {
 	}
 }
 
-func parse(t *testing.T, input []byte, group, kind string) (metaV1.Object, proto.Message) {
+func parse(t *testing.T, input []byte, group, kind, version string) (metaV1.Object, proto.Message) {
 	t.Helper()
 	g := NewGomegaWithT(t)
 
 	pr := rt.DefaultProvider()
-	a := pr.GetAdapter(k8smeta.MustGet().KubeCollections().MustFindByGroupAndKind(group, kind).Resource())
+	a := pr.GetAdapter(k8smeta.MustGet().KubeCollections().MustFindByGroupVersionKind(resource.GroupVersionKind{
+		Group:   group,
+		Version: version,
+		Kind:    kind,
+	}).Resource())
 	obj, err := a.ParseJSON(input)
 	g.Expect(err).To(BeNil())
 

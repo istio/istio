@@ -197,7 +197,7 @@ func TestAdsUpdate(t *testing.T) {
 		Address:  "10.11.0.1",
 		Ports:    testPorts(0),
 	})
-	server.EnvoyXdsServer.ClearCache()
+	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	time.Sleep(time.Millisecond * 200)
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)

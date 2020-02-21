@@ -17,20 +17,21 @@ package route_test
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/golang/protobuf/ptypes"
+	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
+
+	"istio.io/istio/pkg/util/gogo"
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
@@ -128,6 +129,53 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
 	})
 
+	t.Run("for virtual service with regex matching on without_header", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(true))
+	})
+
+	t.Run("for virtual service with presence matching on header", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(false))
+	})
+
+	t.Run("for virtual service with presence matching on header and without_header", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(true))
+	})
+
+	t.Run("for virtual service with regex matching for all cases on header", func(t *testing.T) {
+
+		cset := createVirtualServiceWithRegexMatchingForAllCasesOnHeader()
+
+		for _, c := range cset {
+			g := gomega.NewGomegaWithT(t)
+			routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, *c, serviceRegistry, 8080, gatewayNames)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(len(routes)).To(gomega.Equal(1))
+			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
+			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
+			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(false))
+		}
+	})
+
 	t.Run("for virtual service with unsafe regex matching on header", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
@@ -141,7 +189,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		ttl := time.Nanosecond * 100
+		ttl := types.Duration{Nanos: 100}
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Mesh: &meshConfig,
@@ -181,7 +229,52 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
 				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie",
-					Ttl:  ptypes.DurationProto(ttl),
+					Ttl:  gogo.DurationToProtoDuration(&ttl),
+				},
+			},
+		}
+		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(gomega.ConsistOf(hashPolicy))
+	})
+
+	t.Run("for virtual service with query param based ring hash", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		meshConfig := mesh.DefaultMeshConfig()
+		push := &model.PushContext{
+			Mesh: &meshConfig,
+		}
+		push.SetDestinationRules([]model.Config{
+			{
+				ConfigMeta: model.ConfigMeta{
+					Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+					Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+					Name:    "acme",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "*.example.org",
+					TrafficPolicy: &networking.TrafficPolicy{
+						LoadBalancer: &networking.LoadBalancerSettings{
+							LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+								ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+									HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpQueryParameterName{
+										HttpQueryParameterName: "query",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		hashPolicy := &envoyroute.RouteAction_HashPolicy{
+			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_QueryParameter_{
+				QueryParameter: &envoyroute.RouteAction_HashPolicy_QueryParameter{
+					Name: "query",
 				},
 			},
 		}
@@ -710,6 +803,136 @@ var virtualServiceWithRegexMatchingOnHeader = model.Config{
 									Regex: "Bearer .+?\\..+?\\..+?",
 								},
 							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*model.Config {
+	ret := []*model.Config{}
+	regex := "*"
+	ret = append(ret, &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+			Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+			Name:    "acme",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{},
+			Gateways: []string{"some-gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Name: "presence",
+							Headers: map[string]*networking.StringMatch{
+								"FOO-HEADER": {
+									MatchType: &networking.StringMatch_Regex{
+										Regex: regex,
+									},
+								},
+							},
+						},
+					},
+					Redirect: &networking.HTTPRedirect{
+						Uri:          "example.org",
+						Authority:    "some-authority.default.svc.cluster.local",
+						RedirectCode: 308,
+					},
+				},
+			},
+		},
+	})
+
+	return ret
+}
+
+var virtualServiceWithRegexMatchingOnWithoutHeader = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "without-test",
+						WithoutHeaders: map[string]*networking.StringMatch{
+							"FOO-HEADER": {
+								MatchType: &networking.StringMatch_Regex{
+									Regex: "BAR .+?\\..+?\\..+?",
+								},
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithPresentMatchingOnHeader = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "presence",
+						Headers: map[string]*networking.StringMatch{
+							"FOO-HEADER": nil,
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithPresentMatchingOnWithoutHeader = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "presence",
+						WithoutHeaders: map[string]*networking.StringMatch{
+							"FOO-HEADER": nil,
 						},
 					},
 				},

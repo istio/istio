@@ -20,9 +20,10 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collections"
+
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // InMemorySource is an event.InMemorySource implementation for meshconfig. When the mesh config is first set, add & fullsync events

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -73,7 +74,7 @@ func NewK8sObject(u *unstructured.Unstructured, json, yaml []byte) *K8sObject {
 func Hash(kind, namespace, name string) string {
 	switch kind {
 	// TODO: replace strings with k8s const (istio/istio#17237).
-	case "ClusterRole", "ClusterRoleBinding":
+	case "ClusterRole", "ClusterRoleBinding", "MeshPolicy":
 		namespace = ""
 	}
 	return strings.Join([]string{kind, namespace, name}, ":")
@@ -181,12 +182,12 @@ func (o *K8sObject) YAML() ([]byte, error) {
 }
 
 // YAMLDebugString returns a YAML representation of the K8sObject, or an error string if the K8sObject cannot be rendered to YAML.
-func (o *K8sObject) YAMLDebugString() (string, error) {
+func (o *K8sObject) YAMLDebugString() string {
 	y, err := o.YAML()
 	if err != nil {
-		return "", err
+		return err.Error()
 	}
-	return string(y), nil
+	return string(y)
 }
 
 // AddLabels adds labels to the K8sObject.
@@ -356,10 +357,31 @@ func (os K8sObjects) ToNameKindMap() map[string]*K8sObject {
 	return ret
 }
 
-// Valid checks returns true if Kind and ComponentName of K8sObject are both not empty.
+// Valid checks returns true if Kind and Name of K8sObject are both not empty.
 func (o *K8sObject) Valid() bool {
 	if o.Kind == "" || o.Name == "" {
 		return false
 	}
 	return true
+}
+
+// Equal returns true if o and other are both valid and equal to each other.
+func (o *K8sObject) Equal(other *K8sObject) bool {
+	if o == nil {
+		return other == nil
+	}
+	if other == nil {
+		return o == nil
+	}
+
+	ay, err := o.YAML()
+	if err != nil {
+		return false
+	}
+	by, err := other.YAML()
+	if err != nil {
+		return false
+	}
+
+	return util.IsYAMLEqual(string(ay), string(by))
 }

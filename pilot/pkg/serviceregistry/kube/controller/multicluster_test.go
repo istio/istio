@@ -1,3 +1,5 @@
+// +build !race
+
 // Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +17,6 @@
 package controller
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -86,11 +87,8 @@ func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.In
 	return fake.NewSimpleClientset(), nil
 }
 
+// This test is skipped by the build tag !race due to https://github.com/istio/istio/issues/15610
 func Test_KubeSecretController(t *testing.T) {
-	if len(os.Getenv("RACE_TEST")) > 0 {
-		t.Skip("https://github.com/istio/istio/issues/15610")
-	}
-
 	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
 	secretcontroller.ValidateClientConfig = mockValidateClientConfig
 	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig

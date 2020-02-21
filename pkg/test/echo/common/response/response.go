@@ -34,6 +34,7 @@ const (
 	ServiceVersionField Field = "ServiceVersion"
 	ServicePortField    Field = "ServicePort"
 	StatusCodeField     Field = "StatusCode"
+	URLField            Field = "URL"
 	HostField           Field = "Host"
 	HostnameField       Field = "Hostname"
 )

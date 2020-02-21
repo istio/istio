@@ -17,6 +17,8 @@ package features
 import (
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
@@ -46,6 +48,13 @@ var (
 		"PILOT_PUSH_THROTTLE",
 		100,
 		"Limits the number of concurrent pushes allowed. On larger machines this can be increased for faster pushes",
+	).Get()
+
+	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
+	MaxRecvMsgSize = env.RegisterIntVar(
+		"ISTIO_GPRC_MAXRECVMSGSIZE",
+		4*1024*1024,
+		"Sets the max receive buffer size of gRPC stream in bytes.",
 	).Get()
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
@@ -120,21 +129,6 @@ var (
 		return time.Second * time.Duration(terminationDrainDurationVar.Get())
 	}
 
-	EnableFallthroughRoute = env.RegisterBoolVar(
-		"PILOT_ENABLE_FALLTHROUGH_ROUTE",
-		true,
-		"EnableFallthroughRoute provides an option to add a final wildcard match for routes. "+
-			"When ALLOW_ANY traffic policy is used, a Passthrough cluster is used. "+
-			"When REGISTRY_ONLY traffic policy is used, a 502 error is returned.",
-	)
-
-	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
-	DisableXDSMarshalingToAny = env.RegisterBoolVar(
-		"PILOT_DISABLE_XDS_MARSHALING_TO_ANY",
-		false,
-		"",
-	).Get()
-
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = env.RegisterBoolVar(
@@ -167,6 +161,14 @@ var (
 		false,
 		"Use the Istio JWT filter for JWT token verification.")
 
+	// EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.
+	// Pilot injects this outbound filter if the service port name is `thrift`.
+	EnableThriftFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_THRIFT_FILTER",
+		false,
+		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
+	)
+
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
 	// mTLS is enabled in authentication policy.
 	SkipValidateTrustDomain = env.RegisterBoolVar(
@@ -192,6 +194,12 @@ var (
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
 		true,
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
+	)
+
+	EnableTCPMetadataExchange = env.RegisterBoolVar(
+		"PILOT_ENABLE_TCP_METADATA_EXCHANGE",
+		true,
+		"If enabled, metadata exchange will be enabled for TCP using ALPN and Network Metadata Exchange filters in Envoy",
 	)
 
 	ScopePushes = env.RegisterBoolVar(
@@ -281,9 +289,9 @@ var (
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
-	// TODO (lei-tang): the default value of this option is currently set as "kubernetes" to be consistent
-	// with the existing istiod implementation and testing. As some platforms may not have k8s signing APIs,
-	// we may change the default value of this option as "citadel".
-	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "kubernetes",
+	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
 		"the provider of Pilot DNS certificate.")
+
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+		"The JWT validation policy.")
 )

@@ -15,16 +15,19 @@
 package bootstrap
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/security/pkg/k8s/chiron"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -44,8 +47,8 @@ var (
 	// dnsCertDir is the location to save generated DNS certificates.
 	// TODO: we can probably avoid saving, but will require deeper changes.
 	dnsCertDir  = "./var/run/secrets/istio-dns"
-	dnsKeyFile  = path.Join(dnsCertDir, "key.pem")
-	dnsCertFile = path.Join(dnsCertDir, "cert-chain.pem")
+	dnsKeyFile  = "./" + filepath.Join(dnsCertDir, "key.pem")
+	dnsCertFile = "./" + filepath.Join(dnsCertDir, "cert-chain.pem")
 
 	KubernetesCAProvider = "kubernetes"
 	CitadelCAProvider    = "citadel"
@@ -58,7 +61,8 @@ func (s *Server) initCertController(args *PilotArgs) error {
 
 	meshConfig := s.environment.Mesh()
 	if meshConfig.GetCertificates() == nil || len(meshConfig.GetCertificates()) == 0 {
-		log.Info("No certificates specified, skipping DNS certificate controller")
+		// TODO: if the provider is set to Citadel, use that instead of k8s so the API is still preserved.
+		log.Info("No certificates specified, skipping K8S DNS certificate controller")
 		return nil
 	}
 
@@ -107,31 +111,13 @@ func (s *Server) initCertController(args *PilotArgs) error {
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
 func (s *Server) initDNSCerts(hostname string) error {
-	if _, err := os.Stat(dnsKeyFile); err == nil {
-		// Existing certificate mounted by user. Skip self-signed certificate generation.
-		// Use this with an existing CA - the expectation is that the cert will match the
-		// DNS name in DiscoveryAddress.
-		return nil
-	}
-
 	parts := strings.Split(hostname, ".")
 	if len(parts) < 2 {
 		return fmt.Errorf("invalid hostname %s, should contain at least service name and namespace", hostname)
 	}
 	// Names in the Istiod cert - support the old service names as well.
 	// The first is the recommended one, also used by Apiserver for webhooks.
-	names := []string{hostname}
-
-	// Default value, matching old installs. For migration we also add the new SAN, so workloads
-	// can switch between the names.
-	if hostname == "istio-pilot.istio-system.svc" {
-		names = append(names, "istiod.istio-system.svc")
-	}
-	// New name - while migrating we need to support the old name.
-	// Both cases will be removed after 1 release, when the move to the new name is completed.
-	if hostname == "istiod.istio-system.svc" {
-		names = append(names, "istio-pilot.istio-system.svc")
-	}
+	names := []string{hostname, "istiod.istio-system.svc", "istio-pilot.istio-system.svc"}
 
 	var certChain, keyPEM []byte
 	var err error
@@ -142,9 +128,53 @@ func (s *Server) initDNSCerts(hostname string) error {
 	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
 		log.Infof("Generating Citadel-signed cert for %v", names)
 		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
+
+		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		if _, err := os.Stat(signingKeyFile); err != nil {
+			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
+			// When Citadel is configured to use self-signed certs, keep a local copy so other
+			// components can load it via file (e.g. webhook config controller).
+			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
+				return err
+			}
+			// We have direct access to the self-signed
+			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
+
+			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+				return err
+			}
+
+			s.addStartFunc(func(stop <-chan struct{}) error {
+				go func() {
+					for {
+						select {
+						case <-stop:
+							return
+						case <-time.After(namespaceResyncPeriod):
+							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+							if !bytes.Equal(rootCert, newRootCert) {
+								rootCert = newRootCert
+								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
+									log.Errorf("Failed to update local copy of self-signed root: %v", err)
+								} else {
+									log.Info("Updated local copy of self-signed root")
+								}
+							}
+						}
+					}
+				}()
+				return nil
+			})
+			s.caBundlePath = internalSelfSignedRootPath
+		} else {
+			log.Infof("Use plugged-in cert at %v", signingKeyFile)
+			s.caBundlePath = path.Join(localCertDir.Get(), "root-cert.pem")
+		}
+
 	} else {
-		log.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
-		err = fmt.Errorf("Invalid Pilot CA provider: %v", features.PilotCertProvider.Get())
+		log.Infof("User specified certs: %v", features.PilotCertProvider.Get())
+		return nil
 	}
 	if err != nil {
 		return err
@@ -152,7 +182,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 
 	// Save the certificates to ./var/run/secrets/istio-dns - this is needed since most of the code we currently
 	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
-	if err := os.MkdirAll(dnsCertDir, 0600); err != nil {
+	if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
 		return err
 	}
 	err = ioutil.WriteFile(dnsKeyFile, keyPEM, 0600)

@@ -23,14 +23,14 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/resource"
 	crd2 "istio.io/istio/pilot/pkg/config/kube/crd"
 	crd "istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/model"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // Package controller tests the pilot controller using a k8s cluster or standalone apiserver.
@@ -45,19 +45,15 @@ const (
 )
 
 func makeClient(desc collection.Schemas) (*crd.Client, error) {
-	cl, err := crd.NewClient("", "", desc, "", &model.DisabledLedger{})
+	cl, err := crd.NewClient("", "", desc, "", &model.DisabledLedger{}, "")
 	if err != nil {
 		return nil, err
 	}
 
-	err = cl.RegisterResources()
+	err = cl.RegisterMockResourceCRD()
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO(kuat) initial watch always fails, takes time to register, keep
-	// around as a work-around
-	// kr.DeregisterResources()
 
 	return cl, nil
 }
@@ -139,7 +135,6 @@ func TestTempWorkspace(t *testing.T) {
 	t.Run("controllerCacheFreshness", func(t *testing.T) {
 		controllerCacheFreshness(t, client, ns)
 	})
-
 }
 
 func storeInvariant(t *testing.T, client model.ConfigStore, ns string) {

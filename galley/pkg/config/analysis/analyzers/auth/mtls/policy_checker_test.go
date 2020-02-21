@@ -19,13 +19,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 
 	"istio.io/api/authentication/v1alpha1"
-
-	"github.com/ghodss/yaml"
 )
 
 func TestMTLSPolicyChecker_singleResource(t *testing.T) {

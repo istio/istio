@@ -28,12 +28,19 @@ import (
 )
 
 type testGroup []struct {
-	desc       string
-	flags      string
-	noInput    bool
-	outputDir  string
-	diffSelect string
-	diffIgnore string
+	desc string
+	// Small changes to the input profile produce large changes to the golden output
+	// files. This makes it difficult to spot meaningful changes in pull requests.
+	// By default we hide these changes to make developers life's a bit easier. However,
+	// it is still useful to sometimes override this behavior and show the full diff.
+	// When this flag is true, use an alternative file suffix that is not hidden by
+	// default github in pull requests.
+	showOutputFileInPullRequest bool
+	flags                       string
+	noInput                     bool
+	outputDir                   string
+	diffSelect                  string
+	diffIgnore                  string
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
@@ -44,8 +51,9 @@ func TestManifestGenerateFlags(t *testing.T) {
 			desc: "all_off",
 		},
 		{
-			desc:       "all_on",
-			diffIgnore: "ConfigMap:*:istio",
+			desc:                        "all_on",
+			diffIgnore:                  "ConfigMap:*:istio",
+			showOutputFileInPullRequest: true,
 		},
 		{
 			desc:       "prometheus",
@@ -60,14 +68,24 @@ func TestManifestGenerateFlags(t *testing.T) {
 			diffIgnore: "ConfigMap:*:istio",
 		},
 		{
+			desc:       "component_hub_tag",
+			diffIgnore: "ConfigMap:*:istio",
+		},
+		{
 			desc:       "flag_set_values",
 			diffIgnore: "ConfigMap:*:istio",
-			flags:      "-s values.global.proxy.image=myproxy",
+			flags:      "-s values.global.proxy.image=myproxy --set values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16",
+			noInput:    true,
+		},
+		{
+			desc:       "flag_values_enable_egressgateway",
+			diffSelect: "Service:*:istio-egressgateway",
+			flags:      "--set values.gateways.istio-egressgateway.enabled=true",
 			noInput:    true,
 		},
 		{
 			desc:  "flag_override_values",
-			flags: "-s meshConfig.rootNamespace=control-plane",
+			flags: "-s tag=my-tag",
 		},
 		{
 			desc:      "flag_output",
@@ -84,8 +102,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 		{
 			desc:       "flag_force",
 			diffIgnore: "ConfigMap:*:istio",
-			// FIXME: this test should fail without --force flag.
-			flags: "",
+			flags:      "--force",
 		},
 		{
 			desc:       "flag_output_set_profile",
@@ -111,11 +128,15 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_values",
-			diffSelect: "Deployment:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod",
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istio-pilot, Service:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod, Service:*:istio-pilot",
+		},
+		{
+			desc:       "pilot_merge_meshconfig",
+			diffSelect: "ConfigMap:*:istio$",
 		},
 	})
 }
@@ -140,6 +161,25 @@ func TestManifestGenerateTelemetry(t *testing.T) {
 		{
 			desc:       "telemetry_override_kubernetes",
 			diffSelect: "Deployment:*:istio-telemetry, handler:*:prometheus",
+		},
+	})
+}
+
+func TestManifestGenerateGateway(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "ingressgateway_k8s_settings",
+			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
+		},
+	})
+}
+
+func TestManifestGenerateHelmValues(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc: "helm_values_enablement",
+			diffSelect: "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway," +
+				" Deployment:*:kiali, Service:*:kiali, Deployment:*:prometheus, Service:*:prometheus",
 		},
 	})
 }
@@ -175,15 +215,20 @@ func TestMultiICPSFiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		outPath := filepath.Join(testDataDir, "output/telemetry_override_values.yaml")
+		outPath := filepath.Join(testDataDir, "output/telemetry_override_values"+goldenFileSuffixHideChangesInReview)
 
 		want, err := readFile(outPath)
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		if got != want {
-			t.Errorf("`manifest generate` got = %v, want %v", got, want)
+		diffSelect := "handler:*:prometheus"
+		got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+		if err != nil {
+			t.Errorf("error selecting from output manifest: %v", err)
+		}
+		diff := compare.YAMLCmp(got, want)
+		if diff != "" {
+			t.Errorf("`manifest generate` diff = %s", diff)
 		}
 	})
 }
@@ -199,7 +244,7 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := NewLogger(true, os.Stdout, os.Stderr)
-	_, iops, err := genIOPS(nil, "default", "", "", true, l)
+	_, iops, err := GenerateConfig(nil, "", true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +258,11 @@ func runTestGroup(t *testing.T, tests testGroup) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
-			outPath := filepath.Join(testDataDir, "output", tt.desc+".yaml")
+			outputSuffix := goldenFileSuffixHideChangesInReview
+			if tt.showOutputFileInPullRequest {
+				outputSuffix = goldenFileSuffixShowChangesInReview
+			}
+			outPath := filepath.Join(testDataDir, "output", tt.desc+outputSuffix)
 
 			var filenames []string
 			if !tt.noInput {
@@ -223,6 +272,15 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			got, err := runManifestGenerate(filenames, tt.flags)
 			if err != nil {
 				t.Fatal(err)
+			}
+
+			diffSelect := "*:*:*"
+			if tt.diffSelect != "" {
+				diffSelect = tt.diffSelect
+				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				if err != nil {
+					t.Errorf("error selecting from output manifest: %v", err)
+				}
 			}
 
 			if tt.outputDir != "" {
@@ -244,11 +302,6 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			want, err := readFile(outPath)
 			if err != nil {
 				t.Fatal(err)
-			}
-
-			diffSelect := "*:*:*"
-			if tt.diffSelect != "" {
-				diffSelect = tt.diffSelect
 			}
 
 			for _, v := range []bool{true, false} {

@@ -19,11 +19,11 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // GetProviders returns transformer providers for auth policy transformers

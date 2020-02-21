@@ -28,9 +28,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authzBuilder "istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -81,7 +81,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	// https://github.com/istio/istio/issues/17873
 	trustDomainBundle := trustdomain.NewTrustDomainBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
 	builder := authzBuilder.NewBuilder(trustDomainBundle, in.ServiceInstance,
-		in.Node.WorkloadLabels, in.Node.ConfigNamespace, in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
+		labels.Collection{in.Node.Metadata.Labels}, in.Node.ConfigNamespace, in.Push.AuthzPolicies)
 	if builder == nil {
 		return
 	}
@@ -176,5 +176,10 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.Mutab
 	}
 
 	buildFilter(in, mutable)
+	return nil
+}
+
+// OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
+func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return nil
 }

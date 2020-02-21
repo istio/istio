@@ -30,8 +30,8 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/schema"
 )
 
 var (

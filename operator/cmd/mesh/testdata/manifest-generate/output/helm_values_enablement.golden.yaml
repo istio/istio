@@ -1,0 +1,384 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: istio-egressgateway
+    istio: egressgateway
+    release: istio
+  name: istio-egressgateway
+  namespace: istio-system
+spec:
+  selector:
+    matchLabels:
+      app: istio-egressgateway
+      istio: egressgateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: istio-egressgateway
+        chart: gateways
+        heritage: Tiller
+        istio: egressgateway
+        release: istio
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+      containers:
+      - args:
+        - proxy
+        - router
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
+        - --log_output_level=default:info
+        - --drainDuration
+        - 45s
+        - --parentShutdownDuration
+        - 1m0s
+        - --connectTimeout
+        - 10s
+        - --serviceCluster
+        - istio-egressgateway
+        - --zipkinAddress
+        - zipkin.istio-system:9411
+        - --proxyAdminPort
+        - "15000"
+        - --statusPort
+        - "15020"
+        - --controlPlaneAuthPolicy
+        - NONE
+        - --discoveryAddress
+        - istio-pilot.istio-system.svc:15012
+        - --trust-domain=cluster.local
+        env:
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: citadel
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.hostIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: istio-egressgateway
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-egressgateway
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        - name: ISTIO_AUTO_MTLS_ENABLED
+          value: "true"
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: ISTIO_META_CONFIG_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
+        image: gcr.io/istio-testing/proxyv2:latest
+        name: istio-proxy
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        - containerPort: 15443
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15020
+            scheme: HTTP
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
+        - mountPath: /etc/istio/citadel-ca-cert
+          name: citadel-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+          readOnly: true
+        - mountPath: /etc/istio/pod
+          name: podinfo
+        - mountPath: /etc/istio/egressgateway-certs
+          name: egressgateway-certs
+          readOnly: true
+        - mountPath: /etc/istio/egressgateway-ca-certs
+          name: egressgateway-ca-certs
+          readOnly: true
+      serviceAccountName: istio-egressgateway-service-account
+      volumes:
+      - configMap:
+          name: istio-ca-root-cert
+        name: citadel-ca-cert
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - configMap:
+          name: istio
+          optional: true
+        name: config-volume
+      - name: egressgateway-certs
+        secret:
+          optional: true
+          secretName: istio-egressgateway-certs
+      - name: egressgateway-ca-certs
+        secret:
+          optional: true
+          secretName: istio-egressgateway-ca-certs
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiali
+  namespace: istio-system
+  labels:
+    app: kiali
+    release: istio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kiali
+  template:
+    metadata:
+      name: kiali
+      labels:
+        app: kiali
+        release: istio
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        kiali.io/runtimes: go,kiali
+    spec:
+      serviceAccountName: kiali-service-account
+      containers:
+      - image: "quay.io/kiali/kiali:v1.9"
+        name: kiali
+        command:
+        - "/opt/kiali/kiali"
+        - "-config"
+        - "/kiali-configuration/config.yaml"
+        - "-v"
+        - "3"
+        readinessProbe:
+          httpGet:
+            path: /kiali/healthz
+            port: 20001
+            scheme: 'HTTP'
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /kiali/healthz
+            port: 20001
+            scheme: 'HTTP'
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        env:
+        - name: ACTIVE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: kiali-configuration
+          mountPath: "/kiali-configuration"
+        - name: kiali-cert
+          mountPath: "/kiali-cert"
+        - name: kiali-secret
+          mountPath: "/kiali-secret"
+        resources:
+          requests:
+            cpu: 10m
+          
+      volumes:
+      - name: kiali-configuration
+        configMap:
+          name: kiali
+      - name: kiali-cert
+        secret:
+          secretName: istio.kiali-service-account
+          optional: true      
+      - name: kiali-secret
+        secret:
+          secretName: kiali
+          optional: true
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-egressgateway
+  namespace: istio-system
+  annotations:
+  labels:
+    app: istio-egressgateway
+    istio: egressgateway
+    
+    release: istio
+spec:
+  type: ClusterIP
+  selector:
+    app: istio-egressgateway
+    istio: egressgateway
+    
+  ports:
+    -
+      name: http2
+      port: 80
+    -
+      name: https
+      port: 443
+    -
+      name: tls
+      port: 15443
+      targetPort: 15443
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiali
+  namespace: istio-system
+  labels:
+    app: kiali
+    release: istio
+spec:
+  ports:
+    - name: http-kiali
+      protocol: TCP
+      port: 20001
+  selector:
+    app: kiali
+---

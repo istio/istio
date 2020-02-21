@@ -27,7 +27,16 @@ func StringMatcher(v string, treatWildcardAsRequired bool) *envoy_matcher.String
 
 // StringMatcherRegex creates a regex string matcher for regex.
 func StringMatcherRegex(regex string) *envoy_matcher.StringMatcher {
-	return &envoy_matcher.StringMatcher{MatchPattern: &envoy_matcher.StringMatcher_Regex{Regex: regex}}
+	return &envoy_matcher.StringMatcher{
+		MatchPattern: &envoy_matcher.StringMatcher_SafeRegex{
+			SafeRegex: &envoy_matcher.RegexMatcher{
+				EngineType: &envoy_matcher.RegexMatcher_GoogleRe2{
+					GoogleRe2: &envoy_matcher.RegexMatcher_GoogleRE2{},
+				},
+				Regex: regex,
+			},
+		},
+	}
 }
 
 // StringMatcherWithPrefix creates a string matcher for v with the extra prefix inserted to the

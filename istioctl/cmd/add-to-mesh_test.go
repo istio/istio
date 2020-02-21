@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 type testcase struct {

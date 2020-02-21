@@ -263,3 +263,9 @@ func TestGetLocality(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkBuildSubsetKey(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		_ = BuildSubsetKey(TrafficDirectionInbound, "v1", "someHost", 80)
+	}
+}

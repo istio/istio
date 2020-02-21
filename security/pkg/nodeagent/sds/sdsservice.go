@@ -26,6 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/security/pkg/nodeagent/util"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -53,11 +55,6 @@ const (
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	// Same value defined in pilot pkg(k8sSAJwtTokenHeaderKey)
 	k8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
-
-	// JWTPath is the path to the JWT token used for authentication.
-	// Note the use of "./", meaning on tests and VMs it is possible to use without root access.
-	// Pilot-agent runs with PWD=/
-	JWTPath = "./var/run/secrets/tokens/istio-token"
 )
 
 var (
@@ -124,6 +121,10 @@ type sdsservice struct {
 	skipToken bool
 
 	localJWT bool
+
+	jwtPath string
+
+	outputKeyCertToDir string
 }
 
 // ClientDebug represents a single SDS connection to the ndoe agent
@@ -145,17 +146,20 @@ type Debug struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool, recycleInterval time.Duration) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool,
+	recycleInterval time.Duration, jwtPath, outputKeyCertToDir string) *sdsservice {
 	if st == nil {
 		return nil
 	}
 
 	ret := &sdsservice{
-		st:             st,
-		skipToken:      skipTokenVerification,
-		tickerInterval: recycleInterval,
-		closing:        make(chan bool),
-		localJWT:       localJWT,
+		st:                 st,
+		skipToken:          skipTokenVerification,
+		tickerInterval:     recycleInterval,
+		closing:            make(chan bool),
+		localJWT:           localJWT,
+		jwtPath:            jwtPath,
+		outputKeyCertToDir: outputKeyCertToDir,
 	}
 
 	go ret.clearStaledClientsJob()
@@ -259,7 +263,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				key.ConnectionID = con.conID
 				addConn(key, con)
 				firstRequestFlag = true
-				sdsServiceLog.Infof("%s new connection", sdsLogPrefix(con.conID, resourceName))
+				sdsServiceLog.Infof("%s new connection", sdsLogPrefix(resourceName))
 			}
 			conID := con.conID
 			con.proxyID = discReq.Node.Id
@@ -269,10 +273,10 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.mutex.Unlock()
 			defer recycleConnection(conID, resourceName)
 
-			conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
+			conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 			if s.localJWT {
 				// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
-				tok, err := ioutil.ReadFile(JWTPath)
+				tok, err := ioutil.ReadFile(s.jwtPath)
 				if err != nil {
 					sdsServiceLog.Errorf("Failed to get credential token: %v", err)
 					return err
@@ -328,6 +332,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					"secret cache: %v", conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
+			if err = util.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
+				secret.CertificateChain, secret.RootCert); err != nil {
+				sdsServiceLog.Errorf("(%v, %v) error when output the key and cert: %v",
+					conIDresourceNamePrefix, discReq.Node.Id, err)
+				return err
+			}
 
 			// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
 			// and cause some confusing logs like 'fails to notify because connection isn't found'.
@@ -342,7 +352,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
-			sdsServiceLog.Infof("%s pushed secret", conIDresourceNamePrefix)
 		case <-con.pushChannel:
 			con.mutex.RLock()
 			proxyID := con.proxyID
@@ -350,7 +359,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			resourceName := con.ResourceName
 			secret := con.secret
 			con.mutex.RUnlock()
-			conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
+			conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 			sdsServiceLog.Debugf("%s received push channel request for proxy %q", conIDresourceNamePrefix, proxyID)
 
 			if secret == nil {
@@ -382,7 +391,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	token := ""
 	if s.localJWT {
 		// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
-		tok, err := ioutil.ReadFile(JWTPath)
+		tok, err := ioutil.ReadFile(s.jwtPath)
 		if err != nil {
 			sdsServiceLog.Errorf("Failed to get credential token: %v", err)
 			return nil, err
@@ -409,7 +418,13 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		sdsServiceLog.Errorf("Failed to get secret for proxy %q from secret cache: %v", connID, err)
 		return nil, err
 	}
-	return sdsDiscoveryResponse(secret, connID, resourceName)
+	if err = util.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
+		secret.CertificateChain, secret.RootCert); err != nil {
+		sdsServiceLog.Errorf("(%v) error when output the key and cert: %v",
+			connID, err)
+		return nil, err
+	}
+	return sdsDiscoveryResponse(secret, resourceName)
 }
 
 func (s *sdsservice) Stop() {
@@ -447,7 +462,7 @@ func clearStaledClients() {
 // NotifyProxy sends notification to proxy about secret update,
 // SDS will close streaming connection if secret is nil.
 func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
-	conIDresourceNamePrefix := sdsLogPrefix(connKey.ConnectionID, connKey.ResourceName)
+	conIDresourceNamePrefix := sdsLogPrefix(connKey.ResourceName)
 	sdsClientsMutex.Lock()
 	conn := sdsClients[connKey]
 	if conn == nil {
@@ -518,12 +533,18 @@ func getCredentialToken(ctx context.Context) (string, error) {
 		if len(h) != 1 {
 			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", k8sSAJwtTokenHeaderKey, len(h))
 		}
+		if len(h[0]) == 0 {
+			return "", fmt.Errorf("received empty credential for existing header: %s", k8sSAJwtTokenHeaderKey)
+		}
 		return h[0], nil
 	}
 
 	if h, ok := metadata[credentialTokenHeaderKey]; ok {
 		if len(h) != 1 {
 			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", credentialTokenHeaderKey, len(h))
+		}
+		if len(h[0]) == 0 {
+			return "", fmt.Errorf("received empty credential for existing header: %s", credentialTokenHeaderKey)
 		}
 		return h[0], nil
 	}
@@ -534,7 +555,7 @@ func getCredentialToken(ctx context.Context) (string, error) {
 func addConn(k cache.ConnKey, conn *sdsConnection) {
 	sdsClientsMutex.Lock()
 	defer sdsClientsMutex.Unlock()
-	conIDresourceNamePrefix := sdsLogPrefix(k.ConnectionID, k.ResourceName)
+	conIDresourceNamePrefix := sdsLogPrefix(k.ResourceName)
 	sdsServiceLog.Debugf("%s add a new connection", conIDresourceNamePrefix)
 	sdsClients[k] = conn
 }
@@ -546,12 +567,11 @@ func pushSDS(con *sdsConnection) error {
 
 	con.mutex.Lock()
 	defer con.mutex.Unlock()
-	conID := con.conID
 	secret := con.secret
 	resourceName := con.ResourceName
 	sdsPushTime := con.sdsPushTime
 
-	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
+	conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 	if !sdsPushTime.IsZero() {
 		sdsServiceLog.Errorf("%s skip multiple push, last push finishes at %s and is "+
 			"waiting for next SDS request", conIDresourceNamePrefix, sdsPushTime.String())
@@ -562,7 +582,7 @@ func pushSDS(con *sdsConnection) error {
 		return fmt.Errorf("sdsConnection %v passed into pushSDS() contains nil secret", con)
 	}
 
-	response, err := sdsDiscoveryResponse(secret, conID, resourceName)
+	response, err := sdsDiscoveryResponse(secret, resourceName)
 	if err != nil {
 		sdsServiceLog.Errorf("%s failed to construct response for SDS push: %v", conIDresourceNamePrefix, err)
 		return err
@@ -590,11 +610,11 @@ func pushSDS(con *sdsConnection) error {
 	return nil
 }
 
-func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xdsapi.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *model.SecretItem, resourceName string) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl: SecretType,
 	}
-	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
+	conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 	if s == nil {
 		sdsServiceLog.Warnf("%s got nil secret for proxy", conIDresourceNamePrefix)
 		return resp, nil
@@ -657,7 +677,7 @@ func receiveThread(con *sdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 		if err != nil {
 			// Add read lock to avoid race condition with set con.conID in StreamSecrets.
 			con.mutex.RLock()
-			conIDresourceNamePrefix := sdsLogPrefix(con.conID, con.ResourceName)
+			conIDresourceNamePrefix := sdsLogPrefix(con.ResourceName)
 			con.mutex.RUnlock()
 			if status.Code(err) == codes.Canceled || err == io.EOF {
 				sdsServiceLog.Infof("%s connection is terminated: %v", conIDresourceNamePrefix, err)
@@ -677,7 +697,7 @@ func constructConnectionID(proxyID string) string {
 }
 
 // sdsLogPrefix returns a unified log prefix.
-func sdsLogPrefix(conID, resourceName string) string {
-	lPrefix := fmt.Sprintf("node:%s resource:%s", conID, resourceName)
+func sdsLogPrefix(resourceName string) string {
+	lPrefix := fmt.Sprintf("resource:%s", resourceName)
 	return lPrefix
 }

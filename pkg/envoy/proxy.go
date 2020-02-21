@@ -23,7 +23,7 @@ import (
 	"path"
 	"time"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -51,12 +51,12 @@ type ProxyConfig struct {
 	PilotSubjectAltName []string
 	MixerSubjectAltName []string
 	NodeIPs             []string
-	DNSRefreshRate      string
 	PodName             string
 	PodNamespace        string
 	PodIP               net.IP
 	SDSUDSPath          string
 	SDSTokenPath        string
+	STSPort             int
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 	OutlierLogPath      string
@@ -153,7 +153,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:                e.Node,
-			DNSRefreshRate:      e.DNSRefreshRate,
 			Proxy:               &e.Config,
 			PilotSubjectAltName: e.PilotSubjectAltName,
 			MixerSubjectAltName: e.MixerSubjectAltName,
@@ -164,6 +163,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			PodIP:               e.PodIP,
 			SDSUDSPath:          e.SDSUDSPath,
 			SDSTokenPath:        e.SDSTokenPath,
+			STSPort:             e.STSPort,
 			ControlPlaneAuth:    e.ControlPlaneAuth,
 			DisableReportCalls:  e.DisableReportCalls,
 			OutlierLogPath:      e.OutlierLogPath,

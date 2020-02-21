@@ -34,6 +34,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
+	"istio.io/istio/pilot/test/util"
+
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
@@ -210,6 +212,7 @@ func TestGolden(t *testing.T) {
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionPrefixes": "prefix1,prefix2",
 				"sidecar.istio.io/statsInclusionSuffixes": "suffix1,suffix2",
+				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			stats: stats{prefixes: "prefix1,prefix2",
 				suffixes: "suffix1,suffix2"},
@@ -218,6 +221,7 @@ func TestGolden(t *testing.T) {
 			base: "stats_inclusion",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionSuffixes": upstreamStatsSuffixes + "," + downstreamStatsSuffixes,
+				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			stats: stats{
 				suffixes: upstreamStatsSuffixes + "," + downstreamStatsSuffixes},
@@ -226,6 +230,7 @@ func TestGolden(t *testing.T) {
 			base: "stats_inclusion",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionPrefixes": "http.{pod_ip}_",
+				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			// {pod_ip} is unrolled
 			stats: stats{prefixes: "http.10.3.3.3_,http.10.4.4.4_,http.10.5.5.5_,http.10.6.6.6_"},
@@ -234,6 +239,7 @@ func TestGolden(t *testing.T) {
 			base: "stats_inclusion",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionRegexps": "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
+				"sidecar.istio.io/extraStatTags":         "dlp_status,dlp_error",
 			},
 			stats: stats{regexps: "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"},
 		},
@@ -259,10 +265,9 @@ func TestGolden(t *testing.T) {
 			}
 
 			fn, err := New(Config{
-				Node:           "sidecar~1.2.3.4~foo~bar",
-				DNSRefreshRate: "60s",
-				Proxy:          proxyConfig,
-				PlatEnv:        &fakePlatform{},
+				Node:    "sidecar~1.2.3.4~foo~bar",
+				Proxy:   proxyConfig,
+				PlatEnv: &fakePlatform{},
 				PilotSubjectAltName: []string{
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"},
 				LocalEnv:       localEnv,
@@ -296,7 +301,10 @@ func TestGolden(t *testing.T) {
 				return
 			}
 
-			golden, err := ioutil.ReadFile("testdata/" + c.base + "_golden.json")
+			goldenFile := "testdata/" + c.base + "_golden.json"
+			util.RefreshGoldenFile(read, goldenFile, t)
+
+			golden, err := ioutil.ReadFile(goldenFile)
 			if err != nil {
 				golden = []byte{}
 			}
@@ -562,7 +570,7 @@ func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
 		notIstioMetaKey + "=bar",
 		anIstioMetaKey + "=baz",
 	}
-	nm, _, err := getNodeMetaData(envs, nil, nil, false)
+	nm, _, err := getNodeMetaData(envs, nil, nil, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -585,7 +593,7 @@ func TestNodeMetadata(t *testing.T) {
 		"ISTIO_META_ISTIO_VERSION=1.0.0",
 		`ISTIO_METAJSON_LABELS={"foo":"bar"}`,
 	}
-	nm, _, err := getNodeMetaData(envs, nil, nil, false)
+	nm, _, err := getNodeMetaData(envs, nil, nil, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

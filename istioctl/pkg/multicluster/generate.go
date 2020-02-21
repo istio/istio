@@ -25,7 +25,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ktypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/mesh/v1alpha1"
 	iop "istio.io/api/operator/v1alpha1"
@@ -87,7 +86,7 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 			ControlPlaneSecurityEnabled: &types.BoolValue{Value: true},
 			MeshNetworks:                meshNetworksJSON,
 			MultiCluster: &operatorV1alpha1.MultiClusterConfig{
-				ClusterName: string(current.uid),
+				ClusterName: current.clusterName,
 			},
 			Network: current.Network,
 		},
@@ -122,7 +121,7 @@ func generateIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alp
 			return "", err
 		}
 		var user operatorV1alpha1.IstioOperator
-		if err := util.UnmarshalWithJSONPB(string(b), &user); err != nil {
+		if err := util.UnmarshalWithJSONPB(string(b), &user, false); err != nil {
 			return "", err
 		}
 		if errs := validate.CheckIstioOperatorSpec(user.Spec, false); len(errs) != 0 {
@@ -164,17 +163,17 @@ func waitForReadyGateways(env Environment, mesh *Mesh) error {
 	var wg errgroup.Group
 
 	var notReadyMu sync.Mutex
-	notReady := make(map[ktypes.UID]struct{})
+	notReady := make(map[string]struct{})
 
-	for uid := range mesh.clustersByUID {
-		c := mesh.clustersByUID[uid]
+	for uid := range mesh.clustersByClusterName {
+		c := mesh.clustersByClusterName[uid]
 		notReady[uid] = struct{}{}
 		wg.Go(func() error {
 			return env.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
 				gateways := c.readIngressGateways()
 				if len(gateways) > 0 {
 					notReadyMu.Lock()
-					delete(notReady, c.uid)
+					delete(notReady, c.clusterName)
 					notReadyMu.Unlock()
 					return true, nil
 				}
@@ -183,7 +182,7 @@ func waitForReadyGateways(env Environment, mesh *Mesh) error {
 		})
 	}
 	if err := wg.Wait(); err != nil {
-		clusters := make([]ktypes.UID, 0, len(notReady))
+		clusters := make([]string, 0, len(notReady))
 		for uid := range notReady {
 			clusters = append(clusters, uid)
 		}
@@ -267,9 +266,9 @@ func meshNetworkForCluster(env Environment, mesh *Mesh, current *Cluster) (*v1al
 
 		}
 
-		// Use the cluster uid for the registry name so we have consistency across the mesh. Pilot
+		// Use the cluster clusterName for the registry name so we have consistency across the mesh. Pilot
 		// uses a special name for the local cluster against which it is running.
-		registry := string(cluster.uid)
+		registry := cluster.clusterName
 		if context == current.Context {
 			registry = string(serviceregistry.Kubernetes)
 		}

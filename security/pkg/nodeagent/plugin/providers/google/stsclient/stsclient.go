@@ -34,9 +34,10 @@ import (
 
 var (
 	// GKEClusterURL is the URL to send requests to the token exchange service.
-	GKEClusterURL       = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
-	secureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
-	stsClientLog        = log.RegisterScope("stsClientLog", "STS client debugging", 0)
+	GKEClusterURL = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
+	// SecureTokenEndpoint is the Endpoint the STS client calls to.
+	SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
+	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging", 0)
 )
 
 const (
@@ -81,7 +82,7 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error) {
 	aud := constructAudience(trustDomain)
 	var jsonStr = constructFederatedTokenRequest(aud, k8sSAjwt)
-	req, _ := http.NewRequest("POST", secureTokenEndpoint, bytes.NewBuffer(jsonStr))
+	req, _ := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := p.hTTPClient.Do(req)
@@ -104,7 +105,7 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
 		return "", time.Now(), resp.StatusCode, fmt.Errorf(
-			"failed to unmarshal response data. HTTP status: %s. Error: %v", resp.Status, err)
+			"failed to unmarshal response data. HTTP status: %s. Error: %v. Body size: %d", resp.Status, err, len(body))
 	}
 
 	if respData.AccessToken == "" {

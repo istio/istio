@@ -56,6 +56,8 @@ func TestWebhookManagement(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			ctx.Skip("TODO(github.com/istio/istio/issues/20289)")
+
 			// Test that webhook configurations are enabled through istioctl successfully.
 			args := []string{"experimental", "post-install", "webhook", "enable", "--validation", "--webhook-secret",
 				"dns.istio-galley-service-account", "--namespace", "istio-system", "--validation-path", "./config/galley-webhook.yaml",

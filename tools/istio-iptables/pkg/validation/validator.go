@@ -43,6 +43,7 @@ type Config struct {
 	ServerOriginalPort  uint16
 	ServerOriginalIP    net.IP
 	ServerReadyBarrier  chan ReturnCode
+	ProbeTimeout        time.Duration
 }
 type Service struct {
 	Config *Config
@@ -56,7 +57,7 @@ func (validator *Validator) Run() error {
 		validator.Config,
 	}
 	sError := make(chan error, 1)
-	sTimer := time.NewTimer(300 * time.Second)
+	sTimer := time.NewTimer(s.Config.ProbeTimeout)
 	defer sTimer.Stop()
 	go func() {
 		sError <- s.Run()
@@ -118,6 +119,7 @@ func NewValidator(config *config.Config, hostIP net.IP) *Validator {
 			ServerOriginalPort:  config.IptablesProbePort,
 			ServerOriginalIP:    serverIP,
 			ServerReadyBarrier:  make(chan ReturnCode, 1),
+			ProbeTimeout:        config.ProbeTimeout,
 		},
 	}
 }

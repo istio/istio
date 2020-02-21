@@ -15,7 +15,7 @@
 package diag
 
 import (
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 )
 
 var _ resource.Origin = testOrigin("")

@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -103,9 +103,6 @@ spec:
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
       initContainers:
       - args:
         - -p
@@ -143,9 +140,5 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
 status: {}
 ---

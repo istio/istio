@@ -56,7 +56,7 @@ func TestTranslateYAMLTree(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
 			outPath := filepath.Join(testDataDir, "output", tt.desc+".yaml")
 
-			translations, err := ReadTranslations(filepath.Join(repoRootDir, "data/translateConfig/translate-ICP-IOP-1.5.yaml"))
+			translations, err := ReadICPtoIOPTranslations(filepath.Join(repoRootDir, "data/translateConfig/translate-ICP-IOP-1.5.yaml"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -66,7 +66,7 @@ func TestTranslateYAMLTree(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			got, err := TranslateICPToIOP(icp, translations)
+			got, err := ICPToIOP(icp, translations)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -91,7 +91,7 @@ func TestTranslateYAMLTree(t *testing.T) {
 }
 
 func refreshGoldenFiles() bool {
-	return os.Getenv("UPDATE_GOLDENS") == "true"
+	return os.Getenv("REFRESH_GOLDENS") == "true"
 }
 
 func readFile(path string) (string, error) {

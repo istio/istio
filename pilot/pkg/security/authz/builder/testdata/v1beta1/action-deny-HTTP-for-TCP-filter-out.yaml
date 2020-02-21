@@ -1,0 +1,8 @@
+rules:
+  action: DENY
+  policies:
+    '[default-deny-all]-ns[foo]-policy[httpbin-deny]-rule[0]':
+      permissions:
+      - any: true
+      principals:
+      - any: true

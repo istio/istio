@@ -20,8 +20,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	coll "istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestNewSet(t *testing.T) {

@@ -38,12 +38,12 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
 	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/mesh"
 	istioProtocol "istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 )
@@ -264,14 +264,14 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 			dep.Name, dep.Namespace)
 		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, meshConfig, &dep)
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
+			errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
 		}
 		res, b := newDep.(*appsv1.Deployment)
 		if !b {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s",
-				dep.Name, dep.Namespace, svcName, svcNamespace))
+			errs = multierror.Append(errs, fmt.Errorf("failed to create new deployment resource %s.%s for service %s.%s due to %v",
+				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
 		}
 		if _, err =
@@ -289,7 +289,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 			},
 		}
 		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment status %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
 		}

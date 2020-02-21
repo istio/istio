@@ -26,11 +26,11 @@ import (
 	istioRbacPb "istio.io/api/rbac/v1alpha1"
 	istioSecurityPb "istio.io/api/security/v1beta1"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	authzModel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // We cannot import `testing` here, as it will bring extra test flags into the binary. Instead, just include the interface here
@@ -96,6 +96,8 @@ func SimpleClusterRbacConfig() *model.Config {
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Group(),
 			Name:      "default",
 			Namespace: "default",
 		},
@@ -124,6 +126,8 @@ func SimpleRole(name string, namespace string, service string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Serviceroles.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Serviceroles.Resource().Group(),
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -143,6 +147,8 @@ func SimpleBinding(name, namespace, role string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -164,6 +170,8 @@ func SimpleBindingWithUser(name, namespace, role, user string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -220,6 +228,8 @@ func SimpleAllowPolicy(name string, namespace string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(),
+			Version:   collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Version(),
+			Group:     collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Group(),
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -231,6 +241,8 @@ func SimpleDenyPolicy(name string, namespace string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(),
+			Group:     collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Group(),
+			Version:   collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Version(),
 			Name:      name,
 			Namespace: namespace,
 		},

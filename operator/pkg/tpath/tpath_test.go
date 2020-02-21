@@ -78,7 +78,7 @@ a:
 		},
 		{
 			desc:      "ModifyListEntry",
-			path:      `a.b.[name:n2].list.[v2]`,
+			path:      `a.b.[name:n2].list.[:v2]`,
 			value:     `v3`,
 			wantFound: true,
 			want: `
@@ -89,6 +89,133 @@ a:
   - list:
     - v1
     - v3
+    - v3_regex
+    name: n2
+`,
+		},
+		{
+			desc:      "ModifyNthListEntry",
+			path:      `a.b.[1].list.[:v2]`,
+			value:     `v-the-second`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v-the-second
+    - v3_regex
+    name: n2
+`,
+		},
+		{
+			desc:      "ModifyNthLeafListEntry",
+			path:      `a.b.[1].list.[2]`,
+			value:     `v-the-third`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v2
+    - v-the-third
+    name: n2
+`,
+		},
+		{
+			desc:      "ExtendNthLeafListEntry",
+			path:      `a.b.[1].list.[3]`,
+			value:     `v4`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v2
+    - v3_regex
+    - v4
+    name: n2
+`,
+		},
+		{
+			desc:      "ExtendMoreThanOneLeafListEntry",
+			path:      `a.b.[1].list.[5]`,
+			value:     `v4`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v2
+    - v3_regex
+    - null
+    - null
+    - v4
+    name: n2
+`,
+		},
+		{
+			desc:      "ExtendNthListEntry",
+			path:      `a.b.[2].name`,
+			value:     `n3`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v2
+    - v3_regex
+    name: n2
+  - name: n3
+`,
+		},
+		{
+			desc:      "ExtendMoreThanOneListEntry",
+			path:      `a.b.[4].name`,
+			value:     `n3`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v2
+    - v3_regex
+    name: n2
+  - null
+  - null
+  - name: n3
+`,
+		},
+		{
+			desc:      "ModifyListEntryValueDotless",
+			path:      `a.b[name:n1].value`,
+			value:     `v2`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v2
+  - list:
+    - v1
+    - v2
     - v3_regex
     name: n2
 `,
@@ -109,7 +236,22 @@ a:
 		},
 		{
 			desc:      "DeleteListEntryValue",
-			path:      `a.b.[name:n2].list.[v2]`,
+			path:      `a.b.[name:n2].list.[:v2]`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v3_regex
+    name: n2
+`,
+		},
+		{
+			desc:      "DeleteListEntryIndex",
+			path:      `a.b.[name:n2].list.[1]`,
 			wantFound: true,
 			want: `
 a:
@@ -124,7 +266,7 @@ a:
 		},
 		{
 			desc:      "DeleteListEntryValueRegex",
-			path:      `a.b.[name:n2].list.[v3]`,
+			path:      `a.b.[name:n2].list.[:v3]`,
 			wantFound: true,
 			want: `
 a:
@@ -136,6 +278,18 @@ a:
     - v2
     name: n2
 `,
+		},
+		{
+			desc:      "DeleteListLeafEntryBogusIndex",
+			path:      `a.b.[name:n2].list.[-200]`,
+			wantFound: false,
+			wantErr:   `path a.b.[name:n2].list.[-200]: element [-200] not found`,
+		},
+		{
+			desc:      "DeleteListEntryBogusIndex",
+			path:      `a.b.[1000000].list.[:v2]`,
+			wantFound: false,
+			wantErr:   `path a.b.[1000000].list.[:v2]: element [1000000] not found`,
 		},
 		{
 			desc:      "AddMapEntry",
@@ -175,15 +329,21 @@ a:
 		},
 		{
 			desc:      "path not found",
-			path:      `a.c.[name:n2].list.[v3]`,
+			path:      `a.c.[name:n2].list.[:v3]`,
 			wantFound: false,
-			wantErr:   `path not found at element c in path a.c.[name:n2].list.[v3]`,
+			wantErr:   `path not found at element c in path a.c.[name:n2].list.[:v3]`,
 		},
 		{
 			desc:      "error key",
 			path:      `a.b.[].list`,
 			wantFound: false,
 			wantErr:   `path a.b.[].list: [] is not a valid value path element`,
+		},
+		{
+			desc:      "invalid index",
+			path:      `a.c.[n2].list.[:v3]`,
+			wantFound: false,
+			wantErr:   `path not found at element c in path a.c.[n2].list.[:v3]`,
 		},
 	}
 	for _, tt := range tests {
@@ -194,10 +354,10 @@ a:
 			}
 			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path))
 			if gotErr, wantErr := errToString(gotErr), tt.wantErr; gotErr != wantErr {
-				t.Fatalf("YAMLManifestPatch(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
+				t.Fatalf("GetPathContext(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 			}
 			if gotFound != tt.wantFound {
-				t.Fatalf("YAMLManifestPatch(%s): gotFound:%v, wantFound:%v", tt.desc, gotFound, tt.wantFound)
+				t.Fatalf("GetPathContext(%s): gotFound:%v, wantFound:%v", tt.desc, gotFound, tt.wantFound)
 			}
 			if tt.wantErr != "" || !tt.wantFound {
 				return
@@ -318,7 +478,35 @@ a:
           i3b:
             i1: val2
 `,
-		}}
+		},
+		// For https://github.com/istio/istio/issues/20950
+		{
+			desc: "with initial list",
+			baseYAML: `
+components:
+  ingressGateways:
+    - enabled: true
+`,
+			path:  "components.ingressGateways[0].enabled",
+			value: "false",
+			want: `
+components:
+  ingressGateways:
+    - enabled: "false"
+`,
+		},
+		{
+			desc:     "no initial list",
+			baseYAML: "",
+			path:     "components.ingressGateways[0].enabled",
+			value:    "false",
+			want: `
+components:
+  ingressGateways:
+    - enabled: "false"
+`,
+		},
+	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			root := make(map[string]interface{})
@@ -374,7 +562,7 @@ a:
 `,
 		},
 		{
-			desc:     "merge list",
+			desc:     "merge list 2",
 			baseYAML: testTreeYAML,
 			path:     "a.b.list1",
 			value: `
@@ -426,4 +614,166 @@ func errToString(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+// TestSecretVolumes simulates https://github.com/istio/istio/issues/20381
+func TestSecretVolumes(t *testing.T) {
+	rootYAML := `
+values:
+   gateways:
+      istio-egressgateway:
+         secretVolumes: []
+`
+	root := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(rootYAML), &root); err != nil {
+		t.Fatal(err)
+	}
+	overrides := []struct {
+		path  string
+		value interface{}
+	}{
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[0].name",
+			value: "egressgateway-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[0].secretName",
+			value: "istio-egressgateway-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[0].mountPath",
+			value: "/etc/istio/egressgateway-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[1].name",
+			value: "egressgateway-ca-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[1].secretName",
+			value: "istio-egressgateway-ca-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[1].mountPath",
+			value: "/etc/istio/egressgateway-ca-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[2].name",
+			value: "nginx-client-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[2].secretName",
+			value: "nginx-client-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[2].mountPath",
+			value: "/etc/istio/nginx-client-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[3].name",
+			value: "nginx-ca-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[3].secretName",
+			value: "nginx-ca-certs",
+		},
+		{
+			path:  "values.gateways.istio-egressgateway.secretVolumes[3].mountPath",
+			value: "/etc/istio/nginx-ca-certs",
+		},
+	}
+
+	for _, override := range overrides {
+
+		pc, _, err := GetPathContext(root, util.PathFromString(override.path))
+		if err != nil {
+			t.Fatalf("GetPathContext(%q): %v", override.path, err)
+		}
+		err = WritePathContext(pc, override.value, false)
+		if err != nil {
+			t.Fatalf("WritePathContext(%q): %v", override.path, err)
+		}
+	}
+
+	want := `
+values:
+   gateways:
+      istio-egressgateway:
+         secretVolumes:
+         - mountPath: /etc/istio/egressgateway-certs
+           name: egressgateway-certs
+           secretName: istio-egressgateway-certs
+         - mountPath: /etc/istio/egressgateway-ca-certs
+           name: egressgateway-ca-certs
+           secretName: istio-egressgateway-ca-certs
+         - mountPath: /etc/istio/nginx-client-certs
+           name: nginx-client-certs
+           secretName: nginx-client-certs
+         - mountPath: /etc/istio/nginx-ca-certs
+           name: nginx-ca-certs
+           secretName: nginx-ca-certs
+`
+	gotYAML := util.ToYAML(root)
+	diff := util.YAMLDiff(gotYAML, want)
+	if diff != "" {
+		t.Errorf("TestSecretVolumes: diff:\n%s\n", diff)
+	}
+}
+
+// Simulates https://github.com/istio/istio/issues/19196
+func TestWriteEscapedPathContext(t *testing.T) {
+	rootYAML := `
+values:
+  sidecarInjectorWebhook:
+    injectedAnnotations: {}
+`
+	tests := []struct {
+		desc      string
+		path      string
+		value     interface{}
+		want      string
+		wantFound bool
+		wantErr   string
+	}{
+		{
+			desc:      "ModifyEscapedPathValue",
+			path:      `values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy`,
+			value:     `runtime/default`,
+			wantFound: true,
+			want: `
+values:
+  sidecarInjectorWebhook:
+    injectedAnnotations:
+      container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			root := make(map[string]interface{})
+			if err := yaml.Unmarshal([]byte(rootYAML), &root); err != nil {
+				t.Fatal(err)
+			}
+			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path))
+			if gotErr, wantErr := errToString(gotErr), tt.wantErr; gotErr != wantErr {
+				t.Fatalf("GetPathContext(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
+			}
+			if gotFound != tt.wantFound {
+				t.Fatalf("GetPathContext(%s): gotFound:%v, wantFound:%v", tt.desc, gotFound, tt.wantFound)
+			}
+			if tt.wantErr != "" || !tt.wantFound {
+				return
+			}
+
+			err := WritePathContext(pc, tt.value, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			gotYAML := util.ToYAML(root)
+			diff := util.YAMLDiff(gotYAML, tt.want)
+			if diff != "" {
+				t.Errorf("%s: diff:\n%s\n", tt.desc, diff)
+			}
+		})
+	}
 }

@@ -35,10 +35,11 @@ var (
 )
 
 // CheckIstioOperatorSpec validates the values in the given Installer spec, using the field map defaultValidations to
-// call the appropriate validation function.
-func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequired bool) (errs util.Errors) {
+// call the appropriate validation function. checkRequiredFields determines whether missing mandatory fields generate
+// errors.
+func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields bool) (errs util.Errors) {
 	errs = CheckValues(is.Values)
-	return util.AppendErrs(errs, validate(defaultValidations, is, nil, checkRequired))
+	return util.AppendErrs(errs, validate(defaultValidations, is, nil, checkRequiredFields))
 }
 
 func validate(validations map[string]ValidatorFunc, structPtr interface{}, path util.Path, checkRequired bool) (errs util.Errors) {

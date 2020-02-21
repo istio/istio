@@ -92,7 +92,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  time build_images
+  time build_images_legacy
   time kind_load_images ""
 fi
 

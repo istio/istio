@@ -81,6 +81,7 @@ istioctl authn tls-check foo-656bd7df7c-5zp4s.default bar
 			return tcw.PrintAll(debug)
 		},
 	}
+	cmd.Deprecated = "do not use if you start using PeerAuthentication"
 	return cmd
 }
 
@@ -88,15 +89,16 @@ istioctl authn tls-check foo-656bd7df7c-5zp4s.default bar
 func AuthN() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "authn",
-		Short: "Interact with Istio authentication policies",
+		Short: "Interact with (alpha) Istio authentication policies",
 		Long: `
-A group of commands used to interact with Istio authentication policies.
-  tls-check
+A group of commands used to interact with (alpha) Istio authentication policies.
+	tls-check
 `,
 		Example: `# Check whether TLS setting are matching between authentication policy and destination rules:
 istioctl authn tls-check`,
 	}
 
 	cmd.AddCommand(tlsCheck())
+	cmd.Deprecated = "do not use if you start using PeerAuthentication"
 	return cmd
 }

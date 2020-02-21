@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -27,7 +28,6 @@ import (
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -38,6 +38,8 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -371,7 +373,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, req *model.PushRequest) {
 	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-		version, req.EdsUpdates, adsClientCount())
+		version, req.EdsUpdates, s.adsClientCount())
 	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
@@ -438,6 +440,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 				Full:              false,
 				NamespacesUpdated: map[string]struct{}{namespace: {}},
 				EdsUpdates:        map[string]struct{}{serviceName: {}},
+				Reason:            []model.TriggerReason{model.EndpointUpdate},
 			})
 		}
 		return
@@ -466,27 +469,25 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 
 	// 2. Update data for the specific cluster. Each cluster gets independent
 	// updates containing the full list of endpoints for the service in that cluster.
+	serviceAccounts := map[string]bool{}
 	for _, e := range istioEndpoints {
 		if e.ServiceAccount != "" {
-			ep.mutex.Lock()
-			_, f = ep.ServiceAccounts[e.ServiceAccount]
-			if !f {
-				ep.ServiceAccounts[e.ServiceAccount] = true
-			}
-			ep.mutex.Unlock()
+			serviceAccounts[e.ServiceAccount] = true
+		}
+	}
 
-			if !f && !internal {
-				// The entry has a service account that was not previously associated.
-				// Requires a CDS push and full sync.
-				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
-				requireFull = true
-				break
-			}
+	if !reflect.DeepEqual(serviceAccounts, ep.ServiceAccounts) {
+		adsLog.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
+			serviceName, ep.ServiceAccounts, serviceAccounts)
+		if !internal {
+			requireFull = true
+			adsLog.Infof("Full push, service accounts changed, %v", serviceName)
 		}
 	}
 
 	ep.mutex.Lock()
 	ep.Shards[clusterID] = istioEndpoints
+	ep.ServiceAccounts = serviceAccounts
 	ep.mutex.Unlock()
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
@@ -500,8 +501,9 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		s.ConfigUpdate(&model.PushRequest{
 			Full:               requireFull,
 			NamespacesUpdated:  map[string]struct{}{namespace: {}},
-			ConfigTypesUpdated: map[string]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(): {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 			EdsUpdates:         edsUpdates,
+			Reason:             []model.TriggerReason{model.EndpointUpdate},
 		})
 	}
 }
@@ -705,7 +707,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	pushStart := time.Now()
 	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
 	endpoints := 0
-	empty := make([]string, 0)
+	empty := 0
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
@@ -721,7 +723,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		}
 
 		if len(l.Endpoints) == 0 {
-			empty = append(empty, clusterName)
+			empty++
 		}
 		loadAssignments = append(loadAssignments, l)
 	}
@@ -740,7 +742,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
 			con.node.ID, len(con.Clusters), endpoints, empty)
 	} else {
-		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
+		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
 			con.node.ID, len(con.Clusters), endpoints, empty)
 	}
 	return nil

@@ -1,7 +1,7 @@
 {
  "configs": [
   {
-   "@type": "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump",
+   "@type": "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump",
    "bootstrap": {
     "node": {
      "id": "sidecar~172.30.144.174~productpage-v1-c7765c886-v99jb.default~default.svc.cluster.local",
@@ -56,6 +56,7 @@
             },
             "stat_prefix": "stats",
             "route_config": {
+              "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
              "virtual_hosts": [
               {
                "routes": [
@@ -382,11 +383,12 @@
    "last_updated": "2019-10-21T14:42:45.016Z"
   },
   {
-   "@type": "type.googleapis.com/envoy.admin.v2alpha.ClustersConfigDump",
+   "@type": "type.googleapis.com/envoy.admin.v3.ClustersConfigDump",
    "version_info": "2019-10-21T14:42:47Z/11",
    "static_clusters": [
     {
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "prometheus_stats",
       "type": "STATIC",
       "connect_timeout": "0.250s",
@@ -403,6 +405,7 @@
     },
     {
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "xds-grpc",
       "type": "STRICT_DNS",
       "connect_timeout": "10s",
@@ -467,6 +470,7 @@
     },
     {
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "zipkin",
       "type": "STRICT_DNS",
       "connect_timeout": "1s",
@@ -488,6 +492,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "BlackHoleCluster",
       "type": "STATIC",
       "connect_timeout": "10s"
@@ -497,6 +502,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "InboundPassthroughClusterIpv4",
       "type": "ORIGINAL_DST",
       "connect_timeout": "10s",
@@ -521,6 +527,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "InboundPassthroughClusterIpv6",
       "type": "ORIGINAL_DST",
       "connect_timeout": "10s",
@@ -545,6 +552,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "PassthroughCluster",
       "type": "ORIGINAL_DST",
       "connect_timeout": "10s",
@@ -563,6 +571,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "inbound|15020|mgmt-15020|mgmtCluster",
       "type": "STATIC",
       "connect_timeout": "10s",
@@ -596,6 +605,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "inbound|9080|http|productpage.default.svc.cluster.local",
       "type": "STATIC",
       "connect_timeout": "10s",
@@ -629,6 +639,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "outbound|9080|v1|details.default.svc.cluster.local",
       "type": "EDS",
       "eds_cluster_config": {
@@ -703,6 +714,7 @@
     {
      "version_info": "2019-10-21T14:42:47Z/11",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "outbound|9080|v1|productpage.default.svc.cluster.local",
       "type": "EDS",
       "eds_cluster_config": {
@@ -777,6 +789,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "outbound|9080|v1|reviews.default.svc.cluster.local",
       "type": "EDS",
       "eds_cluster_config": {
@@ -851,6 +864,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "outbound|9080|v2|details.default.svc.cluster.local",
       "type": "EDS",
       "eds_cluster_config": {
@@ -925,6 +939,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "outbound|9080|v2|reviews.default.svc.cluster.local",
       "type": "EDS",
       "eds_cluster_config": {
@@ -999,6 +1014,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "outbound|9080|v3|reviews.default.svc.cluster.local",
       "type": "EDS",
       "eds_cluster_config": {
@@ -1073,6 +1089,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "outbound|9080||details.default.svc.cluster.local",
       "type": "EDS",
       "eds_cluster_config": {
@@ -1128,6 +1145,7 @@
     {
      "version_info": "2019-10-21T14:42:47Z/11",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "outbound|9080||productpage.default.svc.cluster.local",
       "type": "EDS",
       "eds_cluster_config": {
@@ -1202,6 +1220,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
+      "@type": "type.googleapis.com/envoy.api.v2.Cluster",
       "name": "outbound|9080||reviews.default.svc.cluster.local",
       "type": "EDS",
       "eds_cluster_config": {
@@ -1257,11 +1276,12 @@
    ]
   },
   {
-   "@type": "type.googleapis.com/envoy.admin.v2alpha.ListenersConfigDump",
+   "@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
    "version_info": "2019-10-21T14:42:37Z/10",
    "static_listeners": [
     {
      "listener": {
+      "@type": "type.googleapis.com/envoy.api.v2.Listener",
       "address": {
        "socket_address": {
         "address": "0.0.0.0",
@@ -1279,6 +1299,7 @@
            },
            "stat_prefix": "stats",
            "route_config": {
+              "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "virtual_hosts": [
              {
               "name": "backend",
@@ -1312,6 +1333,7 @@
     {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
+      "@type": "type.googleapis.com/envoy.api.v2.Listener",
       "name": "172.30.144.174_9080",
       "address": {
        "socket_address": {
@@ -1451,6 +1473,7 @@
            "stream_idle_timeout": "0s",
            "normalize_path": true,
            "route_config": {
+              "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|9080|http|productpage.default.svc.cluster.local",
             "virtual_hosts": [
              {
@@ -1522,6 +1545,7 @@
     {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
+      "@type": "type.googleapis.com/envoy.api.v2.Listener",
       "name": "fe80::10e7:52ff:fecd:198b_9080",
       "address": {
        "socket_address": {
@@ -1661,6 +1685,7 @@
            "stream_idle_timeout": "0s",
            "normalize_path": true,
            "route_config": {
+              "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|9080|http|productpage.default.svc.cluster.local",
             "virtual_hosts": [
              {
@@ -1732,6 +1757,7 @@
     {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
+      "@type": "type.googleapis.com/envoy.api.v2.Listener",
       "name": "172.30.144.174_15020",
       "address": {
        "socket_address": {
@@ -1765,6 +1791,7 @@
     {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
+      "@type": "type.googleapis.com/envoy.api.v2.Listener",
       "name": "0.0.0.0_9080",
       "address": {
        "socket_address": {
@@ -1908,6 +1935,7 @@
     {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
+      "@type": "type.googleapis.com/envoy.api.v2.Listener",
       "name": "virtualOutbound",
       "address": {
        "socket_address": {
@@ -2000,6 +2028,7 @@
     {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
+      "@type": "type.googleapis.com/envoy.api.v2.Listener",
       "name": "virtualInbound",
       "address": {
        "socket_address": {
@@ -2202,6 +2231,7 @@
            "stream_idle_timeout": "0s",
            "normalize_path": true,
            "route_config": {
+              "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|9080|http|productpage.default.svc.cluster.local",
             "virtual_hosts": [
              {
@@ -2402,6 +2432,7 @@
            "stream_idle_timeout": "0s",
            "normalize_path": true,
            "route_config": {
+              "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
             "name": "inbound|9080|http|productpage.default.svc.cluster.local",
             "virtual_hosts": [
              {
@@ -2507,13 +2538,14 @@
    ]
   },
   {
-   "@type": "type.googleapis.com/envoy.admin.v2alpha.ScopedRoutesConfigDump"
+   "@type": "type.googleapis.com/envoy.admin.v3.ScopedRoutesConfigDump"
   },
   {
-   "@type": "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump",
+   "@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
    "static_route_configs": [
     {
      "route_config": {
+          "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
       "name": "inbound|9080|http|productpage.default.svc.cluster.local",
       "virtual_hosts": [
        {
@@ -2567,6 +2599,7 @@
     },
     {
      "route_config": {
+          "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
       "name": "inbound|9080|http|productpage.default.svc.cluster.local",
       "virtual_hosts": [
        {
@@ -2620,6 +2653,7 @@
     },
     {
      "route_config": {
+          "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
       "name": "inbound|9080|http|productpage.default.svc.cluster.local",
       "virtual_hosts": [
        {
@@ -2673,6 +2707,7 @@
     },
     {
      "route_config": {
+          "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
       "name": "inbound|9080|http|productpage.default.svc.cluster.local",
       "virtual_hosts": [
        {
@@ -2726,6 +2761,7 @@
     },
     {
      "route_config": {
+          "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
       "virtual_hosts": [
        {
         "name": "backend",
@@ -2752,6 +2788,7 @@
     {
      "version_info": "2019-10-21T14:42:37Z/10",
      "route_config": {
+          "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
       "name": "9080",
       "virtual_hosts": [
        {
@@ -3050,7 +3087,7 @@
    ]
   },
   {
-   "@type": "type.googleapis.com/envoy.admin.v2alpha.SecretsConfigDump"
+   "@type": "type.googleapis.com/envoy.admin.v3.SecretsConfigDump"
   }
  ]
 }

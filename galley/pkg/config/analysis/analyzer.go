@@ -16,8 +16,8 @@ package analysis
 
 import (
 	"istio.io/istio/galley/pkg/config/processing/transformer"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Analyzer is an interface for analyzing configuration.

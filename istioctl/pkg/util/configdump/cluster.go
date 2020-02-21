@@ -17,7 +17,8 @@ package configdump
 import (
 	"sort"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/golang/protobuf/ptypes"
 )
 
@@ -29,7 +30,17 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 	}
 	dac := clusterDump.GetDynamicActiveClusters()
 	sort.Slice(dac, func(i, j int) bool {
-		return dac[i].Cluster.Name < dac[j].Cluster.Name
+		cluster := &xdsapi.Cluster{}
+		err = ptypes.UnmarshalAny(dac[i].Cluster, cluster)
+		if err != nil {
+			return false
+		}
+		name := cluster.Name
+		err = ptypes.UnmarshalAny(dac[j].Cluster, cluster)
+		if err != nil {
+			return false
+		}
+		return name < cluster.Name
 	})
 	if stripVersions {
 		for i := range dac {

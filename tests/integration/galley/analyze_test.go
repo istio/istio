@@ -33,6 +33,8 @@ import (
 const (
 	serviceRoleBindingFile = "testdata/servicerolebinding.yaml"
 	serviceRoleFile        = "testdata/servicerole.yaml"
+	invalidFile            = "testdata/invalid.yaml"
+	dirWithConfig          = "testdata/some-dir/"
 )
 
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
@@ -81,6 +83,71 @@ func TestFileOnly(t *testing.T) {
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, serviceRoleBindingFile, serviceRoleFile)
 			expectNoMessages(t, g, output)
 			g.Expect(err).To(BeNil())
+		})
+}
+
+func TestDirectoryWithoutRecursion(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			// Recursive is false, so we should only analyze
+			// testdata/some-dir/missing-gateway.yaml and get a
+			// SchemaValidationError (if we did recurse, we'd get a
+			// UnknownAnnotation as well).
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=false", dirWithConfig)
+			expectMessages(t, g, output, msg.SchemaValidationError)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+		})
+}
+
+func TestDirectoryWithRecursion(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			// Recursive is true, so we should see two errors (SchemaValidationError and UnknownAnnotation).
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
+			expectMessages(t, g, output, msg.SchemaValidationError, msg.UnknownAnnotation)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+		})
+}
+
+func TestFileParseError(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			// Parse error as the yaml file itself is not valid yaml.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile)
+			g.Expect(output[0]).To(ContainSubstring("Error(s) adding files"))
+			g.Expect(output[1]).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
+
+			g.Expect(err).To(MatchError(cmd.FileParseError{}))
 		})
 }
 
@@ -180,6 +247,25 @@ func TestAllNamespaces(t *testing.T) {
 		})
 }
 
+func TestTimeout(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			// We should time out immediately.
+			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
+			g.Expect(err.Error()).To(ContainSubstring("timed out"))
+		})
+}
+
 // Verify the output contains messages of the expected type, in order, followed by boilerplate lines
 func expectMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
 	t.Helper()
@@ -201,7 +287,7 @@ func expectMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected
 func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
 	t.Helper()
 	g.Expect(output).To(HaveLen(1))
-	g.Expect(output[0]).To(ContainSubstring(cmd.NoIssuesString))
+	g.Expect(output[0]).To(ContainSubstring("No validation issues found when analyzing"))
 }
 
 func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, extraArgs ...string) ([]string, error) {

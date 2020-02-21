@@ -16,15 +16,11 @@ package util
 
 import (
 	"fmt"
-	"time"
-
-	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"istio.io/pkg/log"
 )
 
 // InsertDataToConfigMap inserts a data to a configmap in a namespace.
@@ -33,60 +29,55 @@ import (
 // value: the value of the data to insert.
 // configName: the name of the configmap.
 // dataName: the name of the data in the configmap.
-func InsertDataToConfigMap(client corev1.ConfigMapsGetter, namespace, value, configName, dataName string) error {
-	configmap, err := client.ConfigMaps(namespace).Get(configName, metav1.GetOptions{})
-	exists := true
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Create a new ConfigMap.
-			configmap = &v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      configName,
-					Namespace: namespace,
-				},
-				Data: map[string]string{},
-			}
-			exists = false
-		} else {
-			return fmt.Errorf("error when getting configmap %v: %v", configName, err)
-		}
+func InsertDataToConfigMap(client corev1.ConfigMapsGetter, meta metav1.ObjectMeta, data map[string]string) error {
+	configmap, err := client.ConfigMaps(meta.Namespace).Get(meta.Name, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("error when getting configmap %v: %v", meta.Name, err)
 	}
-	configmap.Data[dataName] = value
-	if exists {
-		if _, err = client.ConfigMaps(namespace).Update(configmap); err != nil {
-			return fmt.Errorf("error when updating configmap %v: %v", configName, err)
+	if errors.IsNotFound(err) {
+		// Create a new ConfigMap.
+		configmap = &v1.ConfigMap{
+			ObjectMeta: meta,
+			Data:       data,
+		}
+		if _, err = client.ConfigMaps(meta.Namespace).Create(configmap); err != nil {
+			return fmt.Errorf("error when creating configmap %v: %v", meta.Name, err)
 		}
 	} else {
-		if _, err = client.ConfigMaps(namespace).Create(configmap); err != nil {
-			return fmt.Errorf("error when creating configmap %v: %v", configName, err)
+		// Otherwise, update the config map if changes are required
+		err := UpdateDataInConfigMap(client, configmap, data)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-// InsertDataToConfigMapWithRetry inserts a data to a configmap in a namespace with a
-// retry mechanism.
-// client: the k8s client interface.
-// namespace: the namespace of the configmap.
-// value: the value of the data to insert.
-// configName: the name of the configmap.
-// dataName: the name of the data in the configmap.
-// retryInterval: the retry interval.
-// timeout: the timeout for the retry.
-func InsertDataToConfigMapWithRetry(client corev1.ConfigMapsGetter, namespace, value,
-	configName, dataName string, retryInterval, timeout time.Duration) error {
-	start := time.Now()
-	for {
-		err := InsertDataToConfigMap(client, namespace, value, configName, dataName)
-		if err == nil {
-			return nil
-		}
-		log.Errorf("error when inserting data to config map %v: %v", configName, err)
-
-		if time.Since(start) > timeout {
-			log.Errorf("timeout for inserting data to config map %v", configName)
-			return err
-		}
-		time.Sleep(retryInterval)
+// insertData merges a configmap with a map, and returns true if any changes were made
+func insertData(cm *v1.ConfigMap, data map[string]string) bool {
+	if cm.Data == nil {
+		cm.Data = data
+		return true
 	}
+	needsUpdate := false
+	for k, v := range data {
+		if cm.Data[k] != v {
+			needsUpdate = true
+		}
+		cm.Data[k] = v
+	}
+	return needsUpdate
+}
+
+func UpdateDataInConfigMap(client corev1.ConfigMapsGetter, cm *v1.ConfigMap, data map[string]string) error {
+	if cm == nil {
+		return fmt.Errorf("cannot update nil configmap")
+	}
+	if needsUpdate := insertData(cm, data); !needsUpdate {
+		return nil
+	}
+	if _, err := client.ConfigMaps(cm.Namespace).Update(cm); err != nil {
+		return fmt.Errorf("error when updating configmap %v: %v", cm.Name, err)
+	}
+	return nil
 }

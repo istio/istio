@@ -221,20 +221,18 @@ func TestParseJSONToK8sObject(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			k8sObj, err := ParseJSONToK8sObject([]byte(tt.objString))
 			if err != nil {
-				k8sObjStr, err := k8sObj.YAMLDebugString()
-				if err != nil {
-					if k8sObj.Group != tt.wantGroup {
-						t.Errorf("ParseJsonToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Group, k8sObjStr, tt.wantGroup)
-					}
-					if k8sObj.Group != tt.wantGroup {
-						t.Errorf("ParseJsonToK8sObject(%s): got kind %s for k8s object %s, want %s", tt.desc, k8sObj.Kind, k8sObjStr, tt.wantKind)
-					}
-					if k8sObj.Name != tt.wantName {
-						t.Errorf("ParseJsonToK8sObject(%s): got name %s for k8s object %s, want %s", tt.desc, k8sObj.Name, k8sObjStr, tt.wantName)
-					}
-					if k8sObj.Namespace != tt.wantNamespace {
-						t.Errorf("ParseJsonToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Namespace, k8sObjStr, tt.wantNamespace)
-					}
+				k8sObjStr := k8sObj.YAMLDebugString()
+				if k8sObj.Group != tt.wantGroup {
+					t.Errorf("ParseJsonToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Group, k8sObjStr, tt.wantGroup)
+				}
+				if k8sObj.Group != tt.wantGroup {
+					t.Errorf("ParseJsonToK8sObject(%s): got kind %s for k8s object %s, want %s", tt.desc, k8sObj.Kind, k8sObjStr, tt.wantKind)
+				}
+				if k8sObj.Name != tt.wantName {
+					t.Errorf("ParseJsonToK8sObject(%s): got name %s for k8s object %s, want %s", tt.desc, k8sObj.Name, k8sObjStr, tt.wantName)
+				}
+				if k8sObj.Namespace != tt.wantNamespace {
+					t.Errorf("ParseJsonToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Namespace, k8sObjStr, tt.wantNamespace)
 				}
 			}
 		})
@@ -352,20 +350,18 @@ spec:
 		t.Run(tt.desc, func(t *testing.T) {
 			k8sObj, err := ParseYAMLToK8sObject([]byte(tt.objString))
 			if err != nil {
-				k8sObjStr, err := k8sObj.YAMLDebugString()
-				if err != nil {
-					if k8sObj.Group != tt.wantGroup {
-						t.Errorf("ParseYAMLToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Group, k8sObjStr, tt.wantGroup)
-					}
-					if k8sObj.Group != tt.wantGroup {
-						t.Errorf("ParseYAMLToK8sObject(%s): got kind %s for k8s object %s, want %s", tt.desc, k8sObj.Kind, k8sObjStr, tt.wantKind)
-					}
-					if k8sObj.Name != tt.wantName {
-						t.Errorf("ParseYAMLToK8sObject(%s): got name %s for k8s object %s, want %s", tt.desc, k8sObj.Name, k8sObjStr, tt.wantName)
-					}
-					if k8sObj.Namespace != tt.wantNamespace {
-						t.Errorf("ParseYAMLToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Namespace, k8sObjStr, tt.wantNamespace)
-					}
+				k8sObjStr := k8sObj.YAMLDebugString()
+				if k8sObj.Group != tt.wantGroup {
+					t.Errorf("ParseYAMLToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Group, k8sObjStr, tt.wantGroup)
+				}
+				if k8sObj.Group != tt.wantGroup {
+					t.Errorf("ParseYAMLToK8sObject(%s): got kind %s for k8s object %s, want %s", tt.desc, k8sObj.Kind, k8sObjStr, tt.wantKind)
+				}
+				if k8sObj.Name != tt.wantName {
+					t.Errorf("ParseYAMLToK8sObject(%s): got name %s for k8s object %s, want %s", tt.desc, k8sObj.Name, k8sObjStr, tt.wantName)
+				}
+				if k8sObj.Namespace != tt.wantNamespace {
+					t.Errorf("ParseYAMLToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Namespace, k8sObjStr, tt.wantNamespace)
 				}
 			}
 		})
@@ -488,14 +484,10 @@ spec:
 				gotK8sObjsMap := gotK8sObjs.ToMap()
 				for objHash, want := range tt.objsMap {
 					if gotObj, ok := gotK8sObjsMap[objHash]; ok {
-						gotObjYaml, err := gotObj.YAMLDebugString()
-						if err != nil {
-							if !util.IsYAMLEqual(gotObjYaml, want) {
-								t.Errorf("ParseK8sObjectsFromYAMLManifest(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, gotObjYaml, want, util.YAMLDiff(gotObjYaml, want))
-							}
+						gotObjYaml := gotObj.YAMLDebugString()
+						if !util.IsYAMLEqual(gotObjYaml, want) {
+							t.Errorf("ParseK8sObjectsFromYAMLManifest(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, gotObjYaml, want, util.YAMLDiff(gotObjYaml, want))
 						}
-					} else {
-						t.Errorf("ParseK8sObjectsFromYAMLManifest(%s): the k8s object map from %s should contains object with hash %s", tt.desc, testManifestYaml, objHash)
 					}
 				}
 			}

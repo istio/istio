@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -88,7 +90,19 @@ func ParseJwksURI(jwksURI string) (JwksInfo, error) {
 	return info, nil
 }
 
+func CheckEmptyValues(key string, values []string) error {
+	for _, value := range values {
+		if value == "" {
+			return fmt.Errorf("empty value not allowed, found in %s", key)
+		}
+	}
+	return nil
+}
+
 func ValidateAttribute(key string, values []string) error {
+	if err := CheckEmptyValues(key, values); err != nil {
+		return err
+	}
 	switch {
 	case hasPrefix(key, attrRequestHeader):
 		return validateMapKey(key)
@@ -134,28 +148,30 @@ func hasPrefix(key string, prefix string) bool {
 }
 
 func ValidateIPs(ips []string) error {
+	var errs *multierror.Error
 	for _, v := range ips {
 		if strings.Contains(v, "/") {
 			if _, _, err := net.ParseCIDR(v); err != nil {
-				return fmt.Errorf("bad CIDR range (%s): %v", v, err)
+				errs = multierror.Append(errs, fmt.Errorf("bad CIDR range (%s): %v", v, err))
 			}
 		} else {
 			if ip := net.ParseIP(v); ip == nil {
-				return fmt.Errorf("bad IP address (%s)", v)
+				errs = multierror.Append(errs, fmt.Errorf("bad IP address (%s)", v))
 			}
 		}
 	}
-	return nil
+	return errs.ErrorOrNil()
 }
 
 func ValidatePorts(ports []string) error {
+	var errs *multierror.Error
 	for _, port := range ports {
 		p, err := strconv.ParseUint(port, 10, 32)
 		if err != nil || p > 65535 {
-			return fmt.Errorf("bad port (%s): %v", port, err)
+			errs = multierror.Append(errs, fmt.Errorf("bad port (%s): %v", port, err))
 		}
 	}
-	return nil
+	return errs.ErrorOrNil()
 }
 
 func validateMapKey(key string) error {

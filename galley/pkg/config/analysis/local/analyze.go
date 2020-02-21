@@ -15,15 +15,15 @@
 package local
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
-	authorizationapi "k8s.io/api/authorization/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -36,17 +36,17 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
-	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/snapshots"
 )
 
 const (
@@ -57,8 +57,7 @@ const (
 
 // Pseudo-constants, since golang doesn't support a true const slice/array
 var (
-	requiredPerms     = []string{"list", "watch"}
-	analysisSnapshots = []string{snapshots.LocalAnalysis, snapshots.SyntheticServiceEntry}
+	analysisSnapshots = []string{snapshots.LocalAnalysis}
 )
 
 // Patch table
@@ -87,6 +86,9 @@ type SourceAnalyzer struct {
 
 	// Hook function called when a collection is used in analysis
 	collectionReporter snapshotter.CollectionReporterFn
+
+	// How long to wait for snapshot + analysis to complete before aborting
+	timeout time.Duration
 }
 
 // AnalysisResult represents the returnable results of an analysis execution
@@ -96,10 +98,18 @@ type AnalysisResult struct {
 	ExecutedAnalyzers []string
 }
 
+// ReaderSource is a tuple of a io.Reader and filepath.
+type ReaderSource struct {
+	// Name is the name of the source (commonly the path to a file, but can be "-" for sources read from stdin or "" if completely synthetic).
+	Name string
+	// Reader is the reader instance to use.
+	Reader io.Reader
+}
+
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
+	cr snapshotter.CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *SourceAnalyzer {
 
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
@@ -126,6 +136,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
+		timeout:              timeout,
 	}
 
 	return sa
@@ -164,7 +175,10 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 
-	updater := &snapshotter.InMemoryStatusUpdater{}
+	updater := &snapshotter.InMemoryStatusUpdater{
+		WaitTimeout: sa.timeout,
+	}
+
 	distributorSettings := snapshotter.AnalyzingDistributorSettings{
 		StatusUpdater:      updater,
 		Analyzer:           sa.analyzer,
@@ -189,16 +203,19 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	if err != nil {
 		return result, err
 	}
+
 	rt.Start()
-	defer rt.Stop()
 
 	scope.Analysis.Debugf("Waiting for analysis messages to be available...")
-	if updater.WaitForReport(cancel) {
-		result.Messages = updater.Get()
-		return result, nil
+	if err := updater.WaitForReport(cancel); err != nil {
+		return result, fmt.Errorf("failed to get analysis result: %v", err)
 	}
 
-	return result, errors.New("cancelled")
+	result.Messages = updater.Get()
+
+	rt.Stop()
+
+	return result, nil
 }
 
 // SetSuppressions will set the list of suppressions for the analyzer. Any
@@ -209,21 +226,21 @@ func (sa *SourceAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSup
 }
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
-func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
+func (sa *SourceAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
 
 	var errs error
 
 	// If we encounter any errors reading or applying files, track them but attempt to continue
-	for i, r := range readers {
-		by, err := ioutil.ReadAll(r)
+	for _, r := range readers {
+		by, err := ioutil.ReadAll(r.Reader)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
 		}
 
-		if err = src.ApplyContent(string(i), string(by)); err != nil {
+		if err = src.ApplyContent(r.Name, string(by)); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -242,12 +259,15 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 		return
 	}
 
-	// Since we're using a running k8s source, do a permissions pre-check and disable any resources the current user doesn't have permissions for
-	sa.disableKubeResourcesWithoutPermissions(client)
-
 	// Since we're using a running k8s source, try to get mesh config from the configmap
 	if err := sa.addRunningKubeMeshConfigSource(client); err != nil {
-		scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)
+		_, err := client.CoreV1().Namespaces().Get(sa.istioNamespace.String(), metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			scope.Analysis.Warnf("%v namespace not found. Istio may not be installed in the target cluster. "+
+				"Using default mesh configuration values for analysis", sa.istioNamespace.String())
+		} else if err != nil {
+			scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)
+		}
 	}
 
 	src := apiserverNew(apiserver.Options{
@@ -278,14 +298,14 @@ func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
 // and don't want to generate false positives because they aren't there.
 // Respect mesh config when deciding which default resources should be generated
 func (sa *SourceAnalyzer) AddDefaultResources() error {
-	var readers []io.Reader
+	var readers []ReaderSource
 
 	if sa.meshCfg.GetIngressControllerMode() != v1alpha1.MeshConfig_OFF {
 		ingressResources, err := getDefaultIstioIngressGateway(sa.istioNamespace.String(), sa.meshCfg.GetIngressService())
 		if err != nil {
 			return err
 		}
-		readers = append(readers, strings.NewReader(ingressResources))
+		readers = append(readers, ReaderSource{Reader: strings.NewReader(ingressResources)})
 	}
 
 	if len(readers) == 0 {
@@ -313,53 +333,4 @@ func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(client kubernetes.Inter
 
 	sa.meshCfg = cfg
 	return nil
-}
-
-func (sa *SourceAnalyzer) disableKubeResourcesWithoutPermissions(client kubernetes.Interface) {
-	resultBuilder := collection.NewSchemasBuilder()
-
-	for _, s := range sa.kubeResources.All() {
-		if !s.IsDisabled() {
-			allowed, err := hasPermissionsOnCollection(client, s, requiredPerms)
-			if err != nil {
-				scope.Analysis.Errorf("Error checking permissions for resource %q (skipping it): %v", s.Resource().CanonicalName(), err)
-				s = s.Disable()
-			} else if !allowed {
-				scope.Analysis.Errorf("Skipping resource %q since the current user doesn't have required permissions %v",
-					s.Resource().CanonicalName(), requiredPerms)
-				s = s.Disable()
-			}
-		}
-
-		// The possible error here is if the collection is already in the list.
-		// Since we are making a clone of the list with modified elements,
-		// we can be sure this won't happen and safely ignore the returned error.
-		_ = resultBuilder.Add(s)
-	}
-
-	sa.kubeResources = resultBuilder.Build()
-}
-
-func hasPermissionsOnCollection(client kubernetes.Interface, s collection.Schema, verbs []string) (bool, error) {
-	for _, verb := range verbs {
-		sar := &authorizationapi.SelfSubjectAccessReview{
-			Spec: authorizationapi.SelfSubjectAccessReviewSpec{
-				ResourceAttributes: &authorizationapi.ResourceAttributes{
-					Verb:     verb,
-					Group:    s.Resource().Group(),
-					Resource: s.Resource().CanonicalName(),
-				},
-			},
-		}
-
-		response, err := client.AuthorizationV1().SelfSubjectAccessReviews().Create(sar)
-		if err != nil {
-			return false, fmt.Errorf("error creating SelfSubjectAccessReview: %v", err)
-		}
-
-		if !response.Status.Allowed {
-			return false, nil
-		}
-	}
-	return true, nil
 }

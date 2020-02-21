@@ -33,6 +33,7 @@ func All() []analysis.Analyzer {
 	analyzers := []analysis.Analyzer{
 		// Please keep this list sorted alphabetically by pkg.name for convenience
 		&annotations.K8sAnalyzer{},
+		&auth.JwtAnalyzer{},
 		&auth.MTLSAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
 		&auth.ServiceRoleServicesAnalyzer{},
@@ -41,7 +42,7 @@ func All() []analysis.Analyzer {
 		&gateway.IngressGatewayPortAnalyzer{},
 		&gateway.SecretAnalyzer{},
 		&injection.Analyzer{},
-		&injection.VersionAnalyzer{},
+		&injection.ImageAnalyzer{},
 		&service.PortNameAnalyzer{},
 		&sidecar.DefaultSelectorAnalyzer{},
 		&sidecar.SelectorAnalyzer{},

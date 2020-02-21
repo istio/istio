@@ -21,15 +21,13 @@ import (
 	"istio.io/istio/galley/pkg/config/processor/transforms/authpolicy"
 	"istio.io/istio/galley/pkg/config/processor/transforms/direct"
 	"istio.io/istio/galley/pkg/config/processor/transforms/ingress"
-	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema"
 )
 
 //Providers builds and returns a list of all transformer objects
 func Providers(m *schema.Metadata) transformer.Providers {
 	providers := make([]transformer.Provider, 0)
 
-	providers = append(providers, serviceentry.GetProviders()...)
 	providers = append(providers, ingress.GetProviders()...)
 	providers = append(providers, direct.GetProviders(m)...)
 	providers = append(providers, authpolicy.GetProviders()...)

@@ -19,6 +19,9 @@ import (
 	"net"
 	"time"
 
+	"istio.io/api/networking/v1alpha3"
+
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
@@ -41,7 +44,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		DrainDuration:          types.DurationProto(45 * time.Second),
 		ParentShutdownDuration: types.DurationProto(60 * time.Second),
 		DiscoveryAddress:       constants.DiscoveryPlainAddress,
-		ConnectTimeout:         types.DurationProto(1 * time.Second),
+		ConnectTimeout:         types.DurationProto(10 * time.Second),
 		StatsdUdpAddress:       "",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: ""},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: ""},
@@ -58,6 +61,9 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	proxyConfig := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
+		IngressClass:                      "istio",
+		ReportBatchMaxTime:                types.DurationProto(1 * time.Second),
+		ReportBatchMaxEntries:             100,
 		MixerCheckServer:                  "",
 		MixerReportServer:                 "",
 		DisablePolicyChecks:               true,
@@ -65,7 +71,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		SidecarToTelemetrySessionAffinity: false,
 		RootNamespace:                     constants.IstioSystemNamespace,
 		ProxyListenPort:                   15001,
-		ConnectTimeout:                    types.DurationProto(1 * time.Second),
+		ConnectTimeout:                    types.DurationProto(10 * time.Second),
 		IngressService:                    "istio-ingressgateway",
 		EnableTracing:                     true,
 		AccessLogFile:                     "/dev/stdout",
@@ -73,8 +79,9 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DefaultConfig:                     &proxyConfig,
 		SdsUdsPath:                        "",
 		EnableSdsTokenMount:               false,
-		TrustDomain:                       "",
+		TrustDomain:                       "cluster.local",
 		TrustDomainAliases:                []string{},
+		Certificates:                      []*meshconfig.Certificate{},
 		DefaultServiceExportTo:            []string{"*"},
 		DefaultVirtualServiceExportTo:     []string{"*"},
 		DefaultDestinationRuleExportTo:    []string{"*"},
@@ -82,13 +89,29 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
 		ProtocolDetectionTimeout:          types.DurationProto(100 * time.Millisecond),
 		EnableAutoMtls:                    &types.BoolValue{Value: false},
+		ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
+		LocalityLbSetting:                 &v1alpha3.LocalityLoadBalancerSetting{},
 	}
 }
 
 // ApplyMeshConfig returns a new MeshConfig decoded from the
 // input YAML with the provided defaults applied to omitted configuration values.
 func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
-	if err := gogoprotomarshal.ApplyYAML(yaml, &defaultConfig); err != nil {
+	return applyMeshConfigInternal(yaml, defaultConfig, gogoprotomarshal.ApplyYAML, gogoprotomarshal.ToYAML)
+}
+
+// ApplyMeshConfig returns a new MeshConfig decoded from the
+// input Json with the provided defaults applied to omitted configuration values.
+func ApplyMeshConfigJSON(json string, defaultConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
+	return applyMeshConfigInternal(json, defaultConfig, gogoprotomarshal.ApplyJSON, gogoprotomarshal.ToJSON)
+}
+
+// applyMeshConfigInternal applies settings in config to the provided mesh config
+// This allows json/yaml/other marshaling methods to be used
+func applyMeshConfigInternal(config string, defaultConfig meshconfig.MeshConfig,
+	unmarshal func(yml string, pb proto.Message) error, marshal func(msg proto.Message) (string, error),
+) (*meshconfig.MeshConfig, error) {
+	if err := unmarshal(config, &defaultConfig); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
@@ -101,11 +124,11 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 	// Re-apply defaults to ProxyConfig if they were defined in the
 	// original input MeshConfig.ProxyConfig.
 	if prevDefaultConfig != nil {
-		origProxyConfigYAML, err := gogoprotomarshal.ToYAML(prevDefaultConfig)
+		origProxyConfigYAML, err := marshal(prevDefaultConfig)
 		if err != nil {
 			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
 		}
-		if err := gogoprotomarshal.ApplyYAML(origProxyConfigYAML, defaultConfig.DefaultConfig); err != nil {
+		if err := unmarshal(origProxyConfigYAML, defaultConfig.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}

@@ -18,6 +18,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 const (
@@ -31,7 +32,7 @@ type Handler func(model.Config, model.Config, model.Event)
 // Monitor provides methods of manipulating changes in the config store
 type Monitor interface {
 	Run(<-chan struct{})
-	AppendEventHandler(string, Handler)
+	AppendEventHandler(resource.GroupVersionKind, Handler)
 	ScheduleProcessEvent(ConfigEvent)
 }
 
@@ -44,7 +45,7 @@ type ConfigEvent struct {
 
 type configstoreMonitor struct {
 	store    model.ConfigStore
-	handlers map[string][]Handler
+	handlers map[resource.GroupVersionKind][]Handler
 	eventCh  chan ConfigEvent
 }
 
@@ -55,10 +56,10 @@ func NewMonitor(store model.ConfigStore) Monitor {
 
 // NewBufferedMonitor returns new Monitor implementation with the specified event buffer size
 func NewBufferedMonitor(store model.ConfigStore, bufferSize int) Monitor {
-	handlers := make(map[string][]Handler)
+	handlers := make(map[resource.GroupVersionKind][]Handler)
 
-	for _, kind := range store.Schemas().Kinds() {
-		handlers[kind] = make([]Handler, 0)
+	for _, s := range store.Schemas().All() {
+		handlers[s.Resource().GroupVersionKind()] = make([]Handler, 0)
 	}
 
 	return &configstoreMonitor{
@@ -89,19 +90,19 @@ func (m *configstoreMonitor) Run(stop <-chan struct{}) {
 }
 
 func (m *configstoreMonitor) processConfigEvent(ce ConfigEvent) {
-	if _, exists := m.handlers[ce.config.Type]; !exists {
+	if _, exists := m.handlers[ce.config.GroupVersionKind()]; !exists {
 		log.Warnf("Config Type %s does not exist in config store", ce.config.Type)
 		return
 	}
 	m.applyHandlers(ce.old, ce.config, ce.event)
 }
 
-func (m *configstoreMonitor) AppendEventHandler(typ string, h Handler) {
+func (m *configstoreMonitor) AppendEventHandler(typ resource.GroupVersionKind, h Handler) {
 	m.handlers[typ] = append(m.handlers[typ], h)
 }
 
 func (m *configstoreMonitor) applyHandlers(old model.Config, config model.Config, e model.Event) {
-	for _, f := range m.handlers[config.Type] {
+	for _, f := range m.handlers[config.GroupVersionKind()] {
 		f(old, config, e)
 	}
 }

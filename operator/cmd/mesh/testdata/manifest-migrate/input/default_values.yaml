@@ -1,16 +1,6 @@
 gateways:
   enabled: true
   istio-ingressgateway:
-    sds:
-      enabled: false
-      image: node-agent-k8s
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-        limits:
-          cpu: 2000m
-          memory: 1024Mi
     ports:
       - port: 15020
         targetPort: 15020
@@ -268,8 +258,6 @@ pilot:
     ingressService: istio-ingressgateway
     ingressControllerMode: "OFF"
     ingressClass: istio
-  telemetry:
-    enabled: true
   policy:
     enabled: false
   useMCP: true
@@ -296,17 +284,6 @@ security:
     istio-galley-service-account.istio-master: istio-galley.istio-master.svc
     istio-galley-service-account.istio-control-master: istio-galley.istio-control-master.svc
     istio-galley-service-account.istio-config: istio-galley.istio-config.svc
-  nodeSelector: {}
-  tolerations: []
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
-nodeagent:
-  enabled: false
-  image: node-agent-k8s
-  env:
-    CA_PROVIDER: ""
-    CA_ADDR: ""
-    Plugins: ""
   nodeSelector: {}
   tolerations: []
   podAntiAffinityLabelSelector: []
@@ -405,7 +382,7 @@ tracing:
   jaeger:
     hub: docker.io/jaegertracing
     image: all-in-one
-    tag: 1.12
+    tag: 1.16
     memory:
       max_traces: 50000
     spanStorageType: badger
@@ -463,7 +440,6 @@ kiali:
     viewOnlyMode: false 
     grafanaURL:  
     jaegerURL:  
-  prometheusAddr: http://prometheus:9090
   createDemoSecret: false
   security:
     enabled: true
@@ -510,14 +486,6 @@ global:
     gatewayName: ingressgateway
     enableHttps: false
   proxy:
-    init:
-      resources:
-        limits:
-          cpu: 100m
-          memory: 50Mi
-        requests:
-          cpu: 10m
-          memory: 10Mi
     image: proxyv2
     clusterDomain: "cluster.local"
     resources:
@@ -552,7 +520,6 @@ global:
     protocolDetectionTimeout: 10ms
     privileged: false
     enableCoreDump: false
-    enableCoreDumpImage: ubuntu:xenial
     statusPort: 15020
     readinessInitialDelaySeconds: 1
     readinessPeriodSeconds: 2
@@ -575,6 +542,13 @@ global:
     tracer: "zipkin"
   proxy_init:
     image: proxy_init
+    resources:
+      limits:
+        cpu: 100m
+        memory: 50Mi
+      requests:
+        cpu: 10m
+        memory: 10Mi
   imagePullPolicy: IfNotPresent
   controlPlaneSecurityEnabled: false
   disablePolicyChecks: true

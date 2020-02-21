@@ -20,12 +20,12 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 
-	"istio.io/pkg/ledger"
-
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
@@ -43,23 +43,32 @@ func Make(schemas collection.Schemas) model.ConfigStore {
 func MakeWithLedger(schemas collection.Schemas, configLedger ledger.Ledger) model.ConfigStore {
 	out := store{
 		schemas: schemas,
-		data:    make(map[string]map[string]*sync.Map),
+		data:    make(map[resource.GroupVersionKind]map[string]*sync.Map),
 		ledger:  configLedger,
 	}
-	for _, kind := range schemas.Kinds() {
-		out.data[kind] = make(map[string]*sync.Map)
+	for _, s := range schemas.All() {
+		out.data[s.Resource().GroupVersionKind()] = make(map[string]*sync.Map)
 	}
 	return &out
 }
 
 type store struct {
 	schemas collection.Schemas
-	data    map[string]map[string]*sync.Map
+	data    map[resource.GroupVersionKind]map[string]*sync.Map
 	ledger  ledger.Ledger
 }
 
 func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return cr.ledger.GetPreviousValue(version, key)
+}
+
+func (cr *store) GetLedger() ledger.Ledger {
+	return cr.ledger
+}
+
+func (cr *store) SetLedger(l ledger.Ledger) error {
+	cr.ledger = l
+	return nil
 }
 
 func (cr *store) Schemas() collection.Schemas {
@@ -70,7 +79,7 @@ func (cr *store) Version() string {
 	return cr.ledger.RootHash()
 }
 
-func (cr *store) Get(kind, name, namespace string) *model.Config {
+func (cr *store) Get(kind resource.GroupVersionKind, name, namespace string) *model.Config {
 	_, ok := cr.data[kind]
 	if !ok {
 		return nil
@@ -90,7 +99,7 @@ func (cr *store) Get(kind, name, namespace string) *model.Config {
 	return &config
 }
 
-func (cr *store) List(kind, namespace string) ([]model.Config, error) {
+func (cr *store) List(kind resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	data, exists := cr.data[kind]
 	if !exists {
 		return nil, nil
@@ -116,7 +125,7 @@ func (cr *store) List(kind, namespace string) ([]model.Config, error) {
 	return out, nil
 }
 
-func (cr *store) Delete(kind, name, namespace string) error {
+func (cr *store) Delete(kind resource.GroupVersionKind, name, namespace string) error {
 	data, ok := cr.data[kind]
 	if !ok {
 		return errors.New("unknown type")
@@ -131,7 +140,7 @@ func (cr *store) Delete(kind, name, namespace string) error {
 		return errNotFound
 	}
 
-	err := cr.ledger.Delete(model.Key(kind, name, namespace))
+	err := cr.ledger.Delete(model.Key(kind.Kind, name, namespace))
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}
@@ -140,8 +149,8 @@ func (cr *store) Delete(kind, name, namespace string) error {
 }
 
 func (cr *store) Create(config model.Config) (string, error) {
-	kind := config.Type
-	s, ok := cr.schemas.FindByKind(kind)
+	kind := config.GroupVersionKind()
+	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
@@ -165,7 +174,7 @@ func (cr *store) Create(config model.Config) (string, error) {
 			config.CreationTimestamp = tnow
 		}
 
-		_, err := cr.ledger.Put(model.Key(kind, config.Namespace, config.Name), config.Version)
+		_, err := cr.ledger.Put(model.Key(kind.Kind, config.Namespace, config.Name), config.Version)
 		if err != nil {
 			log.Warnf(ledgerLogf, err)
 		}
@@ -176,8 +185,8 @@ func (cr *store) Create(config model.Config) (string, error) {
 }
 
 func (cr *store) Update(config model.Config) (string, error) {
-	kind := config.Type
-	s, ok := cr.schemas.FindByKind(kind)
+	kind := config.GroupVersionKind()
+	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
@@ -201,7 +210,7 @@ func (cr *store) Update(config model.Config) (string, error) {
 
 	rev := time.Now().String()
 	config.ResourceVersion = rev
-	_, err := cr.ledger.Put(model.Key(kind, config.Namespace, config.Name), config.Version)
+	_, err := cr.ledger.Put(model.Key(kind.Kind, config.Namespace, config.Name), config.Version)
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}

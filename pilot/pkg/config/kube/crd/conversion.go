@@ -24,14 +24,15 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"istio.io/istio/pkg/config/schema/resource"
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
@@ -99,31 +100,6 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 	}, nil
 }
 
-// ConvertObjectFromUnstructured converts an IstioObject k8s-style object to the
-// internal configuration model.
-func ConvertObjectFromUnstructured(schema collection.Schema, un *unstructured.Unstructured, domain string) (*model.Config, error) {
-	data, err := FromJSONMap(schema, un.Object["spec"])
-	if err != nil {
-		return nil, err
-	}
-
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:              schema.Resource().Kind(),
-			Group:             schema.Resource().Group(),
-			Version:           schema.Resource().Version(),
-			Name:              un.GetName(),
-			Namespace:         un.GetNamespace(),
-			Domain:            domain,
-			Labels:            un.GetLabels(),
-			Annotations:       un.GetAnnotations(),
-			ResourceVersion:   un.GetResourceVersion(),
-			CreationTimestamp: un.GetCreationTimestamp().Time,
-		},
-		Spec: data,
-	}, nil
-}
-
 // ConvertConfig translates Istio config to k8s config JSON
 func ConvertConfig(schema collection.Schema, cfg model.Config) (IstioObject, error) {
 	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
@@ -177,7 +153,8 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 			continue
 		}
 
-		s, exists := collections.Pilot.FindByKind(obj.Kind)
+		gvk := obj.GroupVersionKind()
+		s, exists := collections.Pilot.FindByGroupVersionKind(resource.FromKubernetesGVK(&gvk))
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)

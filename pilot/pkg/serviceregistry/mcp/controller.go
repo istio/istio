@@ -26,10 +26,11 @@ import (
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
@@ -58,10 +59,9 @@ type Options struct {
 type controller struct {
 	configStoreMu sync.RWMutex
 	// keys [type][namespace][name]
-	configStore   map[string]map[string]map[string]*model.Config
-	schemas       collection.Schemas
+	configStore   map[resource.GroupVersionKind]map[string]map[string]*model.Config
 	options       *Options
-	eventHandlers map[string][]func(model.Config, model.Config, model.Event)
+	eventHandlers map[resource.GroupVersionKind][]func(model.Config, model.Config, model.Event)
 	ledger        ledger.Ledger
 
 	syncedMu sync.Mutex
@@ -70,32 +70,29 @@ type controller struct {
 
 // NewController provides a new Controller controller
 func NewController(options *Options) Controller {
-	// Filter out synthetic service entries.
-	supportedSchemas := collections.Pilot.Remove(collections.IstioNetworkingV1Alpha3SyntheticServiceentries)
 	synced := make(map[string]bool)
 
-	for _, s := range supportedSchemas.All() {
-		synced[s.Name().String()] = false
+	for _, n := range collections.Pilot.CollectionNames() {
+		synced[n.String()] = false
 	}
 
 	return &controller{
-		configStore:   make(map[string]map[string]map[string]*model.Config),
+		configStore:   make(map[resource.GroupVersionKind]map[string]map[string]*model.Config),
 		options:       options,
-		schemas:       supportedSchemas,
-		eventHandlers: make(map[string][]func(model.Config, model.Config, model.Event)),
+		eventHandlers: make(map[resource.GroupVersionKind][]func(model.Config, model.Config, model.Event)),
 		synced:        synced,
 		ledger:        options.ConfigLedger,
 	}
 }
 
 func (c *controller) Schemas() collection.Schemas {
-	return c.schemas
+	return collections.Pilot
 }
 
 // List returns all the config that is stored by type and namespace
 // if namespace is empty string it returns config for all the namespaces
-func (c *controller) List(typ, namespace string) (out []model.Config, err error) {
-	_, ok := c.schemas.FindByKind(typ)
+func (c *controller) List(typ resource.GroupVersionKind, namespace string) (out []model.Config, err error) {
+	_, ok := collections.Pilot.FindByGroupVersionKind(typ)
 	if !ok {
 		return nil, fmt.Errorf("list unknown type %s", typ)
 	}
@@ -126,12 +123,12 @@ func (c *controller) List(typ, namespace string) (out []model.Config, err error)
 // Apply receives changes from MCP server and creates the
 // corresponding config
 func (c *controller) Apply(change *sink.Change) error {
-	s, ok := c.schemas.Find(change.Collection)
-	if !ok || change.Collection == collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String() {
+	s, ok := collections.Pilot.Find(change.Collection)
+	if !ok {
 		return fmt.Errorf("apply type not supported %s", change.Collection)
 	}
 
-	kind := s.Resource().Kind()
+	kind := s.Resource().GroupVersionKind()
 
 	// innerStore is [namespace][name]
 	innerStore := make(map[string]map[string]*model.Config)
@@ -150,7 +147,7 @@ func (c *controller) Apply(change *sink.Change) error {
 
 		conf := &model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:              kind,
+				Type:              kind.Kind,
 				Group:             s.Resource().Group(),
 				Version:           s.Resource().Version(),
 				Name:              name,
@@ -199,12 +196,13 @@ func (c *controller) Apply(change *sink.Change) error {
 	c.configStoreMu.Unlock()
 	c.sync(change.Collection)
 
-	if kind == collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind() {
+	if kind == collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind() {
 		c.serviceEntryEvents(innerStore, prevStore)
 	} else if c.options.XDSUpdater != nil {
 		c.options.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:               true,
-			ConfigTypesUpdated: map[string]struct{}{kind: {}},
+			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{kind: {}},
+			Reason:             []model.TriggerReason{model.ConfigUpdate},
 		})
 	}
 	return nil
@@ -231,7 +229,7 @@ func (c *controller) HasSynced() bool {
 }
 
 // RegisterEventHandler registers a handler using the type as a key
-func (c *controller) RegisterEventHandler(kind string, handler func(model.Config, model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, handler func(model.Config, model.Config, model.Event)) {
 	c.eventHandlers[kind] = append(c.eventHandlers[kind], handler)
 }
 
@@ -243,13 +241,22 @@ func (c *controller) GetResourceAtVersion(version string, key string) (resourceV
 	return c.ledger.GetPreviousValue(version, key)
 }
 
+func (c *controller) GetLedger() ledger.Ledger {
+	return c.ledger
+}
+
+func (c *controller) SetLedger(l ledger.Ledger) error {
+	c.ledger = l
+	return nil
+}
+
 // Run is not implemented
 func (c *controller) Run(<-chan struct{}) {
 	log.Warnf("Run: %s", errUnsupported)
 }
 
 // Get is not implemented
-func (c *controller) Get(_, _, _ string) *model.Config {
+func (c *controller) Get(_ resource.GroupVersionKind, _, _ string) *model.Config {
 	log.Warnf("get %s", errUnsupported)
 	return nil
 }
@@ -267,7 +274,7 @@ func (c *controller) Create(model.Config) (revision string, err error) {
 }
 
 // Delete is not implemented
-func (c *controller) Delete(_, _, _ string) error {
+func (c *controller) Delete(_ resource.GroupVersionKind, _, _ string) error {
 	return errUnsupported
 }
 
@@ -278,12 +285,12 @@ func (c *controller) sync(collection string) {
 }
 
 func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
-	dispatch := func(model model.Config, event model.Event) {}
-	if handlers, ok := c.eventHandlers[collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind()]; ok {
-		dispatch = func(config model.Config, event model.Event) {
+	dispatch := func(prev model.Config, model model.Config, event model.Event) {}
+	if handlers, ok := c.eventHandlers[collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()]; ok {
+		dispatch = func(prev model.Config, config model.Config, event model.Event) {
 			log.Debugf("MCP event dispatch: key=%v event=%v", config.Key(), event.String())
 			for _, handler := range handlers {
-				handler(model.Config{}, config, event)
+				handler(prev, config, event)
 			}
 		}
 	}
@@ -294,13 +301,13 @@ func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 			if prevByNamespace, ok := prevStore[namespace]; ok {
 				if prevConfig, ok := prevByNamespace[name]; ok {
 					if config.ResourceVersion != prevConfig.ResourceVersion {
-						dispatch(*config, model.EventUpdate)
+						dispatch(*prevConfig, *config, model.EventUpdate)
 					}
 				} else {
-					dispatch(*config, model.EventAdd)
+					dispatch(model.Config{}, *config, model.EventAdd)
 				}
 			} else {
-				dispatch(*config, model.EventAdd)
+				dispatch(model.Config{}, *config, model.EventAdd)
 			}
 		}
 	}
@@ -309,7 +316,7 @@ func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 	for namespace, prevByName := range prevStore {
 		for name, prevConfig := range prevByName {
 			if _, ok := currentStore[namespace][name]; !ok {
-				dispatch(*prevConfig, model.EventDelete)
+				dispatch(model.Config{}, *prevConfig, model.EventDelete)
 			}
 		}
 	}

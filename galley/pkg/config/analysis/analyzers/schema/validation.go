@@ -20,9 +20,9 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // ValidationAnalyzer runs schema validation as an analyzer and reports any violations as messages
@@ -37,11 +37,7 @@ var _ analysis.Analyzer = &ValidationAnalyzer{}
 func AllValidationAnalyzers() []analysis.Analyzer {
 	result := make([]analysis.Analyzer, 0)
 	collections.Istio.ForEach(func(s collection.Schema) (done bool) {
-		// Skip synthetic service entries
-		// See https://github.com/istio/istio/issues/17949
-		if s.Name() != collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name() {
-			result = append(result, &ValidationAnalyzer{s: s})
-		}
+		result = append(result, &ValidationAnalyzer{s: s})
 		return
 	})
 	return result

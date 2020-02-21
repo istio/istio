@@ -33,19 +33,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
 	adsLog = istiolog.RegisterScope("ads", "ads debugging", 0)
-
-	// adsClients reflect active gRPC channels, for both ADS and EDS.
-	adsClients      = map[string]*XdsConnection{}
-	adsClientsMutex sync.RWMutex
-
-	// Map of sidecar IDs to XdsConnections, first key is sidecarID, second key is connID
-	// This is a map due to an edge case during envoy restart whereby the 'old' envoy
-	// reconnects after the 'new/restarted' envoy
-	adsSidecarIDConnectionsMap = map[string]map[string]*XdsConnection{}
 
 	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
@@ -116,7 +108,7 @@ type XdsEvent struct {
 
 	namespacesUpdated map[string]struct{}
 
-	configTypesUpdated map[string]struct{}
+	configTypesUpdated map[resource.GroupVersionKind]struct{}
 
 	// Push context to use for the push.
 	push *model.PushContext
@@ -425,6 +417,23 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 		return nil, nil // only need to init the node on first request in the stream
 	}
 
+	proxy, err := s.initProxy(node)
+	if err != nil {
+		return nil, err
+	}
+
+	// First request so initialize connection id and start tracking it.
+	con.mu.Lock()
+	con.node = proxy
+	con.ConID = connectionID(node.Id)
+	s.addCon(con.ConID, con)
+	con.mu.Unlock()
+
+	return func() { s.removeCon(con.ConID, con) }, nil
+}
+
+// initProxy initializes the Proxy from node.
+func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -436,7 +445,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
-	if err := proxy.SetServiceInstances(s.Env); err != nil {
+	if err = s.setProxyState(proxy, s.globalPushContext()); err != nil {
 		return nil, err
 	}
 
@@ -453,22 +462,40 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 		proxy.Locality = node.Locality
 	}
 
-	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
-		return nil, err
+	return proxy, nil
+}
+
+func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) error {
+	if err := s.setProxyState(proxy, push); err != nil {
+		return err
+	}
+	if util.IsLocalityEmpty(proxy.Locality) {
+		// Get the locality from the proxy's service instances.
+		// We expect all instances to have the same locality. So its enough to look at the first instance
+		if len(proxy.ServiceInstances) > 0 {
+			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].GetLocality())
+		}
 	}
 
-	// Set the sidecarScope and merged gateways associated with this proxy
-	proxy.SetSidecarScope(s.globalPushContext())
-	proxy.SetGatewaysForProxy(s.globalPushContext())
+	return nil
+}
 
-	// First request so initialize connection id and start tracking it.
-	con.mu.Lock()
-	con.node = proxy
-	con.ConID = connectionID(node.Id)
-	s.addCon(con.ConID, con)
-	con.mu.Unlock()
+func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushContext) error {
+	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
+		return err
+	}
 
-	return func() { s.removeCon(con.ConID, con) }, nil
+	if err := proxy.SetServiceInstances(push.ServiceDiscovery); err != nil {
+		return err
+	}
+
+	// Precompute the sidecar scope and merged gateways associated with this proxy.
+	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
+	// have to compute this because as part of a config change, a new Sidecar could become
+	// applicable to this proxy
+	proxy.SetSidecarScope(push)
+	proxy.SetGatewaysForProxy(push)
+	return nil
 }
 
 // DeltaAggregatedResources is not implemented.
@@ -496,28 +523,10 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	// TODO: remove this ?
-	if err := con.node.SetWorkloadLabels(s.Env); err != nil {
-		return err
+	// Update Proxy with current information.
+	if err := s.updateProxy(con.node, pushEv.push); err != nil {
+		return nil
 	}
-
-	if err := con.node.SetServiceInstances(pushEv.push.ServiceDiscovery); err != nil {
-		return err
-	}
-	if util.IsLocalityEmpty(con.node.Locality) {
-		// Get the locality from the proxy's service instances.
-		// We expect all instances to have the same locality. So its enough to look at the first instance
-		if len(con.node.ServiceInstances) > 0 {
-			con.node.Locality = util.ConvertLocality(con.node.ServiceInstances[0].GetLocality())
-		}
-	}
-
-	// Precompute the sidecar scope and merged gateways associated with this proxy.
-	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
-	// have to compute this because as part of a config change, a new Sidecar could become
-	// applicable to this proxy
-	con.node.SetSidecarScope(pushEv.push)
-	con.node.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.node, pushEv) {
@@ -560,24 +569,24 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	return nil
 }
 
-func adsClientCount() int {
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
-	return len(adsClients)
+func (s *DiscoveryServer) adsClientCount() int {
+	s.adsClientsMutex.RLock()
+	defer s.adsClientsMutex.RUnlock()
+	return len(s.adsClients)
 }
 
 func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	var connection *XdsConnection
 
-	adsClientsMutex.RLock()
-	for _, v := range adsClients {
+	s.adsClientsMutex.RLock()
+	for _, v := range s.adsClients {
 		if v.node.ClusterID == clusterID && v.node.IPAddresses[0] == ip {
 			connection = v
 			break
 		}
 
 	}
-	adsClientsMutex.RUnlock()
+	s.adsClientsMutex.RUnlock()
 
 	// It is possible that the envoy has not connected to this pilot, maybe connected to another pilot
 	if connection == nil {
@@ -591,15 +600,20 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	}
 
 	s.pushQueue.Enqueue(connection, &model.PushRequest{
-		Full:  true,
-		Push:  s.globalPushContext(),
-		Start: time.Now(),
+		Full:   true,
+		Push:   s.globalPushContext(),
+		Start:  time.Now(),
+		Reason: []model.TriggerReason{model.ProxyUpdate},
 	})
 }
 
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), &model.PushRequest{Full: true, Push: s.globalPushContext()})
+	s.AdsPushAll(versionInfo(), &model.PushRequest{
+		Full:   true,
+		Push:   s.globalPushContext(),
+		Reason: []model.TriggerReason{model.DebugTrigger},
+	})
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
@@ -612,7 +626,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	}
 
 	adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
-		version, len(req.Push.Services(nil)), adsClientCount())
+		version, len(req.Push.Services(nil)), s.adsClientCount())
 	monServices.Record(float64(len(req.Push.Services(nil))))
 
 	t0 := time.Now()
@@ -646,13 +660,13 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
-	adsClientsMutex.RLock()
+	s.adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
 	pending := []*XdsConnection{}
-	for _, v := range adsClients {
+	for _, v := range s.adsClients {
 		pending = append(pending, v)
 	}
-	adsClientsMutex.RUnlock()
+	s.adsClientsMutex.RUnlock()
 
 	if adsLog.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
@@ -667,42 +681,42 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
-	adsClientsMutex.Lock()
-	defer adsClientsMutex.Unlock()
-	adsClients[conID] = con
-	xdsClients.Record(float64(len(adsClients)))
+	s.adsClientsMutex.Lock()
+	defer s.adsClientsMutex.Unlock()
+	s.adsClients[conID] = con
+	xdsClients.Record(float64(len(s.adsClients)))
 	if con.node != nil {
 		node := con.node
 
-		if _, ok := adsSidecarIDConnectionsMap[node.ID]; !ok {
-			adsSidecarIDConnectionsMap[node.ID] = map[string]*XdsConnection{conID: con}
+		if _, ok := s.adsSidecarIDConnectionsMap[node.ID]; !ok {
+			s.adsSidecarIDConnectionsMap[node.ID] = map[string]*XdsConnection{conID: con}
 		} else {
-			adsSidecarIDConnectionsMap[node.ID][conID] = con
+			s.adsSidecarIDConnectionsMap[node.ID][conID] = con
 		}
 	}
 }
 
 func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
-	adsClientsMutex.Lock()
-	defer adsClientsMutex.Unlock()
+	s.adsClientsMutex.Lock()
+	defer s.adsClientsMutex.Unlock()
 
 	for _, c := range con.Clusters {
 		s.removeEdsCon(c, conID)
 	}
 
-	if _, exist := adsClients[conID]; !exist {
+	if _, exist := s.adsClients[conID]; !exist {
 		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)
 		totalXDSInternalErrors.Increment()
 	} else {
-		delete(adsClients, conID)
+		delete(s.adsClients, conID)
 	}
 
-	xdsClients.Record(float64(len(adsClients)))
+	xdsClients.Record(float64(len(s.adsClients)))
 	if con.node != nil {
 		node := con.node
-		delete(adsSidecarIDConnectionsMap[node.ID], conID)
-		if len(adsSidecarIDConnectionsMap[node.ID]) == 0 {
-			delete(adsSidecarIDConnectionsMap, node.ID)
+		delete(s.adsSidecarIDConnectionsMap[node.ID], conID)
+		if len(s.adsSidecarIDConnectionsMap[node.ID]) == 0 {
+			delete(s.adsSidecarIDConnectionsMap, node.ID)
 		}
 	}
 }

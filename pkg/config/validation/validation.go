@@ -383,7 +383,7 @@ func validateServerPort(port *networking.Port) (errs error) {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
 	if protocol.Parse(port.Protocol) == protocol.Unsupported {
-		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, MYSQL, TCP", port.Protocol))
+		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, GRPC-WEB, MONGO, REDIS, MYSQL, TCP", port.Protocol))
 	}
 	if port.Number > 0 {
 		errs = appendErrors(errs, ValidatePort(int(port.Number)))
@@ -718,6 +718,16 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 				}
 			}
+
+			errs = appendErrors(errs, validateSidecarIngressTLS(i.InboundTls))
+
+			// If inbound TLS defined, the port must be either TLS or HTTPS
+			if i.InboundTls != nil {
+				p := protocol.Parse(i.Port.Protocol)
+				if !p.IsTLS() {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: ingress cannot have TLS settings for non HTTPS/TLS ports"))
+				}
+			}
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -763,24 +773,66 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, false))
 				}
 			}
+
 		}
+
+		errs = appendErrors(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
 
 		return
 	})
+
+func validateSidecarIngressTLS(tls *networking.Server_TLSOptions) (errs error) {
+	if tls == nil {
+		return nil
+	}
+
+	if tls.HttpsRedirect {
+		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls must not set 'httpsRedirect'"))
+	}
+
+	if tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH ||
+		tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls mode must not be %s", tls.Mode.String()))
+	}
+	errs = appendErrors(errs, validateTLSOptions(tls))
+	return
+}
+
+func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) (errs error) {
+	if tp == nil {
+		return
+	}
+	mode := tp.GetMode()
+	if tp.EgressProxy != nil {
+		if mode != networking.OutboundTrafficPolicy_ALLOW_ANY {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy must be set only with ALLOW_ANY outbound_traffic_policy mode"))
+			return
+		}
+
+		errs = appendErrors(errs, ValidateFQDN(tp.EgressProxy.GetHost()))
+
+		if tp.EgressProxy.Port == nil {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy port must be non-nil"))
+			return
+		}
+		errs = appendErrors(errs, validateDestination(tp.EgressProxy))
+	}
+	return
+}
 
 func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
 	captureMode networking.CaptureMode) (errs error) {
 
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
-		errs = appendErrors(errs, validatePortName(port.Name))
+		errs = appendErrors(errs, ValidatePortName(port.Name))
 	}
 
 	// Handle Unix domain sockets
 	if port.Number == 0 {
 		// require bind to be a unix domain socket
 		errs = appendErrors(errs,
-			validateProtocol(port.Protocol))
+			ValidateProtocol(port.Protocol))
 
 		if !strings.HasPrefix(bind, UnixAddressPrefix) {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: ports with 0 value must have a unix domain socket bind address"))
@@ -793,7 +845,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 		}
 	} else {
 		errs = appendErrors(errs,
-			validateProtocol(port.Protocol),
+			ValidateProtocol(port.Protocol),
 			ValidatePort(int(port.Number)))
 
 		if len(bind) != 0 {
@@ -808,11 +860,11 @@ func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs
 
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
-		errs = appendErrors(errs, validatePortName(port.Name))
+		errs = appendErrors(errs, ValidatePortName(port.Name))
 	}
 
 	errs = appendErrors(errs,
-		validateProtocol(port.Protocol),
+		ValidateProtocol(port.Protocol),
 		ValidatePort(int(port.Number)))
 
 	if len(bind) != 0 {
@@ -1120,6 +1172,23 @@ func ValidateConnectTimeout(timeout *types.Duration) error {
 	return err
 }
 
+// ValidateProtocolDetectionTimeout validates the envoy protocol detection timeout
+func ValidateProtocolDetectionTimeout(timeout *types.Duration) error {
+	dur, err := types.DurationFromProto(timeout)
+	if err != nil {
+		return err
+	}
+	// 0s is a valid value if trying to disable protocol detection timeout
+	if dur == time.Second*0 {
+		return nil
+	}
+	if dur%time.Millisecond != 0 {
+		return errors.New("only durations to ms precision are supported")
+	}
+
+	return nil
+}
+
 // ValidateMeshConfig checks that the mesh config is well-formed
 func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	if mesh.MixerCheckServer != "" {
@@ -1140,6 +1209,10 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 
 	if err := ValidateConnectTimeout(mesh.ConnectTimeout); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
+	}
+
+	if err := ValidateProtocolDetectionTimeout(mesh.ProtocolDetectionTimeout); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid protocol detection timeout:"))
 	}
 
 	if mesh.DefaultConfig == nil {
@@ -1562,6 +1635,10 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 			return err
 		}
 
+		if in.Action == security_beta.AuthorizationPolicy_DENY && in.Rules == nil {
+			return fmt.Errorf("a deny policy without `rules` is meaningless and has no effect, found in %s.%s", name, namespace)
+		}
+
 		var errs error
 		for i, rule := range in.GetRules() {
 			if rule.From != nil && len(rule.From) == 0 {
@@ -1572,10 +1649,20 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d in %s.%s", i, name, namespace))
 				} else {
 					src := from.Source
-					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 {
+					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 &&
+						len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 && len(src.NotIpBlocks) == 0 {
 						errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d in %s.%s", i, name, namespace))
 					}
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
+					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetNotIpBlocks()))
+					errs = appendErrors(errs, security.CheckEmptyValues("Principals", src.Principals))
+					errs = appendErrors(errs, security.CheckEmptyValues("RequestPrincipals", src.RequestPrincipals))
+					errs = appendErrors(errs, security.CheckEmptyValues("Namespaces", src.Namespaces))
+					errs = appendErrors(errs, security.CheckEmptyValues("IpBlocks", src.IpBlocks))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotPrincipals", src.NotPrincipals))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotRequestPrincipals", src.NotRequestPrincipals))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotNamespaces", src.NotNamespaces))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotIpBlocks", src.NotIpBlocks))
 				}
 			}
 			if rule.To != nil && len(rule.To) == 0 {
@@ -1586,18 +1673,38 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d in %s.%s", i, name, namespace))
 				} else {
 					op := to.Operation
-					if len(op.Ports) == 0 && len(op.Methods) == 0 && len(op.Paths) == 0 && len(op.Hosts) == 0 {
+					if len(op.Ports) == 0 && len(op.Methods) == 0 && len(op.Paths) == 0 && len(op.Hosts) == 0 &&
+						len(op.NotPorts) == 0 && len(op.NotMethods) == 0 && len(op.NotPaths) == 0 && len(op.NotHosts) == 0 {
 						errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be empty, found at rule %d in %s.%s", i, name, namespace))
 					}
 					errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetPorts()))
+					errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetNotPorts()))
+					errs = appendErrors(errs, security.CheckEmptyValues("Ports", op.Ports))
+					errs = appendErrors(errs, security.CheckEmptyValues("Methods", op.Methods))
+					errs = appendErrors(errs, security.CheckEmptyValues("Paths", op.Paths))
+					errs = appendErrors(errs, security.CheckEmptyValues("Hosts", op.Hosts))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotPorts", op.NotPorts))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotMethods", op.NotMethods))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotPaths", op.NotPaths))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotHosts", op.NotHosts))
 				}
 			}
 			for _, condition := range rule.GetWhen() {
-				if condition.GetKey() == "" || len(condition.GetValues()) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("`condition` must not have empty key or values, found at %q in %s.%s", condition, name, namespace))
-				}
-				if err := security.ValidateAttribute(condition.GetKey(), condition.GetValues()); err != nil {
-					errs = appendErrors(errs, fmt.Errorf("invalid condition in %s.%s: %v", name, namespace, err))
+				key := condition.GetKey()
+				if key == "" {
+					errs = appendErrors(errs, fmt.Errorf("`key` must not be empty, found in %s.%s", name, namespace))
+				} else {
+					if len(condition.GetValues()) == 0 && len(condition.GetNotValues()) == 0 {
+						errs = appendErrors(errs, fmt.Errorf("at least one of `values` or `notValues` must be set for key %s, found in %s.%s",
+							key, name, namespace))
+					} else {
+						if err := security.ValidateAttribute(key, condition.GetValues()); err != nil {
+							errs = appendErrors(errs, fmt.Errorf("invalid `value` for `key` %s: %v, found in %s.%s", key, err, name, namespace))
+						}
+						if err := security.ValidateAttribute(key, condition.GetNotValues()); err != nil {
+							errs = appendErrors(errs, fmt.Errorf("invalid `notValue` for `key` %s: %v, found in %s.%s", key, err, name, namespace))
+						}
+					}
 				}
 			}
 		}
@@ -1613,14 +1720,6 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		}
 
 		var errs error
-		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
-		if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
-			errs = appendErrors(errs, fmt.Errorf("default request authentication cannot have workload selector"))
-		} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
-			errs = appendErrors(errs,
-				fmt.Errorf("request authentication with empty workload selector must be named %q", constants.DefaultAuthenticationPolicyName))
-		}
-
 		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
 
 		for _, rule := range in.JwtRules {
@@ -1661,6 +1760,38 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 	return
 }
+
+// ValidatePeerAuthentication checks that peer authentication spec is well-formed.
+var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthentication",
+	func(name, namespace string, msg proto.Message) error {
+		in, ok := msg.(*security_beta.PeerAuthentication)
+		if !ok {
+			return errors.New("cannot cast to PeerAuthentication")
+		}
+
+		var errs error
+		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
+
+		if emptySelector && len(in.PortLevelMtls) != 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("mesh/namespace peer authentication cannot have port level mTLS"))
+		}
+
+		if in.PortLevelMtls != nil && len(in.PortLevelMtls) == 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("port level mTLS, if defined, must have at least one element"))
+		}
+
+		for port := range in.PortLevelMtls {
+			if port == 0 {
+				errs = appendErrors(errs, fmt.Errorf("port cannot be 0"))
+			}
+		}
+
+		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
+
+		return errs
+	})
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
 var ValidateServiceRole = registerValidateFunc("ValidateServiceRole",
@@ -2129,6 +2260,12 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 		}
 	}
 
+	if http.MirrorPercentage != nil {
+		if value := http.MirrorPercentage.GetValue(); value > 100 {
+			errs = appendErrors(errs, fmt.Errorf("mirror_percentage must have a max value of 100 (it has %f)", value))
+		}
+	}
+
 	errs = appendErrors(errs, validateDestination(http.Mirror))
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
@@ -2446,12 +2583,6 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	return nil
 }
 
-// ValidateSyntheticServiceEntry validates a synthetic service entry.
-var ValidateSyntheticServiceEntry = registerValidateFunc("ValidateSyntheticServiceEntry",
-	func(_, _ string, config proto.Message) (errs error) {
-		return ValidateServiceEntry("", "", config)
-	})
-
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 	func(_, _ string, config proto.Message) (errs error) {
@@ -2552,7 +2683,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 						errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 					}
 					errs = appendErrors(errs,
-						validatePortName(name),
+						ValidatePortName(name),
 						ValidatePort(int(port)))
 				}
 			}
@@ -2585,8 +2716,8 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 
 		for _, port := range serviceEntry.Ports {
 			errs = appendErrors(errs,
-				validatePortName(port.Name),
-				validateProtocol(port.Protocol),
+				ValidatePortName(port.Name),
+				ValidateProtocol(port.Protocol),
 				ValidatePort(int(port.Number)))
 		}
 
@@ -2594,14 +2725,14 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		return
 	})
 
-func validatePortName(name string) error {
+func ValidatePortName(name string) error {
 	if !labels.IsDNS1123Label(name) {
 		return fmt.Errorf("invalid port name: %s", name)
 	}
 	return nil
 }
 
-func validateProtocol(protocolStr string) error {
+func ValidateProtocol(protocolStr string) error {
 	// Empty string is used for protocol sniffing.
 	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
 		return fmt.Errorf("unsupported protocol: %s", protocolStr)

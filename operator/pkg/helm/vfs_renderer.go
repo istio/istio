@@ -24,8 +24,6 @@ import (
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/vfs"
-
-	"istio.io/pkg/log"
 )
 
 const (
@@ -64,7 +62,7 @@ type VFSRenderer struct {
 // NewVFSRenderer creates a VFSRenderer with the given relative path to helm charts, component name and namespace and
 // a base values YAML string.
 func NewVFSRenderer(helmChartDirPath, componentName, namespace string) *VFSRenderer {
-	log.Debugf("NewVFSRenderer with helmChart=%s, componentName=%s, namespace=%s", helmChartDirPath, componentName, namespace)
+	scope.Debugf("NewVFSRenderer with helmChart=%s, componentName=%s, namespace=%s", helmChartDirPath, componentName, namespace)
 	return &VFSRenderer{
 		namespace:        namespace,
 		componentName:    componentName,
@@ -74,7 +72,7 @@ func NewVFSRenderer(helmChartDirPath, componentName, namespace string) *VFSRende
 
 // Run implements the TemplateRenderer interface.
 func (h *VFSRenderer) Run() error {
-	log.Debugf("Run VFSRenderer with helmChart=%s, componentName=%s, namespace=%s", h.helmChartDirPath, h.componentName, h.namespace)
+	scope.Debugf("Run VFSRenderer with helmChart=%s, componentName=%s, namespace=%s", h.helmChartDirPath, h.componentName, h.namespace)
 	if err := h.loadChart(); err != nil {
 		return err
 	}
@@ -94,7 +92,7 @@ func (h *VFSRenderer) RenderManifest(values string) (string, error) {
 // LoadValuesVFS loads the compiled in file corresponding to the given profile name.
 func LoadValuesVFS(profileName string) (string, error) {
 	path := filepath.Join(profilesRoot, BuiltinProfileToFilename(profileName))
-	log.Infof("Loading values from compiled in VFS at path %s", path)
+	scope.Infof("Loading values from compiled in VFS at path %s", path)
 	b, err := vfs.ReadFile(path)
 	return string(b), err
 }
@@ -126,7 +124,7 @@ func (h *VFSRenderer) loadChart() error {
 			Data: b,
 		}
 		bfs = append(bfs, bf)
-		log.Debugf("Chart loaded: %s", bf.Name)
+		scope.Debugf("Chart loaded: %s", bf.Name)
 	}
 
 	h.chart, err = chartutil.LoadFiles(bfs)

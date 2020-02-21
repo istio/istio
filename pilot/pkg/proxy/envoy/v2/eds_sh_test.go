@@ -68,7 +68,7 @@ func TestSplitHorizonEds(t *testing.T) {
 	initRegistry(server, 4, []string{}, 4)
 
 	// Push contexts needs to be updated
-	server.EnvoyXdsServer.ClearCache()
+	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	time.Sleep(time.Millisecond * 200) // give time for cache to clear
 
 	tests := []struct {

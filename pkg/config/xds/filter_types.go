@@ -14,9 +14,9 @@
 
 package xds
 
-// Import all Envoy filter types so they are registered and deserialization does not fail
-// when using them in the "typed_config" attributes.
 import (
+	// Import all Envoy filter types so they are registered and deserialization does not fail
+	// when using them in the "typed_config" attributes.
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/dubbo/router/v2alpha1"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"

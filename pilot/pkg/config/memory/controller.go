@@ -17,8 +17,11 @@ package memory
 import (
 	"errors"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/pkg/ledger"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 type controller struct {
@@ -37,7 +40,7 @@ func NewController(cs model.ConfigStore) model.ConfigStoreCache {
 	return out
 }
 
-func (c *controller) RegisterEventHandler(kind string, f func(model.Config, model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func(model.Config, model.Config, model.Event)) {
 	c.monitor.AppendEventHandler(kind, f)
 }
 
@@ -54,6 +57,14 @@ func (c *controller) GetResourceAtVersion(version string, key string) (resourceV
 	return c.configStore.GetResourceAtVersion(version, key)
 }
 
+func (c *controller) GetLedger() ledger.Ledger {
+	return c.configStore.GetLedger()
+}
+
+func (c *controller) SetLedger(l ledger.Ledger) error {
+	return c.configStore.SetLedger(l)
+}
+
 func (c *controller) Run(stop <-chan struct{}) {
 	c.monitor.Run(stop)
 }
@@ -62,7 +73,7 @@ func (c *controller) Schemas() collection.Schemas {
 	return c.configStore.Schemas()
 }
 
-func (c *controller) Get(kind, key, namespace string) *model.Config {
+func (c *controller) Get(kind resource.GroupVersionKind, key, namespace string) *model.Config {
 	return c.configStore.Get(kind, key, namespace)
 }
 
@@ -77,7 +88,7 @@ func (c *controller) Create(config model.Config) (revision string, err error) {
 }
 
 func (c *controller) Update(config model.Config) (newRevision string, err error) {
-	oldconfig := c.configStore.Get(config.Type, config.Name, config.Namespace)
+	oldconfig := c.configStore.Get(config.GroupVersionKind(), config.Name, config.Namespace)
 	if newRevision, err = c.configStore.Update(config); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			old:    *oldconfig,
@@ -88,7 +99,7 @@ func (c *controller) Update(config model.Config) (newRevision string, err error)
 	return
 }
 
-func (c *controller) Delete(kind, key, namespace string) (err error) {
+func (c *controller) Delete(kind resource.GroupVersionKind, key, namespace string) (err error) {
 	if config := c.Get(kind, key, namespace); config != nil {
 		if err = c.configStore.Delete(kind, key, namespace); err == nil {
 			c.monitor.ScheduleProcessEvent(ConfigEvent{
@@ -101,6 +112,6 @@ func (c *controller) Delete(kind, key, namespace string) (err error) {
 	return errors.New("Delete failure: config" + key + "does not exist")
 }
 
-func (c *controller) List(kind, namespace string) ([]model.Config, error) {
+func (c *controller) List(kind resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	return c.configStore.List(kind, namespace)
 }

@@ -130,7 +130,7 @@ No
 the statsd metric name. This allows easier creation of statsd metrics like <code>action_name-response_code</code>.
 The template strings must conform to go&rsquo;s text/template syntax. For the example of <code>action_name-response_code</code>,
 we use the template:
-   <code>&lbrace;&lbrace;.apiMethod}}-&lbrace;&lbrace;.responseCode}}</code></p>
+   <code>{{.apiMethod}}-{{.responseCode}}</code></p>
 
 <p>If name_template is the empty string the Istio metric name will be used for statsd metric&rsquo;s name.</p>
 

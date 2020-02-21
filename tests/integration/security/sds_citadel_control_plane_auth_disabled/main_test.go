@@ -63,4 +63,12 @@ func setupConfig(cfg *istio.Config) {
 
 	// Helm values from install/kubernetes/helm/istio/values-istio-sds-auth-control-plane-auth-disabled.yaml
 	cfg.ValuesFile = "values-istio-sds-auth-control-plane-auth-disabled.yaml"
+	cfg.ControlPlaneValues = `
+values:
+  global:
+    controlPlaneSecurityEnabled: false
+
+    mtls:
+      enabled: true
+`
 }

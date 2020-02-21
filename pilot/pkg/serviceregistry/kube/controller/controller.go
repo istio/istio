@@ -519,7 +519,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	if instances != nil {
 		inScopeInstances := make([]*model.ServiceInstance, 0)
 		for _, i := range instances {
-			if i.Service.Attributes.Namespace == svc.Attributes.Namespace {
+			if i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort {
 				inScopeInstances = append(inScopeInstances, i)
 			}
 		}
@@ -584,7 +584,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 // from the Pod. This allows retrieving Instances immediately, regardless of delays in Kubernetes.
 // If the proxy doesn't have enough metadata, an error is returned
 func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	if len(proxy.WorkloadLabels) == 0 {
+	if len(proxy.Metadata.Labels) == 0 {
 		return nil, fmt.Errorf("no workload labels found")
 	}
 
@@ -596,7 +596,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	dummyPod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: proxy.ConfigNamespace,
-			Labels:    proxy.WorkloadLabels[0],
+			Labels:    proxy.Metadata.Labels,
 		},
 	}
 
@@ -621,31 +621,49 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		if !f {
 			return nil, fmt.Errorf("failed to find model service for %v", hostname)
 		}
+
+		tps := make(map[model.Port]*model.Port)
 		for _, port := range svc.Spec.Ports {
 			svcPort, f := modelService.Ports.Get(port.Name)
 			if !f {
 				return nil, fmt.Errorf("failed to get svc port for %v", port.Name)
 			}
-			targetPort, err := findPortFromMetadata(port, proxy.Metadata.PodPorts)
+			portNum, err := findPortFromMetadata(port, proxy.Metadata.PodPorts)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find target port for %v: %v", proxy.ID, err)
 			}
-			// Construct the ServiceInstance
-			out = append(out, &model.ServiceInstance{
-				Service:     modelService,
-				ServicePort: svcPort,
-				Endpoint: &model.IstioEndpoint{
-					Address:         proxy.IPAddresses[0],
-					EndpointPort:    uint32(targetPort),
-					ServicePortName: svcPort.Name,
-					// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
-					Labels:         proxy.WorkloadLabels[0],
-					ServiceAccount: svcAccount,
-					Network:        c.endpointNetwork(proxy.IPAddresses[0]),
-					Locality:       util.LocalityToString(proxy.Locality),
-					Attributes:     model.ServiceAttributes{Name: svc.Name, Namespace: svc.Namespace},
-				},
-			})
+			// Dedupe the target ports here - Service might have configured multiple ports to the same target port,
+			// we will have to create only one ingress listener per port and protocol so that we do not endup
+			// complaining about listener conflicts.
+			targetPort := model.Port{
+				Port:     portNum,
+				Protocol: svcPort.Protocol,
+			}
+			if _, exists := tps[targetPort]; !exists {
+				tps[targetPort] = svcPort
+			}
+		}
+
+		for tp, svcPort := range tps {
+			// consider multiple IP scenarios
+			for _, ip := range proxy.IPAddresses {
+				// Construct the ServiceInstance
+				out = append(out, &model.ServiceInstance{
+					Service:     modelService,
+					ServicePort: svcPort,
+					Endpoint: &model.IstioEndpoint{
+						Address:         ip,
+						EndpointPort:    uint32(tp.Port),
+						ServicePortName: svcPort.Name,
+						// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
+						Labels:         proxy.Metadata.Labels,
+						ServiceAccount: svcAccount,
+						Network:        c.endpointNetwork(ip),
+						Locality:       util.LocalityToString(proxy.Locality),
+						Attributes:     model.ServiceAttributes{Name: svc.Name, Namespace: svc.Namespace},
+					},
+				})
+			}
 		}
 	}
 	return out, nil
@@ -684,6 +702,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 	}
 
 	podIP := proxy.IPAddresses[0]
+	tps := make(map[model.Port]*model.Port)
 	for _, port := range service.Spec.Ports {
 		svcPort, exists := svc.Ports.Get(port.Name)
 		if !exists {
@@ -695,13 +714,24 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 			log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
 			continue
 		}
-
-		// consider multiple IP scenarios
-		for _, ip := range proxy.IPAddresses {
-			out = append(out, c.getEndpoints(podIP, ip, int32(portNum), svcPort, svc))
+		// Dedupe the target ports here - Service might have configured multiple ports to the same target port,
+		// we will have to create only one ingress listener per port and protocol so that we do not endup
+		// complaining about listener conflicts.
+		targetPort := model.Port{
+			Port:     portNum,
+			Protocol: svcPort.Protocol,
+		}
+		if _, exists = tps[targetPort]; !exists {
+			tps[targetPort] = svcPort
 		}
 	}
 
+	for tp, svcPort := range tps {
+		// consider multiple IP scenarios
+		for _, ip := range proxy.IPAddresses {
+			out = append(out, c.getEndpoints(podIP, ip, int32(tp.Port), svcPort, svc))
+		}
+	}
 	return out
 }
 
@@ -848,13 +878,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		}
 	}
 
-	if log.InfoEnabled() {
-		var addresses []string
-		for _, iep := range endpoints {
-			addresses = append(addresses, iep.Address)
-		}
-		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
-	}
+	log.Infof("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
 }

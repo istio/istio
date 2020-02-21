@@ -24,7 +24,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	yaml2 "gopkg.in/yaml.v2"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 

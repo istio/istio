@@ -20,22 +20,27 @@ import (
 	"time"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	envoyauth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
-
-	"github.com/golang/protobuf/proto"
 	"gopkg.in/d4l3k/messagediff.v1"
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	proto2 "istio.io/istio/pkg/proto"
 )
 
@@ -621,4 +626,352 @@ func TestIsAllowAnyOutbound(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildStatPrefix(t *testing.T) {
+	tests := []struct {
+		name        string
+		statPattern string
+		host        string
+		subsetName  string
+		port        *model.Port
+		attributes  model.ServiceAttributes
+		want        string
+	}{
+		{
+			"Service only pattern",
+			"%SERVICE%",
+			"reviews.default.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default",
+		},
+		{
+			"Service only pattern from different namespace",
+			"%SERVICE%",
+			"reviews.namespace1.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "namespace1",
+			},
+			"reviews.namespace1",
+		},
+		{
+			"Service with port pattern from different namespace",
+			"%SERVICE%.%SERVICE_PORT%",
+			"reviews.namespace1.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "namespace1",
+			},
+			"reviews.namespace1.7443",
+		},
+		{
+			"Service from non k8s registry",
+			"%SERVICE%.%SERVICE_PORT%",
+			"reviews.hostname.consul",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Consul),
+				Name:            "foo",
+				Namespace:       "bar",
+			},
+			"reviews.hostname.consul.7443",
+		},
+		{
+			"Service FQDN only pattern",
+			"%SERVICE_FQDN%",
+			"reviews.default.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default.svc.cluster.local",
+		},
+		{
+			"Service With Port pattern",
+			"%SERVICE%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default_7443",
+		},
+		{
+			"Service With Port Name pattern",
+			"%SERVICE%_%SERVICE_PORT_NAME%",
+			"reviews.default.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default_grpc-svc",
+		},
+		{
+			"Service With Port and Port Name pattern",
+			"%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default_grpc-svc_7443",
+		},
+		{
+			"Service FQDN With Port pattern",
+			"%SERVICE_FQDN%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default.svc.cluster.local_7443",
+		},
+		{
+			"Service FQDN With Port Name pattern",
+			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%",
+			"reviews.default.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default.svc.cluster.local_grpc-svc",
+		},
+		{
+			"Service FQDN With Port and Port Name pattern",
+			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default.svc.cluster.local_grpc-svc_7443",
+		},
+		{
+			"Service FQDN With Empty Subset, Port and Port Name pattern",
+			"%SERVICE_FQDN%%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default.svc.cluster.local_grpc-svc_7443",
+		},
+		{
+			"Service FQDN With Subset, Port and Port Name pattern",
+			"%SERVICE_FQDN%.%SUBSET_NAME%.%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"v1",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default.svc.cluster.local.v1.grpc-svc_7443",
+		},
+		{
+			"Service FQDN With Unknown Pattern",
+			"%SERVICE_FQDN%.%DUMMY%",
+			"reviews.default.svc.cluster.local",
+			"v1",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.Kubernetes),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default.svc.cluster.local.%DUMMY%",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BuildStatPrefix(tt.statPattern, tt.host, tt.subsetName, tt.port, tt.attributes)
+			if got != tt.want {
+				t.Errorf("Expected alt statname %s, but got %s", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestApplyToCommonTLSContext(t *testing.T) {
+	testCases := []struct {
+		name       string
+		sdsUdsPath string
+		node       *model.Proxy
+		result     *envoyauth.CommonTlsContext
+	}{
+		{
+			name:       "MTLSStrict using SDS",
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					SdsEnabled: true,
+				},
+			},
+			result: &envoyauth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*envoyauth.SdsSecretConfig{
+					{
+						Name: "default",
+						SdsConfig: &core.ConfigSource{
+							InitialFetchTimeout: features.InitialFetchTimeout,
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType: core.ApiConfigSource_GRPC,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				ValidationContextType: &envoyauth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &envoyauth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &envoyauth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+						ValidationContextSdsSecretConfig: &envoyauth.SdsSecretConfig{
+							Name: "ROOTCA",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: features.InitialFetchTimeout,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:       "ISTIO_MUTUAL SDS without node meta",
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			result: &envoyauth.CommonTlsContext{
+				TlsCertificates: []*envoyauth.TlsCertificate{
+					{
+						CertificateChain: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/etc/certs/cert-chain.pem",
+							},
+						},
+						PrivateKey: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/etc/certs/key.pem",
+							},
+						},
+					},
+				},
+				ValidationContextType: &envoyauth.CommonTlsContext_ValidationContext{
+					ValidationContext: &envoyauth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/etc/certs/root-cert.pem",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:       "ISTIO_MUTUAL with custom cert paths from proxy node metadata",
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					TLSServerCertChain: "/custom/path/to/cert-chain.pem",
+					TLSServerKey:       "/custom-key.pem",
+					TLSServerRootCert:  "/custom/path/to/root.pem",
+				},
+			},
+			result: &envoyauth.CommonTlsContext{
+				TlsCertificates: []*envoyauth.TlsCertificate{
+					{
+						CertificateChain: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/custom/path/to/cert-chain.pem",
+							},
+						},
+						PrivateKey: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/custom-key.pem",
+							},
+						},
+					},
+				},
+				ValidationContextType: &envoyauth.CommonTlsContext_ValidationContext{
+					ValidationContext: &envoyauth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/custom/path/to/root.pem",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			tlsContext := &envoyauth.CommonTlsContext{}
+			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{})
+
+			if !reflect.DeepEqual(tlsContext, test.result) {
+				t.Errorf("got() = %v, want %v", spew.Sdump(tlsContext), spew.Sdump(test.result))
+			}
+		})
+	}
+
 }

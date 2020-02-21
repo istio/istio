@@ -33,23 +33,13 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+      securityContext:
+        fsGroup: 1337
       volumes:
       - name: istio-certs
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
-      {{- if .Values.global.sds.enabled }}
-      - hostPath:
-          path: /var/run/sds
-        name: sds-uds-path
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              audience: {{ .Values.global.sds.token.aud }}
-              expirationSeconds: 43200
-              path: istio-token
-      {{- end }}
       - name: uds-socket
         emptyDir: {}
       - name: telemetry-adapter-secret
@@ -74,9 +64,11 @@ spec:
 {{- if contains "/" .Values.mixer.telemetry.image }}
         image: "{{ .Values.mixer.telemetry.image }}"
 {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.mixer.telemetry.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.mixer.telemetry.hub | default .Values.global.hub }}/{{ .Values.mixer.telemetry.image }}:{{ .Values.mixer.telemetry.tag | default .Values.global.tag }}"
 {{- end }}
-        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
         ports:
         - containerPort: 9091
         - containerPort: 15014
@@ -95,7 +87,7 @@ spec:
 {{- if .Values.global.logAsJson }}
           - --log_as_json
 {{- end }}
-{{- if .Values.mixer.telemetry.useMCP }}
+{{- if .Values.global.useMCP }}
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcp://localhost:15019
     {{- else }}
@@ -134,8 +126,15 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
+        securityContext:
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
         volumeMounts:
-{{- if .Values.mixer.telemetry.useMCP }}
+{{- if .Values.global.useMCP }}
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
@@ -158,7 +157,9 @@ spec:
 {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
 {{- end }}
-        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
         ports:
         - containerPort: 15004
         - containerPort: 15090
@@ -201,8 +202,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
-        - name: SDS_ENABLED
-          value: "{{ .Values.global.sds.enabled }}"
         resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
@@ -215,13 +214,6 @@ spec:
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
-        {{- if .Values.global.sds.enabled }}
-        - name: sds-uds-path
-          mountPath: /var/run/sds
-          readOnly: true
-        - name: istio-token
-          mountPath: /var/run/secrets/tokens
-        {{- end }}
         - name: uds-socket
           mountPath: /sock
 {{- end }}

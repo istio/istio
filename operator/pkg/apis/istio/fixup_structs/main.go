@@ -68,6 +68,8 @@ var (
 		"github.com/gogo/protobuf/protobuf/google/protobuf": "github.com/gogo/protobuf/types",
 		goFieldToken: "",
 	}
+
+	extraIncludes = []string{}
 )
 
 func main() {
@@ -96,6 +98,13 @@ func main() {
 		l := lines[i]
 
 		switch {
+		case strings.Contains(l, "import ("):
+			tmp = append(tmp, l)
+			for _, incl := range extraIncludes {
+				tmp = append(tmp, "\t\""+incl+"\"")
+			}
+			i++
+
 		// Remove any generated code associated with the GOTYPE: decorated marker structs.
 		case strings.Contains(l, goTypeToken):
 			v := strings.ReplaceAll(l, goTypeToken, "")
@@ -113,7 +122,7 @@ func main() {
 				anonymous[st] = true
 				subs[st] = strings.ReplaceAll(subs[st], "_ ", "")
 			}
-			for !strings.HasPrefix(lines[i], "var xxx_messageInfo_") {
+			for i < len(lines)-2 && !strings.HasPrefix(lines[i], "var xxx_messageInfo_") {
 				i++
 			}
 			tmp = append(tmp, lines[i+1])

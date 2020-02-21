@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/galley/pkg/config/collection"
-	collection2 "istio.io/istio/galley/pkg/config/schema/collection"
+	collection2 "istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestDistributor_Distribute(t *testing.T) {

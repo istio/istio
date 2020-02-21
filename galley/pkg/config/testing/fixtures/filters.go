@@ -19,7 +19,7 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/pkg/config/event"
 )
 
 // FilterFn is a function for filtering events

@@ -27,8 +27,8 @@ import (
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/probe"
 
-	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
+	"istio.io/istio/pkg/config/schema/snapshots"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/webhooks/validation/controller"
@@ -203,7 +203,7 @@ func DefaultArgs() *Args {
 			Path:           defaultReadinessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,
 		},
-		Snapshots:       []string{snapshots.Default, snapshots.SyntheticServiceEntry},
+		Snapshots:       []string{snapshots.Default},
 		TriggerSnapshot: snapshots.Default,
 	}
 }

@@ -16,16 +16,10 @@ package mesh
 
 import (
 	"fmt"
-	"io/ioutil"
 
-	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 
-	"istio.io/istio/operator/pkg/httprequest"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
-	"istio.io/istio/operator/pkg/vfs"
 	binversion "istio.io/istio/operator/version"
 )
 
@@ -42,8 +36,8 @@ func addManifestVersionsFlags(cmd *cobra.Command, mvArgs *manifestVersionsArgs) 
 func manifestVersionsCmd(rootArgs *rootArgs, versionsArgs *manifestVersionsArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "versions",
-		Short: "List the versions of Istio recommended for use or supported for upgrade by this version of the operator binary",
-		Long:  "List the versions of Istio recommended for use or supported for upgrade by this version of the operator binary.",
+		Short: "List the versions of Istio recommended for use or supported for upgrade by this version of istioctl",
+		Long:  "List the versions of Istio recommended for use or supported for upgrade by this version of istioctl.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				cmd.Println(cmd.UsageString())
@@ -52,89 +46,27 @@ func manifestVersionsCmd(rootArgs *rootArgs, versionsArgs *manifestVersionsArgs)
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
-			return manifestVersions(rootArgs, versionsArgs, l)
+			return manifestVersions(rootArgs, versionsArgs)
 		}}
 }
 
-func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs, l *Logger) error {
+func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs) error {
 	initLogsOrExit(args)
 
-	myVersionMap, err := getVersionCompatibleMap(mvArgs.versionsURI, binversion.OperatorBinaryGoVersion, l)
+	myVersionMap, err := version.GetVersionCompatibleMap(mvArgs.versionsURI, binversion.OperatorBinaryGoVersion)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve version map, error: %v", err)
 	}
 
 	fmt.Print("\nOperator version is ", binversion.OperatorBinaryGoVersion.String(), ".\n\n")
-	fmt.Println("The following installation package versions are recommended for use with this version of the operator:")
+	fmt.Println("This version of istioctl can:")
 	for _, v := range myVersionMap.RecommendedIstioVersions {
-		fmt.Printf("  %s\n", v.String())
+		fmt.Printf("  Install Istio %s\n", v.String())
 	}
-	fmt.Println("\nThe following installation package versions are supported for upgrade by this version of the operator:")
 	for _, v := range myVersionMap.SupportedIstioVersions {
-		fmt.Printf("  %s\n", v.String())
+		fmt.Printf("  Update Istio from %s to %s\n", v.String(), myVersionMap.RecommendedIstioVersions)
 	}
 	fmt.Println()
 
 	return nil
-}
-
-func getVersionCompatibleMap(versionsURI string, binVersion *goversion.Version,
-	l *Logger) (*version.CompatibilityMapping, error) {
-	var b []byte
-	var err error
-
-	b, err = loadCompatibleMapFile(versionsURI, l)
-	if err != nil {
-		return nil, err
-	}
-
-	var versions []*version.CompatibilityMapping
-	if err = yaml.Unmarshal(b, &versions); err != nil {
-		return nil, err
-	}
-
-	var myVersionMap, closestVersionMap *version.CompatibilityMapping
-	for _, v := range versions {
-		if v.OperatorVersion.Equal(binVersion) {
-			myVersionMap = v
-			break
-		}
-		if v.OperatorVersionRange.Check(binVersion) {
-			myVersionMap = v
-		}
-		if (closestVersionMap == nil || v.OperatorVersion.GreaterThan(closestVersionMap.OperatorVersion)) &&
-			v.OperatorVersion.LessThanOrEqual(binVersion) {
-			closestVersionMap = v
-		}
-	}
-
-	if myVersionMap == nil {
-		myVersionMap = closestVersionMap
-	}
-
-	if myVersionMap == nil {
-		return nil, fmt.Errorf("this operator version %s was not found in the version map", binVersion.String())
-	}
-	return myVersionMap, nil
-}
-
-func loadCompatibleMapFile(versionsURI string, l *Logger) ([]byte, error) {
-	if versionsURI == "" {
-		return vfs.ReadFile("versions.yaml")
-	}
-	var err error
-	if util.IsHTTPURL(versionsURI) {
-		if b, err := httprequest.Get(versionsURI); err == nil {
-			return b, nil
-		}
-	} else {
-		if b, err := ioutil.ReadFile(versionsURI); err == nil {
-			return b, nil
-		}
-	}
-
-	l.logAndPrintf("Warning: failed to retrieve the version map from (%s): %s. "+
-		"Falling back to the internal version map.", versionsURI, err)
-	return vfs.ReadFile("versions.yaml")
 }

@@ -17,7 +17,7 @@ package k8smeta
 import (
 	"fmt"
 
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema"
 )
 
 // Get returns the contained k8smeta.yaml file, in parsed form.

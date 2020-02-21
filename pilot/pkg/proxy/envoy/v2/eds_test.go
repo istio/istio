@@ -49,26 +49,31 @@ import (
 const (
 	asdcLocality  = "region1/zone1/subzone1"
 	asdc2Locality = "region2/zone2/subzone2"
+
+	edsIncSvc = "eds.test.svc.cluster.local"
+	edsIncVip = "10.10.1.2"
 )
 
 func TestEds(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t, func(args *bootstrap.PilotArgs) {
-		args.MeshConfig.LocalityLbSetting = &v1alpha3.LocalityLoadBalancerSetting{}
-	})
+	server, tearDown := localPilotTestEnv(t, func(server *bootstrap.Server) {
+		// will be checked in the direct request test
+		addUdsEndpoint(server)
+
+		// enable locality load balancing and add relevant endpoints in order to test
+		addLocalityEndpoints(server, "locality.cluster.local")
+		addLocalityEndpoints(server, "locality-no-outlier-detection.cluster.local")
+
+		// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
+		addTestClientEndpoints(server)
+
+		server.EnvoyXdsServer.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
+		server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
+			newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
+	},
+		func(args *bootstrap.PilotArgs) {
+			args.MeshConfig.LocalityLbSetting = &v1alpha3.LocalityLoadBalancerSetting{}
+		})
 	defer tearDown()
-
-	// will be checked in the direct request test
-	addUdsEndpoint(server)
-
-	// enable locality load balancing and add relevant endpoints in order to test
-	addLocalityEndpoints(server, "locality.cluster.local")
-	addLocalityEndpoints(server, "locality-no-outlier-detection.cluster.local")
-
-	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
-	addTestClientEndpoints(server)
-
-	// Trigger a push to update the contents of the registry to push context and push to connected clients.
-	fullPush(server)
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
@@ -149,11 +154,11 @@ func TestEdsWeightedServiceEntry(t *testing.T) {
 }
 
 func TestEDSOverlapping(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := localPilotTestEnv(t, func(server *bootstrap.Server) {
+		// add endpoints with multiple ports with the same port number.
+		addOverlappingEndpoints(server)
+	})
 	defer tearDown()
-
-	// add endpoints with multiple ports with the same port number.
-	addOverlappingEndpoints(server)
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
@@ -164,11 +169,11 @@ func TestEDSOverlapping(t *testing.T) {
 // Validates the behavior when Service resolution type is updated after initial EDS push.
 // See https://github.com/istio/istio/issues/18355 for more details.
 func TestEDSServiceResolutionUpdate(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := localPilotTestEnv(t, func(server *bootstrap.Server) {
+		// add a eds type of cluster with static end points.
+		addEdsCluster(server, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
+	})
 	defer tearDown()
-
-	// add a eds type of cluster with static end points.
-	addEdsCluster(server, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
@@ -190,11 +195,11 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 
 // Validate that when endpoints of a service flipflop between 1 and 0 does not trigger a full push.
 func TestEndpointFlipFlops(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := localPilotTestEnv(t, func(server *bootstrap.Server) {
+		// add a eds type of cluster with static end points.
+		addEdsCluster(server, "flipflop.com", "http", "10.0.0.53", 8080)
+	})
 	defer tearDown()
-
-	// add a eds type of cluster with static end points.
-	addEdsCluster(server, "flipflop.com", "http", "10.0.0.53", 8080)
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
@@ -205,7 +210,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 	// Clear the endpoint and validate it does not trigger a full push.
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints("flipflop.com", "", []*model.IstioEndpoint{})
 
-	upd, _ := adscConn.Wait(5*time.Second, "cds")
+	upd, _ := adscConn.Wait(5 * time.Second)
 
 	if contains(upd, "cds") {
 		t.Fatalf("Expecting only EDS update as part of a partial push. But received CDS also %v", upd)
@@ -234,7 +239,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 				EndpointPort:    8080,
 			}})
 
-	upd, _ = adscConn.Wait(5*time.Second, "cds")
+	upd, _ = adscConn.Wait(5 * time.Second)
 
 	if contains(upd, "cds") {
 		t.Fatal("Expecting only EDS update as part of a partial push. But received CDS also +v", upd)
@@ -249,11 +254,11 @@ func TestEndpointFlipFlops(t *testing.T) {
 
 // Validate that deleting a service clears entries from EndpointShardsByService.
 func TestDeleteService(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := localPilotTestEnv(t, func(server *bootstrap.Server) {
+		// add a eds type of cluster with static end points.
+		addEdsCluster(server, "removeservice.com", "http", "10.0.0.53", 8080)
+	})
 	defer tearDown()
-
-	// add a eds type of cluster with static end points.
-	addEdsCluster(server, "removeservice.com", "http", "10.0.0.53", 8080)
 
 	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adscConn.Close()
@@ -271,8 +276,6 @@ func TestDeleteService(t *testing.T) {
 
 func fullPush(server *bootstrap.Server) {
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
-	// TODO: See if we can disable debounce completely for tests to avoid sleep.
-	time.Sleep(200 * time.Millisecond) // Wait till push debounce is stable.
 }
 
 func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
@@ -522,9 +525,15 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	}
 	testTCPEndpoints("127.0.0.4", adsc, t)
 
+	// Update the endpoint to original SA - expect full
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
+		newEndpointWithAccount("127.0.0.2", "hello-sa", "v1"))
+	edsFullUpdateCheck(adsc, t)
+	testTCPEndpoints("127.0.0.2", adsc, t)
+
 	// Update the endpoint again, no label change - expect incremental
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
-		newEndpointWithAccount("127.0.0.5", "account2", "v1"))
+		newEndpointWithAccount("127.0.0.5", "hello-sa", "v1"))
 
 	upd, err = adsc.Wait(5 * time.Second)
 	if err != nil {
@@ -771,8 +780,6 @@ func addEdsCluster(server *bootstrap.Server, hostName string, portName string, a
 			Protocol: protocol.HTTP,
 		},
 	})
-
-	fullPush(server)
 }
 
 func updateServiceResolution(server *bootstrap.Server) {
@@ -832,8 +839,6 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			Protocol: protocol.TCP,
 		},
 	})
-
-	fullPush(server)
 }
 
 // Verify the endpoint debug interface is installed and returns some string.

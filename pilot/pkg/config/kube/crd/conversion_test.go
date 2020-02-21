@@ -18,9 +18,9 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestConvert(t *testing.T) {
@@ -65,20 +65,21 @@ func TestParseInputs(t *testing.T) {
 	if _, _, err := ParseInputs("a"); err == nil {
 		t.Error(`ParseInput("a") => got no error`)
 	}
-	if _, others, err := ParseInputs("kind: Pod"); err != nil || len(others) != 1 {
+	if _, others, err := ParseInputs("apiVersion: v1\nkind: Pod"); err != nil || len(others) != 1 {
 		t.Errorf(`ParseInput("kind: Pod") => got %v, %v`, others, err)
 	}
 	if varr, others, err := ParseInputs("---\n"); err != nil || len(varr) != 0 || len(others) != 0 {
 		t.Errorf(`ParseInput("---") => got %v, %v, %v`, varr, others, err)
 	}
-	if _, _, err := ParseInputs("kind: VirtualService\nspec:\n  destination: x"); err == nil {
+	if _, _, err := ParseInputs("apiVersion: networking.istio.io/v1alpha3\nkind: VirtualService\nspec:\n  destination: x"); err == nil {
 		t.Error("ParseInput(bad spec) => got no error")
 	}
-	if _, _, err := ParseInputs("kind: VirtualService\nspec:\n  destination:\n    service:"); err == nil {
+	if _, _, err := ParseInputs("apiVersion: networking.istio.io/v1alpha3\nkind: VirtualService\nspec:\n  destination:\n    service:"); err == nil {
 		t.Error("ParseInput(invalid spec) => got no error")
 	}
 
-	validInput := `{"kind":"VirtualService", "spec":{"hosts":["foo"],"http":[{"route":[{"destination":{"host":"bar"},"weight":100}]}]}}`
+	// nolint: lll
+	validInput := `{"apiVersion": "networking.istio.io/v1alpha3", "kind":"VirtualService", "spec":{"hosts":["foo"],"http":[{"route":[{"destination":{"host":"bar"},"weight":100}]}]}}`
 	varr, _, err := ParseInputs(validInput)
 	if err != nil || len(varr) == 0 {
 		t.Errorf("ParseInputs(correct input) => got %v, %v", varr, err)

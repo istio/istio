@@ -244,6 +244,14 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		appReq.Header[name] = newValues
 	}
 
+	for _, h := range prober.HTTPHeaders {
+		if h.Name == "Host" || h.Name == ":authority" {
+			// Probe has specific host header override; honor it
+			appReq.Host = h.Value
+			break
+		}
+	}
+
 	// Send the request.
 	response, err := httpClient.Do(appReq)
 	if err != nil {

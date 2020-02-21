@@ -35,10 +35,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 	mcptest "istio.io/istio/pkg/mcp/testing"

@@ -45,10 +45,6 @@ func TestReachability(t *testing.T) {
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -93,6 +89,120 @@ func TestReachability(t *testing.T) {
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return opts.PortName != "http"
+					},
+				},
+				{
+					ConfigFile:          "beta-mtls-on.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						if src == rctx.Naked && opts.Target == rctx.Naked {
+							// naked->naked should always succeed.
+							return true
+						}
+
+						// If one of the two endpoints is naked, expect failure.
+						return src != rctx.Naked && opts.Target != rctx.Naked
+					},
+				},
+				{
+					ConfigFile:          "beta-mtls-permissive.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the naked app.
+						return opts.Target != rctx.Naked
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+				},
+				{
+					ConfigFile:          "beta-mtls-off.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+				},
+				{
+					ConfigFile:          "beta-per-port-mtls.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Include all tests that target app B, which has the single-port config.
+						return opts.Target == rctx.B
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return opts.PortName != "http"
+					},
+				},
+				{
+					ConfigFile:          "mix-mtls-api.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+				},
+				{
+					ConfigFile:          "beta-mtls-automtls.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
+						// have proxy neither.
+						if src == rctx.Naked {
+							return opts.Target == rctx.Naked
+						}
+						return true
+					},
+				},
+				{
+					ConfigFile:          "beta-mtls-partial-automtls.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
+						// have proxy or have mTLS disabled
+						if src == rctx.Naked {
+							return opts.Target == rctx.Naked || (opts.Target == rctx.B && opts.PortName != "http")
+
+						}
+						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
+						// will fail on all ports on b, except http port.
+						return opts.Target != rctx.B || opts.PortName == "http"
+					},
+				},
+				{
+					ConfigFile:          "alpha-mtls-automtls.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
+						// have proxy or have mTLS disabled.
+						if src == rctx.Naked {
+							return opts.Target == rctx.Naked || (opts.Target == rctx.B && opts.PortName != "http")
+						}
+						return true
 					},
 				},
 			}

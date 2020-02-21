@@ -15,10 +15,13 @@
 package model
 
 import (
+	"time"
+
+	"istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // MutualTLSMode is the mutule TLS mode specified by authentication policy.
@@ -57,28 +60,47 @@ type AuthenticationPolicies struct {
 	// Maps from namespace to the v1beta1 authentication policies.
 	requestAuthentications map[string][]Config
 
-	// Maps from namespace to mTLS mode.
-	namespaceMTLSMode map[string]MutualTLSMode
+	peerAuthentications map[string][]Config
+
+	// namespaceMutualTLSMode is the MutualTLSMode correspoinding to the namespace-level PeerAuthentication.
+	// All namespace-level policies, and only them, are added to this map. If the policy mTLS mode is set
+	// to UNSET, it will be resolved to the value set by mesh policy if exist (i.e not UNKNOWN), or MTLSPermissive
+	// otherwise.
+	namespaceMutualTLSMode map[string]MutualTLSMode
+
+	// globalMutualTLSMode is the MutualTLSMode corresponding to the mesh-level PeerAuthentication.
+	// This value can be MTLSUnknown, if there is no mesh-level policy.
+	globalMutualTLSMode MutualTLSMode
 
 	rootNamespace string
 }
 
 // initAuthenticationPolicies creates a new AuthenticationPolicies struct and populates with the
 // authentication policies in the mesh environment.
-func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
+func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, error) {
 	policy := &AuthenticationPolicies{
 		requestAuthentications: map[string][]Config{},
-		namespaceMTLSMode:      map[string]MutualTLSMode{},
+		peerAuthentications:    map[string][]Config{},
+		globalMutualTLSMode:    MTLSUnknown,
 		rootNamespace:          env.Mesh().GetRootNamespace(),
 	}
 
-	if configs, err := env.List(collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind(), NamespaceAll); err == nil {
+	if configs, err := env.List(
+		collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
 		sortConfigByCreationTime(configs)
 		policy.addRequestAuthentication(configs)
+	} else {
+		return nil, err
 	}
 
-	// TODO(diemtvu): populate mTLS mode from mesh config and namespace labels.
-	return policy
+	if configs, err := env.List(
+		collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+		policy.addPeerAuthentication(configs)
+	} else {
+		return nil, err
+	}
+
+	return policy, nil
 }
 
 func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config) {
@@ -88,18 +110,120 @@ func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config)
 	}
 }
 
+// TODO(diemtvu): refactor this function to share with policy-applier pkg.
+func apiModeToMutualTLSMode(mode v1beta1.PeerAuthentication_MutualTLS_Mode) MutualTLSMode {
+	switch mode {
+	case v1beta1.PeerAuthentication_MutualTLS_DISABLE:
+		return MTLSDisable
+	case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE:
+		return MTLSPermissive
+	case v1beta1.PeerAuthentication_MutualTLS_STRICT:
+		return MTLSStrict
+	default:
+		return MTLSUnknown
+	}
+}
+
+func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
+	// Sort configs in ascending order by their creation time.
+	sortConfigByCreationTime(configs)
+
+	foundNamespaceMTLS := make(map[string]v1beta1.PeerAuthentication_MutualTLS_Mode)
+	// Track which namespace/mesh level policy seen so far to make sure the oldest one is used.
+	seenNamespaceOrMeshConfig := make(map[string]time.Time)
+
+	for _, config := range configs {
+		// Mesh & namespace level policy are those that have empty selector.
+		spec := config.Spec.(*v1beta1.PeerAuthentication)
+		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
+			if t, ok := seenNamespaceOrMeshConfig[config.Namespace]; ok {
+				log.Warnf(
+					"Namespace/mesh-level PeerAuthentication is already defined for %q at time %v. Ignore %q which was created at time %v",
+					config.Namespace, t, config.Name, config.CreationTimestamp)
+				continue
+			}
+			seenNamespaceOrMeshConfig[config.Namespace] = config.CreationTimestamp
+
+			mode := v1beta1.PeerAuthentication_MutualTLS_UNSET
+			if spec.Mtls != nil {
+				mode = spec.Mtls.Mode
+			}
+			if config.Namespace == policy.rootNamespace {
+				// This is mesh-level policy. UNSET is treated as permissive for mesh-policy.
+				if mode == v1beta1.PeerAuthentication_MutualTLS_UNSET {
+					policy.globalMutualTLSMode = MTLSPermissive
+				} else {
+					policy.globalMutualTLSMode = apiModeToMutualTLSMode(mode)
+				}
+			} else {
+				// For regular namespace, just add to the intemediate map.
+				foundNamespaceMTLS[config.Namespace] = mode
+			}
+		}
+
+		// Add the config to the map by namespace for future look up. This is done after namespace/mesh
+		// singleton check so there should be at most one namespace/mesh config is added to the map.
+		policy.peerAuthentications[config.Namespace] =
+			append(policy.peerAuthentications[config.Namespace], config)
+	}
+
+	// Process found namespace-level policy.
+	policy.namespaceMutualTLSMode = make(map[string]MutualTLSMode, len(foundNamespaceMTLS))
+
+	inheritedMTLSMode := policy.globalMutualTLSMode
+	if inheritedMTLSMode == MTLSUnknown {
+		// If the mesh policy is not explicitly presented, use default valude MTLSPermissive.
+		inheritedMTLSMode = MTLSPermissive
+	}
+	for ns, mtlsMode := range foundNamespaceMTLS {
+		if mtlsMode == v1beta1.PeerAuthentication_MutualTLS_UNSET {
+			policy.namespaceMutualTLSMode[ns] = inheritedMTLSMode
+		} else {
+			policy.namespaceMutualTLSMode[ns] = apiModeToMutualTLSMode(mtlsMode)
+		}
+	}
+}
+
+// GetNamespaceMutualTLSMode returns the MutualTLSMode as defined by a namespace or mesh level
+// PeerAuthentication. The return value could be `MTLSUnknown` if there is no mesh nor namespace
+// PeerAuthentication policy for the given namespace.
+func (policy *AuthenticationPolicies) GetNamespaceMutualTLSMode(namespace string) MutualTLSMode {
+	if mode, ok := policy.namespaceMutualTLSMode[namespace]; ok {
+		return mode
+	}
+	return policy.globalMutualTLSMode
+}
+
 // GetJwtPoliciesForWorkload returns a list of JWT policies matching to labels.
 func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
 	workloadLabels labels.Collection) []*Config {
+	return getConfigsForWorkload(policy.requestAuthentications, policy.rootNamespace, namespace, workloadLabels)
+}
+
+// GetPeerAuthenticationsForWorkload returns a list of peer authentication policies matching to labels.
+func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespace string,
+	workloadLabels labels.Collection) []*Config {
+	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, namespace, workloadLabels)
+}
+
+// GetRootNamespace return root namespace that is tracked by the policy object.
+func (policy *AuthenticationPolicies) GetRootNamespace() string {
+	return policy.rootNamespace
+}
+
+func getConfigsForWorkload(configsByNamespace map[string][]Config,
+	rootNamespace string,
+	namespace string,
+	workloadLabels labels.Collection) []*Config {
 	configs := make([]*Config, 0)
 	lookupInNamespaces := []string{namespace}
-	if namespace != policy.rootNamespace {
+	if namespace != rootNamespace {
 		// Only check the root namespace if the (workload) namespace is not already the root namespace
 		// to avoid double inclusion.
-		lookupInNamespaces = append(lookupInNamespaces, policy.rootNamespace)
+		lookupInNamespaces = append(lookupInNamespaces, rootNamespace)
 	}
 	for _, ns := range lookupInNamespaces {
-		if nsConfig, ok := policy.requestAuthentications[ns]; ok {
+		if nsConfig, ok := configsByNamespace[ns]; ok {
 			for idx := range nsConfig {
 				cfg := &nsConfig[idx]
 				if ns != cfg.Namespace {
@@ -107,8 +231,16 @@ func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string
 					log.Warnf("Seeing config %s with namespace %s in map entry for %s. Ignored", cfg.Name, cfg.Namespace, ns)
 					continue
 				}
-				spec := cfg.Spec.(*v1beta1.RequestAuthentication)
-				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+				var selector labels.Instance
+				switch cfg.Type {
+				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind():
+					selector = labels.Instance(cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels())
+				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind():
+					selector = labels.Instance(cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels())
+				default:
+					log.Warnf("Not support authentication type %q", cfg.Type)
+					continue
+				}
 				if workloadLabels.IsSupersetOf(selector) {
 					configs = append(configs, cfg)
 				}
@@ -117,4 +249,25 @@ func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string
 	}
 
 	return configs
+}
+
+func v1alpha1PolicyToMutualTLSMode(policy *v1alpha1.Policy) MutualTLSMode {
+	if policy == nil {
+		return MTLSDisable
+	}
+
+	for _, method := range policy.Peers {
+		switch method.GetParams().(type) {
+		case *v1alpha1.PeerAuthenticationMethod_Mtls:
+			if method.GetMtls() == nil ||
+				method.GetMtls().Mode == v1alpha1.MutualTls_STRICT {
+				return MTLSStrict
+			}
+			return MTLSPermissive
+		default:
+			continue
+		}
+	}
+
+	return MTLSDisable
 }

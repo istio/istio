@@ -21,7 +21,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/kr/pretty"
 
@@ -75,11 +74,7 @@ func TestOperatorInit(t *testing.T) {
 		t.Fatalf("diff: %s", diff)
 	}
 
-	wantOpts := kubectlcmd.Options{
-		WaitTimeout: time.Minute,
-		Prune:       nil,
-		ExtraArgs:   nil,
-	}
+	wantOpts := kubectlcmd.Options{}
 
 	wantParams := []applyParams{
 		{

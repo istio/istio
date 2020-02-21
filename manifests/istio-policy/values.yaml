@@ -1,5 +1,7 @@
 mixer:
   policy:
+    hub: ""
+    tag: ""
     image: mixer
 
     replicaCount: 1

@@ -41,9 +41,11 @@ spec:
 {{- if contains "/" .Values.galley.image }}
           image: "{{ .Values.galley.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.galley.image | default "galley" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.galley.hub | default .Values.global.hub }}/{{ .Values.galley.image | default "galley" }}:{{ .Values.galley.tag | default .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
           ports:
           - containerPort: 9443
           - containerPort: 15014
@@ -58,16 +60,8 @@ spec:
           - --readinessProbePath=/tmp/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
-  {{- if .Values.global.configValidation }}
-          - --enable-validation=true
-  {{- else }}
           - --enable-validation=false
-  {{- end }}
-  {{- if .Values.global.operatorManageWebhooks }}
           - --enable-reconcileWebhookConfiguration=false
-  {{- else }}
-          - --enable-reconcileWebhookConfiguration=true
-  {{- end }}
   {{- if .Values.galley.enableServiceDiscovery }}
           - --enableServiceDiscovery=true
   {{- end }}
@@ -76,32 +70,19 @@ spec:
           - --enableAnalysis=true
   {{- end }}
           - --deployment-namespace={{ .Release.Namespace }}
-          - --validation-webhook-config-file
-          - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort=15014
           - --validation-port=9443
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
-{{- if .Values.global.certificates }}
-          - --validation.tls.clientCertificate=/etc/dnscerts/cert-chain.pem
-          - --validation.tls.privateKey=/etc/dnscerts/key.pem
-          - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
-{{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
-  {{- if .Values.global.configValidation }}
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
-  {{- end }}
-  {{- if .Values.global.certificates }}
-          - name: dnscerts
-            mountPath: /etc/dnscerts
-            readOnly: true
-  {{- end }}
-          - name: config
-            mountPath: /etc/config
-            readOnly: true
           - name: mesh-config
             mountPath: /etc/mesh-config
             readOnly: true
@@ -137,7 +118,9 @@ spec:
 {{- else }}
           image: "{{ .Values.global.hub | default "gcr.io/istio-release" }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag | default "release-1.1-latest-daily" }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
           ports:
           - containerPort: 9902
           args:
@@ -170,8 +153,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
-          - name: SDS_ENABLED
-            value: "{{ .Values.global.sds.enabled }}"
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
@@ -185,26 +166,14 @@ spec:
           - name: envoy-config
             mountPath: /var/lib/istio/galley/envoy
 {{- end }}
-
+      securityContext:
+        fsGroup: 1337
       volumes:
-  {{- if or .Values.global.controlPlaneSecurityEnabled .Values.global.configValidation }}
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-galley-service-account
-  {{- end }}
-  {{- if .Values.global.certificates }}
-      - name: dnscerts
-        secret:
-          secretName: dns.istio-galley-service-account
-  {{- end }}
   {{- if .Values.global.controlPlaneSecurityEnabled }}
       - name: envoy-config
         configMap:
           name: galley-envoy-config
   {{- end }}
-      - name: config
-        configMap:
-          name: istio-galley-configuration
       # Different config map from pilot, to allow independent config and rollout.
       # Both are derived from values.yaml.
       - name: mesh-config

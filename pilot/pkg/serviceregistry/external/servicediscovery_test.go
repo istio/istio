@@ -21,12 +21,12 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func createServiceEntries(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
@@ -209,6 +209,8 @@ func TestNonServiceConfig(t *testing.T) {
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+			Group:             collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
+			Version:           collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",

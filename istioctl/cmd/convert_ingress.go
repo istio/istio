@@ -28,11 +28,11 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
-	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/validation"
 )
 
@@ -133,7 +133,7 @@ func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error
 
 func writeYAMLOutput(schemas collection.Schemas, configs []model.Config, writer io.Writer) {
 	for i, cfg := range configs {
-		s, exists := schemas.FindByKind(cfg.Type)
+		s, exists := schemas.FindByGroupVersionKind(cfg.GroupVersionKind())
 		if !exists {
 			log.Errorf("Unknown kind %q for %v", cfg.Type, cfg.Name)
 			continue
