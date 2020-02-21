@@ -600,11 +600,6 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {
 
 	filterStack := make([]*listener.Filter, 0)
-	// always add the filter for forwarding downstream sni if egress proxy is set. This will be a no-op
-	// if there is nothing to be done. But if the sidecar is wrapping https traffic into mtls for egress gateway,
-	// this filter will copy sni from https into mtls for the egress gateway
-	filterStack = append(filterStack, &listener.Filter{Name: util.ForwardDownstreamSniFilter})
-
 	var egressCluster string
 
 	if util.IsAllowAnyOutbound(node) {
@@ -617,9 +612,12 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 			// build a cluster out of this destination
 			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
 				nil, 0)
+			// When the sidecar is wrapping https traffic into mtls for egress gateway,
+			// this filter will copy sni from https into mtls for the egress gateway
+			filterStack = append(filterStack, &listener.Filter{Name: util.ForwardDownstreamSniFilter})
 		}
 	} else {
-		 egressCluster = util.BlackHoleCluster
+		egressCluster = util.BlackHoleCluster
 	}
 
 	tcpProxy := &tcp_proxy.TcpProxy{

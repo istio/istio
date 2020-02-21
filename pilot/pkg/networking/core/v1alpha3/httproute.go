@@ -486,7 +486,7 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 			// user has provided an explicit destination for all the unknown traffic.
 			// build a cluster out of this destination
 			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
-				nil,0)
+				nil, 0)
 		}
 
 		return &route.VirtualHost{
