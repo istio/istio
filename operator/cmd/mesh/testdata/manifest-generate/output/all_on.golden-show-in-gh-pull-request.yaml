@@ -7119,6 +7119,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
           - name: istio-token
@@ -7152,6 +7154,10 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
+      - name: config-volume
+        configMap:
+          name: istio
+          optional: true
       - name: egressgateway-certs
         secret:
           secretName: "istio-egressgateway-certs"
@@ -7973,6 +7979,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
           - name: istio-token
@@ -8010,6 +8018,10 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
+      - name: config-volume
+        configMap:
+          name: istio
+          optional: true
       - name: ingressgateway-certs
         secret:
           secretName: "istio-ingressgateway-certs"

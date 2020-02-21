@@ -6732,6 +6732,8 @@ spec:
             cpu: 100m
             memory: 128Mi
         volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
         - mountPath: /etc/istio/citadel-ca-cert
           name: citadel-ca-cert
         - mountPath: /var/run/secrets/tokens
@@ -6770,6 +6772,10 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
+      - configMap:
+          name: istio
+          optional: true
+        name: config-volume
       - name: ingressgateway-certs
         secret:
           optional: true
