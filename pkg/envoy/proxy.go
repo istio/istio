@@ -51,7 +51,6 @@ type ProxyConfig struct {
 	PilotSubjectAltName []string
 	MixerSubjectAltName []string
 	NodeIPs             []string
-	DNSRefreshRate      string
 	PodName             string
 	PodNamespace        string
 	PodIP               net.IP
@@ -154,7 +153,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:                e.Node,
-			DNSRefreshRate:      e.DNSRefreshRate,
 			Proxy:               &e.Config,
 			PilotSubjectAltName: e.PilotSubjectAltName,
 			MixerSubjectAltName: e.MixerSubjectAltName,
