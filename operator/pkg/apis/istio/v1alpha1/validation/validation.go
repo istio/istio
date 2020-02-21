@@ -28,8 +28,13 @@ const (
 )
 
 // ValidateConfig  calls validation func for every defined element in Values
-func ValidateConfig(failOnMissingValidation bool, values *valuesv1alpha1.Values, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
+func ValidateConfig(failOnMissingValidation bool, iopvalues map[string]interface{}, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
 	var validationErrors util.Errors
+	iopvalString := util.ToYAML(iopvalues)
+	values := &valuesv1alpha1.Values{}
+	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
+		return util.NewErrs(err)
+	}
 	validationErrors = util.AppendErrs(validationErrors, validateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
 	validationErrors = util.AppendErrs(validationErrors, validateFeatures(values, iopls))
 	return validationErrors
@@ -58,6 +63,9 @@ func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *val
 	k := e.Kind()
 	if k == reflect.Ptr || k == reflect.Interface {
 		e = e.Elem()
+	}
+	if !e.IsValid() {
+		return nil
 	}
 	// check for method on value
 	method := e.MethodByName(validationMethodName)
