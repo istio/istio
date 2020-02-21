@@ -641,7 +641,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	return filterStack
 }
 
-// TODO: This code is still insufficent. Ideally we should be parsing all the virtual services
+// TODO: This code is still insufficient. Ideally we should be parsing all the virtual services
 // with TLS blocks and build the appropriate filter chain matches and routes here. And then finally
 // evaluate the left over unmatched TLS traffic using allow_any or registry_only.
 // See https://github.com/istio/istio/issues/21170
