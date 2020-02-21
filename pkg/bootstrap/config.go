@@ -125,6 +125,11 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PilotCertProvider(cfg.PilotCertProvider),
 		option.OutlierLogPath(cfg.OutlierLogPath))
 
+	if cfg.STSPort > 0 {
+		opts = append(opts, option.STSEnabled(true),
+			option.STSPort(cfg.STSPort))
+	}
+
 	// Support passing extra info from node environment as metadata
 	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""
 	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, sdsEnabled, cfg.STSPort)
