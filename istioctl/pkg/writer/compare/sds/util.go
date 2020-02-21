@@ -21,7 +21,7 @@ import (
 	"time"
 
 	envoy_admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"

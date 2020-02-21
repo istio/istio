@@ -9341,8 +9341,6 @@ spec:
                 fieldPath: spec.nodeName
           - name: "REPAIR_LABEL-PODS"
             value: "{{.Values.cni.repair.labelPods}}"
-          - name: "REPAIR_CREATE-EVENTS"
-            value: "{{.Values.cni.repair.createEvents}}"
           # Set to true to enable pod deletion
           - name: "REPAIR_DELETE-PODS"
             value: "{{.Values.cni.repair.deletePods}}"
@@ -9450,11 +9448,10 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
 
   repair:
     enabled: true
-    hub: gcr.io/istio-testing
-    tag: latest
+    hub: ""
+    tag: ""
 
     labelPods: "true"
-    createEvents: "true"
     deletePods: "true"
 
     initContainerName: "istio-validation"
@@ -10613,22 +10610,14 @@ template: |
     - sidecar
     - --domain
     - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-    - --configPath
-    - "/etc/istio/proxy"
-    - --binaryPath
-    - "/usr/local/bin/envoy"
     - --serviceCluster
     {{ if ne "" (index .ObjectMeta.Labels "app") -}}
     - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
     {{ else -}}
     - "{{ valueOrDefault .DeploymentMeta.Name `+"`"+`istio-proxy`+"`"+` }}.{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}"
     {{ end -}}
-    - --discoveryAddress
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/discoveryAddress`+"`"+` .ProxyConfig.DiscoveryAddress }}"
     - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
     - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
-    - --dnsRefreshRate
-    - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
     - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
@@ -34180,8 +34169,6 @@ spec:
             - --controlPlaneAuthPolicy
             - NONE
               {{- end }}
-            - --dnsRefreshRate
-            - "300s"
             - --statusPort
             - "15020"
               {{- if .Values.global.trustDomain }}
