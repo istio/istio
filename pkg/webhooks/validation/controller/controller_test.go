@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -27,10 +28,13 @@ import (
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	dfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	kubeTypedAdmission "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	kubeTypedCore "k8s.io/client-go/kubernetes/typed/core/v1"
+	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/filewatcher"
@@ -162,6 +166,7 @@ type fakeController struct {
 
 	fakeWatcher *filewatcher.FakeWatcher
 	*fake.Clientset
+	dFakeClient     *dfake.FakeDynamicClient
 	reconcileDoneCh chan struct{}
 }
 
@@ -181,6 +186,8 @@ func createTestController(t *testing.T) *fakeController {
 		ServiceName:       istiod,
 	}
 
+	dfakeClient := dfake.NewSimpleDynamicClient(runtime.NewScheme())
+
 	caChanged := make(chan bool, 10)
 	changed := func(path string, added bool) {
 		switch path {
@@ -196,6 +203,7 @@ func createTestController(t *testing.T) *fakeController {
 		injectedCABundle: caBundle0,
 		fakeWatcher:      fakeWatcher,
 		Clientset:        fakeClient,
+		dFakeClient:      dfakeClient,
 		reconcileDoneCh:  make(chan struct{}, 100),
 	}
 
@@ -219,7 +227,7 @@ func createTestController(t *testing.T) *fakeController {
 	}
 
 	var err error
-	fc.Controller, err = newController(o, fakeClient, newFileWatcher, readFile, reconcileDone)
+	fc.Controller, err = newController(o, fakeClient, dfakeClient, newFileWatcher, readFile, reconcileDone)
 	if err != nil {
 		t.Fatalf("failed to create test controller: %v", err)
 	}
@@ -261,10 +269,24 @@ func TestGreenfield(t *testing.T) {
 		Should(Equal(unpatchedWebhookConfig), "no config update when endpoint not present")
 
 	_ = c.endpointStore.Add(istiodEndpoint)
+
+	// verify the webhook isn't updated if invalid config is accepted.
+	c.dFakeClient.PrependReactor("create", "gateways", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.Unstructured{}, nil
+	})
+	reconcileHelper(t, c)
+	g.Expect(c.ValidatingWebhookConfigurations().Get(istiod, kubeApisMeta.GetOptions{})).
+		Should(Equal(unpatchedWebhookConfig), "no config update when endpoint not present")
+
+	// verify the webhook is updated after the controller can confirm invalid config is rejected.
+	c.dFakeClient.PrependReactor("create", "gateways", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.Unstructured{}, errors.New("invalid config")
+	})
 	reconcileHelper(t, c)
 	g.Expect(c.Actions()[0].Matches("update", "validatingwebhookconfigurations")).Should(BeTrue())
 	g.Expect(c.ValidatingWebhookConfigurations().Get(istiod, kubeApisMeta.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundle0), "istiod config created when endpoint is ready")
+
 }
 
 func TestUnregisterValidationWebhook(t *testing.T) {

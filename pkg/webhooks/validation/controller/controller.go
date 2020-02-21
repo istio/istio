@@ -31,12 +31,15 @@ import (
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	kubeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -47,6 +50,7 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
@@ -120,12 +124,15 @@ func (o Options) String() string {
 type readFileFunc func(filename string) ([]byte, error)
 
 type Controller struct {
-	o                 Options
-	client            kubernetes.Interface
-	queue             workqueue.RateLimitingInterface
-	sharedInformers   informers.SharedInformerFactory
-	endpointReadyOnce bool
-	fw                filewatcher.FileWatcher
+	o                             Options
+	client                        kubernetes.Interface
+	dface                         dynamic.Interface
+	dynamicResourceInterface      dynamic.ResourceInterface
+	queue                         workqueue.RateLimitingInterface
+	sharedInformers               informers.SharedInformerFactory
+	endpointReadyOnce             bool
+	dryRunOfInvalidConfigRejected bool
+	fw                            filewatcher.FileWatcher
 
 	// unittest hooks
 	readFile      readFileFunc
@@ -217,13 +224,14 @@ var (
 	endpointGVK = kubeApiCore.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiCore.Endpoints{}).Name())
 )
 
-func New(o Options, client kubernetes.Interface) (*Controller, error) {
-	return newController(o, client, filewatcher.NewWatcher, ioutil.ReadFile, nil)
+func New(o Options, client kubernetes.Interface, dface dynamic.Interface) (*Controller, error) {
+	return newController(o, client, dface, filewatcher.NewWatcher, ioutil.ReadFile, nil)
 }
 
 func newController(
 	o Options,
 	client kubernetes.Interface,
+	dface dynamic.Interface,
 	newFileWatcher filewatcher.NewFileWatcherFunc,
 	readFile readFileFunc,
 	reconcileDone func(),
@@ -233,13 +241,21 @@ func newController(
 		return nil, err
 	}
 
+	r := collections.IstioNetworkingV1Alpha3Gateways.Resource()
+	dynamicResourceInterface := dface.Resource(kubeSchema.GroupVersionResource{
+		Group:    r.Group(),
+		Version:  r.Version(),
+		Resource: r.Plural(),
+	})
+
 	c := &Controller{
-		o:             o,
-		client:        client,
-		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
-		fw:            caFileWatcher,
-		readFile:      readFile,
-		reconcileDone: reconcileDone,
+		o:                        o,
+		client:                   client,
+		dynamicResourceInterface: dynamicResourceInterface,
+		queue:                    workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
+		fw:                       caFileWatcher,
+		readFile:                 readFile,
+		reconcileDone:            reconcileDone,
 	}
 
 	c.sharedInformers = informers.NewSharedInformerFactoryWithOptions(client, o.ResyncPeriod,
@@ -337,6 +353,19 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 		c.endpointReadyOnce = true
 	}
 
+	if !c.dryRunOfInvalidConfigRejected {
+		rejected, err := c.isDryRunOfInvalidConfigRejected()
+		if err != nil {
+			return err
+		}
+		if !rejected {
+			req := &reconcileRequest{"dry run of invalid config not rejected"}
+			c.queue.Add(req)
+			return nil
+		}
+		c.dryRunOfInvalidConfigRejected = true
+	}
+
 	// actively remove the webhook configuration if the controller is running but the webhook
 	if c.o.UnregisterValidationWebhook {
 		return c.deleteValidatingWebhookConfiguration()
@@ -364,6 +393,20 @@ func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
 	}
 	ready, reason = isEndpointReady(endpoint)
 	return ready, reason, nil
+}
+
+// Confirm invalid configuration is successfully rejected before switching to FAIL-CLOSE.
+func (c *Controller) isDryRunOfInvalidConfigRejected() (bool, error) {
+	invalid := &unstructured.Unstructured{}
+	invalid.SetName("invalid-gateway")
+	invalid.SetNamespace(c.o.WatchedNamespace)
+	invalid.Object["spec"] = map[string]interface{}{} // gateway must have at least one server
+
+	options := kubeApiMeta.CreateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
+	if _, err := c.dynamicResourceInterface.Create(invalid, options); err == nil {
+		return false, nil
+	}
+	return true, nil
 }
 
 func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string) {
