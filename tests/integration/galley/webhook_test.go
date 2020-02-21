@@ -15,6 +15,7 @@
 package galley
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -70,15 +71,17 @@ func TestWebhook(t *testing.T) {
 }
 
 func verifyValidatingWebhookConfiguration(c *kubeApiAdmission.ValidatingWebhookConfiguration) error {
-	if len(c.Webhooks) != 1 {
-		return fmt.Errorf("only one webhook expected. Found %v", len(c.Webhooks))
+	if len(c.Webhooks) == 0 {
+		return errors.New("no webhook entries found")
 	}
-	wh := c.Webhooks[0]
-	if *wh.FailurePolicy != kubeApiAdmission.Fail {
-		return fmt.Errorf("wrong failure policy. c %v wanted %v", *wh.FailurePolicy, kubeApiAdmission.Fail)
-	}
-	if len(wh.ClientConfig.CABundle) == 0 {
-		return fmt.Errorf("caBundle not matched")
+	for i, wh := range c.Webhooks {
+		if *wh.FailurePolicy != kubeApiAdmission.Fail {
+			return fmt.Errorf("webhook #%v: wrong failure policy. c %v wanted %v",
+				i, *wh.FailurePolicy, kubeApiAdmission.Fail)
+		}
+		if len(wh.ClientConfig.CABundle) == 0 {
+			return fmt.Errorf("webhook #%v: caBundle not matched", i)
+		}
 	}
 	return nil
 }
