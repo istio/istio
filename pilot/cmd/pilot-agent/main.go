@@ -100,7 +100,6 @@ var (
 	customConfigFile         string
 	proxyLogLevel            string
 	proxyComponentLogLevel   string
-	dnsRefreshRate           string
 	concurrency              int
 	templateFile             string
 	disableInternalTelemetry bool
@@ -422,7 +421,6 @@ var (
 				PilotSubjectAltName: pilotSAN,
 				MixerSubjectAltName: mixerSAN,
 				NodeIPs:             role.IPAddresses,
-				DNSRefreshRate:      dnsRefreshRate,
 				PodName:             podName,
 				PodNamespace:        podNamespace,
 				PodIP:               podIP,
@@ -685,8 +683,6 @@ func init() {
 	// See https://www.envoyproxy.io/docs/envoy/latest/operations/cli#cmdoption-component-log-level
 	proxyCmd.PersistentFlags().StringVar(&proxyComponentLogLevel, "proxyComponentLogLevel", "misc:error",
 		"The component log level used to start the Envoy proxy")
-	proxyCmd.PersistentFlags().StringVar(&dnsRefreshRate, "dnsRefreshRate", "300s",
-		"The dns_refresh_rate for bootstrap STRICT_DNS clusters")
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
 		"number of worker threads to run")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
