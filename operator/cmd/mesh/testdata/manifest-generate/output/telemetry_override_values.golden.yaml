@@ -4,6 +4,7 @@ metadata:
   name: prometheus
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:

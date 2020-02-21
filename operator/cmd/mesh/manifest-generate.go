@@ -20,19 +20,16 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
-	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/version"
-
 	"istio.io/istio/operator/pkg/helm"
-
-	"github.com/spf13/cobra"
-
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/version"
 )
 
 type manifestGenerateArgs struct {
@@ -146,8 +143,13 @@ func GenManifests(inFilename []string, setOverlayYAML string, force bool,
 
 	manifests, errs := cp.RenderManifest()
 	if errs != nil {
-		return manifests, mergedIOPS, errs.ToError()
+		return nil, nil, errs.ToError()
 	}
+
+	if manifests, err = manifest.AddManagedLabelsNoReorder(manifests); err != nil {
+		return nil, nil, err
+	}
+
 	return manifests, mergedIOPS, nil
 }
 

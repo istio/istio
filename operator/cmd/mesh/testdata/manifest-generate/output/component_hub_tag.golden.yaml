@@ -11,6 +11,7 @@ kind: ClusterRole
 metadata:
   name: prometheus-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 rules:
@@ -36,6 +37,7 @@ kind: ClusterRoleBinding
 metadata:
   name: prometheus-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 roleRef:
@@ -55,6 +57,7 @@ metadata:
   name: prometheus
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 data:
@@ -308,6 +311,7 @@ metadata:
   name: prometheus
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 spec:
@@ -513,6 +517,7 @@ metadata:
   annotations:
     prometheus.io/scrape: 'true'
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 spec:
@@ -531,6 +536,7 @@ metadata:
   name: prometheus
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 ---
@@ -545,6 +551,7 @@ kind: ClusterRole
 metadata:
   name: istio-reader-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-reader
     release: istio
 rules:
@@ -570,6 +577,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-reader-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-reader
     release: istio
 roleRef:
@@ -589,6 +597,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-citadel
     chart: istio
     heritage: Tiller
@@ -1315,6 +1324,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-citadel
     chart: istio
     heritage: Tiller
@@ -2041,6 +2051,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-mixer
     chart: istio
     heritage: Tiller
@@ -2253,6 +2264,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-mixer
     chart: istio
     heritage: Tiller
@@ -2347,6 +2359,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-mixer
     chart: istio
     heritage: Tiller
@@ -2432,6 +2445,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-mixer
     chart: istio
     heritage: Tiller
@@ -2513,6 +2527,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -3502,6 +3517,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -3799,6 +3815,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -3951,6 +3968,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -4100,6 +4118,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -4381,6 +4400,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -5099,6 +5119,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     chart: istio
     heritage: Tiller
@@ -5176,6 +5197,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     chart: istio
     heritage: Tiller
@@ -5341,6 +5363,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     chart: istio
     heritage: Tiller
@@ -5404,6 +5427,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     chart: istio
     heritage: Tiller
@@ -5560,6 +5584,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -5648,6 +5673,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     chart: istio
     heritage: Tiller
@@ -5737,6 +5763,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     chart: istio
     heritage: Tiller
@@ -5849,6 +5876,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     chart: istio
     heritage: Tiller
@@ -6052,6 +6080,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -6252,6 +6281,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -6329,6 +6359,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-pilot
     chart: istio
     heritage: Tiller
@@ -6434,6 +6465,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: adapters.config.istio.io
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     package: adapter
     istio: mixer-adapter
@@ -6466,6 +6498,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: templates.config.istio.io
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     package: template
     istio: mixer-template
@@ -6498,6 +6531,7 @@ kind: Namespace
 metadata:
   name: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     istio-operator-managed: Reconcile
     istio-injection: disabled
 ---
@@ -6509,6 +6543,7 @@ metadata:
   name: istio-reader-service-account
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-reader
     release: istio
 ---
@@ -6522,6 +6557,7 @@ kind: ClusterRole
 metadata:
   name: istio-cni
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-cni
     release: istio
 rules:
@@ -6539,6 +6575,7 @@ kind: ClusterRole
 metadata:
   name: istio-cni-repair-role
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-cni
     release: istio
 rules:
@@ -6556,6 +6593,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-cni
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-cni
     release: istio
 roleRef:
@@ -6575,6 +6613,7 @@ metadata:
   name: istio-cni-repair-rolebinding
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     k8s-app: istio-cni-repair
 subjects:
 - kind: ServiceAccount
@@ -6593,6 +6632,7 @@ metadata:
   name: istio-cni-config
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-cni
     release: istio
 data:
@@ -6617,6 +6657,7 @@ metadata:
   name: istio-cni-node
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     k8s-app: istio-cni-node
     release: istio
 spec:
@@ -6721,6 +6762,7 @@ metadata:
   name: istio-cni
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-cni
     release: istio
 ---
@@ -6735,6 +6777,7 @@ apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     release: istio
@@ -6760,6 +6803,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     release: istio
@@ -7002,6 +7046,7 @@ metadata:
   name: ingressgateway
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 spec:
   selector:
@@ -7023,6 +7068,7 @@ metadata:
   name: ingressgateway
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -7044,6 +7090,7 @@ metadata:
   name: istio-ingressgateway-sds
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 rules:
 - apiGroups: [""]
@@ -7058,6 +7105,7 @@ metadata:
   name: istio-ingressgateway-sds
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7076,6 +7124,7 @@ metadata:
   namespace: istio-system
   annotations:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -7128,6 +7177,7 @@ metadata:
   name: istio-ingressgateway-service-account
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -7141,6 +7191,7 @@ metadata:
   name: default
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 spec:
   egress:
@@ -7156,6 +7207,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
 spec:
@@ -7178,6 +7230,7 @@ kind: ClusterRole
 metadata:
   name: istio-galley-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 rules:
   # For reading Istio resources
@@ -7230,6 +7283,7 @@ kind: ClusterRole
 metadata:
   name: istio-pilot-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: pilot
     release: istio
 rules:
@@ -7273,6 +7327,7 @@ kind: ClusterRole
 metadata:
   name: istiod-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
 rules:
@@ -7347,6 +7402,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-pilot-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: pilot
     release: istio
 roleRef:
@@ -7365,6 +7421,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istiod-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
 roleRef:
@@ -7384,6 +7441,7 @@ metadata:
   name: istio
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 data:
 
@@ -7549,6 +7607,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     istio: pilot
     release: istio
@@ -7737,6 +7796,7 @@ kind: "MeshPolicy"
 metadata:
   name: "default"
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 spec:
   peers:
@@ -7751,6 +7811,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 data:
 
@@ -8371,6 +8432,7 @@ metadata:
   name: istio-sidecar-injector
 
   labels:
+    operator.istio.io/managed: Reconcile
     app: sidecar-injector
     release: istio
 webhooks:
@@ -8399,6 +8461,7 @@ metadata:
   name: istiod-
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
     istio: pilot
@@ -8418,6 +8481,7 @@ metadata:
   name: istio-pilot
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: pilot
     release: istio
     istio: pilot
@@ -8447,6 +8511,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
 spec:
@@ -8470,6 +8535,7 @@ metadata:
   name: istiod-service-account
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
 ---
@@ -8478,6 +8544,8 @@ metadata:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: metadata-exchange-1.4
   namespace: istio-system
 spec:
@@ -8508,6 +8576,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: stats-filter-1.4
   namespace: istio-system
 spec:
@@ -8602,6 +8672,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: metadata-exchange-1.5
   namespace: istio-system
 spec:
@@ -8636,6 +8708,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: tcp-metadata-exchange-1.5
   namespace: istio-system
 spec:
@@ -8690,6 +8764,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: stats-filter-1.5
   namespace: istio-system
 spec:
@@ -8796,6 +8872,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: tcp-stats-filter-1.5
   namespace: istio-system
 spec:
@@ -8896,6 +8974,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: metadata-exchange-1.6
   namespace: istio-system
 spec:
@@ -8930,6 +9010,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: tcp-metadata-exchange-1.6
   namespace: istio-system
 spec:
@@ -8984,6 +9066,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: stats-filter-1.6
   namespace: istio-system
 spec:
@@ -9090,6 +9174,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: tcp-stats-filter-1.6
   namespace: istio-system
 spec:
@@ -9193,6 +9279,7 @@ metadata:
   name: istiod-istio-system
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
     istio: istiod
@@ -9232,6 +9319,7 @@ metadata:
   name: istio-galley
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: galley
     release: istio
     istio: galley

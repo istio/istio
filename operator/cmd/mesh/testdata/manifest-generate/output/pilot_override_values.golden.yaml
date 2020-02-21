@@ -4,6 +4,7 @@ metadata:
   name: istiod
   namespace: istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     istio: pilot
     release: istio

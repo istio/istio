@@ -27,6 +27,7 @@ apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     release: istio
   name: istio-telemetry
@@ -52,6 +53,7 @@ kind: ClusterRole
 metadata:
   name: istio-mixer-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 rules:
@@ -75,6 +77,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-mixer-admin-role-binding-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 roleRef:
@@ -94,6 +97,7 @@ metadata:
   name: istioproxy
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -236,6 +240,7 @@ metadata:
   name: kubernetes
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -301,6 +306,7 @@ metadata:
   name: requestcount
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -337,6 +343,7 @@ metadata:
   name: requestduration
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -373,6 +380,7 @@ metadata:
   name: requestsize
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -409,6 +417,7 @@ metadata:
   name: responsesize
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -445,6 +454,7 @@ metadata:
   name: tcpbytesent
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -478,6 +488,7 @@ metadata:
   name: tcpbytereceived
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -511,6 +522,7 @@ metadata:
   name: tcpconnectionsopened
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -544,6 +556,7 @@ metadata:
   name: tcpconnectionsclosed
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -577,6 +590,7 @@ metadata:
   name: prometheus
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -779,6 +793,7 @@ metadata:
   name: promhttp
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -799,6 +814,7 @@ metadata:
   name: promtcp
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -817,6 +833,7 @@ metadata:
   name: promtcpconnectionopen
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -834,6 +851,7 @@ metadata:
   name: promtcpconnectionclosed
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -851,6 +869,7 @@ metadata:
   name: kubernetesenv
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -871,6 +890,7 @@ metadata:
   name: kubeattrgenrulerule
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -887,6 +907,7 @@ metadata:
   name: tcpkubeattrgenrulerule
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -904,6 +925,7 @@ metadata:
   name: attributes
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -947,6 +969,7 @@ metadata:
   name: istio-telemetry
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 spec:
@@ -974,6 +997,7 @@ metadata:
   namespace: istio-system
   name: telemetry-envoy-config
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 data:
   # Explicitly defined - moved from istio/istio/pilot/docker.
@@ -1259,6 +1283,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-mixer
     istio: mixer
     release: istio
@@ -1394,6 +1419,7 @@ metadata:
   name: istio-telemetry
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: telemetry
     release: istio
     istio: mixer
@@ -1414,6 +1440,7 @@ metadata:
   name: istio-telemetry
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: mixer
     istio: mixer
     release: istio
@@ -1439,6 +1466,7 @@ metadata:
   name: istio-mixer-service-account
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
 ---

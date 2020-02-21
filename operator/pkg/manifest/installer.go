@@ -968,3 +968,35 @@ func logAndPrint(v ...interface{}) {
 	scope.Infof(s)
 	fmt.Println(s)
 }
+
+// AddManagedLabelsNoReorder applies two label rules to the given manifest map:
+// 1. Adds metadata.labels to any resource without this key.
+// 2. Add metadata.labels.operatorLabelStr: operatorReconcileStr label, which marks the resource as being managed
+// by istioctl. This is used to select resources for pruning.
+func AddManagedLabelsNoReorder(mm name.ManifestMap) (name.ManifestMap, error) {
+	rules := []*util.Rule{
+		{
+			Path: util.PathFromString("metadata"),
+			Key:  "labels",
+		},
+		{
+			Path: util.PathFromString("metadata.labels"),
+			Key:  operatorLabelStr,
+			Val:  operatorReconcileStr,
+		},
+	}
+	mmn := make(name.ManifestMap)
+	for k, mms := range mm {
+		var msn []string
+		for _, m := range mms {
+			var err error
+			mn, err := util.ProcessYAMLText(m, rules)
+			if err != nil {
+				return nil, err
+			}
+			msn = append(msn, mn)
+		}
+		mmn[k] = msn
+	}
+	return mmn, nil
+}

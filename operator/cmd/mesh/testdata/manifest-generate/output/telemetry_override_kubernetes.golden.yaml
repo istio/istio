@@ -2,6 +2,7 @@ apiVersion: config.istio.io/v1alpha2
 kind: handler
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-telemetry
     release: istio
   name: prometheus
@@ -215,6 +216,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-mixer
     istio: mixer
     release: istio

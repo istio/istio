@@ -25,6 +25,7 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-ingress-1-ns
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -48,6 +49,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     release: istio
@@ -285,6 +287,7 @@ metadata:
   name: ingressgateway
   namespace: istio-ingress-1-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 spec:
   selector:
@@ -306,6 +309,7 @@ metadata:
   name: ingressgateway
   namespace: istio-ingress-1-ns
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -327,6 +331,7 @@ metadata:
   name: istio-ingressgateway-sds
   namespace: istio-ingress-1-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 rules:
 - apiGroups: [""]
@@ -341,6 +346,7 @@ metadata:
   name: istio-ingressgateway-sds
   namespace: istio-ingress-1-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -359,6 +365,7 @@ metadata:
   namespace: istio-ingress-1-ns
   annotations:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -411,6 +418,7 @@ metadata:
   name: istio-ingressgateway-service-account
   namespace: istio-ingress-1-ns
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -424,6 +432,7 @@ metadata:
   name: default
   namespace: istio-ingress-1-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 spec:
   egress:
@@ -440,6 +449,7 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-ingress-2-ns
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -465,6 +475,7 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-ingress-2-ns
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -704,6 +715,7 @@ metadata:
   name: ingressgateway
   namespace: istio-ingress-2-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 spec:
   selector:
@@ -725,6 +737,7 @@ metadata:
   name: ingressgateway
   namespace: istio-ingress-2-ns
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -746,6 +759,7 @@ metadata:
   name: istio-ingressgateway-sds
   namespace: istio-ingress-2-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 rules:
 - apiGroups: [""]
@@ -760,6 +774,7 @@ metadata:
   name: istio-ingressgateway-sds
   namespace: istio-ingress-2-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -778,6 +793,7 @@ metadata:
   namespace: istio-ingress-2-ns
   annotations:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -830,6 +846,7 @@ metadata:
   name: istio-ingressgateway-service-account
   namespace: istio-ingress-2-ns
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -843,6 +860,7 @@ metadata:
   name: default
   namespace: istio-ingress-2-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 spec:
   egress:

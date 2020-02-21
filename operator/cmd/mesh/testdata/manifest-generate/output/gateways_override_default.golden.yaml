@@ -11,6 +11,7 @@ kind: ClusterRole
 metadata:
   name: prometheus-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 rules:
@@ -36,6 +37,7 @@ kind: ClusterRoleBinding
 metadata:
   name: prometheus-istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 roleRef:
@@ -55,6 +57,7 @@ metadata:
   name: prometheus
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 data:
@@ -308,6 +311,7 @@ metadata:
   name: prometheus
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 spec:
@@ -513,6 +517,7 @@ metadata:
   annotations:
     prometheus.io/scrape: 'true'
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 spec:
@@ -531,6 +536,7 @@ metadata:
   name: prometheus
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: prometheus
     release: istio
 ---
@@ -559,6 +565,7 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-ingress-ns
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -582,6 +589,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     release: istio
@@ -821,6 +829,7 @@ metadata:
   name: ingressgateway
   namespace: istio-ingress-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 spec:
   selector:
@@ -842,6 +851,7 @@ metadata:
   name: ingressgateway
   namespace: istio-ingress-ns
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -863,6 +873,7 @@ metadata:
   name: istio-ingressgateway-sds
   namespace: istio-ingress-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 rules:
 - apiGroups: [""]
@@ -877,6 +888,7 @@ metadata:
   name: istio-ingressgateway-sds
   namespace: istio-ingress-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -895,6 +907,7 @@ metadata:
   namespace: istio-ingress-ns
   annotations:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -947,6 +960,7 @@ metadata:
   name: istio-ingressgateway-service-account
   namespace: istio-ingress-ns
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -960,6 +974,7 @@ metadata:
   name: default
   namespace: istio-ingress-ns
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 spec:
   egress:

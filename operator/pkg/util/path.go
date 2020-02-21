@@ -76,6 +76,63 @@ func (p Path) String() string {
 	return strings.Join(p, PathSeparator)
 }
 
+// Push adds elem to the end of p.
+func (p *Path) Push(elem string) {
+	*p = append(*p, elem)
+}
+
+// Pop removes the last element from p, or does nothing if p is empty.
+func (p *Path) Pop() {
+	if len(*p) == 0 {
+		return
+	}
+	*p = (*p)[:len(*p)-1]
+}
+
+// UpdateLastElem updates the last element of path
+func (p *Path) UpdateLastElem(newElem string) {
+	if len(*p) == 0 {
+		*p = append(*p, newElem)
+		return
+	}
+	(*p)[len(*p)-1] = newElem
+}
+
+// Last returns the last element of p or empty string is path is empty.
+func (p *Path) Last() string {
+	if len(*p) == 0 {
+		return ""
+	}
+	return (*p)[len(*p)-1]
+}
+
+// Copy copies the path in from into p.
+func (p *Path) Copy(from Path) {
+	*p = make(Path, len(from))
+	copy(*p, from)
+}
+
+// Equals reports whether p is equal to other.
+func (p *Path) Equals(other Path) bool {
+	if len(*p) != len(other) {
+		return false
+	}
+	for i, v := range *p {
+		if v != other[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// AppendPath appends newElem to p and returns the new Path. If newElem is empty, it returns p.
+func AppendPath(p Path, newElem string) Path {
+	if newElem == "" {
+		return p
+	}
+	return append(p, newElem)
+}
+
 // ToYAMLPath converts a path string to path such that the first letter of each path element is lower case.
 func ToYAMLPath(path string) Path {
 	p := PathFromString(path)
@@ -87,7 +144,8 @@ func ToYAMLPath(path string) Path {
 
 // ToYAMLPathString converts a path string such that the first letter of each path element is lower case.
 func ToYAMLPathString(path string) string {
-	return ToYAMLPath(path).String()
+	p := ToYAMLPath(path)
+	return p.String()
 }
 
 // IsValidPathElement reports whether pe is a valid path element.

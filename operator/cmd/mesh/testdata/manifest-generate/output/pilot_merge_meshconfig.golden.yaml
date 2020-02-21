@@ -90,6 +90,7 @@ data:
 kind: ConfigMap
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
   name: istio
   namespace: istio-system

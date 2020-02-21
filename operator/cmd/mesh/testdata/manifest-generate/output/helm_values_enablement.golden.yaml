@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-egressgateway
     istio: egressgateway
     release: istio
@@ -227,6 +228,7 @@ metadata:
   name: kiali
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: kiali
     release: istio
 spec:
@@ -342,6 +344,7 @@ metadata:
   namespace: istio-system
   annotations:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-egressgateway
     istio: egressgateway
     
@@ -372,6 +375,7 @@ metadata:
   name: kiali
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: kiali
     release: istio
 spec:

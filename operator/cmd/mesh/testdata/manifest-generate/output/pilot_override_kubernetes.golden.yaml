@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     istio: pilot
     release: istio
@@ -183,6 +184,7 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     app: pilot
     istio: pilot
     release: istio

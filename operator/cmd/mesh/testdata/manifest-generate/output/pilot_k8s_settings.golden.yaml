@@ -23,6 +23,7 @@ metadata:
   name: istiod
   namespace: istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
 spec:
@@ -45,6 +46,7 @@ kind: ClusterRole
 metadata:
   name: istio-galley-istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 rules:
   # For reading Istio resources
@@ -97,6 +99,7 @@ kind: ClusterRole
 metadata:
   name: istio-pilot-istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: pilot
     release: istio
 rules:
@@ -140,6 +143,7 @@ kind: ClusterRole
 metadata:
   name: istiod-istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
 rules:
@@ -214,6 +218,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-pilot-istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: pilot
     release: istio
 roleRef:
@@ -232,6 +237,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istiod-istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
 roleRef:
@@ -334,6 +340,7 @@ data:
 kind: ConfigMap
 metadata:
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
   name: istio
   namespace: istio-control
@@ -347,6 +354,7 @@ metadata:
   name: istiod
   namespace: istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     istio: pilot
     release: istio
@@ -535,6 +543,7 @@ kind: "MeshPolicy"
 metadata:
   name: "default"
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 spec:
   peers:
@@ -549,6 +558,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     release: istio
 data:
 
@@ -1168,6 +1178,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector-istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: sidecar-injector
     release: istio
 webhooks:
@@ -1196,6 +1207,7 @@ metadata:
   name: istiod-
   namespace: istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
     istio: pilot
@@ -1215,6 +1227,7 @@ metadata:
   name: istio-pilot
   namespace: istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: pilot
     release: istio
     istio: pilot
@@ -1244,6 +1257,7 @@ metadata:
   name: istiod
   namespace: istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
 spec:
@@ -1267,6 +1281,7 @@ metadata:
   name: istiod-service-account
   namespace: istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
 ---
@@ -1275,6 +1290,8 @@ metadata:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: metadata-exchange-1.4
   namespace: istio-control
 spec:
@@ -1305,6 +1322,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: stats-filter-1.4
   namespace: istio-control
 spec:
@@ -1399,6 +1418,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: metadata-exchange-1.5
   namespace: istio-control
 spec:
@@ -1433,6 +1454,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: tcp-metadata-exchange-1.5
   namespace: istio-control
 spec:
@@ -1487,6 +1510,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: stats-filter-1.5
   namespace: istio-control
 spec:
@@ -1593,6 +1618,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: tcp-stats-filter-1.5
   namespace: istio-control
 spec:
@@ -1693,6 +1720,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: metadata-exchange-1.6
   namespace: istio-control
 spec:
@@ -1727,6 +1756,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: tcp-metadata-exchange-1.6
   namespace: istio-control
 spec:
@@ -1781,6 +1812,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: stats-filter-1.6
   namespace: istio-control
 spec:
@@ -1887,6 +1920,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  labels:
+    operator.istio.io/managed: Reconcile
   name: tcp-stats-filter-1.6
   namespace: istio-control
 spec:
@@ -1990,6 +2025,7 @@ metadata:
   name: istiod-istio-control
   namespace: istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: istiod
     release: istio
     istio: istiod
@@ -2029,6 +2065,7 @@ metadata:
   name: istio-galley
   namespace: istio-control
   labels:
+    operator.istio.io/managed: Reconcile
     app: galley
     release: istio
     istio: galley

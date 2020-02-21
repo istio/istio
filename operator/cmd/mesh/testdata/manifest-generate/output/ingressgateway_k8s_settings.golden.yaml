@@ -4,6 +4,7 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     
@@ -247,6 +248,7 @@ kind: Service
 metadata:
   annotations: null
   labels:
+    operator.istio.io/managed: Reconcile
     app: istio-ingressgateway
     istio: ingressgateway
     release: istio
