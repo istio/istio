@@ -6967,6 +6967,7 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
+          
           - name: podinfo
             mountPath: /etc/istio/pod
           - name: egressgateway-certs
@@ -7841,6 +7842,7 @@ spec:
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
+
           - name: podinfo
             mountPath: /etc/istio/pod
           - name: ingressgateway-certs

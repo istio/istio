@@ -608,6 +608,7 @@ spec:
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
+
           - name: podinfo
             mountPath: /etc/istio/pod
           - name: ingressgateway-certs
