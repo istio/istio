@@ -6132,6 +6132,12 @@ rules:
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
 
+  # permissions to verify the webhook is ready and rejecting
+  # invalid config. We use --server-dry-run so no config is persisted.
+  - apiGroups: ["networking.istio.io"]
+    verbs: ["create"]
+    resources: ["gateways"]
+
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
     verbs: ["get", "watch", "list"]

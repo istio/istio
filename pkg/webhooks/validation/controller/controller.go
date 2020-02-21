@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -126,7 +127,6 @@ type readFileFunc func(filename string) ([]byte, error)
 type Controller struct {
 	o                             Options
 	client                        kubernetes.Interface
-	dface                         dynamic.Interface
 	dynamicResourceInterface      dynamic.ResourceInterface
 	queue                         workqueue.RateLimitingInterface
 	sharedInformers               informers.SharedInformerFactory
@@ -222,6 +222,12 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind, name st
 var (
 	configGVK   = kubeApiAdmission.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiAdmission.ValidatingWebhookConfiguration{}).Name())
 	endpointGVK = kubeApiCore.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiCore.Endpoints{}).Name())
+
+	istioGatewayGVK = kubeSchema.GroupVersionResource{
+		Group:    collections.IstioNetworkingV1Alpha3Gateways.Resource().Group(),
+		Version:  collections.IstioNetworkingV1Alpha3Gateways.Resource().Version(),
+		Resource: collections.IstioNetworkingV1Alpha3Gateways.Resource().Plural(),
+	}
 )
 
 func New(o Options, client kubernetes.Interface, dface dynamic.Interface) (*Controller, error) {
@@ -241,12 +247,7 @@ func newController(
 		return nil, err
 	}
 
-	r := collections.IstioNetworkingV1Alpha3Gateways.Resource()
-	dynamicResourceInterface := dface.Resource(kubeSchema.GroupVersionResource{
-		Group:    r.Group(),
-		Version:  r.Version(),
-		Resource: r.Plural(),
-	})
+	dynamicResourceInterface := dface.Resource(istioGatewayGVK).Namespace(o.WatchedNamespace)
 
 	c := &Controller{
 		o:                        o,
@@ -339,36 +340,18 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	scope.Infof("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
-	// don't create the webhook config before the endpoint is ready
-	if !c.endpointReadyOnce {
-		ready, reason, err := c.isEndpointReady()
-		if err != nil {
-			scope.Errorf("Error checking endpoint readiness: %v", err)
-			return err
-		}
-		if !ready {
-			scope.Infof("Endpoint %v is not ready: %v", c.o.ServiceName, reason)
-			return nil
-		}
-		c.endpointReadyOnce = true
-	}
-
-	if !c.dryRunOfInvalidConfigRejected {
-		rejected, err := c.isDryRunOfInvalidConfigRejected()
-		if err != nil {
-			return err
-		}
-		if !rejected {
-			req := &reconcileRequest{"dry run of invalid config not rejected"}
-			c.queue.Add(req)
-			return nil
-		}
-		c.dryRunOfInvalidConfigRejected = true
-	}
-
-	// actively remove the webhook configuration if the controller is running but the webhook
 	if c.o.UnregisterValidationWebhook {
 		return c.deleteValidatingWebhookConfiguration()
+	}
+
+	ready, err := c.readyForFailClose()
+	if err != nil {
+		return err
+	}
+
+	failurePolicy := kubeApiAdmission.Ignore
+	if ready {
+		failurePolicy = kubeApiAdmission.Fail
 	}
 
 	caBundle, err := c.loadCABundle()
@@ -378,8 +361,36 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 		// no point in retrying unless cert file changes.
 		return nil
 	}
+	return c.updateValidatingWebhookConfiguration(caBundle, failurePolicy)
+}
 
-	return c.updateValidatingWebhookConfiguration(caBundle)
+func (c *Controller) readyForFailClose() (bool, error) {
+	// don't create the webhook config before the endpoint is ready
+	if !c.endpointReadyOnce {
+		ready, reason, err := c.isEndpointReady()
+		if err != nil {
+			scope.Errorf("Error checking endpoint readiness: %v", err)
+			return false, err
+		}
+		if !ready {
+			scope.Infof("Endpoint %v is not ready: %v", c.o.ServiceName, reason)
+			return false, nil
+		}
+		scope.Infof("Endpoint %v is not ready", c.o.ServiceName)
+		c.endpointReadyOnce = true
+	}
+
+	if !c.dryRunOfInvalidConfigRejected {
+		if rejected, reason := c.isDryRunOfInvalidConfigRejected(); !rejected {
+			scope.Infof("Not ready to switch validation to fail-closed: %v", reason)
+			req := &reconcileRequest{"retry dry-run creation of invalid config"}
+			c.queue.AddAfter(req, time.Second)
+			return false, nil
+		}
+		scope.Info("Endpoint successfully rejected invalid config. Switching to fail-close.")
+		c.dryRunOfInvalidConfigRejected = true
+	}
+	return true, nil
 }
 
 func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
@@ -395,18 +406,29 @@ func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
 	return ready, reason, nil
 }
 
+const deniedRequestMessageFragment = `admission webhook "validation.istio.io" denied the request`
+
 // Confirm invalid configuration is successfully rejected before switching to FAIL-CLOSE.
-func (c *Controller) isDryRunOfInvalidConfigRejected() (bool, error) {
+func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason string) {
 	invalid := &unstructured.Unstructured{}
+	invalid.SetGroupVersionKind(istioGatewayGVK.GroupVersion().WithKind("Gateway"))
 	invalid.SetName("invalid-gateway")
 	invalid.SetNamespace(c.o.WatchedNamespace)
 	invalid.Object["spec"] = map[string]interface{}{} // gateway must have at least one server
 
-	options := kubeApiMeta.CreateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
-	if _, err := c.dynamicResourceInterface.Create(invalid, options); err == nil {
-		return false, nil
+	createOptions := kubeApiMeta.CreateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
+	_, err := c.dynamicResourceInterface.Create(invalid, createOptions)
+	if kubeErrors.IsAlreadyExists(err) {
+		updateOptions := kubeApiMeta.UpdateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
+		_, err = c.dynamicResourceInterface.Update(invalid, updateOptions)
 	}
-	return true, nil
+	if err == nil {
+		return false, fmt.Sprintf("dummy invalid config not rejected")
+	}
+	if !strings.Contains(err.Error(), deniedRequestMessageFragment) {
+		return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
+	}
+	return true, ""
 }
 
 func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string) {
@@ -445,14 +467,13 @@ func (c *Controller) deleteValidatingWebhookConfiguration() error {
 	return nil
 }
 
-func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte) error {
+func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
 	current, err := c.sharedInformers.Admissionregistration().V1beta1().
 		ValidatingWebhookConfigurations().Lister().Get(c.o.WebhookConfigName)
 
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
-			scope.Warnf("validatingwebhookconfiguration %v not found: %v",
-				c.o.WebhookConfigName, err)
+			scope.Warn(err.Error())
 			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
 			return nil
 		}
@@ -466,27 +487,27 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte) error
 
 	for i := range updated.Webhooks {
 		updated.Webhooks[i].ClientConfig.CABundle = caBundle
-		updated.Webhooks[i].FailurePolicy = &defaultFailurePolicy
+		updated.Webhooks[i].FailurePolicy = &failurePolicy
 	}
 
 	if !reflect.DeepEqual(updated, current) {
 		latest, err := c.client.AdmissionregistrationV1beta1().
 			ValidatingWebhookConfigurations().Update(updated)
 		if err != nil {
-			scope.Errorf("Failed to update validatingwebhookconfiguration %v (resourceVersion=%v): %v",
-				c.o.WebhookConfigName, updated.ResourceVersion, err)
+			scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
+				c.o.WebhookConfigName, failurePolicy, updated.ResourceVersion, err)
 			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
 			return err
 		}
 
-		scope.Infof("Successfully updated validatingwebhookconfiguration %v (resourceVersion=%v)",
-			c.o.WebhookConfigName, latest.ResourceVersion)
+		scope.Infof("Successfully updated validatingwebhookconfiguration %v (failurePolicy=%v,resourceVersion=%v)",
+			c.o.WebhookConfigName, failurePolicy, latest.ResourceVersion)
 		reportValidationConfigUpdate()
 		return nil
 	}
 
-	scope.Infof("validatingwebhookconfiguration %v (resourceVersion=%v) is up-to-date. No change required.",
-		c.o.WebhookConfigName, current.ResourceVersion)
+	scope.Infof("validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v) is up-to-date. No change required.",
+		c.o.WebhookConfigName, failurePolicy, current.ResourceVersion)
 
 	return nil
 }
@@ -509,8 +530,8 @@ var (
 	scheme *runtime.Scheme
 
 	// defaults per k8s spec
-	defaultFailurePolicy = kubeApiAdmission.Fail
-	FailurePolicyIgnore  = kubeApiAdmission.Ignore
+	FailurePolicyFail   = kubeApiAdmission.Fail
+	FailurePolicyIgnore = kubeApiAdmission.Ignore
 )
 
 func init() {
