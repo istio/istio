@@ -2203,7 +2203,7 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 		}
 	}
 
-	fallthroughNetworkFilters := buildFallthroughNetworkFilters(opts.push, node)
+	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(opts.push, node)
 
 	opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
 		networkFilters: fallthroughNetworkFilters,

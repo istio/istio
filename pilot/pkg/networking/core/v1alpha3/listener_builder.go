@@ -20,6 +20,8 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
@@ -261,18 +263,14 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	fallthroughNetworkFilters := buildFallthroughNetworkFilters(push, node)
-
-	filterChains := []*listener.FilterChain{
-		{
-			Filters: fallthroughNetworkFilters,
-		},
-	}
+	var filterChains []*listener.FilterChain
 
 	// The virtual listener will handle all traffic that does not match any other listeners, and will
 	// blackhole/passthrough depending on the outbound traffic policy. When passthrough is enabled,
 	// this has the risk of triggering infinite loops when requests are sent to the pod's IP, as it will
 	// send requests to itself. To block this we add an additional filter chain before that will always blackhole.
+	// Add this as the first filter chain in the virtual outbound. Unsure of the resolution priority in Envoy
+	// when we have TransportSocket, ALPN, etc. in different filter chain matches.
 	if features.RestrictPodIPTrafficLoops.Get() {
 		var cidrRanges []*core.CidrRange
 		for _, ip := range node.IPAddresses {
@@ -286,12 +284,15 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		}}, filterChains...)
 	}
 
+	filterChains = append(filterChains, buildOutboundCatchAllNetworkFilterChains(configgen, node, push)...)
+	filterChains = append(filterChains, buildOutboundCatchAllHTTPFilterChains(configgen, node, push)...)
+
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
-	var listFilter []*listener.ListenerFilter
-	if util.IsAllowAnyOutbound(node) && node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
-		listFilter = append(listFilter, &listener.ListenerFilter{
-			Name: xdsutil.TlsInspector,
-		})
+	var listenerFilters []*listener.ListenerFilter
+	listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
+
+	if util.IsProtocolSniffingEnabledForOutbound(node) {
+		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: xdsutil.HttpInspector})
 	}
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
@@ -300,7 +301,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		Address:          util.BuildAddress(actualWildcard, uint32(push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
-		ListenerFilters:  listFilter,
+		ListenerFilters:  listenerFilters,
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
@@ -325,9 +326,9 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
-	filterChains, needTLSForPassThroughFilterChain := newInboundPassthroughFilterChains(configgen, node, push)
+	filterChains, needTLSForPassThroughFilterChain := buildInboundCatchAllNetworkFilterChains(configgen, node, push)
 	if util.IsProtocolSniffingEnabledForInbound(node) {
-		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, node, push)...)
+		filterChains = append(filterChains, buildInboundCatchAllHTTPFilterChains(configgen, node, push)...)
 	}
 	builder.virtualInboundListener = &xdsapi.Listener{
 		Name:             VirtualInboundListenerName,
@@ -420,7 +421,7 @@ func newBlackholeFilter() *listener.Filter {
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.
 // This function also returns a boolean indicating whether or not the TLS inspector is needed
 // for the filter chain.
-func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
+func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, bool) {
 	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
@@ -518,7 +519,7 @@ func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 	return filterChains, needTLS
 }
 
-func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl,
+func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
@@ -598,7 +599,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl,
 	return filterChains
 }
 
-func buildFallthroughNetworkFilters(push *model.PushContext, node *model.Proxy) []*listener.Filter {
+func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {
 	tcpProxy := &tcp_proxy.TcpProxy{
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
@@ -638,4 +639,81 @@ func buildFallthroughNetworkFilters(push *model.PushContext, node *model.Proxy) 
 	})
 
 	return filterStack
+}
+
+// TODO: This code is still insufficent. Ideally we should be parsing all the virtual services
+// with TLS blocks and build the appropriate filter chain matches and routes here. And then finally
+// evaluate the left over unmatched TLS traffic using allow_any or registry_only.
+// See https://github.com/istio/istio/issues/21170
+func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
+	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+
+	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
+	// Add two filter chains: one for TLS traffic and one for TCP traffic so that we can get
+	// some telemetry out of TLS. We can add the TLS inspector regardless of outbound traffic policy
+	// because we always want to get telemetry
+	filterChains := []*listener.FilterChain{
+		{
+			FilterChainMatch: &listener.FilterChainMatch{
+				TransportProtocol: "tls",
+			},
+			Filters: filterStack,
+		},
+		{
+			Filters: filterStack,
+		},
+	}
+	return filterChains
+}
+
+func buildOutboundCatchAllHTTPFilterChains(_ *ConfigGeneratorImpl,
+	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+	if !util.IsProtocolSniffingEnabledForOutbound(node) {
+		return nil
+	}
+
+	in := &plugin.InputParams{
+		ListenerProtocol:           plugin.ListenerProtocolHTTP,
+		ListenerCategory:           networking.EnvoyFilter_SIDECAR_OUTBOUND,
+		DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+		Node:                       node,
+		Push:                       push,
+	}
+	httpOpts := &httpListenerOpts{
+		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
+		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
+		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
+		useRemoteAddress: features.UseRemoteAddress.Get(),
+		statPrefix:       string(model.TrafficDirectionOutbound) + "_" + VirtualOutboundListenerName,
+		routeConfig: &xdsapi.RouteConfiguration{
+			Name:             VirtualOutboundListenerName,
+			ValidateClusters: proto.BoolFalse,
+			VirtualHosts:     []*route.VirtualHost{buildPassthroughVirtualHost(node)},
+		},
+	}
+
+	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
+		httpOpts.connectionManager = &http_conn.HttpConnectionManager{
+			HttpProtocolOptions: &core.Http1ProtocolOptions{
+				AcceptHttp_10: true,
+			},
+		}
+	}
+	connectionManager := buildHTTPConnectionManager(in, httpOpts, nil)
+	filter := &listener.Filter{
+		Name:       xdsutil.HTTPConnectionManager,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
+	}
+
+	// filter chain that matches only for HTTP traffic
+	// the application protocols is set by the http inspector when it detects the traffic to be http
+	filterChains := []*listener.FilterChain{
+		{
+			FilterChainMatch: &listener.FilterChainMatch{
+				ApplicationProtocols: plaintextHTTPALPNs,
+			},
+			Filters: []*listener.Filter{filter},
+		},
+	}
+	return filterChains
 }
