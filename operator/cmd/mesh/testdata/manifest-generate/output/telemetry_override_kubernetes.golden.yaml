@@ -1,132 +1,3 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: istio-mixer
-    istio: mixer
-    release: istio
-  name: istio-telemetry
-  namespace: istio-system
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      istio: mixer
-      istio-mixer-type: telemetry
-  strategy:
-    rollingUpdate:
-      maxSurge: 100%
-      maxUnavailable: 25%
-  template:
-    metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
-      labels:
-        app: telemetry
-        istio: mixer
-        istio-mixer-type: telemetry
-    spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
-      containers:
-      - args:
-        - --monitoringPort=15014
-        - --address
-        - tcp://0.0.0.0:9091
-        - --log_output_level=default:info
-        - --configStoreURL=k8s://
-        - --configDefaultNamespace=istio-system
-        - --useAdapterCRDs=false
-        - --useTemplateCRDs=false
-        - --trace_zipkin_url=http://zipkin.istio-telemetry:1234/api/v1/spans
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: GOMAXPROCS
-          value: "6"
-        image: gcr.io/istio-testing/mixer:latest
-        livenessProbe:
-          httpGet:
-            path: /version
-            port: 15014
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        name: mixer
-        ports:
-        - containerPort: 9091
-        - containerPort: 15014
-        - containerPort: 42422
-        resources:
-          limits:
-            cpu: 4800m
-            memory: 4G
-          requests:
-            cpu: 1000m
-            memory: 1G
-        securityContext:
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
-        volumeMounts:
-        - mountPath: /sock
-          name: uds-socket
-        - mountPath: /var/run/secrets/istio.io/telemetry/adapter
-          name: telemetry-adapter-secret
-          readOnly: true
-      securityContext:
-        fsGroup: 1337
-      serviceAccountName: istio-mixer-service-account
-      volumes:
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.istio-mixer-service-account
-      - emptyDir: {}
-        name: uds-socket
-      - name: telemetry-adapter-secret
-        secret:
-          optional: true
-          secretName: telemetry-adapter-secret
-      - configMap:
-          name: telemetry-envoy-config
-        name: telemetry-envoy-config
----
-
-
 apiVersion: config.istio.io/v1alpha2
 kind: handler
 metadata:
@@ -337,4 +208,136 @@ spec:
       name: tcp_connections_closed_total
     metricsExpirationPolicy:
       metricsExpiryDuration: 10m
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: istio-mixer
+    istio: mixer
+    release: istio
+  name: istio-telemetry
+  namespace: istio-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      istio: mixer
+      istio-mixer-type: telemetry
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: telemetry
+        istio: mixer
+        istio-mixer-type: telemetry
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+      containers:
+      - args:
+        - --monitoringPort=15014
+        - --address
+        - tcp://0.0.0.0:9091
+        - --log_output_level=default:info
+        - --configStoreURL=k8s://
+        - --configDefaultNamespace=istio-system
+        - --useAdapterCRDs=false
+        - --useTemplateCRDs=false
+        - --trace_zipkin_url=http://zipkin.istio-telemetry:1234/api/v1/spans
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: GOMAXPROCS
+          value: "6"
+        image: gcr.io/istio-testing/mixer:latest
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 15014
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        name: mixer
+        ports:
+        - containerPort: 9091
+        - containerPort: 15014
+        - containerPort: 42422
+        resources:
+          limits:
+            cpu: 4800m
+            memory: 4G
+          requests:
+            cpu: 1000m
+            memory: 1G
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        volumeMounts:
+        - mountPath: /sock
+          name: uds-socket
+        - mountPath: /var/run/secrets/istio.io/telemetry/adapter
+          name: telemetry-adapter-secret
+          readOnly: true
+      securityContext:
+        fsGroup: 1337
+      serviceAccountName: istio-mixer-service-account
+      volumes:
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.istio-mixer-service-account
+      - emptyDir: {}
+        name: uds-socket
+      - name: telemetry-adapter-secret
+        secret:
+          optional: true
+          secretName: telemetry-adapter-secret
+      - configMap:
+          name: telemetry-envoy-config
+        name: telemetry-envoy-config
 ---

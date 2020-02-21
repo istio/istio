@@ -106,9 +106,6 @@ func init() {
 		p.InjectionOptions = bootstrap.InjectionOptions{
 			InjectionDirectory: "./var/lib/istio/inject",
 		}
-		p.ValidationOptions = bootstrap.ValidationOptions{
-			ValidationDirectory: "./var/lib/istio/validation",
-		}
 	})
 
 	// Process commandline args.
@@ -130,11 +127,11 @@ func init() {
 		"comma separated list of networking plugins to enable")
 
 	// MCP client flags
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", defaultMCPMaxMessageSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.MaxMessageSize, "mcpMaxMsgSize", defaultMCPMaxMessageSize,
 		"Max message size received by MCP's grpc client")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialWindowSize, "mcpInitialWindowSize", defaultMCPInitialWindowSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.InitialWindowSize, "mcpInitialWindowSize", defaultMCPInitialWindowSize,
 		"Initial window size for MCP's gRPC connection")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", defaultMCPInitialConnWindowSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.InitialConnWindowSize, "mcpInitialConnWindowSize", defaultMCPInitialConnWindowSize,
 		"Initial connection window size for MCP's gRPC connection")
 
 	// Config Controller options
@@ -164,7 +161,7 @@ func init() {
 		"Injection and validation service HTTPS address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.GrpcAddr, "grpcAddr", ":15010",
 		"Discovery service grpc address")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", ":15012",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", "",
 		"Discovery service grpc address, with https")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.MonitoringAddr, "monitoringAddr", ":15014",
 		"HTTP address to use for pilot's self-monitoring information")

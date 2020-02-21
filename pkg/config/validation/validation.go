@@ -718,6 +718,16 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 				}
 			}
+
+			errs = appendErrors(errs, validateSidecarIngressTLS(i.InboundTls))
+
+			// If inbound TLS defined, the port must be either TLS or HTTPS
+			if i.InboundTls != nil {
+				p := protocol.Parse(i.Port.Protocol)
+				if !p.IsTLS() {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: ingress cannot have TLS settings for non HTTPS/TLS ports"))
+				}
+			}
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -763,10 +773,52 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, false))
 				}
 			}
+
 		}
+
+		errs = appendErrors(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
 
 		return
 	})
+
+func validateSidecarIngressTLS(tls *networking.Server_TLSOptions) (errs error) {
+	if tls == nil {
+		return nil
+	}
+
+	if tls.HttpsRedirect {
+		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls must not set 'httpsRedirect'"))
+	}
+
+	if tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH ||
+		tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls mode must not be %s", tls.Mode.String()))
+	}
+	errs = appendErrors(errs, validateTLSOptions(tls))
+	return
+}
+
+func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) (errs error) {
+	if tp == nil {
+		return
+	}
+	mode := tp.GetMode()
+	if tp.EgressProxy != nil {
+		if mode != networking.OutboundTrafficPolicy_ALLOW_ANY {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy must be set only with ALLOW_ANY outbound_traffic_policy mode"))
+			return
+		}
+
+		errs = appendErrors(errs, ValidateFQDN(tp.EgressProxy.GetHost()))
+
+		if tp.EgressProxy.Port == nil {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy port must be non-nil"))
+			return
+		}
+		errs = appendErrors(errs, validateDestination(tp.EgressProxy))
+	}
+	return
+}
 
 func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
 	captureMode networking.CaptureMode) (errs error) {

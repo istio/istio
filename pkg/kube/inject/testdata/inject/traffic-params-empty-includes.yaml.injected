@@ -13,7 +13,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -34,30 +34,10 @@ spec:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
-        - --configPath
-        - /etc/istio/proxy
-        - --binaryPath
-        - /usr/local/bin/envoy
         - --serviceCluster
         - traffic.$(POD_NAMESPACE)
-        - --drainDuration
-        - 45s
-        - --parentShutdownDuration
-        - 1m0s
-        - --discoveryAddress
-        - istio-pilot:15010
-        - --zipkinAddress
-        - ""
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --connectTimeout
-        - 10s
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
-        - --dnsRefreshRate
-        - 300s
         - --statusPort
         - "15020"
         - --trust-domain=cluster.local
@@ -111,9 +91,6 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-            {"app":"traffic"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: traffic
         - name: ISTIO_META_OWNER
@@ -158,6 +135,8 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        - mountPath: /etc/istio/pod
+          name: podinfo
       initContainers:
       - command:
         - istio-iptables
@@ -204,6 +183,15 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
       - name: istio-token
         projected:
           sources:

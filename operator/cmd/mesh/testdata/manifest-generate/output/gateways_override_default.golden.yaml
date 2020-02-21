@@ -381,8 +381,6 @@ spec:
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --dnsRefreshRate
-            - "300s"
             - --statusPort
             - "15020"
             - --trust-domain=cluster.local
@@ -724,9 +722,6 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_ROUTER_MODE
           value: sni-dnat
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-            {"app":"istio-ingressgateway","istio":"ingressgateway"}
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         image: gcr.io/istio-testing/proxyv2:latest
@@ -764,6 +759,8 @@ spec:
             cpu: 111m
             memory: 222Mi
         volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
         - mountPath: /etc/istio/citadel-ca-cert
           name: citadel-ca-cert
         - mountPath: /var/run/secrets/tokens
@@ -771,6 +768,8 @@ spec:
           readOnly: true
         - mountPath: /var/run/ingress_gateway
           name: ingressgatewaysdsudspath
+        - mountPath: /etc/istio/pod
+          name: podinfo
         - mountPath: /etc/istio/ingressgateway-certs
           name: ingressgateway-certs
           readOnly: true
@@ -782,6 +781,15 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
       - emptyDir: {}
         name: ingressgatewaysdsudspath
       - name: istio-token
@@ -791,6 +799,10 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
+      - configMap:
+          name: istio
+          optional: true
+        name: config-volume
       - name: ingressgateway-certs
         secret:
           optional: true

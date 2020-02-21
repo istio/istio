@@ -26,7 +26,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -181,9 +180,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 
 	util.SortVirtualHosts(virtualHosts)
 
-	if features.EnableFallthroughRoute.Get() && !useSniffing {
+	if !useSniffing {
 		// This needs to be the last virtual host, as routes are evaluated in order.
 		if util.IsAllowAnyOutbound(node) {
+			egressCluster := util.PassthroughCluster
+			// no need to check for nil value as the previous if check has checked
+			if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
+				// user has provided an explicit destination for all the unknown traffic.
+				// build a cluster out of this destination
+				egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
+					nil, // service is being passe as nil to take care of the case when service becomes available at some later point in time
+					0)
+			}
 			virtualHosts = append(virtualHosts, &route.VirtualHost{
 				Name:    util.PassthroughRouteName,
 				Domains: []string{"*"},
@@ -194,13 +202,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 						},
 						Action: &route.Route_Route{
 							Route: &route.RouteAction{
-								ClusterSpecifier: &route.RouteAction_Cluster{Cluster: util.PassthroughCluster},
+								ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
 								// Disable timeout instead of assuming some defaults.
 								Timeout: ptypes.DurationProto(0 * time.Millisecond),
 							},
 						},
 					},
 				},
+				IncludeRequestAttemptCount: true,
 			})
 		} else {
 			virtualHosts = append(virtualHosts, &route.VirtualHost{
@@ -218,6 +227,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 						},
 					},
 				},
+				IncludeRequestAttemptCount: true,
 			})
 		}
 	}
@@ -315,9 +325,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
-					Name:    name,
-					Domains: []string{hostname, domainName(hostname, virtualHostWrapper.Port)},
-					Routes:  virtualHostWrapper.Routes,
+					Name:                       name,
+					Domains:                    []string{hostname, domainName(hostname, virtualHostWrapper.Port)},
+					Routes:                     virtualHostWrapper.Routes,
+					IncludeRequestAttemptCount: true,
 				})
 			} else {
 				push.AddMetric(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
@@ -330,9 +341,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 				uniques[name] = struct{}{}
 				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
-					Name:    name,
-					Domains: domains,
-					Routes:  virtualHostWrapper.Routes,
+					Name:                       name,
+					Domains:                    domains,
+					Routes:                     virtualHostWrapper.Routes,
+					IncludeRequestAttemptCount: true,
 				})
 			} else {
 				push.AddMetric(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))

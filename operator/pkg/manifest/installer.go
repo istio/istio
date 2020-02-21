@@ -517,39 +517,56 @@ func buildComponentApplyOutput(stdout string, stderr string, objects object.K8sO
 	}
 }
 
+func istioCustomResources(group string) bool {
+	switch group {
+	case "config.istio.io",
+		"rbac.istio.io",
+		"security.istio.io",
+		"authentication.istio.io",
+		"networking.istio.io":
+		return true
+	}
+	return false
+}
+
 // DefaultObjectOrder is default sorting function used to sort k8s objects.
 func DefaultObjectOrder() func(o *object.K8sObject) int {
 	return func(o *object.K8sObject) int {
 		gk := o.Group + "/" + o.Kind
-		switch gk {
+		switch {
 		// Create CRDs asap - both because they are slow and because we will likely create instances of them soon
-		case "apiextensions.k8s.io/CustomResourceDefinition":
+		case gk == "apiextensions.k8s.io/CustomResourceDefinition":
 			return -1000
 
 			// We need to create ServiceAccounts, Roles before we bind them with a RoleBinding
-		case "/ServiceAccount", "rbac.authorization.k8s.io/ClusterRole":
+		case gk == "/ServiceAccount" || gk == "rbac.authorization.k8s.io/ClusterRole":
 			return 1
-		case "rbac.authorization.k8s.io/ClusterRoleBinding":
+		case gk == "rbac.authorization.k8s.io/ClusterRoleBinding":
 			return 2
 
-			// Validation webook maybe impact CRs applied later
-		case "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+			// validatingwebhookconfiguration is configured to FAIL-OPEN in the default install. For the
+			// re-install case we want to apply the validatingwebhookconfiguration first to reset any
+			// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
+		case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
 			return 3
 
+		case istioCustomResources(o.Group):
+			return 4
+
 			// Pods might need configmap or secrets - avoid backoff by creating them first
-		case "/ConfigMap", "/Secrets":
+		case gk == "/ConfigMap" || gk == "/Secrets":
 			return 100
 
 			// Create the pods after we've created other things they might be waiting for
-		case "extensions/Deployment", "app/Deployment":
+		case gk == "extensions/Deployment" || gk == "app/Deployment":
 			return 1000
 
 			// Autoscalers typically act on a deployment
-		case "autoscaling/HorizontalPodAutoscaler":
+		case gk == "autoscaling/HorizontalPodAutoscaler":
 			return 1001
 
 			// Create services late - after pods have been started
-		case "/Service":
+		case gk == "/Service":
 			return 10000
 
 		default:

@@ -129,14 +129,6 @@ var (
 		return time.Second * time.Duration(terminationDrainDurationVar.Get())
 	}
 
-	EnableFallthroughRoute = env.RegisterBoolVar(
-		"PILOT_ENABLE_FALLTHROUGH_ROUTE",
-		true,
-		"EnableFallthroughRoute provides an option to add a final wildcard match for routes. "+
-			"When ALLOW_ANY traffic policy is used, a Passthrough cluster is used. "+
-			"When REGISTRY_ONLY traffic policy is used, a 502 error is returned.",
-	)
-
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = env.RegisterBoolVar(

@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	envoyauth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -41,7 +42,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/strcase"
 )
@@ -67,6 +70,9 @@ const (
 
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
+	// ForwardDownstreamSniFilter forwards the sni from downstream connections to upstream
+	// Used only in the fallthrough filter stack for TLS connections
+	ForwardDownstreamSniFilter = "forward_downstream_sni"
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
@@ -584,4 +590,77 @@ func shortHostName(host string, attributes model.ServiceAttributes) string {
 		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
 	}
 	return host
+}
+
+// ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
+func ApplyToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
+	// configure TLS with SDS
+	if metadata.SdsEnabled && sdsPath != "" {
+		// configure egress with SDS
+		tlsContext.ValidationContextType = &envoyauth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &envoyauth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext: &envoyauth.CertificateValidationContext{VerifySubjectAltName: subjectAltNames},
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(
+					authn_model.SDSRootResourceName, sdsPath),
+			},
+		}
+		tlsContext.TlsCertificateSdsSecretConfigs = []*envoyauth.SdsSecretConfig{
+			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsPath),
+		}
+	} else {
+		// SDS disabled, fall back on using mounted certificates
+		base := metadata.SdsBase + constants.AuthCertsPath
+		tlsServerRootCert := model.GetOrDefault(metadata.TLSServerRootCert, base+constants.RootCertFilename)
+
+		tlsContext.ValidationContextType = authn_model.ConstructValidationContext(tlsServerRootCert, subjectAltNames)
+
+		tlsServerCertChain := model.GetOrDefault(metadata.TLSServerCertChain, base+constants.CertChainFilename)
+		tlsServerKey := model.GetOrDefault(metadata.TLSServerKey, base+constants.KeyFilename)
+
+		tlsContext.TlsCertificates = []*envoyauth.TlsCertificate{
+			{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: tlsServerCertChain,
+					},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: tlsServerKey,
+					},
+				},
+			},
+		}
+	}
+}
+
+// ApplyCustomSDSToCommonTLSContext applies the customized sds to CommonTlsContext
+// Used for building both gateway/sidecar TLS context
+func ApplyCustomSDSToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, tlsOpts *networking.Server_TLSOptions, sdsUdsPath string) {
+	// create SDS config for gateway/sidecar to fetch key/cert from agent.
+	tlsContext.TlsCertificateSdsSecretConfigs = []*envoyauth.SdsSecretConfig{
+		authn_model.ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
+	}
+	// If tls mode is MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
+	// at gateway agent. Otherwise, use the static certificate validation context config.
+	if tlsOpts.Mode == networking.Server_TLSOptions_MUTUAL {
+		defaultValidationContext := &envoyauth.CertificateValidationContext{
+			VerifySubjectAltName:  tlsOpts.SubjectAltNames,
+			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,
+			VerifyCertificateHash: tlsOpts.VerifyCertificateHash,
+		}
+		tlsContext.ValidationContextType = &envoyauth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &envoyauth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext: defaultValidationContext,
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigWithCustomUds(
+					tlsOpts.CredentialName+authn_model.SdsCaSuffix, sdsUdsPath),
+			},
+		}
+	} else if len(tlsOpts.SubjectAltNames) > 0 {
+		tlsContext.ValidationContextType = &envoyauth.CommonTlsContext_ValidationContext{
+			ValidationContext: &envoyauth.CertificateValidationContext{
+				VerifySubjectAltName: tlsOpts.SubjectAltNames,
+			},
+		}
+	}
 }

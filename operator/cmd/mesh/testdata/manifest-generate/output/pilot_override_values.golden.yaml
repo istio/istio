@@ -4,7 +4,7 @@ metadata:
   name: istiod
   namespace: istio-control
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: istio
 spec:
@@ -18,14 +18,14 @@ spec:
   template:
     metadata:
       labels:
-        app: pilot
+        app: istiod
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       securityContext:
         fsGroup: 1337
       containers:
@@ -101,6 +101,9 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -117,9 +120,6 @@ spec:
             readOnly: true
           - name: istiod
             mountPath: /var/lib/istio/local
-            readOnly: true
-          - name: validation
-            mountPath: /var/lib/istio/validation
             readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
@@ -147,10 +147,6 @@ spec:
       - name: inject
         configMap:
           name: istio-sidecar-injector
-          optional: true
-      - name: validation
-        configMap:
-          name: istio-validation
           optional: true
       - name: config-volume
         configMap:
