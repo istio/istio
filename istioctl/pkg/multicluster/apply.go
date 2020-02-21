@@ -25,7 +25,6 @@ import (
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
@@ -81,8 +80,8 @@ func applySecret(env Environment, cluster *Cluster, curr *v1.Secret) error {
 func apply(mesh *Mesh, env Environment) error {
 	var errs *multierror.Error
 
-	currentSecretsByUID := make(map[types.UID]*v1.Secret)
-	existingSecretsByUID := make(map[types.UID]map[types.UID]*v1.Secret)
+	currentSecretsByUID := make(map[string]*v1.Secret)
+	existingSecretsByUID := make(map[string]map[string]*v1.Secret)
 
 	sortedClusters := mesh.SortedClusters()
 	for _, cluster := range sortedClusters {
@@ -108,10 +107,10 @@ func apply(mesh *Mesh, env Environment) error {
 			continue
 		}
 
-		currentSecretsByUID[cluster.uid] = secret
+		currentSecretsByUID[cluster.clusterName] = secret
 
 		// build the list of currentSecretsByUID to potentially prune
-		existingSecretsByUID[cluster.uid] = cluster.readRemoteSecrets(env)
+		existingSecretsByUID[cluster.clusterName] = cluster.readRemoteSecrets(env)
 	}
 
 	joined := make(map[string]bool)
@@ -122,7 +121,7 @@ func apply(mesh *Mesh, env Environment) error {
 		}
 
 		for _, second := range sortedClusters {
-			if first.uid == second.uid {
+			if first.clusterName == second.clusterName {
 				continue
 			}
 
@@ -131,7 +130,7 @@ func apply(mesh *Mesh, env Environment) error {
 			}
 
 			// skip pairs we've already joined
-			id0, id1 := string(first.uid), string(second.uid)
+			id0, id1 := first.clusterName, second.clusterName
 			if strings.Compare(id0, id1) > 0 {
 				id1, id0 = id0, id1
 			}
@@ -151,7 +150,7 @@ func apply(mesh *Mesh, env Environment) error {
 				{first, second},
 				{second, first},
 			} {
-				remoteSecret, ok := currentSecretsByUID[s.remote.uid]
+				remoteSecret, ok := currentSecretsByUID[s.remote.clusterName]
 				if !ok {
 					continue
 				}
@@ -159,7 +158,7 @@ func apply(mesh *Mesh, env Environment) error {
 				if err := applySecret(env, s.local, remoteSecret); err != nil {
 					env.Errorf("%v failed: %v\n", s.local, err)
 				}
-				delete(existingSecretsByUID[s.local.uid], s.remote.uid)
+				delete(existingSecretsByUID[s.local.clusterName], s.remote.clusterName)
 			}
 		}
 	}
@@ -167,7 +166,7 @@ func apply(mesh *Mesh, env Environment) error {
 	// existingSecretsByUID any leftover currentSecretsByUID
 	for uid, secrets := range existingSecretsByUID {
 		for _, secret := range secrets {
-			cluster := mesh.clustersByUID[uid]
+			cluster := mesh.clustersByClusterName[uid]
 			fmt.Printf("Pruning %v from %v\n", secret.Name, cluster)
 			if err := deleteSecret(cluster, secret); err != nil {
 				err := fmt.Errorf("failed to prune secret %v from cluster %v: %v", secret.Name, cluster, err)
