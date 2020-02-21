@@ -606,7 +606,7 @@ func checkLDSListeners(listenerMap map[string]*xdsapi.Listener, expectedNames []
 	gS := strings.Join(gotNames, ",")
 	eS := strings.Join(expectedNames, ",")
 	if gS != eS {
-		return fmt.Errorf("unexpected listeners:\ngot:%s\nwant:%s\n", gS, eS)
+		return fmt.Errorf("unexpected listeners:\ngot:%s\nwant:%s", gS, eS)
 	}
 	return nil
 }
