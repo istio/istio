@@ -223,6 +223,7 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
+			// TODO(incfly): address this to ensure the newWorkload takes cfg.Workloads into account.
 			workload, err := newWorkload(addr, c.cfg.Annotations, c.grpcPort, c.env.Accessor, c.ctx)
 			if err != nil {
 				return err
