@@ -6,6 +6,8 @@ spec:
       enabled: false
       k8s:
         replicaCount: 1
+    istiocoredns:
+      enabled: false
     kiali:
       enabled: false
       k8s:
@@ -445,7 +447,6 @@ spec:
       coreDNSImage: coredns/coredns
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       coreDNSTag: 1.6.2
-      enabled: false
     kiali:
       contextPath: /kiali
       createDemoSecret: false

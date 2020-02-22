@@ -37345,7 +37345,7 @@ var _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml = []byte(`apiVersio
 kind: IstioOperator
 spec:
   addonComponents:
-    coreDNS:
+    istiocoredns:
       enabled: true
 
   components:
@@ -38133,6 +38133,8 @@ spec:
         replicaCount: 1
     tracing:
       enabled: false
+    istiocoredns:
+      enabled: false
 
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/global.yaml
@@ -38588,7 +38590,6 @@ spec:
         annotations:
         tls:
     istiocoredns:
-      enabled: false
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
@@ -39802,7 +39803,7 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-  CoreDNS:
+  Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"
@@ -39973,7 +39974,7 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-  CoreDNS:
+  Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"

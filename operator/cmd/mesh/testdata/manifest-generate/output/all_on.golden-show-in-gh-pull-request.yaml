@@ -1,4 +1,7 @@
-# Resources for AddonComponents coreDNS component
+# AddonComponents grafana component is disabled.
+
+---
+# Resources for AddonComponents istiocoredns component
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -202,9 +205,6 @@ metadata:
     app: istiocoredns
     release: istio
 ---
-
----
-# AddonComponents grafana component is disabled.
 
 ---
 # AddonComponents kiali component is disabled.

@@ -3,6 +3,9 @@ unknown field "badKey" in v1alpha1.GlobalConfig
 # AddonComponents grafana component is disabled.
 
 ---
+# AddonComponents istiocoredns component is disabled.
+
+---
 # AddonComponents kiali component is disabled.
 
 ---
