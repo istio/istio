@@ -1,3 +1,12 @@
+# AddonComponents grafana component is disabled.
+
+---
+# AddonComponents istiocoredns component is disabled.
+
+---
+# AddonComponents kiali component is disabled.
+
+---
 # Resources for AddonComponents prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -531,6 +540,9 @@ metadata:
     app: prometheus
     release: istio
 ---
+
+---
+# AddonComponents istio-tracing component is disabled.
 
 # Resources for Base component
 
