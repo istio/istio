@@ -77,6 +77,7 @@ func newWorkload(addr kubeCore.EndpointAddress, annotations echo.Annotations, gr
 	}
 
 	var s *sidecar
+	fmt.Println("incfly debug newWorkload annotations ", addr, annotations)
 	if annotations.GetBool(echo.SidecarInject) {
 		if s, err = newSidecar(pod, accessor); err != nil {
 			return nil, err

@@ -72,6 +72,16 @@ type Config struct {
 	// ReadinessTimeout specifies the timeout that we wait the application to
 	// become ready.
 	ReadinessTimeout time.Duration
+
+	// Workloads contains the list of workloads config belonging to this echo service instance.
+	Workloads []WorkloadConfig
+}
+
+// WorkloadConfig is the config for a group of workloads (e.g. Kubernetes deployment).
+type WorkloadConfig struct {
+	Version     string
+	Annotations Annotations
+	// TODO: port more into workload config.
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)

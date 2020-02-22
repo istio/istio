@@ -58,49 +58,51 @@ spec:
   selector:
     app: {{ .Service }}
 ---
+{{$deployConfig := .Workloads }}
+{{- range $i, $w := $deployConfig }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Service }}-{{ .Version }}
+  name: {{ $.Service }}-{{ $w.Version }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ .Service }}
-      version: {{ .Version }}
-{{- if ne .Locality "" }}
-      istio-locality: {{ .Locality }}
+      app: {{ $.Service }}
+      version: {{ $w.Version }}
+{{- if ne $.Locality "" }}
+      istio-locality: {{ $.Locality }}
 {{- end }}
   template:
     metadata:
       labels:
-        app: {{ .Service }}
-        version: {{ .Version }}
-{{- if ne .Locality "" }}
-        istio-locality: {{ .Locality }}
+        app: {{ $.Service }}
+        version: {{ $w.Version }}
+{{- if ne $.Locality "" }}
+        istio-locality: {{ $.Locality }}
 {{- end }}
       annotations:
         foo: bar
-{{- if .WorkloadAnnotations }}
-{{- range $name, $value := .WorkloadAnnotations }}
+{{- if $w.Annotations }}
+{{- range $name, $value := $w.Annotations }}
         {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
 {{- end }}
-{{- if .IncludeInboundPorts }}
-        traffic.sidecar.istio.io/includeInboundPorts: "{{ .IncludeInboundPorts }}"
+{{- if $.IncludeInboundPorts }}
+        traffic.sidecar.istio.io/includeInboundPorts: "{{ $.IncludeInboundPorts }}"
 {{- end }}
     spec:
-{{- if .ServiceAccount }}
-      serviceAccountName: {{ .Service }}
+{{- if $.ServiceAccount }}
+      serviceAccountName: {{ $.Service }}
 {{- end }}
       containers:
       - name: app
-        image: {{ .Hub }}/app:{{ .Tag }}
-        imagePullPolicy: {{ .PullPolicy }}
+        image: {{ $.Hub }}/app:{{ $.Tag }}
+        imagePullPolicy: {{ $.PullPolicy }}
         securityContext:
           runAsUser: 1
         args:
-{{- range $i, $p := .ContainerPorts }}
+{{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
           - --grpc
 {{- else }}
@@ -108,14 +110,14 @@ spec:
 {{- end }}
           - "{{ $p.Port }}"
 {{- end }}
-{{- range $i, $p := .WorkloadOnlyPorts }}
+{{- range $i, $p := $.WorkloadOnlyPorts }}
           - --port
           - "{{ $p }}"
 {{- end }}
           - --version
           - "{{ .Version }}"
         ports:
-{{- range $i, $p := .ContainerPorts }}
+{{- range $i, $p := $.ContainerPorts }}
         - containerPort: {{ $p.Port }} 
 {{- if eq .Port 3333 }}
           name: tcp-health-port
@@ -135,6 +137,7 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
 ---
+{{- end}}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -173,6 +176,19 @@ func generateYAML(cfg echo.Config) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return generateYAMLWithSettings(cfg, settings)
+}
+
+func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string, error) {
+	// Convert legacy config to workload oritended.
+	if cfg.Workloads == nil {
+		cfg.Workloads = []echo.WorkloadConfig{
+			{
+				Version:     cfg.Version,
+				Annotations: cfg.Annotations,
+			},
+		}
+	}
 
 	// Separate the annotations.
 	serviceAnnotations := make(map[string]string)
@@ -203,6 +219,7 @@ func generateYAML(cfg echo.Config) (string, error) {
 		"ServiceAnnotations":  serviceAnnotations,
 		"WorkloadAnnotations": workloadAnnotations,
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
+		"Workloads":           cfg.Workloads,
 	}
 
 	// Generate the YAML content.
