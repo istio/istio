@@ -528,10 +528,6 @@ func (e configError) Reason() string {
 var (
 	codec  runtime.Codec
 	scheme *runtime.Scheme
-
-	// defaults per k8s spec
-	FailurePolicyFail   = kubeApiAdmission.Fail
-	FailurePolicyIgnore = kubeApiAdmission.Ignore
 )
 
 func init() {

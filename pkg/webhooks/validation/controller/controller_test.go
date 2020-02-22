@@ -43,6 +43,9 @@ import (
 )
 
 var (
+	failurePolicyFail   = kubeApiAdmission.Fail
+	failurePolicyIgnore = kubeApiAdmission.Ignore
+
 	istiodEndpoint = &kubeApiCore.Endpoints{
 		ObjectMeta: kubeApisMeta.ObjectMeta{
 			Name:      istiod,
@@ -78,7 +81,7 @@ var (
 					Resources:   []string{"*"},
 				},
 			}},
-			FailurePolicy: &FailurePolicyIgnore,
+			FailurePolicy: &failurePolicyIgnore,
 		}, {
 			Name: "hook1",
 			ClientConfig: kubeApiAdmission.WebhookClientConfig{Service: &kubeApiAdmission.ServiceReference{
@@ -94,7 +97,7 @@ var (
 					Resources:   []string{"*"},
 				},
 			}},
-			FailurePolicy: &FailurePolicyIgnore,
+			FailurePolicy: &failurePolicyIgnore,
 		}},
 	}
 
@@ -151,8 +154,8 @@ func init() {
 	webhookConfigWithCABundleIgnore.Webhooks[1].ClientConfig.CABundle = caBundle0
 
 	webhookConfigWithCABundleFail = webhookConfigWithCABundleIgnore.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
-	webhookConfigWithCABundleFail.Webhooks[0].FailurePolicy = &FailurePolicyFail
-	webhookConfigWithCABundleFail.Webhooks[1].FailurePolicy = &FailurePolicyFail
+	webhookConfigWithCABundleFail.Webhooks[0].FailurePolicy = &failurePolicyFail
+	webhookConfigWithCABundleFail.Webhooks[1].FailurePolicy = &failurePolicyFail
 }
 
 type fakeController struct {
