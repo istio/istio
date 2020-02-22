@@ -6580,19 +6580,6 @@ spec:
 ---
 
 
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  labels:
-    release: istio
-spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
----
-
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
