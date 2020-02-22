@@ -121,7 +121,7 @@ spec:
           timeoutSeconds: 5
         resources:
           requests:
-            cpu: 500m
+            cpu: 123m
             memory: 2048Mi
         securityContext:
           capabilities:

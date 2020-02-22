@@ -967,7 +967,7 @@ spec:
         - "*/*"
 ---
 
-# Pilot istio-pilot component is disabled.
+# Pilot istiod component is disabled.
 
 # Policy component is disabled.
 
