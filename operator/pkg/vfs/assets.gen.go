@@ -12024,19 +12024,6 @@ spec:
     tls:
       mode: DISABLE
 ---
-{{- else }}
-# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
----
 {{ end }}
 {{ end }}
 `)
