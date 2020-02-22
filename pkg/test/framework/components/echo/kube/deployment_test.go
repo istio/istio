@@ -1,7 +1,6 @@
 package kube
 
 import (
-	// "fmt"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -34,7 +33,6 @@ func TestDeploymentYAML(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to generate yaml %v", err)
 	}
-	// fmt.Println("yaml\n", yaml)
 }
 
 func TestLegacyConfig(t *testing.T) {

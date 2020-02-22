@@ -92,7 +92,6 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, err
 	}
 
-	// fmt.Printf("incfly debug cfg %v, yaml %v\n", cfg, generatedYAML)
 	// Deploy the YAML.
 	if err = env.ApplyContents(cfg.Namespace.Name(), generatedYAML); err != nil {
 		return nil, err
@@ -215,17 +214,15 @@ func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Inst
 	}
 }
 
-func (c *instance) initialize(endpoints *kubeCore.Endpoints, cfg echo.Config) error {
+func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	if c.workloads != nil {
 		// Already ready.
 		return nil
 	}
 
-	fmt.Printf("incfly debug instance.go/initialize() c.config %v, pass in config %v, endpoints %v\n", c.cfg, cfg, *endpoints)
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
-			fmt.Printf("incfly debug instance.go/initialize() address %v", addr.IP)
 			workload, err := newWorkload(addr, c.cfg.Annotations, c.grpcPort, c.env.Accessor, c.ctx)
 			if err != nil {
 				return err

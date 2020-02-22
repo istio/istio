@@ -15,7 +15,6 @@
 package kube
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -85,7 +84,6 @@ func (b *builder) newInstances() ([]echo.Instance, error) {
 			return nil, err
 		}
 		instances = append(instances, inst)
-		fmt.Printf("incfly debug newInstances %v, config %v", inst.cfg, cfg)
 	}
 	return instances, nil
 }
@@ -131,9 +129,7 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 
 	// Initialize the workloads for each instance.
 	for i, inst := range instances {
-		fmt.Printf("incfly debug builer.go %v\n", inst)
-		// this does not know whether an endpoint has annotation sidecar injected or not.
-		if err := inst.(*instance).initialize(instanceEndpoints[i], inst.Config()); err != nil {
+		if err := inst.(*instance).initialize(instanceEndpoints[i]); err != nil {
 			return err
 		}
 	}
