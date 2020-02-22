@@ -37950,10 +37950,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
         strategy:
           rollingUpdate:
             maxSurge: "100%"
@@ -39900,7 +39896,7 @@ componentMaps:
     SkipReverseTranslate: true
   Pilot:
     ResourceType:         "Deployment"
-    ResourceName:         "istio-pilot"
+    ResourceName:         "istiod"
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"
