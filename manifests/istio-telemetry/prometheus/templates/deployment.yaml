@@ -36,16 +36,19 @@ spec:
           args:
             - '--storage.tsdb.retention={{ .Values.prometheus.retention }}'
             - '--config.file=/etc/prometheus/prometheus.yml'
+{{- if $.Values.prometheus.contextPath }}
+            - '--web.external-url={{- $.Values.prometheus.contextPath -}}'
+{{- end }}
           ports:
             - containerPort: 9090
               name: http
           livenessProbe:
             httpGet:
-              path: /-/healthy
+              path: {{ $.Values.prometheus.contextPath }}/-/healthy
               port: 9090
           readinessProbe:
             httpGet:
-              path: /-/ready
+              path: {{ $.Values.prometheus.contextPath }}/-/ready
               port: 9090
           resources:
 {{- if .Values.prometheus.resources }}

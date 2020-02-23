@@ -76,6 +76,12 @@ spec:
           - name: GF_AUTH_ANONYMOUS_ORG_ROLE
             value: Admin
 {{- end }}
+{{- if $.Values.grafana.contextPath }}
+          - name: GF_SERVER_ROOT_URL
+            value: "%(protocol)s://%(domain)s:%(http_port)s{{- $.Values.grafana.contextPath -}}"
+          - name: GF_SERVER_SERVE_FROM_SUB_PATH
+            value: "true"
+{{- end }}
           - name: GF_PATHS_DATA
             value: /data/grafana
           {{- range $key, $value := $.Values.grafana.env }}
