@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"fmt"
 	"hash/fnv"
+	"net"
 	"reflect"
 	"sort"
 	"strconv"
@@ -705,6 +706,7 @@ func copyInternal(v interface{}) interface{} {
 
 // HashUint32 returns the hash code of IstioEndpoint in uint32 format.
 // The parameter affinity will be used to generate similar when endpoint Addresses are close.
+// This method is performance sensitive because it will be called every time as any endpoint changes.
 func (ep *IstioEndpoint) HashUint32(affinity uint32) uint32 {
 	if ep == nil {
 		return 0
@@ -712,35 +714,45 @@ func (ep *IstioEndpoint) HashUint32(affinity uint32) uint32 {
 
 	addr := ep.Address
 	total := 0
+	slot := -1
 
-	// Only appliable for IPv4 address
+	// Only applicable for IPv4 address.
 	if addr != "" && affinity > 0 {
-		slots := strings.Split(addr, ".")
-		if len(slots) == 4 {
-			var err error
+		// 'net.ParseIP()' is faster than string parsing.
+		ip := net.ParseIP(addr)
+		if ip != nil {
+			ip = ip.To4()
 
-			for ix := range slots {
-				num, e := strconv.Atoi(slots[ix])
-				if e != nil {
-					err = e
-					break
-				}
-
-				// From the IP higher bits to lower bits
-				num = num << (8 * (3 - ix))
-
+			for ix, b := range ip {
+				num := int(b) << uint(8*(3-ix))
 				total += num
 			}
 
-			if err == nil {
-				slot := int(total / int(affinity))
-				addr = fmt.Sprintf("%d", slot)
-			}
+			slot = total / int(affinity)
 		}
 	}
 
+	// Same as: fmt.Sprintf("%s-%s-%s-%s-%s", addr, ep.Network, ep.Locality, ep.Attributes.Name, ep.Family)
+	// Avoid using 'fmt.Sprintf()' to increase performance.
+	buf := &bytes.Buffer{}
+	buf.Grow(30)
+
+	if slot >= 0 {
+		buf.WriteString(strconv.Itoa(slot))
+	} else {
+		buf.WriteString(addr)
+	}
+	buf.WriteString("-")
+	buf.WriteString(ep.Network)
+	buf.WriteString("-")
+	buf.WriteString(ep.Locality)
+	buf.WriteString("-")
+	buf.WriteString(ep.Attributes.Name)
+	buf.WriteString("-")
+	buf.WriteString(ep.Family.String())
+
 	h := fnv.New32a()
-	h.Write([]byte(fmt.Sprintf("%s-%s-%s-%s-%s", addr, ep.Network, ep.Locality, ep.Attributes.Name, ep.Family)))
+	h.Write(buf.Bytes())
 
 	sum := h.Sum32()
 
@@ -749,7 +761,7 @@ func (ep *IstioEndpoint) HashUint32(affinity uint32) uint32 {
 	return sum
 }
 
-// Equals return whether two endpoints are the same
+// Equals return whether two endpoints are the same.
 func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
 	if ep == nil || other == nil {
 		return false
@@ -757,7 +769,7 @@ func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
 
 	// We try to avoid using reflect.DeepEqual() because it is very costly.
 	// About 100 times difference between using reflect or not when the
-	// number of endpoints waiting to be compared is very large(such as 1000+)
+	// number of endpoints waiting to be compared is very large(such as 1000+).
 	if !ep.Labels.Equals(other.Labels) {
 		return false
 	}

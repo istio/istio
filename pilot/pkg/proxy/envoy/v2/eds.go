@@ -642,7 +642,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	push.Mutex.Unlock()
 	if svc == nil {
 		// Should not happen, just in case
-		return s.loadAssignmentFailback(clusterName, groupName, push)
+		return s.loadAssignmentFallback(clusterName, groupName, push)
 	}
 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
@@ -672,13 +672,13 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	s.mutex.RUnlock()
 	if !f {
 		// Should not happen, just in case
-		return s.loadAssignmentFailback(clusterName, groupName, push)
+		return s.loadAssignmentFallback(clusterName, groupName, push)
 	}
 
 	svcPort, f := svc.Ports.GetByPort(port)
 	if !f {
 		// Should not happen, just in case
-		return s.loadAssignmentFailback(clusterName, groupName, push)
+		return s.loadAssignmentFallback(clusterName, groupName, push)
 	}
 
 	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push, groupName)
@@ -691,7 +691,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	return cla
 }
 
-func (s *DiscoveryServer) loadAssignmentFailback(clusterName string, groupName string,
+func (s *DiscoveryServer) loadAssignmentFallback(clusterName string, groupName string,
 	push *model.PushContext) *xdsapi.ClusterLoadAssignment {
 	if groupName == "" {
 		// Shouldn't happen here - but just in case fallback
