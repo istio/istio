@@ -62,7 +62,7 @@ type Server struct {
 	tokenManager stsservice.TokenManager
 	stsServer    *http.Server
 	// Port number that server listens on.
-	Port         int
+	Port int
 }
 
 // Config for the STS server.
