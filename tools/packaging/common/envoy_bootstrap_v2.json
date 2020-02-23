@@ -284,6 +284,7 @@
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
+        {{- if eq .config.ControlPlaneAuthPolicy 1 }}
         "transport_socket": {
           "name": "envoy.transport_sockets.tls",
           "typed_config": {
@@ -320,6 +321,7 @@
             }
           }
         },
+        {{- end }}
         "load_assignment": {
           "cluster_name": "xds-rgpc",
           "endpoints": [{
@@ -537,9 +539,9 @@
                       }
                     ]
                   },
-                  "http_filters": {
+                  "http_filters": [{
                     "name": "envoy.router"
-                  }
+                  }]
                 }
               }
             ]
@@ -558,8 +560,8 @@
         "collector_cluster": "zipkin",
         "collector_endpoint": "/api/v2/spans",
         "collector_endpoint_version": "HTTP_JSON",
-        "trace_id_128bit": "true",
-        "shared_span_context": "false"
+        "trace_id_128bit": true,
+        "shared_span_context": false
       }
     }
   }

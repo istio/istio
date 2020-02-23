@@ -27,12 +27,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/ptypes"
+
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	tracev2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
@@ -172,9 +173,9 @@ func TestGolden(t *testing.T) {
 			},
 			check: func(got *v2.Bootstrap, t *testing.T) {
 				// nolint: staticcheck
-				cfg := got.Tracing.Http.GetConfig()
+				cfg := got.Tracing.Http.GetTypedConfig()
 				sdMsg := tracev2.OpenCensusConfig{}
-				if err := conversion.StructToMessage(cfg, &sdMsg); err != nil {
+				if err := ptypes.UnmarshalAny(cfg, &sdMsg); err != nil {
 					t.Fatalf("unable to parse: %v %v", cfg, err)
 				}
 
