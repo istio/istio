@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 
@@ -60,6 +61,8 @@ type Server struct {
 	// generated token to the STS server.
 	tokenManager stsservice.TokenManager
 	stsServer    *http.Server
+	// Port number that server listens on.
+	Port         int
 }
 
 // Config for the STS server.
@@ -80,9 +83,16 @@ func NewServer(config Config, tokenManager stsservice.TokenManager) (*Server, er
 		Addr:    fmt.Sprintf("%s:%d", config.LocalHostAddr, config.LocalPort),
 		Handler: mux,
 	}
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", config.LocalHostAddr, config.LocalPort))
+	if err != nil {
+		log.Errorf("Server failed to listen %v", err)
+		return nil, err
+	}
+	// If passed in port is 0, get the actual chosen port.
+	s.Port = ln.Addr().(*net.TCPAddr).Port
 	go func() {
-		stsServerLog.Infof("Start listening on %s:%d", config.LocalHostAddr, config.LocalPort)
-		err := s.stsServer.ListenAndServe()
+		stsServerLog.Infof("Start listening on %s:%d", config.LocalHostAddr, s.Port)
+		err := s.stsServer.Serve(ln)
 		// ListenAndServe always returns a non-nil error.
 		stsServerLog.Errora(err)
 	}()
