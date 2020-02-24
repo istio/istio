@@ -86,7 +86,7 @@ type EdsCluster struct {
 	LoadAssignment *xdsapi.ClusterLoadAssignment
 
 	// EdsClients keeps track of all nodes monitoring the cluster.
-	EdsClients map[string]*XdsConnection `json:"-"`
+	EdsClients map[string]struct{} `json:"-"`
 }
 
 // TODO: add prom metrics !
@@ -804,7 +804,7 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
 // stream. As of 0.7 envoy watches a single cluster per gprc stream.
-func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
+func (s *DiscoveryServer) removeEdsCon(clusterName string, conID string) {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
 		adsLog.Warnf("EDS: Missing cluster: %s", clusterName)
@@ -815,12 +815,12 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 	defer edsClusterMutex.Unlock()
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	delete(c.EdsClients, node)
+	delete(c.EdsClients, conID)
 	if len(c.EdsClients) == 0 {
 		// This happens when a previously used cluster is no longer watched by any
 		// sidecar. It should not happen very often - normally all clusters are sent
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
-		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", node, clusterName)
+		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", conID, clusterName)
 		delete(edsClusters, clusterName)
 	}
 }
@@ -852,7 +852,7 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 		c := edsClusters[ac]
 		if c == nil {
 			c = &EdsCluster{
-				EdsClients: map[string]*XdsConnection{},
+				EdsClients: map[string]struct{}{},
 			}
 			edsClusters[ac] = c
 		}
@@ -860,7 +860,7 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 		// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
 		// Currently use edsClusterMutex lock
 		c.mutex.Lock()
-		c.EdsClients[connection.ConID] = connection
+		c.EdsClients[connection.ConID] = struct{}{}
 		c.mutex.Unlock()
 	}
 }
