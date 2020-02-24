@@ -41,14 +41,19 @@ const (
 )
 
 var (
-	ist        istio.Instance
-	bookinfoNs namespace.Instance
-	g          galley.Instance
-	ing        ingress.Instance
-	prom       prometheus.Instance
+	ist           istio.Instance
+	bookinfoNs    namespace.Instance
+	g             galley.Instance
+	ing           ingress.Instance
+	prom          prometheus.Instance
+	usingOperator bool
 )
 
 func TestTcpMetric(t *testing.T) { // nolint:interfacer
+	if !usingOperator {
+		t.Skip("Stats filter test only runs with operator")
+	}
+
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
@@ -117,6 +122,8 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.enabled"] = "true"
 	cfg.Values["telemetry.v1.enabled"] = "false"
 	cfg.Values["telemetry.v2.enabled"] = "true"
+
+	usingOperator = cfg.Operator
 }
 
 func testsetup(ctx resource.Context) (err error) {
@@ -164,7 +171,6 @@ func buildQuery() (destinationQuery string) {
 	destinationQuery = `istio_tcp_connections_opened_total{reporter="destination",`
 	labels := map[string]string{
 		"request_protocol":               "tcp",
-		"response_code":                  "0",
 		"destination_app":                "mongodb",
 		"destination_version":            "v1",
 		"destination_workload_namespace": bookinfoNs.Name(),
