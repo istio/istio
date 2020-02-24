@@ -22,10 +22,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ghodss/yaml"
+
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-
 	"istio.io/istio/operator/pkg/util"
-
 	"istio.io/pkg/log"
 )
 
@@ -271,7 +271,7 @@ type ValidatorFunc func(path util.Path, i interface{}) util.Errors
 // UnmarshalIOP unmarshals a string containing IstioOperator as YAML.
 func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 	iop := &v1alpha1.IstioOperator{}
-	if err := util.UnmarshalWithJSONPB(iopYAML, iop, false); err != nil {
+	if err := yaml.Unmarshal([]byte(iopYAML), iop); err != nil {
 		return nil, fmt.Errorf("%s:\n\nYAML:\n%s", err, iopYAML)
 	}
 	return iop, nil
