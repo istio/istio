@@ -1,6 +1,9 @@
 # AddonComponents grafana component is disabled.
 
 ---
+# AddonComponents istiocoredns component is disabled.
+
+---
 # AddonComponents kiali component is disabled.
 
 ---
@@ -967,7 +970,7 @@ spec:
         - "*/*"
 ---
 
-# Pilot istio-pilot component is disabled.
+# Pilot istiod component is disabled.
 
 # Policy component is disabled.
 

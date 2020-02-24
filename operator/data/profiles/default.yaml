@@ -31,10 +31,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
         strategy:
           rollingUpdate:
             maxSurge: "100%"
@@ -200,6 +196,8 @@ spec:
       k8s:
         replicaCount: 1
     tracing:
+      enabled: false
+    istiocoredns:
       enabled: false
 
   # Global values passed through to helm global.yaml.
@@ -656,7 +654,6 @@ spec:
         annotations:
         tls:
     istiocoredns:
-      enabled: false
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
