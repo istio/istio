@@ -105,37 +105,6 @@ func TestConvertAddressToCidr(t *testing.T) {
 	}
 }
 
-func TestGetEndpointAddress(t *testing.T) {
-	neUnix := &model.IstioEndpoint{
-		Family:  model.AddressFamilyUnix,
-		Address: "/var/run/test/test.sock",
-	}
-	aUnix := GetEndpointAddress(neUnix)
-	if aUnix.GetPipe() == nil {
-		t.Fatalf("GetAddress() => want Pipe, got %s", aUnix.String())
-	}
-	if aUnix.GetPipe().GetPath() != neUnix.Address {
-		t.Fatalf("GetAddress() => want path %s, got %s", neUnix.Address, aUnix.GetPipe().GetPath())
-	}
-
-	neIP := &model.IstioEndpoint{
-		Family:       model.AddressFamilyTCP,
-		Address:      "192.168.10.45",
-		EndpointPort: 4558,
-	}
-	aIP := GetEndpointAddress(neIP)
-	sock := aIP.GetSocketAddress()
-	if sock == nil {
-		t.Fatalf("GetAddress() => want SocketAddress, got %s", aIP.String())
-	}
-	if sock.GetAddress() != neIP.Address {
-		t.Fatalf("GetAddress() => want %s, got %s", neIP.Address, sock.GetAddress())
-	}
-	if sock.GetPortValue() != neIP.EndpointPort {
-		t.Fatalf("GetAddress() => want port %d, got port %d", neIP.EndpointPort, sock.GetPortValue())
-	}
-}
-
 func TestConvertLocality(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -464,59 +433,6 @@ var (
 	listener81 = &v2.Listener{Address: BuildAddress("0.0.0.0", 81)}
 	listenerip = &v2.Listener{Address: BuildAddress("1.1.1.1", 80)}
 )
-
-func BenchmarkGetByAddress(b *testing.B) {
-	for n := 0; n < b.N; n++ {
-		GetByAddress([]*v2.Listener{
-			listener80,
-			listener81,
-			listenerip,
-		}, *listenerip.Address)
-	}
-}
-
-func TestGetByAddress(t *testing.T) {
-	tests := []struct {
-		name      string
-		listeners []*v2.Listener
-		address   *core.Address
-		expected  *v2.Listener
-	}{
-		{
-			"no listeners",
-			[]*v2.Listener{},
-			BuildAddress("0.0.0.0", 80),
-			nil,
-		},
-		{
-			"single listener",
-			[]*v2.Listener{
-				listener80,
-			},
-			BuildAddress("0.0.0.0", 80),
-			listener80,
-		},
-		{
-			"multiple listeners",
-			[]*v2.Listener{
-				listener81,
-				listenerip,
-				listener80,
-			},
-			BuildAddress("0.0.0.0", 80),
-			listener80,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := GetByAddress(tt.listeners, *tt.address)
-			if got != tt.expected {
-				t.Errorf("Got %v, expected %v", got, tt.expected)
-			}
-		})
-	}
-}
 
 func TestMergeAnyWithStruct(t *testing.T) {
 	inHCM := &http_conn.HttpConnectionManager{

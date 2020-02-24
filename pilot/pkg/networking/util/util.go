@@ -193,29 +193,6 @@ func BuildAddress(bind string, port uint32) *core.Address {
 	}
 }
 
-// GetEndpointAddress returns an Envoy v2 API `Address` that represents this IstioEndpoint
-func GetEndpointAddress(n *model.IstioEndpoint) *core.Address {
-	switch n.Family {
-	case model.AddressFamilyTCP:
-		return BuildAddress(n.Address, n.EndpointPort)
-	case model.AddressFamilyUnix:
-		return &core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: n.Address}}}
-	default:
-		panic(fmt.Sprintf("unhandled Family %v", n.Family))
-	}
-}
-
-// GetByAddress returns a listener by its address
-// TODO(mostrowski): consider passing map around to save iteration.
-func GetByAddress(listeners []*xdsapi.Listener, addr core.Address) *xdsapi.Listener {
-	for _, l := range listeners {
-		if l != nil && proto.Equal(l.Address, &addr) {
-			return l
-		}
-	}
-	return nil
-}
-
 // MessageToAnyWithError converts from proto message to proto Any
 func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
 	b := proto.NewBuffer(nil)
