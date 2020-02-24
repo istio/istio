@@ -225,9 +225,6 @@ spec:
           name: egressgateway-ca-certs
           secretName: istio-egressgateway-ca-certs
         type: ClusterIP
-        zvpn:
-          enabled: true
-          suffix: global
       istio-ingressgateway:
         applicationPorts: ""
         autoscaleEnabled: true
@@ -288,7 +285,7 @@ spec:
           secretName: istio-ingressgateway-ca-certs
         type: LoadBalancer
         zvpn:
-          enabled: true
+          enabled: false
           suffix: global
     global:
       arch:

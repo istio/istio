@@ -467,9 +467,6 @@ spec:
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
-        zvpn:
-          suffix: global
-          enabled: true
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
@@ -496,7 +493,7 @@ spec:
         domain: ""
         type: LoadBalancer
         zvpn:
-          enabled: true
+          enabled: false
           suffix: global
         sds:
           enabled: false
