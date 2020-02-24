@@ -14,8 +14,6 @@
 package model
 
 import (
-	"regexp"
-
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -38,8 +36,7 @@ type EnvoyFilterConfigPatchWrapper struct {
 	Match     *networking.EnvoyFilter_EnvoyConfigObjectMatch
 	ApplyTo   networking.EnvoyFilter_ApplyTo
 	Operation networking.EnvoyFilter_Patch_Operation
-	// Pre-compile the regex from proxy version match in the match
-	ProxyVersionRegex *regexp.Regexp
+	ProxyVersion *IstioVersion
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
@@ -66,9 +63,13 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			// create a match all object
 			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}
 		} else if cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
-			// pre-compile the regex for proxy version if it exists
-			// ignore the error because validation catches invalid regular expressions.
-			cpw.ProxyVersionRegex, _ = regexp.Compile(cp.Match.Proxy.ProxyVersion)
+			// TODO: remove this hack after 1.5
+			if cp.Match.Proxy.ProxyVersion == "1\\.4.*" {
+				cpw.ProxyVersion = &IstioVersion{Major:1, Minor: 4, Patch: 65535}
+			} else {
+				// We expect this to be a x.y.* or a specific x.y.z format
+				cpw.ProxyVersion = ParseIstioVersion(cp.Match.Proxy.ProxyVersion)
+			}
 		}
 
 		if _, exists := out.Patches[cp.ApplyTo]; !exists {
@@ -94,13 +95,14 @@ func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
 		return true
 	}
 
-	if cp.ProxyVersionRegex != nil {
-		ver := proxy.Metadata.IstioVersion
-		if ver == "" {
-			// we do not have a proxy version but the user has a regex. so this is a mismatch
+	if cp.ProxyVersion != nil {
+		if proxy.IstioVersion == nil {
+			// we do not have a proxy version but the user has a version requirement. so this is a mismatch
 			return false
 		}
-		if !cp.ProxyVersionRegex.MatchString(ver) {
+		// the proxy version in EnvoyFilter should be greater or equal to the one we are matching against
+		// i.e. 1.5.* >= 1.5.7, but 1.4.* < 1.5.7
+		if cp.ProxyVersion.Compare(proxy.IstioVersion) >= 0 {
 			return false
 		}
 	}

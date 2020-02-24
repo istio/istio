@@ -17,10 +17,10 @@ package validation
 import (
 	"errors"
 	"fmt"
+	"istio.io/istio/pilot/pkg/model"
 	"net"
 	"net/http"
 	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -538,9 +538,12 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 
 			// ensure that the supplied regex for proxy version compiles
 			if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
-				if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
-					errs = appendErrors(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: golint,stylecheck
-					continue
+				// TODO: Nuke this hack in next version
+				if cp.Match.Proxy.ProxyVersion != "1\\.4.*" {
+					version := model.ParseIstioVersion(cp.Match.Proxy.ProxyVersion)
+					if version == model.MaxIstioVersion {
+						errs = appendErrors(errs, fmt.Errorf("Envoy filter: invalid format for proxy version, require x.y.z with characters are 0-9,*")) // nolint: golint,stylecheck
+					}
 				}
 			}
 			// ensure that applyTo, match and patch all line up
