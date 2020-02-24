@@ -686,6 +686,8 @@ gitlab.alibaba-inc.com/one-mesh/api v0.0.0-20200106115821-b69fd30a2f0e h1:Ye0Zdz
 gitlab.alibaba-inc.com/one-mesh/api v0.0.0-20200106115821-b69fd30a2f0e/go.mod h1:+cyHH83OwC0rFpwk8eXctzPNpiCAbB+r6kmMiAxxBHw=
 gitlab.alibaba-inc.com/one-mesh/api v0.0.0-20200215150939-aa28515cd791 h1:kF/X5w0/BcaUITDYKi0nNaFPcGNi0l0Ks9sjknphTpI=
 gitlab.alibaba-inc.com/one-mesh/api v0.0.0-20200215150939-aa28515cd791/go.mod h1:bcY3prusO/6vA6zGHz4PNG2v79clPyTw06Xx3fprJSQ=
+gitlab.alibaba-inc.com/one-mesh/api v0.0.0-20200224011032-ef8624a52be4 h1:HKbvEkMfvoQsDWHXCa3fgG+xhWIaLEWUKGx59YLvv7k=
+gitlab.alibaba-inc.com/one-mesh/api v0.0.0-20200224011032-ef8624a52be4/go.mod h1:bcY3prusO/6vA6zGHz4PNG2v79clPyTw06Xx3fprJSQ=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738/go.mod h1:dnLIgRNXwCJa5e+c6mIZCrds/GIG4ncV9HhK5PX7jPg=
 go.mongodb.org/mongo-driver v1.0.3/go.mod h1:u7ryQJ+DOzQmeO7zB6MHyr8jkEQvC8vH7qLUO4lqsUM=
