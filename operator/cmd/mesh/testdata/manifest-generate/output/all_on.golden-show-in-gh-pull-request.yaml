@@ -7239,6 +7239,8 @@ spec:
         heritage: Tiller
         release: istio
         chart: gateways
+        service.istio.io/canonical-name: istio-egressgateway
+        service.istio.io/canonical-revision: latest
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -8087,6 +8089,8 @@ spec:
         heritage: Tiller
         release: istio
         chart: gateways
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: latest
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

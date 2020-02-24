@@ -13391,6 +13391,12 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-egressgateway
+{{- if not (eq .Values.revision "") }}
+        service.istio.io/canonical-revision: {{ .Values.revision }}
+{{- else}}
+        service.istio.io/canonical-revision: latest
+{{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
@@ -14423,6 +14429,12 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-ingressgateway
+        {{- if not (eq .Values.revision "") }}
+        service.istio.io/canonical-revision: {{ .Values.revision }}
+        {{- else}}
+        service.istio.io/canonical-revision: latest
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
