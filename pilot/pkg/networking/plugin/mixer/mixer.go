@@ -475,7 +475,6 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	return out
 }
 
-
 func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes,
 	quotaSpec []*mccpb.QuotaSpec) {
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{

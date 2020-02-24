@@ -133,10 +133,10 @@ type IstioConfigStore struct {
 		result1 []model.Config
 		result2 error
 	}
-	QuotaSpecByDestinationStub        func(hostname host.Name) []model.Config
+	QuotaSpecByDestinationStub        func(host.Name) []model.Config
 	quotaSpecByDestinationMutex       sync.RWMutex
 	quotaSpecByDestinationArgsForCall []struct {
-		hostname host.Name
+		arg1 host.Name
 	}
 	quotaSpecByDestinationReturns struct {
 		result1 []model.Config
@@ -833,16 +833,16 @@ func (fake *IstioConfigStore) ListReturnsOnCall(i int, result1 []model.Config, r
 	}{result1, result2}
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestination(hostname host.Name) []model.Config {
+func (fake *IstioConfigStore) QuotaSpecByDestination(arg1 host.Name) []model.Config {
 	fake.quotaSpecByDestinationMutex.Lock()
 	ret, specificReturn := fake.quotaSpecByDestinationReturnsOnCall[len(fake.quotaSpecByDestinationArgsForCall)]
 	fake.quotaSpecByDestinationArgsForCall = append(fake.quotaSpecByDestinationArgsForCall, struct {
-		hostname host.Name
-	}{hostname})
-	fake.recordInvocation("QuotaSpecByDestination", []interface{}{hostname})
+		arg1 host.Name
+	}{arg1})
+	fake.recordInvocation("QuotaSpecByDestination", []interface{}{arg1})
 	fake.quotaSpecByDestinationMutex.Unlock()
 	if fake.QuotaSpecByDestinationStub != nil {
-		return fake.QuotaSpecByDestinationStub(hostname)
+		return fake.QuotaSpecByDestinationStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
@@ -866,8 +866,8 @@ func (fake *IstioConfigStore) QuotaSpecByDestinationCalls(stub func(host.Name) [
 func (fake *IstioConfigStore) QuotaSpecByDestinationArgsForCall(i int) host.Name {
 	fake.quotaSpecByDestinationMutex.RLock()
 	defer fake.quotaSpecByDestinationMutex.RUnlock()
-	return fake.quotaSpecByDestinationArgsForCall[i].hostname
-
+	argsForCall := fake.quotaSpecByDestinationArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *IstioConfigStore) QuotaSpecByDestinationReturns(result1 []model.Config) {

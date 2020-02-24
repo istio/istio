@@ -526,7 +526,6 @@ func findQuotaSpecRefs(hostname host.Name, bindings []Config) map[string]bool {
 	return refs
 }
 
-
 // filterQuotaSpecsByDestination provides QuotaSpecByDestination filtering logic as a
 // function that can be called on cached binding + spec sets
 func filterQuotaSpecsByDestination(hostname host.Name, bindings []Config, specs []Config) []Config {
