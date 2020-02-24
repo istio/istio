@@ -13368,22 +13368,8 @@ spec:
         {{- if .Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
           - --serviceCluster
           - istio-egressgateway
-          - --zipkinAddress
-        {{- if .Values.global.tracer.zipkin.address }}
-          - {{ .Values.global.tracer.zipkin.address }}
-        {{- else if .Values.global.telemetryNamespace }}
-          - zipkin.{{ .Values.global.telemetryNamespace }}:9411
-        {{- else }}
-          - zipkin:9411
-        {{- end }}
           - --proxyAdminPort
           - "15000"
           - --statusPort
@@ -13393,12 +13379,6 @@ spec:
         {{- end }}
           - --controlPlaneAuthPolicy
           - NONE
-          - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-          {{- else }}
-          - istio-pilot.istio-system.svc:15012
-          {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -14409,34 +14389,8 @@ spec:
         {{- if .Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
           - --serviceCluster
           - istio-ingressgateway
-          - --zipkinAddress
-        {{- if .Values.global.tracer.zipkin.address }}
-          - {{ .Values.global.tracer.zipkin.address }}
-        {{- else if .Values.global.telemetryNamespace }}
-          - zipkin.{{ .Values.global.telemetryNamespace }}:9411
-        {{- else }}
-          - zipkin:9411
-        {{- end }}
-        {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
-          - --envoyMetricsService
-          {{- with  $.Values.global.proxy.envoyMetricsService }}
-          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-          {{- end }}
-        {{- end}}
-        {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
-          - --envoyAccessLogService
-          {{- with  $.Values.global.proxy.envoyAccessLogService }}
-          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-          {{- end }}
-        {{- end }}
           - --proxyAdminPort
           - "15000"
           - --statusPort
@@ -14446,14 +14400,6 @@ spec:
         {{- end }}
           - --controlPlaneAuthPolicy
           - NONE
-          - --discoveryAddress
-          {{- if .Values.global.remotePilotAddress }}
-          - {{ .Values.global.remotePilotAddress }}:15012
-          {{- else if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-          {{- else }}
-          - istio-pilot.istio-system.svc:15012
-          {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -42237,40 +42183,12 @@ spec:
             - "/usr/local/bin/envoy"
             - --serviceCluster
             - "istio-proxy-prometheus"
-            - --drainDuration
-            - "45s"
-            - --parentShutdownDuration
-            - "1m0s"
-            - --discoveryAddress
-            {{- if .Values.global.configNamespace }}
-            - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-            {{- else }}
-            - istio-pilot.istio-system.svc:15012
-            {{- end }}
             {{- if .Values.global.proxy.logLevel }}
             - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
             {{- end}}
             {{- if .Values.global.proxy.componentLogLevel }}
             - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
             {{- end}}
-            - --connectTimeout
-            - "10s"
-              {{- if .Values.global.proxy.envoyStatsd.enabled }}
-            - --statsdUdpAddress
-            - "{{ .ProxyConfig.StatsdUdpAddress }}"
-              {{- end }}
-            {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
-            - --envoyMetricsService
-            {{- with  $.Values.global.proxy.envoyMetricsService }}
-            - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-            {{- end }}
-            {{- end}}
-            {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
-            - --envoyAccessLogService
-            {{- with  $.Values.global.proxy.envoyAccessLogService }}
-            - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-            {{- end }}
-            {{- end }}
             - --proxyAdminPort
             - "15000"
               {{- if .Values.global.istiod.enabled }}

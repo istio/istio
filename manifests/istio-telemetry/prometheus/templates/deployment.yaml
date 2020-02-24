@@ -77,40 +77,12 @@ spec:
             - "/usr/local/bin/envoy"
             - --serviceCluster
             - "istio-proxy-prometheus"
-            - --drainDuration
-            - "45s"
-            - --parentShutdownDuration
-            - "1m0s"
-            - --discoveryAddress
-            {{- if .Values.global.configNamespace }}
-            - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-            {{- else }}
-            - istio-pilot.istio-system.svc:15012
-            {{- end }}
             {{- if .Values.global.proxy.logLevel }}
             - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
             {{- end}}
             {{- if .Values.global.proxy.componentLogLevel }}
             - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
             {{- end}}
-            - --connectTimeout
-            - "10s"
-              {{- if .Values.global.proxy.envoyStatsd.enabled }}
-            - --statsdUdpAddress
-            - "{{ .ProxyConfig.StatsdUdpAddress }}"
-              {{- end }}
-            {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
-            - --envoyMetricsService
-            {{- with  $.Values.global.proxy.envoyMetricsService }}
-            - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-            {{- end }}
-            {{- end}}
-            {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
-            - --envoyAccessLogService
-            {{- with  $.Values.global.proxy.envoyAccessLogService }}
-            - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-            {{- end }}
-            {{- end }}
             - --proxyAdminPort
             - "15000"
               {{- if .Values.global.istiod.enabled }}
