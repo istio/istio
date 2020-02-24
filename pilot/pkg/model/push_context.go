@@ -1748,7 +1748,6 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 	// Namespace/Mesh PeerAuthentication does not exist, check alpha authN policy.
 	policy, _ := ps.AuthenticationPolicyForWorkload(service, port)
 	if policy != nil {
-		log.Infof("Found policy for %v, %v,  %#v", service, port, policy)
 		// If alpha authN policy exist, used the mode defined by the policy.
 		return v1alpha1PolicyToMutualTLSMode(policy)
 	}
