@@ -63,9 +63,6 @@ const (
 
 	// TelemetryLogEntry uses "telemetry/log-entry.yaml"
 	TelemetryLogEntry ConfigFile = "telemetry/log-entry.yaml"
-
-	// CNNRedisRateLimit uses "policy/mixer-rule-cnn-redis-quota-fixed-window.yaml"
-	CNNRedisRateLimit ConfigFile = "policy/mixer-rule-cnn-redis-quota-fixed-window.yaml"
 )
 
 // LoadGatewayFileWithNamespaceOrFail loads a Book Info Gateway configuration file from the system, changes it to be fit
