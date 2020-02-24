@@ -469,7 +469,7 @@ message GlobalConfig {
   string imagePullPolicy = 13;
   // ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
 
-  TypeSliceOfMapStringInterface imagePullSecrets = 37;
+  repeated string imagePullSecrets = 37;
 
   // Specifies the default namespace for the Istio control plane components.
   string istioNamespace = 14;

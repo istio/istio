@@ -6,6 +6,8 @@ spec:
       enabled: false
       k8s:
         replicaCount: 1
+    istiocoredns:
+      enabled: false
     kiali:
       enabled: false
       k8s:
@@ -114,10 +116,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
         strategy:
           rollingUpdate:
             maxSurge: 100%
@@ -445,7 +443,6 @@ spec:
       coreDNSImage: coredns/coredns
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       coreDNSTag: 1.6.2
-      enabled: false
     kiali:
       contextPath: /kiali
       createDemoSecret: false
