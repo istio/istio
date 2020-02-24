@@ -279,11 +279,12 @@ func TestGolden(t *testing.T) {
 				PlatEnv: &fakePlatform{},
 				PilotSubjectAltName: []string{
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"},
-				LocalEnv:       localEnv,
-				NodeIPs:        []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
-				SDSUDSPath:     c.sdsUDSPath,
-				SDSTokenPath:   c.sdsTokenPath,
-				OutlierLogPath: "/dev/stdout",
+				LocalEnv:          localEnv,
+				NodeIPs:           []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
+				SDSUDSPath:        c.sdsUDSPath,
+				SDSTokenPath:      c.sdsTokenPath,
+				OutlierLogPath:    "/dev/stdout",
+				PilotCertProvider: "citadel",
 			}).CreateFileForEpoch(0)
 			if err != nil {
 				t.Fatal(err)

@@ -303,6 +303,7 @@
               ],
               "validation_context": {
                 "trusted_ca": {
+                  "filename": "./etc/istio/citadel-ca-cert/ca-cert-ns.pem"
                 },
                 "verify_subject_alt_name": ["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"]
               }
