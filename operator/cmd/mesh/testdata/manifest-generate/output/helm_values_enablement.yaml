@@ -27,7 +27,7 @@ spec:
         istio: egressgateway
         release: istio
         service.istio.io/canonical-name: istio-egressgateway
-        service.istio.io/canonical-revision: latest
+        service.istio.io/canonical-revision: "1.5"
     spec:
       affinity:
         nodeAffinity:

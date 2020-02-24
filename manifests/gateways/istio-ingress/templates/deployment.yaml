@@ -30,11 +30,7 @@ spec:
         chart: gateways
 {{- end }}
         service.istio.io/canonical-name: istio-ingressgateway
-        {{- if not (eq .Values.revision "") }}
-        service.istio.io/canonical-revision: {{ .Values.revision }}
-        {{- else}}
-        service.istio.io/canonical-revision: latest
-        {{- end }}
+        service.istio.io/canonical-revision: "1.5"
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
