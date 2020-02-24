@@ -148,6 +148,9 @@ docker.app_sidecar: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar: $(ISTIO_DOCKER)/certs
+docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
 	$(DOCKER_RULE)
 
