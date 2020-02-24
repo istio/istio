@@ -16,9 +16,11 @@ package helm
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -29,6 +31,7 @@ import (
 	"k8s.io/helm/pkg/timeconv"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/vfs"
 	"istio.io/pkg/log"
 )
 
@@ -199,4 +202,87 @@ func IsDefaultProfile(profile string) bool {
 func readFile(path string) (string, error) {
 	b, err := ioutil.ReadFile(path)
 	return string(b), err
+}
+
+// GetAddonNamesFromCharts scans the charts directory for addon-components
+func GetAddonNamesFromCharts(chartsRootDir string, capitalize bool) (addonChartNames []string, err error) {
+	if chartsRootDir == "" {
+		// VFS
+		fnames, err := vfs.GetFilesRecursive(chartsRoot)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, fname := range fnames {
+			basename := filepath.Base(fname)
+			if basename == "Chart.yaml" {
+				b, err := vfs.ReadFile(fname)
+				if err != nil {
+					return nil, err
+				}
+				bf := &chartutil.BufferedFile{
+					Name: basename,
+					Data: b,
+				}
+				bfs := []*chartutil.BufferedFile{bf}
+				scope.Debugf("Chart loaded: %s", bf.Name)
+				chart, err := chartutil.LoadFiles(bfs)
+				if err != nil {
+					return nil, err
+				} else if addonName := getAddonName(chart.Metadata); addonName != nil {
+					addonChartNames = append(addonChartNames, *addonName)
+				}
+			}
+		}
+	} else {
+		// filesystem
+		var chartFilenames []string
+		err = filepath.Walk(chartsRootDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				if ok, err := chartutil.IsChartDir(path); ok && err == nil {
+					chartFilenames = append(chartFilenames, filepath.Join(path, chartutil.ChartfileName))
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, filename := range chartFilenames {
+			metadata, err := chartutil.LoadChartfile(filename)
+			if err != nil {
+				continue
+			}
+			if addonName := getAddonName(metadata); addonName != nil {
+				addonChartNames = append(addonChartNames, *addonName)
+			}
+		}
+	}
+	// sort for consistent results
+	sort.Strings(addonChartNames)
+	// check for duplicates
+	seen := make(map[string]bool)
+	for i, name := range addonChartNames {
+		if capitalize {
+			name = strings.ToUpper(name[:1]) + name[1:]
+			addonChartNames[i] = name
+		}
+		if seen[name] {
+			return nil, errors.New("Duplicate AddonComponent defined: " + name)
+		}
+		seen[name] = true
+	}
+	return addonChartNames, nil
+}
+
+func getAddonName(metadata *chart.Metadata) *string {
+	for _, str := range metadata.Keywords {
+		if str == "istio-addon" {
+			return &metadata.Name
+		}
+	}
+	return nil
 }
