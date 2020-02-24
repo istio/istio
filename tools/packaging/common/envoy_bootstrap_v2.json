@@ -310,11 +310,11 @@
               ],
               "validation_context": {
                 "trusted_ca": {
-                    {{- if eq .pilot_cert_provider "kubernetes" }}
+                  {{- if eq .pilot_cert_provider "kubernetes" }}
                   "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-                      {{- else if eq .pilot_cert_provider "istiod" }}
-                    "filename": "./var/run/secrets/istio/root-cert.pem"
-                      {{- end }}
+                  {{- else if eq .pilot_cert_provider "istiod" }}
+                  "filename": "./var/run/secrets/istio/root-cert.pem"
+                  {{- end }}
                 },
                 "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
               }
