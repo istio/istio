@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -192,6 +191,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 					nil, // service is being passe as nil to take care of the case when service becomes available at some later point in time
 					0)
 			}
+			notimeout := ptypes.DurationProto(0)
 			virtualHosts = append(virtualHosts, &route.VirtualHost{
 				Name:    util.PassthroughRouteName,
 				Domains: []string{"*"},
@@ -204,7 +204,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 							Route: &route.RouteAction{
 								ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
 								// Disable timeout instead of assuming some defaults.
-								Timeout: ptypes.DurationProto(0 * time.Millisecond),
+								Timeout:        notimeout,
+								MaxGrpcTimeout: notimeout,
 							},
 						},
 					},
