@@ -34,14 +34,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const (
-	statusReplacement = "sidecar.istio.io/status: '{\"version\":\"\","
-)
-
-var (
-	statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
-)
-
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
 		in     string
@@ -434,18 +426,14 @@ func TestRewriteAppProbe(t *testing.T) {
 
 			// The version string is a maintenance pain for this test. Strip the version string before comparing.
 			gotBytes := got.Bytes()
-			gotBytes = stripVersion(gotBytes)
+			gotBytes = util.StripVersion(gotBytes)
 
 			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
-			wantBytes := stripVersion(wantedBytes)
+			wantBytes := util.StripVersion(wantedBytes)
 
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 		})
 	}
-}
-
-func stripVersion(yaml []byte) []byte {
-	return statusPattern.ReplaceAllLiteral(yaml, []byte(statusReplacement))
 }
 
 func TestInvalidAnnotations(t *testing.T) {

@@ -83,10 +83,8 @@ spec:
 {{- end }}
       annotations:
         foo: bar
-{{- if $w.Annotations }}
-{{- range $name, $value := $w.Annotations }}
+{{- range $name, $value := index $.WorkloadAnnotationsNew $w.Name }}
         {{ $name }}: {{ printf "%q" $value }}
-{{- end }}
 {{- end }}
 {{- if $.IncludeInboundPorts }}
         traffic.sidecar.istio.io/includeInboundPorts: "{{ $.IncludeInboundPorts }}"
@@ -193,6 +191,13 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 	// Separate the annotations.
 	serviceAnnotations := make(map[string]string)
 	workloadAnnotations := make(map[string]string)
+	wlas := make(map[string]map[string]string)
+	for _, w := range cfg.Workloads {
+		wlas[w.Name] = map[string]string{}
+		for k, val := range w.Annotations {
+			wlas[w.Name][k.Name] = val.Value
+		}
+	}
 	for k, v := range cfg.Annotations {
 		switch k.Type {
 		case echo.ServiceAnnotation:
@@ -205,21 +210,22 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 	}
 
 	params := map[string]interface{}{
-		"Hub":                 settings.Hub,
-		"Tag":                 settings.Tag,
-		"PullPolicy":          settings.PullPolicy,
-		"Service":             cfg.Service,
-		"Version":             cfg.Version,
-		"Headless":            cfg.Headless,
-		"Locality":            cfg.Locality,
-		"ServiceAccount":      cfg.ServiceAccount,
-		"Ports":               cfg.Ports,
-		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
-		"ContainerPorts":      getContainerPorts(cfg.Ports),
-		"ServiceAnnotations":  serviceAnnotations,
-		"WorkloadAnnotations": workloadAnnotations,
-		"IncludeInboundPorts": cfg.IncludeInboundPorts,
-		"Workloads":           cfg.Workloads,
+		"Hub":                    settings.Hub,
+		"Tag":                    settings.Tag,
+		"PullPolicy":             settings.PullPolicy,
+		"Service":                cfg.Service,
+		"Version":                cfg.Version,
+		"Headless":               cfg.Headless,
+		"Locality":               cfg.Locality,
+		"ServiceAccount":         cfg.ServiceAccount,
+		"Ports":                  cfg.Ports,
+		"WorkloadOnlyPorts":      cfg.WorkloadOnlyPorts,
+		"ContainerPorts":         getContainerPorts(cfg.Ports),
+		"ServiceAnnotations":     serviceAnnotations,
+		"WorkloadAnnotations":    workloadAnnotations,
+		"WorkloadAnnotationsNew": wlas,
+		"IncludeInboundPorts":    cfg.IncludeInboundPorts,
+		"Workloads":              cfg.Workloads,
 	}
 
 	// Generate the YAML content.

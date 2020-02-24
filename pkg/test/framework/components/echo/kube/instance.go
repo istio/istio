@@ -214,6 +214,12 @@ func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Inst
 	}
 }
 
+// WorkloadHasSidecar returns true if the provided Kubernetes
+func workloadHasSidecar(cfg echo.Config, endpoint *kubeCore.ObjectReference) bool {
+	fmt.Printf("incfly debug endpoint %v, cfg %v\n", *endpoint, cfg)
+	return cfg.Annotations.GetBool(echo.SidecarInject)
+}
+
 func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	if c.workloads != nil {
 		// Already ready.
@@ -224,7 +230,7 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
 			// TODO(incfly): address this to ensure the newWorkload takes cfg.Workloads into account.
-			workload, err := newWorkload(addr, c.cfg.Annotations, c.grpcPort, c.env.Accessor, c.ctx)
+			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.env.Accessor, c.ctx)
 			if err != nil {
 				return err
 			}

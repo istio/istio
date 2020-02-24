@@ -79,7 +79,9 @@ type Config struct {
 
 // WorkloadConfig is the config for a group of workloads (e.g. Kubernetes deployment).
 type WorkloadConfig struct {
-	Version     string
+	Version string
+	// Name is the name of the workload.
+	Name        string
 	Annotations Annotations
 	// TODO: port more into workload config.
 }
