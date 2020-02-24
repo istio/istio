@@ -6203,21 +6203,30 @@ subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}
   ports:
-  - port: 15003
-    name: http-old-discovery # mTLS or non-mTLS depending on auth setting
-  - port: 15005
-    name: https-discovery # always mTLS
-  - port: 15007
-    name: http-discovery # always plain-text
   - port: 15010
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod
   - port: 15014
     name: http-monitoring
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePilotAddress }}
+  ports:
+  - port: 15012
+    name: http-istiod
 {{- end }}
+
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 ---
 apiVersion: v1
@@ -6396,21 +6405,27 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   ports:
-  - port: 15003
-    name: http-old-discovery # mTLS or non-mTLS depending on auth setting
-  - port: 15005
-    name: https-discovery # always mTLS
-  - port: 15007
-    name: http-discovery # always plain-text
   - port: 15010
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod    
   - port: 15014
     name: http-monitoring
   clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: http-istiod
 ---
 {{- end }}
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
