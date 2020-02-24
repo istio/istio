@@ -860,8 +860,7 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Address, ep.EndpointPort, ep.Network,
-					ep.LbWeight, ep.TLSMode, push)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, push)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 
