@@ -311,7 +311,7 @@
           }
         },
         "load_assignment": {
-          "cluster_name": "xds-rgpc",
+          "cluster_name": "xds-grpc",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {
