@@ -38,7 +38,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mixerClient "istio.io/api/mixer/v1/config/client"
 	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -2230,8 +2229,8 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 							Name:      limitedSvcName,
 							Namespace: "default",
 						},
-						Spec: &mixerClient.QuotaSpecBinding{
-							Services: []*mixerClient.IstioService{
+						Spec: &client.QuotaSpecBinding{
+							Services: []*client.IstioService{
 								{
 									Name:      "thrift-service",
 									Namespace: "default",
@@ -2239,7 +2238,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 									Service:   "thrift-service.default.svc.cluster.local",
 								},
 							},
-							QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
+							QuotaSpecs: []*client.QuotaSpecBinding_QuotaSpecReference{
 								{
 									Name:      "thrift-service",
 									Namespace: "default",
