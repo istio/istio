@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	protovalue "istio.io/istio/pkg/proto"
@@ -809,7 +809,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 		name       string
 		in         *authn.Policy
 		sdsUdsPath string
-		expected   []plugin.FilterChain
+		expected   []networking.FilterChain
 		node       *model.Proxy
 	}{
 		{
@@ -851,7 +851,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 				},
@@ -874,7 +874,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 				Metadata: &model.NodeMetadata{},
 			},
 			// Only one filter chain with mTLS settings should be generated.
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 				},
@@ -897,7 +897,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 				Metadata: &model.NodeMetadata{},
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 					FilterChainMatch: &listener.FilterChainMatch{
@@ -933,7 +933,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 				Metadata:     &model.NodeMetadata{IstioVersion: "1.4.0"},
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
@@ -994,7 +994,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					SdsEnabled: true,
 				},
 			},
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
@@ -1027,7 +1027,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 				},
@@ -1053,7 +1053,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					TLSServerRootCert:  "/custom/path/to/root.pem",
 				}},
 			// Only one filter chain with mTLS settings should be generated.
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
