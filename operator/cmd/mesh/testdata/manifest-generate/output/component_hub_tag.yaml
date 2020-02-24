@@ -6621,6 +6621,8 @@ spec:
         heritage: Tiller
         istio: ingressgateway
         release: istio
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: latest
     spec:
       affinity:
         nodeAffinity:

@@ -26,6 +26,8 @@ spec:
         heritage: Tiller
         istio: egressgateway
         release: istio
+        service.istio.io/canonical-name: istio-egressgateway
+        service.istio.io/canonical-revision: latest
     spec:
       affinity:
         nodeAffinity:
