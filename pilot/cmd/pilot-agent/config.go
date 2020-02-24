@@ -60,6 +60,12 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 			proxyConfig.StatsdUdpAddress = addr
 		}
 	}
+	if proxyConfig.EnvoyMetricsService != nil {
+		appendTLSCerts(proxyConfig.EnvoyMetricsService)
+	}
+	if proxyConfig.EnvoyAccessLogService != nil {
+		appendTLSCerts(proxyConfig.EnvoyAccessLogService)
+	}
 
 	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
 		return meshconfig.ProxyConfig{}, err

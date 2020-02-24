@@ -105,7 +105,7 @@ var (
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
 	autoMTLSEnabled      = env.RegisterBoolVar("ISTIO_AUTO_MTLS_ENABLED", false, "If true, auto mTLS is enabled, "+
 		"sidecar checks key/cert if SDS is not enabled.")
-	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	sdsUdsPathVar = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
