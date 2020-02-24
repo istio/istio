@@ -17,86 +17,100 @@ package mesh
 import (
 	"fmt"
 	"strings"
+
+	"istio.io/istio/operator/pkg/util"
 )
 
 const (
-	valuesGlobal = "values.global"
+	valuesGlobal = "values.global."
 )
 
 var (
 	// Keep bool values as string to avoid type conversion of flags
 	boolValues = []string{"true", "false"}
 
-	sds = map[string][]string{
-		"enabled": boolValues,
-	}
-
 	imagePullPolicy = []string{"Always", "IfNotPresent", "Never"}
-
-	k8sIngress = map[string]interface{}{
-		"enabled":     boolValues,
-		"enableHttps": boolValues,
-		"gatewayName": []string{"ingressgateway"},
-	}
-
-	mtls = map[string]interface{}{
-		"auto":    boolValues,
-		"enabled": boolValues,
-	}
-
-	controlPlaneSecurityEnabled = boolValues
-
-	telemetry = map[string]interface{}{
-		"enabled": boolValues,
-	}
-
-	security = map[string]interface{}{
-		"components": map[string]interface{}{
-			"nodeAgent": map[string]interface{}{
-				"enabled": boolValues,
-			},
-		},
-	}
 
 	profile = []string{"minimal", "remote", "sds", "default", "demo"}
 
-	setFlagValues = map[string]interface{}{
-		"sds":                         sds,
-		"imagePullPolicy":             imagePullPolicy,
-		"k8sIngress":                  k8sIngress,
-		"mtls":                        mtls,
-		"controlPlaneSecurityEnabled": controlPlaneSecurityEnabled,
-		"telemetry":                   telemetry,
-		"security":                    security,
-		"profile":                     profile,
+	setFlagValues = map[string][]string{
+		"sds.enabled":     boolValues,
+		"imagePullPolicy": imagePullPolicy,
+
+		"k8sIngress.enabled":     boolValues,
+		"k8sIngress.enableHttps": boolValues,
+		"k8sIngress.gatewayName": []string{"ingressgateway"},
+
+		"mtls.auto":    boolValues,
+		"mtls.enabled": boolValues,
+
+		"controlPlaneSecurityEnabled": boolValues,
+
+		"telemetry.enabled":                     boolValues,
+		"security.components.nodeAgent.enabled": boolValues,
+		"profile":                               profile,
 	}
 )
 
 // ValidateSetFlags performs validation for the values provided in --set flags
-func ValidateSetFlags(setOverlay []string) error {
+func ValidateSetFlags(setOverlay []string) (errs util.Errors) {
 	if len(setOverlay) == 0 {
 		return nil
 	}
 
 	for _, flags := range setOverlay {
-		flag := strings.Split(flags, "=")
-		flagName, flagValue := flag[0], flag[1]
 
-		if strings.HasPrefix(flagName, valuesGlobal) {
-			flagName = strings.Trim(flagName, valuesGlobal)
+		if !isValidFlagFormat(flags) {
+			errs = append(errs, fmt.Errorf("\n Invalid flag format %q", flags))
+			return
 		}
 
-		if val, ok := setFlagValues[flagName]; ok {
-			if !containString(val.([]string), flagValue) {
-				return fmt.Errorf("Unsuported value: %q, supported values for: %q is %q",
-					flagValue, flagName, strings.Join(setFlagValues[flagName].([]string), ", "))
+		flagName, flagValue := splitSetFlags(flags)
+
+		if isFlagNameAvailable(flagName) {
+			val := getFlagValue(flagName)
+			if !containString(val, flagValue) {
+				errs = append(errs, fmt.Errorf("\n Unsuported value: %q, supported values for: %q is %q",
+					flagValue, flagName, strings.Join(val, ", ")))
 			}
+		} else {
+			errs = append(errs, fmt.Errorf("\n Invalid flag: %q", valuesGlobal+flagName))
 		}
 	}
+	return
+}
 
+// isValidFlagFormat verifies if the flag have equal sign
+func isValidFlagFormat(flag string) bool {
+	return strings.Contains(flag, "=")
+}
+
+// isFlagNameAvailable checks if the flag provided is available in flag list
+func isFlagNameAvailable(flagName string) bool {
+	_, isAvailable := setFlagValues[flagName]
+	return isAvailable
+}
+
+// getFlagValue gives searched flag values
+func getFlagValue(flagName string) []string {
+	if val, ok := setFlagValues[flagName]; ok {
+		return val
+	}
 	return nil
 }
 
+// splitSetFlags separate flag name and its value
+func splitSetFlags(flags string) (string, string) {
+	flag := strings.Split(flags, "=")
+	flagName, flagValue := flag[0], flag[1]
+
+	if strings.HasPrefix(flagName, valuesGlobal) {
+		flagName = strings.TrimPrefix(flagName, valuesGlobal)
+	}
+	return flagName, flagValue
+}
+
+// containString verifies if the flag value is valid value
 func containString(s []string, searchterm string) bool {
 	for _, a := range s {
 		if a == searchterm {
