@@ -9484,8 +9484,8 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
     hub: ""
     tag: ""
 
-    labelPods: "true"
-    deletePods: "true"
+    labelPods: true
+    deletePods: true
 
     initContainerName: "istio-validation"
 
