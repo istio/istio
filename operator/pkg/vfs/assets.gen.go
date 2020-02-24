@@ -18122,24 +18122,6 @@ spec:
 ---
 
 ---
-# Source: istio-discovery/templates/enable-mesh-mtls.yaml
-
-# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  labels:
-    release: istio-base
-spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
----
-
-
-
----
 # Source: istio-discovery/templates/mutatingwebhook.yaml
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
 apiVersion: admissionregistration.k8s.io/v1beta1
@@ -18170,6 +18152,11 @@ webhooks:
 
 ---
 # Source: istio-discovery/templates/configmap-jwks.yaml
+
+
+---
+# Source: istio-discovery/templates/enable-mesh-mtls.yaml
+
 
 
 ---
