@@ -91,11 +91,11 @@ message CNIRepairConfig {
   string image = 4;
 
   // Controls whether various repair behaviors are enabled.
-  string labelPods = 5;
+  bool labelPods = 5;
 
   string createEvents = 6 [deprecated=true];
 
-  string deletePods = 7;
+  bool deletePods = 7;
 
   string brokenPodLabelKey = 8;
 
