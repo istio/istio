@@ -572,9 +572,9 @@ func TestV1beta1_EgressGateway(t *testing.T) {
 					Namespace: ns,
 					Ports: []echo.Port{
 						{
-							Name:         "http",
-							Protocol:     protocol.HTTP,
-							ServicePort:  8090,
+							Name:        "http",
+							Protocol:    protocol.HTTP,
+							ServicePort: 8090,
 						},
 					},
 					Galley: g,
