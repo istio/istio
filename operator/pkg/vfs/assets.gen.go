@@ -10352,7 +10352,6 @@ var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYam
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: galley
     release: {{ .Release.Name }}
@@ -10380,7 +10379,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: galley
     release: {{ .Release.Name }}
@@ -13465,7 +13463,6 @@ var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
