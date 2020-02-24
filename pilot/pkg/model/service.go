@@ -732,16 +732,17 @@ func (ep *IstioEndpoint) HashUint32(affinity uint32) uint32 {
 		}
 	}
 
-	// Same as: fmt.Sprintf("%s-%s-%s-%s-%s", addr, ep.Network, ep.Locality, ep.Attributes.Name, ep.Family)
-	// Avoid using 'fmt.Sprintf()' to increase performance.
 	buf := &bytes.Buffer{}
 	buf.Grow(30)
 
+	// Use the recalculated address to do affinity hash
 	if slot >= 0 {
-		buf.WriteString(strconv.Itoa(slot))
-	} else {
-		buf.WriteString(addr)
+		addr = strconv.Itoa(slot)
 	}
+
+	// Same as: fmt.Sprintf("%s-%s-%s-%s-%s", addr, ep.Network, ep.Locality, ep.Attributes.Name, ep.Family)
+	// Avoid using 'fmt.Sprintf()' to increase performance.
+	buf.WriteString(addr)
 	buf.WriteString("-")
 	buf.WriteString(ep.Network)
 	buf.WriteString("-")
@@ -751,6 +752,7 @@ func (ep *IstioEndpoint) HashUint32(affinity uint32) uint32 {
 	buf.WriteString("-")
 	buf.WriteString(ep.Family.String())
 
+	// Now get the endpoint's hash code
 	h := fnv.New32a()
 	h.Write(buf.Bytes())
 
