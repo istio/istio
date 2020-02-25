@@ -155,7 +155,7 @@ spec:
         - -b
         - '*'
         - -d
-        - "123"
+        - 15090,123
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-init
