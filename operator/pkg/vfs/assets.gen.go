@@ -12470,66 +12470,43 @@ func chartsBaseKustomizationYaml() (*asset, error) {
 var _chartsBaseTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-{{ .Values.global.istioNamespace }}
-  labels:
-    app: istio-reader
-    release: {{ .Release.Name }}
-rules:
-- apiGroups:
-  - "config.istio.io"
-  - "rbac.istio.io"
-  - "security.istio.io"
-  - "networking.istio.io"
-  - "authentication.istio.io"
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["apps"]
-  resources: ["replicasets"]
-  verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: istio-pilot-{{ .Values.global.istioNamespace }}
   labels:
     app: pilot
     release: {{ .Release.Name }}
 rules:
-  - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-    verbs: ["get", "watch", "list"]
-    resources: ["*"]
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "watch", "list"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses/status"]
-    verbs: ["*"]
-    # TODO: remove, too broad permission, should be namespace only
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    # Create and update needed for ingress election
-    verbs: ["get", "list", "watch", "create", "update"]
-  - apiGroups: [""]
-    resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["create", "get", "watch", "list", "update", "delete"]
-  - apiGroups: ["certificates.k8s.io"]
-    resources:
-      - "certificatesigningrequests"
-      - "certificatesigningrequests/approval"
-      - "certificatesigningrequests/status"
-    verbs: ["update", "create", "get", "delete", "watch"]
-  - apiGroups: ["discovery.k8s.io"]
-    resources: ["endpointslices"]
-    verbs: ["get", "list", "watch"]
+- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+  verbs: ["get", "watch", "list"]
+  resources: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses/status"]
+  verbs: ["*"]
+  # TODO: remove, too broad permission, should be namespace only
+- apiGroups: [""]
+  resources: ["configmaps"]
+  # Create and update needed for ingress election
+  verbs: ["get", "list", "watch", "create", "update"]
+- apiGroups: [""]
+  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
+- apiGroups: ["certificates.k8s.io"]
+  resources:
+    - "certificatesigningrequests"
+    - "certificatesigningrequests/approval"
+    - "certificatesigningrequests/status"
+  verbs: ["update", "create", "get", "delete", "watch"]
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["get", "list", "watch"]
 ---
 # Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
 # TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
@@ -12538,13 +12515,9 @@ kind: ClusterRole
 metadata:
   name: istiod-{{ .Values.global.istioNamespace }}
   labels:
-    app: pilot
+    app: istiod
     release: {{ .Release.Name }}
 rules:
-  # Remove permissions to reconcile webhook configuration. This address the downgrade case
-  # where istiod will be uninstalled. Removing the permissions reduces
-  # the likelihood that istiod will reconcile something it shouldn't.
-
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
@@ -12553,18 +12526,13 @@ rules:
   # configuration validation webhook controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
-    verbs: ["*"]
-    # required to set ownerRef on istiod clusterrole.
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles/finalizers"]
-    resourceNames:
-      - istiod-{{ .Values.global.istioNamespace }}
-    verbs: ["update"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles"]
-    resourceNames:
-      - istiod-{{ .Values.global.istioNamespace }}
-    verbs: ["get"]
+    verbs: ["get", "list", "watch", "update"]
+
+  # permissions to verify the webhook is ready and rejecting
+  # invalid config. We use --server-dry-run so no config is persisted.
+  - apiGroups: ["networking.istio.io"]
+    verbs: ["create"]
+    resources: ["gateways"]
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -12595,8 +12563,7 @@ rules:
     resources: ["ingresses/status"]
     verbs: ["*"]
 
-  # Pilot, injector - not clear why cluster wide.
-  # TODO: remove, too broad permission, should be namespace only
+  # required for CA's namespace controller
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
@@ -12613,12 +12580,6 @@ rules:
     resources: ["tokenreviews"]
     verbs: ["create"]
 
-  # Citadel subset
-  # TODO: remove, namespace only
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["create", "get", "update"]
-
   # TODO: remove, no longer needed at cluster
   - apiGroups: [""]
     resources: ["secrets"]
@@ -12626,6 +12587,30 @@ rules:
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-reader-{{ .Values.global.istioNamespace }}
+  labels:
+    app: istio-reader
+    release: {{ .Release.Name }}
+rules:
+  - apiGroups:
+      - "config.istio.io"
+      - "rbac.istio.io"
+      - "security.istio.io"
+      - "networking.istio.io"
+      - "authentication.istio.io"
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+---
 
 `)
 
