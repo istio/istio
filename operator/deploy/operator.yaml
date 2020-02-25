@@ -19,7 +19,7 @@ spec:
         - name: istio-operator
           image: gcr.io/istio-testing/operator:1.5-dev
           command:
-          - manager
+          - operator
           - server
           imagePullPolicy: IfNotPresent
           resources:

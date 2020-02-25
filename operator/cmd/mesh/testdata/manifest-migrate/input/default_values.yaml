@@ -461,6 +461,7 @@ kiali:
     viewOnlyMode: false 
     grafanaURL:  
     jaegerURL:  
+    jaegerInClusterURL: http://tracing.istio-system/jaeger
   createDemoSecret: false
   security:
     enabled: true

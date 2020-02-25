@@ -153,6 +153,7 @@ The `istioctl` command supports the following flags:
 - `logtostderr`: log to console (by default logs go to ./mesh-cli.log).
 - `dry-run`: console output only, nothing applied to cluster or written to files.
 - `verbose`: display entire manifest contents and other debug info (default is false).
+- `set`: select profile or override profile defaults
 
 #### Basic default manifest
 
@@ -238,13 +239,35 @@ spec:
   profile: sds
 ```
 
-Use the Istio operator `mesh` binary to generate the manifests for the new configuration profile:
+Use `istioctl` to generate the manifests for the new configuration profile:
 
 ```bash
 istioctl manifest generate -f samples/sds.yaml
 ```
 
 After running the command, the Helm charts are rendered using `data/profiles/sds.yaml`.
+
+##### --set syntax
+
+The CLI `--set` option can be used to override settings within the profile.
+
+For example, to enable security, use `istioctl manifest generate --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true`
+
+To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
+
+``` bash
+istioctl manifest generate --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
+```
+
+To override a setting that is part of a list, use brackets.
+
+``` bash
+istioctl manifest generate --set values.gateways.istio-ingressgateway.enabled=false \
+--set values.gateways.istio-egressgateway.enabled=true \
+--set 'values.gateways.istio-egressgateway.secretVolumes[0].name'=egressgateway-certs \
+--set 'values.gateways.istio-egressgateway.secretVolumes[0].secretName'=istio-egressgateway-certs \
+--set 'values.gateways.istio-egressgateway.secretVolumes[0].mountPath'=/etc/istio/egressgateway-certs
+```
 
 #### Install from file path
 

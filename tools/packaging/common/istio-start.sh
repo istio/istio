@@ -98,6 +98,8 @@ if [ -z "${PILOT_ADDRESS:-}" ]; then
   PILOT_ADDRESS=istiod.${ISTIO_SYSTEM_NAMESPACE}.svc:${ISTIO_PILOT_PORT}
 fi
 
+ISTIO_CA=${ISTIO_CA:-${PILOT_ADDRESS}}
+
 # If predefined ISTIO_AGENT_FLAGS is null, make it an empty string.
 ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
 # Split ISTIO_AGENT_FLAGS by spaces.

@@ -21,10 +21,10 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
 )
@@ -64,7 +64,15 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	})
 
 	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" {
-		client, err := kube.CreateClientset(args.Config.KubeConfig, "")
+		iface, err := kube.NewInterfacesFromConfigFile(args.Config.KubeConfig)
+		if err != nil {
+			return err
+		}
+		client, err := iface.KubeClient()
+		if err != nil {
+			return err
+		}
+		dynamicInterface, err := iface.DynamicInterface()
 		if err != nil {
 			return err
 		}
@@ -79,7 +87,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 			WebhookConfigName: webhookConfigName,
 			ServiceName:       "istiod",
 		}
-		whController, err := controller.New(o, client)
+		whController, err := controller.New(o, client, dynamicInterface)
 		if err != nil {
 			return err
 		}

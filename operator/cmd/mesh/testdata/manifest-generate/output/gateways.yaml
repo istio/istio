@@ -1,4 +1,16 @@
+# AddonComponents grafana component is disabled.
+
+---
+# AddonComponents istiocoredns component is disabled.
+
+---
+# AddonComponents kiali component is disabled.
+
+---
 # AddonComponents prometheus component is disabled.
+
+---
+# AddonComponents istio-tracing component is disabled.
 
 # Base component is disabled.
 
@@ -60,6 +72,8 @@ spec:
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: "1.5"
     spec:
       affinity:
         nodeAffinity:
@@ -472,6 +486,8 @@ spec:
         app: istio-ingressgateway
         istio: ingressgateway
         
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: "1.5"
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

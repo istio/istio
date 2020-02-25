@@ -465,6 +465,7 @@ spec:
       contextPath: /kiali
       createDemoSecret: false
       dashboard:
+        jaegerInClusterURL: http://tracing.istio-system/jaeger
         passphraseKey: passphrase
         secretName: kiali
         usernameKey: username

@@ -168,7 +168,11 @@ func NewValidationController(options controller.Options, kubeconfig string) proc
 			if err != nil {
 				return err
 			}
-			c, err := controller.New(options, client)
+			dynamicInterface, err := restConfig.DynamicInterface()
+			if err != nil {
+				return err
+			}
+			c, err := controller.New(options, client, dynamicInterface)
 			if err != nil {
 				return err
 			}

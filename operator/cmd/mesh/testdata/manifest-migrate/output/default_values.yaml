@@ -4,9 +4,9 @@ metadata:
   creationTimestamp: null
 spec:
   addonComponents:
-    coreDNS:
-      enabled: false
     grafana:
+      enabled: false
+    istiocoredns:
       enabled: false
     kiali:
       enabled: false
@@ -508,6 +508,7 @@ spec:
       dashboard:
         auth:
           strategy: login
+        jaegerInClusterURL: http://tracing.istio-system/jaeger
         secretName: kiali
         viewOnlyMode: false
       hub: quay.io/kiali

@@ -306,7 +306,7 @@ No
 </tr>
 <tr id="CNIRepairConfig-labelPods">
 <td><code>labelPods</code></td>
-<td><code>string</code></td>
+<td><code>bool</code></td>
 <td>
 <p>Controls whether various repair behaviors are enabled.</p>
 
@@ -317,7 +317,7 @@ No
 </tr>
 <tr id="CNIRepairConfig-deletePods">
 <td><code>deletePods</code></td>
-<td><code>string</code></td>
+<td><code>bool</code></td>
 <td>
 </td>
 <td>
@@ -1710,7 +1710,7 @@ No
 </tr>
 <tr id="GlobalConfig-imagePullSecrets">
 <td><code>imagePullSecrets</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td><code>string[]</code></td>
 <td>
 </td>
 <td>
@@ -3150,6 +3150,15 @@ No
 </tr>
 <tr id="KialiDashboardConfig-jaegerURL">
 <td><code>jaegerURL</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-jaegerInClusterURL">
+<td><code>jaegerInClusterURL</code></td>
 <td><code>string</code></td>
 <td>
 </td>

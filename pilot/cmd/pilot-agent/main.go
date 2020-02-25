@@ -135,8 +135,9 @@ var (
 		"the provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
-	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_KEY_CERT_TO_DIRECTORY", "",
-		"The output directory for the key and certificate. If empty, no output of key and certificate.").Get()
+	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
+		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
+			"Must be set for VMs using provisioning certificates.").Get()
 
 	sdsUdsWaitTimeout = time.Minute
 

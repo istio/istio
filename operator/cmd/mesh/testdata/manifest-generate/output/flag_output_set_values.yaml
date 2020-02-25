@@ -5816,19 +5816,15 @@ metadata:
     release: istio
 ---
 
+# AddonComponents grafana component is disabled.
 
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  namespace: istio-system
-  labels:
-    app: galley
-    release: istio
-    istio: galley
-webhooks: {}
 ---
+# AddonComponents istiocoredns component is disabled.
 
+---
+# AddonComponents kiali component is disabled.
+
+---
 # Resources for AddonComponents prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -6363,6 +6359,9 @@ metadata:
     release: istio
 ---
 
+---
+# AddonComponents istio-tracing component is disabled.
+
 # Citadel component is disabled.
 
 # Cni component is disabled.
@@ -6426,6 +6425,8 @@ spec:
         heritage: Tiller
         istio: ingressgateway
         release: istio
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: "1.5"
     spec:
       affinity:
         nodeAffinity:
@@ -6927,6 +6928,12 @@ rules:
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
 
+
+  # permissions to verify the webhook is ready and rejecting
+  # invalid config. We use --server-dry-run so no config is persisted.
+  - apiGroups: ["networking.istio.io"]
+    verbs: ["create"]
+    resources: ["gateways"]
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]

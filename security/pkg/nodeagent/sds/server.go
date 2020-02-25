@@ -136,9 +136,9 @@ type Server struct {
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
 		workloadSds: newSDSService(workloadSecretCache, false, options.UseLocalJWT,
-			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir, options.CertsDir),
+			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
 		gatewaySds: newSDSService(gatewaySecretCache, true, options.UseLocalJWT,
-			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir, ""),
+			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(&options); err != nil {
