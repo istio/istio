@@ -32,6 +32,12 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
+// DEPRECATED - This analyzer specifically targets Istio versions < 1.4, and is
+// only partially supported on Istio 1.4. As the recommended version of Istio
+// progresses we should either update this analyzer (which is probably not
+// needed as misconfigurations are much harder now with the new beta apis and
+// automtls) or remove it.
+
 const missingResourceName = "(none)"
 
 // MTLSAnalyzer checks for misconfigurations of MTLS policy when autoMtls is
@@ -60,9 +66,10 @@ var _ analysis.Analyzer = &MTLSAnalyzer{}
 func (s *MTLSAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "auth.MTLSAnalyzer",
-		Description: "Checks for misconfigurations of MTLS policy when autoMtls is disabled",
+		Description: "(Deprecated) Checks for misconfigurations of MTLS policy when autoMtls is disabled",
 		// Each analyzer should register the collections that it needs to use as input.
 		Inputs: collection.Names{
+			collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(),
 			collections.K8SCoreV1Pods.Name(),
 			collections.K8SCoreV1Namespaces.Name(),
 			collections.K8SCoreV1Services.Name(),
@@ -84,6 +91,16 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// If autoMTLS is turned on, bail out early as the logic used below does not
 	// reason about its usage.
 	if mc.GetEnableAutoMtls().GetValue() {
+		return
+	}
+
+	// If the PeerAuthentication CRD exists, bail out early as this analyzer
+	// doesn't support its new semantics.
+	peerAuthCRD := c.Find(
+		collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(),
+		resource.NewFullName("", "peerauthentications.security.istio.io"),
+	)
+	if peerAuthCRD != nil {
 		return
 	}
 
