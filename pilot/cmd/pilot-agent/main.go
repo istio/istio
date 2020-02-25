@@ -84,7 +84,6 @@ var (
 	binaryPath               string
 	serviceCluster           string
 	proxyAdminPort           uint16
-	controlPlaneAuthPolicy   string
 	customConfigFile         string
 	proxyLogLevel            string
 	proxyComponentLogLevel   string
@@ -196,11 +195,6 @@ var (
 				tlsClientCertChain, tlsClientKey, tlsClientRootCert,
 			}
 
-			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
-			setSpiffeTrustDomain(podNamespace, role.DNSDomain)
-
-			log.Infof("Proxy role: %#v", role)
-
 			proxyConfig, err := constructProxyConfig()
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
@@ -211,18 +205,18 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			// Obtain the Pilot and Mixer SANs. Used below to create a Envoy proxy.
-			pilotSAN := getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.PilotSvcAccName, pilotIdentity)
-			log.Infof("PilotSAN %#v", pilotSAN)
-			mixerSAN := getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
-			log.Infof("MixerSAN %#v", mixerSAN)
+			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
+			log.Infof("Proxy role: %#v", role)
 
-			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
-			if controlPlaneAuthEnabled {
-				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-			} else {
-				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
+			var pilotSAN, mixerSAN []string
+			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
+				// Obtain the Pilot and Mixer SANs. Used below to create a Envoy proxy.
+				pilotSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.PilotSvcAccName, pilotIdentity)
+				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
 			}
+			log.Infof("PilotSAN %#v", pilotSAN)
+			log.Infof("MixerSAN %#v", mixerSAN)
 
 			// Legacy - so pilot-agent can be used with citadel node agent.
 			// Main will be replaced by istio-agent when we clean up - this code can stay here and be removed with the rest.
@@ -244,7 +238,8 @@ var (
 			if !nodeAgentSDSEnabled { // Not using citadel agent - this is either Pilot or Istiod.
 
 				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
-				sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, controlPlaneAuthEnabled, pilotCertProvider, jwtPath, outputKeyCertToDir)
+				sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+					pilotCertProvider, jwtPath, outputKeyCertToDir)
 
 				if sa.JWTPath != "" {
 					// If user injected a JWT token for SDS - use SDS.
@@ -254,7 +249,7 @@ var (
 
 					// Connection to Istiod secure port
 					if sa.RequireCerts {
-						controlPlaneAuthEnabled = true
+						proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 					}
 
 					// For normal Istio - start in process SDS.
@@ -280,7 +275,7 @@ var (
 			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
 			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
 			// pod to start.
-			if (controlPlaneAuthEnabled || rsTLSEnabled || autoMTLSEnabled.Get()) && !nodeAgentSDSEnabled {
+			if (proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS || rsTLSEnabled || autoMTLSEnabled.Get()) && !nodeAgentSDSEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
 					waitForFile(cert, 2*time.Minute)
@@ -289,7 +284,7 @@ var (
 
 			// If control plane auth is not mTLS or global SDS flag is turned off, unset UDS path and token path
 			// for control plane SDS.
-			if !controlPlaneAuthEnabled || !nodeAgentSDSEnabled {
+			if !nodeAgentSDSEnabled {
 				sdsUDSPath = ""
 				sdsTokenPath = ""
 			}
@@ -305,7 +300,7 @@ var (
 						option.PodNamespace(podNamespace),
 						option.MixerSubjectAltName(mixerSAN),
 						option.PodIP(podIP),
-						option.ControlPlaneAuth(controlPlaneAuthEnabled),
+						option.ControlPlaneAuth(proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS),
 						option.DisableReportCalls(disableInternalTelemetry),
 						option.SDSTokenPath(sdsTokenPath),
 						option.SDSUDSPath(sdsUDSPath),
@@ -409,7 +404,7 @@ var (
 				SDSUDSPath:          sdsUDSPath,
 				SDSTokenPath:        sdsTokenPath,
 				STSPort:             stsPort,
-				ControlPlaneAuth:    controlPlaneAuthEnabled,
+				ControlPlaneAuth:    proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
@@ -482,33 +477,28 @@ func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 //explicitly setting the trustdomain so the pilot and mixer SAN will have same trustdomain
 //and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
 func setSpiffeTrustDomain(podNamespace string, domain string) {
-	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotTrustDomain := trustDomain
-		if len(pilotTrustDomain) == 0 {
-			if registryID == serviceregistry.Kubernetes &&
-				(domain == podNamespace+".svc.cluster.local" || domain == "") {
-				pilotTrustDomain = "cluster.local"
-			} else if registryID == serviceregistry.Consul &&
-				(domain == "service.consul" || domain == "") {
-				pilotTrustDomain = ""
-			} else {
-				pilotTrustDomain = domain
-			}
+	pilotTrustDomain := trustDomain
+	if len(pilotTrustDomain) == 0 {
+		if registryID == serviceregistry.Kubernetes &&
+			(domain == podNamespace+".svc.cluster.local" || domain == "") {
+			pilotTrustDomain = "cluster.local"
+		} else if registryID == serviceregistry.Consul &&
+			(domain == "service.consul" || domain == "") {
+			pilotTrustDomain = ""
+		} else {
+			pilotTrustDomain = domain
 		}
-		spiffe.SetTrustDomain(pilotTrustDomain)
 	}
-
+	spiffe.SetTrustDomain(pilotTrustDomain)
 }
 
 func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 	var san []string
-	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+	if overrideIdentity == "" {
+		san = append(san, envoyDiscovery.GetSAN(ns, defaultSA))
+	} else {
+		san = append(san, envoyDiscovery.GetSAN("", overrideIdentity))
 
-		if overrideIdentity == "" {
-			san = append(san, envoyDiscovery.GetSAN(ns, defaultSA))
-		} else {
-			san = append(san, envoyDiscovery.GetSAN("", overrideIdentity))
-		}
 	}
 	return san
 }
@@ -631,8 +621,6 @@ func init() {
 		"Service cluster")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
-	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
-		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
