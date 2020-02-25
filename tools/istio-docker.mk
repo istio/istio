@@ -124,22 +124,12 @@ docker.app: $(ISTIO_DOCKER)/certs
 # Test application bundled with the sidecar (for non-k8s).
 docker.app_sidecar: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
-docker.app_sidecar: tools/packaging/common/istio-start.sh
-docker.app_sidecar: tools/packaging/common/istio-node-agent-start.sh
-docker.app_sidecar: tools/packaging/deb/postinst.sh
-docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar: $(ISTIO_DOCKER)/certs
-docker.app_sidecar: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/pilot-agent
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/node_agent
+docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
-docker.app_sidecar: pilot/docker/envoy_pilot.yaml.tmpl
-docker.app_sidecar: pilot/docker/envoy_policy.yaml.tmpl
-docker.app_sidecar: pilot/docker/envoy_telemetry.yaml.tmpl
-docker.app_sidecar: $(ISTIO_DOCKER)/istio-iptables
-docker.app_sidecar: $(ISTIO_DOCKER)/istio-clean-iptables
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
