@@ -166,7 +166,7 @@ spec:
         - -b
         - '*'
         - -d
-        - 4,5,6
+        - 15090,4,5,6
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-init
