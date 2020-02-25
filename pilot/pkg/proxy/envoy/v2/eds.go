@@ -22,7 +22,6 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -86,7 +85,7 @@ type EdsCluster struct {
 	LoadAssignment *xdsapi.ClusterLoadAssignment
 
 	// EdsClients keeps track of all nodes monitoring the cluster.
-	EdsClients map[string]*XdsConnection `json:"-"`
+	EdsClients map[string]struct{} `json:"-"`
 }
 
 // TODO: add prom metrics !
@@ -99,56 +98,8 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32,
-	network string, weight uint32, tlsMode string, push *model.PushContext) *endpoint.LbEndpoint {
-
-	var addr core.Address
-	switch family {
-	case model.AddressFamilyTCP:
-		addr = core.Address{
-			Address: &core.Address_SocketAddress{
-				SocketAddress: &core.SocketAddress{
-					Address: address,
-					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: port,
-					},
-				},
-			},
-		}
-	case model.AddressFamilyUnix:
-		addr = core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: address}}}
-	}
-
-	epWeight := weight
-	if epWeight == 0 {
-		epWeight = 1
-	}
-	ep := &endpoint.LbEndpoint{
-		LoadBalancingWeight: &wrappers.UInt32Value{
-			Value: epWeight,
-		},
-		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-			Endpoint: &endpoint.Endpoint{
-				Address: &addr,
-			},
-		},
-	}
-
-	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Istio endpoint level tls transport socket configuation depends on this logic
-	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, tlsMode, push)
-
-	return ep
-}
-
-func toEnvoyEndpoint(e *model.IstioEndpoint, push *model.PushContext) (*endpoint.LbEndpoint, error) {
-	err := model.ValidateEndpointAddress(e)
-	if err != nil {
-		return nil, err
-	}
-
-	addr := util.GetEndpointAddress(e)
+func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endpoint.LbEndpoint {
+	addr := util.BuildAddress(e.Address, e.EndpointPort)
 
 	epWeight := e.LbWeight
 	if epWeight == 0 {
@@ -166,11 +117,11 @@ func toEnvoyEndpoint(e *model.IstioEndpoint, push *model.PushContext) (*endpoint
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Istio endpoint level tls transport socket configuation depends on this logic
+	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove
 	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, e.TLSMode, push)
 
-	return ep, nil
+	return ep
 }
 
 // Determine Service associated with a hostname when there is no Sidecar scope. Which namespace the service comes from
@@ -542,12 +493,7 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance, push *model.PushContext) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := toEnvoyEndpoint(instance.Endpoint, push)
-		if err != nil {
-			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
-			totalXDSInternalErrors.Increment()
-			continue
-		}
+		lbEp := buildEnvoyLbEndpoint(instance.Endpoint, push)
 		locality := instance.GetLocality()
 		locLbEps, found := localityEpMap[locality]
 		if !found {
@@ -804,7 +750,7 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
 // stream. As of 0.7 envoy watches a single cluster per gprc stream.
-func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
+func (s *DiscoveryServer) removeEdsCon(clusterName string, conID string) {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
 		adsLog.Warnf("EDS: Missing cluster: %s", clusterName)
@@ -815,12 +761,12 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 	defer edsClusterMutex.Unlock()
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	delete(c.EdsClients, node)
+	delete(c.EdsClients, conID)
 	if len(c.EdsClients) == 0 {
 		// This happens when a previously used cluster is no longer watched by any
 		// sidecar. It should not happen very often - normally all clusters are sent
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
-		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", node, clusterName)
+		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", conID, clusterName)
 		delete(edsClusters, clusterName)
 	}
 }
@@ -852,7 +798,7 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 		c := edsClusters[ac]
 		if c == nil {
 			c = &EdsCluster{
-				EdsClients: map[string]*XdsConnection{},
+				EdsClients: map[string]struct{}{},
 			}
 			edsClusters[ac] = c
 		}
@@ -860,7 +806,7 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 		// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
 		// Currently use edsClusterMutex lock
 		c.mutex.Lock()
-		c.EdsClients[connection.ConID] = connection
+		c.EdsClients[connection.ConID] = struct{}{}
 		c.mutex.Unlock()
 	}
 }
@@ -914,8 +860,7 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network,
-					ep.LbWeight, ep.TLSMode, push)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, push)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 

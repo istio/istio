@@ -7003,6 +7003,8 @@ spec:
         heritage: Tiller
         release: istio
         chart: gateways
+        service.istio.io/canonical-name: istio-egressgateway
+        service.istio.io/canonical-revision: latest
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -7220,100 +7222,6 @@ spec:
       istio: egressgateway
       
       release: istio
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: istio-multicluster-egressgateway
-  namespace: istio-system
-  labels:
-    app: istio-egressgateway
-    istio: egressgateway
-    
-    release: istio
-spec:
-  selector:
-    istio: egressgateway
-  servers:
-  - hosts:
-    - "*.global"
-    port:
-      name: tls
-      number: 15443
-      protocol: TLS
-    tls: {}
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: istio-multicluster-egressgateway
-  namespace: istio-system 
-  labels:
-    app: istio-egressgateway
-    istio: egressgateway
-    
-    release: istio
-spec:
-  gateways:
-  - istio-multicluster-egressgateway
-  hosts:
-  - "*.global"
-  tls:
-  - match:
-    - port: 15443
-      sniHosts:
-      - "*.global"
-    route:
-    - destination:
-        host: non.existent.cluster
-        port:
-          number: 15443
-      weight: 100
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: istio-multicluster-egressgateway
-  namespace: istio-system
-  labels:
-    app: istio-egressgateway
-    istio: egressgateway
-    
-    release: istio
-spec:
-  workloadLabels:
-    istio: egressgateway
-  filters:
-  - listenerMatch:
-      portNumber: 15443
-      listenerType: GATEWAY
-    filterName: envoy.filters.network.sni_cluster
-    filterType: NETWORK
-    filterConfig: {}
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: istio-multicluster-egressgateway
-  namespace: istio-system
-  labels:
-    app: istio-egressgateway
-    istio: egressgateway
-    
-    release: istio
-spec:
-  host: "*.global"
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
 ---
 
 
@@ -7545,7 +7453,6 @@ data:
     kind: ValidatingWebhookConfiguration
     metadata:
       name: istio-galley
-      namespace: istio-system
       labels:
         app: galley
         release: istio
@@ -7787,7 +7694,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: istio-system
   labels:
     app: galley
     release: istio
@@ -7851,6 +7757,8 @@ spec:
         heritage: Tiller
         release: istio
         chart: gateways
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: latest
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -8303,6 +8211,12 @@ rules:
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
+
+  # permissions to verify the webhook is ready and rejecting
+  # invalid config. We use --server-dry-run so no config is persisted.
+  - apiGroups: ["networking.istio.io"]
+    verbs: ["create"]
+    resources: ["gateways"]
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -10193,7 +10107,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-istio-system
-  namespace: istio-system
   labels:
     app: istiod
     release: istio

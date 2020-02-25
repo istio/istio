@@ -704,7 +704,6 @@ func addUdsEndpoint(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("localuds.cluster.local", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Family:          model.AddressFamilyUnix,
 			Address:         udsPath,
 			EndpointPort:    0,
 			ServicePortName: "grpc",
