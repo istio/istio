@@ -43,13 +43,18 @@ if [ "x${ISTIO_VERSION}" = "x" ] ; then
   exit;
 fi
 
+function download_failed () {
+  printf "Download failed, please make sure your ISTIO_VERSION is correct and verify the download URL exists!"
+  exit 1
+}
+
 # Downloads the istioctl binary archive.
 tmp=$(mktemp -d /tmp/istioctl.XXXXXX)
 filename="istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 cd "$tmp" || exit
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 printf "Downloading %s from %s ... \n" "${filename}" "${URL}"
-curl -sLO "${URL}"
+curl -sLO "${URL}" || download_failed
 printf "%s download complete!\n" "${filename}"
 
 # setup istioctl
