@@ -2098,6 +2098,10 @@ message KialiDashboardConfig {
   string jaegerURL = 6;
 
   TypeMapStringInterface auth = 7;
+
+  string inclustergrafanaURL = 8;
+
+  string inclusterjaegerURL = 9;
 }
 
 message KialiIngressConfig {
