@@ -22,10 +22,10 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/proto"
@@ -497,18 +497,15 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	case *route.Route_Route:
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
-			{
-				_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
-				var attrs attributes
-				if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
-					attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
-				} else {
-					svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-					attrs = addDestinationServiceAttributes(make(attributes), svc)
-				}
-				addFilterConfigToRoute(in, httpRoute, attrs, getQuotaSpec(in, hostname, isPolicyCheckDisabled))
+			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
+			var attrs attributes
+			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
+				attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
+			} else {
+				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+				attrs = addDestinationServiceAttributes(make(attributes), svc)
 			}
-
+			addFilterConfigToRoute(in, httpRoute, attrs, getQuotaSpec(in, hostname, isPolicyCheckDisabled))
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
@@ -526,15 +523,15 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		default:
 			log.Warn("Unknown cluster type in mixer#OnOutboundRouteConfiguration")
 		}
-	// route.Route_DirectResponse is used for the BlackHole cluster configuration,
-	// hence adding the attributes for the mixer filter
+		// route.Route_DirectResponse is used for the BlackHole cluster configuration,
+		// hence adding the attributes for the mixer filter
 	case *route.Route_DirectResponse:
 		if virtualHostname == util.BlackHoleRouteName {
 			hostname := host.Name(util.BlackHoleCluster)
 			attrs := addVirtualDestinationServiceAttributes(make(attributes), hostname)
 			addFilterConfigToRoute(in, httpRoute, attrs, nil)
 		}
-	// route.Route_Redirect is not used currently, so no attributes are added here
+		// route.Route_Redirect is not used currently, so no attributes are added here
 	case *route.Route_Redirect:
 	default:
 		log.Warn("Unknown route type in mixer#OnOutboundRouteConfiguration")
