@@ -107,8 +107,18 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 										ApiType: core.ApiConfigSource_GRPC,
 										GrpcServices: []*core.GrpcService{
 											{
-												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+													GoogleGrpc: &core.GrpcService_GoogleGrpc{
+														TargetUri:  "unix:/var/run/sds/uds_path",
+														StatPrefix: model.SDSStatPrefix,
+														ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+															CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+																LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+															},
+														},
+														CallCredentials:        model.ConstructgRPCCallCredentials(model.K8sSATrustworthyJwtFileName, model.K8sSAJwtTokenHeaderKey),
+														CredentialsFactoryName: model.FileBasedMetadataPlugName,
+													},
 												},
 											},
 										},
@@ -129,8 +139,18 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											ApiType: core.ApiConfigSource_GRPC,
 											GrpcServices: []*core.GrpcService{
 												{
-													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+														GoogleGrpc: &core.GrpcService_GoogleGrpc{
+															TargetUri:  "unix:/var/run/sds/uds_path",
+															StatPrefix: model.SDSStatPrefix,
+															ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+																CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+																	LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+																},
+															},
+															CallCredentials:        model.ConstructgRPCCallCredentials(model.K8sSATrustworthyJwtFileName, model.K8sSAJwtTokenHeaderKey),
+															CredentialsFactoryName: model.FileBasedMetadataPlugName,
+														},
 													},
 												},
 											},

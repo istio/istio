@@ -427,7 +427,7 @@ var (
 
 			// If control plane auth is not mTLS or global SDS flag is turned off, unset UDS path and token path
 			// for control plane SDS.
-			if !controlPlaneAuthEnabled || !nodeAgentSDSEnabled {
+			if !nodeAgentSDSEnabled {
 				sdsUDSPath = ""
 				sdsTokenPath = ""
 			}
