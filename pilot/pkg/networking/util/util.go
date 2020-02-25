@@ -184,14 +184,10 @@ func BuildAddress(bind string, port uint32) *core.Address {
 		}
 	}
 
-	udsPath := bind
-	if strings.HasPrefix(udsPath, model.UnixAddressPrefix) {
-		udsPath = strings.TrimPrefix(udsPath, model.UnixAddressPrefix)
-	}
 	return &core.Address{
 		Address: &core.Address_Pipe{
 			Pipe: &core.Pipe{
-				Path: udsPath,
+				Path: strings.TrimPrefix(bind, model.UnixAddressPrefix),
 			},
 		},
 	}
