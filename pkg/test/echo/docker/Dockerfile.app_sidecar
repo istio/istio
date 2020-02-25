@@ -9,9 +9,7 @@ COPY certs/default/*                  /etc/certs/
 # Install the sidecar components
 COPY envoy                            /usr/local/bin/envoy
 COPY pilot-agent                      /usr/local/bin/pilot-agent
-COPY node_agent                       /usr/local/bin/node_agent
 COPY istio-start.sh                   /usr/local/bin/istio-start.sh
-COPY istio-node-agent-start.sh        /usr/local/bin/istio-node-agent-start.sh
 COPY istio-iptables                   /usr/local/bin/istio-iptables
 COPY istio-clean-iptables             /usr/local/bin/istio-clean-iptables
 COPY postinst.sh                      /usr/local/bin/postinst.sh
