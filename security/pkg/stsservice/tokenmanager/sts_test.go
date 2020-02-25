@@ -17,12 +17,12 @@ package tokenmanager
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -222,14 +222,9 @@ func setUpTestComponents(t *testing.T, setup testSetUp) (*stsServer.Server, *moc
 		Config{TrustDomain: mock.FakeTrustDomain})
 	tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
 	// Create STS server
-	portStr := strconv.Itoa(mockServer.Port + 1)
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:"+portStr)
-	if err != nil {
-		t.Fatalf("failed to create address %v", err)
-	}
-	server, _ := stsServer.NewServer(stsServer.Config{LocalHostAddr: addr.IP.String(), LocalPort: addr.Port}, tokenManager)
+	server, _ := stsServer.NewServer(stsServer.Config{LocalHostAddr: "127.0.0.1", LocalPort: 0}, tokenManager)
 	// Create test client
-	stsServerAddress = addr.String()
+	stsServerAddress = fmt.Sprintf("127.0.0.1:%d", server.Port)
 	clients := []*http.Client{}
 	for i := 0; i < numClient; i++ {
 		hTTPClient := &http.Client{

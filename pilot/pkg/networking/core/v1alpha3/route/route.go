@@ -826,7 +826,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
-	notimeout := ptypes.DurationProto(0 * time.Second)
+	notimeout := ptypes.DurationProto(0)
 
 	val := &route.Route{
 		Match: translateRouteMatch(nil, node),

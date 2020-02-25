@@ -68,7 +68,7 @@ gateways:
 
     # Enable cross-cluster access using SNI matching
     zvpn:
-      enabled: true
+      enabled: false
       suffix: global
 
     # To generate an internal load balancer:
