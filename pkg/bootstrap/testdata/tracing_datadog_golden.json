@@ -269,6 +269,21 @@
         }
       },
       {
+        "name": "agent",
+        "type": "STATIC",
+        "connect_timeout": "0.250s",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {
+              "protocol": "TCP",
+              "address": "127.0.0.1",
+              "port_value": 15020
+            }
+          }
+        ]
+      },
+      {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
@@ -369,6 +384,14 @@
                             },
                             "route": {
                               "cluster": "prometheus_stats"
+                            }
+                          },
+                          {
+                            "match": {
+                              "prefix": "/healthz/ready"
+                            },
+                            "route": {
+                              "cluster": "agent"
                             }
                           }
                         ]
