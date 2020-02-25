@@ -465,7 +465,7 @@ var (
 func getMeshConfig() (meshconfig.MeshConfig, error) {
 	defaultConfig := mesh.DefaultMeshConfig()
 	if meshConfig != "" {
-		mc, err := mesh.ApplyMeshConfigJSON(meshConfig, defaultConfig)
+		mc, err := mesh.ApplyMeshConfig(meshConfig, defaultConfig)
 		if err != nil || mc == nil {
 			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config [%v]: %v", meshConfig, err)
 		}
