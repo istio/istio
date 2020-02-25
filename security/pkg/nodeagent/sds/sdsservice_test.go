@@ -341,6 +341,8 @@ func testSDSStreamOne(stream sds.SecretDiscoveryService_StreamSecretsClient, pro
 	}
 
 	// Send second request as an ACK and wait for notifyPush
+	// The second and following requests can carry an empty node identifier.
+	req.Node.Id = ""
 	req.VersionInfo = resp.VersionInfo
 	req.ResponseNonce = resp.Nonce
 	if err = stream.Send(req); err != nil {
@@ -629,18 +631,6 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	}
 }
 
-// Flow for testSDSStreamUpdateFailures:
-// Client         Server       TestStreamSecretsUpdateFailures
-//   REQ    -->
-// (verify) <--    RESP
-//   ACK    -->
-// "notify push secret"  ----> (Check stats, push new secret)
-// (verify) <--    RESP
-//      <--------------------- "receive secret"
-//  NACK    -->
-// "stream.Send failed"  ----> (Check stats, push new secret)
-//          <--    RESP
-// "close stream" -----------> (close stream)
 func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
 	req := &api.DiscoveryRequest{
@@ -666,12 +656,20 @@ func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecrets
 			"first SDS response verification failed: %v", err)}
 	}
 
-	// Send second request as an ACK and wait for notifyPush
-	req.VersionInfo = resp.VersionInfo
-	req.ResponseNonce = resp.Nonce
+	// Send second request as a NACK. The server side will be blocked.
+	req.ErrorDetail = &status.Status{
+		Code:    int32(rpc.INTERNAL),
+		Message: "fake error",
+	}
 	if err = stream.Send(req); err != nil {
 		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream.Send failed: %v", err)}
 	}
+
+	// Wait for the server to block.
+	time.Sleep(500 * time.Millisecond)
+
+	// Notify the testing thread to update the secret on the server, which triggers a response with
+	// the new secret will be sent.
 	notifyChan <- notifyMsg{Err: nil, Message: "notify push secret"}
 	if notify := <-notifyChan; notify.Message == "receive secret" {
 		resp, err = stream.Recv()
@@ -684,29 +682,20 @@ func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecrets
 		}
 	}
 
-	// Send third request and simulate the scenario that the second push causes secret update failure.
-	// The version info and response nonce in the third request should match the second request.
-	req.ErrorDetail = &status.Status{
-		Code:    int32(rpc.INTERNAL),
-		Message: "fake error",
-	}
-	if err = stream.Send(req); err != nil {
-		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream.Send failed: %v", err)}
-	}
-	// The third request gets the response as a retry push, so it is not on hold but replied with key/cert immediately.
-	resp, err = stream.Recv()
-	if err != nil {
-		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream.Recv failed: %v", err)}
-	}
-	if err := verifySDSSResponse(resp, fakePrivateKey, fakeCertificateChain); err != nil {
-		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf(
-			"third SDS response verification failed: %v", err)}
-	}
 	notifyChan <- notifyMsg{Err: nil, Message: "close stream"}
 }
 
-// TestStreamSecretsUpdateFailures verifies that update failures reported by Envoy proxy is correctly
-// recorded by metrics.
+// TestStreamSecretsUpdateFailures verifies that NACK returned by Envoy will be blocked until next
+// secret update push.
+// Flow:
+// Client         Server       TestStreamSecretsUpdateFailures
+//   REQ    -->
+// (verify) <--    RESP
+//   NACK   -->  (blocked)
+// "notify push secret"  ----> (Check stats, push new secret)
+//      <--------------------- "receive secret"
+// (verify) <--    RESP
+// "close stream" -----------> (close stream)
 func TestStreamSecretsUpdateFailures(t *testing.T) {
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime,
 	// reset since it may be updated in other test case.
@@ -733,7 +722,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	waitForNotificationToProceed(t, notifyChan, "notify push secret")
 	// verify that the first SDS request does not hit cache, and that the second SDS request hits cache.
 	waitForSecretCacheCheck(t, st, false, 1)
-	waitForSecretCacheCheck(t, st, true, 1)
+	waitForSecretCacheCheck(t, st, true, 0)
 
 	// simulate logic in constructConnectionID() function.
 	conID := proxyID + "-1"
@@ -752,10 +741,6 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	st.secrets.Store(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, pushSecret)
 	notifyChan <- notifyMsg{Err: nil, Message: "receive secret"}
 
-	// verify that Envoy rejects previous push and send another SDS request with error info. This SDS
-	// request has error message, so directly re-push the reponse wihout checking cache.
-	waitForSecretCacheCheck(t, st, false, 1)
-
 	waitForNotificationToProceed(t, notifyChan, "close stream")
 	conn.Close()
 
@@ -773,7 +758,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 		t.Errorf("Fail to get value from metric totalPush: %v", err)
 	}
 	totalPushVal -= initialTotalPush
-	if totalPushVal != float64(3) {
+	if totalPushVal != float64(2) {
 		t.Errorf("unexpected metric totalPush: expected 3 but got %v", totalPushVal)
 	}
 }
