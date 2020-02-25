@@ -42289,9 +42289,15 @@ spec:
               {{- end }}
             - mountPath: /etc/istio-certs/
               name: istio-certs
+            - name: istio-config-volume
+              mountPath: /etc/istio/config
 {{- end }}
 
       volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
       - name: config-volume
         configMap:
           name: prometheus
@@ -42626,7 +42632,10 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
 
 # Indicate if Citadel is enabled, i.e., whether its generated certificates are available
 security:
-  enabled: true`)
+  enabled: true
+
+revision: ""
+`)
 
 func chartsIstioTelemetryPrometheusValuesYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryPrometheusValuesYaml, nil

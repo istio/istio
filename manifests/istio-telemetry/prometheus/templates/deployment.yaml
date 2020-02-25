@@ -183,9 +183,15 @@ spec:
               {{- end }}
             - mountPath: /etc/istio-certs/
               name: istio-certs
+            - name: istio-config-volume
+              mountPath: /etc/istio/config
 {{- end }}
 
       volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
       - name: config-volume
         configMap:
           name: prometheus

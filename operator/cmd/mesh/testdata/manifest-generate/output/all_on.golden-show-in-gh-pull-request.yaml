@@ -681,8 +681,14 @@ spec:
               name: istio-token
             - mountPath: /etc/istio-certs/
               name: istio-certs
+            - name: istio-config-volume
+              mountPath: /etc/istio/config
 
       volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio
+          optional: true
       - name: config-volume
         configMap:
           name: prometheus
