@@ -256,8 +256,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			if con.conID == "" {
 				// first request
 				if discReq.Node == nil || len(discReq.Node.Id) == 0 {
-					sdsServiceLog.Errorf("%s close connection. Missing Node ID in the first request",
-						sdsLogPrefix(resourceName))
+					sdsServiceLog.Errorf("Resource: %s close connection. Missing Node ID in the first request",
+						resourceName)
 					return fmt.Errorf("missing Node ID in the first request")
 				}
 				con.conID = constructConnectionID(discReq.Node.Id)
