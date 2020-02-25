@@ -508,6 +508,7 @@ spec:
       dashboard:
         auth:
           strategy: login
+        jaegerInClusterURL: http://tracing.istio-system/jaeger
         secretName: kiali
         viewOnlyMode: false
       hub: quay.io/kiali
