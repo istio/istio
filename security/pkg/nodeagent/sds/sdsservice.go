@@ -47,6 +47,9 @@ const (
 	// SecretType is used for secret discovery service to construct response.
 	SecretType = "type.googleapis.com/envoy.api.v2.auth.Secret"
 
+	// MaxSDSPushRetries is the max number of retries in case of continuously receiving NACK from Envoy.
+	MaxSDSPushRetries = 8
+
 	// credentialTokenHeaderKey is the header key in gPRC header which is used to
 	// pass credential token from envoy's SDS request to SDS service.
 	credentialTokenHeaderKey = "authorization"
@@ -106,6 +109,9 @@ type sdsConnection struct {
 	// Time of the recent SDS push. Will be reset to zero when a new SDS request is received. A
 	// non-zero time indicates that the connection is waiting for SDS request.
 	sdsPushTime time.Time
+
+	// Number of retries conducted in the last response.
+	retries int
 }
 
 type sdsservice struct {
@@ -228,6 +234,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 		// Block until a request is received.
 		select {
 		case discReq, ok := <-reqChannel:
+			retry := false
 			if !ok {
 				// Remote side closed connection.
 				sdsServiceLog.Errorf("Remote side closed connection")
@@ -240,34 +247,55 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				node = discReq.Node
 			}
 
-			resourceName, err := parseDiscoveryRequest(discReq)
-			if err != nil {
+			resourceName, disconnect, err := parseDiscoveryRequest(discReq)
+			if disconnect {
 				sdsServiceLog.Errorf("Close connection. Failed to parse discovery request: %v", err)
 				return err
 			}
 
-			if resourceName == "" {
-				sdsServiceLog.Infof("Received empty resource name from %q", discReq.Node.Id)
-				continue
+			if err != nil {
+				retry = true
+				sdsServiceLog.Errorf("%s, try to push again.", err)
 			}
 
-			key := cache.ConnKey{
-				ResourceName: resourceName,
+			if resourceName == "" {
+				sdsServiceLog.Infof("Received empty resource name from %q. No need to respond", discReq.Node.Id)
+				continue
 			}
 
 			var firstRequestFlag bool
 			con.mutex.Lock()
 			if con.conID == "" {
 				// first request
+				if discReq.Node == nil || len(discReq.Node.Id) == 0 {
+					sdsServiceLog.Errorf("%s close connection. Missing Node ID in the first request",
+						sdsLogPrefix(resourceName))
+					return err
+				}
 				con.conID = constructConnectionID(discReq.Node.Id)
-				key.ConnectionID = con.conID
+				con.proxyID = discReq.Node.Id
+				con.ResourceName = resourceName
+				key := cache.ConnKey{
+					ResourceName: resourceName,
+					ConnectionID: con.conID,
+				}
 				addConn(key, con)
 				firstRequestFlag = true
 				sdsServiceLog.Infof("%s new connection", sdsLogPrefix(con.conID, resourceName))
 			}
 			conID := con.conID
-			con.proxyID = discReq.Node.Id
-			con.ResourceName = resourceName
+
+			if retry {
+				con.retries++
+				if con.retries >= MaxSDSPushRetries {
+					sdsServiceLog.Errorf("%s close connection. Exhausted max SDS push retries (%d) for this connection",
+						sdsLogPrefix(resourceName), MaxSDSPushRetries)
+					return err
+				}
+			} else {
+				con.retries = 0
+			}
+
 			// Reset SDS push time for new SDS push.
 			con.sdsPushTime = time.Time{}
 			con.mutex.Unlock()
@@ -301,22 +329,16 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
-			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
+			if !retry && discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
 					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail)
 				continue
 			}
 
-			if firstRequestFlag {
-				sdsServiceLog.Debugf("%s received first SDS request from proxy %q, version info "+
-					"%q, error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
-					discReq.ErrorDetail)
-			} else {
-				sdsServiceLog.Debugf("%s received SDS request from proxy %q, version info %q, "+
-					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
-					discReq.ErrorDetail)
-			}
+			sdsServiceLog.Debugf("%s received SDS request from proxy %q, first request: %v, version info %q, "+
+				"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, firstRequestFlag, discReq.VersionInfo,
+				discReq.ErrorDetail)
 
 			// In ingress gateway agent mode, if the first SDS request is received but kubernetes secret is not ready,
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
@@ -332,6 +354,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					"secret cache: %v", conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
+
+			// Output the key and cert to a directory, if some applications need to read them from local file system.
 			if err = util.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {
 				sdsServiceLog.Errorf("(%v, %v) error when output the key and cert: %v",
@@ -407,8 +431,8 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		token = t
 	}
 
-	resourceName, err := parseDiscoveryRequest(discReq)
-	if err != nil {
+	resourceName, disconnect, err := parseDiscoveryRequest(discReq)
+	if disconnect {
 		sdsServiceLog.Errorf("Failed to parse discovery request: %v", err)
 		return nil, err
 	}
@@ -419,6 +443,8 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		sdsServiceLog.Errorf("Failed to get secret for proxy %q from secret cache: %v", connID, err)
 		return nil, err
 	}
+
+	// Output the key and cert to a directory, if some applications need to read them from local file system.
 	if err = util.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
 		secret.CertificateChain, secret.RootCert); err != nil {
 		sdsServiceLog.Errorf("(%v) error when output the key and cert: %v",
@@ -503,23 +529,23 @@ func recycleConnection(conID, resourceName string) {
 	totalActiveConnCounts.Decrement()
 }
 
-func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, error) {
-	if discReq.Node == nil {
-		return "", fmt.Errorf("discovery request %+v missing node", discReq)
-	}
-	if discReq.Node.Id == "" {
-		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
-	}
-
-	if len(discReq.ResourceNames) == 0 {
-		return "", nil
+func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, bool /* disconnect */, error) {
+	// Do not support multiple resource names for SDS now.
+	if len(discReq.ResourceNames) > 1 {
+		return "", true, fmt.Errorf(
+			"discovery request %+v has more than one resourceNames %+v", discReq, discReq.ResourceNames)
 	}
 
+	resourceName := ""
 	if len(discReq.ResourceNames) == 1 {
-		return discReq.ResourceNames[0], nil
+		resourceName = discReq.ResourceNames[0]
 	}
 
-	return "", fmt.Errorf("discovery request %+v has invalid resourceNames %+v", discReq, discReq.ResourceNames)
+	if discReq.ErrorDetail != nil {
+		return resourceName, false, fmt.Errorf("discovery request %+v returned error: %s",
+			discReq, codes.Code(discReq.ErrorDetail.Code).String())
+	}
+	return resourceName, false, nil
 }
 
 func getCredentialToken(ctx context.Context) (string, error) {
