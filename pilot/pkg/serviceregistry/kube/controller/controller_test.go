@@ -529,7 +529,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{Labels: labels.Instance{"app": "prod-app"},
-					ServiceAccount: "account", Family: 0,
+					ServiceAccount:  "account",
 					Address:         "1.1.1.1",
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
@@ -589,7 +589,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
-					Family:          0,
 					Address:         "129.0.0.1",
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
@@ -646,7 +645,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
-					Family:          0,
 					Address:         "129.0.0.2",
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
