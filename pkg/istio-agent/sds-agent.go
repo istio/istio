@@ -188,8 +188,14 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 		log.Fatala("Invalid discovery address", discAddr, err)
 	}
 
+	if _, err := os.Stat("/etc/certs/key.pem"); err == nil {
+		ac.CertsPath = "/etc/certs"
+	}
+
 	if _, err := os.Stat(jwtPath); err == nil {
 		ac.JWTPath = jwtPath
+	} else if ac.CertsPath != "" {
+		log.Warna("Using existing certificate")
 	} else {
 		// Can't use in-process SDS.
 		log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
@@ -202,9 +208,6 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 
 	ac.SDSAddress = "unix:" + LocalSDS
 
-	if _, err := os.Stat("/etc/certs/key.pem"); err == nil {
-		ac.CertsPath = "/etc/certs"
-	}
 	if tlsRequired {
 		ac.RequireCerts = true
 	}
@@ -241,7 +244,8 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	serverOptions.PilotCertProvider = conf.PilotCertProvider
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
-	serverOptions.UseLocalJWT = true
+	serverOptions.UseLocalJWT = conf.CertsPath == "" // true if we don't have a key.pem
+	serverOptions.CertsDir = conf.CertsPath
 	serverOptions.JWTPath = conf.JWTPath
 	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
 

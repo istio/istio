@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"istio.io/pkg/env"
 	"net"
 	"net/http"
 	"os"
@@ -87,6 +88,10 @@ var (
 		plugin.Health,
 		plugin.Mixer,
 	}
+
+	enableElection = env.RegisterBoolVar("MASTER_ELECTION",
+		true,
+		"Enable master election")
 )
 
 func init() {
@@ -278,7 +283,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil
 	})
 
-	if s.leaderElection != nil {
+	if s.leaderElection != nil && enableElection.Get() {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			// We mark this as a required termination as an optimization. Without this, when we exit the lock is
 			// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
@@ -608,7 +613,7 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options, namespace
 	}
 	caCert, err := ioutil.ReadFile(ca)
 	if err != nil {
-		return fmt.Errorf("failed to read ca file at %v: %v", ca, err)
+		caCert = s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
@@ -649,7 +654,22 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 	key := path.Join(certDir, constants.KeyFilename)
 	cert := path.Join(certDir, constants.CertChainFilename)
 
-	tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
+	certP, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+
+	cp := x509.NewCertPool()
+	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	cp.AppendCertsFromPEM(rootCertBytes)
+
+	cfg := &tls.Config{
+		Certificates: []tls.Certificate{certP},
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+		ClientCAs:    cp,
+	}
+
+	tlsCreds := credentials.NewTLS(cfg)
 	// certs not ready yet.
 	if err != nil {
 		return err
@@ -666,6 +686,7 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 
 	opts := s.grpcServerOptions(keepalive)
 	opts = append(opts, grpc.Creds(tlsCreds))
+
 	s.secureGRPCServerDNS = grpc.NewServer(opts...)
 	s.EnvoyXdsServer.Register(s.secureGRPCServerDNS)
 

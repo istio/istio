@@ -103,6 +103,9 @@ type Options struct {
 	// from the UDS caller. Used when it runs in the same container with Envoy.
 	UseLocalJWT bool
 
+	// Existing certs, for VM or existing certificates
+	CertsDir string
+
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
 
@@ -133,9 +136,9 @@ type Server struct {
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
 		workloadSds: newSDSService(workloadSecretCache, false, options.UseLocalJWT,
-			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
+			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir, options.CertsDir),
 		gatewaySds: newSDSService(gatewaySecretCache, true, options.UseLocalJWT,
-			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
+			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir, ""),
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(&options); err != nil {

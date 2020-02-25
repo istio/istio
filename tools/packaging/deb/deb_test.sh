@@ -44,3 +44,12 @@ function istioTest() {
     # Will go to local machine
     su -s /bin/bash -c "curl -v byon-docker.test.istio.io:7072" istio-test
 }
+
+if [ "$1" == "test" ]; then
+  # start istiod, using local config files (no k8s)
+  /usr/local/bin/pilot-discovery discovery --configDir /var/lib/istio/config &
+
+  # Start sidecar and iptables
+  startIstio
+
+fi

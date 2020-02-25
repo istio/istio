@@ -122,6 +122,8 @@ type sdsservice struct {
 
 	localJWT bool
 
+	certsDir string
+
 	jwtPath string
 
 	outputKeyCertToDir string
@@ -147,7 +149,7 @@ type Debug struct {
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
 func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool,
-	recycleInterval time.Duration, jwtPath, outputKeyCertToDir string) *sdsservice {
+	recycleInterval time.Duration, jwtPath, outputKeyCertToDir string, certsDir string) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -159,6 +161,7 @@ func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool,
 		closing:            make(chan bool),
 		localJWT:           localJWT,
 		jwtPath:            jwtPath,
+		certsDir:           certsDir,
 		outputKeyCertToDir: outputKeyCertToDir,
 	}
 
@@ -282,6 +285,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					return err
 				}
 				token = string(tok)
+			} else if s.certsDir != "" {
+				// Using existing certs.
 			} else if !s.skipToken {
 				ctx = stream.Context()
 				t, err := getCredentialToken(ctx)
