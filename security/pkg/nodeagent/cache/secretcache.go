@@ -802,7 +802,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		Token:            token,
 		CreatedTime:      t,
 		ExpireTime:       expireTime,
-		Version:          t.String(),
+		Version:          t.Format("01-02 15:04:05.000"), // Precise enough version based on creation time.
 	}, nil
 }
 
