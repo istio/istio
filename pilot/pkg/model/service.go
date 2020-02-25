@@ -174,29 +174,6 @@ type Port struct {
 // PortList is a set of ports
 type PortList []*Port
 
-// AddressFamily indicates the kind of transport used to reach an IstioEndpoint
-type AddressFamily int
-
-const (
-	// AddressFamilyTCP represents an address that connects to a TCP endpoint. It consists of an IP address or host and
-	// a port number.
-	AddressFamilyTCP AddressFamily = iota
-	// AddressFamilyUnix represents an address that connects to a Unix Domain Socket. It consists of a socket file path.
-	AddressFamilyUnix
-)
-
-// String converts addressfamily into string (tcp/unix)
-func (f AddressFamily) String() string {
-	switch f {
-	case AddressFamilyTCP:
-		return "tcp"
-	case AddressFamilyUnix:
-		return "unix"
-	default:
-		return fmt.Sprintf("%d", f)
-	}
-}
-
 // TrafficDirection defines whether traffic exists a service instance or enters a service instance
 type TrafficDirection string
 
@@ -305,10 +282,6 @@ func GetLocalityOrDefault(label, defaultLocality string) string {
 type IstioEndpoint struct {
 	// Labels points to the workload or deployment labels.
 	Labels labels.Instance
-
-	// Family indicates what type of endpoint, such as TCP or Unix Domain Socket.
-	// Default is TCP.
-	Family AddressFamily
 
 	// Address is the address of the endpoint, using envoy proto.
 	Address string
