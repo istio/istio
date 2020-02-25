@@ -60,5 +60,7 @@ func setupConfig(cfg *istio.Config) {
 components:
   citadel:
     enabled: true
+  egressGateways:
+  - enabled: true
 `
 }
