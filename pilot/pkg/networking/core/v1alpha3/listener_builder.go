@@ -303,10 +303,16 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
-	ipTablesListener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(push.Mesh.ProtocolDetectionTimeout)
-	if ipTablesListener.ListenerFiltersTimeout != nil {
-		ipTablesListener.ContinueOnListenerFiltersTimeout = true
+
+	// Set protocol detection timeout if a global default exists. If not, envoy will fallback to built in
+	// default of 15s
+	if push.Mesh.ProtocolDetectionTimeout != nil {
+		ipTablesListener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(push.Mesh.ProtocolDetectionTimeout)
 	}
+	// set this to true so that if the protocol detection timeout was not set, outbound traffic will still continue
+	// when the TLS inspector or HTTP inspector get stuck.
+	ipTablesListener.ContinueOnListenerFiltersTimeout = true
+
 	configgen.onVirtualOutboundListener(node, push, ipTablesListener)
 	builder.virtualListener = ipTablesListener
 	return builder
