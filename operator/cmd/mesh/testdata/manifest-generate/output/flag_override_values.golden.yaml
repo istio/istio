@@ -1977,7 +1977,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-istio-system
-  namespace: istio-system
   labels:
     app: istiod
     release: istio
