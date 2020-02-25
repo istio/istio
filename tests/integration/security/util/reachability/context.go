@@ -72,10 +72,23 @@ func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instanc
 	})
 
 	var a, b, headless, naked echo.Instance
+	var multiversion echo.Instance
+	cfg := util.EchoConfig("multiversion", ns, false, nil, g, p)
+	cfg.Workloads = []echo.WorkloadConfig{
+		{
+			Name: "istio",
+		},
+		{
+			Name:        "legacy",
+			Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+		},
+	}
+
 	echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 		With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 		With(&headless, util.EchoConfig("headless", ns, true, nil, g, p)).
+		With(&multiversion, cfg).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), g, p)).
 		BuildOrFail(ctx)

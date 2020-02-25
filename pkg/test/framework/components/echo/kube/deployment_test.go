@@ -74,6 +74,42 @@ func TestDeploymentYAML(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:         "multiversion",
+			wantFilePath: "testdata/multiversion.yaml",
+			config: echo.Config{
+				Service: "multiversion",
+				Workloads: []echo.WorkloadConfig{
+					{
+						Name: "istio",
+					},
+					{
+						Name:        "legacy",
+						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+					},
+				},
+				Ports: []echo.Port{
+					{
+						Name:         "http",
+						Protocol:     protocol.HTTP,
+						InstancePort: 8090,
+						ServicePort:  8090,
+					},
+					{
+						Name:         "tcp",
+						Protocol:     protocol.TCP,
+						InstancePort: 9000,
+						ServicePort:  9000,
+					},
+					{
+						Name:         "grpc",
+						Protocol:     protocol.GRPC,
+						InstancePort: 9090,
+						ServicePort:  9090,
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range testCase {
 		yaml, err := generateYAMLWithSettings(tc.config, settings)

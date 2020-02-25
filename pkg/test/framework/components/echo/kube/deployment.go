@@ -113,7 +113,7 @@ spec:
           - "{{ $p }}"
 {{- end }}
           - --version
-          - "{{ .Version }}"
+          - "{{ $w.Version }}"
         ports:
 {{- range $i, $p := $.ContainerPorts }}
         - containerPort: {{ $p.Port }} 
@@ -192,8 +192,14 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 	serviceAnnotations := make(map[string]string)
 	workloadAnnotations := make(map[string]string)
 	wlas := make(map[string]map[string]string)
-	for _, w := range cfg.Workloads {
+	for i, w := range cfg.Workloads {
 		wlas[w.Name] = map[string]string{}
+		if cfg.Workloads[i].Version == "" {
+			cfg.Workloads[i].Version = cfg.Version
+		}
+		if cfg.Workloads[i].Version == "" {
+			cfg.Workloads[i].Version = "v1"
+		}
 		for k, val := range w.Annotations {
 			wlas[w.Name][k.Name] = val.Value
 		}
