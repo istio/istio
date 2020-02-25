@@ -8922,8 +8922,8 @@ gateways:
       targetPort: 15032
       name: tracing
     - port: 31400
+      targetPort: 31400
       name: tcp
-      nodePort: 31400
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
@@ -40879,8 +40879,8 @@ spec:
           targetPort: 15032
           name: tracing
         - port: 31400
+          targetPort: 31400
           name: tcp
-          nodePort: 31400
           # This is the port where sni routing happens
         - port: 15443
           targetPort: 15443
