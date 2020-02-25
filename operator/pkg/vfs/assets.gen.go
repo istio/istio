@@ -6345,21 +6345,30 @@ subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}
   ports:
-  - port: 15003
-    name: http-old-discovery # mTLS or non-mTLS depending on auth setting
-  - port: 15005
-    name: https-discovery # always mTLS
-  - port: 15007
-    name: http-discovery # always plain-text
   - port: 15010
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod
   - port: 15014
     name: http-monitoring
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePilotAddress }}
+  ports:
+  - port: 15012
+    name: http-istiod
 {{- end }}
+
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 ---
 apiVersion: v1
@@ -6538,21 +6547,27 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   ports:
-  - port: 15003
-    name: http-old-discovery # mTLS or non-mTLS depending on auth setting
-  - port: 15005
-    name: https-discovery # always mTLS
-  - port: 15007
-    name: http-discovery # always plain-text
   - port: 15010
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod    
   - port: 15014
     name: http-monitoring
   clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: http-istiod
 ---
 {{- end }}
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
@@ -6949,6 +6964,12 @@ spec:
         heritage: Tiller
         release: istio
         chart: gateways
+{{- end }}
+        service.istio.io/canonical-name: istio-egressgateway
+{{- if not (eq .Values.revision "") }}
+        service.istio.io/canonical-revision: {{ .Values.revision }}
+{{- else}}
+        service.istio.io/canonical-revision: latest
 {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
@@ -7466,7 +7487,7 @@ gateways:
       # automatically.
       # This can be a real domain name ( istio.example.com )
       suffix: global
-      enabled: true
+      enabled: false
     
     labels:
       app: istio-egressgateway
@@ -7982,6 +8003,12 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-ingressgateway
+        {{- if not (eq .Values.revision "") }}
+        service.istio.io/canonical-revision: {{ .Values.revision }}
+        {{- else}}
+        service.istio.io/canonical-revision: latest
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
@@ -8944,7 +8971,7 @@ gateways:
 
     # Enable cross-cluster access using SNI matching
     zvpn:
-      enabled: true
+      enabled: false
       suffix: global
 
     # To generate an internal load balancer:
@@ -9230,6 +9257,8 @@ data:
   # values in this config will be automatically populated.
   cni_network_config: |-
         {
+          "cniVersion": "0.3.1",
+          "name": "istio-cni",
           "type": "istio-cni",
           "log_level": {{ quote .Values.cni.logLevel }},
           "kubernetes": {
@@ -9469,8 +9498,8 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
     hub: ""
     tag: ""
 
-    labelPods: "true"
-    deletePods: "true"
+    labelPods: true
+    deletePods: true
 
     initContainerName: "istio-validation"
 
@@ -10337,7 +10366,6 @@ var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYam
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: galley
     release: {{ .Release.Name }}
@@ -10365,7 +10393,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: galley
     release: {{ .Release.Name }}
@@ -10542,7 +10569,7 @@ template: |
     - "-b"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
     - "-d"
-    - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
+    - "15090,{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
     {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
@@ -11230,6 +11257,12 @@ rules:
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
+
+  # permissions to verify the webhook is ready and rejecting
+  # invalid config. We use --server-dry-run so no config is persisted.
+  - apiGroups: ["networking.istio.io"]
+    verbs: ["create"]
+    resources: ["gateways"]
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -12008,19 +12041,6 @@ spec:
   trafficPolicy:
     tls:
       mode: DISABLE
----
-{{- else }}
-# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
 ---
 {{ end }}
 {{ end }}
@@ -13463,7 +13483,6 @@ var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -30178,8 +30197,14 @@ data:
         url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
+{{- if .Values.kiali.dashboard.inclusterjaegerURL }}
+        in_cluster_url: {{ .Values.kiali.dashboard.inclusterjaegerURL }}
+{{- end }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
+{{- if .Values.kiali.dashboard.inclustergrafanaURL }}
+        in_cluster_url: {{ .Values.kiali.dashboard.inclustergrafanaURL }}
+{{- end }}
       prometheus:
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
@@ -30494,7 +30519,9 @@ kiali:
     viewOnlyMode: false # Bind the service account to a role with only read access
 
     grafanaURL: "" # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
+    inclustergrafanaURL: "" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
     jaegerURL: "" # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
+    inclusterjaegerURL: "" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
@@ -37330,7 +37357,7 @@ var _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml = []byte(`apiVersio
 kind: IstioOperator
 spec:
   addonComponents:
-    coreDNS:
+    istiocoredns:
       enabled: true
 
   components:
@@ -37948,10 +37975,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
         strategy:
           rollingUpdate:
             maxSurge: "100%"
@@ -38117,6 +38140,8 @@ spec:
       k8s:
         replicaCount: 1
     tracing:
+      enabled: false
+    istiocoredns:
       enabled: false
 
   # Global values passed through to helm global.yaml.
@@ -38367,9 +38392,6 @@ spec:
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
-        zvpn:
-          suffix: global
-          enabled: true
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
@@ -38395,9 +38417,6 @@ spec:
         debug: info
         domain: ""
         type: LoadBalancer
-        zvpn:
-          enabled: true
-          suffix: global
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -38573,7 +38592,6 @@ spec:
         annotations:
         tls:
     istiocoredns:
-      enabled: false
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
@@ -39787,7 +39805,7 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-  CoreDNS:
+  Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"
@@ -39898,7 +39916,7 @@ componentMaps:
     SkipReverseTranslate: true
   Pilot:
     ResourceType:         "Deployment"
-    ResourceName:         "istio-pilot"
+    ResourceName:         "istiod"
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"
@@ -39958,7 +39976,7 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-  CoreDNS:
+  Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"

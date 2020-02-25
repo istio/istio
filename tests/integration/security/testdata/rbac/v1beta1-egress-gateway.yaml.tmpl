@@ -1,0 +1,73 @@
+# The following policy allows access to path "/allow" on egress gateway.
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: egressgateway
+  namespace: "{{ .RootNamespace }}"
+spec:
+  selector:
+    matchLabels:
+      app: istio-egressgateway
+  rules:
+    - to:
+        - operation:
+            paths: ["/allow"]
+---
+
+# The following policy redirects the request through egress gateway.
+
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: test-egress
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "www.company.com"
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route-via-egressgateway
+  namespace: {{ .Namespace }}
+spec:
+  hosts:
+  - "www.company.com"
+  gateways:
+  - test-egress
+  - mesh
+  http:
+    - match:
+      - gateways:
+        - mesh
+        port: 80
+      route:
+      - destination:
+          host: istio-egressgateway.{{ .RootNamespace }}.svc.cluster.local
+          port:
+            number: 80
+        weight: 100
+    - match:
+      - gateways:
+        - test-egress
+        port: 80
+      route:
+      - destination:
+          host: b.{{ .Namespace }}.svc.cluster.local
+          port:
+            number: 8090
+        weight: 100
+      headers:
+        request:
+          add:
+            x-egress-test: "handled-by-egress-gateway"
+---

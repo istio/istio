@@ -1,6 +1,9 @@
 # AddonComponents grafana component is disabled.
 
 ---
+# AddonComponents istiocoredns component is disabled.
+
+---
 # AddonComponents kiali component is disabled.
 
 ---
@@ -603,6 +606,8 @@ spec:
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: latest
     spec:
       affinity:
         nodeAffinity:
@@ -967,7 +972,7 @@ spec:
         - "*/*"
 ---
 
-# Pilot istio-pilot component is disabled.
+# Pilot istiod component is disabled.
 
 # Policy component is disabled.
 

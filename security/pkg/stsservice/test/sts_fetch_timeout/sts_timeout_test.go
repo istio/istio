@@ -27,9 +27,6 @@ import (
 // TestTokenFetchTimeoutOne verifies when fetching federated token timeouts,
 // Envoy fails to start.
 func TestTokenFetchTimeoutOne(t *testing.T) {
-	// Enable this test when gRPC fix is picked by Istio Proxy
-	// https://github.com/grpc/grpc/pull/21641
-	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
 	setup := stsTest.SetupTest(t, cb, testID.STSTimeoutTest, false)
@@ -60,9 +57,6 @@ func TestTokenFetchTimeoutOne(t *testing.T) {
 // TestTokenFetchTimeoutTwo verifies when fetching access token timeouts,
 // Envoy fails to start.
 func TestTokenFetchTimeoutTwo(t *testing.T) {
-	// Enable this test when gRPC fix is picked by Istio Proxy
-	// https://github.com/grpc/grpc/pull/21641
-	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
 	setup := stsTest.SetupTest(t, cb, testID.STSTimeoutTest, false)
