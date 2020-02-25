@@ -204,7 +204,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 							Route: &route.RouteAction{
 								ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
 								// Disable timeout instead of assuming some defaults.
-								Timeout:        notimeout,
+								Timeout: notimeout,
+								// If not configured at all, the grpc-timeout header is not used and
+								// gRPC requests time out like any other requests using timeout or its default.
 								MaxGrpcTimeout: notimeout,
 							},
 						},
