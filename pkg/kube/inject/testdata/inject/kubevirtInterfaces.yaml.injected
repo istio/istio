@@ -182,7 +182,7 @@ spec:
         - -b
         - '*'
         - -d
-        - "123"
+        - 15090,123
         - -k
         - net1
         image: gcr.io/istio-testing/proxyv2:latest
