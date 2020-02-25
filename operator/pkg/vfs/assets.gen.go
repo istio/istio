@@ -7487,7 +7487,7 @@ gateways:
       # automatically.
       # This can be a real domain name ( istio.example.com )
       suffix: global
-      enabled: true
+      enabled: false
     
     labels:
       app: istio-egressgateway
@@ -8971,7 +8971,7 @@ gateways:
 
     # Enable cross-cluster access using SNI matching
     zvpn:
-      enabled: true
+      enabled: false
       suffix: global
 
     # To generate an internal load balancer:
@@ -10366,7 +10366,6 @@ var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYam
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: galley
     release: {{ .Release.Name }}
@@ -10394,7 +10393,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: galley
     release: {{ .Release.Name }}
@@ -10571,7 +10569,7 @@ template: |
     - "-b"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
     - "-d"
-    - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
+    - "15090,{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
     {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
@@ -13485,7 +13483,6 @@ var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -38387,9 +38384,6 @@ spec:
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
-        zvpn:
-          suffix: global
-          enabled: true
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
@@ -38415,9 +38409,6 @@ spec:
         debug: info
         domain: ""
         type: LoadBalancer
-        zvpn:
-          enabled: true
-          suffix: global
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:

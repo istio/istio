@@ -115,7 +115,7 @@ func TestSidecarScopeIngressListener(t *testing.T) {
 func checkSidecarIngressCluster(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	expectedClusterNamePrefix := "inbound|9080|custom-http|sidecar."
 	expectedEndpoints := map[string]int{
-		"unix:///var/run/someuds.sock": 1,
+		"/var/run/someuds.sock": 1,
 	}
 	if len(resp.Resources) == 0 {
 		return true, nil

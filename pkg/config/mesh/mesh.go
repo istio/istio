@@ -21,7 +21,6 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
@@ -97,21 +96,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 // ApplyMeshConfig returns a new MeshConfig decoded from the
 // input YAML with the provided defaults applied to omitted configuration values.
 func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
-	return applyMeshConfigInternal(yaml, defaultConfig, gogoprotomarshal.ApplyYAML, gogoprotomarshal.ToYAML)
-}
-
-// ApplyMeshConfig returns a new MeshConfig decoded from the
-// input Json with the provided defaults applied to omitted configuration values.
-func ApplyMeshConfigJSON(json string, defaultConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
-	return applyMeshConfigInternal(json, defaultConfig, gogoprotomarshal.ApplyJSON, gogoprotomarshal.ToJSON)
-}
-
-// applyMeshConfigInternal applies settings in config to the provided mesh config
-// This allows json/yaml/other marshaling methods to be used
-func applyMeshConfigInternal(config string, defaultConfig meshconfig.MeshConfig,
-	unmarshal func(yml string, pb proto.Message) error, marshal func(msg proto.Message) (string, error),
-) (*meshconfig.MeshConfig, error) {
-	if err := unmarshal(config, &defaultConfig); err != nil {
+	if err := gogoprotomarshal.ApplyYAML(yaml, &defaultConfig); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
@@ -124,11 +109,11 @@ func applyMeshConfigInternal(config string, defaultConfig meshconfig.MeshConfig,
 	// Re-apply defaults to ProxyConfig if they were defined in the
 	// original input MeshConfig.ProxyConfig.
 	if prevDefaultConfig != nil {
-		origProxyConfigYAML, err := marshal(prevDefaultConfig)
+		origProxyConfigYAML, err := gogoprotomarshal.ToYAML(prevDefaultConfig)
 		if err != nil {
 			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
 		}
-		if err := unmarshal(origProxyConfigYAML, defaultConfig.DefaultConfig); err != nil {
+		if err := gogoprotomarshal.ApplyYAML(origProxyConfigYAML, defaultConfig.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}

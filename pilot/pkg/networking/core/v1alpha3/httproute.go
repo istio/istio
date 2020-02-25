@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -481,6 +480,8 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 	// This needs to be the last virtual host, as routes are evaluated in order.
 	if util.IsAllowAnyOutbound(node) {
 		egressCluster := util.PassthroughCluster
+		notimeout := ptypes.DurationProto(0)
+
 		// no need to check for nil value as the previous if check has checked
 		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
 			// user has provided an explicit destination for all the unknown traffic.
@@ -501,7 +502,10 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 						Route: &route.RouteAction{
 							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
 							// Disable timeout instead of assuming some defaults.
-							Timeout: ptypes.DurationProto(0 * time.Millisecond),
+							Timeout: notimeout,
+							// If not configured at all, the grpc-timeout header is not used and
+							// gRPC requests time out like any other requests using timeout or its default.
+							MaxGrpcTimeout: notimeout,
 						},
 					},
 				},

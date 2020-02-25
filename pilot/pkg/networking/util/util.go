@@ -171,49 +171,26 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
 func BuildAddress(bind string, port uint32) *core.Address {
-	if len(bind) > 0 && strings.HasPrefix(bind, model.UnixAddressPrefix) {
+	if port != 0 {
 		return &core.Address{
-			Address: &core.Address_Pipe{
-				Pipe: &core.Pipe{
-					Path: bind,
+			Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
+					Address: bind,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: port,
+					},
 				},
 			},
 		}
 	}
 
 	return &core.Address{
-		Address: &core.Address_SocketAddress{
-			SocketAddress: &core.SocketAddress{
-				Address: bind,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: port,
-				},
+		Address: &core.Address_Pipe{
+			Pipe: &core.Pipe{
+				Path: strings.TrimPrefix(bind, model.UnixAddressPrefix),
 			},
 		},
 	}
-}
-
-// GetEndpointAddress returns an Envoy v2 API `Address` that represents this IstioEndpoint
-func GetEndpointAddress(n *model.IstioEndpoint) *core.Address {
-	switch n.Family {
-	case model.AddressFamilyTCP:
-		return BuildAddress(n.Address, n.EndpointPort)
-	case model.AddressFamilyUnix:
-		return &core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: n.Address}}}
-	default:
-		panic(fmt.Sprintf("unhandled Family %v", n.Family))
-	}
-}
-
-// GetByAddress returns a listener by its address
-// TODO(mostrowski): consider passing map around to save iteration.
-func GetByAddress(listeners []*xdsapi.Listener, addr core.Address) *xdsapi.Listener {
-	for _, l := range listeners {
-		if l != nil && proto.Equal(l.Address, &addr) {
-			return l
-		}
-	}
-	return nil
 }
 
 // MessageToAnyWithError converts from proto message to proto Any
