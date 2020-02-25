@@ -20,8 +20,9 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"istio.io/pkg/env"
 	"strings"
+
+	"istio.io/pkg/env"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

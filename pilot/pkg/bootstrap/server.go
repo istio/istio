@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
-	"istio.io/pkg/env"
 	"net"
 	"net/http"
 	"os"
@@ -29,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"istio.io/pkg/env"
 
 	"k8s.io/client-go/rest"
 

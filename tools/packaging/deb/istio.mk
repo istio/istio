@@ -16,7 +16,7 @@ $(foreach DEP,$(ISTIO_DEB_DEPS),\
         $(eval ${ISTIO_OUT_LINUX}/release/istio.deb: $(ISTIO_OUT_LINUX)/$(DEP)) \
         $(eval ISTIO_FILES+=$(ISTIO_OUT_LINUX)/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
-SIDECAR_DEB_DEPS:=release/envoy pilot-agent node_agent istio-iptables istio-clean-iptables
+SIDECAR_DEB_DEPS:=release/envoy pilot-agent istio-iptables istio-clean-iptables
 SIDECAR_FILES:=
 $(foreach DEP,$(SIDECAR_DEB_DEPS),\
         $(eval ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb: $(ISTIO_OUT_LINUX)/$(DEP)) \
@@ -27,9 +27,7 @@ ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb: $(ISTIO_OUT_LINUX)/release/envoy
 SIDECAR_FILES+=$(ISTIO_OUT_LINUX)/release/envoy=/usr/local/bin/envoy
 
 ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
-		${ISTIO_DEB_BIN}/istio-node-agent-start.sh \
 		/lib/systemd/system/istio.service \
-		/lib/systemd/system/istio-auth-node-agent.service \
 		/var/lib/istio/envoy/sidecar.env
 
 $(foreach DEST,$(ISTIO_DEB_DEST),\
