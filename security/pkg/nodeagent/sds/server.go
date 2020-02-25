@@ -103,9 +103,6 @@ type Options struct {
 	// from the UDS caller. Used when it runs in the same container with Envoy.
 	UseLocalJWT bool
 
-	// Existing certs, for VM or existing certificates
-	CertsDir string
-
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
 
@@ -117,6 +114,9 @@ type Options struct {
 
 	// OutputKeyCertToDir is the directory for output the key and certificate
 	OutputKeyCertToDir string
+
+	// Existing certs, for VM or existing certificates
+	CertsDir string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
