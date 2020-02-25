@@ -6823,6 +6823,8 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-egressgateway
+        service.istio.io/canonical-revision: "1.5"
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
@@ -7896,6 +7898,8 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: "1.5"
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}

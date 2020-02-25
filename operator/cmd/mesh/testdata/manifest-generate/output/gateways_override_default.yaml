@@ -609,6 +609,8 @@ spec:
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: "1.5"
     spec:
       affinity:
         nodeAffinity:

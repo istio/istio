@@ -72,6 +72,8 @@ spec:
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: "1.5"
     spec:
       affinity:
         nodeAffinity:
@@ -484,6 +486,8 @@ spec:
         app: istio-ingressgateway
         istio: ingressgateway
         
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: "1.5"
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
