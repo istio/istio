@@ -117,6 +117,37 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string) *auth.SdsSecretConfig {
 		return nil
 	}
 
+	// Legacy nodeagent based SDS
+	if sdsUdsPath == "unix:/var/run/sds/uds_path" {
+		gRPCConfig := &core.GrpcService_GoogleGrpc{
+			TargetUri:  sdsUdsPath,
+			StatPrefix: SDSStatPrefix,
+			ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+				CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+					LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+				},
+			},
+			CredentialsFactoryName: FileBasedMetadataPlugName,
+			CallCredentials:        ConstructgRPCCallCredentials(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey),
+		}
+		return &auth.SdsSecretConfig{
+			Name: name,
+			SdsConfig: &core.ConfigSource{
+				ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+					ApiConfigSource: &core.ApiConfigSource{
+						ApiType: core.ApiConfigSource_GRPC,
+						GrpcServices: []*core.GrpcService{
+							{
+								TargetSpecifier: &core.GrpcService_GoogleGrpc_{GoogleGrpc: gRPCConfig},
+							},
+						},
+					},
+				},
+				InitialFetchTimeout: features.InitialFetchTimeout,
+			},
+		}
+	}
+
 	return &auth.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
