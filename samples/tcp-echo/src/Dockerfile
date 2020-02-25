@@ -28,7 +28,6 @@ ARG BASE_DISTRIBUTION=default
 FROM scratch as default
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-# hadolint ignore=DL3007
 FROM gcr.io/distroless/static@sha256:c6d5981545ce1406d33e61434c61e9452dad93ecd8397c41e89036ef977a88f4 as distroless
 
 # This will build the final image based on either default or distroless from above
