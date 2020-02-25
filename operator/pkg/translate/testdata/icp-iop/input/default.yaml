@@ -726,6 +726,7 @@ spec:
         viewOnlyMode: false
         grafanaURL:
         jaegerURL:
+        jaegerInClusterURL: http://tracing.istio-system/jaeger
       prometheusNamespace:
       createDemoSecret: false
       security:

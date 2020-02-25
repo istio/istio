@@ -6823,6 +6823,8 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-egressgateway
+        service.istio.io/canonical-revision: "1.5"
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
@@ -7383,7 +7385,7 @@ gateways:
       # automatically.
       # This can be a real domain name ( istio.example.com )
       suffix: global
-      enabled: true
+      enabled: false
     
     labels:
       app: istio-egressgateway
@@ -7896,6 +7898,8 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: "1.5"
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
@@ -8953,7 +8957,7 @@ gateways:
 
     # Enable cross-cluster access using SNI matching
     zvpn:
-      enabled: true
+      enabled: false
       suffix: global
 
     # To generate an internal load balancer:
@@ -12945,6 +12949,12 @@ rules:
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
 {{ end }}
+
+  # permissions to verify the webhook is ready and rejecting
+  # invalid config. We use --server-dry-run so no config is persisted.
+  - apiGroups: ["networking.istio.io"]
+    verbs: ["create"]
+    resources: ["gateways"]
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -31830,6 +31840,7 @@ data:
         url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
+        in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
       prometheus:
@@ -32145,6 +32156,7 @@ kiali:
 
     grafanaURL: "" # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
     jaegerURL: "" # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
+    jaegerInClusterURL: "http://tracing.istio-system/jaeger" # If you have Jaeger installed and accessible from Kiali pod (typically in cluster), then set this property to enable more tracing charts within Kiali.
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
@@ -39407,7 +39419,7 @@ var _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml = []byte(`apiVersio
 kind: IstioOperator
 spec:
   addonComponents:
-    coreDNS:
+    istiocoredns:
       enabled: true
 
   components:
@@ -40196,6 +40208,20 @@ spec:
   addonComponents:
     prometheus:
       enabled: true
+      k8s:
+        replicaCount: 1
+    kiali:
+      enabled: false
+      k8s:
+        replicaCount: 1
+    grafana:
+      enabled: false
+      k8s:
+        replicaCount: 1
+    tracing:
+      enabled: false
+    istiocoredns:
+      enabled: false
 
   # Global values passed through to helm global.yaml.
   values:
@@ -40447,9 +40473,6 @@ spec:
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
-        zvpn:
-          suffix: global
-          enabled: true
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
@@ -40476,7 +40499,7 @@ spec:
         domain: ""
         type: LoadBalancer
         zvpn:
-          enabled: true
+          enabled: false
           suffix: global
         sds:
           enabled: false
@@ -40543,8 +40566,6 @@ spec:
         autoInject: true
 
     prometheus:
-      enabled: true
-      replicaCount: 1
       hub: docker.io/prom
       tag: v2.15.1
       retention: 6h
@@ -40565,8 +40586,6 @@ spec:
       provisionPrometheusCert: true
 
     grafana:
-      enabled: false
-      replicaCount: 1
       image:
         repository: grafana/grafana
         tag: 6.5.2
@@ -40615,7 +40634,6 @@ spec:
       envSecrets: {}
 
     tracing:
-      enabled: false
       provider: jaeger
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -40669,14 +40687,11 @@ spec:
         annotations:
         tls:
     istiocoredns:
-      enabled: false
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     kiali:
-      enabled: false
-      replicaCount: 1
       hub: quay.io/kiali
       tag: v1.9
       contextPath: /kiali
@@ -40696,6 +40711,7 @@ spec:
         viewOnlyMode: false
         grafanaURL:
         jaegerURL:
+        jaegerInClusterURL: http://tracing.istio-system/jaeger
       prometheusNamespace:
       createDemoSecret: false
       security:
@@ -41790,7 +41806,7 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-  CoreDNS:
+  Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"

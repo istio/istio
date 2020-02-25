@@ -228,7 +228,7 @@ components:
           maxSurge: 4
           maxUnavailable: 1
 addonComponents:
-   coreDNS:
+   istiocoredns:
       enabled: true
 values:
   global:

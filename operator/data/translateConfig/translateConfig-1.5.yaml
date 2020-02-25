@@ -120,7 +120,7 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-  CoreDNS:
+  Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"

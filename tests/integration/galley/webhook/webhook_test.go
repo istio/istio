@@ -78,7 +78,7 @@ func TestWebhook(t *testing.T) {
 
 					// clear the updated fields and verify istiod updates them
 
-					retry.UntilSuccessOrFail(t, func() error {
+					retry.UntilSuccessOrFail(ctx, func() error {
 						got, err := env.GetValidatingWebhookConfiguration(vwcName)
 						if err != nil {
 							return fmt.Errorf("error getting initial webhook: %v", err)
@@ -95,7 +95,7 @@ func TestWebhook(t *testing.T) {
 						return env.UpdateValidatingWebhookConfiguration(updated)
 					})
 
-					retry.UntilSuccessOrFail(t, func() error {
+					retry.UntilSuccessOrFail(ctx, func() error {
 						got, err := env.GetValidatingWebhookConfiguration(vwcName)
 						if err != nil {
 							t.Fatalf("error getting initial webhook: %v", err)
@@ -124,7 +124,7 @@ func TestWebhook(t *testing.T) {
 
 					_ = env.DeleteSecret(istioNs, fmt.Sprintf("istio.%v-service-account", deployName))
 
-					retry.UntilSuccessOrFail(t, func() error {
+					retry.UntilSuccessOrFail(ctx, func() error {
 						updated := fetchWebhookCertSerialNumbersOrFail(t, addr)
 						if diff := cmp.Diff(startingSN, updated); diff != "" {
 							log.Infof("Updated cert serial numbers: %v", updated)
@@ -251,15 +251,17 @@ func fetchWebhookCertSerialNumbersOrFail(t test.Failer, addr string) []string { 
 }
 
 func verifyValidatingWebhookConfiguration(c *kubeApiAdmission.ValidatingWebhookConfiguration) error {
-	if len(c.Webhooks) != 1 {
-		return fmt.Errorf("only one webhook expected. Found %v", len(c.Webhooks))
+	if len(c.Webhooks) == 0 {
+		return errors.New("no webhook entries found")
 	}
-	wh := c.Webhooks[0]
-	if *wh.FailurePolicy != kubeApiAdmission.Fail {
-		return fmt.Errorf("wrong failure policy. c %v wanted %v", *wh.FailurePolicy, kubeApiAdmission.Fail)
-	}
-	if len(wh.ClientConfig.CABundle) == 0 {
-		return fmt.Errorf("caBundle not matched")
+	for i, wh := range c.Webhooks {
+		if *wh.FailurePolicy != kubeApiAdmission.Fail {
+			return fmt.Errorf("webhook #%v: wrong failure policy. c %v wanted %v",
+				i, *wh.FailurePolicy, kubeApiAdmission.Fail)
+		}
+		if len(wh.ClientConfig.CABundle) == 0 {
+			return fmt.Errorf("webhook #%v: caBundle not matched", i)
+		}
 	}
 	return nil
 }

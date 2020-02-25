@@ -34,5 +34,5 @@ spec:
   addonComponents:
     prometheus:
       enabled: true
-    coreDNS:
+    istiocoredns:
       enabled: true

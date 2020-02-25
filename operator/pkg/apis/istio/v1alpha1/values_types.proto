@@ -469,7 +469,7 @@ message GlobalConfig {
   string imagePullPolicy = 13;
   // ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
 
-  TypeSliceOfMapStringInterface imagePullSecrets = 37;
+  repeated string imagePullSecrets = 37;
 
   // Specifies the default namespace for the Istio control plane components.
   string istioNamespace = 14;
@@ -2095,6 +2095,8 @@ message KialiDashboardConfig {
   string grafanaURL = 5;
 
   string jaegerURL = 6;
+
+  string jaegerInClusterURL = 8;
 
   TypeMapStringInterface auth = 7;
 }
