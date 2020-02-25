@@ -141,7 +141,7 @@ spec:
         - -b
         - "80"
         - -d
-        - "15020"
+        - "15090, 15020"
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: istio-init
