@@ -6203,21 +6203,30 @@ subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}
   ports:
-  - port: 15003
-    name: http-old-discovery # mTLS or non-mTLS depending on auth setting
-  - port: 15005
-    name: https-discovery # always mTLS
-  - port: 15007
-    name: http-discovery # always plain-text
   - port: 15010
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod
   - port: 15014
     name: http-monitoring
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePilotAddress }}
+  ports:
+  - port: 15012
+    name: http-istiod
 {{- end }}
+
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 ---
 apiVersion: v1
@@ -6396,21 +6405,27 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   ports:
-  - port: 15003
-    name: http-old-discovery # mTLS or non-mTLS depending on auth setting
-  - port: 15005
-    name: https-discovery # always mTLS
-  - port: 15007
-    name: http-discovery # always plain-text
   - port: 15010
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod    
   - port: 15014
     name: http-monitoring
   clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: http-istiod
 ---
 {{- end }}
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
@@ -9348,8 +9363,6 @@ spec:
                 fieldPath: spec.nodeName
           - name: "REPAIR_LABEL-PODS"
             value: "{{.Values.cni.repair.labelPods}}"
-          - name: "REPAIR_CREATE-EVENTS"
-            value: "{{.Values.cni.repair.createEvents}}"
           # Set to true to enable pod deletion
           - name: "REPAIR_DELETE-PODS"
             value: "{{.Values.cni.repair.deletePods}}"
@@ -9457,11 +9470,10 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
 
   repair:
     enabled: true
-    hub: gcr.io/istio-testing
-    tag: latest
+    hub: ""
+    tag: ""
 
     labelPods: "true"
-    createEvents: "true"
     deletePods: "true"
 
     initContainerName: "istio-validation"
@@ -14064,19 +14076,6 @@ spec:
   trafficPolicy:
     tls:
       mode: DISABLE
----
-{{- else }}
-# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
 ---
 {{ end }}
 {{ end }}
