@@ -428,12 +428,6 @@ func TestIsHTTPFilterChain(t *testing.T) {
 	}
 }
 
-var (
-	listener80 = &v2.Listener{Address: BuildAddress("0.0.0.0", 80)}
-	listener81 = &v2.Listener{Address: BuildAddress("0.0.0.0", 81)}
-	listenerip = &v2.Listener{Address: BuildAddress("1.1.1.1", 80)}
-)
-
 func TestMergeAnyWithStruct(t *testing.T) {
 	inHCM := &http_conn.HttpConnectionManager{
 		CodecType:  http_conn.HttpConnectionManager_HTTP1,
@@ -889,5 +883,77 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestBuildAddress(t *testing.T) {
+	testCases := []struct {
+		name     string
+		addr     string
+		port     uint32
+		expected *core.Address
+	}{
+		{
+			name: "ipv4",
+			addr: "172.10.10.1",
+			port: 8080,
+			expected: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: "172.10.10.1",
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 8080,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "ipv6",
+			addr: "fe80::10e7:52ff:fecd:198b",
+			port: 8080,
+			expected: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: "fe80::10e7:52ff:fecd:198b",
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 8080,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "uds",
+			addr: "/var/run/test/socket",
+			port: 0,
+			expected: &core.Address{
+				Address: &core.Address_Pipe{
+					Pipe: &core.Pipe{
+						Path: "/var/run/test/socket",
+					},
+				},
+			},
+		},
+		{
+			name: "uds with unix prefix",
+			addr: "unix:///var/run/test/socket",
+			port: 0,
+			expected: &core.Address{
+				Address: &core.Address_Pipe{
+					Pipe: &core.Pipe{
+						Path: "/var/run/test/socket",
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			addr := BuildAddress(test.addr, test.port)
+			if !reflect.DeepEqual(addr, test.expected) {
+				t.Errorf("expected add %v, but got %v", test.expected, addr)
+			}
+		})
+	}
 }

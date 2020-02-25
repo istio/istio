@@ -171,23 +171,27 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
 func BuildAddress(bind string, port uint32) *core.Address {
-	if len(bind) > 0 && strings.HasPrefix(bind, model.UnixAddressPrefix) {
+	if port != 0 {
 		return &core.Address{
-			Address: &core.Address_Pipe{
-				Pipe: &core.Pipe{
-					Path: bind,
+			Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
+					Address: bind,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: port,
+					},
 				},
 			},
 		}
 	}
 
+	udsPath := bind
+	if strings.HasPrefix(udsPath, model.UnixAddressPrefix) {
+		udsPath = strings.TrimPrefix(udsPath, model.UnixAddressPrefix)
+	}
 	return &core.Address{
-		Address: &core.Address_SocketAddress{
-			SocketAddress: &core.SocketAddress{
-				Address: bind,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: port,
-				},
+		Address: &core.Address_Pipe{
+			Pipe: &core.Pipe{
+				Path: udsPath,
 			},
 		},
 	}
