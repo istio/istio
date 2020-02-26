@@ -11,7 +11,6 @@
 // charts/base/templates/namespaces.yaml
 // charts/base/templates/serviceaccount.yaml
 // charts/base/templates/services.yaml
-// charts/base/templates/validatingwebhookconfiguration-noop.yaml
 // charts/base/values.yaml
 // charts/gateways/istio-egress/Chart.yaml
 // charts/gateways/istio-egress/NOTES.txt
@@ -6478,35 +6477,6 @@ func chartsBaseTemplatesServicesYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/base/templates/services.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsBaseTemplatesValidatingwebhookconfigurationNoopYaml = []byte(`{{/* Create a NOP config for Galley's webhook to stop it from blocking config */}}
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: galley
-    release: {{ .Release.Name }}
-    istio: galley
-webhooks: {}
----
-`)
-
-func chartsBaseTemplatesValidatingwebhookconfigurationNoopYamlBytes() ([]byte, error) {
-	return _chartsBaseTemplatesValidatingwebhookconfigurationNoopYaml, nil
-}
-
-func chartsBaseTemplatesValidatingwebhookconfigurationNoopYaml() (*asset, error) {
-	bytes, err := chartsBaseTemplatesValidatingwebhookconfigurationNoopYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/base/templates/validatingwebhookconfiguration-noop.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -42064,7 +42034,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/base/templates/namespaces.yaml":                                                  chartsBaseTemplatesNamespacesYaml,
 	"charts/base/templates/serviceaccount.yaml":                                              chartsBaseTemplatesServiceaccountYaml,
 	"charts/base/templates/services.yaml":                                                    chartsBaseTemplatesServicesYaml,
-	"charts/base/templates/validatingwebhookconfiguration-noop.yaml":                         chartsBaseTemplatesValidatingwebhookconfigurationNoopYaml,
 	"charts/base/values.yaml":                                                                chartsBaseValuesYaml,
 	"charts/gateways/istio-egress/Chart.yaml":                                                chartsGatewaysIstioEgressChartYaml,
 	"charts/gateways/istio-egress/NOTES.txt":                                                 chartsGatewaysIstioEgressNotesTxt,
@@ -42344,14 +42313,13 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			}},
 			"kustomization.yaml": &bintree{chartsBaseKustomizationYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
-				"clusterrole.yaml":                         &bintree{chartsBaseTemplatesClusterroleYaml, map[string]*bintree{}},
-				"clusterrolebinding.yaml":                  &bintree{chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-				"crds.yaml":                                &bintree{chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
-				"endpoints.yaml":                           &bintree{chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
-				"namespaces.yaml":                          &bintree{chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
-				"serviceaccount.yaml":                      &bintree{chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
-				"services.yaml":                            &bintree{chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
-				"validatingwebhookconfiguration-noop.yaml": &bintree{chartsBaseTemplatesValidatingwebhookconfigurationNoopYaml, map[string]*bintree{}},
+				"clusterrole.yaml":        &bintree{chartsBaseTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrolebinding.yaml": &bintree{chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+				"crds.yaml":               &bintree{chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
+				"endpoints.yaml":          &bintree{chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
+				"namespaces.yaml":         &bintree{chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
+				"serviceaccount.yaml":     &bintree{chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
+				"services.yaml":           &bintree{chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
 			}},
 			"values.yaml": &bintree{chartsBaseValuesYaml, map[string]*bintree{}},
 		}},
