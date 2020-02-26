@@ -15092,7 +15092,8 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml = []byte(`{{- if .Values.global.istiod.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml = []byte(`{{- if .Values.clusterResources }}
+{{- if .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -15152,7 +15153,9 @@ metadata:
     release: {{ .Release.Name }}
     istio: istiod
 webhooks:
-{{- end }}`)
+{{- end }}
+{{- end }}
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml, nil
