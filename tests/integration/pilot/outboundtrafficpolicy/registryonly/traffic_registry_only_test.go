@@ -44,7 +44,6 @@ components:
   - enabled: true
 values:
   global:
-    protocolDetectionTimeout: 100ms
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY
 `

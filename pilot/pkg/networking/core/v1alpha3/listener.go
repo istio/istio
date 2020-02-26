@@ -89,6 +89,19 @@ const (
 	// VirtualOutboundListenerName is the name for traffic capture listener
 	VirtualOutboundListenerName = "virtualOutbound"
 
+	// VirtualOutboundCatchAllHTTPFilterChainName is the name of the catch all http filter chain
+	VirtualOutboundCatchAllHTTPFilterChainName = "virtualOutbound-catchall-http"
+
+	// VirtualOutboundCatchAllTLSFilterChainName is the name of the catch all tls filter chain
+	VirtualOutboundCatchAllTLSFilterChainName = "virtualOutbound-catchall-tls"
+
+	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
+	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
+
+	// VirtualOutboundTrafficLoopFilterChainName is the name of the filter chain that handles
+	// pod IP traffic loops
+	VirtualOutboundTrafficLoopFilterChainName = "virtualOutbound-trafficloop"
+
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
 
@@ -1769,63 +1782,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	}
 }
 
-// onVirtualOutboundListener calls the plugin API for the outbound virtual listener
-func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
-	node *model.Proxy,
-	push *model.PushContext,
-	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
-
-	svc := util.FallThroughFilterChainBlackHoleService
-	redirectPort := &model.Port{
-		Port:     int(push.Mesh.ProxyListenPort),
-		Protocol: protocol.TCP,
-	}
-
-	if len(ipTablesListener.FilterChains) < 1 || len(ipTablesListener.FilterChains[0].Filters) < 1 {
-		return ipTablesListener
-	}
-
-	// contains all filter chains except for the final passthrough/blackhole
-	initialFilterChain := ipTablesListener.FilterChains[:len(ipTablesListener.FilterChains)-1]
-
-	// contains just the final passthrough/blackhole
-	fallbackFilter := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
-
-	if util.IsAllowAnyOutbound(node) {
-		svc = util.FallThroughFilterChainPassthroughService
-	}
-
-	pluginParams := &plugin.InputParams{
-		ListenerProtocol:           plugin.ListenerProtocolTCP,
-		DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-		Node:                       node,
-		Push:                       push,
-		Bind:                       "",
-		Port:                       redirectPort,
-		Service:                    svc,
-	}
-
-	mutable := &plugin.MutableObjects{
-		Listener:     ipTablesListener,
-		FilterChains: make([]plugin.FilterChain, len(ipTablesListener.FilterChains)),
-	}
-
-	for _, p := range configgen.Plugins {
-		if err := p.OnVirtualListener(pluginParams, mutable); err != nil {
-			log.Warn(err.Error())
-		}
-	}
-	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
-		filters := append([]*listener.Filter{}, mutable.FilterChains[0].TCP...)
-		filters = append(filters, fallbackFilter)
-
-		// Replace the final filter chain with the new chain that has had plugins applied
-		initialFilterChain = append(initialFilterChain, &listener.FilterChain{Filters: filters})
-		ipTablesListener.FilterChains = initialFilterChain
-	}
-	return ipTablesListener
-}
-
 // buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
 // server (inbound). Management port listeners are slightly different from standard Inbound listeners
 // in that, they do not have mixer filters nor do they have inbound auth.
@@ -1921,6 +1877,7 @@ type thriftListenerOpts struct {
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
+	filterChainName  string
 	sniHosts         []string
 	destinationCIDRs []string
 	metadata         *core.Metadata
@@ -2306,6 +2263,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 		chain := mutable.FilterChains[i]
 		opt := opts.filterChainOpts[i]
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
+		mutable.Listener.FilterChains[i].Name = opt.filterChainName
 
 		if opt.thriftOpts != nil && features.EnableThriftFilter.Get() {
 			var quotas []model.Config
