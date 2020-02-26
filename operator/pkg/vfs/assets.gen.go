@@ -205,6 +205,7 @@
 // profiles/demo.yaml
 // profiles/empty.yaml
 // profiles/minimal.yaml
+// profiles/preview.yaml
 // profiles/remote.yaml
 // profiles/separate.yaml
 // translateConfig/names-1.5.yaml
@@ -12210,7 +12211,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istiod-{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
@@ -29837,8 +29838,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.13.0
-appVersion: 1.13.0
+version: 1.14.0
+appVersion: 1.14.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -30455,7 +30456,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.13
+  tag: v1.14
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -38601,7 +38602,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.9
+      tag: v1.14
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -38803,54 +38804,21 @@ func profilesDemoYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesEmptyYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesEmptyYaml = []byte(`# The empty profile has everything disabled
+# This is useful as a base for custom user configuration
+apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  hub: gcr.io/istio-testing
-  tag: latest
-  meshConfig:
-    rootNamespace: istio-system
   components:
     base:
       enabled: false
     pilot:
       enabled: false
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
-    cni:
-      enabled: false
     ingressGateways:
-    egressGateways:
 
   addonComponents:
     prometheus:
       enabled: false
-
-  values:
-    global:
-      useMCP: false
-      controlPlaneSecurityEnabled: false
-      proxy:
-        envoyStatsd:
-          enabled: false
-          host:
-          port:
-      mtls:
-        auto: false
-
-    pilot:
-      sidecar: false
-      useMCP: false
 `)
 
 func profilesEmptyYamlBytes() ([]byte, error) {
@@ -38868,32 +38836,12 @@ func profilesEmptyYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesMinimalYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesMinimalYaml = []byte(`# The minimal profile will install just the core control plane
+apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
-    pilot:
-      enabled: true
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
-    cni:
-      enabled: false
     ingressGateways:
-    - name: istio-ingressgateway
-      enabled: false
-    egressGateways:
-    - name: istio-egressgateway
-      enabled: false
 
   addonComponents:
     prometheus:
@@ -38901,19 +38849,8 @@ spec:
 
   values:
     global:
-      useMCP: false
-      controlPlaneSecurityEnabled: false
-      proxy:
-        envoyStatsd:
-          enabled: false
-          host:
-          port:
       mtls:
         auto: false
-
-    pilot:
-      sidecar: false
-      useMCP: false
 `)
 
 func profilesMinimalYamlBytes() ([]byte, error) {
@@ -38927,6 +38864,28 @@ func profilesMinimalYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "profiles/minimal.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _profilesPreviewYaml = []byte(`# The preview profile contains features that are experimental.
+# This is intended to explore new features coming to Istio.
+# Stability, security, and performance are not guaranteed - use at your own risk.
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec: {}`)
+
+func profilesPreviewYamlBytes() ([]byte, error) {
+	return _profilesPreviewYaml, nil
+}
+
+func profilesPreviewYaml() (*asset, error) {
+	bytes, err := profilesPreviewYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "profiles/preview.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -40393,6 +40352,7 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/demo.yaml":                                                                     profilesDemoYaml,
 	"profiles/empty.yaml":                                                                    profilesEmptyYaml,
 	"profiles/minimal.yaml":                                                                  profilesMinimalYaml,
+	"profiles/preview.yaml":                                                                  profilesPreviewYaml,
 	"profiles/remote.yaml":                                                                   profilesRemoteYaml,
 	"profiles/separate.yaml":                                                                 profilesSeparateYaml,
 	"translateConfig/names-1.5.yaml":                                                         translateconfigNames15Yaml,
@@ -40750,6 +40710,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"demo.yaml":     &bintree{profilesDemoYaml, map[string]*bintree{}},
 		"empty.yaml":    &bintree{profilesEmptyYaml, map[string]*bintree{}},
 		"minimal.yaml":  &bintree{profilesMinimalYaml, map[string]*bintree{}},
+		"preview.yaml":  &bintree{profilesPreviewYaml, map[string]*bintree{}},
 		"remote.yaml":   &bintree{profilesRemoteYaml, map[string]*bintree{}},
 		"separate.yaml": &bintree{profilesSeparateYaml, map[string]*bintree{}},
 	}},
