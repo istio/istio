@@ -51,6 +51,10 @@ components:
 values:
   galley:
     enableAnalysis: true
+  global:
+    controlPlaneSecurityEnabled: false
+    mtls:
+      auto: false
 `
 }
 

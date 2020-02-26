@@ -38,6 +38,9 @@ values:
     enabled: true
   global:
     disablePolicyChecks: false
+    controlPlaneSecurityEnabled: false
+    mtls:
+      auto: false
   telemetry:
     v1:
       enabled: true

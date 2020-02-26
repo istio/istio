@@ -67,8 +67,8 @@ func setupConfig(cfg *istio.Config) {
 values:
   global:
     controlPlaneSecurityEnabled: false
-
     mtls:
       enabled: true
+      auto: false
 `
 }

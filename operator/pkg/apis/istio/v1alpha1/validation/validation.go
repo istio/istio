@@ -21,6 +21,7 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -36,7 +37,10 @@ func ValidateConfig(failOnMissingValidation bool, iopvalues map[string]interface
 		return util.NewErrs(err)
 	}
 	validationErrors = util.AppendErrs(validationErrors, validateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
-	validationErrors = util.AppendErrs(validationErrors, validateFeatures(values, iopls))
+	// TODO: change back to return err when have other validation cases, warning for automtls check only.
+	if err := validateFeatures(values, iopls).ToError(); err != nil {
+		log.Warnf("feature validation: %v", err.Error())
+	}
 	return validationErrors
 }
 
