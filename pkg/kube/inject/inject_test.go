@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -334,8 +333,8 @@ values:
 			gotBytes := got.Bytes()
 			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
 
-			wantBytes := stripVersion(wantedBytes)
-			gotBytes = stripVersion(gotBytes)
+			wantBytes := util.StripVersion(wantedBytes)
+			gotBytes = util.StripVersion(gotBytes)
 
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 
