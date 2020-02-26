@@ -23,7 +23,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multiversion-v1
+  name: multiversion-istio
 spec:
   replicas: 1
   selector:
@@ -34,6 +34,7 @@ spec:
     metadata:
       labels:
         app: multiversion
+        deploy: istio
         version: v1
       annotations:
         foo: bar
@@ -81,7 +82,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multiversion-v1
+  name: multiversion-legacy
 spec:
   replicas: 1
   selector:
@@ -92,6 +93,7 @@ spec:
     metadata:
       labels:
         app: multiversion
+        deploy: legacy
         version: v1
       annotations:
         foo: bar

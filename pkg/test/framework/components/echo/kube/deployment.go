@@ -63,7 +63,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Service }}-{{ $w.Version }}
+  name: {{ $.Service }}-{{ $w.Name }}
 spec:
   replicas: 1
   selector:
@@ -77,6 +77,7 @@ spec:
     metadata:
       labels:
         app: {{ $.Service }}
+        deploy: {{ $w.Name }}
         version: {{ $w.Version }}
 {{- if ne $.Locality "" }}
         istio-locality: {{ $.Locality }}
@@ -184,6 +185,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 			{
 				Version:     cfg.Version,
 				Annotations: cfg.Annotations,
+				Name:        "default",
 			},
 		}
 	}

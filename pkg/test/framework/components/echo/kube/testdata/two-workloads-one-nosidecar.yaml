@@ -17,7 +17,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: foo-v1
+  name: foo-
 spec:
   replicas: 1
   selector:
@@ -28,6 +28,7 @@ spec:
     metadata:
       labels:
         app: foo
+        deploy: 
         version: v1
       annotations:
         foo: bar
@@ -70,7 +71,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: foo-nosidecar
+  name: foo-
 spec:
   replicas: 1
   selector:
@@ -81,6 +82,7 @@ spec:
     metadata:
       labels:
         app: foo
+        deploy: 
         version: nosidecar
       annotations:
         foo: bar

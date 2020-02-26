@@ -214,9 +214,16 @@ func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Inst
 	}
 }
 
-// WorkloadHasSidecar returns true if the provided Kubernetes
+// WorkloadHasSidecar returns true if the input endpoint is deployed with sidecar injected based on the config.
 func workloadHasSidecar(cfg echo.Config, endpoint *kubeCore.ObjectReference) bool {
-	fmt.Printf("incfly debug endpoint %v, cfg %v\n", *endpoint, cfg)
+	// Match workload first.
+	for _, w := range cfg.Workloads {
+		if strings.HasPrefix(endpoint.Name, fmt.Sprintf("%v-%v", cfg.Service, w.Name)) {
+			return w.Annotations.GetBool(echo.SidecarInject)
+		}
+	}
+	// Fallbacks to top level annotations config.
+	// TODO(incfly): remove once we migrate all usage to workloads config.
 	return cfg.Annotations.GetBool(echo.SidecarInject)
 }
 
@@ -229,7 +236,6 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
-			// TODO(incfly): address this to ensure the newWorkload takes cfg.Workloads into account.
 			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.env.Accessor, c.ctx)
 			if err != nil {
 				return err
