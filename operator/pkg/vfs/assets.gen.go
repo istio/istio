@@ -17905,9 +17905,6 @@ spec:
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
-        prometheus.io/path: /metrics
-        prometheus.io/port: "15014"
-        prometheus.io/scrape: "true"
     spec:
       serviceAccountName: istio-pilot-service-account
       securityContext:
