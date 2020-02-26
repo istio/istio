@@ -8440,7 +8440,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   hosts:
-  - istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  - istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-gateway
   tcp:
