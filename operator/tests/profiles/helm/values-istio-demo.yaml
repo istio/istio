@@ -68,6 +68,8 @@ tracing:
 kiali:
   enabled: true
   createDemoSecret: true
+  operator:
+    enabled: true
 
 gateways:
   istio-ingressgateway:

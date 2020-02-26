@@ -645,27 +645,36 @@ spec:
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     kiali:
-      hub: quay.io/kiali
-      tag: v1.15
-      contextPath: /kiali
+      operator:
+        hub: quay.io/kiali
+        image: kiali-operator
+        tag: v1.16
       nodeSelector: {}
+      podAnnotations: {}
+      resources: {}
+      tolerations: []
+      replicaCount: 1
+      createDemoSecret: false
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
+      ingressEnabled: false
+      accessibleNamespaces: ['**']
+      contextPath: /kiali
       dashboard:
+        auth:
+          strategy: login
         secretName: kiali
-        usernameKey: username
-        passphraseKey: passphrase
         viewOnlyMode: false
         grafanaURL:
         grafanaInClusterURL: http://grafana:3000
         jaegerURL:
         jaegerInClusterURL: http://tracing/jaeger
-      prometheusNamespace:
-      createDemoSecret: false
       security:
         enabled: false
-        cert_file: /kiali-cert/cert-chain.pem
-        private_key_file: /kiali-cert/key.pem
+      excludedWorkloads:
+        - "CronJob"
+        - "Job"
+      fullSpec: {}
 
     # TODO: derive from operator API
     version: ""

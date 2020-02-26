@@ -138,4 +138,35 @@ spec:
       istio-ingressgateway:
         autoscaleEnabled: false
     kiali:
+      enabled: true
+      operator:
+        enabled: true
+        hub: quay.io/kiali
+        image: kiali-operator
+        tag: v1.16
+      nodeSelector: {}
+      podAnnotations: {}
+      resources: {}
+      tolerations: []
+      replicaCount: 1
       createDemoSecret: true
+      podAntiAffinityLabelSelector: []
+      podAntiAffinityTermLabelSelector: []
+      ingressEnabled: false
+      accessibleNamespaces: ['**']
+      contextPath: /kiali
+      dashboard:
+        auth:
+          strategy: login
+        secretName: kiali
+        viewOnlyMode: false
+        grafanaURL:
+        grafanaInClusterURL: http://grafana:3000
+        jaegerURL:
+        jaegerInClusterURL: http://tracing/jaeger
+      security:
+        enabled: false
+      excludedWorkloads:
+        - "CronJob"
+        - "Job"
+      fullSpec: {}

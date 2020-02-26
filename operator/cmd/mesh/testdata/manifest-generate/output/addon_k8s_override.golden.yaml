@@ -187,27 +187,6 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    test.annotation: test
-  labels:
-    app: kiali
-    release: istio
-  name: kiali
-  namespace: istio-system
-spec:
-  ports:
-  - name: http-kiali
-    port: 20001
-    protocol: TCP
-  selector:
-    app: kiali
-  type: NodePort
----
-
-
-apiVersion: v1
-kind: Service
-metadata:
-  annotations:
     prometheus.io/scrape: "true"
     test.annotation: test
   labels:

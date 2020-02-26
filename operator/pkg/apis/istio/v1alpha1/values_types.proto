@@ -2065,21 +2065,17 @@ message KialiServiceConfig {
 message KialiDashboardConfig {
   string secretName = 1;
 
-  string usernameKey = 2;
+  google.protobuf.BoolValue viewOnlyMode = 2;
 
-  string passphraseKey = 3;
+  string grafanaURL = 3;
 
-  google.protobuf.BoolValue viewOnlyMode = 4;
+  string jaegerURL = 4;
 
-  string grafanaURL = 5;
+  TypeMapStringInterface auth = 5;
 
-  string jaegerURL = 6;
+  string grafanaInClusterURL = 6;
 
-  TypeMapStringInterface auth = 7;
-
-  string grafanaInClusterURL = 8;
-
-  string jaegerInClusterURL = 9;
+  string jaegerInClusterURL = 7;
 }
 
 // Configuration for Kiali addon.
@@ -2097,23 +2093,21 @@ message KialiConfig {
   // Number of replicas for Kiali.
   uint32 replicaCount = 5 [deprecated=true];
 
-  string prometheusNamespace = 6;
+  KialiSecurityConfig security = 6;
 
-  KialiSecurityConfig security = 7;
+  KialiDashboardConfig dashboard = 7;
 
-  KialiDashboardConfig dashboard = 8;
-
-  string contextPath = 15;
+  string contextPath = 8;
 
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 10 [deprecated=true];
+  TypeMapStringInterface nodeSelector = 9 [deprecated=true];
 
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 11 [deprecated=true];
+  TypeMapStringInterface podAnnotations = 10 [deprecated=true];
 
   // Pod anti-affinity label selector.
   //
@@ -2137,23 +2131,64 @@ message KialiConfig {
   //  This pod anti-affinity rule says that the pod requires not to be scheduled
   //  onto a node if that node is already running a pod with label having key
   //  “security” and value “S1”.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 12 [deprecated=true];
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 11 [deprecated=true];
 
   // See PodAntiAffinityLabelSelector.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13 [deprecated=true];
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 12 [deprecated=true];
 
-  TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
+  TypeSliceOfMapStringInterface tolerations = 13 [deprecated=true];
 
-  string image = 16 [deprecated=true];
+  string image = 14 [deprecated=true];
 
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 17 [deprecated=true];
+  Resources resources = 15 [deprecated=true];
 
-  string prometheusAddr = 18 [deprecated=true];
+  string prometheusAddr = 16;
 
-  KialiServiceConfig service = 19;
+  repeated string accessibleNamespaces = 17;
+
+  repeated string excludedWorkloads = 18;
+
+  TypeMapStringInterface fullSpec = 19;
+
+  KialiServiceConfig service = 20;
+
+  KialiOperatorConfig operator = 21;
+
+  google.protobuf.BoolValue ingressEnabled = 22;
+}
+message KialiOperatorConfig {
+  google.protobuf.BoolValue enabled = 1;
+
+  // Image hub for kiali operator deployment.
+  string hub = 2;
+
+  // Image tag for kiali operator deployment.
+  TypeInterface tag = 3;
+
+  string image = 4;
+
+  // Where the operator is to be deployed
+  string namespace = 5;
+
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+  TypeMapStringInterface nodeSelector = 6 [deprecated=true];
+
+  // K8s annotations for pods.
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  TypeMapStringInterface podAnnotations = 7 [deprecated=true];
+
+  TypeSliceOfMapStringInterface tolerations = 8 [deprecated=true];
+
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+  Resources resources = 9 [deprecated=true];
 }
 
 message Values {

@@ -120,13 +120,13 @@
 // charts/istio-telemetry/grafana/values.yaml
 // charts/istio-telemetry/kiali/Chart.yaml
 // charts/istio-telemetry/kiali/templates/_affinity.tpl
-// charts/istio-telemetry/kiali/templates/clusterrole.yaml
-// charts/istio-telemetry/kiali/templates/clusterrolebinding.yaml
-// charts/istio-telemetry/kiali/templates/configmap.yaml
-// charts/istio-telemetry/kiali/templates/demosecret.yaml
-// charts/istio-telemetry/kiali/templates/deployment.yaml
-// charts/istio-telemetry/kiali/templates/service.yaml
-// charts/istio-telemetry/kiali/templates/serviceaccount.yaml
+// charts/istio-telemetry/kiali/templates/kiali-demosecret.yaml
+// charts/istio-telemetry/kiali/templates/kiali-kialicr.yaml
+// charts/istio-telemetry/kiali/templates/kiali-operator-clusterrole.yaml
+// charts/istio-telemetry/kiali/templates/kiali-operator-clusterrolebinding.yaml
+// charts/istio-telemetry/kiali/templates/kiali-operator-crds.yaml
+// charts/istio-telemetry/kiali/templates/kiali-operator-deployment.yaml
+// charts/istio-telemetry/kiali/templates/kiali-operator-serviceaccount.yaml
 // charts/istio-telemetry/kiali/values.yaml
 // charts/istio-telemetry/mixer-telemetry/Chart.yaml
 // charts/istio-telemetry/mixer-telemetry/templates/_affinity.tpl
@@ -36411,8 +36411,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.15.0
-appVersion: 1.15.0
+version: 1.16.0
+appVersion: 1.16.0
 tillerVersion: ">=2.7.2"
 keywords:
   - istio-addon
@@ -36543,278 +36543,7 @@ func chartsIstioTelemetryKialiTemplates_affinityTpl() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryKialiTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kiali
-  labels:
-    app: kiali
-    release: {{ .Release.Name }}
-rules:
-  - apiGroups: [""]
-    resources:
-      - configmaps
-      - endpoints
-      - namespaces
-      - nodes
-      - pods
-      - pods/log
-      - replicationcontrollers
-      - services
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["extensions", "apps"]
-    resources:
-      - deployments
-      - replicasets
-      - statefulsets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["autoscaling"]
-    resources:
-      - horizontalpodautoscalers
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["batch"]
-    resources:
-      - cronjobs
-      - jobs
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: 
-    - config.istio.io
-    - networking.istio.io
-    - authentication.istio.io
-    - rbac.istio.io
-    - security.istio.io
-    resources: ["*"]
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - watch
-  - apiGroups: ["monitoring.kiali.io"]
-    resources:
-      - monitoringdashboards
-    verbs:
-      - get
-      - list
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kiali-viewer
-  labels:
-    app: kiali
-    release: {{ .Release.Name }}
-rules:
-  - apiGroups: [""]
-    resources:
-      - configmaps
-      - endpoints
-      - namespaces
-      - nodes
-      - pods
-      - pods/log
-      - replicationcontrollers
-      - services
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["extensions", "apps"]
-    resources:
-      - deployments
-      - replicasets
-      - statefulsets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["autoscaling"]
-    resources:
-      - horizontalpodautoscalers
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["batch"]
-    resources:
-      - cronjobs
-      - jobs
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: 
-    - config.istio.io
-    - networking.istio.io
-    - authentication.istio.io
-    - rbac.istio.io
-    - security.istio.io
-    resources: ["*"]
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["monitoring.kiali.io"]
-    resources:
-      - monitoringdashboards
-    verbs:
-      - get
-      - list
-`)
-
-func chartsIstioTelemetryKialiTemplatesClusterroleYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryKialiTemplatesClusterroleYaml, nil
-}
-
-func chartsIstioTelemetryKialiTemplatesClusterroleYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryKialiTemplatesClusterroleYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml = []byte(`{{- if not .Values.kiali.dashboard.viewOnlyMode }}
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kiali
-  labels:
-    app: kiali
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kiali
-subjects:
-  - kind: ServiceAccount
-    name: kiali-service-account
-    namespace: {{ .Release.Namespace }}
-{{- else }}
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-kiali-viewer-role-binding-{{ .Release.Namespace }}
-  labels:
-    app: kiali
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kiali-viewer
-subjects:
-- kind: ServiceAccount
-  name: kiali-service-account
-  namespace: {{ .Release.Namespace }}
-{{- end }}
-`)
-
-func chartsIstioTelemetryKialiTemplatesClusterrolebindingYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml, nil
-}
-
-func chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryKialiTemplatesClusterrolebindingYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/clusterrolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryKialiTemplatesConfigmapYaml = []byte(`apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kiali
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: kiali
-    release: {{ .Release.Name }}
-data:
-  config.yaml: |
-    istio_component_namespaces:
-      grafana: {{ .Values.global.telemetryNamespace }}
-      tracing: {{ .Values.global.telemetryNamespace }}
-      pilot: {{ .Values.global.configNamespace }}
-      prometheus: {{ .Values.global.prometheusNamespace }}
-    istio_namespace: {{ .Values.global.istioNamespace }}
-    auth:
-      strategy: {{ .Values.kiali.dashboard.auth.strategy }}
-{{- if eq .Values.kiali.dashboard.auth.strategy "ldap" }}
-      ldap:
-{{- with .Values.kiali.dashboard.auth.strategy.ldap }}
-{{ toYaml . | indent 8 }}
-{{- end }}
-{{- end }}
-    deployment:
-      accessible_namespaces: ['**']
-    login_token:
-      signing_key: {{ randAlphaNum 10 | quote }}
-    server:
-      port: 20001
-{{- if .Values.kiali.contextPath }}
-      web_root: {{ .Values.kiali.contextPath }}
-{{- end }}
-    external_services:
-      istio:
-        url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
-      tracing:
-        url: {{ .Values.kiali.dashboard.jaegerURL }}
-        in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
-      grafana:
-        url: {{ .Values.kiali.dashboard.grafanaURL }}
-        in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
-      prometheus:
-{{- if .Values.kiali.prometheusAddr}}
-        url: {{ .Values.kiali.prometheusAddr}}
-{{- else }}
-{{- if .Values.global.prometheusNamespace }}
-        url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
-{{ else }}
-        url: http://prometheus:9090
-{{- end }}
-{{- end}}
-{{- if .Values.kiali.security.enabled }}
-    identity:
-      cert_file: {{ .Values.kiali.security.cert_file }}
-      private_key_file: {{ .Values.kiali.security.private_key_file }}
-{{- end}}
-`)
-
-func chartsIstioTelemetryKialiTemplatesConfigmapYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryKialiTemplatesConfigmapYaml, nil
-}
-
-func chartsIstioTelemetryKialiTemplatesConfigmapYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryKialiTemplatesConfigmapYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/configmap.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryKialiTemplatesDemosecretYaml = []byte(`{{- if .Values.kiali.createDemoSecret }}
+var _chartsIstioTelemetryKialiTemplatesKialiDemosecretYaml = []byte(`{{- if .Values.kiali.createDemoSecret }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -36830,177 +36559,661 @@ data:
 {{- end }}
 `)
 
-func chartsIstioTelemetryKialiTemplatesDemosecretYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryKialiTemplatesDemosecretYaml, nil
+func chartsIstioTelemetryKialiTemplatesKialiDemosecretYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryKialiTemplatesKialiDemosecretYaml, nil
 }
 
-func chartsIstioTelemetryKialiTemplatesDemosecretYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryKialiTemplatesDemosecretYamlBytes()
+func chartsIstioTelemetryKialiTemplatesKialiDemosecretYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryKialiTemplatesKialiDemosecretYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/demosecret.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/kiali-demosecret.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _chartsIstioTelemetryKialiTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
-kind: Deployment
+var _chartsIstioTelemetryKialiTemplatesKialiKialicrYaml = []byte(`{{- if .Values.kiali.enabled }}
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
 metadata:
   name: kiali
   namespace: {{ .Release.Namespace }}
   labels:
     app: kiali
     release: {{ .Release.Name }}
+annotations:
+  ansible.operator-sdk/verbosity: "3"
 spec:
-  replicas: {{ .Values.kiali.replicaCount }}
+{{- if .Values.kiali.fullSpec }}
+{{ toYaml .Values.kiali.fullSpec | indent 2 }}
+{{- else }}
+  ###################################################################
+  # For details about the supported settings,
+  # see https://github.com/kiali/kiali/blob/master/operator/deploy/kiali/kiali_cr.yaml"
+  istio_component_namespaces:
+    grafana: "{{ .Values.global.telemetryNamespace }}"
+    pilot: "{{ .Values.global.configNamespace }}"
+    prometheus: "{{ .Values.global.prometheusNamespace }}"
+    tracing: "{{ .Values.global.telemetryNamespace }}"
+  istio_namespace: {{ .Release.Namespace }}
+  version: default
+  auth:
+    strategy: {{ .Values.kiali.dashboard.auth.strategy }}
+{{- if eq .Values.kiali.dashboard.auth.strategy "ldap" }}
+    ldap:
+{{- with .Values.kiali.dashboard.auth.strategy.ldap }}
+{{ toYaml . | indent 6 }}
+{{- end }}
+{{- end }}
+  deployment:
+{{- if .Values.kiali.accessibleNamespaces }}
+    accessible_namespaces:
+{{ toYaml .Values.kiali.accessibleNamespaces | indent 6 }}
+{{- end }}
+    affinity:
+    {{- include "nodeaffinity" . | indent 6 }}
+    {{- include "podAntiAffinity" . | indent 6 }}
+    image_pull_policy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullSecrets }}
+    image_pull_secrets:
+{{- range .Values.global.imagePullSecrets }}
+    - {{ . }}
+{{- end }}
+{{- end }}
+    ingress_enabled: {{ .Values.kiali.ingressEnabled }}
+    namespace: {{ .Release.Namespace }}
+{{- if .Values.kiali.nodeSelector }}
+    node_selector:
+{{ toYaml .Values.kiali.nodeSelector | indent 6 }}
+{{- end }}
+{{- if .Values.kiali.podAnnotations }}
+    pod_annotations:
+{{ toYaml .Values.kiali.podAnnotations | indent 6 }}
+{{- end }}
+{{- if .Values.global.priorityClassName }}
+    priority_class_name: {{ .Values.global.priorityClassName }}
+{{- end }}
+    replicas: {{ .Values.kiali.replicaCount }}
+{{- if .Values.kiali.resources }}
+    resources:
+{{ toYaml .Values.kiali.resources | indent 6 }}
+{{- end }}
+{{- if .Values.kiali.service.annotations }}
+    service_annotations:
+{{ toYaml .Values.kiali.service.annotations | indent 6 }}
+{{- end }}
+    service_type: {{ .Values.kiali.service.type }}
+    secret_name: {{ .Values.kiali.dashboard.secretName }}
+{{- if .Values.kiali.tolerations }}
+    tolerations:
+{{ toYaml .Values.kiali.tolerations | indent 6 }}
+{{- end }}
+    verbose_mode: 3
+    view_only_mode: {{ .Values.kiali.dashboard.viewOnlyMode }}
+  external_services:
+    grafana:
+      url: {{ .Values.kiali.dashboard.grafanaURL }}
+{{- if .Values.kiali.dashboard.grafanaInClusterURL}}
+      in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
+{{- end }}
+    istio:
+      url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
+    prometheus:
+{{- if .Values.kiali.prometheusAddr }}
+      url: {{ .Values.kiali.prometheusAddr }}
+{{ else }}
+{{- if .Values.global.prometheusNamespace }}
+      url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
+{{ else }}
+      url: http://prometheus:9090
+{{- end }}
+{{- end }}
+    tracing:
+      url: {{ .Values.kiali.dashboard.jaegerURL }}
+{{- if .Values.kiali.dashboard.jaegerInClusterURL }}
+      in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
+{{- end }}
+{{- if .Values.kiali.security.enabled }}
+  identity: {}
+{{- else}}
+  identity:
+    cert_file: ""
+    private_key_file: ""
+{{- end}}
+{{- if .Values.kiali.excludedWorkloads }}
+  kubernetes_config:
+    excluded_workloads:
+{{ toYaml .Values.kiali.excludedWorkloads | indent 6 }}
+{{- end}}
+  login_token:
+    signing_key: {{ randAlphaNum 10 | quote }}
+  server:
+    port: 20001
+{{- if .Values.kiali.contextPath }}
+    web_root: {{ .Values.kiali.contextPath }}
+{{- end }}
+{{- end }}
+{{- end }}
+`)
+
+func chartsIstioTelemetryKialiTemplatesKialiKialicrYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryKialiTemplatesKialiKialicrYaml, nil
+}
+
+func chartsIstioTelemetryKialiTemplatesKialiKialicrYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryKialiTemplatesKialiKialicrYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/kiali-kialicr.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioTelemetryKialiTemplatesKialiOperatorClusterroleYaml = []byte(`{{- if .Values.kiali.operator.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kiali-operator-{{ .Release.Namespace }}
+  labels:
+    app: kiali-operator
+    release: {{ .Release.Name }}
+rules:
+- apiGroups: [""]
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - persistentvolumeclaims
+  - pods
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: [""]
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - patch
+- apiGroups: [""]
+￼  resources:
+￼  - secrets
+￼  verbs:
+￼  - create
+   - list
+   - watch
+- apiGroups: [""]
+￼  resourceNames:
+￼  - kiali-signing-key
+￼  resources:
+￼  - secrets
+￼  verbs:
+￼  - delete
+￼  - get
+￼  - list
+￼  - patch
+￼  - update
+￼  - watch
+- apiGroups: ["apps"]
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["monitoring.coreos.com"]
+  resources:
+  - servicemonitors
+  verbs:
+  - create
+  - get
+- apiGroups: ["apps"]
+  resourceNames:
+  - kiali-operator
+  resources:
+  - deployments/finalizers
+  verbs:
+  - update
+- apiGroups: ["kiali.io"]
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["apiextensions.k8s.io"]
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["extensions"]
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["route.openshift.io"]
+  resources:
+  - routes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["oauth.openshift.io"]
+  resources:
+  - oauthclients
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["config.openshift.io"]
+  resources:
+  - clusteroperators
+  verbs:
+  - list
+  - watch
+- apiGroups: ["config.openshift.io"]
+  resourceNames:
+  - kube-apiserver
+  resources:
+  - clusteroperators
+  verbs:
+  - get
+- apiGroups: ["console.openshift.io"]
+  resources:
+  - consolelinks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["monitoring.kiali.io"]
+  resources:
+  - monitoringdashboards
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# The permissions below are for Kiali itself; operator needs these so it can escalate when creating Kiali's roles
+- apiGroups: [""]
+  resources:
+  - configmaps
+  - endpoints
+  - namespaces
+  - nodes
+  - pods
+  - pods/log
+  - replicationcontrollers
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["extensions", "apps"]
+  resources:
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["autoscaling"]
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["batch"]
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.istio.io
+  - networking.istio.io
+  - authentication.istio.io
+  - rbac.istio.io
+  - security.istio.io
+  resources: ["*"]
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups: ["authentication.maistra.io"]
+  resources:
+  - servicemeshpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups: ["rbac.maistra.io"]
+  resources:
+  - servicemeshrbacconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups: ["apps.openshift.io"]
+  resources:
+  - deploymentconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["project.openshift.io"]
+  resources:
+  - projects
+  verbs:
+  - get
+- apiGroups: ["route.openshift.io"]
+  resources:
+  - routes
+  verbs:
+  - get
+- apiGroups: ["monitoring.kiali.io"]
+  resources:
+  - monitoringdashboards
+  verbs:
+  - get
+  - list
+{{- end }}
+`)
+
+func chartsIstioTelemetryKialiTemplatesKialiOperatorClusterroleYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryKialiTemplatesKialiOperatorClusterroleYaml, nil
+}
+
+func chartsIstioTelemetryKialiTemplatesKialiOperatorClusterroleYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryKialiTemplatesKialiOperatorClusterroleYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/kiali-operator-clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioTelemetryKialiTemplatesKialiOperatorClusterrolebindingYaml = []byte(`{{- if .Values.kiali.operator.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kiali-operator-{{ .Release.Namespace }}
+  labels:
+    app: kiali-operator
+    release: {{ .Release.Name }}
+subjects:
+- kind: ServiceAccount
+  name: kiali-operator-service-account
+  # IT IS DIRECTLY IN THE CONTROL NAMESPACE FOR NOW
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: kiali-operator-{{ .Release.Namespace }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+`)
+
+func chartsIstioTelemetryKialiTemplatesKialiOperatorClusterrolebindingYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryKialiTemplatesKialiOperatorClusterrolebindingYaml, nil
+}
+
+func chartsIstioTelemetryKialiTemplatesKialiOperatorClusterrolebindingYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryKialiTemplatesKialiOperatorClusterrolebindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/kiali-operator-clusterrolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioTelemetryKialiTemplatesKialiOperatorCrdsYaml = []byte(`{{- if .Values.kiali.operator.enabled }}
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: monitoringdashboards.monitoring.kiali.io
+  labels:
+    app: kiali-operator
+spec:
+  group: monitoring.kiali.io
+  names:
+    kind: MonitoringDashboard
+    listKind: MonitoringDashboardList
+    plural: monitoringdashboards
+    singular: monitoringdashboard
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: kialis.kiali.io
+  labels:
+    app: kiali-operator
+spec:
+  group: kiali.io
+  names:
+    kind: Kiali
+    listKind: KialiList
+    plural: kialis
+    singular: kiali
+  scope: Namespaced
+  subresources:
+    status: {}
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+{{- end }}
+`)
+
+func chartsIstioTelemetryKialiTemplatesKialiOperatorCrdsYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryKialiTemplatesKialiOperatorCrdsYaml, nil
+}
+
+func chartsIstioTelemetryKialiTemplatesKialiOperatorCrdsYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryKialiTemplatesKialiOperatorCrdsYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/kiali-operator-crds.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioTelemetryKialiTemplatesKialiOperatorDeploymentYaml = []byte(`{{- if .Values.kiali.operator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiali-operator
+  # IT IS DIRECTLY IN THE CONTROL NAMESPACE FOR NOW
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: kiali-operator
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
   selector:
     matchLabels:
-      app: kiali
+      app: kiali-operator
   template:
     metadata:
-      name: kiali
+      name: kiali-operator
       labels:
-        app: kiali
+        app: kiali-operator
         release: {{ .Release.Name }}
+        version: "{{ .Values.kiali.operator.tag }}"
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
         prometheus.io/scrape: "true"
-        prometheus.io/port: "9090"
-        kiali.io/runtimes: go,kiali
-        {{- if .Values.kiali.podAnnotations }}
-{{ toYaml .Values.kiali.podAnnotations | indent 8 }}
+        prometheus.io/port: "8383"
+        {{- if .Values.kiali.operator.podAnnotations }}
+{{ toYaml .Values.kiali.operator.podAnnotations | indent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: kiali-service-account
+      serviceAccountName: kiali-operator-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+{{- if .Values.kiali.operator.tolerations }}
+      tolerations:
+{{ toYaml .Values.kiali.operator.tolerations | indent 8 }}
+{{- end }}
+{{- if .Values.kiali.operator.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.kiali.operator.nodeSelector | indent 8 }}
+{{- end }}
       containers:
-      - image: "{{ .Values.kiali.hub }}/{{ .Values.kiali.image }}:{{ .Values.kiali.tag }}"
+      - name: ansible
+        command:
+        - /usr/local/bin/ao-logs
+        - /tmp/ansible-operator/runner
+        - stdout
+        image: "{{ .Values.kiali.operator.hub }}/{{ .Values.kiali.operator.image }}:{{ .Values.kiali.operator.tag }}"
 {{- if .Values.global.imagePullPolicy }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- end }}
-        name: kiali
-        command:
-        - "/opt/kiali/kiali"
-        - "-config"
-        - "/kiali-configuration/config.yaml"
-        - "-v"
-        - "3"
-        readinessProbe:
-          httpGet:
-            path: {{ .Values.kiali.contextPath }}/healthz
-            port: 20001
-            scheme: {{ if .Values.kiali.security.enabled }}'HTTPS'{{ else }}'HTTP'{{ end }}
-          initialDelaySeconds: 5
-          periodSeconds: 30
-        livenessProbe:
-          httpGet:
-            path: {{ .Values.kiali.contextPath }}/healthz
-            port: 20001
-            scheme: {{ if .Values.kiali.security.enabled }}'HTTPS'{{ else }}'HTTP'{{ end }}
-          initialDelaySeconds: 5
-          periodSeconds: 30
+        volumeMounts:
+        - mountPath: /tmp/ansible-operator/runner
+          name: runner
+          readOnly: true
+        resources:
+{{- if .Values.kiali.operator.resources }}
+{{ toYaml .Values.kiali.operator.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
+      - name: operator
+        image: "{{ .Values.kiali.operator.hub }}/{{ .Values.kiali.operator.image }}:{{ .Values.kiali.operator.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+        volumeMounts:
+        - mountPath: /tmp/ansible-operator/runner
+          name: runner
         env:
-        - name: ACTIVE_NAMESPACE
+        # For now, we assume this Kiali operator installed by Istio will only watch the namespace the operator is in.
+        # IT IS DIRECTLY IN THE CONTROL NAMESPACE FOR NOW
+        - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        volumeMounts:
-        - name: kiali-configuration
-          mountPath: "/kiali-configuration"
-        - name: kiali-cert
-          mountPath: "/kiali-cert"
-        - name: kiali-secret
-          mountPath: "/kiali-secret"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: OPERATOR_NAME
+          value: "kiali-operator"
         resources:
-{{- if .Values.kiali.resources }}
-{{ toYaml .Values.kiali.resources | indent 10 }}
+{{- if .Values.kiali.operator.resources }}
+{{ toYaml .Values.kiali.operator.resources | indent 10 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
       volumes:
-      - name: kiali-configuration
-        configMap:
-          name: kiali
-      - name: kiali-cert
-        secret:
-          secretName: istio.kiali-service-account
-{{- if not .Values.kiali.security.enabled }}
-          optional: true
-{{- end }}      
-      - name: kiali-secret
-        secret:
-          secretName: {{ .Values.kiali.dashboard.secretName }}
-          optional: true
+      - name: runner
+        emptyDir: {}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
-{{- if .Values.kiali.tolerations }}
-      tolerations:
-{{ toYaml .Values.kiali.tolerations | indent 6 }}
-{{- else if .Values.global.defaultTolerations }}
-      tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 `)
 
-func chartsIstioTelemetryKialiTemplatesDeploymentYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryKialiTemplatesDeploymentYaml, nil
+func chartsIstioTelemetryKialiTemplatesKialiOperatorDeploymentYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryKialiTemplatesKialiOperatorDeploymentYaml, nil
 }
 
-func chartsIstioTelemetryKialiTemplatesDeploymentYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryKialiTemplatesDeploymentYamlBytes()
+func chartsIstioTelemetryKialiTemplatesKialiOperatorDeploymentYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryKialiTemplatesKialiOperatorDeploymentYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/kiali-operator-deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _chartsIstioTelemetryKialiTemplatesServiceYaml = []byte(`apiVersion: v1
-kind: Service
-metadata:
-  name: kiali
-  namespace: {{ .Release.Namespace }}
-  annotations:
-    {{- range $key, $val := .Values.kiali.service.annotations }}
-      {{ $key }}: {{ $val | quote }}
-    {{- end }}
-  labels:
-    app: kiali
-    release: {{ .Release.Name }}
-spec:
-  type: {{ .Values.kiali.service.type }}
-  ports:
-    - name: http-kiali
-      protocol: TCP
-      port: 20001
-  selector:
-    app: kiali
-`)
-
-func chartsIstioTelemetryKialiTemplatesServiceYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryKialiTemplatesServiceYaml, nil
-}
-
-func chartsIstioTelemetryKialiTemplatesServiceYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryKialiTemplatesServiceYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryKialiTemplatesServiceaccountYaml = []byte(`apiVersion: v1
+var _chartsIstioTelemetryKialiTemplatesKialiOperatorServiceaccountYaml = []byte(`{{- if .Values.kiali.operator.enabled }}
+apiVersion: v1
 kind: ServiceAccount
   {{- if .Values.global.imagePullSecrets }}
 imagePullSecrets:
@@ -37009,24 +37222,26 @@ imagePullSecrets:
   {{- end }}
   {{- end }}
 metadata:
-  name: kiali-service-account
+  name: kiali-operator-service-account
+  # IT IS DIRECTLY IN THE CONTROL NAMESPACE FOR NOW
   namespace: {{ .Release.Namespace }}
   labels:
-    app: kiali
+    app: kiali-operator
     release: {{ .Release.Name }}
+{{- end }}
 `)
 
-func chartsIstioTelemetryKialiTemplatesServiceaccountYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryKialiTemplatesServiceaccountYaml, nil
+func chartsIstioTelemetryKialiTemplatesKialiOperatorServiceaccountYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryKialiTemplatesKialiOperatorServiceaccountYaml, nil
 }
 
-func chartsIstioTelemetryKialiTemplatesServiceaccountYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryKialiTemplatesServiceaccountYamlBytes()
+func chartsIstioTelemetryKialiTemplatesKialiOperatorServiceaccountYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryKialiTemplatesKialiOperatorServiceaccountYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/serviceaccount.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/kiali/templates/kiali-operator-serviceaccount.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -37035,15 +37250,15 @@ var _chartsIstioTelemetryKialiValuesYaml = []byte(`#
 # addon kiali
 #
 kiali:
-  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
-  replicaCount: 1
-  hub: quay.io/kiali
-  tag: v1.15
-  image: kiali
-  contextPath: /kiali # The root context path to access the Kiali UI.
+  enabled: false # Installs the Kiali CR. If you do not want Kiali, you probably also want to disable the operator (kiali.operator.enabled)
+
   nodeSelector: {}
-  tolerations: []
   podAnnotations: {}
+  resources: {}
+  tolerations: []
+  replicaCount: 1
+
+  createDemoSecret: false # When true, a secret will be created with a default username and password. Useful for demos.
 
   # Specify the pod anti-affinity that allows you to constrain which nodes
   # your pod is eligible to be scheduled based on labels on pods that are
@@ -37070,6 +37285,9 @@ kiali:
     annotations: {}
     type: ClusterIP
 
+  accessibleNamespaces: ['**']
+  contextPath: /kiali # The root context path to access the Kiali UI.
+
   dashboard:
     auth:
       strategy: login # Can be anonymous, login, openshift, or ldap
@@ -37089,8 +37307,6 @@ kiali:
       #   ldap_user_id_key: "cn"
 
     secretName: kiali # You must create a secret with this name - one is not provided out-of-box unless you've chose to create a demo secret.
-    usernameKey: username # This is the key name within the secret whose value is the actual username.
-    passphraseKey: passphrase # This is the key name within the secret whose value is the actual passphrase.
 
     viewOnlyMode: false # Bind the service account to a role with only read access
 
@@ -37099,14 +37315,37 @@ kiali:
     jaegerURL: "" # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
     jaegerInClusterURL: "http://tracing/jaeger" # If you have Jaeger installed and accessible from Kiali pod (typically in cluster), then set this property to enable more tracing charts within Kiali.
 
-  createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
-
   prometheusAddr: ""
-  resources: {}
+
   security:
     enabled: false
-    cert_file: /kiali-cert/cert-chain.pem
-    private_key_file: /kiali-cert/key.pem
+
+  excludedWorkloads:
+    - "CronJob"
+    - "Job"
+  # Other options are:
+  #  - DeploymentConfig
+  #  - ReplicationController
+  #  - StatefulSet
+
+  # Until https://github.com/helm/helm/pull/6876 is available, the only way to really support
+  # a fully customized Kiali CR is to be able to pass the full spec here. If this is defined,
+  # most of the settings above will be ignored and this is used for the Kiali CR spec.
+  # See https://github.com/kiali/kiali/blob/master/operator/deploy/kiali/kiali_cr.yaml
+  # for what a Kiali CR spec can look like.
+  fullSpec: {}
+
+  # If the cluster does not already have a Kiali Operator, this provides a way to give you one.
+  # The operator will go in the control namespace itself (.Release.Namespace) and will watch only that namespace for CRs.
+  operator:
+    enabled: false # This installs the operator if `+"`"+`true`+"`"+`. Set to false if the operator is already installed or you do not want Kiali
+    hub: quay.io/kiali
+    image: kiali-operator
+    tag: v1.15
+    nodeSelector: {}
+    podAnnotations: {}
+    resources: {}
+    tolerations: []
 `)
 
 func chartsIstioTelemetryKialiValuesYamlBytes() ([]byte, error) {
@@ -44049,27 +44288,36 @@ spec:
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     kiali:
-      hub: quay.io/kiali
-      tag: v1.15
-      contextPath: /kiali
+      operator:
+        hub: quay.io/kiali
+        image: kiali-operator
+        tag: v1.16
       nodeSelector: {}
+      podAnnotations: {}
+      resources: {}
+      tolerations: []
+      replicaCount: 1
+      createDemoSecret: false
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
+      ingressEnabled: false
+      accessibleNamespaces: ['**']
+      contextPath: /kiali
       dashboard:
+        auth:
+          strategy: login
         secretName: kiali
-        usernameKey: username
-        passphraseKey: passphrase
         viewOnlyMode: false
         grafanaURL:
         grafanaInClusterURL: http://grafana:3000
         jaegerURL:
         jaegerInClusterURL: http://tracing/jaeger
-      prometheusNamespace:
-      createDemoSecret: false
       security:
         enabled: false
-        cert_file: /kiali-cert/cert-chain.pem
-        private_key_file: /kiali-cert/key.pem
+      excludedWorkloads:
+        - "CronJob"
+        - "Job"
+      fullSpec: {}
 
     # TODO: derive from operator API
     version: ""
@@ -44231,7 +44479,38 @@ spec:
       istio-ingressgateway:
         autoscaleEnabled: false
     kiali:
+      enabled: true
+      operator:
+        enabled: true
+        hub: quay.io/kiali
+        image: kiali-operator
+        tag: v1.16
+      nodeSelector: {}
+      podAnnotations: {}
+      resources: {}
+      tolerations: []
+      replicaCount: 1
       createDemoSecret: true
+      podAntiAffinityLabelSelector: []
+      podAntiAffinityTermLabelSelector: []
+      ingressEnabled: false
+      accessibleNamespaces: ['**']
+      contextPath: /kiali
+      dashboard:
+        auth:
+          strategy: login
+        secretName: kiali
+        viewOnlyMode: false
+        grafanaURL:
+        grafanaInClusterURL: http://grafana:3000
+        jaegerURL:
+        jaegerInClusterURL: http://tracing/jaeger
+      security:
+        enabled: false
+      excludedWorkloads:
+        - "CronJob"
+        - "Job"
+      fullSpec: {}
 `)
 
 func profilesDemoYamlBytes() ([]byte, error) {
@@ -45679,13 +45958,13 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-telemetry/grafana/values.yaml":                                           chartsIstioTelemetryGrafanaValuesYaml,
 	"charts/istio-telemetry/kiali/Chart.yaml":                                              chartsIstioTelemetryKialiChartYaml,
 	"charts/istio-telemetry/kiali/templates/_affinity.tpl":                                 chartsIstioTelemetryKialiTemplates_affinityTpl,
-	"charts/istio-telemetry/kiali/templates/clusterrole.yaml":                              chartsIstioTelemetryKialiTemplatesClusterroleYaml,
-	"charts/istio-telemetry/kiali/templates/clusterrolebinding.yaml":                       chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml,
-	"charts/istio-telemetry/kiali/templates/configmap.yaml":                                chartsIstioTelemetryKialiTemplatesConfigmapYaml,
-	"charts/istio-telemetry/kiali/templates/demosecret.yaml":                               chartsIstioTelemetryKialiTemplatesDemosecretYaml,
-	"charts/istio-telemetry/kiali/templates/deployment.yaml":                               chartsIstioTelemetryKialiTemplatesDeploymentYaml,
-	"charts/istio-telemetry/kiali/templates/service.yaml":                                  chartsIstioTelemetryKialiTemplatesServiceYaml,
-	"charts/istio-telemetry/kiali/templates/serviceaccount.yaml":                           chartsIstioTelemetryKialiTemplatesServiceaccountYaml,
+	"charts/istio-telemetry/kiali/templates/kiali-demosecret.yaml":                         chartsIstioTelemetryKialiTemplatesKialiDemosecretYaml,
+	"charts/istio-telemetry/kiali/templates/kiali-kialicr.yaml":                            chartsIstioTelemetryKialiTemplatesKialiKialicrYaml,
+	"charts/istio-telemetry/kiali/templates/kiali-operator-clusterrole.yaml":               chartsIstioTelemetryKialiTemplatesKialiOperatorClusterroleYaml,
+	"charts/istio-telemetry/kiali/templates/kiali-operator-clusterrolebinding.yaml":        chartsIstioTelemetryKialiTemplatesKialiOperatorClusterrolebindingYaml,
+	"charts/istio-telemetry/kiali/templates/kiali-operator-crds.yaml":                      chartsIstioTelemetryKialiTemplatesKialiOperatorCrdsYaml,
+	"charts/istio-telemetry/kiali/templates/kiali-operator-deployment.yaml":                chartsIstioTelemetryKialiTemplatesKialiOperatorDeploymentYaml,
+	"charts/istio-telemetry/kiali/templates/kiali-operator-serviceaccount.yaml":            chartsIstioTelemetryKialiTemplatesKialiOperatorServiceaccountYaml,
 	"charts/istio-telemetry/kiali/values.yaml":                                             chartsIstioTelemetryKialiValuesYaml,
 	"charts/istio-telemetry/mixer-telemetry/Chart.yaml":                                    chartsIstioTelemetryMixerTelemetryChartYaml,
 	"charts/istio-telemetry/mixer-telemetry/templates/_affinity.tpl":                       chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl,
@@ -45972,14 +46251,14 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"kiali": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryKialiChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":           &bintree{chartsIstioTelemetryKialiTemplates_affinityTpl, map[string]*bintree{}},
-					"clusterrole.yaml":        &bintree{chartsIstioTelemetryKialiTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml": &bintree{chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap.yaml":          &bintree{chartsIstioTelemetryKialiTemplatesConfigmapYaml, map[string]*bintree{}},
-					"demosecret.yaml":         &bintree{chartsIstioTelemetryKialiTemplatesDemosecretYaml, map[string]*bintree{}},
-					"deployment.yaml":         &bintree{chartsIstioTelemetryKialiTemplatesDeploymentYaml, map[string]*bintree{}},
-					"service.yaml":            &bintree{chartsIstioTelemetryKialiTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml":     &bintree{chartsIstioTelemetryKialiTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"_affinity.tpl":                          &bintree{chartsIstioTelemetryKialiTemplates_affinityTpl, map[string]*bintree{}},
+					"kiali-demosecret.yaml":                  &bintree{chartsIstioTelemetryKialiTemplatesKialiDemosecretYaml, map[string]*bintree{}},
+					"kiali-kialicr.yaml":                     &bintree{chartsIstioTelemetryKialiTemplatesKialiKialicrYaml, map[string]*bintree{}},
+					"kiali-operator-clusterrole.yaml":        &bintree{chartsIstioTelemetryKialiTemplatesKialiOperatorClusterroleYaml, map[string]*bintree{}},
+					"kiali-operator-clusterrolebinding.yaml": &bintree{chartsIstioTelemetryKialiTemplatesKialiOperatorClusterrolebindingYaml, map[string]*bintree{}},
+					"kiali-operator-crds.yaml":               &bintree{chartsIstioTelemetryKialiTemplatesKialiOperatorCrdsYaml, map[string]*bintree{}},
+					"kiali-operator-deployment.yaml":         &bintree{chartsIstioTelemetryKialiTemplatesKialiOperatorDeploymentYaml, map[string]*bintree{}},
+					"kiali-operator-serviceaccount.yaml":     &bintree{chartsIstioTelemetryKialiTemplatesKialiOperatorServiceaccountYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioTelemetryKialiValuesYaml, map[string]*bintree{}},
 			}},

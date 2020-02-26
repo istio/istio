@@ -1,0 +1,18 @@
+{{- if .Values.kiali.operator.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kiali-operator-{{ .Release.Namespace }}
+  labels:
+    app: kiali-operator
+    release: {{ .Release.Name }}
+subjects:
+- kind: ServiceAccount
+  name: kiali-operator-service-account
+  # IT IS DIRECTLY IN THE CONTROL NAMESPACE FOR NOW
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: kiali-operator-{{ .Release.Namespace }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

@@ -1,0 +1,122 @@
+{{- if .Values.kiali.enabled }}
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: kiali
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: kiali
+    release: {{ .Release.Name }}
+annotations:
+  ansible.operator-sdk/verbosity: "3"
+spec:
+{{- if .Values.kiali.fullSpec }}
+{{ toYaml .Values.kiali.fullSpec | indent 2 }}
+{{- else }}
+  ###################################################################
+  # For details about the supported settings,
+  # see https://github.com/kiali/kiali/blob/master/operator/deploy/kiali/kiali_cr.yaml"
+  istio_component_namespaces:
+    grafana: "{{ .Values.global.telemetryNamespace }}"
+    pilot: "{{ .Values.global.configNamespace }}"
+    prometheus: "{{ .Values.global.prometheusNamespace }}"
+    tracing: "{{ .Values.global.telemetryNamespace }}"
+  istio_namespace: {{ .Release.Namespace }}
+  version: default
+  auth:
+    strategy: {{ .Values.kiali.dashboard.auth.strategy }}
+{{- if eq .Values.kiali.dashboard.auth.strategy "ldap" }}
+    ldap:
+{{- with .Values.kiali.dashboard.auth.strategy.ldap }}
+{{ toYaml . | indent 6 }}
+{{- end }}
+{{- end }}
+  deployment:
+{{- if .Values.kiali.accessibleNamespaces }}
+    accessible_namespaces:
+{{ toYaml .Values.kiali.accessibleNamespaces | indent 6 }}
+{{- end }}
+    affinity:
+    {{- include "nodeaffinity" . | indent 6 }}
+    {{- include "podAntiAffinity" . | indent 6 }}
+    image_pull_policy: {{ .Values.global.imagePullPolicy | default "Always" }}
+{{- if .Values.global.imagePullSecrets }}
+    image_pull_secrets:
+{{- range .Values.global.imagePullSecrets }}
+    - {{ . }}
+{{- end }}
+{{- end }}
+    ingress_enabled: {{ .Values.kiali.ingressEnabled }}
+    namespace: {{ .Release.Namespace }}
+{{- if .Values.kiali.nodeSelector }}
+    node_selector:
+{{ toYaml .Values.kiali.nodeSelector | indent 6 }}
+{{- end }}
+{{- if .Values.kiali.podAnnotations }}
+    pod_annotations:
+{{ toYaml .Values.kiali.podAnnotations | indent 6 }}
+{{- end }}
+{{- if .Values.global.priorityClassName }}
+    priority_class_name: {{ .Values.global.priorityClassName }}
+{{- end }}
+    replicas: {{ .Values.kiali.replicaCount }}
+{{- if .Values.kiali.resources }}
+    resources:
+{{ toYaml .Values.kiali.resources | indent 6 }}
+{{- end }}
+{{- if .Values.kiali.service.annotations }}
+    service_annotations:
+{{ toYaml .Values.kiali.service.annotations | indent 6 }}
+{{- end }}
+    service_type: {{ .Values.kiali.service.type }}
+    secret_name: {{ .Values.kiali.dashboard.secretName }}
+{{- if .Values.kiali.tolerations }}
+    tolerations:
+{{ toYaml .Values.kiali.tolerations | indent 6 }}
+{{- end }}
+    verbose_mode: 3
+    view_only_mode: {{ .Values.kiali.dashboard.viewOnlyMode }}
+  external_services:
+    grafana:
+      url: {{ .Values.kiali.dashboard.grafanaURL }}
+{{- if .Values.kiali.dashboard.grafanaInClusterURL}}
+      in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
+{{- end }}
+    istio:
+      url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
+    prometheus:
+{{- if .Values.kiali.prometheusAddr }}
+      url: {{ .Values.kiali.prometheusAddr }}
+{{ else }}
+{{- if .Values.global.prometheusNamespace }}
+      url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
+{{ else }}
+      url: http://prometheus:9090
+{{- end }}
+{{- end }}
+    tracing:
+      url: {{ .Values.kiali.dashboard.jaegerURL }}
+{{- if .Values.kiali.dashboard.jaegerInClusterURL }}
+      in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
+{{- end }}
+{{- if .Values.kiali.security.enabled }}
+  identity: {}
+{{- else}}
+  identity:
+    cert_file: ""
+    private_key_file: ""
+{{- end}}
+{{- if .Values.kiali.excludedWorkloads }}
+  kubernetes_config:
+    excluded_workloads:
+{{ toYaml .Values.kiali.excludedWorkloads | indent 6 }}
+{{- end}}
+  login_token:
+    signing_key: {{ randAlphaNum 10 | quote }}
+  server:
+    port: 20001
+{{- if .Values.kiali.contextPath }}
+    web_root: {{ .Values.kiali.contextPath }}
+{{- end }}
+{{- end }}
+{{- end }}

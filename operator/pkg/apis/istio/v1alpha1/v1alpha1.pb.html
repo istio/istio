@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 97
+number_of_entries: 98
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -7346,24 +7346,6 @@ No
 No
 </td>
 </tr>
-<tr id="KialiDashboardConfig-usernameKey">
-<td><code>usernameKey</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiDashboardConfig-passphraseKey">
-<td><code>passphraseKey</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="KialiDashboardConfig-viewOnlyMode">
 <td><code>viewOnlyMode</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -7475,15 +7457,6 @@ No
 No
 </td>
 </tr>
-<tr id="KialiConfig-prometheusNamespace">
-<td><code>prometheusNamespace</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="KialiConfig-security">
 <td><code>security</code></td>
 <td><code><a href="#KialiSecurityConfig">KialiSecurityConfig</a></code></td>
@@ -7511,9 +7484,63 @@ No
 No
 </td>
 </tr>
+<tr id="KialiConfig-prometheusAddr">
+<td><code>prometheusAddr</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-accessibleNamespaces">
+<td><code>accessibleNamespaces</code></td>
+<td><code>string[]</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-excludedWorkloads">
+<td><code>excludedWorkloads</code></td>
+<td><code>string[]</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-fullSpec">
+<td><code>fullSpec</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="KialiConfig-service">
 <td><code>service</code></td>
 <td><code><a href="#KialiServiceConfig">KialiServiceConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-operator">
+<td><code>operator</code></td>
+<td><code><a href="#KialiOperatorConfig">KialiOperatorConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-ingressEnabled">
+<td><code>ingressEnabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 </td>
 <td>
@@ -7631,10 +7658,115 @@ No
 No
 </td>
 </tr>
-<tr id="KialiConfig-prometheusAddr" class="deprecated ">
-<td><code>prometheusAddr</code></td>
+</tbody>
+</table>
+</section>
+<h2 id="KialiOperatorConfig">KialiOperatorConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="KialiOperatorConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiOperatorConfig-hub">
+<td><code>hub</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image hub for kiali operator deployment.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiOperatorConfig-tag">
+<td><code>tag</code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
+<td>
+<p>Image tag for kiali operator deployment.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiOperatorConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiOperatorConfig-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Where the operator is to be deployed</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiOperatorConfig-nodeSelector" class="deprecated ">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiOperatorConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiOperatorConfig-tolerations" class="deprecated ">
+<td><code>tolerations</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiOperatorConfig-resources" class="deprecated ">
+<td><code>resources</code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 <td>
 No
