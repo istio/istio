@@ -138,7 +138,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 
 	// To generate the base profileOrPath for overlaying with user values, we need the installPackagePath where the profiles
 	// can be found, and the selected profileOrPath. Both of these can come from either the user overlay file or --set flag.
-	outYAML, err := getProfileYAML(profileOrPath)
+	outYAML, err := getProfileYAML(installPackagePath, profileOrPath)
 	if err != nil {
 		return "", nil, err
 	}
@@ -222,7 +222,11 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 
 // getProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
 // a profile label or a file path.
-func getProfileYAML(profileOrPath string) (string, error) {
+func getProfileYAML(installPackagePath, profileOrPath string) (string, error) {
+	// If charts are a file path and profile is a name like default, transform it to the file path.
+	if installPackagePath != "" && helm.IsBuiltinProfileName(profileOrPath) {
+		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
+	}
 	// This contains the IstioOperator CR.
 	baseCRYAML, err := helm.ReadProfileYAML(profileOrPath)
 	if err != nil {
