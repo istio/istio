@@ -211,7 +211,6 @@ func isSupportedPermission(key string) bool {
 	switch {
 	case key == attrDestIP:
 	case key == attrDestPort:
-	case key == pathHeader || key == methodHeader || key == hostHeader:
 	case key == attrConnSNI:
 	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
 	default:
@@ -247,7 +246,7 @@ func (permission *Permission) forKeyValues(key string, values []string) *envoy_r
 			m := matcher.PathMatcher(v)
 			return permissionPath(m), nil
 		}
-	case key == pathHeader || key == methodHeader || key == hostHeader:
+	case key == methodHeader || key == hostHeader:
 		converter = func(v string) (*envoy_rbac.Permission, error) {
 			m := matcher.HeaderMatcher(key, v)
 			return permissionHeader(m), nil

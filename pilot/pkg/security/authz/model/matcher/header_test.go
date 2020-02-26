@@ -130,7 +130,7 @@ func TestPathMatcher(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			actual := PathMatcher(tc.V)
 			if !reflect.DeepEqual(*tc.Expect, *actual) {
-				t.Errorf("%s: expecting %v, but got %v", tc.Name, *tc.Expect, *actual)
+				t.Errorf("expecting %v, but got %v", *tc.Expect, *actual)
 			}
 		})
 	}

@@ -449,11 +449,11 @@ func TestPermission_Generate(t *testing.T) {
               - destinationPort: 9000`,
 		},
 		{
-			name: "permission with constraint pathHeader",
+			name: "permission with constraint request.headers[:path]",
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						pathHeader: Values{
+						"request.headers[:path]": Values{
 							Values: []string{"/hello", "/world"},
 						},
 					},
@@ -472,11 +472,11 @@ func TestPermission_Generate(t *testing.T) {
                   name: :path`,
 		},
 		{
-			name: "permission with constraint methodHeader",
+			name: "permission with constraint request.headers[:method]",
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						methodHeader: Values{
+						"request.headers[:method]": Values{
 							Values: []string{"GET", "POST"},
 						},
 					},
@@ -495,11 +495,11 @@ func TestPermission_Generate(t *testing.T) {
                   name: :method`,
 		},
 		{
-			name: "permission with constraint hostHeader",
+			name: "permission with constraint request.headers[:authority]",
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						hostHeader: Values{
+						"request.headers[:authority]": Values{
 							Values: []string{"istio.io", "github.com"},
 						},
 					},
@@ -719,10 +719,10 @@ func TestPermission_Generate(t *testing.T) {
 						},
 					},
 					{
-						pathHeader: Values{
+						"request.headers[:path]": Values{
 							Values: []string{"/hello", "/world"},
 						},
-						methodHeader: Values{
+						"request.headers[:method]": Values{
 							Values: []string{"GET", "POST"},
 						},
 					},
