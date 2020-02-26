@@ -6215,8 +6215,6 @@ webhooks:
 
 # Galley component is disabled.
 
-# IngressGateways istio-ingressgateway component is disabled.
-
 # Resources for Pilot component
 
 apiVersion: autoscaling/v2beta1
@@ -6348,11 +6346,9 @@ data:
         memory: 2048Mi
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
-    sidecar: false
     tag: ""
     tolerations: []
     traceSampling: 1
-    useMCP: false
 
   mesh: |-
     # Set enableTracing to false to disable request tracing.
@@ -6526,7 +6522,7 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr=
+        - --secureGrpcAddr=:15011
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
@@ -6663,7 +6659,7 @@ data:
         "certificates": [],
         "configNamespace": "istio-system",
         "configValidation": true,
-        "controlPlaneSecurityEnabled": false,
+        "controlPlaneSecurityEnabled": true,
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
           "enabled": true
@@ -7294,7 +7290,7 @@ webhooks:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istiod-
+  name: istiod
   namespace: istio-system
   labels:
     app: istiod
