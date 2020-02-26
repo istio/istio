@@ -673,7 +673,7 @@ func buildOutboundCatchAllNetworkFilterChainOpts(_ *ConfigGeneratorImpl,
 	// Add two filter chain opts: one for TLS traffic and one for TCP traffic so that we can get
 	// some telemetry out of TLS traffic. We can add the TLS filter chain regardless of outbound traffic policy
 	// because we always want to get telemetry
-	out := make([]*filterChainOpts, 2)
+	out := make([]*filterChainOpts, 0, 2)
 	out = append(out, &filterChainOpts{
 		filterChainName: VirtualOutboundCatchAllTLSFilterChainName,
 		match: &listener.FilterChainMatch{
@@ -681,8 +681,7 @@ func buildOutboundCatchAllNetworkFilterChainOpts(_ *ConfigGeneratorImpl,
 		},
 		networkFilters:  filterStack,
 		listenerFilters: []*listener.ListenerFilter{{Name: xdsutil.TlsInspector}},
-	})
-	out = append(out, &filterChainOpts{
+	}, &filterChainOpts{
 		filterChainName: VirtualOutboundCatchAllTCPFilterChainName,
 		networkFilters:  filterStack,
 	})
@@ -690,7 +689,7 @@ func buildOutboundCatchAllNetworkFilterChainOpts(_ *ConfigGeneratorImpl,
 }
 
 func buildOutboundCatchAllHTTPFilterChainOpts(_ *ConfigGeneratorImpl,
-	node *model.Proxy, push *model.PushContext) []*filterChainOpts {
+	node *model.Proxy, _ *model.PushContext) []*filterChainOpts {
 	if !util.IsProtocolSniffingEnabledForOutbound(node) {
 		return nil
 	}
