@@ -181,7 +181,6 @@ type Plugin interface {
 	// OnVirtualListener is called whenever a new virtual listener is added to the
 	// LDS output for a given service
 	// Can be used to add additional filters.
-	// TODO: dead code. remove
 	OnVirtualListener(in *InputParams, mutable *MutableObjects) error
 
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output.

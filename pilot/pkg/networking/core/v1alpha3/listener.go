@@ -89,9 +89,6 @@ const (
 	// VirtualOutboundListenerName is the name for traffic capture listener
 	VirtualOutboundListenerName = "virtualOutbound"
 
-	// VirtualOutboundCatchAllHTTPFilterChainName is the name of the catch all http filter chain
-	VirtualOutboundCatchAllHTTPFilterChainName = "virtualOutbound-catchall-http"
-
 	// VirtualOutboundCatchAllTLSFilterChainName is the name of the catch all tls filter chain
 	VirtualOutboundCatchAllTLSFilterChainName = "virtualOutbound-catchall-tls"
 
@@ -1780,6 +1777,63 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 		log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
 	}
+}
+
+// onVirtualOutboundListener calls the plugin API for the outbound virtual listener
+func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
+	node *model.Proxy,
+	push *model.PushContext,
+	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
+
+	svc := util.FallThroughFilterChainBlackHoleService
+	redirectPort := &model.Port{
+		Port:     int(push.Mesh.ProxyListenPort),
+		Protocol: protocol.TCP,
+	}
+
+	if len(ipTablesListener.FilterChains) < 1 || len(ipTablesListener.FilterChains[0].Filters) < 1 {
+		return ipTablesListener
+	}
+
+	// contains all filter chains except for the final passthrough/blackhole
+	initialFilterChain := ipTablesListener.FilterChains[:len(ipTablesListener.FilterChains)-1]
+
+	// contains just the final passthrough/blackhole
+	fallbackFilter := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
+
+	if util.IsAllowAnyOutbound(node) {
+		svc = util.FallThroughFilterChainPassthroughService
+	}
+
+	pluginParams := &plugin.InputParams{
+		ListenerProtocol:           plugin.ListenerProtocolTCP,
+		DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+		Node:                       node,
+		Push:                       push,
+		Bind:                       "",
+		Port:                       redirectPort,
+		Service:                    svc,
+	}
+
+	mutable := &plugin.MutableObjects{
+		Listener:     ipTablesListener,
+		FilterChains: make([]plugin.FilterChain, len(ipTablesListener.FilterChains)),
+	}
+
+	for _, p := range configgen.Plugins {
+		if err := p.OnVirtualListener(pluginParams, mutable); err != nil {
+			log.Warn(err.Error())
+		}
+	}
+	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
+		filters := append([]*listener.Filter{}, mutable.FilterChains[0].TCP...)
+		filters = append(filters, fallbackFilter)
+
+		// Replace the final filter chain with the new chain that has had plugins applied
+		initialFilterChain = append(initialFilterChain, &listener.FilterChain{Filters: filters})
+		ipTablesListener.FilterChains = initialFilterChain
+	}
+	return ipTablesListener
 }
 
 // buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on

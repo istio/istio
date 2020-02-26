@@ -20,8 +20,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
@@ -37,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
 
@@ -236,9 +235,6 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 	return builder
 }
 
-// This function builds the virtual outbound listener in pretty much the same way
-// as a standard outbound listener that has HTTP sniffing enabled.
-// In addition, it adds a filter chain to prevent traffic loops when a pod calls itself using its IP.
 func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) *ListenerBuilder {
@@ -248,7 +244,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	var filterChainOptsArray []*filterChainOpts
+	filterChains := buildOutboundCatchAllNetworkFilterChains(configgen, node, push)
 
 	// The virtual listener will handle all traffic that does not match any other listeners, and will
 	// blackhole/passthrough depending on the outbound traffic policy. When passthrough is enabled,
@@ -259,84 +255,39 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		for _, ip := range node.IPAddresses {
 			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
 		}
-		filterChainOptsArray = append(filterChainOptsArray, &filterChainOpts{
-			filterChainName: VirtualOutboundTrafficLoopFilterChainName,
-			match: &listener.FilterChainMatch{
+		filterChains = append([]*listener.FilterChain{{
+			Name: VirtualOutboundTrafficLoopFilterChainName,
+			FilterChainMatch: &listener.FilterChainMatch{
 				PrefixRanges: cidrRanges,
 			},
-			networkFilters: []*listener.Filter{blackholeFilter},
+			Filters: []*listener.Filter{blackholeFilter},
+		}}, filterChains...)
+	}
+
+	actualWildcard, _ := getActualWildcardAndLocalHost(node)
+	var listFilter []*listener.ListenerFilter
+	if util.IsAllowAnyOutbound(node) && node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
+		listFilter = append(listFilter, &listener.ListenerFilter{
+			Name: xdsutil.TlsInspector,
 		})
 	}
 
-	filterChainOptsArray = append(filterChainOptsArray,
-		buildOutboundCatchAllNetworkFilterChainOpts(configgen, node, push)...)
-	filterChainOptsArray = append(filterChainOptsArray,
-		buildOutboundCatchAllHTTPFilterChainOpts(configgen, node, push)...)
-
-	actualWildcard, _ := getActualWildcardAndLocalHost(node)
-
-	// Lets build the new listener. buildListenerOpts will allocate the filter chain slots
-	// with same length as the filterChainOptsArray. buildCompleteFilterChain will then populate these slots using
-	// the filter chains from the opts, as well as the ones added by the plugins.
-	listenerOpts := buildListenerOpts{
-		push:            push,
-		proxy:           node,
-		bind:            actualWildcard,
-		port:            int(push.Mesh.ProxyListenPort),
-		filterChainOpts: filterChainOptsArray,
-		bindToPort:      true,
-		skipUserFilters: true,
+	// add an extra listener that binds to the port that is the recipient of the iptables redirect
+	ipTablesListener := &xdsapi.Listener{
+		Name:             VirtualOutboundListenerName,
+		Address:          util.BuildAddress(actualWildcard, uint32(push.Mesh.ProxyListenPort)),
+		Transparent:      isTransparentProxy,
+		UseOriginalDst:   proto.BoolTrue,
+		ListenerFilters:  listFilter,
+		FilterChains:     filterChains,
+		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
-
-	mutable := &plugin.MutableObjects{
-		Listener:     buildListener(listenerOpts),
-		FilterChains: getPluginFilterChain(listenerOpts),
+	ipTablesListener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(push.Mesh.ProtocolDetectionTimeout)
+	if ipTablesListener.ListenerFiltersTimeout != nil {
+		ipTablesListener.ContinueOnListenerFiltersTimeout = true
 	}
-
-	// These are specific to the virtual outbound
-	mutable.Listener.TrafficDirection = core.TrafficDirection_OUTBOUND
-	mutable.Listener.Name = VirtualOutboundListenerName
-	mutable.Listener.Transparent = isTransparentProxy
-	mutable.Listener.UseOriginalDst = proto.BoolTrue
-
-	// Prepping to call the plugins
-	svc := util.FallThroughFilterChainBlackHoleService
-	if util.IsAllowAnyOutbound(node) {
-		svc = util.FallThroughFilterChainPassthroughService
-	}
-
-	redirectPort := &model.Port{
-		Port:     int(push.Mesh.ProxyListenPort),
-		Protocol: protocol.TCP,
-	}
-
-	listenerProtocol := plugin.ListenerProtocolTCP
-	if util.IsProtocolSniffingEnabledForOutbound(node) {
-		listenerProtocol = plugin.ListenerProtocolAuto
-	}
-	pluginParams := &plugin.InputParams{
-		ListenerProtocol:           plugin.ListenerProtocol(listenerProtocol),
-		DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-		Node:                       node,
-		Push:                       push,
-		Bind:                       actualWildcard,
-		Port:                       redirectPort,
-		Service:                    svc,
-	}
-	for _, p := range configgen.Plugins {
-		if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
-			log.Warn(err.Error())
-		}
-	}
-
-	// Now merge the filters added by the plugins with the filters added by the catchAll functions
-	// the updated result is stored in mutable.Listener
-	if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
-		// this shouldn't happen
-		log.Warna("buildVirtualOutboundListener: ", err.Error())
-	}
-
-	builder.virtualOutboundListener = mutable.Listener
+	configgen.onVirtualOutboundListener(node, push, ipTablesListener)
+	builder.virtualOutboundListener = ipTablesListener
 	return builder
 }
 
@@ -665,64 +616,24 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 // with TLS blocks and build the appropriate filter chain matches and routes here. And then finally
 // evaluate the left over unmatched TLS traffic using allow_any or registry_only.
 // See https://github.com/istio/istio/issues/21170
-func buildOutboundCatchAllNetworkFilterChainOpts(_ *ConfigGeneratorImpl,
-	node *model.Proxy, push *model.PushContext) []*filterChainOpts {
+func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
+	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 
 	// Add two filter chain opts: one for TLS traffic and one for TCP traffic so that we can get
 	// some telemetry out of TLS traffic. We can add the TLS filter chain regardless of outbound traffic policy
 	// because we always want to get telemetry
-	out := make([]*filterChainOpts, 0, 2)
-	out = append(out, &filterChainOpts{
-		filterChainName: VirtualOutboundCatchAllTLSFilterChainName,
-		match: &listener.FilterChainMatch{
+	out := make([]*listener.FilterChain, 0, 2)
+	out = append(out, &listener.FilterChain{
+		Name: VirtualOutboundCatchAllTLSFilterChainName,
+		FilterChainMatch: &listener.FilterChainMatch{
 			TransportProtocol: "tls",
 		},
-		networkFilters:  filterStack,
-		listenerFilters: []*listener.ListenerFilter{{Name: xdsutil.TlsInspector}},
-	}, &filterChainOpts{
-		filterChainName: VirtualOutboundCatchAllTCPFilterChainName,
-		networkFilters:  filterStack,
+		Filters: filterStack,
+	}, &listener.FilterChain{
+		Name:    VirtualOutboundCatchAllTCPFilterChainName,
+		Filters: filterStack,
 	})
 	return out
-}
-
-func buildOutboundCatchAllHTTPFilterChainOpts(_ *ConfigGeneratorImpl,
-	node *model.Proxy, _ *model.PushContext) []*filterChainOpts {
-	if !util.IsProtocolSniffingEnabledForOutbound(node) {
-		return nil
-	}
-
-	httpOpts := &httpListenerOpts{
-		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
-		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
-		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
-		useRemoteAddress: features.UseRemoteAddress.Get(),
-		statPrefix:       string(model.TrafficDirectionOutbound) + "_" + VirtualOutboundListenerName,
-		routeConfig: &xdsapi.RouteConfiguration{
-			Name:             VirtualOutboundListenerName,
-			ValidateClusters: proto.BoolFalse,
-			VirtualHosts:     []*route.VirtualHost{buildCatchAllVirtualHost(node)},
-		},
-	}
-
-	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
-		httpOpts.connectionManager = &http_conn.HttpConnectionManager{
-			HttpProtocolOptions: &core.Http1ProtocolOptions{
-				AcceptHttp_10: true,
-			},
-		}
-	}
-
-	return []*filterChainOpts{
-		{
-			filterChainName: VirtualOutboundCatchAllHTTPFilterChainName,
-			httpOpts:        httpOpts,
-			match: &listener.FilterChainMatch{
-				ApplicationProtocols: plaintextHTTPALPNs,
-			},
-			listenerFilters: []*listener.ListenerFilter{{Name: xdsutil.HttpInspector}},
-		},
-	}
 }
