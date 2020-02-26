@@ -97,7 +97,7 @@ func LoadValuesVFS(profileName string) (string, error) {
 	return string(b), err
 }
 
-func isBuiltinProfileName(name string) bool {
+func IsBuiltinProfileName(name string) bool {
 	if name == "" {
 		return true
 	}
