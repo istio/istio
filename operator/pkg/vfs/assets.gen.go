@@ -41041,7 +41041,7 @@ kind: IstioOperator
 spec:
   components:
     pilot:
-      enabled: false
+      enabled: true
     policy:
       enabled: false
     telemetry:
