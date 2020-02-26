@@ -32,7 +32,7 @@ import (
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int) bool {
+func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -46,13 +46,15 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection,
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
-	return gatewayMatch && labelMatch && portMatch
+	nsMatch := match.SourceNamespace == "" || match.SourceNamespace == proxyNamespace
+
+	return gatewayMatch && labelMatch && portMatch && nsMatch
 }
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int) bool {
+func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -66,7 +68,9 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, 
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
-	return gatewayMatch && labelMatch && portMatch
+	nsMatch := match.SourceNamespace == "" || match.SourceNamespace == proxyNamespace
+
+	return gatewayMatch && labelMatch && portMatch && nsMatch
 }
 
 // Select the config pertaining to the service being processed.
@@ -126,7 +130,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tls := range virtualService.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port) {
+				if matchTLS(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port, node.Metadata.Namespace) {
 					// Use the service's CIDRs.
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
@@ -235,7 +239,7 @@ TcpLoop:
 			virtualServiceDestinationSubnets := make([]string, 0)
 
 			for _, match := range tcp.Match {
-				if matchTCP(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port) {
+				if matchTCP(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port, node.Metadata.Namespace) {
 					// Scan all the match blocks
 					// if we find any match block without a runtime destination subnet match
 					// i.e. match any destination address, then we treat it as the terminal match/catch all match
