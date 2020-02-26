@@ -176,7 +176,7 @@ items:
           - -b
           - '*'
           - -d
-          - "15020"
+          - 15090,15020
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: Always
           name: istio-init

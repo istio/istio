@@ -4,9 +4,9 @@ metadata:
   creationTimestamp: null
 spec:
   addonComponents:
-    coreDNS:
-      enabled: false
     grafana:
+      enabled: false
+    istiocoredns:
       enabled: false
     kiali:
       enabled: false

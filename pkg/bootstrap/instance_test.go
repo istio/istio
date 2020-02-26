@@ -15,7 +15,11 @@ package bootstrap
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"reflect"
@@ -34,11 +38,9 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
-	"istio.io/istio/pilot/test/util"
-
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
+	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/env"
 )
@@ -77,6 +79,7 @@ func TestGolden(t *testing.T) {
 	if out == "" {
 		out = "/tmp"
 	}
+	var ts *httptest.Server
 
 	cases := []struct {
 		base                       string
@@ -151,16 +154,21 @@ func TestGolden(t *testing.T) {
 		{
 			base: "tracing_stackdriver",
 			setup: func() {
-				credPath := out + "/sd_cred.json"
-				if err := ioutil.WriteFile(credPath, []byte(`{"type": "service_account", "project_id": "my-sd-project"}`), os.ModePerm); err != nil {
-					t.Fatalf("unable write file: %v", err)
+				ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					fmt.Fprintln(w, "my-sd-project")
+				}))
+
+				u, err := url.Parse(ts.URL)
+				if err != nil {
+					t.Fatalf("Unable to parse mock server url: %v", err)
 				}
-				_ = os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credPath)
+				_ = os.Setenv("GCE_METADATA_HOST", u.Host)
 			},
 			teardown: func() {
-				credPath := out + "/sd_cred.json"
-				_ = os.Unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
-				_ = os.Remove(credPath)
+				if ts != nil {
+					ts.Close()
+				}
+				_ = os.Unsetenv("GCE_METADATA_HOST")
 			},
 			check: func(got *v2.Bootstrap, t *testing.T) {
 				// nolint: staticcheck

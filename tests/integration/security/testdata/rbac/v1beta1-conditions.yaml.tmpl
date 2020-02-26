@@ -1,0 +1,189 @@
+# The following policy enables mTLS for workload c.
+
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  mtls:
+    mode: STRICT
+---
+apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: mtls
+  namespace: "{{ .NamespaceC }}"
+spec:
+  host: "c.{{ .NamespaceC }}.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+
+# Each of the following authorization policy uses a different condition on the given path.
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-request-headers
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/request-headers"]
+    when:
+    - key: request.headers[x-foo]
+      values: ["foo"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-source-ip
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/source-ip-a"]
+    when:
+    - key: source.ip
+      values: ["{{ .IpA }}"]
+  - to:
+    - operation:
+        paths: ["/source-ip-b"]
+    when:
+    - key: source.ip
+      values: ["{{ .IpB }}"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-source-namespace
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/source-namespace-a"]
+    when:
+    - key: source.namespace
+      values: ["{{ .NamespaceA }}"]
+  - to:
+    - operation:
+        paths: ["/source-namespace-b"]
+    when:
+    - key: source.namespace
+      values: ["{{ .NamespaceB }}"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-source-principal
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/source-principal-a"]
+    when:
+    - key: source.principal
+      values: ["cluster.local/ns/{{ .NamespaceA }}/sa/a"]
+  - to:
+    - operation:
+        paths: ["/source-principal-b"]
+    when:
+    - key: source.principal
+      values: ["cluster.local/ns/{{ .NamespaceB }}/sa/b"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-destination-ip
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/destination-ip-good"]
+    when:
+    - key: destination.ip
+      values: ["{{ .IpC }}"]
+  - to:
+    - operation:
+        paths: ["/destination-ip-bad"]
+    when:
+    - key: destination.ip
+      values: ["1.2.3.4"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-destination-port
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/destination-port-good"]
+    when:
+    - key: destination.port
+      values: ["{{ .PortC }}"]
+  - to:
+    - operation:
+        paths: ["/destination-port-bad"]
+    when:
+    - key: destination.port
+      values: ["1"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-connection-sni
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/connection-sni-good"]
+    when:
+    - key: connection.sni
+      values: ["*.c.{{ .NamespaceC }}.svc.cluster.local"]
+  - to:
+    - operation:
+        paths: ["/connection-sni-bad"]
+    when:
+    - key: connection.sni
+      values: ["never-matched"]
+---

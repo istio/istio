@@ -596,7 +596,7 @@ func TestCleanMeshConfig(t *testing.T) {
 			if got != tt.expect {
 				t.Fatalf("incorrect output: got %v, expected %v", got, tt.expect)
 			}
-			roundTrip, err := mesh.ApplyMeshConfigJSON(got, mesh.DefaultMeshConfig())
+			roundTrip, err := mesh.ApplyMeshConfig(got, mesh.DefaultMeshConfig())
 			if err != nil {
 				t.Fatal(err)
 			}

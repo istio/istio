@@ -6,6 +6,8 @@ spec:
       enabled: false
       k8s:
         replicaCount: 1
+    istiocoredns:
+      enabled: false
     kiali:
       enabled: false
       k8s:
@@ -114,10 +116,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
         strategy:
           rollingUpdate:
             maxSurge: 100%
@@ -215,9 +213,6 @@ spec:
           name: egressgateway-ca-certs
           secretName: istio-egressgateway-ca-certs
         type: ClusterIP
-        zvpn:
-          enabled: true
-          suffix: global
       istio-ingressgateway:
         applicationPorts: ""
         autoscaleEnabled: true
@@ -268,9 +263,6 @@ spec:
           name: ingressgateway-ca-certs
           secretName: istio-ingressgateway-ca-certs
         type: LoadBalancer
-        zvpn:
-          enabled: true
-          suffix: global
     global:
       arch:
         amd64: 2
@@ -445,7 +437,6 @@ spec:
       coreDNSImage: coredns/coredns
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       coreDNSTag: 1.6.2
-      enabled: false
     kiali:
       contextPath: /kiali
       createDemoSecret: false
