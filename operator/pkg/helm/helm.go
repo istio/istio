@@ -85,7 +85,7 @@ func ReadProfileYAML(profile string) (string, error) {
 
 	// Get global values from profile.
 	switch {
-	case isBuiltinProfileName(profile):
+	case IsBuiltinProfileName(profile):
 		if globalValues, err = LoadValuesVFS(profile); err != nil {
 			return "", err
 		}
