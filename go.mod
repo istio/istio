@@ -150,8 +150,8 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.7
 	istio.io/api v0.0.0-20200226024546-cca495b82b03
-	istio.io/gogo-genproto v0.0.0-20200122005450-9b171d92064b
-	istio.io/pkg v0.0.0-20200131182711-9ba13e0e34bb
+	istio.io/gogo-genproto v0.0.0-20200222040034-75d4aa95f22c
+	istio.io/pkg v0.0.0-20200222035735-c6b771ccf864
 	k8s.io/api v0.17.2
 	k8s.io/apiextensions-apiserver v0.17.2
 	k8s.io/apimachinery v0.17.2
