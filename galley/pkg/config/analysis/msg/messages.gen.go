@@ -92,6 +92,14 @@ var (
 	// JwtFailureDueToInvalidServicePortPrefix defines a diag.MessageType for message "JwtFailureDueToInvalidServicePortPrefix".
 	// Description: Authentication policy with JWT targets Service with invalid port specification.
 	JwtFailureDueToInvalidServicePortPrefix = diag.NewMessageType(diag.Warning, "IST0119", "Authentication policy with JWT targets Service with invalid port specification (port: %d, name: %s, protocol: %s, targetPort: %s).")
+
+	// PolicyResourceIsDeprecated defines a diag.MessageType for message "PolicyResourceIsDeprecated".
+	// Description: The Policy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource.
+	PolicyResourceIsDeprecated = diag.NewMessageType(diag.Info, "IST0120", "The Policy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource.")
+
+	// MeshPolicyResourceIsDeprecated defines a diag.MessageType for message "MeshPolicyResourceIsDeprecated".
+	// Description: The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource.
+	MeshPolicyResourceIsDeprecated = diag.NewMessageType(diag.Info, "IST0121", "The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource.")
 )
 
 // All returns a list of all known message types.
@@ -118,6 +126,8 @@ func All() []*diag.MessageType {
 		DeploymentRequiresServiceAssociated,
 		PortNameIsNotUnderNamingConvention,
 		JwtFailureDueToInvalidServicePortPrefix,
+		PolicyResourceIsDeprecated,
+		MeshPolicyResourceIsDeprecated,
 	}
 }
 
@@ -328,5 +338,21 @@ func NewJwtFailureDueToInvalidServicePortPrefix(r *resource.Instance, port int, 
 		portName,
 		protocol,
 		targetPort,
+	)
+}
+
+// NewPolicyResourceIsDeprecated returns a new diag.Message based on PolicyResourceIsDeprecated.
+func NewPolicyResourceIsDeprecated(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		PolicyResourceIsDeprecated,
+		r,
+	)
+}
+
+// NewMeshPolicyResourceIsDeprecated returns a new diag.Message based on MeshPolicyResourceIsDeprecated.
+func NewMeshPolicyResourceIsDeprecated(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		MeshPolicyResourceIsDeprecated,
+		r,
 	)
 }
