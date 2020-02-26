@@ -19,7 +19,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -390,15 +389,10 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
+		// Configure timeouts only if Virtual Service specifies it. Otherwise, leave it to Envoy defaults.
 		if in.Timeout != nil {
 			d := gogo.DurationToProtoDuration(in.Timeout)
 			// timeout
-			action.Timeout = d
-			action.MaxGrpcTimeout = d
-		} else {
-			// if no timeout is specified, disable timeouts. This is easier
-			// to reason about than assuming some defaults.
-			d := ptypes.DurationProto(0 * time.Second)
 			action.Timeout = d
 			action.MaxGrpcTimeout = d
 		}
