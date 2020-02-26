@@ -19247,9 +19247,6 @@ spec:
         {{- if .Values.pilot.podAnnotations }}
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
-        prometheus.io/path: /metrics
-        prometheus.io/port: "15014"
-        prometheus.io/scrape: "true"
     spec:
       serviceAccountName: istio-pilot-service-account
 {{- if .Values.global.priorityClassName }}
