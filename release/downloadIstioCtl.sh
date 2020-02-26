@@ -43,7 +43,7 @@ if [ "x${ISTIO_VERSION}" = "x" ] ; then
   exit;
 fi
 
-function download_failed () {
+download_failed () {
   printf "Download failed, please make sure your ISTIO_VERSION is correct and verify the download URL exists!"
   exit 1
 }
