@@ -547,6 +547,8 @@ metadata:
 
 # Cni component is disabled.
 
+# EgressGateways istio-egressgateway component is disabled.
+
 # Galley component is disabled.
 
 # Pilot istiod component is disabled.

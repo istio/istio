@@ -205,6 +205,7 @@
 // profiles/demo.yaml
 // profiles/empty.yaml
 // profiles/minimal.yaml
+// profiles/preview.yaml
 // profiles/remote.yaml
 // profiles/separate.yaml
 // translateConfig/names-1.5.yaml
@@ -8935,6 +8936,9 @@ gateways:
     - port: 15032
       targetPort: 15032
       name: tracing
+    - port: 31400
+      targetPort: 31400
+      name: tcp
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
@@ -29834,8 +29838,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.13.0
-appVersion: 1.13.0
+version: 1.14.0
+appVersion: 1.14.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -30452,7 +30456,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.13
+  tag: v1.14
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -38598,7 +38602,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.9
+      tag: v1.14
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -38748,7 +38752,39 @@ spec:
         autoscaleEnabled: false
       istio-ingressgateway:
         autoscaleEnabled: false
-
+        ports:
+        ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+        # Note that AWS ELB will by default perform health checks on the first port
+        # on this list. Setting this to the health check port will ensure that health
+        # checks always work. https://github.com/istio/istio/issues/12503
+        - port: 15020
+          targetPort: 15020
+          name: status-port
+        - port: 80
+          targetPort: 8080
+          name: http2
+        - port: 443
+          targetPort: 8443
+          name: https
+        - port: 15029
+          targetPort: 15029
+          name: kiali
+        - port: 15030
+          targetPort: 15030
+          name: prometheus
+        - port: 15031
+          targetPort: 15031
+          name: grafana
+        - port: 15032
+          targetPort: 15032
+          name: tracing
+        - port: 31400
+          targetPort: 31400
+          name: tcp
+          # This is the port where sni routing happens
+        - port: 15443
+          targetPort: 15443
+          name: tls
     kiali:
       createDemoSecret: true
 `)
@@ -38768,54 +38804,21 @@ func profilesDemoYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesEmptyYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesEmptyYaml = []byte(`# The empty profile has everything disabled
+# This is useful as a base for custom user configuration
+apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  hub: gcr.io/istio-testing
-  tag: latest
-  meshConfig:
-    rootNamespace: istio-system
   components:
     base:
       enabled: false
     pilot:
       enabled: false
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
-    cni:
-      enabled: false
     ingressGateways:
-    egressGateways:
 
   addonComponents:
     prometheus:
       enabled: false
-
-  values:
-    global:
-      useMCP: false
-      controlPlaneSecurityEnabled: false
-      proxy:
-        envoyStatsd:
-          enabled: false
-          host:
-          port:
-      mtls:
-        auto: false
-
-    pilot:
-      sidecar: false
-      useMCP: false
 `)
 
 func profilesEmptyYamlBytes() ([]byte, error) {
@@ -38833,32 +38836,12 @@ func profilesEmptyYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesMinimalYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesMinimalYaml = []byte(`# The minimal profile will install just the core control plane
+apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
-    pilot:
-      enabled: true
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
-    cni:
-      enabled: false
     ingressGateways:
-    - name: istio-ingressgateway
-      enabled: false
-    egressGateways:
-    - name: istio-egressgateway
-      enabled: false
 
   addonComponents:
     prometheus:
@@ -38866,19 +38849,8 @@ spec:
 
   values:
     global:
-      useMCP: false
-      controlPlaneSecurityEnabled: false
-      proxy:
-        envoyStatsd:
-          enabled: false
-          host:
-          port:
       mtls:
         auto: false
-
-    pilot:
-      sidecar: false
-      useMCP: false
 `)
 
 func profilesMinimalYamlBytes() ([]byte, error) {
@@ -38896,12 +38868,34 @@ func profilesMinimalYaml() (*asset, error) {
 	return a, nil
 }
 
+var _profilesPreviewYaml = []byte(`# The preview profile contains features that are experimental.
+# This is intended to explore new features coming to Istio.
+# Stability, security, and performance are not guaranteed - use at your own risk.
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec: {}`)
+
+func profilesPreviewYamlBytes() ([]byte, error) {
+	return _profilesPreviewYaml, nil
+}
+
+func profilesPreviewYaml() (*asset, error) {
+	bytes, err := profilesPreviewYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "profiles/preview.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _profilesRemoteYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
     pilot:
-      enabled: false
+      enabled: true
     policy:
       enabled: false
     telemetry:
@@ -40358,6 +40352,7 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/demo.yaml":                                                                     profilesDemoYaml,
 	"profiles/empty.yaml":                                                                    profilesEmptyYaml,
 	"profiles/minimal.yaml":                                                                  profilesMinimalYaml,
+	"profiles/preview.yaml":                                                                  profilesPreviewYaml,
 	"profiles/remote.yaml":                                                                   profilesRemoteYaml,
 	"profiles/separate.yaml":                                                                 profilesSeparateYaml,
 	"translateConfig/names-1.5.yaml":                                                         translateconfigNames15Yaml,
@@ -40715,6 +40710,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"demo.yaml":     &bintree{profilesDemoYaml, map[string]*bintree{}},
 		"empty.yaml":    &bintree{profilesEmptyYaml, map[string]*bintree{}},
 		"minimal.yaml":  &bintree{profilesMinimalYaml, map[string]*bintree{}},
+		"preview.yaml":  &bintree{profilesPreviewYaml, map[string]*bintree{}},
 		"remote.yaml":   &bintree{profilesRemoteYaml, map[string]*bintree{}},
 		"separate.yaml": &bintree{profilesSeparateYaml, map[string]*bintree{}},
 	}},
