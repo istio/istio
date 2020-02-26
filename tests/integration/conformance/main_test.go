@@ -44,11 +44,6 @@ components:
     enabled: true
   citadel:
     enabled: true
-values:
-  global:
-    controlPlaneSecurityEnabled: false
-    mtls:
-      auto: false
 `
 		})).
 		Run()

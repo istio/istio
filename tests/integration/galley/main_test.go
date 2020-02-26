@@ -36,10 +36,6 @@ func TestMain(m *testing.M) {
 values:
   prometheus:
     enabled: true
-  global:
-    controlPlaneSecurityEnabled: false
-    mtls:
-      auto: false
 components:
   galley:
     enabled: true
