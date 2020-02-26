@@ -1,6 +1,7 @@
 # Mixer
 
-## Mixer v2
+## Mixer's future
+
 Because of the extensive feedback we received from the community about the
 difficulties encountered with Mixer, we are making a substantial change to
 Istio's architecture. By taking advantage of the work being done in the
@@ -11,7 +12,8 @@ It reduces the complexity of installation (fewer components, fewer CRDs),
 makes it easier to run Istio, and importantly it allows integrations in a more
 standard manner.
 
-To read more about the changes, please see
+To read more about the changes (which we're tentatively calling Extensions v2),
+please see
 [this doc](
 https://docs.google.com/document/d/1x5XeKWRdpFPAy7JYxiTz5u-Ux2eoBQ80lXT6XYjvUuQ/edit#heading=h.8kpssnjs5pqw)
 
