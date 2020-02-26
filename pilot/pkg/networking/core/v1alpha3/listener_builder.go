@@ -131,11 +131,7 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassTh
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
 	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
 	sort.SliceStable(filterChains, func(i, j int) bool {
-		if filterChains[i].Metadata != nil && filterChains[j].Metadata != nil {
-			return filterChains[i].Metadata.FilterMetadata[PilotMetaKey].String() <
-				filterChains[j].Metadata.FilterMetadata[PilotMetaKey].String()
-		}
-		return true
+		return filterChains[i].Name < filterChains[j].Name
 	})
 
 	builder.virtualInboundListener.FilterChains =
