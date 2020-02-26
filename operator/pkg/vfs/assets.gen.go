@@ -16939,7 +16939,7 @@ var _chartsIstioControlIstioDiscoveryFilesGenIstioYaml = []byte(`---
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istiod-
+  name: istiod
   namespace: istio-system
   labels:
     app: istiod
