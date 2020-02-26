@@ -33867,7 +33867,7 @@ data:
         regex: ([^:]+)(?::\d+)?;(\d+)
         replacement: $1:15090
         target_label: __address__
-      - action: labelmap
+      - action: labeldrop
         regex: __meta_kubernetes_pod_label_(.+)
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -35048,7 +35048,7 @@ spec:
     - sourceLabels: [__meta_kubernetes_pod_container_port_name]
       action: keep
       regex: '.*-envoy-prom'
-    - action: labelmap
+    - action: labeldrop
       regex: "__meta_kubernetes_pod_label_(.+)"
     - sourceLabels: [__meta_kubernetes_namespace]
       action: replace
