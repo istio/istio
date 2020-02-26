@@ -147,6 +147,7 @@ var ignoredCRDs = []string{
 	"/v1/Secret",
 	"/v1/Service",
 	"/v1/ConfigMap",
+	"apiextensions.k8s.io/v1beta1/CustomResourceDefinition",
 	"apps/v1/Deployment",
 	"extensions/v1beta1/Ingress",
 	"networking.istio.io/v1alpha3/SyntheticServiceEntry",

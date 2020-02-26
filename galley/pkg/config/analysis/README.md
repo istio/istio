@@ -28,11 +28,11 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
         // Each analyzer should have a short, one line description of what they
         // do. This description is shown when --list-analyzers is called via
         // the command line.
-        Description: "Checks that VirtualService resources reference Gateways that exist"
+        Description: "Checks that VirtualService resources reference Gateways that exist",
         // Each analyzer should register the collections that it needs to use as input.
         Inputs: collection.Names{
-            collections.IstioNetworkingV1Alpha3Gateways.Name,
-            collections.IstioNetworkingV1Alpha3Virtualservices.Name,
+            collections.IstioNetworkingV1Alpha3Gateways.Name(),
+            collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
         },
     }
 }
@@ -43,7 +43,7 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
     // in the current snapshot. The available collections, and how they map to k8s resources,
     // are defined in galley/pkg/config/schema/metadata.yaml
     // Available resources are listed under the "localAnalysis" and "syntheticServiceEntry" snapshots in that file.
-    c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name, func(r *resource.Instance) bool {
+    c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
         s.analyzeVirtualService(r, c)
         return true
     })
@@ -68,7 +68,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
             msg := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
 
             // Messages are reported via the passed-in context object.
-            c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name, msg)
+            c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), msg)
         }
     }
 }
