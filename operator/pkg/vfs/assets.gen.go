@@ -8379,6 +8379,12 @@ spec:
       hosts:
         - "*"
     - port:
+        number: 15012
+        protocol: TCP
+        name: tcp-istiod
+      hosts:
+        - "*"
+    - port:
         number: 8060
         protocol: TCP
         name: tcp-citadel
@@ -8425,6 +8431,44 @@ spec:
         mode: DISABLE
 ---
 
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-vs-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  gateways:
+  - meshexpansion-gateway
+  tcp:
+  - match:
+    - port: 15012
+    route:
+    - destination:
+        host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+        port:
+          number: 15012
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15012
+      tls:
+        mode: DISABLE
+---
 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
