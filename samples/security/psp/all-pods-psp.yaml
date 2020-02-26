@@ -12,6 +12,7 @@ spec:
   # Allow the istio sidecar injector to work
   allowedCapabilities:
     - NET_ADMIN
+    - NET_RAW
   seLinux:
     rule: RunAsAny
   supplementalGroups:
