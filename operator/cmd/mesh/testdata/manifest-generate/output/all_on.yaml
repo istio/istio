@@ -8688,10 +8688,6 @@ spec:
           optional: true
         name: inject
       - configMap:
-          name: istio-validation
-          optional: true
-        name: validation
-      - configMap:
           name: istio
         name: config-volume
       - configMap:

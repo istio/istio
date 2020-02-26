@@ -13863,10 +13863,6 @@ spec:
         configMap:
           name: istio-sidecar-injector
           optional: true
-      - name: validation
-        configMap:
-          name: istio-validation
-          optional: true
       {{- end }}
 
       - name: config-volume
