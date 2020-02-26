@@ -40,7 +40,6 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/env"
 )
