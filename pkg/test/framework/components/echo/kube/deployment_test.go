@@ -14,7 +14,6 @@
 package kube
 
 import (
-	"regexp"
 	"testing"
 
 	testutil "istio.io/istio/pilot/test/util"
@@ -30,15 +29,6 @@ var (
 		PullPolicy: "Always",
 	}
 )
-
-var (
-	statusPattern     = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
-	statusReplacement = "sidecar.istio.io/status: '{\"version\":\"\","
-)
-
-func stripVersion(yaml []byte) []byte {
-	return statusPattern.ReplaceAllLiteral(yaml, []byte(statusReplacement))
-}
 
 func TestDeploymentYAML(t *testing.T) {
 
