@@ -6965,6 +6965,12 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-egressgateway
+{{- if not (eq .Values.revision "") }}
+        service.istio.io/canonical-revision: {{ .Values.revision }}
+{{- else}}
+        service.istio.io/canonical-revision: latest
+{{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
@@ -7481,7 +7487,7 @@ gateways:
       # automatically.
       # This can be a real domain name ( istio.example.com )
       suffix: global
-      enabled: true
+      enabled: false
     
     labels:
       app: istio-egressgateway
@@ -7997,6 +8003,12 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-ingressgateway
+        {{- if not (eq .Values.revision "") }}
+        service.istio.io/canonical-revision: {{ .Values.revision }}
+        {{- else}}
+        service.istio.io/canonical-revision: latest
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
@@ -8923,6 +8935,9 @@ gateways:
     - port: 15032
       targetPort: 15032
       name: tracing
+    - port: 31400
+      targetPort: 31400
+      name: tcp
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
@@ -8959,7 +8974,7 @@ gateways:
 
     # Enable cross-cluster access using SNI matching
     zvpn:
-      enabled: true
+      enabled: false
       suffix: global
 
     # To generate an internal load balancer:
@@ -9245,6 +9260,8 @@ data:
   # values in this config will be automatically populated.
   cni_network_config: |-
         {
+          "cniVersion": "0.3.1",
+          "name": "istio-cni",
           "type": "istio-cni",
           "log_level": {{ quote .Values.cni.logLevel }},
           "kubernetes": {
@@ -9484,8 +9501,8 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
     hub: ""
     tag: ""
 
-    labelPods: "true"
-    deletePods: "true"
+    labelPods: true
+    deletePods: true
 
     initContainerName: "istio-validation"
 
@@ -10352,7 +10369,6 @@ var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYam
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: galley
     release: {{ .Release.Name }}
@@ -10380,7 +10396,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: galley
     release: {{ .Release.Name }}
@@ -10557,7 +10572,7 @@ template: |
     - "-b"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
     - "-d"
-    - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
+    - "15090,{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
     {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
@@ -13471,7 +13486,6 @@ var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -30186,8 +30200,14 @@ data:
         url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
+{{- if .Values.kiali.dashboard.inclusterjaegerURL }}
+        in_cluster_url: {{ .Values.kiali.dashboard.inclusterjaegerURL }}
+{{- end }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
+{{- if .Values.kiali.dashboard.inclustergrafanaURL }}
+        in_cluster_url: {{ .Values.kiali.dashboard.inclustergrafanaURL }}
+{{- end }}
       prometheus:
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
@@ -30502,7 +30522,9 @@ kiali:
     viewOnlyMode: false # Bind the service account to a role with only read access
 
     grafanaURL: "" # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
+    inclustergrafanaURL: "" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
     jaegerURL: "" # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
+    inclusterjaegerURL: "" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
@@ -38373,9 +38395,6 @@ spec:
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
-        zvpn:
-          suffix: global
-          enabled: true
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
@@ -38401,9 +38420,6 @@ spec:
         debug: info
         domain: ""
         type: LoadBalancer
-        zvpn:
-          enabled: true
-          suffix: global
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -38735,7 +38751,39 @@ spec:
         autoscaleEnabled: false
       istio-ingressgateway:
         autoscaleEnabled: false
-
+        ports:
+        ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+        # Note that AWS ELB will by default perform health checks on the first port
+        # on this list. Setting this to the health check port will ensure that health
+        # checks always work. https://github.com/istio/istio/issues/12503
+        - port: 15020
+          targetPort: 15020
+          name: status-port
+        - port: 80
+          targetPort: 8080
+          name: http2
+        - port: 443
+          targetPort: 8443
+          name: https
+        - port: 15029
+          targetPort: 15029
+          name: kiali
+        - port: 15030
+          targetPort: 15030
+          name: prometheus
+        - port: 15031
+          targetPort: 15031
+          name: grafana
+        - port: 15032
+          targetPort: 15032
+          name: tracing
+        - port: 31400
+          targetPort: 31400
+          name: tcp
+          # This is the port where sni routing happens
+        - port: 15443
+          targetPort: 15443
+          name: tls
     kiali:
       createDemoSecret: true
 `)
@@ -38888,7 +38936,7 @@ kind: IstioOperator
 spec:
   components:
     pilot:
-      enabled: false
+      enabled: true
     policy:
       enabled: false
     telemetry:

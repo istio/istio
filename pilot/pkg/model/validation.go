@@ -15,9 +15,7 @@
 package model
 
 import (
-	"errors"
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -105,23 +103,4 @@ func (instance *ServiceInstance) Validate() error {
 	}
 
 	return errs
-}
-
-// ValidateEndpointAddress checks the Address field of an IstioEndpoint. If the family is TCP, it checks the
-// address is a valid IP address. If the family is Unix, it checks the address is a valid socket file path.
-func ValidateEndpointAddress(ep *IstioEndpoint) error {
-	switch ep.Family {
-	case AddressFamilyTCP:
-		ipAddr := net.ParseIP(ep.Address) // Typically it is an IP address
-		if ipAddr == nil {
-			if err := validation.ValidateFQDN(ep.Address); err != nil { // Otherwise could be an FQDN
-				return errors.New("invalid address " + ep.Address)
-			}
-		}
-	case AddressFamilyUnix:
-		return validation.ValidateUnixAddress(ep.Address)
-	default:
-		panic(fmt.Sprintf("unhandled Family %v", ep.Family))
-	}
-	return nil
 }
