@@ -1,4 +1,5 @@
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
+{{- if .Values.global.istiod.enabled }}
 {{- if and (not .Values.global.operatorManageWebhooks) .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
@@ -68,6 +69,7 @@ webhooks:
 {{- else }}
       matchLabels:
         "sidecar.istio.io/inject": "true"
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

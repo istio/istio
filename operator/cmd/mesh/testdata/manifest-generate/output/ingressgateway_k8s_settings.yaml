@@ -157,8 +157,6 @@ spec:
           
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
-          - name: SDS_ENABLED
-            value: "false"
           volumeMounts:
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
@@ -183,12 +181,12 @@ spec:
       - name: podinfo
         downwardAPI:
           items:
-            - path: "labels"
-              fieldRef:
-                fieldPath: metadata.labels
-            - path: "annotations"
-              fieldRef:
-                fieldPath: metadata.annotations
+          - path: "labels"
+            fieldRef:
+              fieldPath: metadata.labels
+          - path: "annotations"
+            fieldRef:
+              fieldPath: metadata.annotations
       - name: ingressgatewaysdsudspath
         emptyDir: {}
       - name: istio-token

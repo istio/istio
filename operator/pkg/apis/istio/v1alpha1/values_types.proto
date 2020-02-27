@@ -1622,18 +1622,18 @@ message ResourcesRequestsConfig {
 // Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 message SDSConfig {
   // Controls whether the SecretDiscoveryService is enabled.
-  google.protobuf.BoolValue enabled = 1;
+  google.protobuf.BoolValue enabled = 1 [deprecated=true];
 
   // Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
-  string udsPath = 2;
+  string udsPath = 2 [deprecated=true];
 
   // Enables SDS use of k8s normal JWT to request for certificates.
-  google.protobuf.BoolValue useNormalJwt = 3;
+  google.protobuf.BoolValue useNormalJwt = 3 [deprecated=true];
 
   // Enables SDS use of trustworthy JWT to request for certificates.
-  google.protobuf.BoolValue useTrustworthyJwt = 4;
+  google.protobuf.BoolValue useTrustworthyJwt = 4 [deprecated=true];
 
-  TypeMapStringInterface token = 5;
+  TypeMapStringInterface token = 5 [deprecated=true];
 }
 
 // Configuration for secret volume mounts.

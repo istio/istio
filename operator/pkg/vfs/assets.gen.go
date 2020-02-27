@@ -7025,8 +7025,6 @@ spec:
 {{ end }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
-          - name: SDS_ENABLED
-            value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
           {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
@@ -7039,17 +7037,7 @@ spec:
             readOnly: true
           {{- end }}
           {{- end }}
-          {{ if .Values.global.sds.enabled }}
-          - name: sdsudspath
-            mountPath: /var/run/sds
-            readOnly: true
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-          - name: istio-token
-            mountPath: /var/run/secrets/tokens
-          {{- end }}
-          {{- end }}
           {{- if .Values.global.mountMtlsCerts }}
-          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -7090,27 +7078,7 @@ spec:
               audience: {{ .Values.global.sds.token.aud }}
 {{- end }}
 {{- end }}
-      {{- if .Values.global.sds.enabled }}
-      - name: sdsudspath
-        hostPath:
-          path: /var/run/sds
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: istio-token
-              expirationSeconds: 43200
-              audience: {{ .Values.global.sds.token.aud }}
-      {{- end }}
-      {{- end }}
-      {{ if .Values.global.sds.enabled }}
-      - name: sdsudspath
-        hostPath:
-          path: /var/run/sds
-      {{- end }}
       {{- if .Values.global.mountMtlsCerts }}
-      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
           secretName: istio.default
@@ -8154,8 +8122,6 @@ spec:
 {{ end }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
-          - name: SDS_ENABLED
-            value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
 {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
@@ -8170,15 +8136,6 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
 {{ else }}
-          {{ if .Values.global.sds.enabled }}
-          - name: sdsudspath
-            mountPath: /var/run/sds
-            readOnly: true
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-          - name: istio-token
-            mountPath: /var/run/secrets/tokens
-          {{- end }}
-          {{- end }}
           {{- if $gateway.sds.enabled }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
@@ -8209,15 +8166,15 @@ spec:
       - name: podinfo
         downwardAPI:
           items:
-            - path: "labels"
-              fieldRef:
-                fieldPath: metadata.labels
-            - path: "annotations"
-              fieldRef:
-                fieldPath: metadata.annotations
+          - path: "labels"
+            fieldRef:
+              fieldPath: metadata.labels
+          - path: "annotations"
+            fieldRef:
+              fieldPath: metadata.annotations
+{{- if .Values.global.istiod.enabled }}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
-{{- if .Values.global.istiod.enabled }}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
@@ -8231,20 +8188,6 @@ spec:
       {{- if $gateway.sds.enabled }}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
-      {{- end }}
-      {{- if .Values.global.sds.enabled }}
-      - name: sdsudspath
-        hostPath:
-          path: /var/run/sds
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: istio-token
-              expirationSeconds: 43200
-              audience: {{ .Values.global.sds.token.aud }}
-      {{- end }}
       {{- end }}
 {{- end }}
       {{- if .Values.global.mountMtlsCerts }}
@@ -8921,6 +8864,9 @@ gateways:
     - port: 15032
       targetPort: 15032
       name: tracing
+    - port: 31400
+      targetPort: 31400
+      name: tcp
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
@@ -9831,8 +9777,6 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-    - name: SDS_ENABLED
-      value: "{{ .Values.global.sds.enabled }}"
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
@@ -9949,24 +9893,9 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     {{- end }}
     - mountPath: /etc/istio/proxy
       name: istio-envoy
-    {{- if .Values.global.sds.enabled }}
-    - mountPath: /var/run/sds
-      name: sds-uds-path
-      readOnly: true
-    {{- if and (eq .Values.global.jwtPolicy "third-party-jwt") .Values.global.istiod.enabled }}
-    - mountPath: /var/run/secrets/tokens
-      name: istio-token
-    {{- end }}
-    {{- if .Values.global.sds.customTokenDirectory }}
-    - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
-      name: custom-sds-token
-      readOnly: true
-    {{- end }}
-    {{- else }}
     - mountPath: /etc/certs/
       name: istio-certs
       readOnly: true
-    {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
       name: lightstep-certs
@@ -9987,25 +9916,6 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   - emptyDir:
       medium: Memory
     name: istio-envoy
-  {{- if .Values.global.sds.enabled }}
-  - name: sds-uds-path
-    hostPath:
-      path: /var/run/sds
-  {{- if and (eq .Values.global.jwtPolicy "third-party-jwt") .Values.global.istiod.enabled }}
-  - name: istio-token
-    projected:
-      sources:
-      - serviceAccountToken:
-          path: istio-token
-          expirationSeconds: 43200
-          audience: {{ .Values.global.sds.token.aud }}
-  {{- end }}
-  {{- if .Values.global.sds.customTokenDirectory }}
-  - name: custom-sds-token
-    secret:
-      secretName: sdstokensecret
-  {{- end }}
-  {{- else }}
   - name: istio-certs
     secret:
       optional: true
@@ -10020,7 +9930,6 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     {{ toYaml $value | indent 2 }}
     {{ end }}
     {{ end }}
-  {{- end }}
   {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
   - name: lightstep-certs
     secret:
@@ -11214,6 +11123,11 @@ rules:
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
     verbs: ["*"]
+  # permissions to verify the webhook is ready and rejecting
+  # invalid config. We use --server-dry-run so no config is persisted.
+  - apiGroups: ["networking.istio.io"]
+    verbs: ["create"]
+    resources: ["gateways"]
 {{- end }}
   - apiGroups: ["extensions","apps"]
     resources: ["deployments"]
@@ -11629,8 +11543,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
-          - name: SDS_ENABLED
-            value: "{{ .Values.global.sds.enabled }}"
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
@@ -12182,7 +12094,7 @@ template: |
     - "-b"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
     - "-d"
-    - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
+    - "15090,{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
     {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
@@ -12414,8 +12326,6 @@ template: |
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-    - name: SDS_ENABLED
-      value: "{{ .Values.global.sds.enabled }}"
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
@@ -12906,6 +12816,7 @@ rules:
 - apiGroups: ["extensions"]
   resources: ["ingresses/status"]
   verbs: ["*"]
+  # TODO: remove, too broad permission, should be namespace only
 - apiGroups: [""]
   resources: ["configmaps"]
   # Create and update needed for ingress election
@@ -13447,12 +13358,7 @@ data:
       - {{ . | quote }}
       {{- end }}
 
-    {{- if .Values.global.sds.enabled }}
-    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
-    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
-    sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
-
-    {{- else if .Values.global.istiod.enabled }}
+    {{- if .Values.global.istiod.enabled }}
 
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
@@ -13916,8 +13822,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
-          - name: SDS_ENABLED
-            value: "{{ .Values.global.sds.enabled }}"
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | trim | indent 12 }}
@@ -13936,15 +13840,6 @@ spec:
 {{- end }}
           - name: pilot-envoy-config
             mountPath: /var/lib/envoy
-          {{- if .Values.global.sds.enabled }}
-          - name: sds-uds-path
-            mountPath: /var/run/sds
-            readOnly: true
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-          - name: istio-token
-            mountPath: /var/run/secrets/tokens
-          {{- end }}
-          {{- end }}
 {{- end }}
       volumes:
       {{- if .Values.global.istiod.enabled }}
@@ -13976,22 +13871,6 @@ spec:
         configMap:
           name: istio-sidecar-injector
           optional: true
-
-      {{- else }}
-      {{- if .Values.global.sds.enabled }}
-      - hostPath:
-          path: /var/run/sds
-        name: sds-uds-path
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              audience: {{ .Values.global.sds.token.aud }}
-              expirationSeconds: 43200
-              path: istio-token
-      {{- end }}
-      {{- end }}
       {{- end }}
 
       - name: config-volume
@@ -14160,6 +14039,7 @@ func chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml() (*as
 }
 
 var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
+{{- if .Values.global.istiod.enabled }}
 {{- if and (not .Values.global.operatorManageWebhooks) .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
@@ -14232,7 +14112,7 @@ webhooks:
 {{- end }}
 {{- end }}
 {{- end }}
-`)
+{{- end }}`)
 
 func chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, nil
@@ -14254,7 +14134,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istiod-{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
@@ -15092,7 +14972,8 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml = []byte(`{{- if .Values.global.istiod.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml = []byte(`{{- if .Values.clusterResources }}
+{{- if .Values.global.istiod.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -15152,7 +15033,9 @@ metadata:
     release: {{ .Release.Name }}
     istio: istiod
 webhooks:
-{{- end }}`)
+{{- end }}
+{{- end }}
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml, nil
@@ -16076,20 +15959,6 @@ spec:
         secret:
           secretName: istio.istio-policy-service-account
           optional: true
-      {{- if .Values.global.sds.enabled }}
-      - hostPath:
-          path: /var/run/sds
-        name: sds-uds-path
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              audience: {{ .Values.global.sds.token.aud }}
-              expirationSeconds: 43200
-              path: istio-token
-      {{- end }}
-      {{- end }}
       - name: uds-socket
         emptyDir: {}
       - name: policy-adapter-secret
@@ -16245,8 +16114,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
-        - name: SDS_ENABLED
-          value: "{{ .Values.global.sds.enabled }}"
         resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
@@ -16257,15 +16124,6 @@ spec:
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
-        {{- if .Values.global.sds.enabled }}
-        - name: sds-uds-path
-          mountPath: /var/run/sds
-          readOnly: true
-        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-        - name: istio-token
-          mountPath: /var/run/secrets/tokens
-        {{- end }}
-        {{- end }}
         - name: uds-socket
           mountPath: /sock
 {{- end }}
@@ -31479,8 +31337,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.13.0
-appVersion: 1.13.0
+version: 1.14.0
+appVersion: 1.14.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -32090,7 +31948,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.13
+  tag: v1.14
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -33805,20 +33663,6 @@ spec:
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
-      {{- if .Values.global.sds.enabled }}
-      - hostPath:
-          path: /var/run/sds
-        name: sds-uds-path
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              audience: {{ .Values.global.sds.token.aud }}
-              expirationSeconds: 43200
-              path: istio-token
-      {{- end }}
-      {{- end }}
       - name: uds-socket
         emptyDir: {}
       - name: telemetry-adapter-secret
@@ -33977,8 +33821,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
-        - name: SDS_ENABLED
-          value: "{{ .Values.global.sds.enabled }}"
         resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
@@ -33991,15 +33833,6 @@ spec:
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
-        {{- if .Values.global.sds.enabled }}
-        - name: sds-uds-path
-          mountPath: /var/run/sds
-          readOnly: true
-        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-        - name: istio-token
-          mountPath: /var/run/secrets/tokens
-        {{- end }}
-        {{- end }}
         - name: uds-socket
           mountPath: /sock
 {{- end }}
@@ -40695,7 +40528,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.9
+      tag: v1.14
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -40846,7 +40679,37 @@ spec:
         autoscaleEnabled: false
       istio-ingressgateway:
         autoscaleEnabled: false
-
+        ports:
+        ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+        # Note that AWS ELB will by default perform health checks on the first port
+        # on this list. Setting this to the health check port will ensure that health
+        # checks always work. https://github.com/istio/istio/issues/12503
+        - port: 15020
+          targetPort: 15020
+          name: status-port
+        - port: 80
+          targetPort: 80
+          name: http2
+        - port: 443
+          name: https
+        - port: 15029
+          targetPort: 15029
+          name: kiali
+        - port: 15030
+          targetPort: 15030
+          name: prometheus
+        - port: 15031
+          targetPort: 15031
+          name: grafana
+        - port: 15032
+          targetPort: 15032
+          name: tracing
+        - port: 31400
+          targetPort: 31400
+          name: tcp
+        - port: 15443
+          targetPort: 15443
+          name: tls
     kiali:
       createDemoSecret: true
 `)
@@ -41003,7 +40866,7 @@ kind: IstioOperator
 spec:
   components:
     pilot:
-      enabled: false
+      enabled: true
     policy:
       enabled: false
     telemetry:

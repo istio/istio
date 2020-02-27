@@ -1,0 +1,178 @@
+base:
+  enabled: true
+citadel:
+  enabled: false
+  k8s:
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 25%
+cni:
+  enabled: false
+egressGateways:
+- enabled: false
+  k8s:
+    hpaSpec:
+      maxReplicas: 5
+      metrics:
+      - resource:
+          name: cpu
+          targetAverageUtilization: 80
+        type: Resource
+      minReplicas: 1
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: istio-ingressgateway
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 25%
+  name: istio-egressgateway
+galley:
+  enabled: false
+  k8s:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 25%
+ingressGateways:
+- enabled: true
+  k8s:
+    hpaSpec:
+      maxReplicas: 5
+      metrics:
+      - resource:
+          name: cpu
+          targetAverageUtilization: 80
+        type: Resource
+      minReplicas: 1
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: istio-ingressgateway
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 25%
+  name: istio-ingressgateway
+nodeAgent:
+  enabled: false
+pilot:
+  enabled: false
+  k8s:
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 5
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2048Mi
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 25%
+policy:
+  enabled: false
+  k8s:
+    env:
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    hpaSpec:
+      maxReplicas: 5
+      metrics:
+      - resource:
+          name: cpu
+          targetAverageUtilization: 80
+        type: Resource
+      minReplicas: 1
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: istio-policy
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 25%
+proxy:
+  enabled: false
+sidecarInjector:
+  enabled: false
+  k8s:
+    replicaCount: 1
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 25%
+telemetry:
+  enabled: false
+  k8s:
+    env:
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: GOMAXPROCS
+      value: "6"
+    hpaSpec:
+      maxReplicas: 5
+      metrics:
+      - resource:
+          name: cpu
+          targetAverageUtilization: 80
+        type: Resource
+      minReplicas: 1
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: istio-telemetry
+    replicaCount: 1
+    resources:
+      limits:
+        cpu: 4800m
+        memory: 4G
+      requests:
+        cpu: 1000m
+        memory: 1G
+    strategy:
+      rollingUpdate:
+        maxSurge: 100%
+        maxUnavailable: 25%
+

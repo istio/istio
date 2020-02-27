@@ -108,8 +108,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: SDS_ENABLED
-          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_METAJSON_ANNOTATIONS
@@ -179,7 +177,7 @@ spec:
         - -b
         - 1,2,3
         - -d
-        - 4,5,6,15020
+        - 15090,4,5,6,15020
         - -o
         - 7,8,9
         image: gcr.io/istio-testing/proxyv2:latest
