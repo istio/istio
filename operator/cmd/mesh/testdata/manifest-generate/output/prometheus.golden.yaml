@@ -94,7 +94,7 @@ data:
         regex: ([^:]+)(?::\d+)?;(\d+)
         replacement: $1:15090
         target_label: __address__
-      - action: labelmap
+      - action: labeldrop
         regex: __meta_kubernetes_pod_label_(.+)
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -546,6 +546,8 @@ metadata:
 # Citadel component is disabled.
 
 # Cni component is disabled.
+
+# EgressGateways istio-egressgateway component is disabled.
 
 # Galley component is disabled.
 

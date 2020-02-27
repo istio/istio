@@ -205,6 +205,7 @@
 // profiles/demo.yaml
 // profiles/empty.yaml
 // profiles/minimal.yaml
+// profiles/preview.yaml
 // profiles/remote.yaml
 // profiles/separate.yaml
 // translateConfig/names-1.5.yaml
@@ -652,8 +653,6 @@ spec:
               description: Deprecated.
               type: boolean
             peers:
-              description: List of authentication methods that can be used for peer
-                authentication.
               items:
                 oneOf:
                 - required:
@@ -1377,8 +1376,6 @@ spec:
               description: Deprecated.
               type: boolean
             peers:
-              description: List of authentication methods that can be used for peer
-                authentication.
               items:
                 oneOf:
                 - required:
@@ -8464,6 +8461,12 @@ spec:
       hosts:
         - "*"
     - port:
+        number: 15012
+        protocol: TCP
+        name: tcp-istiod
+      hosts:
+        - "*"
+    - port:
         number: 8060
         protocol: TCP
         name: tcp-citadel
@@ -8510,6 +8513,44 @@ spec:
         mode: DISABLE
 ---
 
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-vs-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  gateways:
+  - meshexpansion-gateway
+  tcp:
+  - match:
+    - port: 15012
+    route:
+    - destination:
+        host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+        port:
+          number: 15012
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15012
+      tls:
+        mode: DISABLE
+---
 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -12210,7 +12251,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istiod-{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
@@ -29837,8 +29878,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.13.0
-appVersion: 1.13.0
+version: 1.14.0
+appVersion: 1.14.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -30455,7 +30496,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.13
+  tag: v1.14
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -33826,7 +33867,7 @@ data:
         regex: ([^:]+)(?::\d+)?;(\d+)
         replacement: $1:15090
         target_label: __address__
-      - action: labelmap
+      - action: labeldrop
         regex: __meta_kubernetes_pod_label_(.+)
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -35007,7 +35048,7 @@ spec:
     - sourceLabels: [__meta_kubernetes_pod_container_port_name]
       action: keep
       regex: '.*-envoy-prom'
-    - action: labelmap
+    - action: labeldrop
       regex: "__meta_kubernetes_pod_label_(.+)"
     - sourceLabels: [__meta_kubernetes_namespace]
       action: replace
@@ -37838,7 +37879,7 @@ spec:
               memory: 128Mi
           env:
             - name: WATCH_NAMESPACE
-              value: {{.Values.istioNamespace}}
+              value: {{.Values.operatorNamespace}}
             - name: LEADER_ELECTION_NAMESPACE
               value: {{.Values.operatorNamespace}}
             - name: POD_NAME
@@ -37945,7 +37986,7 @@ func operatorTemplatesService_accountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDefaultYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesDefaultYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
   namespace: istio-system
@@ -38601,7 +38642,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.9
+      tag: v1.14
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -38646,7 +38687,7 @@ func profilesDefaultYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDemoYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesDemoYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -38803,54 +38844,21 @@ func profilesDemoYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesEmptyYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesEmptyYaml = []byte(`# The empty profile has everything disabled
+# This is useful as a base for custom user configuration
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  hub: gcr.io/istio-testing
-  tag: latest
-  meshConfig:
-    rootNamespace: istio-system
   components:
     base:
       enabled: false
     pilot:
       enabled: false
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
-    cni:
-      enabled: false
     ingressGateways:
-    egressGateways:
 
   addonComponents:
     prometheus:
       enabled: false
-
-  values:
-    global:
-      useMCP: false
-      controlPlaneSecurityEnabled: false
-      proxy:
-        envoyStatsd:
-          enabled: false
-          host:
-          port:
-      mtls:
-        auto: false
-
-    pilot:
-      sidecar: false
-      useMCP: false
 `)
 
 func profilesEmptyYamlBytes() ([]byte, error) {
@@ -38868,32 +38876,12 @@ func profilesEmptyYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesMinimalYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesMinimalYaml = []byte(`# The minimal profile will install just the core control plane
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
-    pilot:
-      enabled: true
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
-    cni:
-      enabled: false
     ingressGateways:
-    - name: istio-ingressgateway
-      enabled: false
-    egressGateways:
-    - name: istio-egressgateway
-      enabled: false
 
   addonComponents:
     prometheus:
@@ -38901,19 +38889,8 @@ spec:
 
   values:
     global:
-      useMCP: false
-      controlPlaneSecurityEnabled: false
-      proxy:
-        envoyStatsd:
-          enabled: false
-          host:
-          port:
       mtls:
         auto: false
-
-    pilot:
-      sidecar: false
-      useMCP: false
 `)
 
 func profilesMinimalYamlBytes() ([]byte, error) {
@@ -38931,7 +38908,29 @@ func profilesMinimalYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesRemoteYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesPreviewYaml = []byte(`# The preview profile contains features that are experimental.
+# This is intended to explore new features coming to Istio.
+# Stability, security, and performance are not guaranteed - use at your own risk.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec: {}`)
+
+func profilesPreviewYamlBytes() ([]byte, error) {
+	return _profilesPreviewYaml, nil
+}
+
+func profilesPreviewYaml() (*asset, error) {
+	bytes, err := profilesPreviewYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "profiles/preview.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _profilesRemoteYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -38983,7 +38982,7 @@ func profilesRemoteYaml() (*asset, error) {
 
 var _profilesSeparateYaml = []byte(`# The separate profile will disable istiod and bring back the old microservices model
 # This will be removed in future (1.6) releases
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -40393,6 +40392,7 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/demo.yaml":                                                                     profilesDemoYaml,
 	"profiles/empty.yaml":                                                                    profilesEmptyYaml,
 	"profiles/minimal.yaml":                                                                  profilesMinimalYaml,
+	"profiles/preview.yaml":                                                                  profilesPreviewYaml,
 	"profiles/remote.yaml":                                                                   profilesRemoteYaml,
 	"profiles/separate.yaml":                                                                 profilesSeparateYaml,
 	"translateConfig/names-1.5.yaml":                                                         translateconfigNames15Yaml,
@@ -40750,6 +40750,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"demo.yaml":     &bintree{profilesDemoYaml, map[string]*bintree{}},
 		"empty.yaml":    &bintree{profilesEmptyYaml, map[string]*bintree{}},
 		"minimal.yaml":  &bintree{profilesMinimalYaml, map[string]*bintree{}},
+		"preview.yaml":  &bintree{profilesPreviewYaml, map[string]*bintree{}},
 		"remote.yaml":   &bintree{profilesRemoteYaml, map[string]*bintree{}},
 		"separate.yaml": &bintree{profilesSeparateYaml, map[string]*bintree{}},
 	}},

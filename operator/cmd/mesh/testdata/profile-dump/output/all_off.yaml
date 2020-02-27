@@ -1,4 +1,4 @@
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   addonComponents:
@@ -457,7 +457,7 @@ spec:
         cert_file: /kiali-cert/cert-chain.pem
         enabled: false
         private_key_file: /kiali-cert/key.pem
-      tag: v1.9
+      tag: v1.14
     mixer:
       adapters:
         kubernetesenv:
