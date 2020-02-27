@@ -162,10 +162,11 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 	return config
 }
 
-// AuthNFilter returns the Istio authn filter config for a given authn Beta policy:
-// istio.authentication.v1alpha1.Policy policy, we specially constructs the old filter config to
-// ensure Authn Filter won't reject the request, but still transform the attributes, e.g. request.auth.principal.
-// proxyType does not matter here, exists only for legacy reason.
+// AuthNFilter returns the Istio authn filter config:
+// - If only alpha policy is used, it returns the same one output by v1alpha1 policy applier.
+// - If PeerAuthentication is used, it overwrite the settings for peer principal validation and extraction based on the new API.
+// - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
+// - If RequestAuthentication is used, principal binding is always set to ORIGIN.
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter {
 	// Use the authn filter config from alpha API as base.
 	filterConfigProto := alpha_applier.AuthNFilterConfigForBackwarding(a.alphaApplier, proxyType)
