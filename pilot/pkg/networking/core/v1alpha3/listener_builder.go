@@ -617,19 +617,10 @@ func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 
-	// Add two filter chain opts: one for TLS traffic and one for TCP traffic so that we can get
-	// some telemetry out of TLS traffic. We can add the TLS filter chain regardless of outbound traffic policy
-	// because we always want to get telemetry
-	out := make([]*listener.FilterChain, 0, 2)
-	out = append(out, &listener.FilterChain{
-		Name: VirtualOutboundCatchAllTLSFilterChainName,
-		FilterChainMatch: &listener.FilterChainMatch{
-			TransportProtocol: "tls",
+	return []*listener.FilterChain{
+		{
+			Name:    VirtualOutboundCatchAllTCPFilterChainName,
+			Filters: filterStack,
 		},
-		Filters: filterStack,
-	}, &listener.FilterChain{
-		Name:    VirtualOutboundCatchAllTCPFilterChainName,
-		Filters: filterStack,
-	})
-	return out
+	}
 }
