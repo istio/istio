@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schema/collection"
 
 	"google.golang.org/grpc/keepalive"
 
@@ -83,7 +84,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return err
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
-		if features.ServiceApisEnabled.Get() {
+		if features.EnableServiceApis.Get() {
 			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController))
 		}
 	}
@@ -298,7 +299,18 @@ func (s *Server) mcpController(
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
 	// TODO(howardjohn) allow the collection here to be configurable to allow running with only
 	// Kubernetes APIs.
-	configClient, err := controller.NewClient(args.Config.KubeConfig, "", collections.Pilot,
+	schemas := collection.NewSchemasBuilder()
+	for _, schema := range collections.Pilot.All() {
+		if schema.Resource().Group() == "networking.x.k8s.io" && !features.EnableServiceApis.Get() {
+			// Skip these if service api is not enabled
+			// TODO we need a way to gracefully handle the CRDs not being found before we can enable by default
+			continue
+		}
+		if err := schemas.Add(schema); err != nil {
+			return nil, err
+		}
+	}
+	configClient, err := controller.NewClient(args.Config.KubeConfig, "", schemas.Build(),
 		args.Config.ControllerOptions.DomainSuffix, buildLedger(args.Config), args.Revision)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
