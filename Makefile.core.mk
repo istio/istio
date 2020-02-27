@@ -265,7 +265,6 @@ buildcache:
 BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pilot/cmd/pilot-agent \
-  ./sidecar-injector/cmd/sidecar-injector \
   ./mixer/cmd/mixs \
   ./mixer/cmd/mixc \
   ./mixer/tools/mixgen \
@@ -281,7 +280,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent istio_ca istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istio_ca istioctl galley sdsclient
 
 .PHONY: build
 build: depend
@@ -327,7 +326,6 @@ lint-go-split:
 	@golangci-lint run -c ./common/config/.golangci.yml ./pkg/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./samples/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./security/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./sidecar-injector/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./operator/...
@@ -339,7 +337,7 @@ lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles li
 	@bin/check_samples.sh
 	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
 	@testlinter
-	@envvarlinter galley istioctl mixer pilot security sidecar-injector
+	@envvarlinter galley istioctl mixer pilot security
 
 go-gen:
 	@mkdir -p /tmp/bin
