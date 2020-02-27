@@ -205,6 +205,10 @@ collections:
   ### K8s collections ###
 
   # Built-in K8s collections
+  - name: "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions"
+    kind: "CustomResourceDefinition"
+    group: "apiextensions.k8s.io"
+
   - name: "k8s/apps/v1/deployments"
     kind: "Deployment"
     group: "apps"
@@ -242,6 +246,7 @@ collections:
     group: "extensions"
 
   # Istio CRD collections
+
   - name: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
     kind: "MeshPolicy"
     group: "authentication.istio.io"
@@ -399,6 +404,7 @@ snapshots:
       - "istio/networking/v1alpha3/sidecars"
       - "istio/networking/v1alpha3/virtualservices"
       - "istio/networking/v1alpha3/synthetic/serviceentries"
+      - "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions"
       - "k8s/apps/v1/deployments"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/pods"
@@ -409,6 +415,13 @@ snapshots:
 # Configuration for resource types.
 resources:
   # Kubernetes specific configuration.
+  - kind: "CustomResourceDefinition"
+    plural: "CustomResourceDefinitions"
+    group: "apiextensions.k8s.io"
+    version: "v1beta1"
+    proto: "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition"
+    protoPackage: "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+
   - kind: "Deployment"
     plural: "Deployments"
     group: "apps"
@@ -681,6 +694,7 @@ resources:
 transforms:
   - type: direct
     mapping:
+      "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions": "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions"
       "k8s/config.istio.io/v1alpha2/adapters": "istio/config/v1alpha2/adapters"
       "k8s/config.istio.io/v1alpha2/attributemanifests": "istio/policy/v1beta1/attributemanifests"
       "k8s/config.istio.io/v1alpha2/handlers": "istio/policy/v1beta1/handlers"
