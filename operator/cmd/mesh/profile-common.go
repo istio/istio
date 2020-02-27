@@ -305,7 +305,7 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 			}
 		}
 	}
-	// TODO link to istio.io doc on how to secure this
+	// nolint: lll
 	l.logAndPrint("Detected that your cluster does not support third party JWT authentication. " +
 		"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
 	return "values.global.jwtPolicy=first-party-jwt", nil
