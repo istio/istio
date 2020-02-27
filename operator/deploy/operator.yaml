@@ -31,7 +31,7 @@ spec:
               memory: 128Mi
           env:
             - name: WATCH_NAMESPACE
-              value: "istio-system"
+              value: "istio-operator"
             - name: LEADER_ELECTION_NAMESPACE
               valueFrom:
                 fieldRef:
