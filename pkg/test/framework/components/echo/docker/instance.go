@@ -162,7 +162,8 @@ func (i *instance) WaitUntilCallable(instances ...echo.Instance) error {
 		}
 	}
 
-	if !i.cfg.Annotations.GetBool(echo.SidecarInject) {
+	// Note: docker version environment implementation only supports single container.
+	if !i.cfg.Workloads[0].Annotations.GetBool(echo.SidecarInject) {
 		time.Sleep(noSidecarWaitDuration)
 	}
 

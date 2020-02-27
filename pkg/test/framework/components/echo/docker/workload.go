@@ -113,7 +113,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 	var env []string
 	var extraHosts []string
 	var capabilities []string
-	if cfg.Annotations.GetBool(echo.SidecarInject) {
+	if cfg.Workloads[0].Annotations.GetBool(echo.SidecarInject) {
 		w.readinessProbe = sidecarReadinessProbe(w.portMap.hostAgentPort)
 
 		image = imgs.Sidecar
@@ -197,7 +197,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			err, containerCfg)
 	}
 
-	if cfg.Annotations.GetBool(echo.SidecarInject) {
+	if cfg.Workloads[0].Annotations.GetBool(echo.SidecarInject) {
 		if w.sidecar, err = newSidecar(w.container); err != nil {
 			return nil, fmt.Errorf("failed creating sidecar for Echo Container %s: %v",
 				w.container.Name, err)

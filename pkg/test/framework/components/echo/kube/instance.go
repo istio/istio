@@ -200,7 +200,15 @@ func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 		}
 	}
 
-	if !c.cfg.Annotations.GetBool(echo.SidecarInject) {
+	// Sleep a bit if we have a deployment/workload without sidecar.
+	nosidecar := false
+	for _, c := range c.cfg.Workloads {
+		if !c.Annotations.GetBool(echo.SidecarInject) {
+			nosidecar = true
+			break
+		}
+	}
+	if nosidecar {
 		time.Sleep(noSidecarWaitDuration)
 	}
 
@@ -222,9 +230,7 @@ func workloadHasSidecar(cfg echo.Config, endpoint *kubeCore.ObjectReference) boo
 			return w.Annotations.GetBool(echo.SidecarInject)
 		}
 	}
-	// Fallbacks to top level annotations config.
-	// TODO(incfly): remove once we migrate all usage to workloads config.
-	return cfg.Annotations.GetBool(echo.SidecarInject)
+	return true
 }
 
 func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {

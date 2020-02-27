@@ -62,8 +62,8 @@ type Config struct {
 	// This is used to test the inbound pass-through filter chain.
 	WorkloadOnlyPorts []int
 
-	// Annotations provides metadata hints for deployment of the instance.
-	Annotations Annotations
+	// ServiceAnnotations is annotations on service object.
+	ServiceAnnotations Annotations
 
 	// IncludeInboundPorts provides the ports that inbound listener should capture
 	// "*" means capture all.
@@ -73,7 +73,8 @@ type Config struct {
 	// become ready.
 	ReadinessTimeout time.Duration
 
-	// Workloads contains the list of workloads config belonging to this echo service instance.
+	// Workloads contains the list of workloads config belonging to this echo
+	// service instance.
 	Workloads []WorkloadConfig
 }
 
@@ -81,7 +82,8 @@ type Config struct {
 type WorkloadConfig struct {
 	Version string
 	// Name is the name of the workload.
-	Name        string
+	Name string
+	// Annotations provides metadata hints for deployment of the instance.
 	Annotations Annotations
 	// TODO: port more into workload config.
 }

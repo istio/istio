@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/core/image"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -84,7 +83,7 @@ spec:
 {{- end }}
       annotations:
         foo: bar
-{{- range $name, $value := index $.WorkloadAnnotationsNew $w.Name }}
+{{- range $name, $value := index $.WorkloadAnnotations $w.Name }}
         {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
 {{- if $.IncludeInboundPorts }}
@@ -183,16 +182,14 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 	if cfg.Workloads == nil {
 		cfg.Workloads = []echo.WorkloadConfig{
 			{
-				Version:     cfg.Version,
-				Annotations: cfg.Annotations,
-				Name:        "default",
+				Version: cfg.Version,
+				Name:    "default",
 			},
 		}
 	}
 
 	// Separate the annotations.
 	serviceAnnotations := make(map[string]string)
-	workloadAnnotations := make(map[string]string)
 	wlas := make(map[string]map[string]string)
 	for i, w := range cfg.Workloads {
 		wlas[w.Name] = map[string]string{}
@@ -206,34 +203,26 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 			wlas[w.Name][k.Name] = val.Value
 		}
 	}
-	for k, v := range cfg.Annotations {
-		switch k.Type {
-		case echo.ServiceAnnotation:
-			serviceAnnotations[k.Name] = v.Value
-		case echo.WorkloadAnnotation:
-			workloadAnnotations[k.Name] = v.Value
-		default:
-			scopes.Framework.Warnf("annotation %s with unknown type %s", k.Name, k.Type)
-		}
+	for k, v := range cfg.ServiceAnnotations {
+		serviceAnnotations[k.Name] = v.Value
 	}
 
 	params := map[string]interface{}{
-		"Hub":                    settings.Hub,
-		"Tag":                    settings.Tag,
-		"PullPolicy":             settings.PullPolicy,
-		"Service":                cfg.Service,
-		"Version":                cfg.Version,
-		"Headless":               cfg.Headless,
-		"Locality":               cfg.Locality,
-		"ServiceAccount":         cfg.ServiceAccount,
-		"Ports":                  cfg.Ports,
-		"WorkloadOnlyPorts":      cfg.WorkloadOnlyPorts,
-		"ContainerPorts":         getContainerPorts(cfg.Ports),
-		"ServiceAnnotations":     serviceAnnotations,
-		"WorkloadAnnotations":    workloadAnnotations,
-		"WorkloadAnnotationsNew": wlas,
-		"IncludeInboundPorts":    cfg.IncludeInboundPorts,
-		"Workloads":              cfg.Workloads,
+		"Hub":                 settings.Hub,
+		"Tag":                 settings.Tag,
+		"PullPolicy":          settings.PullPolicy,
+		"Service":             cfg.Service,
+		"Version":             cfg.Version,
+		"Headless":            cfg.Headless,
+		"Locality":            cfg.Locality,
+		"ServiceAccount":      cfg.ServiceAccount,
+		"Ports":               cfg.Ports,
+		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
+		"ContainerPorts":      getContainerPorts(cfg.Ports),
+		"ServiceAnnotations":  serviceAnnotations,
+		"WorkloadAnnotations": wlas,
+		"IncludeInboundPorts": cfg.IncludeInboundPorts,
+		"Workloads":           cfg.Workloads,
 	}
 
 	// Generate the YAML content.
