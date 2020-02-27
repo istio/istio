@@ -32,6 +32,7 @@ data:
         in_cluster_url: {{ .Values.dashboard.jaegerInClusterURL }}
       grafana:
         url: {{ .Values.dashboard.grafanaURL }}
+        in_cluster_url: {{ .Values.dashboard.grafanaInClusterURL }}
       prometheus:
         url: {{ .Values.prometheusAddr }}
 {{- if .Values.security.enabled }}
