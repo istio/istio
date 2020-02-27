@@ -434,6 +434,17 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 	}
 }
 
+func AddSubsetToMetadata(md *core.Metadata, subset string) *core.Metadata {
+	if istioMd, ok := md.FilterMetadata[IstioMetadataKey]; ok {
+		istioMd.Fields["subset"] = &pstruct.Value{
+			Kind: &pstruct.Value_StringValue{
+				StringValue: subset,
+			},
+		}
+	}
+	return md
+}
+
 // IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
 func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 	for _, f := range filterChain.Filters {
