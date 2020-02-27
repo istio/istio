@@ -258,17 +258,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 
 // OnVirtualListener implements the Plugin interface method.
 func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
-		return nil
-	}
-	if in.ListenerProtocol == plugin.ListenerProtocolTCP {
-		attrs := createOutboundListenerAttributes(in)
-		tcpFilter := buildOutboundTCPFilter(in.Push.Mesh, attrs, in.Node, in.Service)
-		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
-		}
-	}
-	return nil
+	return mixerplugin{}.OnOutboundListener(in, mutable)
 }
 
 // OnOutboundCluster implements the Plugin interface method.

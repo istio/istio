@@ -1781,22 +1781,12 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 		Protocol: protocol.TCP,
 	}
 
-	if len(ipTablesListener.FilterChains) < 1 || len(ipTablesListener.FilterChains[0].Filters) < 1 {
-		return ipTablesListener
-	}
-
-	// contains all filter chains except for the final passthrough/blackhole
-	initialFilterChain := ipTablesListener.FilterChains[:len(ipTablesListener.FilterChains)-1]
-
-	// contains just the final passthrough/blackhole
-	fallbackFilter := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
-
 	if util.IsAllowAnyOutbound(node) {
 		svc = util.FallThroughFilterChainPassthroughService
 	}
 
 	pluginParams := &plugin.InputParams{
-		ListenerProtocol:           plugin.ListenerProtocolTCP,
+		ListenerProtocol:           plugin.ListenerProtocolAuto,
 		DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
 		Node:                       node,
 		Push:                       push,
@@ -1810,18 +1800,23 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 		FilterChains: make([]plugin.FilterChain, len(ipTablesListener.FilterChains)),
 	}
 
+	// Set the protocol for each filter chain
+	for _, fc := range mutable.FilterChains {
+		fc.ListenerProtocol = plugin.ListenerProtocolTCP
+	}
 	for _, p := range configgen.Plugins {
 		if err := p.OnVirtualListener(pluginParams, mutable); err != nil {
 			log.Warn(err.Error())
 		}
 	}
-	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
-		filters := append([]*listener.Filter{}, mutable.FilterChains[0].TCP...)
-		filters = append(filters, fallbackFilter)
-
-		// Replace the final filter chain with the new chain that has had plugins applied
-		initialFilterChain = append(initialFilterChain, &listener.FilterChain{Filters: filters})
-		ipTablesListener.FilterChains = initialFilterChain
+	// This logic is same as the one in buildCompleteFilterChain
+	for index := range ipTablesListener.FilterChains {
+		if len(mutable.FilterChains[index].TCP) > 0 {
+			// a plugin has added additional TCP filters. add then to the beginning
+			// of the list of filters in the actual filter chain in the ipTablesListener
+			ipTablesListener.FilterChains[index].Filters = append(mutable.FilterChains[index].TCP,
+				ipTablesListener.FilterChains[index].Filters...)
+		}
 	}
 	return ipTablesListener
 }
