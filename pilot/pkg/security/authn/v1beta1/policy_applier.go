@@ -139,10 +139,15 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 		config = defaultAuthnFilter()
 	}
 
+	// This is obsoleted and not needed (payload is extracted from metadata). Reset the field to remove
+	// any artifacts from alpha applier.
+	config.JwtOutputPayloadLocations = nil
 	p := config.Policy
 	// Reset origins to use with beta API
 	p.Origins = []*authn_alpha.OriginAuthenticationMethod{}
+	// Always set to true for beta API, as it doesn't doe rejection on missing token.
 	p.OriginIsOptional = true
+
 	// Always bind request.auth.principal from JWT origin. In v2 policy, authorization config specifies what principal to
 	// choose from instead, rather than in authn config.
 	p.PrincipalBinding = authn_filter_policy.PrincipalBinding_USE_ORIGIN
