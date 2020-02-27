@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
@@ -160,20 +161,7 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 	if err != nil {
 		return nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
-	return unmarshalAndValidateIOPSpec(mergedYAML)
-}
-
-// unmarshalAndValidateIOPSpec unmarshals the IstioOperatorSpec in the iopsYAML string and validates it.
-// If successful, it returns a struct representation of iopsYAML.
-func unmarshalAndValidateIOPSpec(iopsYAML string) (*v1alpha1.IstioOperatorSpec, error) {
-	iops := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
-		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
-	}
-	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
-		return nil, fmt.Errorf(errs.Error())
-	}
-	return iops, nil
+	return istio.UnmarshalAndValidateIOPS(mergedYAML)
 }
 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
