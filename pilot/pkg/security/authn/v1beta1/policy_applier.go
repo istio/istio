@@ -110,10 +110,16 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 
 	effectiveMTLSMode := a.getMutualTLSModeForPort(port)
 	if effectiveMTLSMode == model.MTLSPermissive || effectiveMTLSMode == model.MTLSStrict {
+		mode := authn_alpha.MutualTls_PERMISSIVE
+		if effectiveMTLSMode == model.MTLSStrict {
+			mode = authn_alpha.MutualTls_STRICT
+		}
 		p.Peers = []*authn_alpha.PeerAuthenticationMethod{
 			{
 				Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-					Mtls: &authn_alpha.MutualTls{},
+					Mtls: &authn_alpha.MutualTls{
+						Mode: mode,
+					},
 				},
 			},
 		}
@@ -122,7 +128,7 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 	return config
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(proxyType model.NodeType, config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
+func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
 	if len(a.processedJwtRules) == 0 {
 		// (beta) RequestAuthentication is not set for workload, do nothing.
 		authnLog.Debug("AuthnFilter: RequestAuthentication (beta policy) not found, keep settings with alpha API")
@@ -158,12 +164,11 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(proxyType model.Nod
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter {
 	// Use the authn filter config from alpha API as base.
 	filterConfigProto := alpha_applier.AuthNFilterConfigForBackwarding(a.alphaApplier, proxyType)
-	//a.alphaApplier.AuthNFilterConfigForBackwarding(proxyType)
 
 	// Override the config with peer authentication, if applicable.
 	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, filterConfigProto)
 	// Override the config with request authentication, if applicable.
-	filterConfigProto = a.setAuthnFilterForRequestAuthn(proxyType, filterConfigProto)
+	filterConfigProto = a.setAuthnFilterForRequestAuthn(filterConfigProto)
 
 	if filterConfigProto == nil {
 		return nil

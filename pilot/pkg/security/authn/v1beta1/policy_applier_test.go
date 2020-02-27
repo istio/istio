@@ -25,7 +25,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -930,11 +929,12 @@ func TestAuthnFilterConfig(t *testing.T) {
 						Peers: []*authn_alpha.PeerAuthenticationMethod{
 							{
 								Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-									Mtls: &authn_alpha.MutualTls{},
+									Mtls: &authn_alpha.MutualTls{
+										Mode: authn_alpha.MutualTls_PERMISSIVE,
+									},
 								},
 							},
 						},
-						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 					},
 				}),
 			},
@@ -1027,7 +1027,9 @@ func TestAuthnFilterConfig(t *testing.T) {
 							Peers: []*authn_alpha.PeerAuthenticationMethod{
 								{
 									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{},
+										Mtls: &authn_alpha.MutualTls{
+											Mode: authn_alpha.MutualTls_PERMISSIVE,
+										},
 									},
 								},
 							},
@@ -1081,7 +1083,9 @@ func TestAuthnFilterConfig(t *testing.T) {
 							Peers: []*authn_alpha.PeerAuthenticationMethod{
 								{
 									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{},
+										Mtls: &authn_alpha.MutualTls{
+											Mode: authn_alpha.MutualTls_PERMISSIVE,
+										},
 									},
 								},
 							},
@@ -1139,7 +1143,9 @@ func TestAuthnFilterConfig(t *testing.T) {
 							Peers: []*authn_alpha.PeerAuthenticationMethod{
 								{
 									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{},
+										Mtls: &authn_alpha.MutualTls{
+											Mode: authn_alpha.MutualTls_PERMISSIVE,
+										},
 									},
 								},
 							},
@@ -1167,14 +1173,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			got := NewPolicyApplier("root-namespace", c.in, nil, c.alphaPolicyIn).AuthNFilter(model.SidecarProxy, 80)
 			if !reflect.DeepEqual(c.expected, got) {
-				pgot := &authn_filter.FilterConfig{}
-				pexp := &authn_filter.FilterConfig{}
-				ptypes.UnmarshalAny(got.GetTypedConfig(), pgot)
-				ptypes.UnmarshalAny(c.expected.GetTypedConfig(), pexp)
-				// gotYaml, _ := gogoprotomarshal.ToYAML(got)
-				// expectedYaml, _ := gogoprotomarshal.ToYAML(c.expected)
-				// t.Errorf("got:\n%s\nwanted:\n%s\n", gotYaml, expectedYaml)
-				t.Errorf("got:\n%v\nwanted:\n%v\n", spew.Sdump(pgot), spew.Sdump(pexp))
+				t.Errorf("got:\n%v\nwanted:\n%v\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
 	}
