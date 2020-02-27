@@ -12255,7 +12255,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istiod-{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
