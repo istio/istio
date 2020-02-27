@@ -1,0 +1,7 @@
+kind: kkk
+spec:
+  ka: va
+  kb:
+    enabled: false
+  kc:
+    kca: "vca"
