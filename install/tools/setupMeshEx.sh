@@ -52,7 +52,7 @@ function istioDnsmasq() {
     PILOT_IP=$(kubectl get -n "$NS" service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-    if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] ] ; then
+    if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] ; then
       echo "Waiting for ILBs, pilot=$PILOT_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n "$NS" service)"
       sleep 30
     else
@@ -60,7 +60,7 @@ function istioDnsmasq() {
     fi
   done
 
-  if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ]] ; then
+  if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] ; then
     echo "Failed to create ILBs"
     exit 1
   fi
@@ -104,9 +104,7 @@ function istioClusterEnv() {
 function istio_provision_certs() {
   local SA=${1:-${SERVICE_ACCOUNT:-default}}
   local NS=${2:-${SERVICE_NAMESPACE:-}}
-  local ALL=${3}
-  local CERT_NAME=${ISTIO_SECRET_PREFIX:-istio.}${SA}
-
+  
   if [[ -n "$NS" ]] ; then
     NS="-n $NS"
   fi
