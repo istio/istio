@@ -87,7 +87,7 @@ func TestDeploymentYAML(t *testing.T) {
 						Version: "v-istio",
 					},
 					{
-						Version:        "v-legacy",
+						Version:     "v-legacy",
 						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 					},
 				},
