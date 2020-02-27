@@ -313,7 +313,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			log.Info("Istio Agent uses default istiod CA")
 			serverOptions.CAEndpoint = "istio-pilot.istio-system.svc:15012"
 
-			if serverOptions.PilotCertProvider == "citadel" {
+			if serverOptions.PilotCertProvider == "istiod" {
 				log.Info("istiod uses self-issued certificate")
 				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 					certReadErr = true
@@ -347,7 +347,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
 			} else if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
-				if serverOptions.PilotCertProvider == "citadel" {
+				if serverOptions.PilotCertProvider == "istiod" {
 					log.Info("istiod uses self-issued certificate")
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 						certReadErr = true

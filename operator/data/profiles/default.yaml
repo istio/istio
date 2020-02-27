@@ -214,7 +214,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
-      pilotCertProvider: citadel
+      pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
