@@ -18,7 +18,19 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/istioio"
+)
+
+const (
+	ingressPortCommand = `$(kubectl -n istio-system \
+get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')`
+	ingressHostCommand = `$(kubectl -n istio-system \
+get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')`
+	minikubeIngressPortCommand = `$(kubectl -n istio-system \
+get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')`
+	minikubeIngressHostCommand = `$(kubectl -n istio-system \
+get pod -l istio=ingressgateway -o jsonpath='{.items[0].status.hostIP}')`
 )
 
 //https://istio.io/docs/examples/bookinfo/
@@ -28,13 +40,29 @@ func TestBookinfo(t *testing.T) {
 		NewTest(t).
 		Run(istioio.NewBuilder("examples__bookinfo").
 			Add(istioio.Script{
-				Input: istioio.Path("scripts/bookinfo.txt"),
+				Input: istioio.InputSelectorFunc(func(ctx istioio.Context) istioio.Input {
+					e := ctx.Environment().(*kube.Environment)
+					portCommand := ingressPortCommand
+					hostCommand := ingressHostCommand
+					if e.Settings().Minikube {
+						portCommand = minikubeIngressPortCommand
+						hostCommand = minikubeIngressHostCommand
+					}
+					return istioio.Evaluate(
+						istioio.Path("scripts/bookinfo.txt"),
+						map[string]interface{}{
+							"ingressPortCommand": portCommand,
+							"ingressHostCommand": hostCommand,
+						},
+					).SelectInput(ctx)
+				}),
 			}).
 			Defer(istioio.Script{
 				Input: istioio.Inline{
 					FileName: "cleanup.sh",
 					Value: `
-kubectl delete -n default -f samples/bookinfo/platform/kube/bookinfo.yaml || true`,
+kubectl delete -n default -f samples/bookinfo/platform/kube/bookinfo.yaml || true
+kubectl delete -n default -f samples/bookinfo/networking/bookinfo-gateway.yaml || true`,
 				},
 			}).
 			Build())

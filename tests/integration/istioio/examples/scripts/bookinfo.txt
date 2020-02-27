@@ -54,3 +54,36 @@ reviews-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
 reviews-v2-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
 reviews-v3-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
 # $endsnippet
+
+# $snippet verify_reachable syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl exec $(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}') -c ratings -- curl productpage:9080/productpage | grep -o "<title>.*</title>"
+# $verify verifier="contains"
+<title>Simple Bookstore App</title>
+# $endsnippet
+
+# $snippet deploy_bookinfo_gateway syntax="bash"
+$ kubectl apply -f @samples/bookinfo/networking/bookinfo-gateway.yaml@
+# $endsnippet
+
+# $snippet verify_gateway syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl get gateway
+# $verify verifier="lineRegex"
+NAME *AGE
+bookinfo-gateway *[0-9]*s
+# $endsnippet
+
+# give it some time to propagate
+sleep 5
+
+export INGRESS_HOST={{ .ingressHostCommand }}
+export INGRESS_PORT={{ .ingressPortCommand }}
+
+# $snippet export_gateway_url syntax="bash"
+$ export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
+# $endsnippet
+
+# $snippet verify_reachable_ingress syntax="bash" outputis="text" outputsnippet="true"
+$ curl -s http://${GATEWAY_URL}/productpage | grep -o "<title>.*</title>"
+# $verify verifier="contains"
+<title>Simple Bookstore App</title>
+# $endsnippet
