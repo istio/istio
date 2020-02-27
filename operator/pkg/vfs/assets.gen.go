@@ -653,8 +653,6 @@ spec:
               description: Deprecated.
               type: boolean
             peers:
-              description: List of authentication methods that can be used for peer
-                authentication.
               items:
                 oneOf:
                 - required:
@@ -1378,8 +1376,6 @@ spec:
               description: Deprecated.
               type: boolean
             peers:
-              description: List of authentication methods that can be used for peer
-                authentication.
               items:
                 oneOf:
                 - required:
@@ -8465,6 +8461,12 @@ spec:
       hosts:
         - "*"
     - port:
+        number: 15012
+        protocol: TCP
+        name: tcp-istiod
+      hosts:
+        - "*"
+    - port:
         number: 8060
         protocol: TCP
         name: tcp-citadel
@@ -8511,6 +8513,44 @@ spec:
         mode: DISABLE
 ---
 
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-vs-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  gateways:
+  - meshexpansion-gateway
+  tcp:
+  - match:
+    - port: 15012
+    route:
+    - destination:
+        host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+        port:
+          number: 15012
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15012
+      tls:
+        mode: DISABLE
+---
 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -33827,7 +33867,7 @@ data:
         regex: ([^:]+)(?::\d+)?;(\d+)
         replacement: $1:15090
         target_label: __address__
-      - action: labelmap
+      - action: labeldrop
         regex: __meta_kubernetes_pod_label_(.+)
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -35008,7 +35048,7 @@ spec:
     - sourceLabels: [__meta_kubernetes_pod_container_port_name]
       action: keep
       regex: '.*-envoy-prom'
-    - action: labelmap
+    - action: labeldrop
       regex: "__meta_kubernetes_pod_label_(.+)"
     - sourceLabels: [__meta_kubernetes_namespace]
       action: replace
@@ -37839,7 +37879,7 @@ spec:
               memory: 128Mi
           env:
             - name: WATCH_NAMESPACE
-              value: {{.Values.istioNamespace}}
+              value: {{.Values.operatorNamespace}}
             - name: LEADER_ELECTION_NAMESPACE
               value: {{.Values.operatorNamespace}}
             - name: POD_NAME
@@ -37946,7 +37986,7 @@ func operatorTemplatesService_accountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDefaultYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesDefaultYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
   namespace: istio-system
@@ -38647,7 +38687,7 @@ func profilesDefaultYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDemoYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesDemoYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -38806,7 +38846,7 @@ func profilesDemoYaml() (*asset, error) {
 
 var _profilesEmptyYaml = []byte(`# The empty profile has everything disabled
 # This is useful as a base for custom user configuration
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -38837,7 +38877,7 @@ func profilesEmptyYaml() (*asset, error) {
 }
 
 var _profilesMinimalYaml = []byte(`# The minimal profile will install just the core control plane
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -38871,7 +38911,7 @@ func profilesMinimalYaml() (*asset, error) {
 var _profilesPreviewYaml = []byte(`# The preview profile contains features that are experimental.
 # This is intended to explore new features coming to Istio.
 # Stability, security, and performance are not guaranteed - use at your own risk.
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec: {}`)
 
@@ -38890,7 +38930,7 @@ func profilesPreviewYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesRemoteYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesRemoteYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -38942,7 +38982,7 @@ func profilesRemoteYaml() (*asset, error) {
 
 var _profilesSeparateYaml = []byte(`# The separate profile will disable istiod and bring back the old microservices model
 # This will be removed in future (1.6) releases
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
