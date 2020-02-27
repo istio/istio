@@ -40861,7 +40861,7 @@ spec:
           targetPort: 15020
           name: status-port
         - port: 80
-          targetPort: 8080
+          targetPort: 80
           name: http2
         - port: 443
           targetPort: 8443
