@@ -373,7 +373,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 
 					updateEds(subsetCluster)
 
-					subsetCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+					subsetCluster.Metadata = util.AddSubsetToMetadata(defaultCluster.Metadata, subset.Name)
 					clusters = append(clusters, subsetCluster)
 				}
 			}
