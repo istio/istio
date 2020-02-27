@@ -23,6 +23,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
@@ -54,7 +55,15 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 		return "", nil, err
 	}
 
-	return genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+	iopsString, iops, err := genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if err := validation.ValidateConfig(false, iops.Values, iops).ToError(); err != nil {
+		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
+	}
+	return iopsString, iops, nil
 }
 
 func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l *Logger) (string, string, error) {
