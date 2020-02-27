@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"net"
 	"net/http"
 	"os"
@@ -29,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/pkg/env"
 
