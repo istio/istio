@@ -198,6 +198,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	iopMerged := *iop
 	iopMerged.Spec, err = helmreconciler.MergeIOPSWithProfile(iop.Spec)
 	if err != nil {
+		log.Errorf("failed to generate IstioOperator spec, %v", err)
 		return reconcile.Result{}, err
 	}
 	reconciler, err := r.getOrCreateReconciler(&iopMerged)
