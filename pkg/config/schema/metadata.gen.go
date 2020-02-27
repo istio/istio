@@ -204,7 +204,7 @@ collections:
   - name: "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions"
     kind: "CustomResourceDefinition"
     group: "apiextensions.k8s.io"
-  
+
   - name: "k8s/apps/v1/deployments"
     kind: "Deployment"
     group: "apps"
@@ -242,6 +242,7 @@ collections:
     group: "extensions"
 
   # Istio CRD collections
+
   - name: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
     kind: "MeshPolicy"
     group: "authentication.istio.io"
@@ -409,7 +410,7 @@ resources:
     version: "v1beta1"
     proto: "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition"
     protoPackage: "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-    
+
   - kind: "Deployment"
     plural: "Deployments"
     group: "apps"

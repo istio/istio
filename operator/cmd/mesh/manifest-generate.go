@@ -141,7 +141,7 @@ func GenManifests(inFilename []string, setOverlayYAML string, force bool,
 		return nil, nil, err
 	}
 	if err := cp.Run(); err != nil {
-		return nil, nil, fmt.Errorf("failed to create Istio control plane with spec: \n%v\nerror: %s", mergedIOPS, err)
+		return nil, nil, err
 	}
 
 	manifests, errs := cp.RenderManifest()

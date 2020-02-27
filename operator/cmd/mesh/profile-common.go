@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
@@ -137,7 +138,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 
 	// To generate the base profileOrPath for overlaying with user values, we need the installPackagePath where the profiles
 	// can be found, and the selected profileOrPath. Both of these can come from either the user overlay file or --set flag.
-	outYAML, err := getProfileYAML(profileOrPath)
+	outYAML, err := getProfileYAML(installPackagePath, profileOrPath)
 	if err != nil {
 		return "", nil, err
 	}
@@ -221,7 +222,11 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 
 // getProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
 // a profile label or a file path.
-func getProfileYAML(profileOrPath string) (string, error) {
+func getProfileYAML(installPackagePath, profileOrPath string) (string, error) {
+	// If charts are a file path and profile is a name like default, transform it to the file path.
+	if installPackagePath != "" && helm.IsBuiltinProfileName(profileOrPath) {
+		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
+	}
 	// This contains the IstioOperator CR.
 	baseCRYAML, err := helm.ReadProfileYAML(profileOrPath)
 	if err != nil {
@@ -321,15 +326,10 @@ func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (
 // representation if successful. If force is set, validation errors are written to logger rather than causing an
 // error.
 func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
-	iops := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
-		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
-	}
-	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
-		if !force {
-			l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
-			return nil, fmt.Errorf(errs.Error())
-		}
+	iops, err := istio.UnmarshalAndValidateIOPS(iopsYAML)
+	if err != nil && !force {
+		l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
+		return nil, err
 	}
 	return iops, nil
 }
