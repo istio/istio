@@ -249,38 +249,38 @@ func TestProxyConfig(t *testing.T) {
 			var args []string
 			g := gomega.NewGomegaWithT(t)
 
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"pc", "bootstrap", podID}
+			args = []string{"--namespace=dummy",
+				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, ns.Name())}
 			output = istioCtl.InvokeOrFail(t, args)
 			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("bootstrap"))
 
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"pc", "cluster", podID, "-o", "json"}
+			args = []string{"--namespace=dummy",
+				"pc", "cluster", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
 			output = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"pc", "endpoint", podID, "-o", "json"}
+			args = []string{"--namespace=dummy",
+				"pc", "endpoint", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
 			output = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"pc", "listener", podID, "-o", "json"}
+			args = []string{"--namespace=dummy",
+				"pc", "listener", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
 			output = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"pc", "route", podID, "-o", "json"}
+			args = []string{"--namespace=dummy",
+				"pc", "route", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
 			output = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"pc", "secret", podID, "-o", "json"}
+			args = []string{"--namespace=dummy",
+				"pc", "secret", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
 			output = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
