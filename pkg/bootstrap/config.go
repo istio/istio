@@ -15,7 +15,6 @@
 package bootstrap
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -26,10 +25,11 @@ import (
 	"strings"
 	"time"
 
+	md "cloud.google.com/go/compute/metadata"
+
 	"istio.io/istio/pkg/config/constants"
 
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/oauth2/google"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
@@ -79,7 +79,6 @@ var (
 // Config for creating a bootstrap file.
 type Config struct {
 	Node                string
-	DNSRefreshRate      string
 	Proxy               *meshAPI.ProxyConfig
 	PlatEnv             platform.Environment
 	PilotSubjectAltName []string
@@ -120,13 +119,17 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PodIP(cfg.PodIP),
 		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
 		option.MixerSubjectAltName(cfg.MixerSubjectAltName),
-		option.DNSRefreshRate(cfg.DNSRefreshRate),
 		option.SDSTokenPath(cfg.SDSTokenPath),
 		option.SDSUDSPath(cfg.SDSUDSPath),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
 		option.OutlierLogPath(cfg.OutlierLogPath))
+
+	if cfg.STSPort > 0 {
+		opts = append(opts, option.STSEnabled(true),
+			option.STSPort(cfg.STSPort))
+	}
 
 	// Support passing extra info from node environment as metadata
 	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""
@@ -278,16 +281,14 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.NodeMeta
 		case *meshAPI.Tracing_Datadog_:
 			opts = append(opts, option.DataDogAddress(tracer.Datadog.Address))
 		case *meshAPI.Tracing_Stackdriver_:
-			var cred *google.Credentials
+			var projectID string
 			var err error
-			// in-cluster credentials are fetched by using the GCE metadata server.
-			// You may also specify environment variable GOOGLE_APPLICATION_CREDENTIALS to point a GCP credentials file.
-			if cred, err = google.FindDefaultCredentials(context.Background()); err != nil {
+			if projectID, err = md.ProjectID(); err != nil {
 				return nil, fmt.Errorf("unable to process Stackdriver tracer: %v", err)
 			}
 
 			opts = append(opts, option.StackDriverEnabled(true),
-				option.StackDriverProjectID(cred.ProjectID),
+				option.StackDriverProjectID(projectID),
 				option.StackDriverDebug(tracer.Stackdriver.Debug),
 				option.StackDriverMaxAnnotations(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfAnnotations, 200)),
 				option.StackDriverMaxAttributes(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfAttributes, 200)),

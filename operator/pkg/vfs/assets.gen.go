@@ -205,6 +205,7 @@
 // profiles/demo.yaml
 // profiles/empty.yaml
 // profiles/minimal.yaml
+// profiles/preview.yaml
 // profiles/remote.yaml
 // profiles/separate.yaml
 // translateConfig/names-1.5.yaml
@@ -6345,21 +6346,30 @@ subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}
   ports:
-  - port: 15003
-    name: http-old-discovery # mTLS or non-mTLS depending on auth setting
-  - port: 15005
-    name: https-discovery # always mTLS
-  - port: 15007
-    name: http-discovery # always plain-text
   - port: 15010
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod
   - port: 15014
     name: http-monitoring
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePilotAddress }}
+  ports:
+  - port: 15012
+    name: http-istiod
 {{- end }}
+
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 ---
 apiVersion: v1
@@ -6538,21 +6548,27 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   ports:
-  - port: 15003
-    name: http-old-discovery # mTLS or non-mTLS depending on auth setting
-  - port: 15005
-    name: https-discovery # always mTLS
-  - port: 15007
-    name: http-discovery # always plain-text
   - port: 15010
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod    
   - port: 15014
     name: http-monitoring
   clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: http-istiod
 ---
 {{- end }}
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
@@ -6950,6 +6966,12 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-egressgateway
+{{- if not (eq .Values.revision "") }}
+        service.istio.io/canonical-revision: {{ .Values.revision }}
+{{- else}}
+        service.istio.io/canonical-revision: latest
+{{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
@@ -7135,6 +7157,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
           {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
@@ -7191,6 +7215,10 @@ spec:
           secretName: istio.default
           optional: true
       {{- end }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -7460,7 +7488,7 @@ gateways:
       # automatically.
       # This can be a real domain name ( istio.example.com )
       suffix: global
-      enabled: true
+      enabled: false
     
     labels:
       app: istio-egressgateway
@@ -7540,6 +7568,9 @@ gateways:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
 `)
 
 func chartsGatewaysIstioEgressValuesYamlBytes() ([]byte, error) {
@@ -7973,6 +8004,12 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-ingressgateway
+        {{- if not (eq .Values.revision "") }}
+        service.istio.io/canonical-revision: {{ .Values.revision }}
+        {{- else}}
+        service.istio.io/canonical-revision: latest
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
@@ -8180,6 +8217,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
 {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
@@ -8240,6 +8279,10 @@ spec:
           secretName: istio.istio-ingressgateway-service-account
           optional: true
       {{- end }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
@@ -8422,6 +8465,12 @@ spec:
       hosts:
         - "*"
     - port:
+        number: 15012
+        protocol: TCP
+        name: tcp-istiod
+      hosts:
+        - "*"
+    - port:
         number: 8060
         protocol: TCP
         name: tcp-citadel
@@ -8468,6 +8517,44 @@ spec:
         mode: DISABLE
 ---
 
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-vs-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  gateways:
+  - meshexpansion-gateway
+  tcp:
+  - match:
+    - port: 15012
+    route:
+    - destination:
+        host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+        port:
+          number: 15012
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15012
+      tls:
+        mode: DISABLE
+---
 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -8893,6 +8980,9 @@ gateways:
     - port: 15032
       targetPort: 15032
       name: tracing
+    - port: 31400
+      targetPort: 31400
+      name: tcp
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
@@ -8929,7 +9019,7 @@ gateways:
 
     # Enable cross-cluster access using SNI matching
     zvpn:
-      enabled: true
+      enabled: false
       suffix: global
 
     # To generate an internal load balancer:
@@ -9041,6 +9131,9 @@ gateways:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
 `)
 
 func chartsGatewaysIstioIngressValuesYamlBytes() ([]byte, error) {
@@ -9212,6 +9305,8 @@ data:
   # values in this config will be automatically populated.
   cni_network_config: |-
         {
+          "cniVersion": "0.3.1",
+          "name": "istio-cni",
           "type": "istio-cni",
           "log_level": {{ quote .Values.cni.logLevel }},
           "kubernetes": {
@@ -9341,8 +9436,6 @@ spec:
                 fieldPath: spec.nodeName
           - name: "REPAIR_LABEL-PODS"
             value: "{{.Values.cni.repair.labelPods}}"
-          - name: "REPAIR_CREATE-EVENTS"
-            value: "{{.Values.cni.repair.createEvents}}"
           # Set to true to enable pod deletion
           - name: "REPAIR_DELETE-PODS"
             value: "{{.Values.cni.repair.deletePods}}"
@@ -9450,12 +9543,11 @@ var _chartsIstioCniValuesYaml = []byte(`cni:
 
   repair:
     enabled: true
-    hub: gcr.io/istio-testing
-    tag: latest
+    hub: ""
+    tag: ""
 
-    labelPods: "true"
-    createEvents: "true"
-    deletePods: "true"
+    labelPods: true
+    deletePods: true
 
     initContainerName: "istio-validation"
 
@@ -10322,7 +10414,6 @@ var _chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYam
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: galley
     release: {{ .Release.Name }}
@@ -10350,7 +10441,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: galley
     release: {{ .Release.Name }}
@@ -10527,7 +10617,7 @@ template: |
     - "-b"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
     - "-d"
-    - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
+    - "15090,{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
     {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
@@ -10613,22 +10703,14 @@ template: |
     - sidecar
     - --domain
     - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-    - --configPath
-    - "/etc/istio/proxy"
-    - --binaryPath
-    - "/usr/local/bin/envoy"
     - --serviceCluster
     {{ if ne "" (index .ObjectMeta.Labels "app") -}}
     - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
     {{ else -}}
     - "{{ valueOrDefault .DeploymentMeta.Name `+"`"+`istio-proxy`+"`"+` }}.{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}"
     {{ end -}}
-    - --discoveryAddress
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/discoveryAddress`+"`"+` .ProxyConfig.DiscoveryAddress }}"
     - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
     - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
-    - --dnsRefreshRate
-    - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
     - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
@@ -11223,6 +11305,12 @@ rules:
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
+
+  # permissions to verify the webhook is ready and rejecting
+  # invalid config. We use --server-dry-run so no config is persisted.
+  - apiGroups: ["networking.istio.io"]
+    verbs: ["create"]
+    resources: ["gateways"]
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
@@ -12002,19 +12090,6 @@ spec:
     tls:
       mode: DISABLE
 ---
-{{- else }}
-# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
----
 {{ end }}
 {{ end }}
 `)
@@ -12180,7 +12255,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istiod-{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
@@ -13456,7 +13531,6 @@ var _chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -29808,8 +29882,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.13.0
-appVersion: 1.13.0
+version: 1.14.0
+appVersion: 1.14.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -30171,8 +30245,14 @@ data:
         url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
+{{- if .Values.kiali.dashboard.inclusterjaegerURL }}
+        in_cluster_url: {{ .Values.kiali.dashboard.inclusterjaegerURL }}
+{{- end }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
+{{- if .Values.kiali.dashboard.inclustergrafanaURL }}
+        in_cluster_url: {{ .Values.kiali.dashboard.inclustergrafanaURL }}
+{{- end }}
       prometheus:
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
@@ -30420,7 +30500,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.13
+  tag: v1.14
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -30487,7 +30567,9 @@ kiali:
     viewOnlyMode: false # Bind the service account to a role with only read access
 
     grafanaURL: "" # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
+    inclustergrafanaURL: "" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
     jaegerURL: "" # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
+    inclusterjaegerURL: "" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
@@ -34180,8 +34262,6 @@ spec:
             - --controlPlaneAuthPolicy
             - NONE
               {{- end }}
-            - --dnsRefreshRate
-            - "300s"
             - --statusPort
             - "15020"
               {{- if .Values.global.trustDomain }}
@@ -37325,7 +37405,7 @@ var _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml = []byte(`apiVersio
 kind: IstioOperator
 spec:
   addonComponents:
-    coreDNS:
+    istiocoredns:
       enabled: true
 
   components:
@@ -37943,10 +38023,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
         strategy:
           rollingUpdate:
             maxSurge: "100%"
@@ -38112,6 +38188,8 @@ spec:
       k8s:
         replicaCount: 1
     tracing:
+      enabled: false
+    istiocoredns:
       enabled: false
 
   # Global values passed through to helm global.yaml.
@@ -38362,9 +38440,6 @@ spec:
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
-        zvpn:
-          suffix: global
-          enabled: true
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
@@ -38390,9 +38465,6 @@ spec:
         debug: info
         domain: ""
         type: LoadBalancer
-        zvpn:
-          enabled: true
-          suffix: global
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -38568,14 +38640,13 @@ spec:
         annotations:
         tls:
     istiocoredns:
-      enabled: false
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.9
+      tag: v1.14
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -38725,7 +38796,39 @@ spec:
         autoscaleEnabled: false
       istio-ingressgateway:
         autoscaleEnabled: false
-
+        ports:
+        ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+        # Note that AWS ELB will by default perform health checks on the first port
+        # on this list. Setting this to the health check port will ensure that health
+        # checks always work. https://github.com/istio/istio/issues/12503
+        - port: 15020
+          targetPort: 15020
+          name: status-port
+        - port: 80
+          targetPort: 8080
+          name: http2
+        - port: 443
+          targetPort: 8443
+          name: https
+        - port: 15029
+          targetPort: 15029
+          name: kiali
+        - port: 15030
+          targetPort: 15030
+          name: prometheus
+        - port: 15031
+          targetPort: 15031
+          name: grafana
+        - port: 15032
+          targetPort: 15032
+          name: tracing
+        - port: 31400
+          targetPort: 31400
+          name: tcp
+          # This is the port where sni routing happens
+        - port: 15443
+          targetPort: 15443
+          name: tls
     kiali:
       createDemoSecret: true
 `)
@@ -38745,54 +38848,21 @@ func profilesDemoYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesEmptyYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesEmptyYaml = []byte(`# The empty profile has everything disabled
+# This is useful as a base for custom user configuration
+apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  hub: gcr.io/istio-testing
-  tag: latest
-  meshConfig:
-    rootNamespace: istio-system
   components:
     base:
       enabled: false
     pilot:
       enabled: false
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
-    cni:
-      enabled: false
     ingressGateways:
-    egressGateways:
 
   addonComponents:
     prometheus:
       enabled: false
-
-  values:
-    global:
-      useMCP: false
-      controlPlaneSecurityEnabled: false
-      proxy:
-        envoyStatsd:
-          enabled: false
-          host:
-          port:
-      mtls:
-        auto: false
-
-    pilot:
-      sidecar: false
-      useMCP: false
 `)
 
 func profilesEmptyYamlBytes() ([]byte, error) {
@@ -38810,32 +38880,12 @@ func profilesEmptyYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesMinimalYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesMinimalYaml = []byte(`# The minimal profile will install just the core control plane
+apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
-    pilot:
-      enabled: true
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
-    cni:
-      enabled: false
     ingressGateways:
-    - name: istio-ingressgateway
-      enabled: false
-    egressGateways:
-    - name: istio-egressgateway
-      enabled: false
 
   addonComponents:
     prometheus:
@@ -38843,19 +38893,8 @@ spec:
 
   values:
     global:
-      useMCP: false
-      controlPlaneSecurityEnabled: false
-      proxy:
-        envoyStatsd:
-          enabled: false
-          host:
-          port:
       mtls:
         auto: false
-
-    pilot:
-      sidecar: false
-      useMCP: false
 `)
 
 func profilesMinimalYamlBytes() ([]byte, error) {
@@ -38873,12 +38912,34 @@ func profilesMinimalYaml() (*asset, error) {
 	return a, nil
 }
 
+var _profilesPreviewYaml = []byte(`# The preview profile contains features that are experimental.
+# This is intended to explore new features coming to Istio.
+# Stability, security, and performance are not guaranteed - use at your own risk.
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec: {}`)
+
+func profilesPreviewYamlBytes() ([]byte, error) {
+	return _profilesPreviewYaml, nil
+}
+
+func profilesPreviewYaml() (*asset, error) {
+	bytes, err := profilesPreviewYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "profiles/preview.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _profilesRemoteYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
     pilot:
-      enabled: false
+      enabled: true
     policy:
       enabled: false
     telemetry:
@@ -39782,7 +39843,7 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-  CoreDNS:
+  Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"
@@ -39893,7 +39954,7 @@ componentMaps:
     SkipReverseTranslate: true
   Pilot:
     ResourceType:         "Deployment"
-    ResourceName:         "istio-pilot"
+    ResourceName:         "istiod"
     ContainerName:        "discovery"
     HelmSubdir:           "istio-control/istio-discovery"
     ToHelmValuesTreeRoot: "pilot"
@@ -39953,7 +40014,7 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-  CoreDNS:
+  Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"
@@ -40335,6 +40396,7 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/demo.yaml":                                                                     profilesDemoYaml,
 	"profiles/empty.yaml":                                                                    profilesEmptyYaml,
 	"profiles/minimal.yaml":                                                                  profilesMinimalYaml,
+	"profiles/preview.yaml":                                                                  profilesPreviewYaml,
 	"profiles/remote.yaml":                                                                   profilesRemoteYaml,
 	"profiles/separate.yaml":                                                                 profilesSeparateYaml,
 	"translateConfig/names-1.5.yaml":                                                         translateconfigNames15Yaml,
@@ -40692,6 +40754,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"demo.yaml":     &bintree{profilesDemoYaml, map[string]*bintree{}},
 		"empty.yaml":    &bintree{profilesEmptyYaml, map[string]*bintree{}},
 		"minimal.yaml":  &bintree{profilesMinimalYaml, map[string]*bintree{}},
+		"preview.yaml":  &bintree{profilesPreviewYaml, map[string]*bintree{}},
 		"remote.yaml":   &bintree{profilesRemoteYaml, map[string]*bintree{}},
 		"separate.yaml": &bintree{profilesSeparateYaml, map[string]*bintree{}},
 	}},

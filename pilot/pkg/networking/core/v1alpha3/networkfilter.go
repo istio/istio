@@ -47,12 +47,17 @@ var redisOpTimeout = 5 * time.Second
 func buildInboundNetworkFilters(push *model.PushContext, node *model.Proxy, instance *model.ServiceInstance) []*listener.Filter {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
 		instance.Service.Hostname, instance.ServicePort.Port)
+	statPrefix := clusterName
+	// If stat name is configured, build the stat prefix from configured pattern.
+	if len(push.Mesh.InboundClusterStatName) != 0 {
+		statPrefix = util.BuildStatPrefix(push.Mesh.InboundClusterStatName, string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
+	}
 	tcpProxy := &tcp_proxy.TcpProxy{
-		StatPrefix:       clusterName,
+		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
-	return buildNetworkFiltersStack(node, instance.ServicePort, tcpFilter, clusterName, clusterName)
+	return buildNetworkFiltersStack(node, instance.ServicePort, tcpFilter, statPrefix, clusterName)
 }
 
 // setAccessLog sets the AccessLog configuration in the given TcpProxy instance.
@@ -115,10 +120,10 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, c
 // buildOutboundNetworkFiltersWithSingleDestination takes a single cluster name
 // and builds a stack of network filters.
 func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, node *model.Proxy,
-	clusterName string, port *model.Port) []*listener.Filter {
+	statPrefix, clusterName string, port *model.Port) []*listener.Filter {
 
 	tcpProxy := &tcp_proxy.TcpProxy{
-		StatPrefix:       clusterName,
+		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 		// TODO: Need to set other fields such as Idle timeouts
 	}
@@ -129,7 +134,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	}
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
-	return buildNetworkFiltersStack(node, port, tcpFilter, clusterName, clusterName)
+	return buildNetworkFiltersStack(node, port, tcpFilter, statPrefix, clusterName)
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
@@ -209,11 +214,16 @@ func buildNetworkFiltersStack(_ *model.Proxy, port *model.Port, tcpFilter *liste
 func buildOutboundNetworkFilters(node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
 	port *model.Port, configMeta model.ConfigMeta) []*listener.Filter {
-
 	if len(routes) == 1 {
 		service := node.SidecarScope.ServiceForHostname(host.Name(routes[0].Destination.Host), push.ServiceByHostnameAndNamespace)
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
-		return buildOutboundNetworkFiltersWithSingleDestination(push, node, clusterName, port)
+		statPrefix := clusterName
+		// If stat name is configured, build the stat prefix from configured pattern.
+		if len(push.Mesh.OutboundClusterStatName) != 0 && service != nil {
+			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, routes[0].Destination.Host,
+				routes[0].Destination.Subset, port, service.Attributes)
+		}
+		return buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, port)
 	}
 	return buildOutboundNetworkFiltersWithWeightedClusters(node, routes, push, port, configMeta)
 }
@@ -255,7 +265,7 @@ func buildMongoFilter(statPrefix string) *listener.Filter {
 func buildOutboundAutoPassthroughFilterStack(push *model.PushContext, node *model.Proxy, port *model.Port) []*listener.Filter {
 	// First build tcp_proxy with access logs
 	// then add sni_cluster to the front
-	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(push, node, util.BlackHoleCluster, port)
+	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(push, node, util.BlackHoleCluster, util.BlackHoleCluster, port)
 	filterstack := make([]*listener.Filter, 0)
 	filterstack = append(filterstack, &listener.Filter{
 		Name: util.SniClusterFilter,

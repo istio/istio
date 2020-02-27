@@ -97,7 +97,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 			FileDir: env.IstioSrc + "/tests/testdata/config",
 		}
 		p.MeshConfig = &meshConfig
-		p.MCPMaxMessageSize = 1024 * 1024 * 4
+		p.MCPOptions.MaxMessageSize = 1024 * 1024 * 4
 		p.KeepaliveOptions = keepalive.DefaultOption()
 		p.ForceStop = true
 

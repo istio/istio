@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"sort"
+	"strings"
 
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube/inject"
@@ -89,8 +90,12 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 
 const (
 	// configNameNotApplicable is used to represent the name of the authentication policy or
-	// destination rule when they are not specified.
+	// destination rule when they are not specified and AutoMTLS is enabled
 	configNameNotApplicable = "-"
+
+	// noConfigConfigured is used when the authentication policy or destination rule
+	// are not specified
+	noConfigConfigured = "None"
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
@@ -122,9 +127,9 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
 	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
-	s.addDebugHandler(mux, "/debug/cdsz", "Status and debug interface for CDS", cdsz)
+	s.addDebugHandler(mux, "/debug/cdsz", "Status and debug interface for CDS", s.cdsz)
 
-	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", Syncz)
+	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
 	s.addDebugHandler(mux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
 
 	s.addDebugHandler(mux, "/debug/registryz", "Debug support for registry", s.registryz)
@@ -163,10 +168,10 @@ type SyncStatus struct {
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
-func Syncz(w http.ResponseWriter, _ *http.Request) {
+func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 	syncz := make([]SyncStatus, 0)
-	adsClientsMutex.RLock()
-	for _, con := range adsClients {
+	s.adsClientsMutex.RLock()
+	for _, con := range s.adsClients {
 		con.mu.RLock()
 		if con.node != nil {
 			syncz = append(syncz, SyncStatus{
@@ -185,7 +190,7 @@ func Syncz(w http.ResponseWriter, _ *http.Request) {
 		}
 		con.mu.RUnlock()
 	}
-	adsClientsMutex.RUnlock()
+	s.adsClientsMutex.RUnlock()
 	out, err := json.MarshalIndent(&syncz, "", "    ")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -244,8 +249,8 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 				for _, svc := range all {
-					_, _ = fmt.Fprintf(w, "%s:%s %v %s:%d %v %s\n", ss.Hostname,
-						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.EndpointPort, svc.Endpoint.Labels,
+					_, _ = fmt.Fprintf(w, "%s:%s %s:%d %v %s\n", ss.Hostname,
+						p.Name, svc.Endpoint.Address, svc.Endpoint.EndpointPort, svc.Endpoint.Labels,
 						svc.Endpoint.ServiceAccount)
 				}
 			}
@@ -295,8 +300,8 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		proxyNamespace := req.URL.Query().Get("proxy_namespace")
 		knownVersions := make(map[string]string)
 		var results []SyncedVersions
-		adsClientsMutex.RLock()
-		for _, con := range adsClients {
+		s.adsClientsMutex.RLock()
+		for _, con := range s.adsClients {
 			// wrap this in independent scope so that panic's don't bypass Unlock...
 			con.mu.RLock()
 
@@ -311,7 +316,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 			}
 			con.mu.RUnlock()
 		}
-		adsClientsMutex.RUnlock()
+		s.adsClientsMutex.RUnlock()
 
 		out, err := json.MarshalIndent(&results, "", "    ")
 		if err != nil {
@@ -345,7 +350,7 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 			lookupResult = ""
 		}
 		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
-		// repeat the same error for many adsClients.
+		// repeat the same error for many s.adsClients.
 		cache[configVersion] = lookupResult
 		return lookupResult
 	}
@@ -423,7 +428,7 @@ func configName(config *model.ConfigMeta) string {
 	if config != nil {
 		return fmt.Sprintf("%s/%s", config.Namespace, config.Name)
 	}
-	return configNameNotApplicable
+	return noConfigConfigured
 }
 
 // Authenticationz dumps the authn tls-check info.
@@ -434,38 +439,27 @@ func configName(config *model.ConfigMeta) string {
 func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		adsClientsMutex.RLock()
-		defer adsClientsMutex.RUnlock()
-
-		connections, ok := adsSidecarIDConnectionsMap[proxyID]
-		if !ok {
+		con := s.getProxyConnection(proxyID)
+		if con == nil {
 			w.WriteHeader(http.StatusNotFound)
 			// Need to dump an empty JSON array so istioctl can peacefully ignore.
 			_, _ = fmt.Fprintf(w, "\n[\n]")
 			return
 		}
-
-		var mostRecentProxy *model.Proxy
-		mostRecent := ""
-		for key := range connections {
-			if mostRecent == "" || key > mostRecent {
-				mostRecent = key
-			}
-		}
-		mostRecentProxy = connections[mostRecent].node
-		svc, _ := s.Env.ServiceDiscovery.Services()
+		pushContext := s.globalPushContext()
+		svcs := pushContext.Services(con.node)
 		meshConfig := s.Env.Mesh()
 		autoMTLSEnabled := meshConfig.GetEnableAutoMtls() != nil && meshConfig.GetEnableAutoMtls().Value
 		info := make([]*AuthenticationDebug, 0)
-		for _, ss := range svc {
-			if ss.MeshExternal {
+		for _, svc := range svcs {
+			if svc.MeshExternal {
 				// Skip external services
 				continue
 			}
-			for _, p := range ss.Ports {
-				authnPolicy, authnMeta := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
-				destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
-				info = append(info, AnalyzeMTLSSettings(autoMTLSEnabled, ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
+			for _, p := range svc.Ports {
+				authnPolicy, authnMeta := pushContext.AuthenticationPolicyForWorkload(svc, p)
+				destConfig := pushContext.DestinationRule(con.node, svc)
+				info = append(info, AnalyzeMTLSSettings(autoMTLSEnabled, svc.Hostname, p, authnPolicy, authnMeta, destConfig)...)
 			}
 		}
 		if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
@@ -505,11 +499,11 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 		Port:                     port.Port,
 		AuthenticationPolicyName: authnPolicyName,
 		ServerProtocol:           serverMTLSMode.String(),
-		ClientProtocol:           configNameNotApplicable,
+		ClientProtocol:           noConfigConfigured,
 	}
 
 	var rule *networking.DestinationRule
-	destinationRuleName := configNameNotApplicable
+	destinationRuleName := noConfigConfigured
 
 	if destConfig != nil {
 		rule = destConfig.Spec.(*networking.DestinationRule)
@@ -531,6 +525,9 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 		info.DestinationRuleName = destinationRuleName
 		if c != nil {
 			info.ClientProtocol = c.GetMode().String()
+		} else if autoMTLSEnabled {
+			info.ClientProtocol = configNameNotApplicable
+			info.DestinationRuleName = configNameNotApplicable
 		}
 		if ss == "" {
 			info.Host = string(hostname)
@@ -580,12 +577,37 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
-		adsClientsMutex.RLock()
-		_, _ = fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
-		adsClientsMutex.RUnlock()
+		s.adsClientsMutex.RLock()
+		_, _ = fmt.Fprintf(w, "Pushed to %d servers", len(s.adsClients))
+		s.adsClientsMutex.RUnlock()
 		return
 	}
-	writeAllADS(w)
+
+	s.adsClientsMutex.RLock()
+	defer s.adsClientsMutex.RUnlock()
+
+	// Dirty json generation - because standard json is dirty (struct madness)
+	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
+	// better ways, but this is mainly for debugging.
+	_, _ = fmt.Fprint(w, "[\n")
+	comma := false
+	for _, c := range s.adsClients {
+		if comma {
+			_, _ = fmt.Fprint(w, ",\n")
+		} else {
+			comma = true
+		}
+		_, _ = fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
+		printListeners(w, c)
+		_, _ = fmt.Fprint(w, "],\n")
+		_, _ = fmt.Fprintf(w, "\"RDSRoutes\":[\n")
+		printRoutes(w, c)
+		_, _ = fmt.Fprint(w, "],\n")
+		_, _ = fmt.Fprintf(w, "\"clusters\":[\n")
+		printClusters(w, c)
+		_, _ = fmt.Fprint(w, "]}\n")
+	}
+	_, _ = fmt.Fprint(w, "]\n")
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
@@ -593,23 +615,15 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 // should look like according to Pilot vs what it currently does look like.
 func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		adsClientsMutex.RLock()
-		defer adsClientsMutex.RUnlock()
-		connections, ok := adsSidecarIDConnectionsMap[proxyID]
-		if !ok || len(connections) == 0 {
+		con := s.getProxyConnection(proxyID)
+		if con == nil {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance"))
 			return
 		}
 
 		jsonm := &jsonpb.Marshaler{Indent: "    "}
-		mostRecent := ""
-		for key := range connections {
-			if mostRecent == "" || key > mostRecent {
-				mostRecent = key
-			}
-		}
-		dump, err := s.configDump(connections[mostRecent])
+		dump, err := s.configDump(con)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(err.Error()))
@@ -721,34 +735,6 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	_, _ = w.Write(out)
 }
 
-func writeAllADS(w io.Writer) {
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
-
-	// Dirty json generation - because standard json is dirty (struct madness)
-	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
-	// better ways, but this is mainly for debugging.
-	_, _ = fmt.Fprint(w, "[\n")
-	comma := false
-	for _, c := range adsClients {
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
-		}
-		_, _ = fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
-		printListeners(w, c)
-		_, _ = fmt.Fprint(w, "],\n")
-		_, _ = fmt.Fprintf(w, "\"RDSRoutes\":[\n")
-		printRoutes(w, c)
-		_, _ = fmt.Fprint(w, "],\n")
-		_, _ = fmt.Fprintf(w, "\"clusters\":[\n")
-		printClusters(w, c)
-		_, _ = fmt.Fprint(w, "]}\n")
-	}
-	_, _ = fmt.Fprint(w, "]\n")
-}
-
 // lists all the supported debug endpoints.
 func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 	type debugEndpoint struct {
@@ -788,24 +774,14 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	}
 	var con *XdsConnection
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		adsClientsMutex.RLock()
-		defer adsClientsMutex.RUnlock()
-		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		con = s.getProxyConnection(proxyID)
 		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
 		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
-		if !ok || len(connections) == 0 {
+		if con == nil {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
 			return
 		}
-
-		mostRecent := ""
-		for key := range connections {
-			if mostRecent == "" || key > mostRecent {
-				mostRecent = key
-			}
-		}
-		con = connections[mostRecent]
 	}
 
 	edsClusterMutex.RLock()
@@ -850,15 +826,15 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 
 // cdsz implements a status and debug interface for CDS.
 // It is mapped to /debug/cdsz
-func cdsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) cdsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 
-	adsClientsMutex.RLock()
+	s.adsClientsMutex.RLock()
 
 	_, _ = fmt.Fprint(w, "[\n")
 	comma := false
-	for _, c := range adsClients {
+	for _, c := range s.adsClients {
 		if comma {
 			_, _ = fmt.Fprint(w, ",\n")
 		} else {
@@ -870,7 +846,7 @@ func cdsz(w http.ResponseWriter, req *http.Request) {
 	}
 	_, _ = fmt.Fprint(w, "]\n")
 
-	adsClientsMutex.RUnlock()
+	s.adsClientsMutex.RUnlock()
 }
 
 func printListeners(w io.Writer, c *XdsConnection) {
@@ -931,4 +907,17 @@ func printRoutes(w io.Writer, c *XdsConnection) {
 			return
 		}
 	}
+}
+
+func (s *DiscoveryServer) getProxyConnection(proxyID string) *XdsConnection {
+	s.adsClientsMutex.RLock()
+	defer s.adsClientsMutex.RUnlock()
+
+	for conID := range s.adsClients {
+		if strings.Contains(conID, proxyID) {
+			return s.adsClients[conID]
+		}
+	}
+
+	return nil
 }

@@ -127,12 +127,6 @@ func TestOptions(t *testing.T) {
 			expected: "fake",
 		},
 		{
-			testName: "dns refresh rate",
-			key:      "dns_refresh_rate",
-			option:   option.DNSRefreshRate("1s"),
-			expected: "1s",
-		},
-		{
 			testName: "localhost v4",
 			key:      "localhost",
 			option:   option.Localhost(option.LocalhostIPv4),
@@ -691,6 +685,18 @@ func TestOptions(t *testing.T) {
 			key:      "pilot_cert_provider",
 			option:   option.PilotCertProvider("citadel"),
 			expected: "citadel",
+		},
+		{
+			testName: "sts enabled",
+			key:      "sts",
+			option:   option.STSEnabled(true),
+			expected: true,
+		},
+		{
+			testName: "sts port",
+			key:      "sts_port",
+			option:   option.STSPort(5555),
+			expected: 5555,
 		},
 	}
 

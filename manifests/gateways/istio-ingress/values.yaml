@@ -32,6 +32,9 @@ gateways:
     - port: 15032
       targetPort: 15032
       name: tracing
+    - port: 31400
+      targetPort: 31400
+      name: tcp
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
@@ -68,7 +71,7 @@ gateways:
 
     # Enable cross-cluster access using SNI matching
     zvpn:
-      enabled: true
+      enabled: false
       suffix: global
 
     # To generate an internal load balancer:
@@ -180,3 +183,6 @@ gateways:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""

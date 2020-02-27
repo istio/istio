@@ -35,12 +35,11 @@ cni:
 
   repair:
     enabled: true
-    hub: gcr.io/istio-testing
-    tag: latest
+    hub: ""
+    tag: ""
 
-    labelPods: "true"
-    createEvents: "true"
-    deletePods: "true"
+    labelPods: true
+    deletePods: true
 
     initContainerName: "istio-validation"
 

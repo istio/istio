@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -147,9 +149,25 @@ func TestAuthNPolicies(t *testing.T) {
 	authNPolicies := map[string]*authn.Policy{
 		constants.DefaultAuthenticationPolicyName: {},
 
+		"mtls-strict-svc": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-strict-svc-port",
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			},
+			}},
+
 		"mtls-strict-svc-port": {
 			Targets: []*authn.TargetSelector{{
 				Name: "mtls-strict-svc-port",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 80,
+						},
+					},
+				},
 			}},
 			Peers: []*authn.PeerAuthenticationMethod{{
 				Params: &authn.PeerAuthenticationMethod_Mtls{},
@@ -260,6 +278,14 @@ func TestAuthNPolicies(t *testing.T) {
 			port:                    Port{Port: 80},
 			expectedPolicy:          authNPolicies["mtls-strict-svc-port"],
 			expectedPolicyName:      "mtls-strict-svc-port",
+			expectedPolicyNamespace: testNamespace,
+		},
+		{
+			hostname:                "mtls-strict-svc-port.test-namespace.svc.cluster.local",
+			namespace:               testNamespace,
+			port:                    Port{Port: 90},
+			expectedPolicy:          authNPolicies["mtls-strict-svc"],
+			expectedPolicyName:      "mtls-strict-svc",
 			expectedPolicyNamespace: testNamespace,
 		},
 		{
@@ -730,9 +756,9 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	}
 
 	// Add beta policies
-	configStore.Create(*createTestPeerAuthenticationResource("default", betaNamespace, nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
+	configStore.Create(*createTestPeerAuthenticationResource("default", betaNamespace, time.Now(), nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
 	// workload level beta policy.
-	configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", alphaNamespace, &selectorpb.WorkloadSelector{
+	configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", alphaNamespace, time.Now(), &selectorpb.WorkloadSelector{
 		MatchLabels: map[string]string{
 			"app":     "httpbin",
 			"version": "v1",
@@ -886,4 +912,12 @@ func (*fakeStore) Version() string {
 }
 func (*fakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return "not implemented", nil
+}
+
+func (s *fakeStore) GetLedger() ledger.Ledger {
+	panic("implement me")
+}
+
+func (s *fakeStore) SetLedger(ledger.Ledger) error {
+	panic("implement me")
 }

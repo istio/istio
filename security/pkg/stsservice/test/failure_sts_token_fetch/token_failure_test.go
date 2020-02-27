@@ -28,12 +28,9 @@ import (
 // TestTokenFetchFailureOne verifies when auth backend fails to generate
 // federated token, Envoy fails to start.
 func TestTokenFetchFailureOne(t *testing.T) {
-	// Enable this test when gRPC fix is picked by Istio Proxy
-	// https://github.com/grpc/grpc/pull/21641
-	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
-	setup := stsTest.SetUpTest(t, cb, testID.STSFailureTest, false)
+	setup := stsTest.SetupTest(t, cb, testID.STSFailureTest, false)
 
 	// Get initial number of calls to auth server. They are not zero due to STS flow test
 	// in the test setup, to make sure the servers are up and ready to serve.
@@ -45,7 +42,7 @@ func TestTokenFetchFailureOne(t *testing.T) {
 
 	// Verify that auth backend gets token exchange calls, and envoy fails to start.
 	g := gomega.NewWithT(t)
-	g.Expect(setup.ProxySetUp.SetUp()).To(gomega.HaveOccurred())
+	g.Expect(setup.ProxySetup.SetUp()).To(gomega.HaveOccurred())
 	numFederatedTokenCall := setup.AuthServer.NumGetFederatedTokenCalls()
 	numAccessTokenCall := setup.AuthServer.NumGetAccessTokenCalls()
 	g.Expect(numFederatedTokenCall).Should(gomega.BeNumerically(">", initialNumFederatedTokenCall))
@@ -59,12 +56,9 @@ func TestTokenFetchFailureOne(t *testing.T) {
 // TestTokenFetchFailureTwo verifies when auth backend fails to generate
 // access token, Envoy fails to start.
 func TestTokenFetchFailureTwo(t *testing.T) {
-	// Enable this test when gRPC fix is picked by Istio Proxy
-	// https://github.com/grpc/grpc/pull/21641
-	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
-	setup := stsTest.SetUpTest(t, cb, testID.STSFailureTest, false)
+	setup := stsTest.SetupTest(t, cb, testID.STSFailureTest, false)
 
 	// Get initial number of calls to auth server. They are not zero due to STS flow test
 	// in the test setup, to make sure the servers are up and ready to serve.
@@ -76,7 +70,7 @@ func TestTokenFetchFailureTwo(t *testing.T) {
 
 	// Verify that auth backend gets token exchange calls, and envoy fails to start.
 	g := gomega.NewWithT(t)
-	g.Expect(setup.ProxySetUp.SetUp()).To(gomega.HaveOccurred())
+	g.Expect(setup.ProxySetup.SetUp()).To(gomega.HaveOccurred())
 	numFederatedTokenCall := setup.AuthServer.NumGetFederatedTokenCalls()
 	numAccessTokenCall := setup.AuthServer.NumGetAccessTokenCalls()
 	g.Expect(numFederatedTokenCall).Should(gomega.BeNumerically(">", initialNumFederatedTokenCall))

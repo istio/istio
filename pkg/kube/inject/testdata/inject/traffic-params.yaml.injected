@@ -35,18 +35,10 @@ spec:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
-        - --configPath
-        - /etc/istio/proxy
-        - --binaryPath
-        - /usr/local/bin/envoy
         - --serviceCluster
         - traffic.$(POD_NAMESPACE)
-        - --discoveryAddress
-        - istio-pilot:15010
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --dnsRefreshRate
-        - 300s
         - --trust-domain=cluster.local
         - --controlPlaneBootstrap=false
         - --concurrency
@@ -155,7 +147,7 @@ spec:
         - -b
         - '*'
         - -d
-        - 4,5,6
+        - 15090,4,5,6
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-init

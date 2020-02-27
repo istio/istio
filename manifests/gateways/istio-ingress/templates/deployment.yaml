@@ -29,6 +29,12 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
+        service.istio.io/canonical-name: istio-ingressgateway
+        {{- if not (eq .Values.revision "") }}
+        service.istio.io/canonical-revision: {{ .Values.revision }}
+        {{- else}}
+        service.istio.io/canonical-revision: latest
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
@@ -236,6 +242,8 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
 {{- if eq .Values.global.pilotCertProvider "citadel" }}
           - mountPath: /etc/istio/citadel-ca-cert
             name: citadel-ca-cert
@@ -296,6 +304,10 @@ spec:
           secretName: istio.istio-ingressgateway-service-account
           optional: true
       {{- end }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:

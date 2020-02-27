@@ -31,10 +31,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
         strategy:
           rollingUpdate:
             maxSurge: "100%"
@@ -200,6 +196,8 @@ spec:
       k8s:
         replicaCount: 1
     tracing:
+      enabled: false
+    istiocoredns:
       enabled: false
 
   # Global values passed through to helm global.yaml.
@@ -450,9 +448,6 @@ spec:
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
-        zvpn:
-          suffix: global
-          enabled: true
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
@@ -478,9 +473,6 @@ spec:
         debug: info
         domain: ""
         type: LoadBalancer
-        zvpn:
-          enabled: true
-          suffix: global
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -656,14 +648,13 @@ spec:
         annotations:
         tls:
     istiocoredns:
-      enabled: false
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.9
+      tag: v1.14
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []

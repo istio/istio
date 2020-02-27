@@ -25,8 +25,18 @@ import (
 )
 
 var (
+	// IstioOperatorGVK is GVK for IstioOperator
+	IstioOperatorGVK = schema.GroupVersionKind{
+		Version: "v1alpha1",
+		Group:   "install.istio.io",
+		Kind:    "IstioOperator",
+	}
+
 	// SchemeGroupVersion is group version used to register these objects
 	SchemeGroupVersion = schema.GroupVersion{Group: "install.istio.io", Version: "v1alpha1"}
+
+	// SchemeGroupKind is group version used to register these objects
+	SchemeGroupKind = schema.GroupKind{Group: "install.istio.io", Kind: "IstioOperator"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}

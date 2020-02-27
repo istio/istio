@@ -42,18 +42,10 @@ items:
           - sidecar
           - --domain
           - $(POD_NAMESPACE).svc.cluster.local
-          - --configPath
-          - /etc/istio/proxy
-          - --binaryPath
-          - /usr/local/bin/envoy
           - --serviceCluster
           - hello.$(POD_NAMESPACE)
-          - --discoveryAddress
-          - istio-pilot:15010
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
-          - --dnsRefreshRate
-          - 300s
           - --statusPort
           - "15020"
           - --trust-domain=cluster.local
@@ -171,7 +163,7 @@ items:
           - -b
           - '*'
           - -d
-          - "15020"
+          - 15090,15020
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: Always
           name: istio-init
@@ -261,18 +253,10 @@ items:
           - sidecar
           - --domain
           - $(POD_NAMESPACE).svc.cluster.local
-          - --configPath
-          - /etc/istio/proxy
-          - --binaryPath
-          - /usr/local/bin/envoy
           - --serviceCluster
           - hello.$(POD_NAMESPACE)
-          - --discoveryAddress
-          - istio-pilot:15010
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
-          - --dnsRefreshRate
-          - 300s
           - --statusPort
           - "15020"
           - --trust-domain=cluster.local
@@ -390,7 +374,7 @@ items:
           - -b
           - '*'
           - -d
-          - "15020"
+          - 15090,15020
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: Always
           name: istio-init

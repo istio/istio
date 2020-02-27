@@ -55,13 +55,6 @@ const (
 
 	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
 	ManagementClusterHostname = "mgmtCluster"
-
-	// StatName patterns
-	serviceStatPattern         = "%SERVICE%"
-	serviceFQDNStatPattern     = "%SERVICE_FQDN%"
-	servicePortStatPattern     = "%SERVICE_PORT%"
-	servicePortNameStatPattern = "%SERVICE_PORT_NAME%"
-	subsetNameStatPattern      = "%SUBSET_NAME%"
 )
 
 var (
@@ -205,7 +198,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			}
 			// If stat name is configured, build the alternate stats name.
 			if len(push.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.AltStatName = altStatName(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
+				defaultCluster.AltStatName = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
 			}
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
@@ -250,7 +243,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 					continue
 				}
 				if len(push.Mesh.OutboundClusterStatName) != 0 {
-					subsetCluster.AltStatName = altStatName(push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
+					subsetCluster.AltStatName = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
 				}
 				setUpstreamProtocol(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
@@ -589,13 +582,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 			// by the user and parse it into host:port or a unix domain socket
 			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
 			endpointAddress := actualLocalHost
-			endpointFamily := model.AddressFamilyTCP
 			port := 0
 			var err error
 			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
 				// this is a UDS endpoint. assign it as is
 				endpointAddress = ingressListener.DefaultEndpoint
-				endpointFamily = model.AddressFamilyUnix
 			} else {
 				// parse the ip, port. Validation guarantees presence of :
 				parts := strings.Split(ingressListener.DefaultEndpoint, ":")
@@ -611,7 +602,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 			// for a service instance that matches this ingress port as this will allow us
 			// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
 			instance := configgen.findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Config.Name, sidecarScope.Config.Namespace)
-			instance.Endpoint.Family = endpointFamily
 			instance.Endpoint.Address = endpointAddress
 			instance.ServicePort = listenPort
 			instance.Endpoint.ServicePortName = listenPort.Name
@@ -667,7 +657,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 		model.TrafficDirectionInbound, pluginParams.Node, nil, false)
 	// If stat name is configured, build the alt statname.
 	if len(pluginParams.Push.Mesh.InboundClusterStatName) != 0 {
-		localCluster.AltStatName = altStatName(pluginParams.Push.Mesh.InboundClusterStatName,
+		localCluster.AltStatName = util.BuildStatPrefix(pluginParams.Push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
 	setUpstreamProtocol(pluginParams.Node, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
@@ -1357,23 +1347,6 @@ func buildDefaultTrafficPolicy(push *model.PushContext, discoveryType apiv2.Clus
 			},
 		},
 	}
-}
-
-func altStatName(statPattern string, host string, subset string, port *model.Port, attributes model.ServiceAttributes) string {
-	name := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
-	name = strings.ReplaceAll(name, serviceFQDNStatPattern, host)
-	name = strings.ReplaceAll(name, subsetNameStatPattern, subset)
-	name = strings.ReplaceAll(name, servicePortStatPattern, strconv.Itoa(port.Port))
-	name = strings.ReplaceAll(name, servicePortNameStatPattern, port.Name)
-	return name
-}
-
-// shotHostName removes the domain from kubernetes hosts. For other hosts like VMs, this method does not do any thing.
-func shortHostName(host string, attributes model.ServiceAttributes) string {
-	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
-		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
-	}
-	return host
 }
 
 func lbPolicyClusterProvided(proxy *model.Proxy) apiv2.Cluster_LbPolicy {

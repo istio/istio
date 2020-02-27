@@ -21,7 +21,7 @@ gateways:
       # automatically.
       # This can be a real domain name ( istio.example.com )
       suffix: global
-      enabled: true
+      enabled: false
     
     labels:
       app: istio-egressgateway
@@ -101,3 +101,6 @@ gateways:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""

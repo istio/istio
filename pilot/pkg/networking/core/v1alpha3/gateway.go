@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -90,12 +89,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 
 		p := protocol.Parse(servers[0].Port.Protocol)
 		listenerProtocol := plugin.ModelProtocolToListenerProtocol(node, p, core.TrafficDirection_OUTBOUND)
+		filterChains := make([]plugin.FilterChain, 0)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
 			routeName := mergedGateway.RouteNamesByServer[servers[0]]
 			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(node, servers[0], routeName, "")}
+			filterChains = append(filterChains, plugin.FilterChain{ListenerProtocol: plugin.ListenerProtocolHTTP})
 		} else {
 			// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
 			// build listener with tcp proxy, with or without TLS context, for TCP servers
@@ -109,10 +110,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 					routeName := mergedGateway.RouteNamesByServer[server]
 					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName, push.Mesh.SdsUdsPath))
+					filterChains = append(filterChains, plugin.FilterChain{ListenerProtocol: plugin.ListenerProtocolHTTP})
 				} else {
 					// passthrough or tcp, yields multiple filter chains
-					filterChainOpts = append(filterChainOpts, configgen.createGatewayTCPFilterChainOpts(node, push,
-						server, map[string]bool{mergedGateway.GatewayNameForServer[server]: true})...)
+					tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(node, push,
+						server, map[string]bool{mergedGateway.GatewayNameForServer[server]: true})
+					filterChainOpts = append(filterChainOpts, tcpChainOpts...)
+					for i := 0; i < len(tcpChainOpts); i++ {
+						filterChains = append(filterChains, plugin.FilterChain{ListenerProtocol: plugin.ListenerProtocolTCP})
+					}
 				}
 			}
 			opts.filterChainOpts = filterChainOpts
@@ -125,23 +131,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			Listener: l,
 			// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
 			// this is for.
-			FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
+			FilterChains: filterChains,
 		}
-
-		// Begin shady logic
-		// buildListener builds an empty array of filters in the listener struct
-		// mutable object above has a FilterChains field that has same number of empty structs (matching number of
-		// filter chains). All plugins iterate over this array, and fill up the HTTP or TCP part of the
-		// plugin.FilterChain struct.
-		// TODO: need a cleaner way of communicating this info
-		for i := range mutable.FilterChains {
-			if opts.filterChainOpts[i].httpOpts != nil {
-				mutable.FilterChains[i].ListenerProtocol = plugin.ListenerProtocolHTTP
-			} else {
-				mutable.FilterChains[i].ListenerProtocol = plugin.ListenerProtocolTCP
-			}
-		}
-		// end shady logic
 
 		pluginParams := &plugin.InputParams{
 			ListenerProtocol:           listenerProtocol,
@@ -430,75 +421,9 @@ func buildGatewayListenerTLSContext(
 	if enableIngressSds && server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
-		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			authn_model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, authn_model.IngressGatewaySdsUdsPath),
-		}
-		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
-		// at gateway agent. Otherwise, use the static certificate validation context config.
-		if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
-			defaultValidationContext := &auth.CertificateValidationContext{
-				VerifySubjectAltName:  server.Tls.SubjectAltNames,
-				VerifyCertificateSpki: server.Tls.VerifyCertificateSpki,
-				VerifyCertificateHash: server.Tls.VerifyCertificateHash,
-			}
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: defaultValidationContext,
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigForGatewayListener(
-						server.Tls.CredentialName+authn_model.IngressGatewaySdsCaSuffix, authn_model.IngressGatewaySdsUdsPath),
-				},
-			}
-		} else if len(server.Tls.SubjectAltNames) > 0 {
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					VerifySubjectAltName: server.Tls.SubjectAltNames,
-				},
-			}
-		}
+		util.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
 	} else if server.Tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
-		// global SDS must be enabled if the sds path is non-default, configure TLS with SDS
-		if sdsPath != "" {
-			// configure egress with SDS
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, sdsPath),
-				},
-			}
-			tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsPath)}
-		} else {
-			// global SDS disabled, fall back on using mounted certificates
-			caCertificates := model.GetOrDefault(metadata.TLSServerRootCert, constants.DefaultRootCert)
-			trustedCa := &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: caCertificates,
-				},
-			}
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa:            trustedCa,
-					VerifySubjectAltName: server.Tls.SubjectAltNames,
-				},
-			}
-
-			certChainPath := model.GetOrDefault(metadata.TLSServerCertChain, constants.DefaultCertChain)
-			privateKeyPath := model.GetOrDefault(metadata.TLSServerKey, constants.DefaultKey)
-			tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: certChainPath,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: privateKeyPath,
-						},
-					},
-				},
-			}
-		}
+		util.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
 	} else {
 		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
@@ -745,6 +670,7 @@ func convertTLSMatchToL4Match(tlsMatch *networking.TLSMatchAttributes) *networki
 		Port:               tlsMatch.Port,
 		SourceLabels:       tlsMatch.SourceLabels,
 		Gateways:           tlsMatch.Gateways,
+		SourceNamespace:    tlsMatch.SourceNamespace,
 	}
 }
 

@@ -541,7 +541,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		now := time.Now()
 
 		// Remove stale secrets from cache, this prevent the cache growing indefinitely.
-		if now.After(e.CreatedTime.Add(sc.configOptions.EvictionDuration)) {
+		if sc.configOptions.EvictionDuration != 0 && now.After(e.CreatedTime.Add(sc.configOptions.EvictionDuration)) {
 			sc.secrets.Delete(connKey)
 			return true
 		}
@@ -803,7 +803,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		Token:            token,
 		CreatedTime:      t,
 		ExpireTime:       expireTime,
-		Version:          t.String(),
+		Version:          t.Format("01-02 15:04:05.000"), // Precise enough version based on creation time.
 	}, nil
 }
 

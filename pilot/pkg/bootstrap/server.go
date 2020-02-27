@@ -142,8 +142,6 @@ type Server struct {
 	HTTPListener net.Listener
 	GRPCListener net.Listener
 
-	basePort int
-
 	// for test
 	forceStop bool
 
@@ -170,7 +168,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s := &Server{
-		basePort:       args.BasePort,
 		clusterID:      getClusterID(args),
 		environment:    e,
 		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),

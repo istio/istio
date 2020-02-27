@@ -66,26 +66,23 @@ type ServiceArgs struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions         DiscoveryServiceOptions
-	InjectionOptions         InjectionOptions
-	PodName                  string
-	Namespace                string
-	Revision                 string
-	ServiceAccountName       string
-	Mesh                     MeshArgs
-	Config                   ConfigArgs
-	Service                  ServiceArgs
-	MeshConfig               *meshconfig.MeshConfig
-	NetworksConfigFile       string
-	CtrlZOptions             *ctrlz.Options
-	Plugins                  []string
-	MCPMaxMessageSize        int
-	MCPInitialWindowSize     int
-	MCPInitialConnWindowSize int
-	KeepaliveOptions         *istiokeepalive.Options
+	DiscoveryOptions   DiscoveryServiceOptions
+	InjectionOptions   InjectionOptions
+	PodName            string
+	Namespace          string
+	Revision           string
+	ServiceAccountName string
+	Mesh               MeshArgs
+	Config             ConfigArgs
+	Service            ServiceArgs
+	MeshConfig         *meshconfig.MeshConfig
+	NetworksConfigFile string
+	CtrlZOptions       *ctrlz.Options
+	Plugins            []string
+	MCPOptions         MCPOptions
+	KeepaliveOptions   *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
-	BasePort  int
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -108,10 +105,6 @@ type DiscoveryServiceOptions struct {
 	// "" means disabling secure GRPC, used in test.
 	SecureGrpcAddr string
 
-	// The listening address for secure GRPC with DNS-based certificates. Default is :15012, if certificates are available.
-	// Will not start otherwise.
-	SecureGrpcDNSAddr string
-
 	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	MonitoringAddr string
@@ -122,6 +115,12 @@ type DiscoveryServiceOptions struct {
 type InjectionOptions struct {
 	// Directory of injection related config files.
 	InjectionDirectory string
+}
+
+type MCPOptions struct {
+	MaxMessageSize        int
+	InitialWindowSize     int
+	InitialConnWindowSize int
 }
 
 var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
@@ -159,7 +158,6 @@ func (p *PilotArgs) applyDefaults() {
 	p.ServiceAccountName = serviceAccountVar.Get()
 	p.Revision = revisionVar.Get()
 	p.KeepaliveOptions = istiokeepalive.DefaultOption()
-	p.BasePort = 15000
 	p.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
 	p.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 }

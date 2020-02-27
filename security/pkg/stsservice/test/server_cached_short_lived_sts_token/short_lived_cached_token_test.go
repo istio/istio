@@ -28,13 +28,10 @@ import (
 // proxy calls STS server to fetch token. If the original token is going to expire,
 // STS server fetches a new token for the proxy.
 func TestServerShortLivedCachedToken(t *testing.T) {
-	// Enable this test when gRPC fix is picked by Istio Proxy
-	// https://github.com/grpc/grpc/pull/21641
-	t.Skip("https://github.com/istio/istio/issues/20133")
 	// Sets up callback that verifies token on new XDS stream.
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers and proxy
-	setup := stsTest.SetUpTest(t, cb, testID.STSCacheTest, true)
+	setup := stsTest.SetupTest(t, cb, testID.STSShortLivedCacheTest, true)
 	// Explicitly set token life time to a short duration, which is below the grace
 	// period (5 minutes) of using cached token. Cached token is not in use.
 	setup.ClearTokenCache()
@@ -53,8 +50,8 @@ func TestServerShortLivedCachedToken(t *testing.T) {
 	// Starting proxy will send a STS request to the STS server. Because cached
 	// token is deleted, the STS server fetches a new token.
 	setup.StartProxy(t)
-	setup.ProxySetUp.WaitEnvoyReady()
-	setup.ProxySetUp.ReStartEnvoy()
+	setup.ProxySetup.WaitEnvoyReady()
+	setup.ProxySetup.ReStartEnvoy()
 	// Restarting proxy will send another STS request to the STS server. Because
 	// cached token is within grace period, the STS server fetches a new token.
 	g.Expect(cb.NumStream()).To(gomega.Equal(2))
