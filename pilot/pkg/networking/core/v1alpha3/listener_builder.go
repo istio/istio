@@ -261,11 +261,9 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	}
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
-	var listFilter []*listener.ListenerFilter
-	if util.IsAllowAnyOutbound(node) && node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
-		listFilter = append(listFilter, &listener.ListenerFilter{
-			Name: xdsutil.TlsInspector,
-		})
+	// Always enable the TLS inspector so that we can collect telemetry for unknown TLS traffic.
+	listenerFilters := []*listener.ListenerFilter{
+		{Name: xdsutil.TlsInspector},
 	}
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
@@ -274,7 +272,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		Address:          util.BuildAddress(actualWildcard, uint32(push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
-		ListenerFilters:  listFilter,
+		ListenerFilters:  listenerFilters,
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}

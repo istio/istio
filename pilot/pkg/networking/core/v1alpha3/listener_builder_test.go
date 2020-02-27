@@ -150,7 +150,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	if !strings.HasPrefix(listeners[1].Name, VirtualOutboundListenerName) {
 		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
 	} else {
-		t.Logf("found virtual listener: %s", listeners[1].Name)
+		t.Logf("found virtual outbound listener: %s", listeners[1].Name)
 	}
 
 }
@@ -199,7 +199,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t)
-	// app port listener and virtual inbound listener
+	// app port listener, virtual inbound & outbound listener
 	if len(listeners) != 3 {
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
 	}
@@ -243,7 +243,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t)
-	// app port listener and virtual inbound listener
+	// app port listener, virtual inbound & outbound listener
 	if len(listeners) != 3 {
 		t.Fatalf("expect %d listeners, found %d", 3, len(listeners))
 	}
@@ -329,5 +329,45 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		t.Fatalf("expect listener filters [%q, %q, %q], found [%q, %q, %q]",
 			xdsutil.OriginalDestination, xdsutil.TlsInspector, xdsutil.HttpInspector,
 			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
+	}
+}
+
+func TestVirtualOutboundListenerBuilder(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
+
+	// prepare
+	t.Helper()
+	listeners := prepareListeners(t)
+	// app port listener, virtual inbound & outbound listener
+	if len(listeners) != 3 {
+		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
+	}
+
+	if !strings.HasPrefix(listeners[1].Name, VirtualOutboundListenerName) {
+		t.Fatalf("expect virtual outbound listener, found %s", listeners[1].Name)
+	} else {
+		t.Logf("found virtual outbound listener: %s", listeners[1].Name)
+	}
+
+	l := listeners[1]
+
+	if len(l.FilterChains) != 3 {
+		t.Fatalf("expected 3 filter chains, got %d", len(l.FilterChains))
+	}
+	if l.FilterChains[0].Name != VirtualOutboundTrafficLoopFilterChainName ||
+		l.FilterChains[1].Name != VirtualOutboundCatchAllTLSFilterChainName ||
+		l.FilterChains[2].Name != VirtualOutboundCatchAllTCPFilterChainName {
+		t.Fatalf("found unexpected filter chain sequence: %s,%s,%s. want %s,%s,%s",
+			l.FilterChains[0].Name, l.FilterChains[1].Name, l.FilterChains[2].Name,
+			VirtualOutboundCatchAllTLSFilterChainName, VirtualOutboundCatchAllTCPFilterChainName,
+			VirtualOutboundTrafficLoopFilterChainName)
+	}
+
+	if len(l.ListenerFilters) != 1 {
+		t.Fatalf("expected 1 listener filter, got %d", len(l.ListenerFilters))
+	}
+	if l.ListenerFilters[0].Name != xdsutil.TlsInspector {
+		t.Fatalf("unexpected listener filter %s", l.ListenerFilters[0].Name)
 	}
 }
