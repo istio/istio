@@ -90,9 +90,13 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 			Ports:     ports,
 			Galley:    g,
 			Pilot:     p,
-			Annotations: map[echo.Annotation]*echo.AnnotationValue{
-				echo.SidecarInject: {
-					Value: strconv.FormatBool(false)},
+			Workloads: []echo.WorkloadConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarInject: {
+							Value: strconv.FormatBool(false)},
+					},
+				},
 			},
 		}).
 		With(&to, echo.Config{

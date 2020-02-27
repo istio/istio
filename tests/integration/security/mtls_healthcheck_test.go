@@ -16,7 +16,6 @@ package security
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -82,14 +81,15 @@ spec:
 			ServicePort:  8080,
 			InstancePort: 8080,
 		}},
+		Workloads: []echo.WorkloadConfig{
+			{
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, rewrite),
+			},
+		},
 	}
 	// Negative test, we expect the health check fails, so set a timeout duration.
 	if !rewrite {
 		cfg.ReadinessTimeout = time.Second * 40
-	}
-	cfg.Annotations = map[echo.Annotation]*echo.AnnotationValue{
-		echo.SidecarRewriteAppHTTPProbers: {
-			Value: strconv.FormatBool(rewrite)},
 	}
 	err := echoboot.NewBuilderOrFail(t, ctx).
 		With(&healthcheck, cfg).
