@@ -25,6 +25,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -38,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	protovalue "istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 )
@@ -921,8 +921,24 @@ func TestAuthnFilterConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []testCase{{
-		name:     "no-request-authn-rule",
-		expected: nil,
+		name: "no-request-authn-rule",
+		expected: &http_conn.HttpFilter{
+			Name: "istio_authn",
+			ConfigType: &http_conn.HttpFilter_TypedConfig{
+				TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+					Policy: &authn_alpha.Policy{
+						Peers: []*authn_alpha.PeerAuthenticationMethod{
+							{
+								Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+									Mtls: &authn_alpha.MutualTls{},
+								},
+							},
+						},
+						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
+					},
+				}),
+			},
+		},
 	}, {
 		name: "no-request-authn-rule-alphafallback",
 		alphaPolicyIn: &authn_alpha_api.Policy{
@@ -1022,10 +1038,10 @@ func TestAuthnFilterConfig(t *testing.T) {
 									},
 								},
 							},
-							PeerIsOptional:   true,
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
+						SkipValidateTrustDomain: false,
 					}),
 				},
 			},
@@ -1081,7 +1097,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 									},
 								},
 							},
-							PeerIsOptional:   true,
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
@@ -1140,7 +1155,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 									},
 								},
 							},
-							PeerIsOptional:   true,
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
@@ -1151,11 +1165,16 @@ func TestAuthnFilterConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := NewPolicyApplier("root-namespace", c.in, nil, c.alphaPolicyIn).AuthNFilter(model.SidecarProxy)
+			got := NewPolicyApplier("root-namespace", c.in, nil, c.alphaPolicyIn).AuthNFilter(model.SidecarProxy, 80)
 			if !reflect.DeepEqual(c.expected, got) {
-				gotYaml, _ := gogoprotomarshal.ToYAML(got)
-				expectedYaml, _ := gogoprotomarshal.ToYAML(c.expected)
-				t.Errorf("got:\n%s\nwanted:\n%s\n", gotYaml, expectedYaml)
+				pgot := &authn_filter.FilterConfig{}
+				pexp := &authn_filter.FilterConfig{}
+				ptypes.UnmarshalAny(got.GetTypedConfig(), pgot)
+				ptypes.UnmarshalAny(c.expected.GetTypedConfig(), pexp)
+				// gotYaml, _ := gogoprotomarshal.ToYAML(got)
+				// expectedYaml, _ := gogoprotomarshal.ToYAML(c.expected)
+				// t.Errorf("got:\n%s\nwanted:\n%s\n", gotYaml, expectedYaml)
+				t.Errorf("got:\n%v\nwanted:\n%v\n", spew.Sdump(pgot), spew.Sdump(pexp))
 			}
 		})
 	}
