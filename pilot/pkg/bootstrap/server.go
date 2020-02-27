@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"net"
 	"net/http"
 	"os"
@@ -146,8 +147,9 @@ type Server struct {
 
 	serviceEntryStore *external.ServiceEntryStore
 
-	HTTPListener net.Listener
-	GRPCListener net.Listener
+	HTTPListener    net.Listener
+	GRPCListener    net.Listener
+	GRPCDNSListener net.Listener
 
 	basePort int
 
@@ -235,7 +237,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 	if s.EnableCA() {
 		var err error
-		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)
+		var corev1 v1.CoreV1Interface
+		if s.kubeClient != nil {
+			corev1 = s.kubeClient.CoreV1()
+		}
+		s.ca, err = s.createCA(corev1, caOpts)
 		if err != nil {
 			return nil, fmt.Errorf("enableCA: %v", err)
 		}
@@ -328,6 +334,18 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		if err := fn(stop); err != nil {
 			return err
 		}
+	}
+	// Race condition - if waitForCache is too fast and we run this as a startup function,
+	// the grpc server would be started before CA is registered. Listening should be last.
+	if s.GRPCDNSListener != nil {
+		go func() {
+			if !s.waitForCacheSync(stop) {
+				return
+			}
+			if err := s.secureGRPCServerDNS.Serve(s.GRPCDNSListener); err != nil {
+				log.Errorf("error from GRPC server: %v", err)
+			}
+		}()
 	}
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
@@ -684,6 +702,7 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 	if err != nil {
 		return err
 	}
+	s.GRPCDNSListener = l
 
 	opts := s.grpcServerOptions(keepalive)
 	opts = append(opts, grpc.Creds(tlsCreds))
@@ -692,15 +711,6 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 	s.EnvoyXdsServer.Register(s.secureGRPCServerDNS)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go func() {
-			if !s.waitForCacheSync(stop) {
-				return
-			}
-			if err := s.secureGRPCServerDNS.Serve(l); err != nil {
-				log.Errorf("error from GRPC server: %v", err)
-			}
-		}()
-
 		go func() {
 			<-stop
 			s.secureGRPCServerDNS.Stop()
@@ -823,7 +833,7 @@ func (s *Server) initEventHandlers() error {
 // add a GRPC listener using DNS-based certificates. Will be used for Galley, injection and CA signing.
 func (s *Server) initDNSListener(args *PilotArgs) error {
 	istiodAddr := features.IstiodService.Get()
-	if istiodAddr == "" || s.kubeClient == nil {
+	if istiodAddr == "" {
 		// Feature disabled
 		return nil
 	}

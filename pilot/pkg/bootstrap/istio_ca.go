@@ -134,8 +134,8 @@ func (s *Server) EnableCA() bool {
 	if s.kubeClient == nil {
 		// No k8s - no self-signed certs.
 		// TODO: implement it using a local directory, for non-k8s env.
-		log.Warn("kubeclient is nil; disable the CA functionality")
-		return false
+		log.Warn("kubeclient is nil; disable the K8S CA functionality")
+		return true
 	}
 	if _, err := ioutil.ReadFile(s.jwtPath); err != nil {
 		// for debug we may want to override this by setting trustedIssuer explicitly
@@ -216,17 +216,19 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	}
 	log.Info("Istiod CA has started")
 
-	nc, err := NewNamespaceController(func() map[string]string {
-		return map[string]string{
-			constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
+	if s.kubeClient != nil {
+		nc, err := NewNamespaceController(func() map[string]string {
+			return map[string]string{
+				constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
+			}
+		}, s.kubeClient.CoreV1())
+		if err != nil {
+			log.Warnf("failed to start istiod namespace controller, error: %v", err)
+		} else {
+			s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
+				nc.Run(stop)
+			})
 		}
-	}, s.kubeClient.CoreV1())
-	if err != nil {
-		log.Warnf("failed to start istiod namespace controller, error: %v", err)
-	} else {
-		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-			nc.Run(stop)
-		})
 	}
 }
 

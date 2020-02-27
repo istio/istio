@@ -58,6 +58,7 @@ import (
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	caclient "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 )
 
 const (
@@ -376,7 +377,14 @@ var (
 			} else {
 				log.Info("Using existing certs")
 			}
-			nodeAgentSDSEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUDSPath, jwtPath)
+			nodeAgentSDSEnabled := false
+			sdsTokenPath := ""
+			if _, err := os.Stat(caclient.ProvCert + "/key.pem"); err == nil {
+				controlPlaneAuthEnabled = true
+				// Using a provisioning cert - this is not using old SDS NodeAgent, and requires certs.
+			} else {
+				nodeAgentSDSEnabled, sdsTokenPath = detectSds(controlPlaneBootstrap, sdsUDSPath, jwtPath)
+			}
 
 			if !nodeAgentSDSEnabled { // Not using citadel agent - this is either Pilot or Istiod.
 

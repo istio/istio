@@ -10,7 +10,7 @@ RUN mkdir -p /etc/dnscerts
 
 COPY *.yaml /var/lib/istio/config/
 COPY certs/ /var/lib/istio/
-COPY certs/default/* /etc/certs/
+COPY certs/default/* /var/run/secrets/istio/
 
 COPY istio.deb /tmp
 COPY istio-sidecar.deb /tmp

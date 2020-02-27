@@ -23,6 +23,11 @@ function startIstio() {
     sleep 1
 }
 
+function startIstiodLocal() {
+    bash -x /usr/local/bin/istio-start.sh &
+    sleep 1
+}
+
 function istioDebug() {
     curl localhost:15000/logging?upstream=debug
     curl localhost:15000/logging?client=debug
@@ -47,7 +52,7 @@ function istioTest() {
 
 if [ "$1" == "test" ]; then
   # start istiod, using local config files (no k8s)
-  /usr/local/bin/pilot-discovery discovery --configDir /var/lib/istio/config &
+  /usr/local/bin/pilot-discovery discovery --configDir /var/lib/istio/config --registries Mock &
 
   # Start sidecar and iptables
   startIstio

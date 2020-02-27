@@ -114,7 +114,7 @@ deb/run/docker:
 	  -v ${GO_TOP}:${GO_TOP} \
       -w ${PWD} \
       --mount type=bind,source="$(HOME)/.kube",destination="/home/.kube" \
-      --mount type=bind,source="$(TOP)",destination="/ws" \
+      --mount type=bind,source="$(GOPATH)",destination="/ws" \
       --net istiotest --ip ${DEB_IP} \
       --add-host echo:10.1.1.1 \
       --add-host byon.test.istio.io:10.1.1.2 \
