@@ -19,23 +19,22 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/operator/version"
-
-	"istio.io/istio/operator/pkg/translate"
-
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
-
-	"istio.io/istio/operator/pkg/name"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/operator/version"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/operator/pkg/translate"
 	pkgversion "istio.io/pkg/version"
 )
 
@@ -70,7 +69,15 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 		profile = psf
 	}
 
-	return genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+	iopsString, iops, err := genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if err := validation.ValidateConfig(false, iops.Values, iops).ToError(); err != nil {
+		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
+	}
+	return iopsString, iops, nil
 }
 
 // parseYAMLFiles parses the given slice of filenames containing YAML and merges them into a single IstioOperator
