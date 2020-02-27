@@ -15,12 +15,16 @@
 package security
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -554,6 +558,95 @@ func TestV1beta1_IngressGateway(t *testing.T) {
 						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 				},
 				)
+			}
+		})
+}
+
+// TestV1beta1_EgressGateway tests v1beta1 authorization on egress gateway.
+func TestV1beta1_EgressGateway(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-egress-gateway",
+				Inject: true,
+			})
+
+			var a, b echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, echo.Config{
+					Service:   "b",
+					Namespace: ns,
+					Ports: []echo.Port{
+						{
+							Name:        "http",
+							Protocol:    protocol.HTTP,
+							ServicePort: 8090,
+						},
+					},
+					Galley: g,
+					Pilot:  p,
+				}).
+				BuildOrFail(t)
+
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": rootNamespace,
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsStringOrFail(t, "testdata/rbac/v1beta1-egress-gateway.yaml.tmpl"))
+			g.ApplyConfigOrFail(t, nil, policies...)
+			defer g.DeleteConfigOrFail(t, nil, policies...)
+
+			cases := []struct {
+				path string
+				code string
+				body string
+			}{
+				{
+					path: "/allow",
+					code: response.StatusCodeOK,
+					body: "handled-by-egress-gateway",
+				},
+				{
+					path: "/deny",
+					code: response.StatusCodeForbidden,
+					body: "RBAC: access denied",
+				},
+			}
+
+			for _, tc := range cases {
+				from := getWorkload(a, t)
+				request := &epb.ForwardEchoRequest{
+					// Use a fake IP to make sure the request is handled by our test.
+					Url:   fmt.Sprintf("http://10.4.4.4%s", tc.path),
+					Count: 1,
+					Headers: []*epb.Header{
+						{
+							Key:   "Host",
+							Value: "www.company.com",
+						},
+					},
+				}
+				t.Run(tc.path, func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, func() error {
+						responses, err := from.ForwardEcho(context.TODO(), request)
+						if err != nil {
+							return err
+						}
+						if len(responses) < 1 {
+							return fmt.Errorf("received no responses from request to %s", tc.path)
+						}
+						if tc.code != responses[0].Code {
+							return fmt.Errorf("want status %s but got %s", tc.code, responses[0].Code)
+						}
+						if !strings.Contains(responses[0].Body, tc.body) {
+							return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].Body)
+						}
+						return nil
+					}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+				})
 			}
 		})
 }
