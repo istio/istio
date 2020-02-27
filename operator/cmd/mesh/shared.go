@@ -125,9 +125,24 @@ func refreshGoldenFiles() bool {
 }
 
 func ReadLayeredYAMLs(filenames []string) (string, error) {
+	return readLayeredYAMLs(filenames, os.Stdin)
+}
+
+func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error) {
 	var ly string
+	var stdin bool
 	for _, fn := range filenames {
-		b, err := ioutil.ReadFile(strings.TrimSpace(fn))
+		var b []byte
+		var err error
+		if fn == "-" {
+			if stdin {
+				continue
+			}
+			stdin = true
+			b, err = ioutil.ReadAll(stdinReader)
+		} else {
+			b, err = ioutil.ReadFile(strings.TrimSpace(fn))
+		}
 		if err != nil {
 			return "", err
 		}
