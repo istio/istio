@@ -241,10 +241,16 @@ func TestConfigDump(t *testing.T) {
 			}
 			// Expect CDS, LDS, then RDS
 			_, err = adsReceive(envoy, 5*time.Second)
-			_, err = adsReceive(envoy, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv cds failed", err)
+			}
 			_, err = adsReceive(envoy, 5*time.Second)
 			if err != nil {
-				t.Fatal("Recv failed", err)
+				t.Fatal("Recv lds failed", err)
+			}
+			_, err = adsReceive(envoy, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv rds failed", err)
 			}
 
 			wrapper := getConfigDump(t, s.EnvoyXdsServer, tt.proxyID, tt.wantCode)
