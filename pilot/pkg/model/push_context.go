@@ -984,6 +984,13 @@ func (ps *PushContext) updateContext(
 		case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(),
 			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
 			quotasChanged = true
+		case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
+			virtualServicesChanged = true
+			gatewayChanged = true
 		}
 	}
 

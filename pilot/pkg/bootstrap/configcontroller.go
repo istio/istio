@@ -24,6 +24,9 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/config/kube/gateway"
+	"istio.io/istio/pilot/pkg/features"
+
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/hashicorp/go-multierror"
@@ -80,6 +83,9 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return err
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
+		if features.ServiceApisEnabled.Get() {
+			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController))
+		}
 	}
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
@@ -290,6 +296,8 @@ func (s *Server) mcpController(
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
+	// TODO(howardjohn) allow the collection here to be configurable to allow running with only
+	// Kubernetes APIs.
 	configClient, err := controller.NewClient(args.Config.KubeConfig, "", collections.Pilot,
 		args.Config.ControllerOptions.DomainSuffix, buildLedger(args.Config), args.Revision)
 	if err != nil {

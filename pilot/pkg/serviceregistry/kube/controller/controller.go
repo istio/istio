@@ -566,7 +566,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			// attempt to read the real pod.
 			out, err = c.getProxyServiceInstancesFromMetadata(proxy)
 			if err != nil {
-				log.Warnf("getProxyServiceInstancesFromMetadata failed: %v", err)
+				log.Warnf("getProxyServiceInstancesFromMetadata for %v failed: %v", proxy.ID, err)
 			}
 		}
 	}

@@ -241,6 +241,31 @@ collections:
     kind: "Ingress"
     group: "extensions"
 
+  - kind: "GatewayClass"
+    name: "k8s/service_apis/v1alpha1/gatewayclasses"
+    group: "networking.x.k8s.io"
+    pilot: true
+
+  - kind: "Gateway"
+    name: "k8s/service_apis/v1alpha1/gateways"
+    group: "networking.x.k8s.io"
+    pilot: true
+
+  - kind: "HTTPRoute"
+    name: "k8s/service_apis/v1alpha1/httproutes"
+    group: "networking.x.k8s.io"
+    pilot: true
+
+  - kind: "TcpRoute"
+    name: "k8s/service_apis/v1alpha1/tcproutes"
+    group: "networking.x.k8s.io"
+    pilot: true
+
+  - kind: "TrafficSplit"
+    name: "k8s/service_apis/v1alpha1/trafficsplits"
+    group: "networking.x.k8s.io"
+    pilot: true
+
   # Istio CRD collections
 
   - name: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
@@ -468,6 +493,42 @@ resources:
     version: "v1beta1"
     proto: "k8s.io.api.extensions.v1beta1.IngressSpec"
     protoPackage: "k8s.io/api/extensions/v1beta1"
+
+  - Kind: "GatewayClass"
+    plural: "gatewayclasses"
+    group: "networking.x.k8s.io"
+    version: "v1alpha1"
+    clusterScoped: true
+    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.GatewayClassSpec"
+
+  - Kind: "Gateway"
+    plural: "gateways"
+    group: "networking.x.k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.GatewaySpec"
+
+  - Kind: "HTTPRoute"
+    plural: "httproutes"
+    group: "networking.x.k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec"
+
+  - Kind: "TcpRoute"
+    plural: "tcproutes"
+    group: "networking.x.k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.TcpRouteSpec"
+
+  - Kind: "TrafficSplit"
+    plural: "trafficsplits"
+    group: "networking.x.k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.TrafficSplitSpec"
 
   ## Istio resources
   - kind: "VirtualService"

@@ -74,6 +74,8 @@ func CamelCaseToKebabCase(s string) string {
 	switch s {
 	case "HTTPAPISpec":
 		return "http-api-spec"
+	case "HTTPRoute":
+		return "http-route"
 	case "HTTPAPISpecBinding":
 		return "http-api-spec-binding"
 	default:

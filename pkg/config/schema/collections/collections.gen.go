@@ -1101,6 +1101,96 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SServiceApisV1Alpha1Gatewayclasses describes the collection
+	// k8s/service_apis/v1alpha1/gatewayclasses
+	K8SServiceApisV1Alpha1Gatewayclasses = collection.Builder{
+		Name:         "k8s/service_apis/v1alpha1/gatewayclasses",
+		VariableName: "K8SServiceApisV1Alpha1Gatewayclasses",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.x.k8s.io",
+			Kind:          "GatewayClass",
+			Plural:        "gatewayclasses",
+			Version:       "v1alpha1",
+			Proto:         "k8s.io.service_apis.api.v1alpha1.GatewayClassSpec",
+			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			ClusterScoped: true,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SServiceApisV1Alpha1Gateways describes the collection
+	// k8s/service_apis/v1alpha1/gateways
+	K8SServiceApisV1Alpha1Gateways = collection.Builder{
+		Name:         "k8s/service_apis/v1alpha1/gateways",
+		VariableName: "K8SServiceApisV1Alpha1Gateways",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.x.k8s.io",
+			Kind:          "Gateway",
+			Plural:        "gateways",
+			Version:       "v1alpha1",
+			Proto:         "k8s.io.service_apis.api.v1alpha1.GatewaySpec",
+			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateGateway,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SServiceApisV1Alpha1Httproutes describes the collection
+	// k8s/service_apis/v1alpha1/httproutes
+	K8SServiceApisV1Alpha1Httproutes = collection.Builder{
+		Name:         "k8s/service_apis/v1alpha1/httproutes",
+		VariableName: "K8SServiceApisV1Alpha1Httproutes",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.x.k8s.io",
+			Kind:          "HTTPRoute",
+			Plural:        "httproutes",
+			Version:       "v1alpha1",
+			Proto:         "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec",
+			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SServiceApisV1Alpha1Tcproutes describes the collection
+	// k8s/service_apis/v1alpha1/tcproutes
+	K8SServiceApisV1Alpha1Tcproutes = collection.Builder{
+		Name:         "k8s/service_apis/v1alpha1/tcproutes",
+		VariableName: "K8SServiceApisV1Alpha1Tcproutes",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.x.k8s.io",
+			Kind:          "TcpRoute",
+			Plural:        "tcproutes",
+			Version:       "v1alpha1",
+			Proto:         "k8s.io.service_apis.api.v1alpha1.TcpRouteSpec",
+			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SServiceApisV1Alpha1Trafficsplits describes the collection
+	// k8s/service_apis/v1alpha1/trafficsplits
+	K8SServiceApisV1Alpha1Trafficsplits = collection.Builder{
+		Name:         "k8s/service_apis/v1alpha1/trafficsplits",
+		VariableName: "K8SServiceApisV1Alpha1Trafficsplits",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.x.k8s.io",
+			Kind:          "TrafficSplit",
+			Plural:        "trafficsplits",
+			Version:       "v1alpha1",
+			Proto:         "k8s.io.service_apis.api.v1alpha1.TrafficSplitSpec",
+			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(IstioAuthenticationV1Alpha1Meshpolicies).
@@ -1164,6 +1254,11 @@ var (
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
+		MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
+		MustAdd(K8SServiceApisV1Alpha1Gateways).
+		MustAdd(K8SServiceApisV1Alpha1Httproutes).
+		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
+		MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 		Build()
 
 	// Istio contains only Istio collections.
@@ -1233,6 +1328,11 @@ var (
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
+		MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
+		MustAdd(K8SServiceApisV1Alpha1Gateways).
+		MustAdd(K8SServiceApisV1Alpha1Httproutes).
+		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
+		MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -1256,5 +1356,10 @@ var (
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
+		MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
+		MustAdd(K8SServiceApisV1Alpha1Gateways).
+		MustAdd(K8SServiceApisV1Alpha1Httproutes).
+		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
+		MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 		Build()
 )

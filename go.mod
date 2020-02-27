@@ -38,7 +38,7 @@ require (
 	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
-	github.com/d4l3k/messagediff v1.2.1 // indirect
+	github.com/d4l3k/messagediff v1.2.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dchest/siphash v1.1.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
@@ -161,6 +161,7 @@ require (
 	k8s.io/kubectl v0.17.2
 	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
 	sigs.k8s.io/controller-runtime v0.4.0
+	sigs.k8s.io/service-apis v0.0.0-20200227172328-b9010cfacdbe
 	sigs.k8s.io/yaml v1.1.0
 )
 
