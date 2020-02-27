@@ -41,7 +41,6 @@
 // charts/gateways/istio-ingress/templates/serviceaccount.yaml
 // charts/gateways/istio-ingress/templates/sidecar.yaml
 // charts/gateways/istio-ingress/values.yaml
-// charts/gateways/meshexpansion.yaml
 // charts/istio-cni/Chart.yaml
 // charts/istio-cni/templates/clusterrole.yaml
 // charts/istio-cni/templates/clusterrolebinding.yaml
@@ -8374,9 +8373,21 @@ spec:
     istio: ingressgateway
   servers:
     - port:
-        number: 15012
+        number: 15011
         protocol: TCP
         name: tcp-pilot
+      hosts:
+        - "*"
+    - port:
+        number: 15012
+        protocol: TCP
+        name: tcp-istiod
+      hosts:
+        - "*"
+    - port:
+        number: 8060
+        protocol: TCP
+        name: tcp-citadel
       hosts:
         - "*"
 ---
@@ -8395,6 +8406,45 @@ spec:
   - meshexpansion-gateway
   tcp:
   - match:
+    - port: 15011
+    route:
+    - destination:
+        host: istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+        port:
+          number: 15011
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-pilot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15011
+      tls:
+        mode: DISABLE
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-vs-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  gateways:
+  - meshexpansion-gateway
+  tcp:
+  - match:
     - port: 15012
     route:
     - destination:
@@ -8406,7 +8456,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: meshexpansion-dr-pilot
+  name: meshexpansion-dr-istiod
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
@@ -8418,6 +8468,28 @@ spec:
         number: 15012
       tls:
         mode: DISABLE
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-vs-citadel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - istio-citadel.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  gateways:
+  - meshexpansion-gateway
+  tcp:
+  - match:
+    - port: 8060
+    route:
+    - destination:
+        host: istio-citadel.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+        port:
+          number: 8060
 
 {{- end }}
 
@@ -9000,122 +9072,6 @@ func chartsGatewaysIstioIngressValuesYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/gateways/istio-ingress/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsGatewaysMeshexpansionYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: meshexpansion-gateway
-  namespace: istio-system
-  labels:
-    release: istio-meshex
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-    - port:
-        number: 15012
-        protocol: TCP
-        name: tcp-pilot
-      hosts:
-        - "*"
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: meshexpansion-vs-pilot
-  namespace: istio-system
-  labels:
-    release: istio-meshex
-spec:
-  hosts:
-  - istiod.istio-system.svc
-  gateways:
-  - meshexpansion-gateway
-  tcp:
-  - match:
-    - port: 15012
-    route:
-    - destination:
-        host: istiod.istio-system
-        port:
-          number: 15012
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: meshexpansion-dr-pilot
-  namespace: istio-system
-  labels:
-    release: istio-meshex
-spec:
-  host: istiod.istio-system.svc
-  trafficPolicy:
-    portLevelSettings:
-    - port:
-        number: 15012
-      tls:
-        mode: DISABLE
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: meshexpansion-vs-citadel
-  namespace: istio-system
-  labels:
-    release: istio-meshex
-spec:
-  hosts:
-  - istio-citadel.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
-  gateways:
-  - meshexpansion-gateway
-  tcp:
-  - match:
-    - port: 8060
-    route:
-    - destination:
-        host: istio-citadel.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
-        port:
-          number: 8060
-
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: dns-ilb
-  annotations:
-    cloud.google.com/load-balancer-type: "internal"
-  labels:
-    k8s-app: kube-dns
-spec:
-  type: LoadBalancer
-  ports:
-    - port: 53
-      protocol: UDP
-  selector:
-    k8s-app: kube-dns
-
----
-`)
-
-func chartsGatewaysMeshexpansionYamlBytes() ([]byte, error) {
-	return _chartsGatewaysMeshexpansionYaml, nil
-}
-
-func chartsGatewaysMeshexpansionYaml() (*asset, error) {
-	bytes, err := chartsGatewaysMeshexpansionYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/meshexpansion.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -41977,7 +41933,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/gateways/istio-ingress/templates/serviceaccount.yaml":                            chartsGatewaysIstioIngressTemplatesServiceaccountYaml,
 	"charts/gateways/istio-ingress/templates/sidecar.yaml":                                   chartsGatewaysIstioIngressTemplatesSidecarYaml,
 	"charts/gateways/istio-ingress/values.yaml":                                              chartsGatewaysIstioIngressValuesYaml,
-	"charts/gateways/meshexpansion.yaml":                                                     chartsGatewaysMeshexpansionYaml,
 	"charts/istio-cni/Chart.yaml":                                                            chartsIstioCniChartYaml,
 	"charts/istio-cni/templates/clusterrole.yaml":                                            chartsIstioCniTemplatesClusterroleYaml,
 	"charts/istio-cni/templates/clusterrolebinding.yaml":                                     chartsIstioCniTemplatesClusterrolebindingYaml,
@@ -42275,7 +42230,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				}},
 				"values.yaml": &bintree{chartsGatewaysIstioIngressValuesYaml, map[string]*bintree{}},
 			}},
-			"meshexpansion.yaml": &bintree{chartsGatewaysMeshexpansionYaml, map[string]*bintree{}},
 		}},
 		"istio-cni": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsIstioCniChartYaml, map[string]*bintree{}},

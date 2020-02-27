@@ -13,7 +13,7 @@ spec:
     - port:
         number: 15012
         protocol: TCP
-        name: tcp-pilot
+        name: tcp-istiod
       hosts:
         - "*"
 ---
@@ -21,13 +21,13 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: meshexpansion-vs-pilot
+  name: meshexpansion-vs-istiod
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 spec:
   hosts:
-  - istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  - istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -43,7 +43,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: meshexpansion-dr-pilot
+  name: meshexpansion-dr-istiod
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
