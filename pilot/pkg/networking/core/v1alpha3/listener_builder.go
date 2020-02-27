@@ -20,6 +20,8 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
@@ -240,7 +242,8 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	filterChains := buildOutboundCatchAllNetworkFilterChains(configgen, node, push)
+	filterChains := buildOutboundCatchAllHTTPFilterChains(configgen, node, push)
+	filterChains = append(filterChains, buildOutboundCatchAllNetworkFilterChains(configgen, node, push)...)
 
 	// The virtual listener will handle all traffic that does not match any other listeners, and will
 	// blackhole/passthrough depending on the outbound traffic policy. When passthrough is enabled,
@@ -261,10 +264,6 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	}
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
-	// Always enable the TLS inspector so that we can collect telemetry for unknown TLS traffic.
-	listenerFilters := []*listener.ListenerFilter{
-		{Name: xdsutil.TlsInspector},
-	}
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
@@ -272,14 +271,18 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		Address:          util.BuildAddress(actualWildcard, uint32(push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
-		ListenerFilters:  listenerFilters,
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
-	ipTablesListener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(push.Mesh.ProtocolDetectionTimeout)
-	if ipTablesListener.ListenerFiltersTimeout != nil {
-		ipTablesListener.ContinueOnListenerFiltersTimeout = true
+
+	if util.IsProtocolSniffingEnabledForOutbound(node) {
+		ipTablesListener.ListenerFilters = []*listener.ListenerFilter{
+			{Name: xdsutil.HttpInspector},
+		}
 	}
+	ipTablesListener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(push.Mesh.ProtocolDetectionTimeout)
+	ipTablesListener.ContinueOnListenerFiltersTimeout = true
+
 	configgen.onVirtualOutboundListener(node, push, ipTablesListener)
 	builder.virtualOutboundListener = ipTablesListener
 	return builder
@@ -585,9 +588,6 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 			// build a cluster out of this destination
 			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
 				nil, 0)
-			// When the sidecar is wrapping https traffic into mtls for egress gateway,
-			// this filter will copy sni from https into mtls for the egress gateway
-			filterStack = append(filterStack, &listener.Filter{Name: util.ForwardDownstreamSniFilter})
 		}
 	} else {
 		egressCluster = util.BlackHoleCluster
@@ -621,4 +621,57 @@ func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 			Filters: filterStack,
 		},
 	}
+}
+
+func buildOutboundCatchAllHTTPFilterChains(_ *ConfigGeneratorImpl,
+	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+	if !util.IsProtocolSniffingEnabledForOutbound(node) {
+		return nil
+	}
+
+	in := &plugin.InputParams{
+		ListenerProtocol:           plugin.ListenerProtocolHTTP,
+		ListenerCategory:           networking.EnvoyFilter_SIDECAR_OUTBOUND,
+		DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
+		Node:                       node,
+		Push:                       push,
+	}
+	httpOpts := &httpListenerOpts{
+		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
+		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
+		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
+		useRemoteAddress: features.UseRemoteAddress.Get(),
+		statPrefix:       string(model.TrafficDirectionOutbound) + "_" + VirtualOutboundListenerName,
+		routeConfig: &xdsapi.RouteConfiguration{
+			Name:             VirtualOutboundListenerName,
+			ValidateClusters: proto.BoolFalse,
+			VirtualHosts:     []*route.VirtualHost{buildCatchAllVirtualHost(node)},
+		},
+	}
+
+	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
+		httpOpts.connectionManager = &http_conn.HttpConnectionManager{
+			HttpProtocolOptions: &core.Http1ProtocolOptions{
+				AcceptHttp_10: true,
+			},
+		}
+	}
+	connectionManager := buildHTTPConnectionManager(in, httpOpts, nil)
+	filter := &listener.Filter{
+		Name:       xdsutil.HTTPConnectionManager,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
+	}
+
+	// filter chain that matches only for HTTP traffic
+	// the application protocols is set by the http inspector when it detects the traffic to be http
+	filterChains := []*listener.FilterChain{
+		{
+			FilterChainMatch: &listener.FilterChainMatch{
+				ApplicationProtocols: plaintextHTTPALPNs,
+			},
+			Filters: []*listener.Filter{filter},
+			Name:    VirtualOutboundCatchAllHTTPFilterChainName,
+		},
+	}
+	return filterChains
 }

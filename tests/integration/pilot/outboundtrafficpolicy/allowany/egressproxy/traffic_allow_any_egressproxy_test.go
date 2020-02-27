@@ -24,12 +24,14 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework"
@@ -139,7 +141,7 @@ func TestSidecarConfig(t *testing.T) {
 		if err := p.StartDiscovery(listenerReq); err != nil {
 			t.Fatal(err)
 		}
-		if err := p.WatchDiscovery(time.Second*500, checkFallThroughNetworkFilter); err != nil {
+		if err := p.WatchDiscovery(time.Second*500, checkCatchAllFilterChains); err != nil {
 			t.Fatal(err)
 		}
 
@@ -154,39 +156,43 @@ func TestSidecarConfig(t *testing.T) {
 		if err := p.StartDiscovery(routeReq); err != nil {
 			t.Fatal(err)
 		}
-		if err := p.WatchDiscovery(time.Second*500, checkFallThroughRouteConfig); err != nil {
+		if err := p.WatchDiscovery(time.Second*500, checkCatchAllRDSResponse); err != nil {
 			t.Fatal(err)
 		}
 	})
 }
 
-func checkFallThroughRouteConfig(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
-	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
+func checkCatchAllRDSResponse(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	for _, res := range resp.Resources {
 		rc := &xdsapi.RouteConfiguration{}
 		if err := proto.Unmarshal(res.Value, rc); err != nil {
 			return false, err
 		}
-		found := false
-		for _, vh := range rc.GetVirtualHosts() {
-			if vh.GetName() == "allow_any" {
-				for _, r := range vh.GetRoutes() {
-					if expectedEgressCluster == r.GetRoute().GetCluster() {
-						found = true
-						break
-					}
-				}
-				break
-			}
-		}
-		if !found {
+		if !checkCatchAllRouteConfig(rc) {
 			return false, fmt.Errorf("failed to find expected fallthrough route")
 		}
 	}
 	return true, nil
 }
 
-func checkFallThroughNetworkFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+func checkCatchAllRouteConfig(rc *xdsapi.RouteConfiguration) bool {
+	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
+	found := false
+	for _, vh := range rc.GetVirtualHosts() {
+		if vh.GetName() == "allow_any" {
+			for _, r := range vh.GetRoutes() {
+				if expectedEgressCluster == r.GetRoute().GetCluster() {
+					found = true
+					break
+				}
+			}
+			break
+		}
+	}
+	return found
+}
+
+func checkCatchAllFilterChains(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]struct{}{
 		"virtualInbound":  {},
 		"virtualOutbound": {},
@@ -212,7 +218,7 @@ func checkFallThroughNetworkFilter(resp *xdsapi.DiscoveryResponse) (success bool
 
 	tcpproxyFilterFound := false
 	for _, fc := range listenerToCheck.FilterChains {
-		if fc.FilterChainMatch != nil {
+		if fc.Name != v1alpha3.VirtualOutboundCatchAllTCPFilterChainName {
 			continue
 		}
 		for _, networkFilter := range fc.Filters {
@@ -238,6 +244,35 @@ func checkFallThroughNetworkFilter(resp *xdsapi.DiscoveryResponse) (success bool
 	}
 	if !tcpproxyFilterFound {
 		return false, fmt.Errorf("failed to find tcpproxy network filter in the  virtualOutbound listener")
+	}
+
+	hcmFound := false
+	for _, fc := range listenerToCheck.FilterChains {
+		if fc.Name != v1alpha3.VirtualOutboundCatchAllHTTPFilterChainName {
+			continue
+		}
+		for _, networkFilter := range fc.Filters {
+			if networkFilter.Name == wellknown.HTTPConnectionManager {
+				hcmFound = true
+				hcm := &http_conn.HttpConnectionManager{}
+				if networkFilter.GetTypedConfig() != nil {
+					if err := ptypes.UnmarshalAny(networkFilter.GetTypedConfig(), hcm); err != nil {
+						return false, fmt.Errorf("failed to unmarshall http connection manager filter from virtualOutbound listener: %v", err)
+					}
+				}
+
+				if err := hcm.Validate(); err != nil {
+					return false, fmt.Errorf("invalid http connection manager in virtualOutbound listener: %v", err)
+				}
+				rc := hcm.GetRouteConfig()
+				if rc == nil || !checkCatchAllRouteConfig(rc) {
+					return false, fmt.Errorf("did not find expected egress route in http connection manager, got %+v", rc)
+				}
+			}
+		}
+	}
+	if !hcmFound {
+		return false, fmt.Errorf("failed to find http connection managerin the virtualOutbound listener")
 	}
 	return true, nil
 }

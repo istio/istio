@@ -92,6 +92,9 @@ const (
 	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
 	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
 
+	// VirtualOutboundCatchAllHTTPFilterChainName is the name of the catch all http filter chain
+	VirtualOutboundCatchAllHTTPFilterChainName = "virtualOutbound-catchall-http"
+
 	// VirtualOutboundTrafficLoopFilterChainName is the name of the filter chain that handles
 	// pod IP traffic loops
 	VirtualOutboundTrafficLoopFilterChainName = "virtualOutbound-trafficloop"

@@ -356,18 +356,12 @@ func TestVirtualOutboundListenerBuilder(t *testing.T) {
 		t.Fatalf("expected 3 filter chains, got %d", len(l.FilterChains))
 	}
 	if l.FilterChains[0].Name != VirtualOutboundTrafficLoopFilterChainName ||
-		l.FilterChains[1].Name != VirtualOutboundCatchAllTLSFilterChainName ||
+		l.FilterChains[1].Name != VirtualOutboundCatchAllHTTPFilterChainName ||
 		l.FilterChains[2].Name != VirtualOutboundCatchAllTCPFilterChainName {
 		t.Fatalf("found unexpected filter chain sequence: %s,%s,%s. want %s,%s,%s",
 			l.FilterChains[0].Name, l.FilterChains[1].Name, l.FilterChains[2].Name,
-			VirtualOutboundCatchAllTLSFilterChainName, VirtualOutboundCatchAllTCPFilterChainName,
-			VirtualOutboundTrafficLoopFilterChainName)
-	}
-
-	if len(l.ListenerFilters) != 1 {
-		t.Fatalf("expected 1 listener filter, got %d", len(l.ListenerFilters))
-	}
-	if l.ListenerFilters[0].Name != xdsutil.TlsInspector {
-		t.Fatalf("unexpected listener filter %s", l.ListenerFilters[0].Name)
+			VirtualOutboundTrafficLoopFilterChainName,
+			VirtualOutboundCatchAllHTTPFilterChainName,
+			VirtualOutboundCatchAllTCPFilterChainName)
 	}
 }
