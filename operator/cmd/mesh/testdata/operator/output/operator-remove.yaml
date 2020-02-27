@@ -201,7 +201,7 @@ spec:
               memory: 128Mi
           env:
             - name: WATCH_NAMESPACE
-              value: istio-test-namespace
+              value: operator-test-namespace
             - name: LEADER_ELECTION_NAMESPACE
               value: operator-test-namespace
             - name: POD_NAME
