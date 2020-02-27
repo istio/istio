@@ -145,7 +145,7 @@
           "tag_name": "component"
       },
       {
-          "regex": "(tag\\.(.+?)\\.)",
+          "regex": "(tag\\.(.+?);\\.)",
           "tag_name": "tag"
       },
       {
