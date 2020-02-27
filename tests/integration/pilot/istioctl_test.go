@@ -227,7 +227,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
-		RunParallel(func(ctx framework.TestContext) {
+		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-pc",
 				Inject: true,
