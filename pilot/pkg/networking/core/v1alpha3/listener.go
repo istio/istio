@@ -89,9 +89,6 @@ const (
 	// VirtualOutboundListenerName is the name for traffic capture listener
 	VirtualOutboundListenerName = "virtualOutbound"
 
-	// VirtualOutboundCatchAllTLSFilterChainName is the name of the catch all tls filter chain
-	VirtualOutboundCatchAllTLSFilterChainName = "virtualOutbound-catchall-tls"
-
 	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
 	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
 
@@ -1791,15 +1788,12 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 		Protocol: protocol.TCP,
 	}
 
-	if len(ipTablesListener.FilterChains) < 1 || len(ipTablesListener.FilterChains[0].Filters) < 1 {
+	if len(ipTablesListener.FilterChains) < 1 {
 		return ipTablesListener
 	}
 
 	// contains all filter chains except for the final passthrough/blackhole
-	initialFilterChain := ipTablesListener.FilterChains[:len(ipTablesListener.FilterChains)-1]
-
-	// contains just the final passthrough/blackhole
-	fallbackFilter := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
+	lastFilterChain := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1]
 
 	if util.IsAllowAnyOutbound(node) {
 		svc = util.FallThroughFilterChainPassthroughService
@@ -1827,11 +1821,10 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 	}
 	if len(mutable.FilterChains) > 0 && len(mutable.FilterChains[0].TCP) > 0 {
 		filters := append([]*listener.Filter{}, mutable.FilterChains[0].TCP...)
-		filters = append(filters, fallbackFilter)
+		filters = append(filters, lastFilterChain.Filters...)
 
 		// Replace the final filter chain with the new chain that has had plugins applied
-		initialFilterChain = append(initialFilterChain, &listener.FilterChain{Filters: filters})
-		ipTablesListener.FilterChains = initialFilterChain
+		lastFilterChain.Filters = filters
 	}
 	return ipTablesListener
 }
