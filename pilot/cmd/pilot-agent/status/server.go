@@ -45,7 +45,7 @@ const (
 	quitPath = "/quitquitquit"
 	// KubeAppProberEnvName is the name of the command line flag for pilot agent to pass app prober config.
 	// The json encoded string to pass app HTTP probe information from injector(istioctl or webhook).
-	// For example, ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}.
+	// For example, ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"httpGet":{"path": "/hello", "port": 8080}}.
 	// indicates that httpbin container liveness prober port is 8080 and probing path is /hello.
 	// This environment variable should never be set manually.
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
@@ -57,9 +57,9 @@ var (
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
 // It's a map from the prober URL path to the Kubernetes Prober config.
-// For example, "/app-health/hello-world/livez" entry contains livenss prober config for
+// For example, "/app-health/hello-world/livez" entry contains liveness prober config for
 // container "hello-world".
-type KubeAppProbers map[string]*corev1.HTTPGetAction
+type KubeAppProbers map[string]*corev1.Probe
 
 // Config for the status server.
 type Config struct {
@@ -101,7 +101,10 @@ func NewServer(config Config) (*Server, error) {
 		if !appProberPattern.Match([]byte(path)) {
 			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern ^/app-health/[^\/]+/(livez|readyz)$`)
 		}
-		if prober.Port.Type != intstr.Int {
+		if prober.HTTPGet == nil {
+			return nil, fmt.Errorf(`invalid prober type %v, must be of type httpGet`)
+		}
+		if prober.HTTPGet.Port.Type != intstr.Int {
 			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 		}
 	}
@@ -225,10 +228,10 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		},
 	}
 	var url string
-	if prober.Scheme == corev1.URISchemeHTTPS {
-		url = fmt.Sprintf("https://localhost:%v%s", prober.Port.IntValue(), prober.Path)
+	if prober.HTTPGet.Scheme == corev1.URISchemeHTTPS {
+		url = fmt.Sprintf("https://localhost:%v%s", prober.HTTPGet.Port.IntValue(), prober.HTTPGet.Path)
 	} else {
-		url = fmt.Sprintf("http://localhost:%v%s", prober.Port.IntValue(), prober.Path)
+		url = fmt.Sprintf("http://localhost:%v%s", prober.HTTPGet.Port.IntValue(), prober.HTTPGet.Path)
 	}
 	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -244,7 +247,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		appReq.Header[name] = newValues
 	}
 
-	for _, h := range prober.HTTPHeaders {
+	for _, h := range prober.HTTPGet.HTTPHeaders {
 		if h.Name == "Host" || h.Name == ":authority" {
 			// Probe has specific host header override; honor it
 			appReq.Host = h.Value
@@ -255,7 +258,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	// Send the request.
 	response, err := httpClient.Do(appReq)
 	if err != nil {
-		log.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, prober.Path)
+		log.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, prober.HTTPGet.Path)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

@@ -104,41 +104,40 @@ func extractStatusPort(sidecar *corev1.Container) int {
 	return -1
 }
 
-// convertAppProber returns a overwritten `HTTPGetAction` for pilot agent to take over.
-func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev1.HTTPGetAction {
+// convertAppProber returns an overwritten `Probe` for pilot agent to take over.
+func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
 	if probe == nil || probe.HTTPGet == nil {
 		return nil
 	}
-	c := probe.HTTPGet.DeepCopy()
+	p := probe.DeepCopy()
 	// Change the application container prober config.
-	c.Port = intstr.FromInt(statusPort)
-	c.Path = newURL
+	p.HTTPGet.Port = intstr.FromInt(statusPort)
+	p.HTTPGet.Path = newURL
 	// For HTTPS prober, we change to HTTP,
 	// and pilot agent uses https to request application prober endpoint.
 	// Kubelet -> HTTP -> Pilot Agent -> HTTPS -> Application
-	if c.Scheme == corev1.URISchemeHTTPS {
-		c.Scheme = corev1.URISchemeHTTP
+	if p.HTTPGet.Scheme == corev1.URISchemeHTTPS {
+		p.HTTPGet.Scheme = corev1.URISchemeHTTP
 	}
-	return c
+	return p
 }
 
 // DumpAppProbers returns a json encoded string as `status.KubeAppProbers`.
 // Also update the probers so that all usages of named port will be resolved to integer.
 func DumpAppProbers(podspec *corev1.PodSpec) string {
 	out := status.KubeAppProbers{}
-	updateNamedPort := func(p *corev1.Probe, portMap map[string]int32) *corev1.HTTPGetAction {
+	updateNamedPort := func(p *corev1.Probe, portMap map[string]int32) *corev1.Probe {
 		if p == nil || p.HTTPGet == nil {
 			return nil
 		}
-		h := p.HTTPGet
-		if h.Port.Type == intstr.String {
-			port, exists := portMap[h.Port.StrVal]
+		if p.HTTPGet.Port.Type == intstr.String {
+			port, exists := portMap[p.HTTPGet.Port.StrVal]
 			if !exists {
 				return nil
 			}
-			h.Port = intstr.FromInt(int(port))
+			p.HTTPGet.Port = intstr.FromInt(int(port))
 		}
-		return h
+		return p
 	}
 	for _, c := range podspec.Containers {
 		if c.Name == ProxyContainerName {
@@ -192,11 +191,11 @@ func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec,
 			continue
 		}
 		readyz, livez := status.FormatProberURL(c.Name)
-		if hg := convertAppProber(c.ReadinessProbe, readyz, statusPort); hg != nil {
-			*c.ReadinessProbe.HTTPGet = *hg
+		if rp := convertAppProber(c.ReadinessProbe, readyz, statusPort); rp != nil {
+			*c.ReadinessProbe = *rp
 		}
-		if hg := convertAppProber(c.LivenessProbe, livez, statusPort); hg != nil {
-			*c.LivenessProbe.HTTPGet = *hg
+		if lp := convertAppProber(c.LivenessProbe, livez, statusPort); lp != nil {
+			*c.LivenessProbe = *lp
 		}
 	}
 }
@@ -229,14 +228,14 @@ func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodS
 		if after := convertAppProber(c.ReadinessProbe, readyz, statusPort); after != nil {
 			patch = append(patch, rfc6902PatchOperation{
 				Op:    "replace",
-				Path:  fmt.Sprintf("/spec/containers/%v/readinessProbe/httpGet", i),
+				Path:  fmt.Sprintf("/spec/containers/%v/readinessProbe", i),
 				Value: *after,
 			})
 		}
 		if after := convertAppProber(c.LivenessProbe, livez, statusPort); after != nil {
 			patch = append(patch, rfc6902PatchOperation{
 				Op:    "replace",
-				Path:  fmt.Sprintf("/spec/containers/%v/livenessProbe/httpGet", i),
+				Path:  fmt.Sprintf("/spec/containers/%v/livenessProbe", i),
 				Value: *after,
 			})
 		}
