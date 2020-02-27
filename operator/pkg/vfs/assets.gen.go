@@ -653,8 +653,6 @@ spec:
               description: Deprecated.
               type: boolean
             peers:
-              description: List of authentication methods that can be used for peer
-                authentication.
               items:
                 oneOf:
                 - required:
@@ -1378,8 +1376,6 @@ spec:
               description: Deprecated.
               type: boolean
             peers:
-              description: List of authentication methods that can be used for peer
-                authentication.
               items:
                 oneOf:
                 - required:
