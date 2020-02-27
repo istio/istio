@@ -1801,8 +1801,8 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 	}
 
 	// Set the protocol for each filter chain
-	for _, fc := range mutable.FilterChains {
-		fc.ListenerProtocol = plugin.ListenerProtocolTCP
+	for index := range mutable.FilterChains {
+		mutable.FilterChains[index].ListenerProtocol = plugin.ListenerProtocolTCP
 	}
 	for _, p := range configgen.Plugins {
 		if err := p.OnVirtualListener(pluginParams, mutable); err != nil {
