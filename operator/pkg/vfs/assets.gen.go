@@ -40688,10 +40688,9 @@ spec:
           targetPort: 15020
           name: status-port
         - port: 80
-          targetPort: 8080
+          targetPort: 80
           name: http2
         - port: 443
-          targetPort: 8443
           name: https
         - port: 15029
           targetPort: 15029
@@ -40708,7 +40707,6 @@ spec:
         - port: 31400
           targetPort: 31400
           name: tcp
-          # This is the port where sni routing happens
         - port: 15443
           targetPort: 15443
           name: tls

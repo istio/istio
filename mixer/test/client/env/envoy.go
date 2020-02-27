@@ -70,7 +70,9 @@ func (s *TestSetup) newEnvoy() (envoy.Instance, error) {
 		options = append(options, o...)
 	}
 	/* #nosec */
-	envoyPath := filepath.Join(env.IstioOut, "envoy")
+	// Since we are possible running in a container, the OS may be different that what we are building (we build for host OS),
+	// we need to use the local container's OS bin found in LOCAL_OUT
+	envoyPath := filepath.Join(env.LocalOut, "envoy")
 	if path, exists := ev.RegisterStringVar("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
 		envoyPath = path
 	}

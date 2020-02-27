@@ -58,10 +58,10 @@ function compareWithGolden() {
 
   case "${TEST_MODE}" in
    "golang")
-    FILE_UNDER_TEST="${ISTIO_OUT}/istio-iptables --dry-run --restore-format=false"
+    FILE_UNDER_TEST="${BINARY_PATH}/istio-iptables --dry-run --restore-format=false"
    ;;
    "golang_clean")
-    FILE_UNDER_TEST="${ISTIO_OUT}/istio-clean-iptables --dry-run"
+    FILE_UNDER_TEST="${BINARY_PATH}/istio-clean-iptables --dry-run"
    ;;
   esac
 
@@ -99,6 +99,7 @@ if [[ ${#TEST_MODES[@]} -eq 0 ]] ; then
 fi
 export PATH="${SCRIPT_DIR}/stubs:${PATH}"
 
+export BINARY_PATH="${LOCAL_OUT:-$ISTIO_OUT}"
 FAILED=()
 
 for TEST_MODE in "${TEST_MODES[@]}"; do

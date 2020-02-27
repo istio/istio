@@ -60,7 +60,7 @@ func FindBinaryOrFail(t test.Failer) string {
 
 func findBinaries() ([]string, error) {
 	binPaths := make([]string, 0)
-	err := filepath.Walk(env.IstioOut, func(path string, f os.FileInfo, err error) error {
+	err := filepath.Walk(env.LocalOut, func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
