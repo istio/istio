@@ -1,105 +1,26 @@
-Validation errors (continuing because of --force):
-unknown field "badKey" in v1alpha1.GlobalConfig
-# AddonComponents grafana component is disabled.
-
 ---
-# AddonComponents istiocoredns component is disabled.
+# Source: istio-discovery/templates/poddisruptionbudget.yaml
 
----
-# AddonComponents kiali component is disabled.
-
----
-# AddonComponents prometheus component is disabled.
-
----
-# AddonComponents istio-tracing component is disabled.
-
-# Base component is disabled.
-
-# Citadel component is disabled.
-
-# Cni component is disabled.
-
-# EgressGateways istio-egressgateway component is disabled.
-
-# Galley component is disabled.
-
-# Resources for Pilot component
-
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
 metadata:
   name: istiod
   namespace: istio-system
   labels:
     app: istiod
-    release: istio
+    release: istio-base
+    istio: pilot
 spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istiod
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      targetAverageUtilization: 80
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istiod
+      release: istio-base
+      istio: pilot
 ---
 
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-galley-istio-system
-  labels:
-    release: istio
-rules:
-  # For reading Istio resources
-  - apiGroups: [
-    "authentication.istio.io",
-    "config.istio.io",
-    "networking.istio.io",
-    "rbac.istio.io",
-    "security.istio.io"]
-    resources: ["*"]
-    verbs: ["get", "list", "watch"]
-    # For updating Istio resource statuses
-  - apiGroups: [
-    "authentication.istio.io",
-    "config.istio.io",
-    "networking.istio.io",
-    "rbac.istio.io",
-    "security.istio.io"]
-    resources: ["*/status"]
-    verbs: ["update"]
-
-    # Remove galley's permissions to reconcile the validation config when istiod is present.
-    # Notably missing here is the permission to modify webhooks.
-
-  - apiGroups: ["extensions","apps"]
-    resources: ["deployments"]
-    resourceNames: ["istio-galley"]
-    verbs: ["get"]
-  - apiGroups: [""]
-    resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["deployments/finalizers"]
-    resourceNames: ["istio-galley"]
-    verbs: ["update"]
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles"]
-    verbs: ["get", "list", "watch"]
 ---
-
+# Source: istio-discovery/templates/configmap.yaml
 
 apiVersion: v1
 kind: ConfigMap
@@ -107,7 +28,7 @@ metadata:
   name: istio
   namespace: istio-system
   labels:
-    release: istio
+    release: istio-base
 data:
 
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.
@@ -128,7 +49,6 @@ data:
     deploymentLabels: {}
     enableProtocolSniffingForInbound: false
     enableProtocolSniffingForOutbound: true
-    enabled: true
     env: {}
     hub: ""
     image: pilot
@@ -138,9 +58,6 @@ data:
       ingressService: istio-ingressgateway
     jwksResolverExtraRootCA: ""
     keepaliveMaxServerConnectionAge: 30m
-    meshNetworks:
-      networks: {}
-    namespace: istio-system
     nodeSelector: {}
     plugins: []
     podAnnotations: {}
@@ -263,190 +180,11 @@ data:
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
----
-
-
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: istiod
-    istio: pilot
-    release: istio
-  name: istiod
-  namespace: istio-system
-spec:
-  selector:
-    matchLabels:
-      istio: pilot
-  strategy:
-    rollingUpdate:
-      maxSurge: 100%
-      maxUnavailable: 25%
-  template:
-    metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
-      labels:
-        app: istiod
-        istio: pilot
-    spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
-      containers:
-      - args:
-        - discovery
-        - --monitoringAddr=:15014
-        - --log_output_level=default:info
-        - --domain
-        - cluster.local
-        - --secureGrpcAddr=:15011
-        - --trust-domain=cluster.local
-        - --keepaliveMaxServerConnectionAge
-        - 30m
-        - --disable-install-crds=true
-        env:
-        - name: JWT_POLICY
-          value: third-party-jwt
-        - name: PILOT_CERT_PROVIDER
-          value: citadel
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: SERVICE_ACCOUNT
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: spec.serviceAccountName
-        - name: PILOT_TRACE_SAMPLING
-          value: "1"
-        - name: CONFIG_NAMESPACE
-          value: istio-config
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
-          value: "true"
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "false"
-        - name: INJECTION_WEBHOOK_CONFIG_NAME
-          value: istio-sidecar-injector
-        - name: ISTIOD_ADDR
-          value: istiod.istio-system.svc:15012
-        - name: PILOT_EXTERNAL_GALLEY
-          value: "false"
-        envFrom:
-        - configMapRef:
-            name: istiod
-            optional: true
-        image: gcr.io/istio-testing/pilot:latest
-        name: discovery
-        ports:
-        - containerPort: 8080
-        - containerPort: 15010
-        - containerPort: 15017
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
-        volumeMounts:
-        - mountPath: /etc/istio/config
-          name: config-volume
-        - mountPath: /var/run/secrets/tokens
-          name: istio-token
-          readOnly: true
-        - mountPath: /var/run/secrets/istio-dns
-          name: local-certs
-        - mountPath: /etc/cacerts
-          name: cacerts
-          readOnly: true
-        - mountPath: /var/lib/istio/inject
-          name: inject
-          readOnly: true
-        - mountPath: /var/lib/istio/local
-          name: istiod
-          readOnly: true
-      securityContext:
-        fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
-      volumes:
-      - emptyDir:
-          medium: Memory
-        name: local-certs
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              audience: istio-ca
-              expirationSeconds: 43200
-              path: istio-token
-      - configMap:
-          name: istiod
-          optional: true
-        name: istiod
-      - name: cacerts
-        secret:
-          optional: true
-          secretName: cacerts
-      - configMap:
-          name: istio-sidecar-injector
-          optional: true
-        name: inject
-      - configMap:
-          name: istio
-        name: config-volume
 
 ---
 
+---
+# Source: istio-discovery/templates/istiod-injector-configmap.yaml
 
 apiVersion: v1
 kind: ConfigMap
@@ -454,7 +192,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
-    release: istio
+    release: istio-base
 data:
 
   values: |-
@@ -465,11 +203,13 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
-        "badKey": "badValue",
         "certificates": [],
         "configNamespace": "istio-system",
+        "configRootNamespace": "istio-system",
         "configValidation": true,
         "controlPlaneSecurityEnabled": true,
+        "createRemoteSvcEndpoints": false,
+        "defaultConfigVisibilitySettings": [],
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
           "enabled": true
@@ -479,14 +219,15 @@ data:
             "cpu": "10m"
           }
         },
+        "defaultTolerations": [],
         "disablePolicyChecks": true,
         "enableHelmTest": false,
         "enableTracing": true,
-        "enabled": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
+        "istioRemote": false,
         "istiod": {
           "enabled": true
         },
@@ -507,6 +248,7 @@ data:
           "enabled": false,
           "useILB": false
         },
+        "meshID": "",
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "mtls": {
@@ -517,7 +259,6 @@ data:
           "clusterName": "",
           "enabled": false
         },
-        "namespace": "istio-system",
         "network": "",
         "omitSidecarInjectorConfigMap": false,
         "oneNamespace": false,
@@ -541,22 +282,45 @@ data:
           "dnsRefreshRate": "300s",
           "enableCoreDump": false,
           "envoyAccessLogService": {
-            "enabled": false
-          },
-          "envoyMetricsService": {
             "enabled": false,
+            "host": null,
+            "port": null,
             "tcpKeepalive": {
               "interval": "10s",
               "probes": 3,
               "time": "10s"
             },
             "tlsSettings": {
+              "caCertificates": null,
+              "clientCertificate": null,
               "mode": "DISABLE",
+              "privateKey": null,
+              "sni": null,
+              "subjectAltNames": []
+            }
+          },
+          "envoyMetricsService": {
+            "enabled": false,
+            "host": null,
+            "port": null,
+            "tcpKeepalive": {
+              "interval": "10s",
+              "probes": 3,
+              "time": "10s"
+            },
+            "tlsSettings": {
+              "caCertificates": null,
+              "clientCertificate": null,
+              "mode": "DISABLE",
+              "privateKey": null,
+              "sni": null,
               "subjectAltNames": []
             }
           },
           "envoyStatsd": {
-            "enabled": false
+            "enabled": false,
+            "host": null,
+            "port": null
           },
           "excludeIPRanges": "",
           "excludeInboundPorts": "",
@@ -597,12 +361,17 @@ data:
             }
           }
         },
+        "remotePilotAddress": "",
+        "remotePilotCreateSvcEndpoint": false,
+        "remotePolicyAddress": "",
+        "remoteTelemetryAddress": "",
         "sds": {
+          "enabled": false,
           "token": {
             "aud": "istio-ca"
-          }
+          },
+          "udsPath": ""
         },
-        "securityNamespace": "istio-system",
         "sts": {
           "servicePort": 0
         },
@@ -629,24 +398,19 @@ data:
           }
         },
         "trustDomain": "cluster.local",
+        "trustDomainAliases": [],
         "useMCP": false
-      },
-      "istio_cni": {
-        "enabled": false
       },
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
-        "enabled": false,
         "injectLabel": "istio-injection",
         "injectedAnnotations": {},
-        "namespace": "istio-system",
         "neverInjectSelector": [],
         "objectSelector": {
           "autoInject": true,
           "enabled": false
-        },
-        "rewriteAppHTTPProbe": false
+        }
       }
     }
 
@@ -1066,54 +830,66 @@ data:
         traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
       {{- end }}
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
+
 ---
+# Source: istio-discovery/templates/clusterrole-galley-disable-webhook.yaml
 
 
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
-  name: istio-sidecar-injector
-
+  name: istio-galley-istio-system
   labels:
-    app: sidecar-injector
-    release: istio
-webhooks:
-  - name: sidecar-injector.istio.io
-    clientConfig:
-      service:
-        name: istiod
-        namespace: istio-system
-        path: "/inject"
-      caBundle: ""
-    rules:
-      - operations: [ "CREATE" ]
-        apiGroups: [""]
-        apiVersions: ["v1"]
-        resources: ["pods"]
-    failurePolicy: Fail
-    namespaceSelector:
-      matchLabels:
-        istio-injection: enabled
+    release: istio-base
+rules:
+  # For reading Istio resources
+  - apiGroups: [
+    "authentication.istio.io",
+    "config.istio.io",
+    "networking.istio.io",
+    "rbac.istio.io",
+    "security.istio.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+    # For updating Istio resource statuses
+  - apiGroups: [
+    "authentication.istio.io",
+    "config.istio.io",
+    "networking.istio.io",
+    "rbac.istio.io",
+    "security.istio.io"]
+    resources: ["*/status"]
+    verbs: ["update"]
+
+    # Remove galley's permissions to reconcile the validation config when istiod is present.
+    # Notably missing here is the permission to modify webhooks.
+
+  - apiGroups: ["extensions","apps"]
+    resources: ["deployments"]
+    resourceNames: ["istio-galley"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["deployments/finalizers"]
+    resourceNames: ["istio-galley"]
+    verbs: ["update"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    verbs: ["get", "list", "watch"]
 ---
 
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istiod
-  namespace: istio-system
-  labels:
-    app: istiod
-    release: istio
-    istio: pilot
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: istiod
-      release: istio
-      istio: pilot
 ---
+# Source: istio-discovery/templates/service.yaml
 
 
 apiVersion: v1
@@ -1123,7 +899,7 @@ metadata:
   namespace: istio-system
   labels:
     app: pilot
-    release: istio
+    release: istio-base
     istio: pilot
 spec:
   ports:
@@ -1143,8 +919,6 @@ spec:
   selector:
     istio: pilot
 ---
-
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -1152,7 +926,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
-    release: istio
+    release: istio-base
 spec:
   ports:
     - port: 15012
@@ -1167,6 +941,224 @@ spec:
     istio: pilot
 ---
 
+---
+# Source: istio-discovery/templates/deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    istio: pilot
+    release: istio-base
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      istio: pilot
+  template:
+    metadata:
+      labels:
+        app: istiod
+        # Label used by the 'default' service. For versioned deployments we match with app and version.
+        # This avoids default deployment picking the canary
+        istio: pilot
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-pilot-service-account
+      securityContext:
+        fsGroup: 1337
+      containers:
+        - name: discovery
+          image: "gcr.io/istio-testing/pilot:latest"
+          args:
+          - "discovery"
+          - --monitoringAddr=:15014
+          - --log_output_level=default:info
+          - --domain
+          - cluster.local
+          - --secureGrpcAddr=:15011
+          - --trust-domain=cluster.local
+          - --keepaliveMaxServerConnectionAge
+          - "30m"
+          # TODO: make default
+          - --disable-install-crds=true
+          ports:
+          - containerPort: 8080
+          - containerPort: 15010
+          - containerPort: 15017
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          envFrom:
+          # Allow an istiod configmap injecting user-specified env.
+          - configMapRef:
+              name: istiod
+              optional: true
+          env:
+          - name: JWT_POLICY
+            value: third-party-jwt
+          - name: PILOT_CERT_PROVIDER
+            value: citadel
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.serviceAccountName
+          - name: PILOT_TRACE_SAMPLING
+            value: "1"
+          - name: CONFIG_NAMESPACE
+            value: istio-config
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+            value: "true"
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+            value: "false"
+          - name: INJECTION_WEBHOOK_CONFIG_NAME
+            value: istio-sidecar-injector
+          - name: ISTIOD_ADDR
+            value: istiod.istio-system.svc:15012
+          - name: PILOT_EXTERNAL_GALLEY
+            value: "false"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2048Mi
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+          - name: local-certs
+            mountPath: /var/run/secrets/istio-dns
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+          - name: inject
+            mountPath: /var/lib/istio/inject
+            readOnly: true
+          - name: istiod
+            mountPath: /var/lib/istio/local
+            readOnly: true
+      volumes:
+      # Technically not needed on this pod - but it helps debugging/testing SDS
+      # Should be removed after everything works.
+      - emptyDir:
+          medium: Memory
+        name: local-certs
+      - name: istio-token
+        projected:
+          sources:
+            - serviceAccountToken:
+                audience: istio-ca
+                expirationSeconds: 43200
+                path: istio-token
+      - name: istiod
+        configMap:
+          name: istiod
+          optional: true
+      # Optional: user-generated root
+      - name: cacerts
+        secret:
+          secretName: cacerts
+          optional: true
+      # Optional - image should have
+      - name: inject
+        configMap:
+          name: istio-sidecar-injector
+          optional: true
+      - name: config-volume
+        configMap:
+          name: istio
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"      
+---
+
+---
+# Source: istio-discovery/templates/autoscale.yaml
+
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio-base
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istiod
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
+---
+
+---
+# Source: istio-discovery/templates/telemetryv2_1.4.yaml
 
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -1196,8 +1188,6 @@ spec:
                 code:
                   inline_string: envoy.wasm.metadata_exchange
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1291,6 +1281,8 @@ spec:
                   inline_string: envoy.wasm.stats
 ---
 
+---
+# Source: istio-discovery/templates/telemetryv2_1.5.yaml
 
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -1324,8 +1316,6 @@ spec:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1378,8 +1368,6 @@ spec:
               value:
                 protocol: istio-peer-exchange
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1484,8 +1472,6 @@ spec:
                     local:
                       inline_string: envoy.wasm.stats
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1585,6 +1571,8 @@ spec:
                       inline_string: "envoy.wasm.stats"
 ---
 
+---
+# Source: istio-discovery/templates/telemetryv2_1.6.yaml
 
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -1618,8 +1606,6 @@ spec:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1672,8 +1658,6 @@ spec:
               value:
                 protocol: istio-peer-exchange
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1778,8 +1762,6 @@ spec:
                     local:
                       inline_string: envoy.wasm.stats
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1879,7 +1861,41 @@ spec:
                       inline_string: "envoy.wasm.stats"
 ---
 
-# Policy component is disabled.
+---
+# Source: istio-discovery/templates/mutatingwebhook.yaml
+# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-sidecar-injector
 
-# Telemetry component is disabled.
+  labels:
+    app: sidecar-injector
+    release: istio-base
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/inject"
+      caBundle: ""
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+      matchLabels:
+        istio-injection: enabled
+
+---
+# Source: istio-discovery/templates/configmap-jwks.yaml
+
+
+---
+# Source: istio-discovery/templates/enable-mesh-mtls.yaml
+
+
 
