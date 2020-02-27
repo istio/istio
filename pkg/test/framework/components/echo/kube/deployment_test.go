@@ -84,10 +84,10 @@ func TestDeploymentYAML(t *testing.T) {
 				Service: "multiversion",
 				Workloads: []echo.WorkloadConfig{
 					{
-						Name: "istio",
+						Version: "v-istio",
 					},
 					{
-						Name:        "legacy",
+						Version:        "v-legacy",
 						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 					},
 				},

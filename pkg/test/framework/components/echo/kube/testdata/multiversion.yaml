@@ -23,19 +23,18 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multiversion-istio
+  name: multiversion-v-istio
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: multiversion
-      version: v1
+      version: v-istio
   template:
     metadata:
       labels:
         app: multiversion
-        deploy: istio
-        version: v1
+        version: v-istio
       annotations:
         foo: bar
     spec:
@@ -57,7 +56,7 @@ spec:
           - --port
           - "3333"
           - --version
-          - "v1"
+          - "v-istio"
         ports:
         - containerPort: 8090
         - containerPort: 9000
@@ -82,19 +81,18 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multiversion-legacy
+  name: multiversion-v-legacy
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: multiversion
-      version: v1
+      version: v-legacy
   template:
     metadata:
       labels:
         app: multiversion
-        deploy: legacy
-        version: v1
+        version: v-legacy
       annotations:
         foo: bar
         sidecar.istio.io/inject: "false"
@@ -117,7 +115,7 @@ spec:
           - --port
           - "3333"
           - --version
-          - "v1"
+          - "v-legacy"
         ports:
         - containerPort: 8090
         - containerPort: 9000

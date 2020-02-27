@@ -30,7 +30,6 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 		Headless:       headless,
 		Workloads: []echo.WorkloadConfig{
 			{
-				Name:        "default",
 				Version:     "v1",
 				Annotations: annos,
 			},

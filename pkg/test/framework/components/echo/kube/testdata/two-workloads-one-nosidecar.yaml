@@ -17,7 +17,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: foo-
+  name: foo-v1
 spec:
   replicas: 1
   selector:
@@ -28,11 +28,9 @@ spec:
     metadata:
       labels:
         app: foo
-        deploy: 
         version: v1
       annotations:
         foo: bar
-        sidecar.istio.io/inject: "false"
     spec:
       containers:
       - name: app
@@ -71,7 +69,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: foo-
+  name: foo-nosidecar
 spec:
   replicas: 1
   selector:
@@ -82,7 +80,6 @@ spec:
     metadata:
       labels:
         app: foo
-        deploy: 
         version: nosidecar
       annotations:
         foo: bar

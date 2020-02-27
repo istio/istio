@@ -17,7 +17,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: foo-default
+  name: foo-bar
 spec:
   replicas: 1
   selector:
@@ -28,7 +28,6 @@ spec:
     metadata:
       labels:
         app: foo
-        deploy: default
         version: bar
       annotations:
         foo: bar

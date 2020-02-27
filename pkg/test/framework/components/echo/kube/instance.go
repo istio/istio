@@ -226,7 +226,7 @@ func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Inst
 func workloadHasSidecar(cfg echo.Config, endpoint *kubeCore.ObjectReference) bool {
 	// Match workload first.
 	for _, w := range cfg.Workloads {
-		if strings.HasPrefix(endpoint.Name, fmt.Sprintf("%v-%v", cfg.Service, w.Name)) {
+		if strings.HasPrefix(endpoint.Name, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
 			return w.Annotations.GetBool(echo.SidecarInject)
 		}
 	}

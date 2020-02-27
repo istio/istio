@@ -62,7 +62,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Service }}-{{ $w.Name }}
+  name: {{ $.Service }}-{{ $w.Version }}
 spec:
   replicas: 1
   selector:
@@ -76,14 +76,13 @@ spec:
     metadata:
       labels:
         app: {{ $.Service }}
-        deploy: {{ $w.Name }}
         version: {{ $w.Version }}
 {{- if ne $.Locality "" }}
         istio-locality: {{ $.Locality }}
 {{- end }}
       annotations:
         foo: bar
-{{- range $name, $value := index $.WorkloadAnnotations $w.Name }}
+{{- range $name, $value := index $.WorkloadAnnotations $w.Version }}
         {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
 {{- if $.IncludeInboundPorts }}
@@ -183,7 +182,6 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 		cfg.Workloads = []echo.WorkloadConfig{
 			{
 				Version: cfg.Version,
-				Name:    "default",
 			},
 		}
 	}
@@ -192,15 +190,15 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 	serviceAnnotations := make(map[string]string)
 	wlas := make(map[string]map[string]string)
 	for i, w := range cfg.Workloads {
-		wlas[w.Name] = map[string]string{}
-		if cfg.Workloads[i].Version == "" {
-			cfg.Workloads[i].Version = cfg.Version
-		}
 		if cfg.Workloads[i].Version == "" {
 			cfg.Workloads[i].Version = "v1"
 		}
+		wlas[w.Version] = map[string]string{}
+		if cfg.Workloads[i].Version == "" {
+			cfg.Workloads[i].Version = cfg.Version
+		}
 		for k, val := range w.Annotations {
-			wlas[w.Name][k.Name] = val.Value
+			wlas[w.Version][k.Name] = val.Value
 		}
 	}
 	for k, v := range cfg.ServiceAnnotations {
