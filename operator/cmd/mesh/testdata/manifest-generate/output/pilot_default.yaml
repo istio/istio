@@ -117,6 +117,7 @@ rules:
 - apiGroups: ["extensions"]
   resources: ["ingresses/status"]
   verbs: ["*"]
+  # TODO: remove, too broad permission, should be namespace only
 - apiGroups: [""]
   resources: ["configmaps"]
   # Create and update needed for ingress election
@@ -1199,8 +1200,6 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: SDS_ENABLED
-          value: "{{ .Values.global.sds.enabled }}"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
         {{- if .Values.global.network }}
@@ -1444,7 +1443,7 @@ webhooks:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istiod-
+  name: istiod
   namespace: istio-system
   labels:
     app: istiod

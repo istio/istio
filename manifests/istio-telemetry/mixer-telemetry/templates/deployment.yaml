@@ -40,20 +40,6 @@ spec:
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
-      {{- if .Values.global.sds.enabled }}
-      - hostPath:
-          path: /var/run/sds
-        name: sds-uds-path
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              audience: {{ .Values.global.sds.token.aud }}
-              expirationSeconds: 43200
-              path: istio-token
-      {{- end }}
-      {{- end }}
       - name: uds-socket
         emptyDir: {}
       - name: telemetry-adapter-secret
@@ -212,8 +198,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
-        - name: SDS_ENABLED
-          value: "{{ .Values.global.sds.enabled }}"
         resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
@@ -226,15 +210,6 @@ spec:
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
-        {{- if .Values.global.sds.enabled }}
-        - name: sds-uds-path
-          mountPath: /var/run/sds
-          readOnly: true
-        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-        - name: istio-token
-          mountPath: /var/run/secrets/tokens
-        {{- end }}
-        {{- end }}
         - name: uds-socket
           mountPath: /sock
 {{- end }}
