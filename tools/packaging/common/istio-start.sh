@@ -100,6 +100,10 @@ fi
 
 ISTIO_CA=${ISTIO_CA:-${PILOT_ADDRESS}}
 
+export ISTIO_CA
+export PROV_CERT
+export OUTPUT_CERTS
+
 # If predefined ISTIO_AGENT_FLAGS is null, make it an empty string.
 ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
 # Split ISTIO_AGENT_FLAGS by spaces.

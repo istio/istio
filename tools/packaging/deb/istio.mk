@@ -93,6 +93,9 @@ deb/docker: testcert-gen
 	cp tools/packaging/deb/Dockerfile tools/packaging/deb/deb_test.sh ${ISTIO_OUT_LINUX}/deb
 	# Istio configs, for testing istiod running in the VM.
 	cp tests/testdata/config/*.yaml ${ISTIO_OUT_LINUX}/deb
+	# Test case uses a cert that is not available
+	# TODO: use a valid path or copy some certificate
+	rm ${ISTIO_OUT_LINUX}/deb/se-example.yaml
 	# Test certificates - can be used to verify connection with an istiod running on the host or
 	# in a separate container.
 	cp -a tests/testdata/certs ${ISTIO_OUT_LINUX}/deb
@@ -150,18 +153,14 @@ deb/run/docker:
       -e GOPATH=${GOPATH} \
       -it istio_deb ${DEB_CMD}
 
+deb/test:
+	$(MAKE) deb/run/docker DEB_CMD="deb_test.sh test"
+
 deb/run/debug:
 	$(MAKE) deb/run/docker DEB_ENV="-e DEB_PILOT_IP=172.18.0.1"
 
-deb/run/tproxy:
-	$(MAKE) deb/run/docker DEB_PORT_PREFIX=1610 DEB_IP=172.18.0.4 DEB_ENV="-e ISTIO_INBOUND_INTERCEPTION_MODE=TPROXY"
-
 deb/run/mtls:
 	$(MAKE) deb/run/docker DEB_PORT_PREFIX=1620 -e DEB_PILOT_IP=172.18.0.1 DEB_IP=172.18.0.5 DEB_ENV="-e ISTIO_PILOT_PORT=15005 -e ISTIO_CP_AUTH=MUTUAL_TLS"
-
-# Similar with above, but using a pilot running on the local machine
-deb/run/docker-debug:
-	$(MAKE) deb/run/docker PILOT_IP=
 
 #
 deb/docker-run: deb/docker deb/run/docker

@@ -79,7 +79,7 @@ function istioTest() {
 
 if [ "$1" == "test" ]; then
   # start istiod, using local config files (no k8s)
-
+  startIstiodLocal
 
   # Start sidecar and iptables
   startIstio
