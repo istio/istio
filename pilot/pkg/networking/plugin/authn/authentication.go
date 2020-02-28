@@ -74,7 +74,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			if filter := applier.AuthNFilter(in.Node.Type); filter != nil {
+			if filter := applier.AuthNFilter(in.Node.Type, in.ServiceInstance.Endpoint.EndpointPort); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}
