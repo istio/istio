@@ -84,7 +84,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return err
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
-		if features.EnableServiceApis.Get() {
+		if features.EnableServiceApis {
 			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController))
 		}
 	}
@@ -300,7 +300,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	// TODO(howardjohn) allow the collection here to be configurable to allow running with only
 	// Kubernetes APIs.
 	schemas := collection.NewSchemasBuilder()
-	if features.EnableServiceApis.Get() {
+	if features.EnableServiceApis {
 		schemas = schemas.
 			MustAdd(collections.K8SServiceApisV1Alpha1Tcproutes).
 			MustAdd(collections.K8SServiceApisV1Alpha1Gatewayclasses).
