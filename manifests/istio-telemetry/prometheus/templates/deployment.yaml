@@ -197,9 +197,9 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           volumeMounts:
-              {{- if eq .Values.global.pilotCertProvider "citadel" }}
-            - mountPath: /etc/istio/citadel-ca-cert
-              name: citadel-ca-cert
+              {{- if eq .Values.global.pilotCertProvider "istiod" }}
+            - mountPath: /var/run/secrets/istio
+              name: istiod-ca-cert
               {{- end }}
             - mountPath: /etc/istio/proxy
               name: istio-envoy
@@ -244,8 +244,8 @@ spec:
                 expirationSeconds: 43200
                 audience: {{ .Values.global.sds.token.aud }}
         {{- end }}
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           defaultMode: 420
           name: istio-ca-root-cert

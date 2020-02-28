@@ -312,7 +312,7 @@ spec:
       operatorManageWebhooks: false
       outboundTrafficPolicy:
         mode: ALLOW_ANY
-      pilotCertProvider: citadel
+      pilotCertProvider: istiod
       policyCheckFailOpen: false
       priorityClassName: ""
       proxy:

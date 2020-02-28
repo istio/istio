@@ -6585,7 +6585,7 @@ spec:
             - name: JWT_POLICY
               value: third-party-jwt
             - name: PILOT_CERT_PROVIDER
-              value: citadel
+              value: istiod
             # Temp, pending PR to make it default or based on the istiodAddr env
             - name: CA_ADDR
               value: istio-pilot.istio-system.svc:15012
@@ -6631,8 +6631,8 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           volumeMounts:
-            - mountPath: /etc/istio/citadel-ca-cert
-              name: citadel-ca-cert
+            - mountPath: /var/run/secrets/istio
+              name: istiod-ca-cert
             - mountPath: /etc/istio/proxy
               name: istio-envoy
             - mountPath: /var/run/secrets/tokens
@@ -6658,7 +6658,7 @@ spec:
                 path: istio-token
                 expirationSeconds: 43200
                 audience: istio-ca
-      - name: citadel-ca-cert
+      - name: istiod-ca-cert
         configMap:
           defaultMode: 420
           name: istio-ca-root-cert
@@ -6863,7 +6863,7 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: citadel
+          value: istiod
         - name: ISTIO_META_USER_SDS
           value: "true"
         - name: CA_ADDR
@@ -6955,8 +6955,8 @@ spec:
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
@@ -6974,7 +6974,7 @@ spec:
       volumes:
       - configMap:
           name: istio-ca-root-cert
-        name: citadel-ca-cert
+        name: istiod-ca-cert
       - downwardAPI:
           items:
           - fieldRef:
@@ -7477,7 +7477,7 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: citadel
+          value: istiod
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -7661,7 +7661,7 @@ data:
         "outboundTrafficPolicy": {
           "mode": "ALLOW_ANY"
         },
-        "pilotCertProvider": "citadel",
+        "pilotCertProvider": "istiod",
         "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
@@ -8095,9 +8095,9 @@ data:
       {{- end }}
         {{  end -}}
         volumeMounts:
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         {{- end }}
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
@@ -8157,8 +8157,8 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       {{- end }}

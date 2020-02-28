@@ -100,7 +100,7 @@ spec:
           - name: JWT_POLICY
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
-            value: citadel
+            value: istiod
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
@@ -159,8 +159,8 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
@@ -175,7 +175,7 @@ spec:
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
       volumes:
-      - name: citadel-ca-cert
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       - name: podinfo
