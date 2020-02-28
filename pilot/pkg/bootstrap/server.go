@@ -242,6 +242,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		if s.kubeClient != nil {
 			corev1 = s.kubeClient.CoreV1()
 		}
+		// May return nil, if the CA is missing required configs.
+		// This is not an error.
 		s.ca, err = s.createCA(corev1, caOpts)
 		if err != nil {
 			return nil, fmt.Errorf("enableCA: %v", err)

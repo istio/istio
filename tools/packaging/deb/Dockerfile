@@ -15,6 +15,7 @@ COPY certs/default/* /var/run/secrets/istio/
 COPY istio.deb /tmp
 COPY istio-sidecar.deb /tmp
 COPY deb_test.sh /usr/local/bin/
+COPY certs/cacerts /etc/
 
 # Root and istio are not intercepted
 RUN adduser istio-test --system

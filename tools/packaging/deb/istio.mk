@@ -70,9 +70,23 @@ ${ISTIO_OUT_LINUX}/release/istio.deb:
 		--description "Istio" \
 		$(ISTIO_FILES)
 
+GEN_CERT ?= go run istio.io/istio/security/tools/generate_cert
+# TODO: use k8s style - /etc/pki/istio/...
+PKI_DIR ?= tests/testdata/certs/cacerts
+VM_PKI_DIR ?= tests/testdata/certs/vm
+
+testcert-gen:
+	mkdir -p ${PKI_DIR}
+	mkdir -p ${VM_PKI_DIR}
+	${GEN_CERT} -ca  --out-priv ${PKI_DIR}/ca-key.pem --out-cert ${PKI_DIR}/ca-cert.pem  -organization "istio ca"
+	${GEN_CERT} -signer-cert ${PKI_DIR}/ca-cert.pem -signer-priv ${PKI_DIR}/ca-key.pem \
+	 	-out-cert ${VM_PKI_DIR}/cert-chain.pem -out-priv ${VM_PKI_DIR}/key.pem \
+	 	-host spiffe://cluster.local/ns/vmtest/sa/default --mode signer
+     cp ${PKI_DIR}/ca-cert.pem ${VM_PKI_DIR}/root-cert.pem
+
 # Install the deb in a docker image, for testing the install process.
 # Will use a minimal base image, install all that is needed.
-deb/docker:
+deb/docker: testcert-gen
 	mkdir -p ${ISTIO_OUT_LINUX}/deb
 	cp tools/packaging/deb/Dockerfile tools/packaging/deb/deb_test.sh ${ISTIO_OUT_LINUX}/deb
 	# Istio configs, for testing istiod running in the VM.

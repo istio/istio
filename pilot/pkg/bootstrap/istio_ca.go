@@ -374,6 +374,13 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 
 	if _, err := os.Stat(signingKeyFile); err != nil {
 		// The user-provided certs are missing - create a self-signed cert.
+		// If we are not in K8S - no CA
+		// TODO: generate self-signed files in the /etc/cacert for non-k8s
+		if client == nil {
+			// This is mainly used in testing.
+			log.Warna("Missing root CA key in non-k8s environment. Certificate signing and TLS will be off")
+			return nil, nil
+		}
 
 		log.Info("Use self-signed certificate as the CA certificate")
 		spiffe.SetTrustDomain(opts.TrustDomain)
