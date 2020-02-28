@@ -353,9 +353,15 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden
+gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden gen-kustomize
 
 gen-check: gen check-clean-repo
+
+# Generate kustomize templates.
+gen-kustomize:
+	helm template -n istio-base manifests/base > manifests/base/files/gen-istio-cluster.yaml
+	helm template -n istio-base --namespace istio-system manifests/istio-control/istio-discovery \
+		-f manifests/global.yaml > manifests/istio-control/istio-discovery/files/gen-istio.yaml
 
 #-----------------------------------------------------------------------------
 # Target: go build
