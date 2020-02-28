@@ -56,6 +56,7 @@ func setupConfig(cfg *istio.Config) {
 	}
 	rootNamespace = cfg.SystemNamespace
 
+	cfg.Values["gateways.istio-egressgateway.enabled"] = "true"
 	cfg.ControlPlaneValues = `
 components:
   citadel:

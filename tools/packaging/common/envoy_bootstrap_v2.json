@@ -115,10 +115,6 @@
           "tag_name": "destination_service_namespace"
       },
       {
-        "regex": "(destination_port=\\.=(.+?);\\.;)",
-        "tag_name": "destination_port"
-      },
-      {
           "regex": "(request_protocol=\\.=(.+?);\\.;)",
           "tag_name": "request_protocol"
       },
@@ -299,8 +295,8 @@
               "trusted_ca": {
                 {{ if eq .pilot_cert_provider "kubernetes" }}
                 "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-                {{ else if eq .pilot_cert_provider "citadel" }}
-                "filename": "./etc/istio/citadel-ca-cert/root-cert.pem"
+                {{ else if eq .pilot_cert_provider "istiod" }}
+                "filename": "./var/run/secrets/istio/root-cert.pem"
                 {{ end }}
               },
               "verify_subject_alt_name": {{ toJSON .pilot_SAN }}

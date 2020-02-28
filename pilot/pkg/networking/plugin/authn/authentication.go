@@ -74,7 +74,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 			if filter := applier.JwtFilter(util.IsXDSMarshalingToAnyEnabled(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			if filter := applier.AuthNFilter(in.Node.Type, util.IsXDSMarshalingToAnyEnabled(in.Node)); filter != nil {
+			if filter := applier.AuthNFilter(in.Node.Type, in.ServiceInstance.Endpoint.EndpointPort, util.IsXDSMarshalingToAnyEnabled(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}

@@ -40,7 +40,7 @@ an Istio install and can be customized by creating customization overlay files o
 ```yaml
 # sds.yaml
 
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   profile: sds
@@ -233,7 +233,7 @@ The simplest customization is to select a profile different to `default` e.g. `s
 
 ```yaml
 # sds-install.yaml
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   profile: sds
@@ -274,7 +274,7 @@ istioctl manifest generate --set values.gateways.istio-ingressgateway.enabled=fa
 The compiled in charts and profiles are used by default, but you can specify a file path, for example:
 
 ```yaml
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   profile: /usr/home/bob/go/src/github.com/ostromart/istio-installer/data/profiles/default.yaml
@@ -319,7 +319,7 @@ defines install time parameters like feature and component enablement and namesp
 The simplest customization is to turn features and components on and off. For example, to turn off all policy ([samples/sds-policy-off.yaml](samples/sds-policy-off.yaml)):
 
 ```yaml
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   profile: sds
@@ -335,7 +335,7 @@ Each Istio component has K8s settings, and these can be overridden from the defa
 Istio defined schemas ([samples/pilot-k8s.yaml](samples/pilot-k8s.yaml)):
 
 ```yaml
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -390,7 +390,7 @@ are overridden the same way as the new API, though a customized CR overlaid over
 profile. Here's an example of overriding some global level default values ([samples/values-global.yaml](samples/values-global.yaml)):
 
 ```yaml
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   profile: sds
@@ -404,7 +404,7 @@ Values overrides can also be specified for a particular component
  ([samples/values-pilot.yaml](samples/values-pilot.yaml)):
 
 ```yaml
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   values:
@@ -422,7 +422,7 @@ possible to overlay the generated K8s resources before they are applied with use
 override some container level values in the Pilot container  ([samples/pilot-advanced-override.yaml](samples/pilot-advanced-override.yaml)):
 
 ```yaml
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:

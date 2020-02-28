@@ -35,9 +35,15 @@ const (
 	serviceRoleFile        = "testdata/servicerole.yaml"
 	invalidFile            = "testdata/invalid.yaml"
 	dirWithConfig          = "testdata/some-dir/"
+
+	suppressDefaultMeshConfigDeprecated = "IST0121=MeshPolicy default"
 )
 
-var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
+var (
+	analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
+
+	suppressor = []string{}
+)
 
 func TestEmptyCluster(t *testing.T) {
 	framework.
@@ -54,7 +60,7 @@ func TestEmptyCluster(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			// For a clean istio install with injection enabled, expect no validation errors
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, suppressor...)
 			expectNoMessages(t, g, output)
 			g.Expect(err).To(BeNil())
 
@@ -168,13 +174,13 @@ func TestKubeOnly(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			// Validation error if we have a service role binding without a service role
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, suppressor...)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include both the binding and its role
 			applyFileOrFail(t, ns.Name(), serviceRoleFile)
-			output, err = istioctlSafe(t, istioCtl, ns.Name(), true)
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), true, suppressor...)
 			expectNoMessages(t, g, output)
 			g.Expect(err).To(BeNil())
 		})
@@ -198,7 +204,8 @@ func TestFileAndKubeCombined(t *testing.T) {
 
 			// Simulating applying the service role to a cluster that already has the binding, we should
 			// fix the error and thus see no message
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, serviceRoleFile)
+			suppressors := append([]string{serviceRoleFile}, suppressor...)
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, suppressors...)
 			expectNoMessages(t, g, output)
 			g.Expect(err).To(BeNil())
 		})
@@ -230,7 +237,8 @@ func TestAllNamespaces(t *testing.T) {
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 
 			// If we use --all-namespaces, we should successfully run and see a message from each namespace
-			output, _ = istioctlSafe(t, istioCtl, "", true, "--all-namespaces")
+			suppressors := append([]string{"--all-namespaces"}, suppressor...)
+			output, _ = istioctlSafe(t, istioCtl, "", true, suppressors...)
 			// Since this test runs in a cluster with lots of other namespaces we don't actually care about, only look for ns1 and ns2
 			foundCount := 0
 			for _, line := range output {

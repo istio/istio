@@ -687,10 +687,10 @@ func TestOptions(t *testing.T) {
 			expected: "kubernetes",
 		},
 		{
-			testName: "pilot_cert_provider citadel",
+			testName: "pilot_cert_provider istiod",
 			key:      "pilot_cert_provider",
-			option:   option.PilotCertProvider("citadel"),
-			expected: "citadel",
+			option:   option.PilotCertProvider("istiod"),
+			expected: "istiod",
 		},
 		{
 			testName: "sts enabled",

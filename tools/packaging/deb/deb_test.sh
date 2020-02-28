@@ -18,13 +18,21 @@
 #
 # Test for istio debian. Will run in a docker image where the .deb has been installed.
 
+# Start isitio. Expects certs to be available.
 function startIstio() {
     bash -x /usr/local/bin/istio-start.sh &
     sleep 1
 }
 
+# Start Istiod on the VM, using local configurations
+# Expects CA root certificates in /etc/cacerts
 function startIstiodLocal() {
-    bash -x /usr/local/bin/istio-start.sh &
+    export TOKEN_ISSUER=https://localhost:15012
+    export MASTER_ELECTION=false
+    export ISTIOD_ADDR=istiod.istio-system.svc:15012
+    cd /
+    /usr/local/bin/pilot-discovery discovery -n istio-system \
+      --configDir /var/lib/istio/config --secureGrpcAddr "" --registries Mock &
     sleep 1
 }
 
@@ -52,7 +60,7 @@ function istioTest() {
 
 if [ "$1" == "test" ]; then
   # start istiod, using local config files (no k8s)
-  /usr/local/bin/pilot-discovery discovery --configDir /var/lib/istio/config --registries Mock &
+
 
   # Start sidecar and iptables
   startIstio

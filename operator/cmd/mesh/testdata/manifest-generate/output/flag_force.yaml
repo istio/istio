@@ -605,7 +605,7 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: citadel
+          value: istiod
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -793,7 +793,7 @@ data:
         "outboundTrafficPolicy": {
           "mode": "ALLOW_ANY"
         },
-        "pilotCertProvider": "citadel",
+        "pilotCertProvider": "istiod",
         "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
@@ -1305,9 +1305,9 @@ data:
       {{- end }}
         {{  end -}}
         volumeMounts:
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         {{- end }}
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
@@ -1367,8 +1367,8 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       {{- end }}

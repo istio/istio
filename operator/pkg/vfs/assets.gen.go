@@ -7027,9 +7027,9 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           volumeMounts:
-          {{- if eq .Values.global.pilotCertProvider "citadel" }}
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          {{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
           {{- end }}
           {{- if .Values.global.istiod.enabled }}
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
@@ -7054,8 +7054,8 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       {{- end }}
@@ -8124,9 +8124,9 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           volumeMounts:
-{{- if eq .Values.global.pilotCertProvider "citadel" }}
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
 {{- end }}
 {{- if .Values.global.istiod.enabled }}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
@@ -8159,8 +8159,8 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-{{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
 {{- end }}
@@ -12516,9 +12516,9 @@ template: |
   {{- end }}
     {{  end -}}
     volumeMounts:
-    {{- if eq .Values.global.pilotCertProvider "citadel" }}
-    - mountPath: /etc/istio/citadel-ca-cert
-      name: citadel-ca-cert
+    {{- if eq .Values.global.pilotCertProvider "istiod" }}
+    - mountPath: /var/run/secrets/istio
+      name: istiod-ca-cert
     {{- end }}
     {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
     - mountPath: /etc/istio/custom-bootstrap
@@ -12578,8 +12578,8 @@ template: |
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
   {{- end }}
-  {{- if eq .Values.global.pilotCertProvider "citadel" }}
-  - name: citadel-ca-cert
+  {{- if eq .Values.global.pilotCertProvider "istiod" }}
+  - name: istiod-ca-cert
     configMap:
       name: istio-ca-root-cert
   {{- end }}
@@ -35401,7 +35401,7 @@ data:
         regex: ([^:]+)(?::\d+)?;(\d+)
         replacement: $1:15090
         target_label: __address__
-      - action: labelmap
+      - action: labeldrop
         regex: __meta_kubernetes_pod_label_(.+)
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -35865,9 +35865,9 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           volumeMounts:
-              {{- if eq .Values.global.pilotCertProvider "citadel" }}
-            - mountPath: /etc/istio/citadel-ca-cert
-              name: citadel-ca-cert
+              {{- if eq .Values.global.pilotCertProvider "istiod" }}
+            - mountPath: /var/run/secrets/istio
+              name: istiod-ca-cert
               {{- end }}
             - mountPath: /etc/istio/proxy
               name: istio-envoy
@@ -35912,8 +35912,8 @@ spec:
                 expirationSeconds: 43200
                 audience: {{ .Values.global.sds.token.aud }}
         {{- end }}
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           defaultMode: 420
           name: istio-ca-root-cert
@@ -36581,7 +36581,7 @@ spec:
     - sourceLabels: [__meta_kubernetes_pod_container_port_name]
       action: keep
       regex: '.*-envoy-prom'
-    - action: labelmap
+    - action: labeldrop
       regex: "__meta_kubernetes_pod_label_(.+)"
     - sourceLabels: [__meta_kubernetes_namespace]
       action: replace
@@ -39927,7 +39927,7 @@ func operatorTemplatesService_accountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDefaultYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesDefaultYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
   namespace: istio-system
@@ -40159,7 +40159,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
-      pilotCertProvider: citadel
+      pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
@@ -40662,7 +40662,7 @@ func profilesDefaultYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDemoYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesDemoYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -40817,7 +40817,9 @@ func profilesDemoYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesEmptyYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesEmptyYaml = []byte(`# The empty profile has everything disabled
+# This is useful as a base for custom user configuration
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   hub: gcr.io/istio-testing
@@ -40884,7 +40886,8 @@ func profilesEmptyYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesMinimalYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesMinimalYaml = []byte(`# The minimal profile will install just the core control plane
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -40949,7 +40952,7 @@ func profilesMinimalYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesRemoteYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+var _profilesRemoteYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:
@@ -41003,7 +41006,7 @@ func profilesRemoteYaml() (*asset, error) {
 
 var _profilesSeparateYaml = []byte(`# The separate profile will disable istiod and bring back the old microservices model
 # This will be removed in future (1.6) releases
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   components:

@@ -94,7 +94,7 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: citadel
+          value: istiod
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -173,8 +173,8 @@ spec:
             cpu: 100m
             memory: 128Mi
         volumeMounts:
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
@@ -190,7 +190,7 @@ spec:
       volumes:
       - configMap:
           name: istio-ca-root-cert
-        name: citadel-ca-cert
+        name: istiod-ca-cert
       - downwardAPI:
           items:
           - fieldRef:

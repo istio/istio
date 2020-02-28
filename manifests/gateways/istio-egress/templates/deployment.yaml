@@ -232,9 +232,9 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:
-          {{- if eq .Values.global.pilotCertProvider "citadel" }}
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          {{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
           {{- end }}
           {{- if .Values.global.istiod.enabled }}
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
@@ -259,8 +259,8 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       {{- end }}

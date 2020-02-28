@@ -1,4 +1,4 @@
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
   namespace: istio-system
@@ -230,7 +230,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
-      pilotCertProvider: citadel
+      pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2

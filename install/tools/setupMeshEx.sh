@@ -104,7 +104,7 @@ function istioClusterEnv() {
 function istio_provision_certs() {
   local SA=${1:-${SERVICE_ACCOUNT:-default}}
   local NS=${2:-${SERVICE_NAMESPACE:-}}
-  
+
   if [[ -n "$NS" ]] ; then
     NS="-n $NS"
   fi
