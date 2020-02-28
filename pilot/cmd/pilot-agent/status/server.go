@@ -102,7 +102,7 @@ func NewServer(config Config) (*Server, error) {
 			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern ^/app-health/[^\/]+/(livez|readyz)$`)
 		}
 		if prober.HTTPGet == nil {
-			return nil, fmt.Errorf(`invalid prober type %v, must be of type httpGet`)
+			return nil, fmt.Errorf(`invalid prober type, must be of type httpGet`)
 		}
 		if prober.HTTPGet.Port.Type != intstr.Int {
 			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
