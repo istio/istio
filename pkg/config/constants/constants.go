@@ -87,7 +87,7 @@ const (
 	IstioMeshGateway = "mesh"
 
 	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
-	CACertNamespaceConfigMapDataName = "ca-cert-ns.pem"
+	CACertNamespaceConfigMapDataName = "root-cert.pem"
 
 	// PodInfoLabelsPath is the filepath that pod labels will be stored
 	// This is typically set by the downward API
