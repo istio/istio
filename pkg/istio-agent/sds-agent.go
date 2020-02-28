@@ -192,6 +192,11 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 		// If the JWT file exists, and explicit 'prov cert' is not - use the JWT
 		ac.JWTPath = jwtPath
 	} else {
+		if discPort != "15012" {
+			// Running in pilot mode, using mounted certs.
+			log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
+			return ac
+		}
 		// If original /etc/certs or a separate 'provisioning certs' (VM) are present, use them instead of tokens
 		certDir := "./etc/certs"
 		if citadel.ProvCert != "" {
