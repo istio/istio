@@ -1,5 +1,11 @@
 # Mixer
 
+## Deprecation notice
+
+As of Istio 1.5, Mixer is deprecated. The functionality provided by Mixer is
+being moved into the Envoy proxies. Use of Mixer with Istio will only be
+supported through the 1.7 release of Istio.
+
 ## Mixer's future
 
 Because of the extensive feedback we received from the community about the
@@ -17,7 +23,7 @@ please see
 [this doc](
 https://docs.google.com/document/d/1x5XeKWRdpFPAy7JYxiTz5u-Ux2eoBQ80lXT6XYjvUuQ/edit#heading=h.8kpssnjs5pqw)
 
-## Mixer v1 description
+## Obsolete Mixer Documentation
 
 Mixer enables extensible policy enforcement and control within the Istio service
 mesh. It is responsible for insulating the proxy (Envoy) from details of the
