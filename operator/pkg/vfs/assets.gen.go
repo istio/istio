@@ -14534,7 +14534,7 @@ spec:
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
-            value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -17554,9 +17554,9 @@ data:
         # Temp, pending PR to make it default or based on the istiodAddr env
         - name: CA_ADDR
         {{- if .Values.global.configNamespace }}
-          value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istio-pilot.istio-system.svc:15012
+          value: istiod.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -19043,9 +19043,9 @@ template: |
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
     {{- if .Values.global.configNamespace }}
-      value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+      value: istiod.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
-      value: istio-pilot.istio-system.svc:15012
+      value: istiod.istio-system.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -42322,9 +42322,9 @@ spec:
             # Temp, pending PR to make it default or based on the istiodAddr env
             - name: CA_ADDR
                 {{- if .Values.global.configNamespace }}
-              value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+              value: istiod.{{ .Values.global.configNamespace }}.svc:15012
                 {{- else }}
-              value: istio-pilot.istio-system.svc:15012
+              value: istiod.istio-system.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:
