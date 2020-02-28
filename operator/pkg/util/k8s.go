@@ -47,6 +47,8 @@ func DetectSupportedJWTPolicy(config *rest.Config) (JWTPolicy, error) {
 			if _, f := derr.Groups[schema.GroupVersion{Group: "authentication.k8s.io", Version: "v1"}]; f {
 				return "", err
 			}
+		} else {
+			return "", err
 		}
 	}
 	for _, res := range s {
