@@ -5,18 +5,6 @@
 # hadolint ignore=DL3006
 FROM ubuntu:bionic
 
-# Directory to store DNS certificate and key
-RUN mkdir -p /etc/dnscerts
-
-COPY *.yaml /var/lib/istio/config/
-COPY certs/ /var/lib/istio/
-COPY certs/default/* /var/run/secrets/istio/
-
-COPY istio.deb /tmp
-COPY istio-sidecar.deb /tmp
-COPY deb_test.sh /usr/local/bin/
-COPY certs/cacerts /etc/
-
 # Root and istio are not intercepted
 RUN adduser istio-test --system
 
@@ -26,6 +14,17 @@ RUN adduser istio-test --system
 RUN apt-get update && apt-get install -y --no-install-recommends iproute2 iptables curl less net-tools \
     && apt-get clean \
     && rm -rf  /var/log/*log /var/lib/apt/lists/* /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old
+
+COPY *.yaml /var/lib/istio/config/
+COPY certs/ /var/lib/istio/
+COPY certs/default/* /var/run/secrets/istio/
+
+COPY deb_test.sh /usr/local/bin/
+COPY certs/cacerts/ /etc/cacerts/
+COPY certs/vm/ /etc/certs/
+
+COPY istio.deb /tmp
+COPY istio-sidecar.deb /tmp
 
 # Verify the debian files can be installed
 RUN dpkg -i /tmp/istio-sidecar.deb && rm /tmp/istio-sidecar.deb

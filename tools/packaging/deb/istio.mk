@@ -79,6 +79,8 @@ testcert-gen:
 	mkdir -p ${PKI_DIR}
 	mkdir -p ${VM_PKI_DIR}
 	${GEN_CERT} -ca  --out-priv ${PKI_DIR}/ca-key.pem --out-cert ${PKI_DIR}/ca-cert.pem  -organization "istio ca"
+	cp ${PKI_DIR}/ca-cert.pem ${PKI_DIR}/root-cert.pem
+	cp ${PKI_DIR}/ca-cert.pem ${PKI_DIR}/cert-chain.pem
 	${GEN_CERT} -signer-cert ${PKI_DIR}/ca-cert.pem -signer-priv ${PKI_DIR}/ca-key.pem \
 	 	-out-cert ${VM_PKI_DIR}/cert-chain.pem -out-priv ${VM_PKI_DIR}/key.pem \
 	 	-host spiffe://cluster.local/ns/vmtest/sa/default --mode signer

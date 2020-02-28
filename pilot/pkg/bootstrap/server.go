@@ -289,7 +289,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// 1) CA certificate has been created.
 	// 2) grpc server has been generated.
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+		if s.ca != nil {
+			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+		}
 		return nil
 	})
 
@@ -838,6 +840,10 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 	istiodAddr := features.IstiodService.Get()
 	if istiodAddr == "" {
 		// Feature disabled
+		return nil
+	}
+	if s.ca == nil {
+		// Running locally without configured certs - no TLS mode
 		return nil
 	}
 
