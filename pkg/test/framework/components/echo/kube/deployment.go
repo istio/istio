@@ -189,7 +189,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 	// Separate the annotations.
 	serviceAnnotations := make(map[string]string)
 	wlas := make(map[string]map[string]string)
-	for i, _ := range cfg.Workloads {
+	for i := range cfg.Workloads {
 		w := &cfg.Workloads[i]
 		if cfg.Workloads[i].Version == "" {
 			cfg.Workloads[i].Version = "v1"

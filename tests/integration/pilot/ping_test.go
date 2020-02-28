@@ -73,16 +73,22 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 	var inoutUnitedApp0, inoutUnitedApp1, inoutSplitApp0, inoutSplitApp1 echo.Instance
 	echoboot.NewBuilderOrFail(t, ctx).
 		With(&inoutSplitApp0, echo.Config{
-			Service:             "inoutsplitapp0",
-			Namespace:           ns,
-			Ports:               ports,
+			Service:   "inoutsplitapp0",
+			Namespace: ns,
+			Ports:     ports,
+			Workloads: []echo.WorkloadConfig{
+				{},
+			},
 			Galley:              g,
 			Pilot:               p,
 			IncludeInboundPorts: "*",
 		}).
 		With(&inoutSplitApp1, echo.Config{
-			Service:             "inoutsplitapp1",
-			Namespace:           ns,
+			Service:   "inoutsplitapp1",
+			Namespace: ns,
+			Workloads: []echo.WorkloadConfig{
+				{},
+			},
 			Ports:               ports,
 			Galley:              g,
 			Pilot:               p,
@@ -92,16 +98,22 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			&inoutUnitedApp0, echo.Config{
 				Service:   "inoutunitedapp0",
 				Namespace: ns,
-				Ports:     ports,
-				Galley:    g,
-				Pilot:     p,
+				Workloads: []echo.WorkloadConfig{
+					{},
+				},
+				Ports:  ports,
+				Galley: g,
+				Pilot:  p,
 			}).
 		With(&inoutUnitedApp1, echo.Config{
 			Service:   "inoutunitedapp1",
 			Namespace: ns,
-			Ports:     ports,
-			Galley:    g,
-			Pilot:     p,
+			Workloads: []echo.WorkloadConfig{
+				{},
+			},
+			Ports:  ports,
+			Galley: g,
+			Pilot:  p,
 		}).
 		BuildOrFail(ctx)
 
