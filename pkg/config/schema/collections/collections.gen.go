@@ -1356,10 +1356,5 @@ var (
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
-		MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
-		MustAdd(K8SServiceApisV1Alpha1Gateways).
-		MustAdd(K8SServiceApisV1Alpha1Httproutes).
-		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-		MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 		Build()
 )

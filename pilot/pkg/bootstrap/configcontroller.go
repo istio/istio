@@ -300,12 +300,15 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	// TODO(howardjohn) allow the collection here to be configurable to allow running with only
 	// Kubernetes APIs.
 	schemas := collection.NewSchemasBuilder()
+	if features.EnableServiceApis.Get() {
+		schemas = schemas.
+			MustAdd(collections.K8SServiceApisV1Alpha1Tcproutes).
+			MustAdd(collections.K8SServiceApisV1Alpha1Gatewayclasses).
+			MustAdd(collections.K8SServiceApisV1Alpha1Gateways).
+			MustAdd(collections.K8SServiceApisV1Alpha1Httproutes).
+			MustAdd(collections.K8SServiceApisV1Alpha1Trafficsplits)
+	}
 	for _, schema := range collections.Pilot.All() {
-		if schema.Resource().Group() == "networking.x.k8s.io" && !features.EnableServiceApis.Get() {
-			// Skip these if service api is not enabled
-			// TODO we need a way to gracefully handle the CRDs not being found before we can enable by default
-			continue
-		}
 		if err := schemas.Add(schema); err != nil {
 			return nil, err
 		}

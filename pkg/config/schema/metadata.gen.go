@@ -244,27 +244,22 @@ collections:
   - kind: "GatewayClass"
     name: "k8s/service_apis/v1alpha1/gatewayclasses"
     group: "networking.x.k8s.io"
-    pilot: true
 
   - kind: "Gateway"
     name: "k8s/service_apis/v1alpha1/gateways"
     group: "networking.x.k8s.io"
-    pilot: true
 
   - kind: "HTTPRoute"
     name: "k8s/service_apis/v1alpha1/httproutes"
     group: "networking.x.k8s.io"
-    pilot: true
 
   - kind: "TcpRoute"
     name: "k8s/service_apis/v1alpha1/tcproutes"
     group: "networking.x.k8s.io"
-    pilot: true
 
   - kind: "TrafficSplit"
     name: "k8s/service_apis/v1alpha1/trafficsplits"
     group: "networking.x.k8s.io"
-    pilot: true
 
   # Istio CRD collections
 
