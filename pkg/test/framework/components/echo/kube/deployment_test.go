@@ -78,6 +78,24 @@ func TestDeploymentYAML(t *testing.T) {
 			},
 		},
 		{
+			name:         "healthcheck-rewrite",
+			wantFilePath: "testdata/healthcheck-rewrite.yaml",
+			config: echo.Config{
+				Service: "healthcheck",
+				Ports: []echo.Port{{
+					Name:         "http-8080",
+					Protocol:     protocol.HTTP,
+					ServicePort:  8080,
+					InstancePort: 8080,
+				}},
+				Workloads: []echo.WorkloadConfig{
+					{
+						Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, true),
+					},
+				},
+			},
+		},
+		{
 			name:         "multiversion",
 			wantFilePath: "testdata/multiversion.yaml",
 			config: echo.Config{
