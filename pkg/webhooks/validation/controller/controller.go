@@ -405,7 +405,7 @@ func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
 	return ready, reason, nil
 }
 
-const deniedRequestMessageFragment = `admission webhook "validation.istio.io" denied the request`
+const deniedRequestMessageFragment = `denied the request`
 
 // Confirm invalid configuration is successfully rejected before switching to FAIL-CLOSE.
 func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason string) {
