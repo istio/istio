@@ -549,10 +549,6 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:  "TestWebhookInject_no_volumes_imagePullSecrets.patch",
 		},
 		{
-			inputFile: "TestWebhookInject_no_containers_volumes_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_containers_volumes_imagePullSecrets.patch",
-		},
-		{
 			inputFile: "TestWebhookInject_no_containers_volumes.yaml",
 			wantFile:  "TestWebhookInject_no_containers_volumes.patch",
 		},
