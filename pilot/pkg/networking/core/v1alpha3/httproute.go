@@ -180,59 +180,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	util.SortVirtualHosts(virtualHosts)
 
 	if !useSniffing {
-		// This needs to be the last virtual host, as routes are evaluated in order.
-		if util.IsAllowAnyOutbound(node) {
-			egressCluster := util.PassthroughCluster
-			// no need to check for nil value as the previous if check has checked
-			if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
-				// user has provided an explicit destination for all the unknown traffic.
-				// build a cluster out of this destination
-				egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
-					nil, // service is being passe as nil to take care of the case when service becomes available at some later point in time
-					0)
-			}
-			notimeout := ptypes.DurationProto(0)
-			virtualHosts = append(virtualHosts, &route.VirtualHost{
-				Name:    util.PassthroughRouteName,
-				Domains: []string{"*"},
-				Routes: []*route.Route{
-					{
-						Match: &route.RouteMatch{
-							PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-						},
-						Action: &route.Route_Route{
-							Route: &route.RouteAction{
-								ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
-								// Disable timeout instead of assuming some defaults.
-								Timeout: notimeout,
-								// If not configured at all, the grpc-timeout header is not used and
-								// gRPC requests time out like any other requests using timeout or its default.
-								MaxGrpcTimeout: notimeout,
-							},
-						},
-					},
-				},
-				IncludeRequestAttemptCount: true,
-			})
-		} else {
-			virtualHosts = append(virtualHosts, &route.VirtualHost{
-				Name:    util.BlackHoleRouteName,
-				Domains: []string{"*"},
-				Routes: []*route.Route{
-					{
-						Match: &route.RouteMatch{
-							PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-						},
-						Action: &route.Route_DirectResponse{
-							DirectResponse: &route.DirectResponseAction{
-								Status: 502,
-							},
-						},
-					},
-				},
-				IncludeRequestAttemptCount: true,
-			})
-		}
+		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node))
 	}
 
 	out := &xdsapi.RouteConfiguration{
@@ -526,4 +474,61 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (string, stri
 	uniqHostame := strings.Join(reverseArray(partsFQDN[len(sharedSuffixesInReverse):]), ".")
 	sharedSuffixes := strings.Join(reverseArray(sharedSuffixesInReverse), ".")
 	return uniqHostame, sharedSuffixes
+}
+
+func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
+	// This needs to be the last virtual host, as routes are evaluated in order.
+	if util.IsAllowAnyOutbound(node) {
+		egressCluster := util.PassthroughCluster
+		notimeout := ptypes.DurationProto(0)
+
+		// no need to check for nil value as the previous if check has checked
+		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
+			// user has provided an explicit destination for all the unknown traffic.
+			// build a cluster out of this destination
+			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
+				nil, 0)
+		}
+
+		return &route.VirtualHost{
+			Name:    util.PassthroughRouteName,
+			Domains: []string{"*"},
+			Routes: []*route.Route{
+				{
+					Match: &route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &route.Route_Route{
+						Route: &route.RouteAction{
+							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
+							// Disable timeout instead of assuming some defaults.
+							Timeout: notimeout,
+							// If not configured at all, the grpc-timeout header is not used and
+							// gRPC requests time out like any other requests using timeout or its default.
+							MaxGrpcTimeout: notimeout,
+						},
+					},
+				},
+			},
+			IncludeRequestAttemptCount: true,
+		}
+	}
+
+	return &route.VirtualHost{
+		Name:    util.BlackHoleRouteName,
+		Domains: []string{"*"},
+		Routes: []*route.Route{
+			{
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+				},
+				Action: &route.Route_DirectResponse{
+					DirectResponse: &route.DirectResponseAction{
+						Status: 502,
+					},
+				},
+			},
+		},
+		IncludeRequestAttemptCount: true,
+	}
 }

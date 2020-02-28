@@ -224,7 +224,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	byListenerName := map[string]int{}
 
 	for _, fc := range l.FilterChains {
-		byListenerName[fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue()]++
+		byListenerName[fc.Name]++
 	}
 
 	for k, v := range byListenerName {
@@ -262,7 +262,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin := false
 	for _, fc := range l.FilterChains {
 		if len(fc.Filters) == 2 && fc.Filters[1].Name == xdsutil.TCPProxy &&
-			fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue() == VirtualInboundListenerName {
+			fc.Name == VirtualInboundListenerName {
 			if fc.Filters[0].Name == fakePluginTCPFilter {
 				sawFakePluginFilter = true
 			}
@@ -293,7 +293,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		}
 
 		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.HTTPConnectionManager &&
-			fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue() == VirtualInboundListenerName {
+			fc.Name == VirtualInboundListenerName {
 			if !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs) {
 				t.Fatalf("expect %v application protocols, found %v", plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 			}

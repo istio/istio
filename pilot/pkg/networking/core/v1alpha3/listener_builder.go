@@ -24,10 +24,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
-
-	"istio.io/istio/pkg/util/gogo"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -63,28 +60,13 @@ func init() {
 // 1. Use separate inbound capture listener(:15006) and outbound capture listener(:15001)
 // 2. The above listeners use bind_to_port sub listeners or filter chains.
 type ListenerBuilder struct {
-	node                   *model.Proxy
-	gatewayListeners       []*xdsapi.Listener
-	inboundListeners       []*xdsapi.Listener
-	outboundListeners      []*xdsapi.Listener
-	virtualListener        *xdsapi.Listener
-	virtualInboundListener *xdsapi.Listener
-	useInboundFilterChain  bool
-}
-
-func insertOriginalListenerName(chain *listener.FilterChain, listenerName string) {
-	if chain.Metadata == nil {
-		chain.Metadata = &core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{},
-		}
-	}
-	if chain.Metadata.FilterMetadata[PilotMetaKey] == nil {
-		chain.Metadata.FilterMetadata[PilotMetaKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{},
-		}
-	}
-	chain.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"] =
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: listenerName}}
+	node                    *model.Proxy
+	gatewayListeners        []*xdsapi.Listener
+	inboundListeners        []*xdsapi.Listener
+	outboundListeners       []*xdsapi.Listener
+	virtualOutboundListener *xdsapi.Listener
+	virtualInboundListener  *xdsapi.Listener
+	useInboundFilterChain   bool
 }
 
 // Setup the filter chain match so that the match should work under both
@@ -104,7 +86,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xd
 			}
 			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
 		}
-		insertOriginalListenerName(chain, l.Name)
+		chain.Name = l.Name
 	}
 	for _, filter := range l.ListenerFilters {
 		if needTLS = needTLS || filter.Name == xdsutil.TlsInspector; needTLS {
@@ -148,11 +130,7 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassTh
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
 	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
 	sort.SliceStable(filterChains, func(i, j int) bool {
-		if filterChains[i].Metadata != nil && filterChains[j].Metadata != nil {
-			return filterChains[i].Metadata.FilterMetadata[PilotMetaKey].String() <
-				filterChains[j].Metadata.FilterMetadata[PilotMetaKey].String()
-		}
-		return true
+		return filterChains[i].Name < filterChains[j].Name
 	})
 
 	builder.virtualInboundListener.FilterChains =
@@ -261,13 +239,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	fallthroughNetworkFilters := buildFallthroughNetworkFilters(push, node)
-
-	filterChains := []*listener.FilterChain{
-		{
-			Filters: fallthroughNetworkFilters,
-		},
-	}
+	filterChains := buildOutboundCatchAllNetworkFilterChains(configgen, node, push)
 
 	// The virtual listener will handle all traffic that does not match any other listeners, and will
 	// blackhole/passthrough depending on the outbound traffic policy. When passthrough is enabled,
@@ -279,6 +251,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
 		}
 		filterChains = append([]*listener.FilterChain{{
+			Name: VirtualOutboundTrafficLoopFilterChainName,
 			FilterChainMatch: &listener.FilterChainMatch{
 				PrefixRanges: cidrRanges,
 			},
@@ -287,12 +260,6 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	}
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
-	var listFilter []*listener.ListenerFilter
-	if util.IsAllowAnyOutbound(node) && node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
-		listFilter = append(listFilter, &listener.ListenerFilter{
-			Name: xdsutil.TlsInspector,
-		})
-	}
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
@@ -300,16 +267,11 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		Address:          util.BuildAddress(actualWildcard, uint32(push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
-		ListenerFilters:  listFilter,
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
-	ipTablesListener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(push.Mesh.ProtocolDetectionTimeout)
-	if ipTablesListener.ListenerFiltersTimeout != nil {
-		ipTablesListener.ContinueOnListenerFiltersTimeout = true
-	}
 	configgen.onVirtualOutboundListener(node, push, ipTablesListener)
-	builder.virtualListener = ipTablesListener
+	builder.virtualOutboundListener = ipTablesListener
 	return builder
 }
 
@@ -325,9 +287,9 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
-	filterChains, needTLSForPassThroughFilterChain := newInboundPassthroughFilterChains(configgen, node, push)
+	filterChains, needTLSForPassThroughFilterChain := buildInboundCatchAllNetworkFilterChains(configgen, node, push)
 	if util.IsProtocolSniffingEnabledForInbound(node) {
-		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, node, push)...)
+		filterChains = append(filterChains, buildInboundCatchAllHTTPFilterChains(configgen, node, push)...)
 	}
 	builder.virtualInboundListener = &xdsapi.Listener{
 		Name:             VirtualInboundListenerName,
@@ -361,7 +323,7 @@ func (builder *ListenerBuilder) patchListeners(push *model.PushContext) {
 		}
 		return tempArray[0]
 	}
-	builder.virtualListener = patchOneListener(builder.virtualListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
+	builder.virtualOutboundListener = patchOneListener(builder.virtualOutboundListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	builder.virtualInboundListener = patchOneListener(builder.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
 	builder.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, builder.node,
 		push, builder.inboundListeners, false)
@@ -373,7 +335,7 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 	if builder.node.Type == model.SidecarProxy {
 		nInbound, nOutbound := len(builder.inboundListeners), len(builder.outboundListeners)
 		nVirtual, nVirtualInbound := 0, 0
-		if builder.virtualListener != nil {
+		if builder.virtualOutboundListener != nil {
 			nVirtual = 1
 		}
 		if builder.virtualInboundListener != nil {
@@ -384,8 +346,8 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 		listeners := make([]*xdsapi.Listener, 0, nListener)
 		listeners = append(listeners, builder.inboundListeners...)
 		listeners = append(listeners, builder.outboundListeners...)
-		if builder.virtualListener != nil {
-			listeners = append(listeners, builder.virtualListener)
+		if builder.virtualOutboundListener != nil {
+			listeners = append(listeners, builder.virtualOutboundListener)
 		}
 		if builder.virtualInboundListener != nil {
 			listeners = append(listeners, builder.virtualInboundListener)
@@ -420,7 +382,7 @@ func newBlackholeFilter() *listener.Filter {
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.
 // This function also returns a boolean indicating whether or not the TLS inspector is needed
 // for the filter chain.
-func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
+func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, bool) {
 	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
@@ -510,7 +472,7 @@ func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 					break
 				}
 			}
-			insertOriginalListenerName(filterChain, VirtualInboundListenerName)
+			filterChain.Name = VirtualInboundListenerName
 			filterChains = append(filterChains, filterChain)
 		}
 	}
@@ -518,7 +480,7 @@ func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 	return filterChains, needTLS
 }
 
-func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl,
+func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
@@ -585,57 +547,65 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl,
 		}
 
 		filterChain := &listener.FilterChain{
+			Name:             VirtualInboundListenerName,
 			FilterChainMatch: &filterChainMatch,
 			Filters: []*listener.Filter{
 				filter,
 			},
 		}
 
-		insertOriginalListenerName(filterChain, VirtualInboundListenerName)
 		filterChains = append(filterChains, filterChain)
 	}
 
 	return filterChains
 }
 
-func buildFallthroughNetworkFilters(push *model.PushContext, node *model.Proxy) []*listener.Filter {
-	tcpProxy := &tcp_proxy.TcpProxy{
-		StatPrefix:       util.BlackHoleCluster,
-		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-	}
-	requireSniForwarding := false
+func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {
+
+	filterStack := make([]*listener.Filter, 0)
+	var egressCluster string
+
 	if util.IsAllowAnyOutbound(node) {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
-		egressCluster := util.PassthroughCluster
+		egressCluster = util.PassthroughCluster
 
 		// no need to check for nil value as the previous if check has checked
 		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
 			// user has provided an explicit destination for all the unknown traffic.
 			// build a cluster out of this destination
 			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
-				nil, // service can comeup online later on, so passing nil
-				0)   // listener port is expected to be resolved from EgressProxy
-
-			// In case sidecar is wrapping https traffic into mtls, we want to copy sni from https into mtls for the egress gateway
-			requireSniForwarding = true
+				nil, 0)
 		}
-		tcpProxy = &tcp_proxy.TcpProxy{
-			StatPrefix:       egressCluster,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: egressCluster},
-		}
-		setAccessLog(push, node, tcpProxy)
+	} else {
+		egressCluster = util.BlackHoleCluster
 	}
 
-	filterStack := make([]*listener.Filter, 0)
-	// always add the filter for forwarding downstream sni if egress proxy is set
-	if requireSniForwarding {
-		filterStack = append(filterStack, &listener.Filter{Name: util.ForwardDownstreamSniFilter})
+	tcpProxy := &tcp_proxy.TcpProxy{
+		StatPrefix:       egressCluster,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: egressCluster},
 	}
-
+	setAccessLog(push, node, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       xdsutil.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	})
 
 	return filterStack
+}
+
+// TODO: This code is still insufficient. Ideally we should be parsing all the virtual services
+// with TLS blocks and build the appropriate filter chain matches and routes here. And then finally
+// evaluate the left over unmatched TLS traffic using allow_any or registry_only.
+// See https://github.com/istio/istio/issues/21170
+func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
+	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+
+	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
+
+	return []*listener.FilterChain{
+		{
+			Name:    VirtualOutboundCatchAllTCPFilterChainName,
+			Filters: filterStack,
+		},
+	}
 }
