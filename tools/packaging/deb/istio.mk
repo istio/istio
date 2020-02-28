@@ -82,7 +82,7 @@ testcert-gen:
 	${GEN_CERT} -signer-cert ${PKI_DIR}/ca-cert.pem -signer-priv ${PKI_DIR}/ca-key.pem \
 	 	-out-cert ${VM_PKI_DIR}/cert-chain.pem -out-priv ${VM_PKI_DIR}/key.pem \
 	 	-host spiffe://cluster.local/ns/vmtest/sa/default --mode signer
-     cp ${PKI_DIR}/ca-cert.pem ${VM_PKI_DIR}/root-cert.pem
+	cp ${PKI_DIR}/ca-cert.pem ${VM_PKI_DIR}/root-cert.pem
 
 # Install the deb in a docker image, for testing the install process.
 # Will use a minimal base image, install all that is needed.
