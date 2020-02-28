@@ -121,7 +121,7 @@ func (l *Logger) printErr(s string) {
 }
 
 func refreshGoldenFiles() bool {
-	return os.Getenv("REFRESH_GOLDENS") == "true"
+	return os.Getenv("REFRESH_GOLDEN") == "true"
 }
 
 func ReadLayeredYAMLs(filenames []string) (string, error) {

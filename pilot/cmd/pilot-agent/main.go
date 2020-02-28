@@ -131,7 +131,7 @@ var (
 		"number of attributes for stackdriver")
 	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
 		"max number of message events for stackdriver")
-	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
+	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
