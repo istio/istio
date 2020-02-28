@@ -182,8 +182,8 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 			},
 		},
 		Subsets: []echo.SubsetConfig{{}},
-		Galley:    g,
-		Pilot:     p,
+		Galley:  g,
+		Pilot:   p,
 	}
 }
 

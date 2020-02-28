@@ -115,7 +115,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 			echoConfig := echo.Config{
 				Service:   "server",
 				Namespace: ns,
-				Subsets: []echo.SubsetConfig{{}},
+				Subsets:   []echo.SubsetConfig{{}},
 				Pilot:     p,
 				Galley:    g,
 				Ports: []echo.Port{

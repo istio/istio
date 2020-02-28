@@ -239,14 +239,14 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: appsNamespace,
-					Subsets: []echo.SubsetConfig{{}},
+					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
 					Galley:    g,
 				}).
 				With(&dest, echo.Config{
 					Service:   "destination",
 					Namespace: appsNamespace,
-					Subsets: []echo.SubsetConfig{{}},
+					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
 					Galley:    g,
 					Ports: []echo.Port{

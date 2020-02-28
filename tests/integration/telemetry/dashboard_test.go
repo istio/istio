@@ -303,7 +303,7 @@ func setupDashboardTest(t framework.TestContext) {
 			Pilot:     p,
 			Galley:    g,
 			Namespace: ns,
-			Subsets: []echo.SubsetConfig{{}},
+			Subsets:   []echo.SubsetConfig{{}},
 			Ports: []echo.Port{
 				{
 					Name:     "http",
