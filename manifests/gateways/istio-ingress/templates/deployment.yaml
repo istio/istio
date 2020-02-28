@@ -213,7 +213,7 @@ spec:
             value: "true"
 {{- if .Values.global.istiod.enabled }}
           - name: CA_ADDR
-            value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
 {{- end }}
 {{- end }}
           - name: NODE_NAME
