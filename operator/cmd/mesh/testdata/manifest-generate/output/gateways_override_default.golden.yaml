@@ -397,7 +397,7 @@ spec:
               value: istiod
             # Temp, pending PR to make it default or based on the istiodAddr env
             - name: CA_ADDR
-              value: istio-pilot.istio-system.svc:15012
+              value: istiod.istio-system.svc:15012
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -678,7 +678,7 @@ spec:
         - name: ISTIO_META_USER_SDS
           value: "true"
         - name: CA_ADDR
-          value: istio-pilot.istio-system.svc:15012
+          value: istiod.istio-system.svc:15012
         - name: NODE_NAME
           valueFrom:
             fieldRef:
