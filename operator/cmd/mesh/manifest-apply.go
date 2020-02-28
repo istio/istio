@@ -94,7 +94,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 			}
 			if err := ApplyManifests(maArgs.set, maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
 				maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
-				return fmt.Errorf("failed to generate and apply manifests, error: %v", err)
+				return fmt.Errorf("failed to apply manifests: %v", err)
 			}
 
 			return nil
