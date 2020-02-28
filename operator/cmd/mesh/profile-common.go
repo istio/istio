@@ -19,22 +19,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/operator/version"
-
-	"istio.io/istio/operator/pkg/translate"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
-
-	"istio.io/istio/operator/pkg/name"
 
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
@@ -290,32 +285,16 @@ func getClusterSpecificValues(config *rest.Config, force bool, l *Logger) (strin
 }
 
 func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
-	d, err := discovery.NewDiscoveryClientForConfig(config)
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}
-	_, s, err := d.ServerGroupsAndResources()
-	// This may fail if any api service is down. We should only fail if the specific API we care about failed
-	if err != nil {
-		if discovery.IsGroupDiscoveryFailedError(err) {
-			derr := err.(*discovery.ErrGroupDiscoveryFailed)
-			if _, f := derr.Groups[schema.GroupVersion{Group: "authentication.k8s.io", Version: "v1"}]; f {
-				return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
-			}
-		}
+	if jwtPolicy == util.FirstPartyJWT {
+		// nolint: lll
+		l.logAndPrint("Detected that your cluster does not support third party JWT authentication. " +
+			"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
 	}
-	for _, res := range s {
-		for _, api := range res.APIResources {
-			// Appearance of this API indicates we do support third party jwt token
-			if api.Name == "serviceaccounts/token" {
-				return "values.global.jwtPolicy=third-party-jwt", nil
-			}
-		}
-	}
-	// nolint: lll
-	l.logAndPrint("Detected that your cluster does not support third party JWT authentication. " +
-		"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
-	return "values.global.jwtPolicy=first-party-jwt", nil
+	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
 }
 
 // overlayValuesEnablement overlays any enablement in values path from the user file overlay or set flag overlay.
