@@ -567,11 +567,11 @@ global:
   remotePilotAddress: ""
   remoteTelemetryAddress: ""
 
-  # Configure the Pilot certificate provider.
-  # Currently, two providers are supported: "kubernetes" and "citadel".
-  # As some platforms may not have k8s signing APIs,
-  # set Citadel as the default provider for Pilot certificate.
-  pilotCertProvider: "citadel"
+  # Configure the certificate provider for control plane communication.
+  # Currently, two providers are supported: "kubernetes" and "istiod".
+  # As some platforms may not have kubernetes signing APIs,
+  # Istiod is the default
+  pilotCertProvider: istiod
 
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".

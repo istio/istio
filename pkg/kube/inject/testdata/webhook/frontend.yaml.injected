@@ -74,7 +74,7 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: citadel
+          value: istiod
         - name: CA_ADDR
           value: istio-pilot.istio-system.svc:15012
         - name: POD_NAME
@@ -147,8 +147,8 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
@@ -219,7 +219,7 @@ spec:
               path: istio-token
       - configMap:
           name: istio-ca-root-cert
-        name: citadel-ca-cert
+        name: istiod-ca-cert
 status: {}
 
 ---

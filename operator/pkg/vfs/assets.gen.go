@@ -7026,9 +7026,9 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           volumeMounts:
-          {{- if eq .Values.global.pilotCertProvider "citadel" }}
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          {{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
           {{- end }}
           {{- if .Values.global.istiod.enabled }}
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
@@ -7053,8 +7053,8 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       {{- end }}
@@ -8123,9 +8123,9 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           volumeMounts:
-{{- if eq .Values.global.pilotCertProvider "citadel" }}
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
 {{- end }}
 {{- if .Values.global.istiod.enabled }}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
@@ -8158,8 +8158,8 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-{{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
 {{- end }}
@@ -12472,9 +12472,9 @@ template: |
   {{- end }}
     {{  end -}}
     volumeMounts:
-    {{- if eq .Values.global.pilotCertProvider "citadel" }}
-    - mountPath: /etc/istio/citadel-ca-cert
-      name: citadel-ca-cert
+    {{- if eq .Values.global.pilotCertProvider "istiod" }}
+    - mountPath: /var/run/secrets/istio
+      name: istiod-ca-cert
     {{- end }}
     {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
     - mountPath: /etc/istio/custom-bootstrap
@@ -12534,8 +12534,8 @@ template: |
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
   {{- end }}
-  {{- if eq .Values.global.pilotCertProvider "citadel" }}
-  - name: citadel-ca-cert
+  {{- if eq .Values.global.pilotCertProvider "istiod" }}
+  - name: istiod-ca-cert
     configMap:
       name: istio-ca-root-cert
   {{- end }}
@@ -35821,9 +35821,9 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           volumeMounts:
-              {{- if eq .Values.global.pilotCertProvider "citadel" }}
-            - mountPath: /etc/istio/citadel-ca-cert
-              name: citadel-ca-cert
+              {{- if eq .Values.global.pilotCertProvider "istiod" }}
+            - mountPath: /var/run/secrets/istio
+              name: istiod-ca-cert
               {{- end }}
             - mountPath: /etc/istio/proxy
               name: istio-envoy
@@ -35868,8 +35868,8 @@ spec:
                 expirationSeconds: 43200
                 audience: {{ .Values.global.sds.token.aud }}
         {{- end }}
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           defaultMode: 420
           name: istio-ca-root-cert
@@ -40115,7 +40115,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
-      pilotCertProvider: citadel
+      pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2

@@ -368,9 +368,9 @@ template: |
   {{- end }}
     {{  end -}}
     volumeMounts:
-    {{- if eq .Values.global.pilotCertProvider "citadel" }}
-    - mountPath: /etc/istio/citadel-ca-cert
-      name: citadel-ca-cert
+    {{- if eq .Values.global.pilotCertProvider "istiod" }}
+    - mountPath: /var/run/secrets/istio
+      name: istiod-ca-cert
     {{- end }}
     {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
     - mountPath: /etc/istio/custom-bootstrap
@@ -430,8 +430,8 @@ template: |
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
   {{- end }}
-  {{- if eq .Values.global.pilotCertProvider "citadel" }}
-  - name: citadel-ca-cert
+  {{- if eq .Values.global.pilotCertProvider "istiod" }}
+  - name: istiod-ca-cert
     configMap:
       name: istio-ca-root-cert
   {{- end }}
