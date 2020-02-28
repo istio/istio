@@ -164,7 +164,7 @@ func (i *instance) WaitUntilCallable(instances ...echo.Instance) error {
 
 	// Note: docker version environment implementation only supports single container.
 	// TODO(https://github.com/istio/istio/issues/21656): investigate proper support of workload.
-	if !i.cfg.Workloads[0].Annotations.GetBool(echo.SidecarInject) {
+	if !i.cfg.Subsets[0].Annotations.GetBool(echo.SidecarInject) {
 		time.Sleep(noSidecarWaitDuration)
 	}
 
