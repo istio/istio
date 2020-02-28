@@ -79,6 +79,26 @@ func NewIstioStatusUpdater(instance *iop.IstioOperator) helmreconciler.Rendering
 	}
 }
 
+// BeginReconcile updates the status field on the IstioOperator instance before reconciling.
+func (u *IstioStatusUpdater) BeginReconcile(_ runtime.Object) error {
+	isop := &iop.IstioOperator{}
+	namespacedName := types.NamespacedName{
+		Name:      u.instance.Name,
+		Namespace: u.instance.Namespace,
+	}
+	if err := u.reconciler.GetClient().Get(context.TODO(), namespacedName, isop); err != nil {
+		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
+	}
+	cs := isop.Status.ComponentStatus
+	for cn, _ := range cs {
+		cs[cn] = &v1alpha1.InstallStatus_VersionStatus{
+			Status: v1alpha1.InstallStatus_RECONCILING,
+		}
+	}
+	isop.Status.Status = v1alpha1.InstallStatus_RECONCILING
+	return u.reconciler.GetClient().Status().Update(context.TODO(), isop)
+}
+
 // EndReconcile updates the status field on the IstioOperator instance based on the resulting err parameter.
 func (u *IstioStatusUpdater) EndReconcile(_ runtime.Object, status *v1alpha1.InstallStatus) error {
 	iop := &iop.IstioOperator{}
