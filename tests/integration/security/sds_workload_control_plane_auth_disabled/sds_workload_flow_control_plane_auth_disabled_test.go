@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sds_citadel_test
+package sds_workload_test
 
 import (
 	"testing"
@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-func TestSdsCitadelCaControlPlaneAuthDisabled(t *testing.T) {
+func TestSdsWorkloadControlPlaneAuthDisabled(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -40,7 +40,7 @@ func TestSdsCitadelCaControlPlaneAuthDisabled(t *testing.T) {
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "sds-citadel-control-plane-auth-disabled",
+				Prefix: "sds-workload-control-plane-auth-disabled",
 				Inject: true,
 			})
 
