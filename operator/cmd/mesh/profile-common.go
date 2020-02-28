@@ -89,7 +89,7 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 		}
 		l.logAndErrorf("Validation errors (continuing because of --force):\n%s", err)
 	}
-	if fileOverlayIOP.Spec.Profile != "" {
+	if fileOverlayIOP.Spec != nil && fileOverlayIOP.Spec.Profile != "" {
 		if profile != "" && profile != fileOverlayIOP.Spec.Profile {
 			return "", "", fmt.Errorf("different profiles cannot be overlaid")
 		}

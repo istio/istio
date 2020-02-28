@@ -50,15 +50,17 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		out.components = append(out.components, component.NewCoreComponent(c, &o))
 	}
 
-	for idx, c := range installSpec.Components.IngressGateways {
-		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-		out.components = append(out.components, component.NewIngressComponent(c.Name, idx, c, &o))
-	}
-	for idx, c := range installSpec.Components.EgressGateways {
-		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-		out.components = append(out.components, component.NewEgressComponent(c.Name, idx, c, &o))
+	if installSpec.Components != nil {
+		for idx, c := range installSpec.Components.IngressGateways {
+			o := *opts
+			o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
+			out.components = append(out.components, component.NewIngressComponent(c.Name, idx, c, &o))
+		}
+		for idx, c := range installSpec.Components.EgressGateways {
+			o := *opts
+			o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
+			out.components = append(out.components, component.NewEgressComponent(c.Name, idx, c, &o))
+		}
 	}
 	for _, cn := range orderedKeys(installSpec.AddonComponents) {
 		c := installSpec.AddonComponents[cn]
