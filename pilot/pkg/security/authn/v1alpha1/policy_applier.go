@@ -309,7 +309,8 @@ func (a v1alpha1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http
 	return out
 }
 
-func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+
+func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType, _ /* port */ uint32, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	filterConfigProto := convertPolicyToAuthNFilterConfig(a.policy, proxyType)
 	if filterConfigProto == nil {
 		return nil
@@ -323,6 +324,12 @@ func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
 	}
 	return out
+}
+
+// AuthNFilterConfigForBackwarding is used by beta policy applier to create authn filter based on alpha API.
+// This function provide backwarding support during alpha to beta migration.
+func AuthNFilterConfigForBackwarding(alphaApplier authn.PolicyApplier, proxyType model.NodeType) *authn_filter.FilterConfig {
+	return convertPolicyToAuthNFilterConfig(alphaApplier.(*v1alpha1PolicyApplier).policy, proxyType)
 }
 
 // v1alpha1 applier is already per port, so the endpointPort param is not needed.
