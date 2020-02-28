@@ -2111,7 +2111,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 		{
 			FilterChainMatch: &listener.FilterChainMatch{},
 			// This is not a valid config, just for test
-			Filters: buildFallthroughNetworkFilters(push, node),
+			Filters: buildOutboundCatchAllNetworkFiltersOnly(push, node),
 		},
 	}
 	l.FilterChains = filterChains
