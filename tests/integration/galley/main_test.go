@@ -32,6 +32,11 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("galley_test", m).
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+			// the helm charts still deploy deprecated MeshPolicy resources, so we suppress the warnings
+			if !cfg.Operator {
+				suppressor = []string{"-S", suppressDefaultMeshConfigDeprecated}
+			}
+
 			cfg.ControlPlaneValues = `
 components:
   galley:
