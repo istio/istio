@@ -1237,8 +1237,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_Config{
-					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						Policy: &authn_alpha.Policy{
 							Peers: []*authn_alpha.PeerAuthenticationMethod{
 								{
@@ -1280,8 +1280,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_Config{
-					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						Policy: &authn_alpha.Policy{
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
 								{
@@ -1757,7 +1757,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			if c.isGateway {
 				proxyType = model.Router
 			}
-			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn, c.alphaPolicyIn).AuthNFilter(proxyType, 80)
+			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn, c.alphaPolicyIn).AuthNFilter(proxyType, 80, true)
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%v\nwanted:\n%v\n", humanReadableAuthnFilterDump(got), humanReadableAuthnFilterDump(c.expected))
 			}

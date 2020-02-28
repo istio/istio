@@ -184,6 +184,9 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 	if filterConfigProto == nil {
 		return nil
 	}
+	out := &http_conn.HttpFilter{
+		Name: authn_model.AuthnFilterName,
+	}
 	if isXDSMarshalingToAnyEnabled {
 		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
 	} else {
