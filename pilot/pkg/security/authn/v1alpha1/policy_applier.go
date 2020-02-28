@@ -309,7 +309,6 @@ func (a v1alpha1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http
 	return out
 }
 
-
 func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType, _ /* port */ uint32, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	filterConfigProto := convertPolicyToAuthNFilterConfig(a.policy, proxyType)
 	if filterConfigProto == nil {
