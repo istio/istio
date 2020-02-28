@@ -11,13 +11,12 @@ RUN adduser istio-test --system
 # The recommandation to pin package version is a security risk, prevents getting security updates
 # (or require impossible maintainance - knowing when any package had a fix and updating in countless places)
 # hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends iproute2 iptables curl less net-tools \
+RUN apt-get update && apt-get install -y --no-install-recommends iproute2 openssl iptables curl less net-tools \
     && apt-get clean \
     && rm -rf  /var/log/*log /var/lib/apt/lists/* /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old
 
 COPY *.yaml /var/lib/istio/config/
-COPY certs/ /var/lib/istio/
-COPY certs/default/* /var/run/secrets/istio/
+COPY certs/vm/* /var/run/secrets/istio/
 
 COPY deb_test.sh /usr/local/bin/
 COPY certs/cacerts/ /etc/cacerts/

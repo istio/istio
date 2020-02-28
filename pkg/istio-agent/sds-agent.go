@@ -324,7 +324,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			// will be a hardcoded default value (e.g., the namespace will be hardcoded
 			// as istio-system).
 			log.Info("Istio Agent uses default istiod CA")
-			serverOptions.CAEndpoint = "istio-pilot.istio-system.svc:15012"
+			serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
 
 			if serverOptions.PilotCertProvider == "istiod" {
 				log.Info("istiod uses self-issued certificate")
@@ -351,7 +351,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				rootCert = nil
 				// for debugging only
 				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
-				serverOptions.CAEndpoint = "istio-pilot.istio-system.svc:15010"
+				serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
 			}
 		} else {
 			// Explicitly configured CA

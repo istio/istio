@@ -53,6 +53,25 @@ function istioStats() {
         -v https://istio-pilot.istio-system:15011/debug/endpointz
 }
 
+function istioCheckServerCert {
+  curl --key /etc/certs/key.pem --cert /etc/certs/cert-chain.pem --cacert /etc/certs/root-cert.pem -vvv --http2 \
+    https://istiod.istio-system.svc:15012
+}
+
+
+function istioRun {
+  export ISTIO_CA=istiod.istio-system.svc:15012
+  export PROV_CERT=/etc/certs
+  export OUTPUT_CERTS=/etc/certs
+
+  /usr/local/bin/pilot-agent proxy  --serviceCluster rawvm  --discoveryAddress istiod.istio-system.svc:15012
+
+}
+
+function verifyCert() {
+  openssl verify -CAfile /etc/certs/root-cert.pem /etc/certs/cert-chain.pem
+}
+
 function istioTest() {
     # Will go to local machine
     su -s /bin/bash -c "curl -v byon-docker.test.istio.io:7072" istio-test
