@@ -110,7 +110,7 @@ func applyLocalityWeight(
 				// the load balancing weight for a locality is divided by the sum of the weights of all localities
 				for index, originalWeight := range destLocMap {
 					destWeight := float64(originalWeight*weight) / float64(totalWeight)
-					if weight > 0 {
+					if destWeight > 0 {
 						loadAssignment.Endpoints[index].LoadBalancingWeight = &wrappers.UInt32Value{
 							Value: uint32(math.Ceil(destWeight)),
 						}
