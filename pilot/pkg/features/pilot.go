@@ -294,4 +294,16 @@ var (
 
 	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
+
+	// Default timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero
+	// which disables timeout when it is not configured, to preserve the current behaviour.
+	defaultRequestTimeoutVar = env.RegisterDurationVar(
+		"ISTIO_DEFAULT_REQUEST_TIMEOUT_MS",
+		0*time.Microsecond,
+		"Default Request timeout in milli seconds.",
+	)
+
+	DefaultRequestTimeout = func() *duration.Duration {
+		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
+	}
 )

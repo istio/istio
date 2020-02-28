@@ -15,6 +15,7 @@
 package route_test
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
@@ -71,12 +72,29 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
+		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT_MS", "0")
+		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT_MS")
+
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
-		// Validate that when timeout is not specified, we do not send timeouts to Envoys.
-		g.Expect(routes[0].GetRoute().Timeout).To(gomega.BeNil())
-		g.Expect(routes[0].GetRoute().MaxGrpcTimeout).To(gomega.BeNil())
+		// Validate that when timeout is not specified, we disable it based on default value of flag.
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(0)))
+	})
+
+	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT_MS", "1000ms")
+		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT_MS")
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		// Validate that when timeout is not specified, we send what is set in the timeout flag.
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(1)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(1)))
 	})
 
 	t.Run("for virtual service with timeout", func(t *testing.T) {
@@ -88,6 +106,16 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		// Validate that when timeout specified, we send the configured timeout to Envoys.
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(10)))
 		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(10)))
+	})
+
+	t.Run("for virtual service with disabled timeout", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeoutDisabled, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(0)))
 	})
 
 	t.Run("for virtual service with catch all route", func(t *testing.T) {
@@ -625,6 +653,36 @@ var virtualServiceWithTimeout = model.Config{
 				},
 				Timeout: &types.Duration{
 					Seconds: 10,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithTimeoutDisabled = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+				Timeout: &types.Duration{
+					Seconds: 0,
 				},
 			},
 		},

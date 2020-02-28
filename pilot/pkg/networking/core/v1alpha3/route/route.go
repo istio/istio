@@ -37,6 +37,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -389,13 +390,16 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
-		// Configure timeouts only if Virtual Service specifies it. Otherwise, leave it to Envoy defaults.
+		// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
+		var d *duration.Duration
 		if in.Timeout != nil {
-			d := gogo.DurationToProtoDuration(in.Timeout)
-			// timeout
-			action.Timeout = d
-			action.MaxGrpcTimeout = d
+			d = gogo.DurationToProtoDuration(in.Timeout)
+		} else {
+			d = features.DefaultRequestTimeout()
 		}
+
+		action.Timeout = d
+		action.MaxGrpcTimeout = d
 
 		out.Action = &route.Route_Route{Route: action}
 
