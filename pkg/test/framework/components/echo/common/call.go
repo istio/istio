@@ -75,7 +75,8 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 		Message:       opts.Message,
 	}
 
-	resp, err := c.ForwardEcho(context.Background(), req)
+	ctx, _ := context.WithTimeout(context.Background(), opts.Timeout)
+	resp, err := c.ForwardEcho(ctx, req)
 	if err != nil {
 		return nil, err
 	}

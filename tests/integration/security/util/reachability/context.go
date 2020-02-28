@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/util/retry"
-
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -31,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
@@ -98,18 +97,22 @@ func (rc *Context) Run(testCases []TestCase) {
 		{
 			PortName: "http",
 			Scheme:   scheme.HTTP,
+			Timeout:  time.Second * 2,
 		},
 		{
 			PortName: "http",
 			Scheme:   scheme.WebSocket,
+			Timeout:  time.Second * 2,
 		},
 		{
 			PortName: "tcp",
 			Scheme:   scheme.HTTP,
+			Timeout:  time.Second * 2,
 		},
 		{
 			PortName: "grpc",
 			Scheme:   scheme.GRPC,
+			Timeout:  time.Second * 2,
 		},
 	}
 
@@ -135,12 +138,6 @@ func (rc *Context) Run(testCases []TestCase) {
 				return rc.g.DeleteConfig(c.Namespace, policyYAML)
 			})
 
-			// Give some time for the policy propagate.
-			// TODO: query pilot or app to know instead of sleep.
-			ctx.Logf("[%s] [%v] Wait for config propagate to endpoints...", testName, time.Now())
-			time.Sleep(10 * time.Second)
-			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
-
 			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
 				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
 					for _, opts := range callOptions {
@@ -161,9 +158,8 @@ func (rc *Context) Run(testCases []TestCase) {
 								opts.Scheme,
 								dest.Config().Service,
 								opts.PortName)
-
 							ctx.NewSubTest(subTestName).
-								RunParallel(func(ctx framework.TestContext) {
+								Run(func(ctx framework.TestContext) {
 									if onPreRun != nil {
 										onPreRun(ctx, src, opts)
 									}
