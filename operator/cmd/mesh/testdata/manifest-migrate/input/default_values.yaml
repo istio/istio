@@ -431,7 +431,9 @@ kiali:
     secretName: kiali 
     viewOnlyMode: false 
     grafanaURL:  
+    grafanaInClusterURL: http://grafana:3000
     jaegerURL:  
+    jaegerInClusterURL: http://tracing/jaeger
   createDemoSecret: false
   security:
     enabled: true

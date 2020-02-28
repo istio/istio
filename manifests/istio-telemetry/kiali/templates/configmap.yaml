@@ -34,14 +34,10 @@ data:
         url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
-{{- if .Values.kiali.dashboard.inclusterjaegerURL }}
-        in_cluster_url: {{ .Values.kiali.dashboard.inclusterjaegerURL }}
-{{- end }}
+        in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
-{{- if .Values.kiali.dashboard.inclustergrafanaURL }}
-        in_cluster_url: {{ .Values.kiali.dashboard.inclustergrafanaURL }}
-{{- end }}
+        in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
       prometheus:
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090

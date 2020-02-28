@@ -294,4 +294,8 @@ var (
 
 	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
+
+	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
+		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
+			" be enabled. This feature is currently experimental, and is off by default.").Get()
 )

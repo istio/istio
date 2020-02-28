@@ -453,6 +453,8 @@ spec:
       contextPath: /kiali
       createDemoSecret: false
       dashboard:
+        grafanaInClusterURL: http://grafana:3000
+        jaegerInClusterURL: http://tracing/jaeger
         passphraseKey: passphrase
         secretName: kiali
         usernameKey: username
