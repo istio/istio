@@ -70,8 +70,8 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Example: `  # Apply a default Istio installation
   istioctl manifest apply
 
-  # Enable security
-  istioctl manifest apply --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true
+  # Enable grafana dashboard
+  istioctl manifest apply --set values.grafana.enabled=true
 
   # Generate the demo profile and don't wait for confirmation
   istioctl manifest apply --set profile=demo --skip-confirmation
