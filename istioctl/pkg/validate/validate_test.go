@@ -269,6 +269,18 @@ metadata:
   name: hello
   namespace: istio-system
 spec: ~`
+	invalidIstioConfig = `
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: example-istiocontrolplane
+spec:
+  dummy:
+  traffic_management:
+    components:
+    namespace: istio-traffic-management
+`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -355,6 +367,11 @@ func TestValidateResource(t *testing.T) {
 			in:    udpService,
 			valid: true,
 		},
+		{
+			name:  "invalid Istio Operator config",
+			in:    invalidIstioConfig,
+			valid: false,
+		},
 	}
 
 	for i, c := range cases {
@@ -364,7 +381,7 @@ func TestValidateResource(t *testing.T) {
 			}
 			err := v.validateResource("istio-system", fromYAML(c.in))
 			if (err == nil) != c.valid {
-				tt.Fatalf("unexpected validation result: got %v want %v: err=%q", err == nil, c.valid, err)
+				tt.Fatalf("unexpected validation result: got %v want %v: err=%v", err == nil, c.valid, err)
 			}
 		})
 	}
