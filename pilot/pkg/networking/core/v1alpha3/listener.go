@@ -518,6 +518,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bindToPort: false,
 			}
 
+			if sidecarScope.Config != nil {
+				rule := sidecarScope.Config.Spec.(*networking.Sidecar)
+				listenerOpts.userTLSOpts = rule.InboundTls
+			}
+
 			pluginParams := &plugin.InputParams{
 				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, instance.ServicePort.Protocol,
 					core.TrafficDirection_INBOUND),
@@ -572,7 +577,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bind:        bind,
 				port:        listenPort.Port,
 				bindToPort:  bindToPort,
-				userTLSOpts: ingressListener.InboundTls,
+			}
+
+			listenerOpts.userTLSOpts = rule.InboundTls
+			if ingressListener.InboundTls != nil {
+				listenerOpts.userTLSOpts = ingressListener.InboundTls
 			}
 
 			// we don't need to set other fields of the endpoint here as
@@ -712,14 +721,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		}
 
 		hasTLSContext = hasTLSContext || c.TLSContext != nil
-	}
-
-	// only apply inbound tls options when no authentication applies
-	if !hasTLSContext && listenerOpts.userTLSOpts != nil {
-		downstreamTLSContext := buildSidecarListenerTLSContext(listenerOpts.userTLSOpts, node.Metadata, listenerOpts.push.Mesh.SdsUdsPath)
-		for i := range allChains {
-			// set downstream tls context according to inbound tls options
-			allChains[i].TLSContext = downstreamTLSContext
+		// only apply inbound tls options when authn is disabled or permissive
+		// i.e. if there is no istio tls context, add one provided by user
+		if c.TLSContext == nil {
+			c.TLSContext = buildSidecarListenerTLSContext(listenerOpts.userTLSOpts, node.Metadata,
+				listenerOpts.push.Mesh.SdsUdsPath)
 		}
 	}
 

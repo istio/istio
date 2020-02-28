@@ -679,6 +679,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			return fmt.Errorf("sidecar: missing egress")
 		}
 
+		errs = appendErrors(errs, validateSidecarIngressTLS(rule.InboundTls))
 		portMap := make(map[uint32]struct{})
 		for _, i := range rule.Ingress {
 			if i.Port == nil {
