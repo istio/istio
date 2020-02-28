@@ -125,6 +125,8 @@ func (s *Server) initDNSCerts(hostname string) error {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
+
+		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
 		log.Infof("Generating Citadel-signed cert for %v", names)
 		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())

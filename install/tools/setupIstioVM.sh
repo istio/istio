@@ -81,12 +81,6 @@ function istioInstall() {
 
 function istioRestart() {
     echo "*** Restarting istio proxy..."
-    # Node agent
-    if systemctl status istio-auth-node-agent > /dev/null; then
-      systemctl restart istio-auth-node-agent
-    else
-      systemctl start istio-auth-node-agent
-    fi
     # Start or restart istio envoy
     if systemctl status istio > /dev/null; then
       systemctl restart istio

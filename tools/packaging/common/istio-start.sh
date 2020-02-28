@@ -48,7 +48,7 @@ ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 
 # The default matches the default istio.yaml - use sidecar.env to override this if you
 # enable auth. This requires node-agent to be running.
-ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-15011}
+ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-15012}
 
 # If set, override the default
 CONTROL_PLANE_AUTH_POLICY=("--controlPlaneAuthPolicy" "MUTUAL_TLS")
@@ -95,8 +95,14 @@ if [ "${ISTIO_INBOUND_INTERCEPTION_MODE}" = "TPROXY" ] ; then
 fi
 
 if [ -z "${PILOT_ADDRESS:-}" ]; then
-  PILOT_ADDRESS=istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT}
+  PILOT_ADDRESS=istiod.${ISTIO_SYSTEM_NAMESPACE}.svc:${ISTIO_PILOT_PORT}
 fi
+
+ISTIO_CA=${ISTIO_CA:-${PILOT_ADDRESS}}
+
+export ISTIO_CA
+export PROV_CERT
+export OUTPUT_CERTS
 
 # If predefined ISTIO_AGENT_FLAGS is null, make it an empty string.
 ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
