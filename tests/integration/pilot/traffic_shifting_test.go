@@ -181,7 +181,7 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 				InstancePort: 8090,
 			},
 		},
-		Workloads: []echo.WorkloadConfig{{}},
+		Subsets: []echo.SubsetConfig{{}},
 		Galley:    g,
 		Pilot:     p,
 	}

@@ -73,13 +73,13 @@ type Config struct {
 	// become ready.
 	ReadinessTimeout time.Duration
 
-	// Workloads contains the list of workloads config belonging to this echo
+	// Subsets contains the list of Subsets config belonging to this echo
 	// service instance.
-	Workloads []WorkloadConfig
+	Subsets []SubsetConfig
 }
 
-// WorkloadConfig is the config for a group of workloads (e.g. Kubernetes deployment).
-type WorkloadConfig struct {
+// SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
+type SubsetConfig struct {
 	// The version of the deployment.
 	Version string
 	// Annotations provides metadata hints for deployment of the instance.

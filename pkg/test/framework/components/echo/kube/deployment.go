@@ -57,7 +57,7 @@ spec:
   selector:
     app: {{ .Service }}
 ---
-{{$deployConfig := .Workloads }}
+{{$deployConfig := .Subsets }}
 {{- range $i, $w := $deployConfig }}
 apiVersion: apps/v1
 kind: Deployment
@@ -178,8 +178,8 @@ func generateYAML(cfg echo.Config) (string, error) {
 
 func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string, error) {
 	// Convert legacy config to workload oritended.
-	if cfg.Workloads == nil {
-		cfg.Workloads = []echo.WorkloadConfig{
+	if cfg.Subsets == nil {
+		cfg.Subsets = []echo.SubsetConfig{
 			{
 				Version: cfg.Version,
 			},
@@ -189,14 +189,14 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 	// Separate the annotations.
 	serviceAnnotations := make(map[string]string)
 	wlas := make(map[string]map[string]string)
-	for i := range cfg.Workloads {
-		w := &cfg.Workloads[i]
-		if cfg.Workloads[i].Version == "" {
-			cfg.Workloads[i].Version = "v1"
+	for i := range cfg.Subsets {
+		w := &cfg.Subsets[i]
+		if cfg.Subsets[i].Version == "" {
+			cfg.Subsets[i].Version = "v1"
 		}
 		wlas[w.Version] = map[string]string{}
-		if cfg.Workloads[i].Version == "" {
-			cfg.Workloads[i].Version = cfg.Version
+		if cfg.Subsets[i].Version == "" {
+			cfg.Subsets[i].Version = cfg.Version
 		}
 		for k, val := range w.Annotations {
 			wlas[w.Version][k.Name] = val.Value
@@ -221,7 +221,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 		"ServiceAnnotations":  serviceAnnotations,
 		"WorkloadAnnotations": wlas,
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
-		"Workloads":           cfg.Workloads,
+		"Subsets":             cfg.Subsets,
 	}
 
 	// Generate the YAML content.

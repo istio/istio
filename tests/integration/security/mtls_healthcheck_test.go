@@ -81,7 +81,7 @@ spec:
 			ServicePort:  8080,
 			InstancePort: 8080,
 		}},
-		Workloads: []echo.WorkloadConfig{
+		Subsets: []echo.SubsetConfig{
 			{
 				Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, rewrite),
 			},

@@ -28,7 +28,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 		Namespace:      ns,
 		ServiceAccount: true,
 		Headless:       headless,
-		Workloads: []echo.WorkloadConfig{
+		Subsets: []echo.SubsetConfig{
 			{
 				Version:     "v1",
 				Annotations: annos,

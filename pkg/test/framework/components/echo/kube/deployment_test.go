@@ -66,7 +66,7 @@ func TestDeploymentYAML(t *testing.T) {
 						ServicePort:  8090,
 					},
 				},
-				Workloads: []echo.WorkloadConfig{
+				Subsets: []echo.SubsetConfig{
 					{
 						Version: "v1",
 					},
@@ -88,7 +88,7 @@ func TestDeploymentYAML(t *testing.T) {
 					ServicePort:  8080,
 					InstancePort: 8080,
 				}},
-				Workloads: []echo.WorkloadConfig{
+				Subsets: []echo.SubsetConfig{
 					{
 						Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, true),
 					},
@@ -100,7 +100,7 @@ func TestDeploymentYAML(t *testing.T) {
 			wantFilePath: "testdata/multiversion.yaml",
 			config: echo.Config{
 				Service: "multiversion",
-				Workloads: []echo.WorkloadConfig{
+				Subsets: []echo.SubsetConfig{
 					{
 						Version: "v-istio",
 					},
