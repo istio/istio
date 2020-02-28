@@ -64,11 +64,11 @@ type KubeAppProbers map[string]*corev1.Probe
 // Config for the status server.
 type Config struct {
 	LocalHostAddr string
-	// KubeAppHTTPProbers is a json with Kubernetes application HTTP prober config encoded.
-	KubeAppHTTPProbers string
-	NodeType           model.NodeType
-	StatusPort         uint16
-	AdminPort          uint16
+	// KubeAppProbers is a json with Kubernetes application prober config encoded.
+	KubeAppProbers string
+	NodeType       model.NodeType
+	StatusPort     uint16
+	AdminPort      uint16
 }
 
 // Server provides an endpoint for handling status probes.
@@ -90,11 +90,11 @@ func NewServer(config Config) (*Server, error) {
 			NodeType:      config.NodeType,
 		},
 	}
-	if config.KubeAppHTTPProbers == "" {
+	if config.KubeAppProbers == "" {
 		return s, nil
 	}
-	if err := json.Unmarshal([]byte(config.KubeAppHTTPProbers), &s.appKubeProbers); err != nil {
-		return nil, fmt.Errorf("failed to decode app http prober err = %v, json string = %v", err, config.KubeAppHTTPProbers)
+	if err := json.Unmarshal([]byte(config.KubeAppProbers), &s.appKubeProbers); err != nil {
+		return nil, fmt.Errorf("failed to decode app prober err = %v, json string = %v", err, config.KubeAppProbers)
 	}
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
@@ -219,8 +219,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 
 	// Construct a request sent to the application.
 	httpClient := &http.Client{
-		// TODO: figure out the appropriate timeout?
-		Timeout: 10 * time.Second,
+		Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
 		// We skip the verification since kubelet skips the verification for HTTPS prober as well
 		// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
 		Transport: &http.Transport{
