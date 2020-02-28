@@ -81,6 +81,7 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 			Service:   "from-with-sidecar",
 			Namespace: ns,
 			Ports:     ports,
+			Workloads: []echo.WorkloadConfig{{}},
 			Galley:    g,
 			Pilot:     p,
 		}).
@@ -102,6 +103,7 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 		With(&to, echo.Config{
 			Service:   "to",
 			Namespace: ns,
+			Workloads: []echo.WorkloadConfig{{}},
 			Ports:     ports,
 			Galley:    g,
 			Pilot:     p,

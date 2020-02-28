@@ -210,6 +210,7 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 		Service:   name,
 		Namespace: ns,
 		Locality:  "region.zone.subzone",
+		Workloads: []echo.WorkloadConfig{{}},
 		Ports: []echo.Port{
 			{
 				Name:        "http",
