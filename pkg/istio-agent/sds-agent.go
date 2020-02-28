@@ -188,31 +188,34 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 		log.Fatala("Invalid discovery address", discAddr, err)
 	}
 
-	// If original /etc/certs or a separate 'provisioning certs' (VM) are present, use them instead of tokens
-	certDir := "./etc/certs"
-	if citadel.ProvCert != "" {
-		certDir = citadel.ProvCert
-	}
-	if _, err := os.Stat(certDir + "/key.pem"); err == nil {
-		ac.CertsPath = certDir
-	}
-	// If the root-cert is in the old location, use it.
-	if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
-		CitadelCACertPath = certDir
-	}
-
-	if _, err := os.Stat(jwtPath); err == nil {
+	if _, err := os.Stat(jwtPath); err == nil && citadel.ProvCert == "" {
+		// If the JWT file exists, and explicit 'prov cert' is not - use the JWT
 		ac.JWTPath = jwtPath
-	} else if ac.CertsPath != "" {
-		log.Warna("Using existing certificate ", ac.CertsPath)
 	} else {
-		// Can't use in-process SDS.
-		log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
-
-		if discPort == "15012" {
-			log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
+		// If original /etc/certs or a separate 'provisioning certs' (VM) are present, use them instead of tokens
+		certDir := "./etc/certs"
+		if citadel.ProvCert != "" {
+			certDir = citadel.ProvCert
 		}
-		return ac
+		if _, err := os.Stat(certDir + "/key.pem"); err == nil {
+			ac.CertsPath = certDir
+		}
+		// If the root-cert is in the old location, use it.
+		if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
+			CitadelCACertPath = certDir
+		}
+
+		if ac.CertsPath != "" {
+			log.Warna("Using existing certificate ", ac.CertsPath)
+		} else {
+			// Can't use in-process SDS.
+			log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
+
+			if discPort == "15012" {
+				log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
+			}
+			return ac
+		}
 	}
 
 	ac.SDSAddress = "unix:" + LocalSDS
