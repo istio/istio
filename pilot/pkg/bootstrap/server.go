@@ -29,6 +29,10 @@ import (
 	"sync"
 	"time"
 
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"istio.io/pkg/env"
+
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pilot/pkg/leaderelection"
@@ -143,8 +147,8 @@ type Server struct {
 
 	serviceEntryStore *external.ServiceEntryStore
 
-	HTTPListener net.Listener
-	GRPCListener net.Listener
+	HTTPListener    net.Listener
+	GRPCListener    net.Listener
 	GRPCDNSListener net.Listener
 
 	// for test
