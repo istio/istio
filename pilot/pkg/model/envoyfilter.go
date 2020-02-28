@@ -47,10 +47,17 @@ type EnvoyFilterConfigPatchWrapper struct {
 	ProxyPrefixMatch string
 }
 
-// versionPrefixMatch is a regex that matches a regex
-// Specifically, we are looking for a regex like `^1\.6.*`, which is what is used by telemetry v2
-// This is intended only as a performance optimization
-var versionPrefixMatch = regexp.MustCompile(`\^1\\.(?P<ver>.)\.\*`)
+// wellKnownVersions defines a mapping of well known regex matches to prefix matches
+// This is done only as an optimization; behavior should remain the same
+// All versions specified by the default installation (Telemetry V2) should be added here.
+var wellKnownVersions = map[string]string{
+	`^1\.4.*`: "1.4",
+	`^1\.5.*`: "1.5",
+	`^1\.6.*`: "1.6",
+	`^1\.7.*`: "1.7",
+	`^1\.8.*`: "1.8",
+	// Hopefully we have a better API by 1.9. If not, add it here
+}
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
 func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
@@ -79,8 +86,8 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			// Attempt to convert regex to a simple prefix match for the common case of matching
 			// a standard Istio version. This field should likely be replaced with semver, but for now
 			// we can workaround the performance impact of regex
-			if match := versionPrefixMatch.FindStringSubmatch(cp.Match.Proxy.ProxyVersion); len(match) == 2 {
-				cpw.ProxyPrefixMatch = "1." + match[1]
+			if prefix, f := wellKnownVersions[cp.Match.Proxy.ProxyVersion]; f {
+				cpw.ProxyPrefixMatch = prefix
 			} else {
 				// pre-compile the regex for proxy version if it exists
 				// ignore the error because validation catches invalid regular expressions.
