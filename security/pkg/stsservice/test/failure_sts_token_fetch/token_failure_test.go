@@ -52,7 +52,7 @@ func TestTokenFetchFailureOne(t *testing.T) {
 	g.Expect(numAccessTokenCall).To(gomega.Equal(initialNumAccessTokenCall))
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
-
+	setup.ProxySetup.SilentlyStopProxy(true)
 	setup.TearDown()
 }
 
@@ -83,6 +83,6 @@ func TestTokenFetchFailureTwo(t *testing.T) {
 	g.Expect(numAccessTokenCall).Should(gomega.BeNumerically(">", initialNumAccessTokenCall))
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
-
+	setup.ProxySetup.SilentlyStopProxy(true)
 	setup.TearDown()
 }
