@@ -56,6 +56,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 				return echo.Config{
 					Service:   service,
 					Namespace: ns,
+					Workloads: []echo.WorkloadConfig{{}},
 					Galley:    g,
 					Pilot:     p,
 					Ports: []echo.Port{

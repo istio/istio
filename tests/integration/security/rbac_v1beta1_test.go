@@ -570,6 +570,7 @@ func TestV1beta1_EgressGateway(t *testing.T) {
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
+					Workloads: []echo.WorkloadConfig{{}},
 					Ports: []echo.Port{
 						{
 							Name:        "http",
@@ -684,6 +685,7 @@ func TestV1beta1_TCP(t *testing.T) {
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&x, util.EchoConfig("x", ns2, false, nil, g, p)).
 				With(&a, echo.Config{
+					Workloads:      []echo.WorkloadConfig{{}},
 					Namespace:      ns,
 					Galley:         g,
 					Pilot:          p,
@@ -693,6 +695,7 @@ func TestV1beta1_TCP(t *testing.T) {
 				}).
 				With(&b, echo.Config{
 					Namespace:      ns,
+					Workloads:      []echo.WorkloadConfig{{}},
 					Galley:         g,
 					Pilot:          p,
 					Service:        "b",
@@ -701,6 +704,7 @@ func TestV1beta1_TCP(t *testing.T) {
 				}).
 				With(&c, echo.Config{
 					Namespace:      ns,
+					Workloads:      []echo.WorkloadConfig{{}},
 					Galley:         g,
 					Pilot:          p,
 					Service:        "c",
@@ -709,6 +713,7 @@ func TestV1beta1_TCP(t *testing.T) {
 				}).
 				With(&d, echo.Config{
 					Namespace:      ns,
+					Workloads:      []echo.WorkloadConfig{{}},
 					Galley:         g,
 					Pilot:          p,
 					Service:        "d",
@@ -793,6 +798,7 @@ func TestV1beta1_Conditions(t *testing.T) {
 				With(&c, echo.Config{
 					Service:   "c",
 					Namespace: nsC,
+					Workloads: []echo.WorkloadConfig{{}},
 					Ports: []echo.Port{
 						{
 							Name:         "http",
