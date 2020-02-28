@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
 
@@ -261,12 +260,6 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	}
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
-	var listFilter []*listener.ListenerFilter
-	if util.IsAllowAnyOutbound(node) && node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
-		listFilter = append(listFilter, &listener.ListenerFilter{
-			Name: xdsutil.TlsInspector,
-		})
-	}
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
@@ -274,13 +267,8 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		Address:          util.BuildAddress(actualWildcard, uint32(push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
-		ListenerFilters:  listFilter,
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
-	}
-	ipTablesListener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(push.Mesh.ProtocolDetectionTimeout)
-	if ipTablesListener.ListenerFiltersTimeout != nil {
-		ipTablesListener.ContinueOnListenerFiltersTimeout = true
 	}
 	configgen.onVirtualOutboundListener(node, push, ipTablesListener)
 	builder.virtualOutboundListener = ipTablesListener
@@ -587,9 +575,6 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 			// build a cluster out of this destination
 			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
 				nil, 0)
-			// When the sidecar is wrapping https traffic into mtls for egress gateway,
-			// this filter will copy sni from https into mtls for the egress gateway
-			filterStack = append(filterStack, &listener.Filter{Name: util.ForwardDownstreamSniFilter})
 		}
 	} else {
 		egressCluster = util.BlackHoleCluster
