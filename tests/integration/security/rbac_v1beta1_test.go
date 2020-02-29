@@ -353,13 +353,21 @@ func TestV1beta1_Deny(t *testing.T) {
 			}
 			cases := []rbacUtil.TestCase{
 				newTestCase(b, "/deny", false),
+				newTestCase(b, "/deny?param=value", false),
 				newTestCase(b, "/global-deny", false),
+				newTestCase(b, "/global-deny?param=value", false),
 				newTestCase(b, "/other", true),
+				newTestCase(b, "/other?param=value", true),
 				newTestCase(b, "/allow", true),
+				newTestCase(b, "/allow?param=value", true),
 				newTestCase(c, "/allow/admin", false),
+				newTestCase(c, "/allow/admin?param=value", false),
 				newTestCase(c, "/global-deny", false),
+				newTestCase(c, "/global-deny?param=value", false),
 				newTestCase(c, "/other", false),
+				newTestCase(c, "/other?param=value", false),
 				newTestCase(c, "/allow", true),
+				newTestCase(c, "/allow?param=value", true),
 			}
 
 			args := map[string]string{
