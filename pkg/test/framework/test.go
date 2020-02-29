@@ -183,8 +183,13 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
 	defer func() {
 		doneFn := func() {
+			message := "passed"
+			if t.goTest.Failed() {
+				message = "failed"
+			}
 			end := time.Now()
-			scopes.CI.Infof("=== DONE:  Test: '%s[%s] (%v)' ===",
+			scopes.CI.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
+				message,
 				rt.suiteContext().Settings().TestID,
 				t.goTest.Name(),
 				end.Sub(start))
