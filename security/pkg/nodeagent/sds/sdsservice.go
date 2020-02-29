@@ -287,6 +287,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					return err
 				}
 				token = string(tok)
+			} else if s.outputKeyCertToDir != "" {
+				// Using existing certs and the new SDS - skipToken case is for the old node agent.
 			} else if !s.skipToken {
 				ctx = stream.Context()
 				t, err := getCredentialToken(ctx)

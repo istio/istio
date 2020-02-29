@@ -51,18 +51,16 @@ function istioDnsmasq() {
   for _ in {1..20}; do
     PILOT_IP=$(kubectl get -n "$NS" service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    MIXER_IP=$(kubectl get -n "$NS" service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    CITADEL_IP=$(kubectl get -n "$NS" service citadel-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-    if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] || [ "${MIXER_IP}" == "" ] || [ "${CITADEL_IP}" == "" ] ; then
-      echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CITADEL_IP=$CITADEL_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n "$NS" service)"
+    if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] ; then
+      echo "Waiting for ILBs, pilot=$PILOT_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n "$NS" service)"
       sleep 30
     else
       break
     fi
   done
 
-  if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] || [ "${MIXER_IP}" == "" ] || [ "${CITADEL_IP}" == "" ] ; then
+  if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] ; then
     echo "Failed to create ILBs"
     exit 1
   fi
@@ -70,18 +68,8 @@ function istioDnsmasq() {
   #/etc/dnsmasq.d/kubedns
   {
     echo "server=/svc.cluster.local/$ISTIO_DNS"
-    echo "address=/istio-policy/$MIXER_IP"
-    echo "address=/istio-telemetry/$MIXER_IP"
     echo "address=/istio-pilot/$PILOT_IP"
-    echo "address=/istio-citadel/$CITADEL_IP"
-    echo "address=/istio-ca/$CITADEL_IP" # Deprecated. For backward compatibility
-    # Also generate host entries for the istio-system. The generated config will work with both
-    # 'cluster-wide' and 'per-namespace'.
-    echo "address=/istio-policy.$NS/$MIXER_IP"
-    echo "address=/istio-telemetry.$NS/$MIXER_IP"
-    echo "address=/istio-pilot.$NS/$PILOT_IP"
-    echo "address=/istio-citadel.$NS/$CITADEL_IP"
-    echo "address=/istio-ca.$NS/$CITADEL_IP" # Deprecated. For backward compatibility
+    echo "address=/istiod.istio-system.svc/$PILOT_IP"
   } > kubedns
 
   echo "Generated Dnsmaq config file 'kubedns'. Install it in /etc/dnsmasq.d and restart dnsmasq."
@@ -116,23 +104,20 @@ function istioClusterEnv() {
 function istio_provision_certs() {
   local SA=${1:-${SERVICE_ACCOUNT:-default}}
   local NS=${2:-${SERVICE_NAMESPACE:-}}
-  local ALL=${3}
-  local CERT_NAME=${ISTIO_SECRET_PREFIX:-istio.}${SA}
 
   if [[ -n "$NS" ]] ; then
     NS="-n $NS"
   fi
+
+  # shellcheck disable=SC2086
+  go run ./security/tools/generate_cert -client \
+    -host spiffee://cluster.local/${NS}/${SA} -mode citadel --out-cert cert-chain.pem --out-priv key.pem
+  echo "Generated cert-chain.pem and key.pem. It should be installed on /etc/certs"
+
   local B64_DECODE=${BASE64_DECODE:-base64 --decode}
   # shellcheck disable=SC2086
-  kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
+  kubectl get cm istio-security -n istio-system -o "jsonpath={.data.caTLSRootCert}" | $B64_DECODE   > root-cert.pem
   echo "Generated root-cert.pem. It should be installed on /etc/certs"
-  if [ "$ALL" == "all" ] ; then
-    # shellcheck disable=SC2086
-    kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
-    # shellcheck disable=SC2086
-    kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
-    echo "Generated cert-chain.pem and key.pem. It should be installed on /etc/certs"
-  fi
 
   echo "the directory and files must be owned by 'istio-proxy' user"
   echo "$0 machineSetup does this for you."
