@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -36,9 +35,9 @@ import (
 )
 
 const (
-	tcpHealthPort         = 3333
-	httpReadinessPort     = 8080
-	defaultDomain         = "cluster.local"
+	tcpHealthPort     = 3333
+	httpReadinessPort = 8080
+	defaultDomain     = "cluster.local"
 )
 
 var (
