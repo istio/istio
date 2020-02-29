@@ -1,8 +1,10 @@
 {{ if .Values.clusterResources }}
 {{/* If we have Istiod enabled and Galley disabled, we may run into issues during upgrade. */}}
 {{/* The old Galley will continuely try to patch its webhook, when we actually want to remove it. */}}
-{{/* This will disable Galley's permission to do so, if galley is disabled. */}}
-{{- if not .Values.galley.enabled }}
+{{/* This will disable Galley's permission to do so, if galley is disabled.
+     Only the default revision needs to do this, since only default revision is handling validation.
+  */}}
+{{- if and (not .Values.galley.enabled) (eq .Values.revision "") }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

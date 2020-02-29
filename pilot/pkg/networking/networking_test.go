@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plugin
+package networking
 
 import (
 	"os"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/features"
-
-	"istio.io/istio/pkg/config/protocol"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 var (

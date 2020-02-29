@@ -146,18 +146,10 @@ gateways:
     podAntiAffinityTermLabelSelector: []
 sidecarInjectorWebhook:
   enabled: true
-  replicaCount: 1
-  rollingMaxSurge: 100%
-  rollingMaxUnavailable: 25%
-  image: sidecar_injector
   enableNamespacesByDefault: false
   rewriteAppHTTPProbe: false
   selfSigned: false
-  nodeSelector: {}
-  tolerations: []
   injectLabel: istio-injection
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
   neverInjectSelector: []
   alwaysInjectSelector: []
 galley:
@@ -439,7 +431,9 @@ kiali:
     secretName: kiali 
     viewOnlyMode: false 
     grafanaURL:  
+    grafanaInClusterURL: http://grafana:3000
     jaegerURL:  
+    jaegerInClusterURL: http://tracing/jaeger
   createDemoSecret: false
   security:
     enabled: true

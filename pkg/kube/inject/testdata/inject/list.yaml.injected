@@ -18,7 +18,7 @@ items:
       metadata:
         annotations:
           sidecar.istio.io/interceptionMode: REDIRECT
-          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
+          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
           traffic.sidecar.istio.io/excludeInboundPorts: "15020"
           traffic.sidecar.istio.io/includeInboundPorts: "80"
           traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -56,9 +56,9 @@ items:
           - name: JWT_POLICY
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
-            value: citadel
+            value: istiod
           - name: CA_ADDR
-            value: istio-pilot.istio-system.svc:15012
+            value: istiod.istio-system.svc:15012
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -137,8 +137,8 @@ items:
             runAsNonRoot: true
             runAsUser: 1337
           volumeMounts:
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
           - mountPath: /etc/istio/proxy
             name: istio-envoy
           - mountPath: /var/run/secrets/tokens
@@ -163,7 +163,7 @@ items:
           - -b
           - '*'
           - -d
-          - "15020"
+          - 15090,15020
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: Always
           name: istio-init
@@ -209,7 +209,7 @@ items:
                 path: istio-token
         - configMap:
             name: istio-ca-root-cert
-          name: citadel-ca-cert
+          name: istiod-ca-cert
   status: {}
 - apiVersion: apps/v1
   kind: Deployment
@@ -229,7 +229,7 @@ items:
       metadata:
         annotations:
           sidecar.istio.io/interceptionMode: REDIRECT
-          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","citadel-ca-cert"],"imagePullSecrets":null}'
+          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
           traffic.sidecar.istio.io/excludeInboundPorts: "15020"
           traffic.sidecar.istio.io/includeInboundPorts: "81"
           traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -267,9 +267,9 @@ items:
           - name: JWT_POLICY
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
-            value: citadel
+            value: istiod
           - name: CA_ADDR
-            value: istio-pilot.istio-system.svc:15012
+            value: istiod.istio-system.svc:15012
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -348,8 +348,8 @@ items:
             runAsNonRoot: true
             runAsUser: 1337
           volumeMounts:
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
           - mountPath: /etc/istio/proxy
             name: istio-envoy
           - mountPath: /var/run/secrets/tokens
@@ -374,7 +374,7 @@ items:
           - -b
           - '*'
           - -d
-          - "15020"
+          - 15090,15020
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: Always
           name: istio-init
@@ -420,7 +420,7 @@ items:
                 path: istio-token
         - configMap:
             name: istio-ca-root-cert
-          name: citadel-ca-cert
+          name: istiod-ca-cert
   status: {}
 kind: List
 metadata: {}

@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-pilot
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}
@@ -38,7 +38,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-policy
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.remotePolicyAddress }}
@@ -56,7 +56,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-telemetry
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.remoteTelemetryAddress }}

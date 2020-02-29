@@ -18,7 +18,7 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking"
 )
 
 // PolicyApplier is the interface provides essential functionalities to help config Envoy (xDS) to enforce
@@ -26,7 +26,7 @@ import (
 type PolicyApplier interface {
 	// InboundFilterChain returns inbound filter chain(s) for the given endpoint (aka workload) port to
 	// enforce the underlying authentication policy.
-	InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []plugin.FilterChain
+	InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []networking.FilterChain
 
 	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.
@@ -34,5 +34,5 @@ type PolicyApplier interface {
 
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.
-	AuthNFilter(proxyType model.NodeType) *http_conn.HttpFilter
+	AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter
 }

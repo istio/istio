@@ -24,8 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"k8s.io/client-go/rest"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -37,6 +39,7 @@ import (
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -60,7 +63,7 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	factory := &helmreconciler.Factory{CustomizerFactory: &IstioRenderingCustomizerFactory{}}
-	return &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), factory: factory}
+	return &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), factory: factory, config: mgr.GetConfig()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -93,6 +96,7 @@ type ReconcileIstioOperator struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client  client.Client
+	config  *rest.Config
 	scheme  *runtime.Scheme
 	factory *helmreconciler.Factory
 }
@@ -197,8 +201,27 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	var err error
 	iopMerged := *iop
 	iopMerged.Spec, err = helmreconciler.MergeIOPSWithProfile(iop.Spec)
+
 	if err != nil {
+		log.Errorf("failed to generate IstioOperator spec, %v", err)
 		return reconcile.Result{}, err
+	}
+
+	if _, ok := iopMerged.Spec.Values["global"]; !ok {
+		iopMerged.Spec.Values["global"] = make(map[string]interface{})
+	}
+	globalValues := iopMerged.Spec.Values["global"].(map[string]interface{})
+	log.Info("Detecting third-party JWT support")
+	var jwtPolicy util.JWTPolicy
+	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.config); err != nil {
+		log.Warnf("Failed to detect third-party JWT support: %v", err)
+	} else {
+		if jwtPolicy == util.FirstPartyJWT {
+			// nolint: lll
+			log.Info("Detected that your cluster does not support third party JWT authentication. " +
+				"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
+		}
+		globalValues["jwtPolicy"] = string(jwtPolicy)
 	}
 	reconciler, err := r.getOrCreateReconciler(&iopMerged)
 	if err == nil {

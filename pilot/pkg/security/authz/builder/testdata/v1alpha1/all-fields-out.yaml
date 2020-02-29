@@ -20,18 +20,20 @@ rules:
                   presentMatch: true
           - orRules:
               rules:
-              - header:
-                  exactMatch: /exact
-                  name: :path
-              - header:
-                  name: :path
-                  prefixMatch: /prefix/
-              - header:
-                  name: :path
-                  suffixMatch: /suffix
-              - header:
-                  name: :path
-                  presentMatch: true
+              - urlPath:
+                  path:
+                    exact: /exact
+              - urlPath:
+                  path:
+                    prefix: /prefix/
+              - urlPath:
+                  path:
+                    suffix: /suffix
+              - urlPath:
+                  path:
+                    safeRegex:
+                      googleRe2: {}
+                      regex: .+
           - orRules:
               rules:
               - destinationIp:
