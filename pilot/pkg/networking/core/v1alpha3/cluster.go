@@ -281,7 +281,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 
 				updateEds(subsetCluster)
 
-				subsetCluster.Metadata = clusterMetadata
+				subsetCluster.Metadata = util.AddSubsetToMetadata(clusterMetadata, subset.Name)
 				// call plugins
 				for _, p := range configgen.Plugins {
 					p.OnOutboundCluster(inputParams, subsetCluster)
@@ -375,7 +375,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 
 					updateEds(subsetCluster)
 
-					subsetCluster.Metadata = util.AddSubsetToMetadata(defaultCluster.Metadata, subset.Name)
+					subsetCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+					subsetCluster.Metadata = util.AddSubsetToMetadata(subsetCluster.Metadata, subset.Name)
 					clusters = append(clusters, subsetCluster)
 				}
 			}
