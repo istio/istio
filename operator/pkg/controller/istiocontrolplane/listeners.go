@@ -89,13 +89,17 @@ func (u *IstioStatusUpdater) BeginReconcile(_ runtime.Object) error {
 	if err := u.reconciler.GetClient().Get(context.TODO(), namespacedName, isop); err != nil {
 		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
 	}
-	cs := isop.Status.ComponentStatus
-	for cn, _ := range cs {
-		cs[cn] = &v1alpha1.InstallStatus_VersionStatus{
-			Status: v1alpha1.InstallStatus_RECONCILING,
+	if isop.Status == nil {
+		isop.Status = &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_RECONCILING}
+	} else {
+		cs := isop.Status.ComponentStatus
+		for cn := range cs {
+			cs[cn] = &v1alpha1.InstallStatus_VersionStatus{
+				Status: v1alpha1.InstallStatus_RECONCILING,
+			}
 		}
+		isop.Status.Status = v1alpha1.InstallStatus_RECONCILING
 	}
-	isop.Status.Status = v1alpha1.InstallStatus_RECONCILING
 	return u.reconciler.GetClient().Status().Update(context.TODO(), isop)
 }
 
