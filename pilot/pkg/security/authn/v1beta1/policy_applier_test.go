@@ -35,10 +35,11 @@ import (
 	authn_alpha_api "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	protovalue "istio.io/istio/pkg/proto"
 	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
@@ -1797,14 +1798,14 @@ func TestOnInboundFilterChain(t *testing.T) {
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
 
-	expectedStrict := []plugin.FilterChain{
+	expectedStrict := []networking.FilterChain{
 		{
 			TLSContext: tlsContext,
 		},
 	}
 
 	// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-	expectedPermissive := []plugin.FilterChain{
+	expectedPermissive := []networking.FilterChain{
 		{
 			TLSContext: tlsContext,
 			FilterChainMatch: &listener.FilterChainMatch{
@@ -1827,7 +1828,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 		peerPolicies []*model.Config
 		alphaPolicy  *authn_alpha_api.Policy
 		sdsUdsPath   string
-		expected     []plugin.FilterChain
+		expected     []networking.FilterChain
 	}{
 		{
 			name:     "No policy - behave as permissive",

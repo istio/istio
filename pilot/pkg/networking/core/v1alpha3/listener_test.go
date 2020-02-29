@@ -44,6 +44,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
@@ -1730,16 +1731,16 @@ type fakePlugin struct {
 
 var _ plugin.Plugin = (*fakePlugin)(nil)
 
-func (p *fakePlugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (p *fakePlugin) OnOutboundListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
 	p.outboundListenerParams = append(p.outboundListenerParams, in)
 	return nil
 }
 
-func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
 	return nil
 }
 
-func (p *fakePlugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (p *fakePlugin) OnVirtualListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
 	return nil
 }
 
@@ -1755,8 +1756,8 @@ func (p *fakePlugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeC
 func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
 }
 
-func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
-	return []plugin.FilterChain{
+func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []istionetworking.FilterChain {
+	return []istionetworking.FilterChain{
 		{
 			ListenerFilters: []*listener.ListenerFilter{
 				{
@@ -1768,16 +1769,16 @@ func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.Filt
 	}
 }
 
-func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
 	switch in.ListenerProtocol {
-	case plugin.ListenerProtocolTCP:
+	case istionetworking.ListenerProtocolTCP:
 		for cnum := range mutable.FilterChains {
 			filter := &listener.Filter{
 				Name: fakePluginTCPFilter,
 			}
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
-	case plugin.ListenerProtocolHTTP:
+	case istionetworking.ListenerProtocolHTTP:
 		for cnum := range mutable.FilterChains {
 			filter := &http_filter.HttpFilter{
 				Name: fakePluginHTTPFilter,
@@ -1788,8 +1789,8 @@ func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugi
 	return nil
 }
 
-func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.FilterChain {
-	return []plugin.FilterChain{
+func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []istionetworking.FilterChain {
+	return []istionetworking.FilterChain{
 		// A filter chain configured by the plugin for mutual TLS support.
 		{
 			FilterChainMatch: &listener.FilterChainMatch{
@@ -2144,7 +2145,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 	}
 
 	params := &plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolTCP,
+		ListenerProtocol: istionetworking.ListenerProtocolTCP,
 		Node:             node,
 		Port:             svcPort,
 		ServiceInstance:  &model.ServiceInstance{Service: &svc},
