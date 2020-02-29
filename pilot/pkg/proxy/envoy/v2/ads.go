@@ -685,15 +685,6 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	defer s.adsClientsMutex.Unlock()
 	s.adsClients[conID] = con
 	xdsClients.Record(float64(len(s.adsClients)))
-	if con.node != nil {
-		node := con.node
-
-		if _, ok := s.adsSidecarIDConnectionsMap[node.ID]; !ok {
-			s.adsSidecarIDConnectionsMap[node.ID] = map[string]*XdsConnection{conID: con}
-		} else {
-			s.adsSidecarIDConnectionsMap[node.ID][conID] = con
-		}
-	}
 }
 
 func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
@@ -712,13 +703,6 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 
 	xdsClients.Record(float64(len(s.adsClients)))
-	if con.node != nil {
-		node := con.node
-		delete(s.adsSidecarIDConnectionsMap[node.ID], conID)
-		if len(s.adsSidecarIDConnectionsMap[node.ID]) == 0 {
-			delete(s.adsSidecarIDConnectionsMap, node.ID)
-		}
-	}
 }
 
 // Send with timeout

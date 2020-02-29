@@ -494,6 +494,8 @@ spec:
       dashboard:
         auth:
           strategy: login
+        grafanaInClusterURL: http://grafana:3000
+        jaegerInClusterURL: http://tracing/jaeger
         secretName: kiali
         viewOnlyMode: false
       hub: quay.io/kiali
@@ -593,17 +595,10 @@ spec:
       alwaysInjectSelector: []
       enableNamespacesByDefault: false
       enabled: true
-      image: sidecar_injector
       injectLabel: istio-injection
       neverInjectSelector: []
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      replicaCount: 1
       rewriteAppHTTPProbe: false
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
       selfSigned: false
-      tolerations: []
     tracing:
       enabled: false
       ingress:

@@ -19,4 +19,4 @@ spec:
     singular: istiooperator
     shortNames:
     - iop
-
+...

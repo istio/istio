@@ -752,7 +752,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 				setSkipValidateTrustDomain("false", t)
 			}()
 		}
-		got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy)
+		got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, 80)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
 				t.Errorf("buildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())

@@ -362,7 +362,7 @@ func (s *Server) initPublicKey() error {
 	// Setup the root cert chain and caBundlePath - before calling initDNSListener.
 	if features.PilotCertProvider.Get() == KubernetesCAProvider {
 		s.caBundlePath = defaultCACertPath
-	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
+	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
 		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
 		if _, err := os.Stat(signingKeyFile); err != nil {
 			// When Citadel is configured to use self-signed certs, keep a local copy so other

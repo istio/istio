@@ -34,5 +34,5 @@ type PolicyApplier interface {
 
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.
-	AuthNFilter(proxyType model.NodeType) *http_conn.HttpFilter
+	AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter
 }

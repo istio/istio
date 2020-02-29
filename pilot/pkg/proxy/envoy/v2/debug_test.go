@@ -224,35 +224,35 @@ func TestConfigDump(t *testing.T) {
 			s, tearDown := initLocalPilotTestEnv(t)
 			defer tearDown()
 
-			for i := 0; i < 2; i++ {
-				envoy, cancel, err := connectADS(util.MockPilotGrpcAddr)
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer cancel()
-				if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
-					t.Fatal(err)
-				}
-				if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
-					t.Fatal(err)
-				}
-				// Only most recent proxy will have routes
-				if i == 1 {
-					if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
-						t.Fatal(err)
-					}
-					_, err := adsReceive(envoy, 5*time.Second)
-					if err != nil {
-						t.Fatal("Recv failed", err)
-					}
-				}
-				for j := 0; j < 2; j++ {
-					_, err := adsReceive(envoy, 5*time.Second)
-					if err != nil {
-						t.Fatal("Recv failed", err)
-					}
-				}
+			envoy, cancel, err := connectADS(util.MockPilotGrpcAddr)
+			if err != nil {
+				t.Fatal(err)
 			}
+			defer cancel()
+			if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+				t.Fatal(err)
+			}
+			if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+				t.Fatal(err)
+			}
+			// Only most recent proxy will have routes
+			if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
+				t.Fatal(err)
+			}
+			// Expect CDS, LDS, then RDS
+			_, err = adsReceive(envoy, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv cds failed", err)
+			}
+			_, err = adsReceive(envoy, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv lds failed", err)
+			}
+			_, err = adsReceive(envoy, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv rds failed", err)
+			}
+
 			wrapper := getConfigDump(t, s.EnvoyXdsServer, tt.proxyID, tt.wantCode)
 			if wrapper != nil {
 				if rs, err := wrapper.GetDynamicRouteDump(false); err != nil || len(rs.DynamicRouteConfigs) == 0 {
@@ -550,10 +550,10 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "-",
-					DestinationRuleName:      "-",
+					AuthenticationPolicyName: "None",
+					DestinationRuleName:      "None",
 					ServerProtocol:           "DISABLE",
-					ClientProtocol:           "-",
+					ClientProtocol:           "None",
 					TLSConflictStatus:        "OK",
 				},
 			},
@@ -568,7 +568,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "-",
+					AuthenticationPolicyName: "None",
 					DestinationRuleName:      "-",
 					ServerProtocol:           "DISABLE",
 					ClientProtocol:           "-",
@@ -597,9 +597,9 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					Host:                     "foo.default",
 					Port:                     8080,
 					AuthenticationPolicyName: "bar/foo",
-					DestinationRuleName:      "-",
+					DestinationRuleName:      "None",
 					ServerProtocol:           "STRICT",
-					ClientProtocol:           "-",
+					ClientProtocol:           "None",
 					TLSConflictStatus:        "OK",
 				},
 			},
@@ -635,7 +635,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					AuthenticationPolicyName: "bar/foo",
 					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
-					ClientProtocol:           "-",
+					ClientProtocol:           "None",
 					TLSConflictStatus:        "OK",
 				},
 			},

@@ -233,6 +233,17 @@ func TestMultiICPSFiles(t *testing.T) {
 	})
 }
 
+func TestBareSpec(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	t.Run("multi-ICPS files", func(t *testing.T) {
+		inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
+		_, err := runManifestGenerate([]string{inPathBase}, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 // TestLDFlags checks whether building mesh command with
 // -ldflags "-X istio.io/pkg/version.buildHub=myhub -X istio.io/pkg/version.buildVersion=mytag"
 // results in these values showing up in a generated manifest.
