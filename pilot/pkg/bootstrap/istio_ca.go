@@ -210,7 +210,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	}
 
 	// Allow authorization with a previously issued certificate, for VMs
-	// Will return a caller with identities extracted from the SAN, should be a spifee identity.
+	// Will return a caller with identities extracted from the SAN, should be a SPIFFE identity.
 	caServer.Authenticators = append(caServer.Authenticators, &authenticate.ClientCertAuthenticator{})
 
 	if serverErr := caServer.Run(); serverErr != nil {
@@ -221,18 +221,16 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	}
 	log.Info("Istiod CA has started")
 
-	nc, err := NewNamespaceController(func() map[string]string {
+	nc := NewNamespaceController(func() map[string]string {
 		return map[string]string{
 			constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
 		}
-	}, s.kubeClient.CoreV1())
-	if err != nil {
-		log.Warnf("failed to start istiod namespace controller, error: %v", err)
-	} else {
-		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-			nc.Run(stop)
-		})
-	}
+	}, s.kubeClient)
+
+	s.leaderElection.AddRunFunction(func(_ <-chan struct{}) {
+		nc.Run(stopCh)
+	})
+
 }
 
 type jwtAuthenticator struct {
