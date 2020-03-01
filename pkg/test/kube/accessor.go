@@ -49,7 +49,7 @@ const (
 
 var (
 	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
-	defaultRetryDelay   = retry.Delay(time.Second * 10)
+	defaultRetryDelay   = retry.Delay(time.Second * 1)
 )
 
 // Accessor is a helper for accessing Kubernetes programmatically. It bundles some of the high-level
