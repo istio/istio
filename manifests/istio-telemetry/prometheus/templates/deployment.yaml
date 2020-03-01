@@ -85,10 +85,7 @@ spec:
             {{- end}}
             - --proxyAdminPort
             - "15000"
-              {{- if .Values.global.istiod.enabled }}
-            - --controlPlaneAuthPolicy
-            - NONE
-              {{- else if .Values.global.controlPlaneSecurityEnabled }}
+              {{- if .Values.global.controlPlaneSecurityEnabled }}
             - --controlPlaneAuthPolicy
             - MUTUAL_TLS
               {{- else }}

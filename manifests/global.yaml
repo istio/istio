@@ -63,10 +63,6 @@ global:
     # will result in LDS rejection and the ingress will not work.
     enableHttps: false
 
-  # Enabled by default in master for maximising testing.
-  istiod:
-    enabled: true
-
   proxy:
     image: proxyv2
 

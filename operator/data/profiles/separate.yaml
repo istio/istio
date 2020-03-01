@@ -20,5 +20,3 @@ spec:
         enabled: false
     global:
       pilotCertProvider: kubernetes
-      istiod:
-        enabled: false
