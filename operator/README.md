@@ -118,7 +118,7 @@ the Istio control plane into the istio-system namespace by default.
 
 #### Controller (running locally)
 
-1. Set env $WATCH_NAMESPACE and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
+1. Set env $WATCH_NAMESPACE (default value is "istio-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
 
 1. From the operator repo root directory, run `go run ./cmd/manager/*.go server`
 
