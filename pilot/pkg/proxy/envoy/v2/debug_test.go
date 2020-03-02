@@ -239,9 +239,18 @@ func TestConfigDump(t *testing.T) {
 			if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
 				t.Fatal(err)
 			}
+			// Expect CDS, LDS, then RDS
 			_, err = adsReceive(envoy, 5*time.Second)
 			if err != nil {
-				t.Fatal("Recv failed", err)
+				t.Fatal("Recv cds failed", err)
+			}
+			_, err = adsReceive(envoy, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv lds failed", err)
+			}
+			_, err = adsReceive(envoy, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv rds failed", err)
 			}
 
 			wrapper := getConfigDump(t, s.EnvoyXdsServer, tt.proxyID, tt.wantCode)

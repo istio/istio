@@ -70,8 +70,8 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Example: `  # Apply a default Istio installation
   istioctl manifest apply
 
-  # Enable security
-  istioctl manifest apply --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true
+  # Enable grafana dashboard
+  istioctl manifest apply --set values.grafana.enabled=true
 
   # Generate the demo profile and don't wait for confirmation
   istioctl manifest apply --set profile=demo --skip-confirmation
@@ -94,7 +94,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 			}
 			if err := ApplyManifests(maArgs.set, maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
 				maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
-				return fmt.Errorf("failed to generate and apply manifests, error: %v", err)
+				return fmt.Errorf("failed to apply manifests: %v", err)
 			}
 
 			return nil

@@ -91,7 +91,7 @@ func TestTranslateYAMLTree(t *testing.T) {
 }
 
 func refreshGoldenFiles() bool {
-	return os.Getenv("REFRESH_GOLDENS") == "true"
+	return os.Getenv("REFRESH_GOLDEN") == "true"
 }
 
 func readFile(path string) (string, error) {

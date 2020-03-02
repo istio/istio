@@ -36,6 +36,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	mpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
@@ -116,7 +117,7 @@ func skipMixerHTTPFilter(dir direction, mesh *meshconfig.MeshConfig, node *model
 }
 
 // OnOutboundListener implements the Callbacks interface method.
-func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
 		return nil
 	}
@@ -126,7 +127,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 	skipHTTPFilter := skipMixerHTTPFilter(outbound, in.Push.Mesh, in.Node)
 
 	switch in.ListenerProtocol {
-	case plugin.ListenerProtocolHTTP:
+	case networking.ListenerProtocolHTTP:
 		if skipHTTPFilter {
 			return nil
 		}
@@ -135,7 +136,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 		}
 		return nil
-	case plugin.ListenerProtocolTCP:
+	case networking.ListenerProtocolTCP:
 		tcpFilter := buildOutboundTCPFilter(in.Push.Mesh, attrs, in.Node, in.Service)
 		if in.Node.Type == model.Router {
 			// For gateways, due to TLS termination, a listener marked as TCP could very well
@@ -143,7 +144,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			// to decide the type of filter to attach
 			httpFilter := buildOutboundHTTPFilter(in.Push.Mesh, attrs, in.Node)
 			for cnum := range mutable.FilterChains {
-				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP && !skipHTTPFilter {
+				if mutable.FilterChains[cnum].ListenerProtocol == networking.ListenerProtocolHTTP && !skipHTTPFilter {
 					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 				} else {
 					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
@@ -165,16 +166,16 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			}
 		}
 		return nil
-	case plugin.ListenerProtocolAuto:
+	case networking.ListenerProtocolAuto:
 		tcpFilter := buildOutboundTCPFilter(in.Push.Mesh, attrs, in.Node, in.Service)
 		httpFilter := buildOutboundHTTPFilter(in.Push.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
 			switch mutable.FilterChains[cnum].ListenerProtocol {
-			case plugin.ListenerProtocolHTTP:
+			case networking.ListenerProtocolHTTP:
 				if !skipHTTPFilter {
 					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 				}
-			case plugin.ListenerProtocolTCP:
+			case networking.ListenerProtocolTCP:
 				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 			}
 		}
@@ -185,7 +186,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 }
 
 // OnInboundListener implements the Callbacks interface method.
-func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
 		return nil
 	}
@@ -221,7 +222,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 	skipHTTPFilter := skipMixerHTTPFilter(inbound, in.Push.Mesh, in.Node)
 
 	switch in.ListenerProtocol {
-	case plugin.ListenerProtocolHTTP:
+	case networking.ListenerProtocolHTTP:
 		if skipHTTPFilter {
 			return nil
 		}
@@ -230,22 +231,22 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
 		return nil
-	case plugin.ListenerProtocolTCP:
+	case networking.ListenerProtocolTCP:
 		filter := buildInboundTCPFilter(in.Push.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
 		return nil
-	case plugin.ListenerProtocolAuto:
+	case networking.ListenerProtocolAuto:
 		httpFilter := buildInboundHTTPFilter(in.Push.Mesh, attrs, in.Node)
 		tcpFilter := buildInboundTCPFilter(in.Push.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
 			switch mutable.FilterChains[cnum].ListenerProtocol {
-			case plugin.ListenerProtocolHTTP:
+			case networking.ListenerProtocolHTTP:
 				if !skipHTTPFilter {
 					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 				}
-			case plugin.ListenerProtocolTCP:
+			case networking.ListenerProtocolTCP:
 				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 			}
 		}
@@ -257,11 +258,11 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 }
 
 // OnVirtualListener implements the Plugin interface method.
-func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
 		return nil
 	}
-	if in.ListenerProtocol == plugin.ListenerProtocolTCP {
+	if in.ListenerProtocol == networking.ListenerProtocolTCP {
 		attrs := createOutboundListenerAttributes(in)
 		tcpFilter := buildOutboundTCPFilter(in.Push.Mesh, attrs, in.Node, in.Service)
 		for cnum := range mutable.FilterChains {
@@ -327,7 +328,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 		return
 	}
 	switch in.ListenerProtocol {
-	case plugin.ListenerProtocolHTTP:
+	case networking.ListenerProtocolHTTP:
 		// copy structs in place
 		for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 			virtualHost := routeConfiguration.VirtualHosts[i]
@@ -339,24 +340,24 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 			routeConfiguration.VirtualHosts[i] = virtualHost
 		}
 
-	case plugin.ListenerProtocolTCP:
+	case networking.ListenerProtocolTCP:
 	default:
 		log.Warn("Unknown listener type in mixer#OnOutboundRouteConfiguration")
 	}
 }
 
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (mixerplugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+func (mixerplugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return nil
 }
 
 // OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
-func (mixerplugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (mixerplugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	return nil
 }
 
 // OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
-func (mixerplugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+func (mixerplugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return nil
 }
 

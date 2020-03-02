@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 )
 
 // HeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
@@ -50,6 +51,15 @@ func HeaderMatcher(k, v string) *route.HeaderMatcher {
 		Name: k,
 		HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
 			ExactMatch: v,
+		},
+	}
+}
+
+// PathMatcher creates a path matcher for a path.
+func PathMatcher(path string) *envoy_matcher.PathMatcher {
+	return &envoy_matcher.PathMatcher{
+		Rule: &envoy_matcher.PathMatcher_Path{
+			Path: StringMatcher(path, true),
 		},
 	}
 }

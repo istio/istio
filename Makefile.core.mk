@@ -348,14 +348,20 @@ gen-charts:
 	@operator/scripts/run_update_charts.sh
 
 refresh-goldens:
-	@REFRESH_GOLDENS=true go test ./operator/...
-	@REFRESH_GOLDENS=true go test ./pkg/kube/inject/...
+	@REFRESH_GOLDEN=true go test ./operator/...
+	@REFRESH_GOLDEN=true go test ./pkg/kube/inject/...
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden
+gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden gen-kustomize
 
 gen-check: gen check-clean-repo
+
+# Generate kustomize templates.
+gen-kustomize:
+	helm template -n istio-base manifests/base > manifests/base/files/gen-istio-cluster.yaml
+	helm template -n istio-base --namespace istio-system manifests/istio-control/istio-discovery \
+		-f manifests/global.yaml > manifests/istio-control/istio-discovery/files/gen-istio.yaml
 
 #-----------------------------------------------------------------------------
 # Target: go build

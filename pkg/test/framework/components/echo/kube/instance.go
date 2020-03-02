@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -36,10 +35,9 @@ import (
 )
 
 const (
-	tcpHealthPort         = 3333
-	httpReadinessPort     = 8080
-	defaultDomain         = "cluster.local"
-	noSidecarWaitDuration = 10 * time.Second
+	tcpHealthPort     = 3333
+	httpReadinessPort = 8080
+	defaultDomain     = "cluster.local"
 )
 
 var (
@@ -198,18 +196,6 @@ func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 				return err
 			}
 		}
-	}
-
-	// Sleep a bit if we have a deployment/workload without sidecar.
-	nosidecar := false
-	for _, c := range c.cfg.Subsets {
-		if !c.Annotations.GetBool(echo.SidecarInject) {
-			nosidecar = true
-			break
-		}
-	}
-	if nosidecar {
-		time.Sleep(noSidecarWaitDuration)
 	}
 
 	return nil

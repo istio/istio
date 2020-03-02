@@ -109,9 +109,11 @@ func applyLocalityWeight(
 				// in case wildcard dest matching multi groups of endpoints
 				// the load balancing weight for a locality is divided by the sum of the weights of all localities
 				for index, originalWeight := range destLocMap {
-					weight := float64(originalWeight*weight) / float64(totalWeight)
-					loadAssignment.Endpoints[index].LoadBalancingWeight = &wrappers.UInt32Value{
-						Value: uint32(math.Ceil(weight)),
+					destWeight := float64(originalWeight*weight) / float64(totalWeight)
+					if destWeight > 0 {
+						loadAssignment.Endpoints[index].LoadBalancingWeight = &wrappers.UInt32Value{
+							Value: uint32(math.Ceil(destWeight)),
+						}
 					}
 				}
 			}

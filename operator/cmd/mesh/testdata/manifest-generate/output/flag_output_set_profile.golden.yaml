@@ -17,25 +17,148 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: istio-pilot-istio-system
+  labels:
+    app: pilot
+    release: istio
+rules:
+- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+  verbs: ["get", "watch", "list"]
+  resources: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses/status"]
+  verbs: ["*"]
+  # TODO: remove, too broad permission, should be namespace only
+- apiGroups: [""]
+  resources: ["configmaps"]
+  # Create and update needed for ingress election
+  verbs: ["get", "list", "watch", "create", "update"]
+- apiGroups: [""]
+  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
+- apiGroups: ["certificates.k8s.io"]
+  resources:
+    - "certificatesigningrequests"
+    - "certificatesigningrequests/approval"
+    - "certificatesigningrequests/status"
+  verbs: ["update", "create", "get", "delete", "watch"]
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["get", "list", "watch"]
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istiod-istio-system
+  labels:
+    app: istiod
+    release: istio
+rules:
+  # sidecar injection controller
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["mutatingwebhookconfigurations"]
+    verbs: ["get", "list", "watch", "patch"]
+
+  # configuration validation webhook controller
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    verbs: ["get", "list", "watch", "update"]
+
+  # permissions to verify the webhook is ready and rejecting
+  # invalid config. We use --server-dry-run so no config is persisted.
+  - apiGroups: ["networking.istio.io"]
+    verbs: ["create"]
+    resources: ["gateways"]
+
+  # istio configuration
+  - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+    verbs: ["get", "watch", "list"]
+    resources: ["*"]
+
+  # auto-detect installed CRD definitions
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+
+  # discovery and routing
+  - apiGroups: ["extensions","apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+
+  # ingress controller
+  - apiGroups: ["extensions"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["ingresses/status"]
+    verbs: ["*"]
+
+  # required for CA's namespace controller
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "get", "list", "watch", "update"]
+
+  # Istiod and bootstrap.
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - "certificatesigningrequests"
+      - "certificatesigningrequests/approval"
+      - "certificatesigningrequests/status"
+    verbs: ["update", "create", "get", "delete", "watch"]
+  # Used by Istiod to verify the JWT tokens
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+
+  # TODO: remove, no longer needed at cluster
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "watch", "list", "update", "delete"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "watch", "list"]
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: istio-reader-istio-system
   labels:
     app: istio-reader
     release: istio
 rules:
-- apiGroups:
-  - "config.istio.io"
-  - "rbac.istio.io"
-  - "security.istio.io"
-  - "networking.istio.io"
-  - "authentication.istio.io"
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["apps"]
-  resources: ["replicasets"]
-  verbs: ["get", "list", "watch"]
+  - apiGroups:
+      - "config.istio.io"
+      - "rbac.istio.io"
+      - "security.istio.io"
+      - "networking.istio.io"
+      - "authentication.istio.io"
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
 ---
 
 
@@ -53,6 +176,42 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
+    namespace: istio-system
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-pilot-istio-system
+  labels:
+    app: pilot
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-pilot-istio-system
+subjects:
+  - kind: ServiceAccount
+    name: istio-pilot-service-account
+    namespace: istio-system
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istiod-pilot-istio-system
+  labels:
+    app: pilot
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istiod-istio-system
+subjects:
+  - kind: ServiceAccount
+    name: istio-pilot-service-account
     namespace: istio-system
 ---
 
@@ -5983,6 +6142,67 @@ metadata:
     release: istio
 ---
 
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-pilot-service-account
+  namespace: istio-system
+  labels:
+    app: pilot
+    release: istio
+---
+
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-istio-system
+  labels:
+    app: istiod
+    release: istio
+    istio: istiod
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/validate"
+      caBundle: "" # patched at runtime when the webhook is ready.
+    rules:
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
+        - config.istio.io
+        - rbac.istio.io
+        - security.istio.io
+        - authentication.istio.io
+        - networking.istio.io
+        apiVersions:
+        - "*"
+        resources:
+        - "*"
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    sideEffects: None
+---
+
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-galley
+  labels:
+    app: galley
+    release: istio
+    istio: galley
+webhooks:
+---
+
 # Citadel component is disabled.
 
 # Cni component is disabled.
@@ -6065,165 +6285,6 @@ rules:
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles"]
     verbs: ["get", "list", "watch"]
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-  verbs: ["get", "watch", "list"]
-  resources: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["certificates.k8s.io"]
-  resources:
-    - "certificatesigningrequests"
-    - "certificatesigningrequests/approval"
-    - "certificatesigningrequests/status"
-  verbs: ["update", "create", "get", "delete", "watch"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istiod-istio-system
-  labels:
-    app: istiod
-    release: istio
-rules:
-  # sidecar injection controller
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["mutatingwebhookconfigurations"]
-    verbs: ["get", "list", "watch", "patch"]
-
-  # configuration validation webhook controller
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["validatingwebhookconfigurations"]
-    verbs: ["get", "list", "watch", "update"]
-
-  # permissions to verify the webhook is ready and rejecting
-  # invalid config. We use --server-dry-run so no config is persisted.
-  - apiGroups: ["networking.istio.io"]
-    verbs: ["create"]
-    resources: ["gateways"]
-
-  # istio configuration
-  - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-    verbs: ["get", "watch", "list"]
-    resources: ["*"]
-
-  # auto-detect installed CRD definitions
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch"]
-
-  # discovery and routing
-  - apiGroups: ["extensions","apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["discovery.k8s.io"]
-    resources: ["endpointslices"]
-    verbs: ["get", "list", "watch"]
-
-  # ingress controller
-  - apiGroups: ["extensions"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses/status"]
-    verbs: ["*"]
-
-  # required for CA's namespace controller
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["create", "get", "list", "watch", "update"]
-
-  # Istiod and bootstrap.
-  - apiGroups: ["certificates.k8s.io"]
-    resources:
-      - "certificatesigningrequests"
-      - "certificatesigningrequests/approval"
-      - "certificatesigningrequests/status"
-    verbs: ["update", "create", "get", "delete", "watch"]
-  # Used by Istiod to verify the JWT tokens
-  - apiGroups: ["authentication.k8s.io"]
-    resources: ["tokenreviews"]
-    verbs: ["create"]
-
-  # TODO: remove, no longer needed at cluster
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["create", "get", "watch", "list", "update", "delete"]
-  - apiGroups: [""]
-    resources: ["serviceaccounts"]
-    verbs: ["get", "watch", "list"]
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istiod-service-account
-    namespace: istio-system
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istiod-istio-system
-  labels:
-    app: istiod
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istiod-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istiod-service-account
-    namespace: istio-system
 ---
 
 
@@ -6466,7 +6527,7 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: citadel
+          value: istiod
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -6543,7 +6604,7 @@ spec:
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istiod-service-account
+      serviceAccountName: istio-pilot-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -6650,7 +6711,7 @@ data:
         "outboundTrafficPolicy": {
           "mode": "ALLOW_ANY"
         },
-        "pilotCertProvider": "citadel",
+        "pilotCertProvider": "istiod",
         "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
@@ -6944,9 +7005,9 @@ data:
         # Temp, pending PR to make it default or based on the istiodAddr env
         - name: CA_ADDR
         {{- if .Values.global.configNamespace }}
-          value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istio-pilot.istio-system.svc:15012
+          value: istiod.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -7084,9 +7145,9 @@ data:
       {{- end }}
         {{  end -}}
         volumeMounts:
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         {{- end }}
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
@@ -7146,8 +7207,8 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       {{- end }}
@@ -7293,17 +7354,6 @@ spec:
 ---
 
 
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istiod-service-account
-  namespace: istio-system
-  labels:
-    app: istiod
-    release: istio
----
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -7315,7 +7365,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -7345,7 +7395,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -7373,7 +7423,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -7401,7 +7451,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -7439,7 +7489,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -7473,7 +7523,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -7485,7 +7535,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -7501,7 +7551,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -7527,7 +7577,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -7559,7 +7609,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -7591,7 +7641,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -7633,7 +7683,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -7663,7 +7713,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -7693,7 +7743,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -7733,7 +7783,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -7767,7 +7817,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -7779,7 +7829,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -7795,7 +7845,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -7821,7 +7871,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -7853,7 +7903,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -7885,7 +7935,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -7927,7 +7977,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -7957,7 +8007,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -7987,7 +8037,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -8013,57 +8063,6 @@ spec:
                   code:
                     local:
                       inline_string: "envoy.wasm.stats"
----
-
-
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istiod-istio-system
-  labels:
-    app: istiod
-    release: istio
-    istio: istiod
-webhooks:
-  - name: validation.istio.io
-    clientConfig:
-      service:
-        name: istiod
-        namespace: istio-system
-        path: "/validate"
-      caBundle: "" # patched at runtime when the webhook is ready.
-    rules:
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
-        - config.istio.io
-        - rbac.istio.io
-        - security.istio.io
-        - authentication.istio.io
-        - networking.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-    # Fail open until the validation webhook is ready. The webhook controller
-    # will update this to `Fail` and patch in the `caBundle` when the webhook
-    # endpoint is ready.
-    failurePolicy: Ignore
-    sideEffects: None
----
-
-
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  namespace: istio-system
-  labels:
-    app: galley
-    release: istio
-    istio: galley
-webhooks:
 ---
 
 # Policy component is disabled.
