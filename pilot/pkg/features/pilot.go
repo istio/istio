@@ -209,13 +209,6 @@ var (
 			"Gateways with same selectors in different namespaces will not be applicable.",
 	)
 
-	RespectDNSTTL = env.RegisterBoolVar(
-		"PILOT_RESPECT_DNS_TTL",
-		true,
-		"If enabled, DNS based clusters will respect the TTL of the DNS, rather than polling at a fixed rate. "+
-			"This option is only provided for backward compatibility purposes and will be removed in the near future.",
-	)
-
 	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
 		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
 		1*time.Second,
