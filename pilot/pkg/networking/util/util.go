@@ -448,6 +448,25 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 	}
 }
 
+// AddSubsetToMetadata will build a new core.Metadata struct containing the
+// subset name supplied. This is used for telemetry reporting. A new core.Metadata
+// is created to prevent modification to shared base Metadata across subsets, etc.
+// This should be called after the initial "istio" metadata has been created for the
+// cluster. If the "istio" metadata field is not already defined, the subset information will
+// not be added (to prevent adding this information where not needed).
+func AddSubsetToMetadata(md *core.Metadata, subset string) *core.Metadata {
+	updatedMeta := &core.Metadata{}
+	proto.Merge(updatedMeta, md)
+	if istioMeta, ok := updatedMeta.FilterMetadata[IstioMetadataKey]; ok {
+		istioMeta.Fields["subset"] = &pstruct.Value{
+			Kind: &pstruct.Value_StringValue{
+				StringValue: subset,
+			},
+		}
+	}
+	return updatedMeta
+}
+
 // IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
 func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 	for _, f := range filterChain.Filters {
