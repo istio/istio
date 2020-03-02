@@ -1293,7 +1293,7 @@ func buildDefaultCluster(push *model.PushContext, name string, discoveryType api
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(push.Mesh.DnsRefreshRate)
 		cluster.DnsRefreshRate = dnsRate
-		if util.IsIstioVersionGE13(proxy) && features.RespectDNSTTL.Get() {
+		if util.IsIstioVersionGE13(proxy) {
 			cluster.RespectDnsTtl = true
 		}
 	}
