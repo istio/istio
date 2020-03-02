@@ -152,10 +152,16 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 			}
 		}
 		if h := updateNamedPort(c.ReadinessProbe, portMap); h != nil {
-			out[readyz] = h
+			prober := status.Prober{}
+			prober.HTTPGetAction = h
+			prober.TimeoutSeconds = c.ReadinessProbe.TimeoutSeconds
+			out[readyz] = prober
 		}
 		if h := updateNamedPort(c.LivenessProbe, portMap); h != nil {
-			out[livez] = h
+			prober := status.Prober{}
+			prober.HTTPGetAction = h
+			prober.TimeoutSeconds = c.LivenessProbe.TimeoutSeconds
+			out[livez] = prober
 		}
 	}
 	b, err := json.Marshal(out)
@@ -191,6 +197,7 @@ func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec,
 		if c.Name == ProxyContainerName {
 			continue
 		}
+
 		readyz, livez := status.FormatProberURL(c.Name)
 		if hg := convertAppProber(c.ReadinessProbe, readyz, statusPort); hg != nil {
 			*c.ReadinessProbe.HTTPGet = *hg

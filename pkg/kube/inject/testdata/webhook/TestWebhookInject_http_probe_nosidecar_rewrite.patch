@@ -25,7 +25,7 @@
       "env": [
         {
           "name": "ISTIO_KUBE_APP_PROBERS",
-          "value": "{\"/app-health/hello/livez\":{\"path\":\"/live\",\"port\":80},\"/app-health/hello/readyz\":{\"path\":\"/ready\",\"port\":3333},\"/app-health/second/livez\":{\"port\":9000}}"
+          "value": "{\"/app-health/hello/livez\":{\"HTTPGetAction\":{\"path\":\"/live\",\"port\":80},\"TimeoutSeconds\":0},\"/app-health/hello/readyz\":{\"HTTPGetAction\":{\"path\":\"/ready\",\"port\":3333},\"TimeoutSeconds\":0},\"/app-health/second/livez\":{\"HTTPGetAction\":{\"port\":9000},\"TimeoutSeconds\":0}}"
         }
       ],
       "resources": {}
