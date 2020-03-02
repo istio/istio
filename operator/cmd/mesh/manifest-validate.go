@@ -70,7 +70,7 @@ func ValidateSetFlags(setOverlay []string) (errs util.Errors) {
 		if isFlagNameAvailable(flagName) {
 			val := getFlagValue(flagName)
 			if !containString(val, flagValue) {
-				errs = append(errs, fmt.Errorf("\n Unsuported value: %q, supported values for: %q is %q",
+				errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
 					flagValue, flagName, strings.Join(val, ", ")))
 			}
 		} else {
