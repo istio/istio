@@ -17561,7 +17561,9 @@ data:
           value: {{ .Values.global.pilotCertProvider }}
         # Temp, pending PR to make it default or based on the istiodAddr env
         - name: CA_ADDR
-        {{- if .Values.global.configNamespace }}
+        {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+        {{- else if .Values.global.configNamespace }}
           value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
           value: istiod.istio-system.svc:15012
@@ -17649,6 +17651,10 @@ data:
         {{- end }}
         {{- end }}
         {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- range $key, $value := .Values.global.proxyEnvVars }}
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
@@ -43873,7 +43879,7 @@ spec:
           ports:
             - containerPort: {{ .Values.tracing.zipkin.queryPort }}
           livenessProbe:
-            initialDelaySeconds: {{ .Values.tracing.zipkin.probeStartupDelay }}
+            initialDelaySeconds: {{ .Values.tracing.zipkin.livenessProbeStartupDelay }}
             tcpSocket:
               port: {{ .Values.tracing.zipkin.queryPort }}
           readinessProbe:
@@ -44189,14 +44195,15 @@ tracing:
 
   zipkin:
     hub: docker.io/openzipkin
-    image: zipkin
-    tag: 2.14.2
-    probeStartupDelay: 200
+    image: zipkin-slim
+    tag: 2.20.0
+    probeStartupDelay: 10
+    livenessProbeStartupDelay: 200
     queryPort: 9411
     resources:
       limits:
-        cpu: 300m
-        memory: 900Mi
+        cpu: 1000m
+        memory: 2048Mi
       requests:
         cpu: 150m
         memory: 900Mi
@@ -46653,13 +46660,13 @@ spec:
         accessMode: ReadWriteMany
       zipkin:
         hub: docker.io/openzipkin
-        tag: 2.14.2
-        probeStartupDelay: 200
+        tag: 2.20.0
+        probeStartupDelay: 10
         queryPort: 9411
         resources:
           limits:
-            cpu: 300m
-            memory: 900Mi
+            cpu: 1000m
+            memory: 2048Mi
           requests:
             cpu: 150m
             memory: 900Mi

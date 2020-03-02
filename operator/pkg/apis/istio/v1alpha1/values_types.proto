@@ -2048,8 +2048,11 @@ message TracingZipkinConfig {
 
   string image = 9;
 
-  // InitialDelaySeconds of livenessProbe for Zipkin deployment
+  // InitialDelaySeconds of readiness probe for Zipkin deployment
   uint32 probeStartupDelay = 3;
+
+  // InitialDelaySeconds of liveness probe for Zipkin deployment
+  uint32 livenessProbeStartupDelay = 11;
 
   // Container port for Zipkin deployment
   uint32 queryPort = 4;

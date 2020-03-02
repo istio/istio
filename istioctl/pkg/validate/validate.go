@@ -15,6 +15,7 @@
 package validate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,6 +40,9 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	operator_validate "istio.io/istio/operator/pkg/validate"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -158,6 +162,34 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 		v.validateDeploymentLabel(istioNamespace, un)
 		return nil
 	}
+
+	if un.GetAPIVersion() == "install.istio.io/v1alpha1" {
+		if un.GetKind() == "IstioOperator" {
+			if err := checkFields(un); err != nil {
+				return err
+			}
+
+			// IstioOperator isn't part of pkg/config/schema/collections,
+			// usual conversion not available.  Convert unstructured to string
+			// and ask operator code to check.
+
+			by, err := json.Marshal(un)
+			if err != nil {
+				return err
+			}
+
+			iop, err := operator_istio.UnmarshalIstioOperator(string(by))
+			if err != nil {
+				return err
+			}
+
+			return operator_validate.CheckIstioOperator(iop, true)
+		}
+	}
+
+	// Didn't really validate.  This is OK, as we often get non-Istio Kubernetes YAML
+	// we can't complain about.
+
 	return nil
 }
 

@@ -126,12 +126,13 @@ func (s *Server) initDNSCerts(hostname string) error {
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
+		log.Infof("Generating istiod-signed cert for %v", names)
+		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
+
 		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
 		// check if signing key file exists the cert dir
 		if _, err := os.Stat(signingKeyFile); err != nil {
 			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
-			log.Infof("Generating istiod-signed cert for %v", names)
-			certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
 
 			// When Citadel is configured to use self-signed certs, keep a local copy so other
 			// components can load it via file (e.g. webhook config controller).
