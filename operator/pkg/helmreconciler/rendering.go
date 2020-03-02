@@ -290,10 +290,10 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 	objectKey, _ := client.ObjectKeyFromObject(mutatedObj)
 
 	if err = h.client.Get(context.TODO(), objectKey, receiver); apierrors.IsNotFound(err) {
-		log.Infof("creating resource: %s", objectKey)
+		log.Infof("creating resource: %s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 		return h.client.Create(context.TODO(), mutatedObj)
 	} else if err == nil {
-		log.Infof("updating resource: %s", objectKey)
+		log.Infof("updating resource: %s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 		if err := applyOverlay(receiver, mutatedObj); err != nil {
 			return err
 		}
