@@ -5971,36 +5971,6 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: instances.config.istio.io
-  labels:
-    app: mixer
-    package: instance
-    istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: instance
-    plural: instances
-    singular: instance
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
   name: templates.config.istio.io
   labels:
     app: mixer
@@ -6017,36 +5987,6 @@ spec:
     kind: template
     plural: templates
     singular: template
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: handlers.config.istio.io
-  labels:
-    app: mixer
-    package: handler
-    istio: mixer-handler
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: handler
-    plural: handlers
-    singular: handler
     categories:
     - istio-io
     - policy-istio-io
@@ -33144,7 +33084,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   compiledAdapter: kubernetesenv
-  params:
+  params: {}
     # when running from mixer root, use the following config after adding a
     # symbolic link to a kubernetes config file via:
     #
