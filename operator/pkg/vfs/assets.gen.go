@@ -14534,7 +14534,11 @@ spec:
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
+          {{- if .Values.global.caAddress }}
+            value: {{ .Values.global.caAddress }}
+          {{- else }}
             value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          {{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -14589,6 +14593,10 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           {{- range $key, $val := $gateway.env }}
+          - name: {{ $key }}
+            value: {{ $val }}
+          {{- end }}
+          {{- range $key, $val := .Values.global.proxyEnvVars }}
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
@@ -19042,7 +19050,9 @@ template: |
       value: {{ .Values.global.pilotCertProvider }}
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
-    {{- if .Values.global.configNamespace }}
+    {{- if .Values.global.caAddress }}
+      value: {{ .Values.global.caAddress }}
+    {{- else if .Values.global.configNamespace }}
       value: istiod.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
       value: istiod.istio-system.svc:15012
@@ -19130,6 +19140,10 @@ template: |
     {{- end }}
     {{- end }}
     {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+    - name: {{ $key }}
+      value: "{{ $value }}"
+    {{- end }}
+    {{- range $key, $value := .Values.global.proxyEnvVars }}
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}

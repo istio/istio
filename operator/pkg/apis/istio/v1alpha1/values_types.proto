@@ -639,7 +639,13 @@ message GlobalConfig {
 
   // Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.
   google.protobuf.BoolValue mountMtlsCerts = 60;
-  // The next available key is 61
+
+  // The address of the CA for CSR.
+  string caAddress = 61;
+
+  // The CA provider for CSR.
+  map<string, string> proxyEnvVars = 62;
+  // The next available key is 63
 }
 
 // Configuration for Security Token Service (STS) server.
