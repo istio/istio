@@ -38,7 +38,7 @@ require (
 	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
-	github.com/d4l3k/messagediff v1.2.1 // indirect
+	github.com/d4l3k/messagediff v1.2.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dchest/siphash v1.1.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
@@ -49,7 +49,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
-	github.com/envoyproxy/go-control-plane v0.9.2-0.20200122210702-14108a6abe04
+	github.com/envoyproxy/go-control-plane v0.9.4
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fluent/fluent-logger-golang v1.3.0
 	github.com/frankban/quicktest v1.4.1 // indirect
@@ -149,9 +149,9 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.7
-	istio.io/api v0.0.0-20200222035036-b245c555a47b
-	istio.io/gogo-genproto v0.0.0-20200122005450-9b171d92064b
-	istio.io/pkg v0.0.0-20200131182711-9ba13e0e34bb
+	istio.io/api v0.0.0-20200301005501-134bf514b3d3
+	istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634
+	istio.io/pkg v0.0.0-20200227125209-63966175aa01
 	k8s.io/api v0.17.2
 	k8s.io/apiextensions-apiserver v0.17.2
 	k8s.io/apimachinery v0.17.2
@@ -161,6 +161,7 @@ require (
 	k8s.io/kubectl v0.17.2
 	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
 	sigs.k8s.io/controller-runtime v0.4.0
+	sigs.k8s.io/service-apis v0.0.0-20200227172328-b9010cfacdbe
 	sigs.k8s.io/yaml v1.1.0
 )
 

@@ -24,7 +24,7 @@ docker: docker.all
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector \
+	docker.mixer docker.mixer_codegen docker.citadel docker.galley \
 	docker.istioctl docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
@@ -50,7 +50,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT_LINUX)/pilot-agent | $(ISTIO_DOCKER)
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
-                             pilot-discovery pilot-agent sidecar-injector mixs mixgen \
+                             pilot-discovery pilot-agent mixs mixgen \
                              istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables istioctl manager
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
@@ -65,12 +65,6 @@ $(ISTIO_DOCKER)/certs:
 DOCKER_FILES_FROM_SOURCE:=tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
-
-docker.sidecar_injector: BUILD_PRE=&& chmod 755 sidecar-injector
-docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
-docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
-	$(DOCKER_RULE)
 
 # BUILD_PRE tells $(DOCKER_RULE) to run the command specified before executing a docker build
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands

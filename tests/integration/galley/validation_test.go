@@ -147,6 +147,7 @@ var ignoredCRDs = []string{
 	"/v1/Secret",
 	"/v1/Service",
 	"/v1/ConfigMap",
+	"apiextensions.k8s.io/v1beta1/CustomResourceDefinition",
 	"apps/v1/Deployment",
 	"extensions/v1beta1/Ingress",
 }
@@ -177,6 +178,16 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				"networking.istio.io/v1beta1/Sidecar",
 			} {
 				recognized[gvk] = struct{}{}
+			}
+			// These CRDs are validated outside of Istio
+			for _, gvk := range []string{
+				"networking.x.k8s.io/v1alpha1/Gateway",
+				"networking.x.k8s.io/v1alpha1/GatewayClass",
+				"networking.x.k8s.io/v1alpha1/HTTPRoute",
+				"networking.x.k8s.io/v1alpha1/TcpRoute",
+				"networking.x.k8s.io/v1alpha1/TrafficSplit",
+			} {
+				delete(recognized, gvk)
 			}
 
 			testedValid := make(map[string]struct{})

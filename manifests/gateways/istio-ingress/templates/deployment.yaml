@@ -171,7 +171,7 @@ spec:
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
-            value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -244,9 +244,9 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-{{- if eq .Values.global.pilotCertProvider "citadel" }}
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
 {{- end }}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
@@ -272,8 +272,8 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-{{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
 {{- end }}
