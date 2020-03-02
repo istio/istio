@@ -12,15 +12,14 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
+
 # build a tcp-echo binary using the golang container
 FROM golang:1.12 as builder
 WORKDIR /go/src/istio.io/tcp-echo-server/
 COPY main.go .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tcp-echo main.go
-
-
-# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
-ARG BASE_DISTRIBUTION=default
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
 # No tag available https://hub.docker.com/_/scratch?tab=description
