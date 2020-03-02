@@ -2096,9 +2096,11 @@ message KialiDashboardConfig {
 
   string jaegerURL = 6;
 
-  string jaegerInClusterURL = 8;
-
   TypeMapStringInterface auth = 7;
+
+  string grafanaInClusterURL = 8;
+
+  string jaegerInClusterURL = 9;
 }
 
 message KialiIngressConfig {
