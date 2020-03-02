@@ -642,10 +642,7 @@ message GlobalConfig {
 
   // The address of the CA for CSR.
   string caAddress = 61;
-
-  // The CA provider for CSR.
-  map<string, string> proxyEnvVars = 62;
-  // The next available key is 63
+  // The next available key is 62
 }
 
 // Configuration for Security Token Service (STS) server.

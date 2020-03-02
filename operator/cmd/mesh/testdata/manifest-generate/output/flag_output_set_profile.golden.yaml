@@ -7097,10 +7097,6 @@ data:
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
-        {{- range $key, $value := .Values.global.proxyEnvVars }}
-        - name: {{ $key }}
-          value: "{{ $value }}"
-        {{- end }}
         imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
         {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
         readinessProbe:

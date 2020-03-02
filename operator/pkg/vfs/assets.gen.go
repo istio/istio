@@ -14596,10 +14596,6 @@ spec:
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
-          {{- range $key, $val := .Values.global.proxyEnvVars }}
-          - name: {{ $key }}
-            value: {{ $val }}
-          {{- end }}
           {{ $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
           {{- if and (not $network_set) .Values.global.network }}
           - name: ISTIO_META_NETWORK
@@ -17654,10 +17650,6 @@ data:
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
-        {{- range $key, $value := .Values.global.proxyEnvVars }}
-        - name: {{ $key }}
-          value: "{{ $value }}"
-        {{- end }}
         imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
         {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
         readinessProbe:
@@ -19146,10 +19138,6 @@ template: |
     {{- end }}
     {{- end }}
     {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
-    - name: {{ $key }}
-      value: "{{ $value }}"
-    {{- end }}
-    {{- range $key, $value := .Values.global.proxyEnvVars }}
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}

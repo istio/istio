@@ -233,10 +233,6 @@ spec:
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
-          {{- range $key, $val := .Values.global.proxyEnvVars }}
-          - name: {{ $key }}
-            value: {{ $val }}
-          {{- end }}
           {{ $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
           {{- if and (not $network_set) .Values.global.network }}
           - name: ISTIO_META_NETWORK
