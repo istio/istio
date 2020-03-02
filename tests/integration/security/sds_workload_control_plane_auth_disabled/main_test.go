@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package sds_citadel_test
+package sds_workload_test
 
 import (
 	"testing"
@@ -33,10 +33,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// Integration test for the SDS Citadel CA flow, as well as mutual TLS
-	// with the certificates issued by the SDS Citadel CA flow. Control plane auth is Disabled.
+	// Integration test for the SDS workload flow, as well as mutual TLS
+	// with the certificates provisioned via the SDS flow. Control plane auth is Disabled.
 	framework.
-		NewSuite("sds_citadel_flow_control_plane_auth_disabled_test", m).
+		NewSuite("sds_workload_flow_control_plane_auth_disabled_test", m).
 		Label(label.CustomSetup).
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
@@ -61,8 +61,6 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 
-	// Helm values from install/kubernetes/helm/istio/values-istio-sds-auth-control-plane-auth-disabled.yaml
-	cfg.ValuesFile = "values-istio-sds-auth-control-plane-auth-disabled.yaml"
 	cfg.ControlPlaneValues = `
 values:
   global:
