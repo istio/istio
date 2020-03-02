@@ -96,7 +96,11 @@ func (n *kubeNamespace) Close() (err error) {
 		scopes.Framework.Debugf("%s deleting namespace", n.id)
 		ns := n.name
 		n.name = ""
-		err = n.a.DeleteNamespace(ns)
+		go func() {
+			if err := n.a.DeleteNamespace(ns); err != nil {
+				scopes.Framework.Errorf("failed to delete namespace %s: %v", ns, err)
+			}
+		}()
 	}
 
 	scopes.Framework.Debugf("%s close complete (err:%v)", n.id, err)
