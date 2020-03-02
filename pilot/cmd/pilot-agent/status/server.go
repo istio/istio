@@ -59,7 +59,13 @@ var (
 // It's a map from the prober URL path to the Kubernetes Prober config.
 // For example, "/app-health/hello-world/livez" entry contains liveness prober config for
 // container "hello-world".
-type KubeAppProbers map[string]*corev1.Probe
+type KubeAppProbers map[string]*Prober
+
+// Prober represents a single container prober
+type Prober struct {
+	HTTPGet        *corev1.HTTPGetAction `json:"httpGet"`
+	TimeoutSeconds int32                 `json:"timeoutSeconds,omitempty"`
+}
 
 // Config for the status server.
 type Config struct {

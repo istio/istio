@@ -15,15 +15,11 @@ spec:
         httpGet:
           port: http
           path: "/live"
-        initialDelaySeconds: 120
-        periodSeconds: 10
         timeoutSeconds: 5
       readinessProbe:
         httpGet:
           port: 3333
           path: "/ready"
-        initialDelaySeconds: 120
-        periodSeconds: 10
         timeoutSeconds: 5
     - name: second
       image: "fake.docker.io/google-samples/hello-go-gke:1.0"
@@ -31,8 +27,6 @@ spec:
       livenessProbe:
         httpGet:
           port: 9000
-        initialDelaySeconds: 120
-        periodSeconds: 10
         timeoutSeconds: 5
   volumes:
     - name: v0

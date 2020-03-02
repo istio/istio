@@ -684,7 +684,6 @@ func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
 }
 
 func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {

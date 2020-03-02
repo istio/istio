@@ -126,7 +126,7 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 // Also update the probers so that all usages of named port will be resolved to integer.
 func DumpAppProbers(podspec *corev1.PodSpec) string {
 	out := status.KubeAppProbers{}
-	updateNamedPort := func(p *corev1.Probe, portMap map[string]int32) *corev1.Probe {
+	updateNamedPort := func(p *status.Prober, portMap map[string]int32) *status.Prober {
 		if p == nil || p.HTTPGet == nil {
 			return nil
 		}
@@ -150,10 +150,10 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 				portMap[p.Name] = p.ContainerPort
 			}
 		}
-		if h := updateNamedPort(c.ReadinessProbe, portMap); h != nil {
+		if h := updateNamedPort(kubeProbeToInternalProber(c.ReadinessProbe), portMap); h != nil {
 			out[readyz] = h
 		}
-		if h := updateNamedPort(c.LivenessProbe, portMap); h != nil {
+		if h := updateNamedPort(kubeProbeToInternalProber(c.LivenessProbe), portMap); h != nil {
 			out[livez] = h
 		}
 	}
@@ -205,7 +205,7 @@ func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodS
 	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
 		return []rfc6902PatchOperation{}
 	}
-	patch := []rfc6902PatchOperation{}
+	podPatches := []rfc6902PatchOperation{}
 	sidecar := FindSidecar(spec.Containers)
 	if sidecar == nil {
 		return nil
@@ -225,20 +225,36 @@ func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodS
 			portMap[p.Name] = p.ContainerPort
 		}
 		readyz, livez := status.FormatProberURL(c.Name)
-		if after := convertAppProber(c.ReadinessProbe, readyz, statusPort); after != nil {
-			patch = append(patch, rfc6902PatchOperation{
+		if probePatch := convertAppProber(c.ReadinessProbe, readyz, statusPort); probePatch != nil {
+			podPatches = append(podPatches, rfc6902PatchOperation{
 				Op:    "replace",
 				Path:  fmt.Sprintf("/spec/containers/%v/readinessProbe", i),
-				Value: *after,
+				Value: *probePatch,
 			})
 		}
-		if after := convertAppProber(c.LivenessProbe, livez, statusPort); after != nil {
-			patch = append(patch, rfc6902PatchOperation{
+		if probePatch := convertAppProber(c.LivenessProbe, livez, statusPort); probePatch != nil {
+			podPatches = append(podPatches, rfc6902PatchOperation{
 				Op:    "replace",
 				Path:  fmt.Sprintf("/spec/containers/%v/livenessProbe", i),
-				Value: *after,
+				Value: *probePatch,
 			})
 		}
 	}
-	return patch
+	return podPatches
+}
+
+// kubeProbeToInternalProber converts a Kubernetes Probe to an Istio internal Prober
+func kubeProbeToInternalProber(probe *corev1.Probe) *status.Prober {
+	if probe == nil {
+		return nil
+	}
+
+	if probe.HTTPGet == nil {
+		return nil
+	}
+
+	return &status.Prober{
+		HTTPGet:        probe.HTTPGet,
+		TimeoutSeconds: probe.TimeoutSeconds,
+	}
 }

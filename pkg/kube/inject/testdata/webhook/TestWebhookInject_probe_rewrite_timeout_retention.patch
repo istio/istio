@@ -29,7 +29,7 @@
       "env": [
         {
           "name": "ISTIO_KUBE_APP_PROBERS",
-          "value": "{\"/app-health/hello/livez\":{\"httpGet\":{\"path\":\"/live\",\"port\":80},\"initialDelaySeconds\":120,\"timeoutSeconds\":5,\"periodSeconds\":10},\"/app-health/hello/readyz\":{\"httpGet\":{\"path\":\"/ready\",\"port\":3333},\"initialDelaySeconds\":120,\"timeoutSeconds\":5,\"periodSeconds\":10},\"/app-health/second/livez\":{\"httpGet\":{\"port\":9000},\"initialDelaySeconds\":120,\"timeoutSeconds\":5,\"periodSeconds\":10}}"
+          "value": "{\"/app-health/hello/livez\":{\"httpGet\":{\"path\":\"/live\",\"port\":80},\"timeoutSeconds\":5},\"/app-health/hello/readyz\":{\"httpGet\":{\"path\":\"/ready\",\"port\":3333},\"timeoutSeconds\":5},\"/app-health/second/livez\":{\"httpGet\":{\"port\":9000},\"timeoutSeconds\":5}}"
         }
       ],
       "resources": {}
@@ -96,9 +96,7 @@
         "path": "/app-health/hello/readyz",
         "port": 15020
       },
-      "initialDelaySeconds": 120,
-      "timeoutSeconds": 5,
-      "periodSeconds": 10
+      "timeoutSeconds": 5
     }
   },
   {
@@ -109,9 +107,7 @@
         "path": "/app-health/hello/livez",
         "port": 15020
       },
-      "initialDelaySeconds": 120,
-      "timeoutSeconds": 5,
-      "periodSeconds": 10
+      "timeoutSeconds": 5
     }
   },
   {
@@ -122,9 +118,7 @@
         "path": "/app-health/second/livez",
         "port": 15020
       },
-      "initialDelaySeconds": 120,
-      "timeoutSeconds": 5,
-      "periodSeconds": 10
+      "timeoutSeconds": 5
     }
   }
 ]
