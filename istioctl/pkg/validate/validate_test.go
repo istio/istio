@@ -281,6 +281,17 @@ spec:
     components:
     namespace: istio-traffic-management
 `
+	validIstioConfig = `
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: example-istiocontrolplane
+spec:
+  addonComponents:
+    grafana:
+      enabled: true
+`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -371,6 +382,11 @@ func TestValidateResource(t *testing.T) {
 			name:  "invalid Istio Operator config",
 			in:    invalidIstioConfig,
 			valid: false,
+		},
+		{
+			name:  "valid Istio Operator config",
+			in:    validIstioConfig,
+			valid: true,
 		},
 	}
 

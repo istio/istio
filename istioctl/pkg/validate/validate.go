@@ -33,7 +33,6 @@ import (
 	mixerstore "istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/protocol"
@@ -42,8 +41,8 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
-	operatorv1alpha1 "istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/util"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	operator_validate "istio.io/istio/operator/pkg/validate"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -171,25 +170,20 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 			}
 
 			// IstioOperator isn't part of pkg/config/schema/collections,
-			// usual conversion not available.
+			// usual conversion not available.  Convert unstructured to string
+			// and ask operator code to check.
 
-			spec, ok := un.Object["spec"]
-			if !ok {
-				return fmt.Errorf("IstioOperator lacks spec") // nolint: golint,stylecheck
-			}
-			by, err := json.Marshal(spec)
+			by, err := json.Marshal(un)
 			if err != nil {
 				return err
 			}
 
-			iops := &operatorv1alpha1.IstioOperatorSpec{}
-			if err := util.UnmarshalWithJSONPB(string(by), iops, false); err != nil {
+			iop, err := operator_istio.UnmarshalIstioOperator(string(by))
+			if err != nil {
 				return err
 			}
-			if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
-				return fmt.Errorf(errs.Error())
-			}
-			return nil
+
+			return operator_validate.CheckIstioOperator(iop, true)
 		}
 	}
 
