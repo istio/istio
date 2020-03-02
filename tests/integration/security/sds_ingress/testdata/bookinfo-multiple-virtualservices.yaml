@@ -11,18 +11,13 @@ spec:
   http:
   - match:
     - uri:
-        exact: /productpage
-    - uri:
-        exact: /login
-    - uri:
-        exact: /logout
-    - uri:
-        prefix: /api/v1/products
+        exact: /backend
     route:
     - destination:
-        host: productpage
+        host: server
         port:
-          number: 9080
+          number: 80
+
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -36,18 +31,13 @@ spec:
   http:
   - match:
     - uri:
-        exact: /productpage
-    - uri:
-        exact: /login
-    - uri:
-        exact: /logout
-    - uri:
-        prefix: /api/v1/products
+        exact: /backend
     route:
     - destination:
-        host: productpage
+        host: server
         port:
-          number: 9080
+          number: 80
+
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -61,18 +51,13 @@ spec:
   http:
   - match:
     - uri:
-        exact: /productpage
-    - uri:
-        exact: /login
-    - uri:
-        exact: /logout
-    - uri:
-        prefix: /api/v1/products
+        exact: /backend
     route:
     - destination:
-        host: productpage
+        host: server
         port:
-          number: 9080
+          number: 80
+
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -84,20 +69,15 @@ spec:
   gateways:
     - bookinfo-gateway-4
   http:
-    - match:
-        - uri:
-            exact: /productpage
-        - uri:
-            exact: /login
-        - uri:
-            exact: /logout
-        - uri:
-            prefix: /api/v1/products
-      route:
-        - destination:
-            host: productpage
-            port:
-              number: 9080
+  - match:
+    - uri:
+        exact: /backend
+    route:
+    - destination:
+        host: server
+        port:
+          number: 80
+
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -109,17 +89,12 @@ spec:
   gateways:
     - bookinfo-gateway-5
   http:
-    - match:
-        - uri:
-            exact: /productpage
-        - uri:
-            exact: /login
-        - uri:
-            exact: /logout
-        - uri:
-            prefix: /api/v1/products
-      route:
-        - destination:
-            host: productpage
-            port:
-              number: 9080
+  - match:
+    - uri:
+        exact: /backend
+    route:
+    - destination:
+        host: server
+        port:
+          number: 80
+
