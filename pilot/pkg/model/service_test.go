@@ -198,65 +198,39 @@ func TestIsValidSubsetKey(t *testing.T) {
 	}
 }
 
-func TestGetLocality(t *testing.T) {
+func TestGetLocalityOrDefault(t *testing.T) {
 	cases := []struct {
-		name     string
-		instance ServiceInstance
-		expected string
+		name         string
+		label        string
+		defaultLabel string
+		expected     string
 	}{
 		{
-			name: "endpoint with locality is overridden by label",
-			instance: ServiceInstance{
-				Endpoint: &IstioEndpoint{
-					Locality: "region/zone/subzone-1",
-					Labels: labels.Instance{
-						LocalityLabel: "region/zone/subzone-2",
-					},
-				},
-			},
+			name:         "with label",
+			label:        "region/zone/subzone-1",
+			defaultLabel: "region/zone/subzone-2",
+			expected:     "region/zone/subzone-1",
+		},
+		{
+			name:         "default",
+			defaultLabel: "region/zone/subzone-1",
+			expected:     "region/zone/subzone-1",
+		},
+		{
+			name:     "label with k8s label separator",
+			label:    "region" + k8sSeparator + "zone" + k8sSeparator + "subzone-2",
 			expected: "region/zone/subzone-2",
 		},
 		{
-			name: "endpoint without label, use registry locality",
-			instance: ServiceInstance{
-				Endpoint: &IstioEndpoint{
-					Locality: "region/zone/subzone-1",
-					Labels: labels.Instance{
-						LocalityLabel: "",
-					},
-				},
-			},
-			expected: "region/zone/subzone-1",
-		},
-		{
-			name: "istio-locality label with k8s label separator",
-			instance: ServiceInstance{
-				Endpoint: &IstioEndpoint{
-					Locality: "",
-					Labels: labels.Instance{
-						LocalityLabel: "region" + k8sSeparator + "zone" + k8sSeparator + "subzone-2",
-					},
-				},
-			},
-			expected: "region/zone/subzone-2",
-		},
-		{
-			name: "istio-locality label with both k8s label separators and slashes",
-			instance: ServiceInstance{
-				Endpoint: &IstioEndpoint{
-					Locality: "",
-					Labels: labels.Instance{
-						LocalityLabel: "region/zone/subzone.2",
-					},
-				},
-			},
+			name:     "label with both k8s label separators and slashes",
+			label:    "region/zone/subzone.2",
 			expected: "region/zone/subzone.2",
 		},
 	}
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			got := testCase.instance.GetLocality()
+			got := GetLocalityLabelOrDefault(testCase.label, testCase.defaultLabel)
 			if got != testCase.expected {
 				t.Errorf("expected locality %s, but got %s", testCase.expected, got)
 			}

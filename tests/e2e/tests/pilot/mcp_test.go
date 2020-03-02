@@ -29,7 +29,7 @@ import (
 
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
-	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/groups"
@@ -49,8 +49,8 @@ const (
 	ingressGatewaySvc = "mcp-ingress.istio-system.svc.cluster.local"
 )
 
-var gatewaySvc = srmemory.MakeService(ingressGatewaySvc, "11.0.0.1")
-var gatewayInstance = srmemory.MakeIP(gatewaySvc, 0)
+var gatewaySvc = mock.MakeService(ingressGatewaySvc, "11.0.0.1")
+var gatewayInstance = mock.MakeIP(gatewaySvc, 0)
 var fakeCreateTime2 = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
 
 func TestPilotMCPClient(t *testing.T) {
