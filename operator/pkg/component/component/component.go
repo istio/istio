@@ -49,6 +49,10 @@ const (
 	devDbg = false
 )
 
+var (
+	scope = log.RegisterScope("installer", "installer", 0)
+)
+
 // Options defines options for a component.
 type Options struct {
 	// installSpec is the global IstioOperatorSpec.
@@ -790,7 +794,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	}
 	my += helm.YAMLSeparator + "\n"
 	if devDbg {
-		log.Infof("Initial manifest with merged values:\n%s\n", my)
+		scope.Infof("Initial manifest with merged values:\n%s\n", my)
 	}
 	// Add the k8s resources from IstioOperatorSpec.
 	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.componentName, cf.index)
@@ -804,7 +808,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	}
 	my = "# Resources for " + cnOutput + " component\n\n" + my
 	if devDbg {
-		log.Infof("Manifest after k8s API settings:\n%s\n", my)
+		scope.Infof("Manifest after k8s API settings:\n%s\n", my)
 	}
 	// Add the k8s resource overlays from IstioOperatorSpec.
 	pathToK8sOverlay := fmt.Sprintf("Components.%s.", cf.componentName)
@@ -825,13 +829,13 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Applying kubernetes overlay: \n%s\n", kyo)
+	scope.Infof("Applying Kubernetes overlay: \n%s\n", kyo)
 	ret, err := patch.YAMLManifestPatch(my, cf.Namespace, overlays)
 	if err != nil {
 		return "", err
 	}
 
-	log.Infof("Manifest after resources and overlay: \n%s\n", ret)
+	scope.Infof("Manifest after resources and overlay: \n%s\n", ret)
 	return ret, nil
 }
 
