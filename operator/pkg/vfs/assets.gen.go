@@ -43859,7 +43859,7 @@ spec:
           ports:
             - containerPort: {{ .Values.tracing.zipkin.queryPort }}
           livenessProbe:
-            initialDelaySeconds: {{ .Values.tracing.zipkin.probeStartupDelay }}
+            initialDelaySeconds: {{ .Values.tracing.zipkin.livenessProbeStartupDelay }}
             tcpSocket:
               port: {{ .Values.tracing.zipkin.queryPort }}
           readinessProbe:
@@ -44175,14 +44175,15 @@ tracing:
 
   zipkin:
     hub: docker.io/openzipkin
-    image: zipkin
-    tag: 2.14.2
-    probeStartupDelay: 200
+    image: zipkin-slim
+    tag: 2.20.0
+    probeStartupDelay: 10
+    livenessProbeStartupDelay: 200
     queryPort: 9411
     resources:
       limits:
-        cpu: 300m
-        memory: 900Mi
+        cpu: 1000m
+        memory: 2048Mi
       requests:
         cpu: 150m
         memory: 900Mi
@@ -46639,13 +46640,13 @@ spec:
         accessMode: ReadWriteMany
       zipkin:
         hub: docker.io/openzipkin
-        tag: 2.14.2
-        probeStartupDelay: 200
+        tag: 2.20.0
+        probeStartupDelay: 10
         queryPort: 9411
         resources:
           limits:
-            cpu: 300m
-            memory: 900Mi
+            cpu: 1000m
+            memory: 2048Mi
           requests:
             cpu: 150m
             memory: 900Mi
