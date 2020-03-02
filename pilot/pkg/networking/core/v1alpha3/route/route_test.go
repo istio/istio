@@ -72,8 +72,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT_MS", "0")
-		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT_MS")
+		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
+		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -86,8 +86,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT_MS", "1000ms")
-		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT_MS")
+		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "1s")
+		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
