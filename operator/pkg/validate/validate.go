@@ -38,6 +38,10 @@ var (
 // call the appropriate validation function. checkRequiredFields determines whether missing mandatory fields generate
 // errors.
 func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields bool) (errs util.Errors) {
+	if is == nil {
+		return util.Errors{}
+	}
+
 	errs = CheckValues(is.Values)
 	return util.AppendErrs(errs, validate(defaultValidations, is, nil, checkRequiredFields))
 }
