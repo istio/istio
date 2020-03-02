@@ -123,7 +123,7 @@ type MCPOptions struct {
 	InitialConnWindowSize int
 }
 
-var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "istio-system", "")
 var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
 var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
 

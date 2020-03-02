@@ -156,12 +156,12 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 	}
 
 	if len(permission.Paths) > 0 {
-		permission := permission.forKeyValues(pathHeader, permission.Paths)
+		permission := permission.forKeyValues(pathMatcher, permission.Paths)
 		pg.append(permission)
 	}
 
 	if len(permission.NotPaths) > 0 {
-		permission := permission.forKeyValues(pathHeader, permission.NotPaths)
+		permission := permission.forKeyValues(pathMatcher, permission.NotPaths)
 		pg.append(permissionNot(permission))
 	}
 
@@ -211,7 +211,6 @@ func isSupportedPermission(key string) bool {
 	switch {
 	case key == attrDestIP:
 	case key == attrDestPort:
-	case key == pathHeader || key == methodHeader || key == hostHeader:
 	case key == attrConnSNI:
 	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
 	default:
@@ -242,7 +241,12 @@ func (permission *Permission) forKeyValues(key string, values []string) *envoy_r
 			}
 			return permissionDestinationPort(portValue), nil
 		}
-	case key == pathHeader || key == methodHeader || key == hostHeader:
+	case key == pathMatcher:
+		converter = func(v string) (*envoy_rbac.Permission, error) {
+			m := matcher.PathMatcher(v)
+			return permissionPath(m), nil
+		}
+	case key == methodHeader || key == hostHeader:
 		converter = func(v string) (*envoy_rbac.Permission, error) {
 			m := matcher.HeaderMatcher(key, v)
 			return permissionHeader(m), nil
@@ -392,6 +396,14 @@ func permissionHeader(header *route.HeaderMatcher) *envoy_rbac.Permission {
 	return &envoy_rbac.Permission{
 		Rule: &envoy_rbac.Permission_Header{
 			Header: header,
+		},
+	}
+}
+
+func permissionPath(path *envoy_matcher.PathMatcher) *envoy_rbac.Permission {
+	return &envoy_rbac.Permission{
+		Rule: &envoy_rbac.Permission_UrlPath{
+			UrlPath: path,
 		},
 	}
 }

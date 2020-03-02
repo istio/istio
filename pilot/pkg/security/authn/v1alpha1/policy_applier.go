@@ -26,9 +26,11 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 
 	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
@@ -36,7 +38,6 @@ import (
 	authn_filter_policy "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 	istio_jwt "istio.io/istio/security/proto/envoy/config/filter/http/jwt_auth/v2alpha1"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -325,7 +326,7 @@ func AuthNFilterConfigForBackwarding(alphaApplier authn.PolicyApplier, proxyType
 }
 
 // v1alpha1 applier is already per port, so the endpointPort param is not needed.
-func (a v1alpha1PolicyApplier) InboundFilterChain(_ uint32, sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
+func (a v1alpha1PolicyApplier) InboundFilterChain(_ uint32, sdsUdsPath string, node *model.Proxy) []networking.FilterChain {
 	if a.policy == nil || len(a.policy.Peers) == 0 {
 		return nil
 	}

@@ -22,12 +22,12 @@ rules:
           rules:
           - orRules:
               rules:
-              - header:
-                  exactMatch: /v1
-                  name: :path
-              - header:
-                  exactMatch: /v2
-                  name: :path
+              - urlPath:
+                  path:
+                    exact: /v1
+              - urlPath:
+                  path:
+                    exact: /v2
       principals:
       - andIds:
           ids:

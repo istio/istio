@@ -252,25 +252,21 @@ func (l *LoggingRenderingListener) BeginResource(_ string, obj runtime.Object) (
 
 // ResourceCreated logs the event
 func (l *LoggingRenderingListener) ResourceCreated(created runtime.Object) error {
-	log.Infof("resource created: %s", created.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
 // ResourceUpdated logs the event
 func (l *LoggingRenderingListener) ResourceUpdated(updated runtime.Object, old runtime.Object) error {
-	log.Infof("resource updated: %s", updated.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
 // ResourceDeleted logs the event
 func (l *LoggingRenderingListener) ResourceDeleted(deleted runtime.Object) error {
-	log.Infof("resource deleted: %s", deleted.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
 // ResourceError logs the event and the error
 func (l *LoggingRenderingListener) ResourceError(obj runtime.Object, err error) error {
-	log.Errorf("error processing resource: %s", obj.GetObjectKind().GroupVersionKind())
 	return nil
 }
 

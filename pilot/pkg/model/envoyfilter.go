@@ -15,6 +15,7 @@ package model
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -40,6 +41,22 @@ type EnvoyFilterConfigPatchWrapper struct {
 	Operation networking.EnvoyFilter_Patch_Operation
 	// Pre-compile the regex from proxy version match in the match
 	ProxyVersionRegex *regexp.Regexp
+	// ProxyPrefixMatch provides a prefix match for the proxy version. The current API only allows
+	// regex match, but as an optimization we can reduce this to a prefix match for common cases.
+	// If this is set, ProxyVersionRegex is ignored.
+	ProxyPrefixMatch string
+}
+
+// wellKnownVersions defines a mapping of well known regex matches to prefix matches
+// This is done only as an optimization; behavior should remain the same
+// All versions specified by the default installation (Telemetry V2) should be added here.
+var wellKnownVersions = map[string]string{
+	`^1\.4.*`: "1.4",
+	`^1\.5.*`: "1.5",
+	`^1\.6.*`: "1.6",
+	`^1\.7.*`: "1.7",
+	`^1\.8.*`: "1.8",
+	// Hopefully we have a better API by 1.9. If not, add it here
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
@@ -66,9 +83,16 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			// create a match all object
 			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}
 		} else if cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
-			// pre-compile the regex for proxy version if it exists
-			// ignore the error because validation catches invalid regular expressions.
-			cpw.ProxyVersionRegex, _ = regexp.Compile(cp.Match.Proxy.ProxyVersion)
+			// Attempt to convert regex to a simple prefix match for the common case of matching
+			// a standard Istio version. This field should likely be replaced with semver, but for now
+			// we can workaround the performance impact of regex
+			if prefix, f := wellKnownVersions[cp.Match.Proxy.ProxyVersion]; f {
+				cpw.ProxyPrefixMatch = prefix
+			} else {
+				// pre-compile the regex for proxy version if it exists
+				// ignore the error because validation catches invalid regular expressions.
+				cpw.ProxyVersionRegex, _ = regexp.Compile(cp.Match.Proxy.ProxyVersion)
+			}
 		}
 
 		if _, exists := out.Patches[cp.ApplyTo]; !exists {
@@ -94,6 +118,11 @@ func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
 		return true
 	}
 
+	if cp.ProxyPrefixMatch != "" {
+		if !strings.HasPrefix(proxy.Metadata.IstioVersion, cp.ProxyPrefixMatch) {
+			return false
+		}
+	}
 	if cp.ProxyVersionRegex != nil {
 		ver := proxy.Metadata.IstioVersion
 		if ver == "" {

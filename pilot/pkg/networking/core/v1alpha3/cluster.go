@@ -281,7 +281,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 
 				updateEds(subsetCluster)
 
-				subsetCluster.Metadata = clusterMetadata
+				subsetCluster.Metadata = util.AddSubsetToMetadata(clusterMetadata, subset.Name)
 				// call plugins
 				for _, p := range configgen.Plugins {
 					p.OnOutboundCluster(inputParams, subsetCluster)
@@ -376,6 +376,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 					updateEds(subsetCluster)
 
 					subsetCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+					subsetCluster.Metadata = util.AddSubsetToMetadata(subsetCluster.Metadata, subset.Name)
 					clusters = append(clusters, subsetCluster)
 				}
 			}
@@ -1292,7 +1293,7 @@ func buildDefaultCluster(push *model.PushContext, name string, discoveryType api
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(push.Mesh.DnsRefreshRate)
 		cluster.DnsRefreshRate = dnsRate
-		if util.IsIstioVersionGE13(proxy) && features.RespectDNSTTL.Get() {
+		if util.IsIstioVersionGE13(proxy) {
 			cluster.RespectDnsTtl = true
 		}
 	}

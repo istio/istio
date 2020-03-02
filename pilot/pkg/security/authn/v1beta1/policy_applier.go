@@ -27,9 +27,12 @@ import (
 
 	authn_alpha_api "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
@@ -38,8 +41,6 @@ import (
 	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter_policy "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
-	"istio.io/pkg/log"
-	istiolog "istio.io/pkg/log"
 )
 
 var (
@@ -186,7 +187,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
+func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []networking.FilterChain {
 	// If beta mTLS policy (PeerAuthentication) is not used for this workload, fallback to alpha policy.
 	if a.shouldUseAlphaMtlsPolicy() {
 		authnLog.Debugf("InboundFilterChain [%v:%d]: fallback to alpha policy applier", node.ID, endpointPort)

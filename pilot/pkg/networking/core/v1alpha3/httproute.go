@@ -26,6 +26,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -98,8 +99,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	}
 
 	in := &plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolHTTP,
-		ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
+		ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 		Node:             node,
 		ServiceInstance:  instance,
 		Service:          instance.Service,
@@ -190,7 +190,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	}
 
 	pluginParams := &plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
 		Node:             node,
 		Push:             push,
