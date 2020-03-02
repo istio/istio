@@ -410,9 +410,6 @@ data:
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
-        "istiod": {
-          "enabled": true
-        },
         "jwtPolicy": "third-party-jwt",
         "k8sIngress": {
           "enableHttps": false,
