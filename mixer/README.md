@@ -14,14 +14,21 @@ Istio's architecture. By taking advantage of the work being done in the
 [WebAssembly](https://webassembly.org) community, we are working to move the
 functionality that formerly lived in Mixer into the Envoy proxy itself.
 
-It reduces the complexity of installation (fewer components, fewer CRDs),
-makes it easier to run Istio, and importantly it allows integrations in a more
-standard manner.
+What will this do for the Istio user? It will greatly reduce complexity, by:
+- Reducing the number of components to install
+- Reducing the number of CRDs Istio installs
+- Making Envoy simpler to run with fewer components to manage and scale
+
+For partners integrating with Istio, it standardizing the method of integrating
+external components with the broader Envoy community.
 
 To read more about the changes (which we're tentatively calling Extensions v2),
 please see
 [this doc](
 https://docs.google.com/document/d/1x5XeKWRdpFPAy7JYxiTz5u-Ux2eoBQ80lXT6XYjvUuQ/edit#heading=h.8kpssnjs5pqw)
+. Note you must follow [these directions](
+https://github.com/istio/community/blob/master/CONTRIBUTING.md#design-documents)
+to get access to Istio design documents.
 
 ## Obsolete Mixer Documentation
 
