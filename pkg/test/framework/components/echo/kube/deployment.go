@@ -57,18 +57,18 @@ spec:
   selector:
     app: {{ .Service }}
 ---
-{{$deployConfig := .Subsets }}
-{{- range $i, $w := $deployConfig }}
+{{$subsets := .Subsets }}
+{{- range $i, $subset := $subsets }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Service }}-{{ $w.Version }}
+  name: {{ $.Service }}-{{ $subset.Version }}
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: {{ $.Service }}
-      version: {{ $w.Version }}
+      version: {{ $subset.Version }}
 {{- if ne $.Locality "" }}
       istio-locality: {{ $.Locality }}
 {{- end }}
@@ -76,13 +76,13 @@ spec:
     metadata:
       labels:
         app: {{ $.Service }}
-        version: {{ $w.Version }}
+        version: {{ $subset.Version }}
 {{- if ne $.Locality "" }}
         istio-locality: {{ $.Locality }}
 {{- end }}
       annotations:
         foo: bar
-{{- range $name, $value := index $.WorkloadAnnotations $w.Version }}
+{{- range $name, $value := index $.WorkloadAnnotations $subset.Version }}
         {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
 {{- if $.IncludeInboundPorts }}
@@ -112,7 +112,7 @@ spec:
           - "{{ $p }}"
 {{- end }}
           - --version
-          - "{{ $w.Version }}"
+          - "{{ $subset.Version }}"
         ports:
 {{- range $i, $p := $.ContainerPorts }}
         - containerPort: {{ $p.Port }} 
