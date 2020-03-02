@@ -52,7 +52,7 @@ Mixer provides three distinct features:
   tracing and billing streams intended for the service producer itself as well
   as for its consumers.
 
-Learn more about Mixer v1
+Learn more about Mixer
 [here](https://istio.io/docs/concepts/policies-and-telemetry/).
 
 Mixer's
