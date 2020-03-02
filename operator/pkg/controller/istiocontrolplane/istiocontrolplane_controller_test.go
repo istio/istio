@@ -36,8 +36,7 @@ import (
 
 var (
 	healthyVersionStatus = &v1alpha1.InstallStatus_VersionStatus{
-		Status:       v1alpha1.InstallStatus_HEALTHY,
-		StatusString: "HEALTHY",
+		Status: v1alpha1.InstallStatus_HEALTHY,
 	}
 	minimalStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
 		string(name.IstioBaseComponentName): healthyVersionStatus,
@@ -52,7 +51,6 @@ var (
 	demoStatus = map[string]*v1alpha1.InstallStatus_VersionStatus{
 		string(name.IstioBaseComponentName): healthyVersionStatus,
 		string(name.PilotComponentName):     healthyVersionStatus,
-		string(name.PolicyComponentName):    healthyVersionStatus,
 		string(name.IngressComponentName):   healthyVersionStatus,
 		string(name.EgressComponentName):    healthyVersionStatus,
 		string(name.AddonComponentName):     healthyVersionStatus,
@@ -195,6 +193,9 @@ func checkIOPStatus(cl client.Client, key client.ObjectKey, profile string) (boo
 	expectedSize := len(expectedComponentStatus)
 	if size != expectedSize {
 		return false, fmt.Errorf("status got: \n%+v, want: \n%+v", status.ComponentStatus, expectedComponentStatus)
+	}
+	if status.Status != v1alpha1.InstallStatus_HEALTHY {
+		return false, fmt.Errorf("overall status got: \n%+v, want: \n%+v", status.Status, v1alpha1.InstallStatus_HEALTHY)
 	}
 	for k, v := range status.ComponentStatus {
 		if s, ok := expectedComponentStatus[k]; ok {

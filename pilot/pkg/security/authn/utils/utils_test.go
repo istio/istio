@@ -22,12 +22,11 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	protovalue "istio.io/istio/pkg/proto"
 )
@@ -71,7 +70,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want []plugin.FilterChain
+		want []networking.FilterChain
 	}{
 		{
 			name: "MTLSUnknown",
@@ -102,7 +101,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			},
-			want: []plugin.FilterChain{
+			want: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 				},
@@ -117,7 +116,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				},
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-			want: []plugin.FilterChain{
+			want: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 					FilterChainMatch: &listener.FilterChainMatch{
@@ -146,7 +145,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			want: []plugin.FilterChain{
+			want: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
@@ -160,32 +159,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 												ApiType: core.ApiConfigSource_GRPC,
 												GrpcServices: []*core.GrpcService{
 													{
-														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:              "/tmp/sdsuds.sock",
-																StatPrefix:             authn_model.SDSStatPrefix,
-																CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-																ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-																	CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-																		LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-																	},
-																},
-																CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-																	{
-																		CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
-																			FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-																				Name: "envoy.grpc_credentials.file_based_metadata",
-																				ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
-																					TypedConfig: &any.Any{
-																						TypeUrl: "type.googleapis.com/envoy.config.grpc_credential.v2alpha.FileBasedMetadataConfig",
-																						Value:   []byte("\n%\n#/var/run/secrets/tokens/istio-token\022 istio_sds_credentials_header-bin"),
-																					},
-																				},
-																			},
-																		},
-																	},
-																},
-															},
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
 														},
 													},
 												},
@@ -206,32 +181,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 													ApiType: core.ApiConfigSource_GRPC,
 													GrpcServices: []*core.GrpcService{
 														{
-															TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-																GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																	TargetUri:              "/tmp/sdsuds.sock",
-																	StatPrefix:             authn_model.SDSStatPrefix,
-																	CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-																	ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-																		CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-																			LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-																		},
-																	},
-																	CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-																		{
-																			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
-																				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-																					Name: "envoy.grpc_credentials.file_based_metadata",
-																					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
-																						TypedConfig: &any.Any{
-																							TypeUrl: "type.googleapis.com/envoy.config.grpc_credential.v2alpha.FileBasedMetadataConfig",
-																							Value:   []byte("\n%\n#/var/run/secrets/tokens/istio-token\022 istio_sds_credentials_header-bin"),
-																						},
-																					},
-																				},
-																			},
-																		},
-																	},
-																},
+															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+																EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
 															},
 														},
 													},
@@ -257,7 +208,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			},
-			want: []plugin.FilterChain{
+			want: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 				},
@@ -276,7 +227,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				},
 			},
 			// Only one filter chain with mTLS settings should be generated.
-			want: []plugin.FilterChain{
+			want: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{

@@ -65,9 +65,9 @@ const (
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
 	attrConnSNI       = "connection.sni"        // server name indication, e.g. "www.example.com".
 
-	// Envoy config attributes for ServiceRole rules.
+	// Internal names used to generate corresponding Envoy matcher.
 	methodHeader = ":method"
-	pathHeader   = ":path"
+	pathMatcher  = "path-matcher"
 	hostHeader   = ":authority"
 )
 

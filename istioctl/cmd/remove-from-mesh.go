@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/annotation"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -159,10 +161,10 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 	for _, dep := range deps {
 		log.Debugf("updating deployment %s.%s with Istio sidecar un-injected",
 			dep.Name, dep.Namespace)
-		podSpec := dep.Spec.Template.Spec.DeepCopy()
-		newDep := dep.DeepCopyObject()
+		res := dep.DeepCopy()
 		depName := strings.Join([]string{dep.Name, dep.Namespace}, ".")
 		sidecarInjected := false
+		podSpec := dep.Spec.Template.Spec.DeepCopy()
 		for _, c := range podSpec.Containers {
 			if c.Name == proxyContainerName {
 				sidecarInjected = true
@@ -170,8 +172,11 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 			}
 		}
 		if !sidecarInjected {
-			fmt.Fprintf(writer, "deployment %q has no Istio sidecar injected. Skip\n", depName)
-			continue
+			// The sidecar wasn't explicitly injected.  (Unless there is annotation it may have been auto injected)
+			if val := dep.Spec.Template.Annotations[annotation.SidecarInject.Name]; strings.EqualFold(val, "false") {
+				fmt.Fprintf(writer, "deployment %q has no Istio sidecar injected. Skipping.\n", depName)
+				continue
+			}
 		}
 		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)
 		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, enableCoreDumpContainerName)
@@ -180,17 +185,16 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
 		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
 		removeDNSConfig(podSpec.DNSConfig)
-		res, b := newDep.(*appsv1.Deployment)
-		if !b {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
-			continue
-		}
 		res.Spec.Template.Spec = *podSpec
-		if _, err :=
-			client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
+		// If we are in an auto-inject namespace, removing the sidecar isn't enough, we
+		// must prevent injection
+		if res.Spec.Template.Annotations == nil {
+			res.Spec.Template.Annotations = make(map[string]string)
+		}
+		res.Spec.Template.Annotations[annotation.SidecarInject.Name] = "false"
+		if _, err := client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q due to %v", depName, name, err))
 			continue
-
 		}
 		d := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -200,7 +204,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 			},
 		}
 		if _, err := client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment status %q for service %q due to %v", depName, name, err))
 			continue
 		}
 		fmt.Fprintf(writer, "deployment %q updated successfully with Istio sidecar un-injected.\n", depName)

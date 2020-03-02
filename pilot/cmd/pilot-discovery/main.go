@@ -26,32 +26,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/keepalive"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
-var (
-	serverArgs = bootstrap.PilotArgs{
-		CtrlZOptions:     ctrlz.DefaultOptions(),
-		KeepaliveOptions: keepalive.DefaultOption(),
-		// TODO replace with mesh config?
-		InjectionOptions: bootstrap.InjectionOptions{
-			InjectionDirectory: "./var/lib/istio/inject",
-		},
-		ValidationOptions: bootstrap.ValidationOptions{
-			ValidationDirectory: "./var/lib/istio/validation",
-		},
+const (
+	defaultMCPMaxMessageSize        = 1024 * 1024 * 4 // default grpc maximum message size
+	defaultMCPInitialConnWindowSize = 1024 * 1024     // default grpc InitialWindowSize
+	defaultMCPInitialWindowSize     = 1024 * 1024     // default grpc ConnWindowSize
+)
 
-		MCPMaxMessageSize:        1024 * 1024 * 4, // default grpc maximum message size
-		MCPInitialConnWindowSize: 1024 * 1024,     // default grpc InitialWindowSize
-		MCPInitialWindowSize:     1024 * 1024,     // default grpc ConnWindowSize
-	}
+var (
+	serverArgs *bootstrap.PilotArgs
 
 	loggingOptions = log.DefaultOptions()
 
@@ -67,15 +57,10 @@ var (
 		Short: "Start Istio proxy discovery service.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
-			serverArgs.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
-			serverArgs.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
-
-			// fill in missing defaults
-			serverArgs.Default()
 
 			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain, hasKubeRegistry()))
 
@@ -83,7 +68,7 @@ var (
 			stop := make(chan struct{})
 
 			// Create the server for the discovery service.
-			discoveryServer, err := bootstrap.NewServer(&serverArgs)
+			discoveryServer, err := bootstrap.NewServer(serverArgs)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
@@ -113,6 +98,17 @@ func hasKubeRegistry() bool {
 }
 
 func init() {
+
+	serverArgs = bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
+		// Set Defaults
+		p.CtrlZOptions = ctrlz.DefaultOptions()
+		// TODO replace with mesh config?
+		p.InjectionOptions = bootstrap.InjectionOptions{
+			InjectionDirectory: "./var/lib/istio/inject",
+		}
+	})
+
+	// Process commandline args.
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(serviceregistry.Kubernetes)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
@@ -125,17 +121,17 @@ func init() {
 		fmt.Sprintf("File name for Istio mesh configuration. If not specified, a default mesh will be used."))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.NetworksConfigFile, "networksConfig", "/etc/istio/config/meshNetworks",
 		fmt.Sprintf("File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used."))
-	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", "",
+	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", bootstrap.PodNamespaceVar.Get(),
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
 		"comma separated list of networking plugins to enable")
 
 	// MCP client flags
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", serverArgs.MCPMaxMessageSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.MaxMessageSize, "mcpMaxMsgSize", defaultMCPMaxMessageSize,
 		"Max message size received by MCP's grpc client")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialWindowSize, "mcpInitialWindowSize", serverArgs.MCPInitialWindowSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.InitialWindowSize, "mcpInitialWindowSize", defaultMCPInitialWindowSize,
 		"Initial window size for MCP's gRPC connection")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", serverArgs.MCPInitialConnWindowSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.InitialConnWindowSize, "mcpInitialConnWindowSize", defaultMCPInitialConnWindowSize,
 		"Initial connection window size for MCP's gRPC connection")
 
 	// Config Controller options
@@ -165,7 +161,7 @@ func init() {
 		"Injection and validation service HTTPS address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.GrpcAddr, "grpcAddr", ":15010",
 		"Discovery service grpc address")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", ":15012",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", "",
 		"Discovery service grpc address, with https")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.MonitoringAddr, "monitoringAddr", ":15014",
 		"HTTP address to use for pilot's self-monitoring information")

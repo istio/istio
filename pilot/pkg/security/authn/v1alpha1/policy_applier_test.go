@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	protovalue "istio.io/istio/pkg/proto"
@@ -752,7 +752,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 				setSkipValidateTrustDomain("false", t)
 			}()
 		}
-		got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy)
+		got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, 80)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
 				t.Errorf("buildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
@@ -809,7 +809,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 		name       string
 		in         *authn.Policy
 		sdsUdsPath string
-		expected   []plugin.FilterChain
+		expected   []networking.FilterChain
 		node       *model.Proxy
 	}{
 		{
@@ -851,7 +851,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 				},
@@ -874,7 +874,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 				Metadata: &model.NodeMetadata{},
 			},
 			// Only one filter chain with mTLS settings should be generated.
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 				},
@@ -897,7 +897,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 				Metadata: &model.NodeMetadata{},
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 					FilterChainMatch: &listener.FilterChainMatch{
@@ -933,7 +933,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 				Metadata:     &model.NodeMetadata{IstioVersion: "1.4.0"},
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
@@ -994,17 +994,17 @@ func TestOnInboundFilterChains(t *testing.T) {
 					SdsEnabled: true,
 				},
 			},
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
 							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
-								constructSDSConfig(authn_model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
+								authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
 							},
 							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 									DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
-									ValidationContextSdsSecretConfig: constructSDSConfig(authn_model.SDSRootResourceName, "/tmp/sdsuds.sock"),
+									ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, "/tmp/sdsuds.sock"),
 								},
 							},
 							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
@@ -1027,7 +1027,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 				},
@@ -1053,7 +1053,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					TLSServerRootCert:  "/custom/path/to/root.pem",
 				}},
 			// Only one filter chain with mTLS settings should be generated.
-			expected: []plugin.FilterChain{
+			expected: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
@@ -1098,39 +1098,5 @@ func TestOnInboundFilterChains(t *testing.T) {
 				t.Errorf("[%v] unexpected filter chains, got \n%v, want \n%v", c.name, got, c.expected)
 			}
 		})
-	}
-}
-
-func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
-	gRPCConfig := &core.GrpcService_GoogleGrpc{
-		TargetUri:  sdsudspath,
-		StatPrefix: authn_model.SDSStatPrefix,
-		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-			},
-		},
-	}
-
-	gRPCConfig.CredentialsFactoryName = authn_model.FileBasedMetadataPlugName
-	gRPCConfig.CallCredentials = authn_model.ConstructgRPCCallCredentials(authn_model.K8sSATrustworthyJwtFileName, authn_model.K8sSAJwtTokenHeaderKey)
-
-	return &auth.SdsSecretConfig{
-		Name: name,
-		SdsConfig: &core.ConfigSource{
-			InitialFetchTimeout: features.InitialFetchTimeout,
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType: core.ApiConfigSource_GRPC,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: gRPCConfig,
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 }

@@ -28,9 +28,6 @@ import (
 // the new stream, if the original token is expired, gRPC library will call
 // STS server and returns new token to proxy.
 func TestRenewToken(t *testing.T) {
-	// Enable this test when gRPC fix is picked by Istio Proxy
-	// https://github.com/grpc/grpc/pull/21641
-	t.Skip("https://github.com/istio/istio/issues/20133")
 	// Sets up callback that verifies token on new XDS stream.
 	cb := xdsService.CreateXdsCallback(t)
 	tokenLifeTimeInSec := 2
@@ -39,7 +36,7 @@ func TestRenewToken(t *testing.T) {
 	// stream should present a new token.
 	cb.SetNumberOfStreamClose(numCloseStream, tokenLifeTimeInSec+1)
 	// Start all test servers and proxy
-	setup := stsTest.SetUpTest(t, cb, testID.STSRenewTest)
+	setup := stsTest.SetupTest(t, cb, testID.STSRenewTest, false)
 	// Explicitly set token life time to a short duration.
 	setup.AuthServer.SetTokenLifeTime(tokenLifeTimeInSec)
 	// Explicitly set auth server to return different access token to each call.
@@ -53,7 +50,7 @@ func TestRenewToken(t *testing.T) {
 	initialNumFederatedTokenCall := setup.AuthServer.NumGetFederatedTokenCalls()
 	initialNumAccessTokenCall := setup.AuthServer.NumGetAccessTokenCalls()
 	setup.StartProxy(t)
-	setup.ProxySetUp.WaitEnvoyReady()
+	setup.ProxySetup.WaitEnvoyReady()
 	// Verify that proxy re-connects XDS server after each stream close, and a
 	// different token is received.
 	g.Expect(cb.NumStream()).To(gomega.Equal(numCloseStream + 1))

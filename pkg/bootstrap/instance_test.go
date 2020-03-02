@@ -15,7 +15,11 @@ package bootstrap
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"reflect"
@@ -36,7 +40,7 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
+	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/env"
 )
@@ -75,6 +79,7 @@ func TestGolden(t *testing.T) {
 	if out == "" {
 		out = "/tmp"
 	}
+	var ts *httptest.Server
 
 	cases := []struct {
 		base                       string
@@ -149,16 +154,21 @@ func TestGolden(t *testing.T) {
 		{
 			base: "tracing_stackdriver",
 			setup: func() {
-				credPath := out + "/sd_cred.json"
-				if err := ioutil.WriteFile(credPath, []byte(`{"type": "service_account", "project_id": "my-sd-project"}`), os.ModePerm); err != nil {
-					t.Fatalf("unable write file: %v", err)
+				ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					fmt.Fprintln(w, "my-sd-project")
+				}))
+
+				u, err := url.Parse(ts.URL)
+				if err != nil {
+					t.Fatalf("Unable to parse mock server url: %v", err)
 				}
-				_ = os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credPath)
+				_ = os.Setenv("GCE_METADATA_HOST", u.Host)
 			},
 			teardown: func() {
-				credPath := out + "/sd_cred.json"
-				_ = os.Unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
-				_ = os.Remove(credPath)
+				if ts != nil {
+					ts.Close()
+				}
+				_ = os.Unsetenv("GCE_METADATA_HOST")
 			},
 			check: func(got *v2.Bootstrap, t *testing.T) {
 				// nolint: staticcheck
@@ -210,6 +220,7 @@ func TestGolden(t *testing.T) {
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionPrefixes": "prefix1,prefix2",
 				"sidecar.istio.io/statsInclusionSuffixes": "suffix1,suffix2",
+				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			stats: stats{prefixes: "prefix1,prefix2",
 				suffixes: "suffix1,suffix2"},
@@ -218,6 +229,7 @@ func TestGolden(t *testing.T) {
 			base: "stats_inclusion",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionSuffixes": upstreamStatsSuffixes + "," + downstreamStatsSuffixes,
+				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			stats: stats{
 				suffixes: upstreamStatsSuffixes + "," + downstreamStatsSuffixes},
@@ -226,6 +238,7 @@ func TestGolden(t *testing.T) {
 			base: "stats_inclusion",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionPrefixes": "http.{pod_ip}_",
+				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			// {pod_ip} is unrolled
 			stats: stats{prefixes: "http.10.3.3.3_,http.10.4.4.4_,http.10.5.5.5_,http.10.6.6.6_"},
@@ -234,6 +247,7 @@ func TestGolden(t *testing.T) {
 			base: "stats_inclusion",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionRegexps": "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
+				"sidecar.istio.io/extraStatTags":         "dlp_status,dlp_error",
 			},
 			stats: stats{regexps: "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"},
 		},
@@ -259,10 +273,9 @@ func TestGolden(t *testing.T) {
 			}
 
 			fn, err := New(Config{
-				Node:           "sidecar~1.2.3.4~foo~bar",
-				DNSRefreshRate: "60s",
-				Proxy:          proxyConfig,
-				PlatEnv:        &fakePlatform{},
+				Node:    "sidecar~1.2.3.4~foo~bar",
+				Proxy:   proxyConfig,
+				PlatEnv: &fakePlatform{},
 				PilotSubjectAltName: []string{
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"},
 				LocalEnv:       localEnv,
@@ -296,7 +309,10 @@ func TestGolden(t *testing.T) {
 				return
 			}
 
-			golden, err := ioutil.ReadFile("testdata/" + c.base + "_golden.json")
+			goldenFile := "testdata/" + c.base + "_golden.json"
+			util.RefreshGoldenFile(read, goldenFile, t)
+
+			golden, err := ioutil.ReadFile(goldenFile)
 			if err != nil {
 				golden = []byte{}
 			}

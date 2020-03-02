@@ -21,9 +21,13 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	securityBeta "istio.io/api/security/v1beta1"
+	selectorpb "istio.io/api/type/v1beta1"
 
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config/constants"
@@ -145,9 +149,25 @@ func TestAuthNPolicies(t *testing.T) {
 	authNPolicies := map[string]*authn.Policy{
 		constants.DefaultAuthenticationPolicyName: {},
 
+		"mtls-strict-svc": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-strict-svc-port",
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			},
+			}},
+
 		"mtls-strict-svc-port": {
 			Targets: []*authn.TargetSelector{{
 				Name: "mtls-strict-svc-port",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 80,
+						},
+					},
+				},
 			}},
 			Peers: []*authn.PeerAuthenticationMethod{{
 				Params: &authn.PeerAuthenticationMethod_Mtls{},
@@ -258,6 +278,14 @@ func TestAuthNPolicies(t *testing.T) {
 			port:                    Port{Port: 80},
 			expectedPolicy:          authNPolicies["mtls-strict-svc-port"],
 			expectedPolicyName:      "mtls-strict-svc-port",
+			expectedPolicyNamespace: testNamespace,
+		},
+		{
+			hostname:                "mtls-strict-svc-port.test-namespace.svc.cluster.local",
+			namespace:               testNamespace,
+			port:                    Port{Port: 90},
+			expectedPolicy:          authNPolicies["mtls-strict-svc"],
+			expectedPolicyName:      "mtls-strict-svc",
 			expectedPolicyNamespace: testNamespace,
 		},
 		{
@@ -649,6 +677,181 @@ func TestSidecarScope(t *testing.T) {
 	}
 }
 
+func TestBestEffortInferServiceMTLSMode(t *testing.T) {
+	const alphaNamespace string = "alpha-namespace"
+	const betaNamespace string = "beta-namespace"
+	const otherNamespace string = "other-namespace"
+	ps := NewPushContext()
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	ps.Mesh = env.Mesh()
+	ps.ServiceDiscovery = env
+	authNPolicies := map[string]*authn.Policy{
+		constants.DefaultAuthenticationPolicyName: {},
+		"mtls-strict-svc": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-strict-svc",
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			},
+			}},
+		"mtls-strict-svc-port": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-strict-svc-port",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 80,
+						},
+					},
+				},
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			},
+			}},
+		"mtls-disable-svc": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-disable-svc",
+			}},
+		},
+	}
+	configStore := newFakeStore()
+	for key, value := range authNPolicies {
+		cfg := Config{
+			ConfigMeta: ConfigMeta{
+				Type:      collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
+				Group:     collections.IstioAuthenticationV1Alpha1Policies.Resource().Group(),
+				Version:   collections.IstioAuthenticationV1Alpha1Policies.Resource().Version(),
+				Name:      key,
+				Domain:    "cluster.local",
+				Namespace: alphaNamespace,
+			},
+			Spec: value,
+		}
+		if _, err := configStore.Create(cfg); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// Add cluster-scoped policy
+	globalPolicy := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{
+				Mtls: &authn.MutualTls{
+					Mode: authn.MutualTls_PERMISSIVE,
+				},
+			},
+		}},
+	}
+	globalCfg := Config{
+		ConfigMeta: ConfigMeta{
+			Type:    collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Kind(),
+			Group:   collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Group(),
+			Version: collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Version(),
+			Name:    constants.DefaultAuthenticationPolicyName,
+			Domain:  "cluster.local",
+		},
+		Spec: globalPolicy,
+	}
+
+	// Add beta policies
+	configStore.Create(*createTestPeerAuthenticationResource("default", betaNamespace, time.Now(), nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
+	// workload level beta policy.
+	configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", alphaNamespace, time.Now(), &selectorpb.WorkloadSelector{
+		MatchLabels: map[string]string{
+			"app":     "httpbin",
+			"version": "v1",
+		},
+	}, securityBeta.PeerAuthentication_MutualTLS_STRICT))
+
+	if _, err := configStore.Create(globalCfg); err != nil {
+		t.Error(err)
+	}
+
+	store := istioConfigStore{ConfigStore: configStore}
+	env.IstioConfigStore = &store
+	if err := ps.initAuthnPolicies(env); err != nil {
+		t.Fatalf("init authn policies failed: %v", err)
+	}
+
+	cases := []struct {
+		name             string
+		serviceName      host.Name
+		serviceNamespace string
+		servicePort      int
+		wanted           MutualTLSMode
+	}{
+		{
+			name:             "from beta policy",
+			serviceName:      "some-service",
+			serviceNamespace: betaNamespace,
+			servicePort:      80,
+			wanted:           MTLSStrict,
+		},
+		{
+			name:             "from alpha global policy",
+			serviceName:      "some-service",
+			serviceNamespace: otherNamespace,
+			servicePort:      80,
+			wanted:           MTLSPermissive,
+		},
+		{
+			name:             "from alpha namespace policy",
+			serviceName:      "some-service",
+			serviceNamespace: alphaNamespace,
+			servicePort:      80,
+			wanted:           MTLSDisable,
+		},
+		{
+			name:             "from service specific alpha policy",
+			serviceName:      "mtls-strict-svc",
+			serviceNamespace: alphaNamespace,
+			servicePort:      80,
+			wanted:           MTLSStrict,
+		},
+		{
+			name:             "from service-port specific alpha policy",
+			serviceName:      "mtls-strict-svc-port",
+			serviceNamespace: alphaNamespace,
+			servicePort:      80,
+			wanted:           MTLSStrict,
+		},
+		{
+			name:             "from namespace alpha policy - miss port",
+			serviceName:      "mtls-strict-svc-port",
+			serviceNamespace: alphaNamespace,
+			servicePort:      90,
+			wanted:           MTLSDisable,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			service := &Service{
+				Hostname:   host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", tc.serviceName, tc.serviceNamespace)),
+				Attributes: ServiceAttributes{Namespace: tc.serviceNamespace},
+			}
+			// Intentionally use the externalService with the same name and namespace for test, though
+			// these attributes don't matter.
+			externalService := &Service{
+				Hostname:     host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", tc.serviceName, tc.serviceNamespace)),
+				Attributes:   ServiceAttributes{Namespace: tc.serviceNamespace},
+				MeshExternal: true,
+			}
+
+			port := &Port{
+				Port: tc.servicePort,
+			}
+			if got := ps.BestEffortInferServiceMTLSMode(service, port); got != tc.wanted {
+				t.Fatalf("want %s, but got %s", tc.wanted, got)
+			}
+			if got := ps.BestEffortInferServiceMTLSMode(externalService, port); got != MTLSUnknown {
+				t.Fatalf("MTLS mode for external service should always be %s, but got %s", MTLSUnknown, got)
+			}
+		})
+	}
+}
+
 func scopeToSidecar(scope *SidecarScope) string {
 	if scope == nil || scope.Config == nil {
 		return ""
@@ -709,4 +912,12 @@ func (*fakeStore) Version() string {
 }
 func (*fakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return "not implemented", nil
+}
+
+func (s *fakeStore) GetLedger() ledger.Ledger {
+	panic("implement me")
+}
+
+func (s *fakeStore) SetLedger(ledger.Ledger) error {
+	panic("implement me")
 }

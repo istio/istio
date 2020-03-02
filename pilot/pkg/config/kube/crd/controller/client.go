@@ -351,6 +351,15 @@ func (cl *Client) GetResourceAtVersion(version string, key string) (resourceVers
 	return cl.configLedger.GetPreviousValue(version, key)
 }
 
+func (cl *Client) GetLedger() ledger.Ledger {
+	return cl.configLedger
+}
+
+func (cl *Client) SetLedger(l ledger.Ledger) error {
+	cl.configLedger = l
+	return nil
+}
+
 // List implements store interface
 func (cl *Client) List(kind resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	t, ok := crd.SupportedTypes[kind]

@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/util"
 )
 
 const (
@@ -72,7 +71,8 @@ var (
 		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
 		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
 		{Group: "", Version: "v1", Kind: "Service"},
-		{Group: "", Version: "v1", Kind: "Endpoints"},
+		// Endpoints are dynamically created, never from charts.
+		// {Group: "", Version: "v1", Kind: "Endpoints"},
 		{Group: "", Version: "v1", Kind: "ConfigMap"},
 		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
 		{Group: "", Version: "v1", Kind: "Pod"},
@@ -127,8 +127,8 @@ func NewIstioPruningDetails(instance *v1alpha1.IstioOperator) helmreconciler.Pru
 	return &helmreconciler.SimplePruningDetails{
 		OwnerLabels: map[string]string{
 			OwnerNameKey:  name,
-			OwnerGroupKey: util.IstioOperatorGVK.Group,
-			OwnerKindKey:  util.IstioOperatorGVK.Kind,
+			OwnerGroupKey: v1alpha1.IstioOperatorGVK.Group,
+			OwnerKindKey:  v1alpha1.IstioOperatorGVK.Kind,
 		},
 		NamespacedResources:    namespacedResources,
 		NonNamespacedResources: nonNamespacedResources,

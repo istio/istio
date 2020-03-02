@@ -66,6 +66,9 @@ const (
 	// cRDPollTimeout is the maximum wait time for all CRDs to be created.
 	cRDPollTimeout = 60 * time.Second
 
+	// Time to wait for internal dependencies before proceeding to installing the next component.
+	internalDepTimeout = 10 * time.Minute
+
 	// operatorReconcileStr indicates that the operator will reconcile the resource.
 	operatorReconcileStr = "Reconcile"
 )
@@ -125,11 +128,33 @@ var (
 	dependencyWaitCh = make(map[name.ComponentName]chan struct{})
 	kubectl          = kubectlcmd.New()
 
-	k8sRESTConfig           *rest.Config
-	currentKubeconfig       string
-	currentContext          string
+	k8sRESTConfig     *rest.Config
+	currentKubeconfig string
+	currentContext    string
+	// TODO: remove whitelist after : https://github.com/kubernetes/kubernetes/issues/66430
+	defaultPilotPruneWhileList = []string{
+		// kubectl apply prune default
+		"core/v1/Pod",
+		"core/v1/ConfigMap",
+		"core/v1/Service",
+		"core/v1/Secret",
+		"core/v1/Endpoints",
+		"core/v1/Namespace",
+		"core/v1/PersistentVolume",
+		"core/v1/PersistentVolumeClaim",
+		"core/v1/ReplicationController",
+		"batch/v1/Job",
+		"batch/v1beta1/CronJob",
+		"extensions/v1beta1/Ingress",
+		"apps/v1/DaemonSet",
+		"apps/v1/Deployment",
+		"apps/v1/ReplicaSet",
+		"apps/v1/StatefulSet",
+		"networking.istio.io/v1alpha3/DestinationRule",
+		"networking.istio.io/v1alpha3/EnvoyFilter",
+	}
 	componentPruneWhiteList = map[name.ComponentName][]string{
-		name.PilotComponentName: {"networking.istio.io/v1alpha3/EnvoyFilter"},
+		name.PilotComponentName: defaultPilotPruneWhileList,
 	}
 )
 
@@ -275,8 +300,10 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
 			// For example, for the validation webhook to become ready, so we should wait for it always.
 			if len(componentDependencies[c]) > 0 {
-				if err := WaitForResources(appliedObjects, opts); err != nil {
-					scope.Errorf("failed to wait for resource: %v", err)
+				no := *opts
+				no.WaitTimeout = internalDepTimeout
+				if err := WaitForResources(appliedObjects, &no); err != nil {
+					scope.Errorf("Failed to wait for resource: %v", err)
 				}
 			}
 			// Signal all the components that depend on us.
@@ -495,39 +522,56 @@ func buildComponentApplyOutput(stdout string, stderr string, objects object.K8sO
 	}
 }
 
+func istioCustomResources(group string) bool {
+	switch group {
+	case "config.istio.io",
+		"rbac.istio.io",
+		"security.istio.io",
+		"authentication.istio.io",
+		"networking.istio.io":
+		return true
+	}
+	return false
+}
+
 // DefaultObjectOrder is default sorting function used to sort k8s objects.
 func DefaultObjectOrder() func(o *object.K8sObject) int {
 	return func(o *object.K8sObject) int {
 		gk := o.Group + "/" + o.Kind
-		switch gk {
+		switch {
 		// Create CRDs asap - both because they are slow and because we will likely create instances of them soon
-		case "apiextensions.k8s.io/CustomResourceDefinition":
+		case gk == "apiextensions.k8s.io/CustomResourceDefinition":
 			return -1000
 
 			// We need to create ServiceAccounts, Roles before we bind them with a RoleBinding
-		case "/ServiceAccount", "rbac.authorization.k8s.io/ClusterRole":
+		case gk == "/ServiceAccount" || gk == "rbac.authorization.k8s.io/ClusterRole":
 			return 1
-		case "rbac.authorization.k8s.io/ClusterRoleBinding":
+		case gk == "rbac.authorization.k8s.io/ClusterRoleBinding":
 			return 2
 
-			// Validation webook maybe impact CRs applied later
-		case "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+			// validatingwebhookconfiguration is configured to FAIL-OPEN in the default install. For the
+			// re-install case we want to apply the validatingwebhookconfiguration first to reset any
+			// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
+		case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
 			return 3
 
+		case istioCustomResources(o.Group):
+			return 4
+
 			// Pods might need configmap or secrets - avoid backoff by creating them first
-		case "/ConfigMap", "/Secrets":
+		case gk == "/ConfigMap" || gk == "/Secrets":
 			return 100
 
 			// Create the pods after we've created other things they might be waiting for
-		case "extensions/Deployment", "app/Deployment":
+		case gk == "extensions/Deployment" || gk == "app/Deployment":
 			return 1000
 
 			// Autoscalers typically act on a deployment
-		case "autoscaling/HorizontalPodAutoscaler":
+		case gk == "autoscaling/HorizontalPodAutoscaler":
 			return 1001
 
 			// Create services late - after pods have been started
-		case "/Service":
+		case gk == "/Service":
 			return 10000
 
 		default:
@@ -661,6 +705,8 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 		return fmt.Errorf("k8s client error: %s", err)
 	}
 
+	var notReady []string
+
 	errPoll := wait.Poll(2*time.Second, opts.WaitTimeout, func() (bool, error) {
 		pods := []v1.Pod{}
 		deployments := []deployment{}
@@ -737,16 +783,19 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 				pods = append(pods, list...)
 			}
 		}
-		isReady := namespacesReady(namespaces) && podsReady(pods) && deploymentsReady(deployments)
+		dr, dnr := deploymentsReady(deployments)
+		nsr, nnr := namespacesReady(namespaces)
+		pr, pnr := podsReady(pods)
+		isReady := dr && nsr && pr
 		if !isReady {
 			logAndPrint("  Waiting for resources to become ready...")
 		}
+		notReady = append(append(nnr, dnr...), pnr...)
 		return isReady, nil
 	})
 
 	if errPoll != nil {
-		msg := fmt.Sprintf("resources not ready after %v: %v", opts.WaitTimeout, errPoll)
-		logAndPrint(msg)
+		msg := fmt.Sprintf("resources not ready after %v: %v\n%s", opts.WaitTimeout, errPoll, strings.Join(notReady, "\n"))
 		return errors.New(msg)
 	}
 	return nil
@@ -760,24 +809,24 @@ func getPods(client kubernetes.Interface, namespace string, selector map[string]
 	return list.Items, err
 }
 
-func namespacesReady(namespaces []v1.Namespace) bool {
+func namespacesReady(namespaces []v1.Namespace) (bool, []string) {
+	var notReady []string
 	for _, namespace := range namespaces {
 		if !isNamespaceReady(&namespace) {
-			logAndPrint("Namespace is not ready: %s", namespace.GetName())
-			return false
+			notReady = append(notReady, "Namespace/"+namespace.Name)
 		}
 	}
-	return true
+	return len(notReady) == 0, notReady
 }
 
-func podsReady(pods []v1.Pod) bool {
+func podsReady(pods []v1.Pod) (bool, []string) {
+	var notReady []string
 	for _, pod := range pods {
 		if !isPodReady(&pod) {
-			logAndPrint("Pod is not ready: %s/%s", pod.GetNamespace(), pod.GetName())
-			return false
+			notReady = append(notReady, "Pod/"+pod.Namespace+"/"+pod.Name)
 		}
 	}
-	return true
+	return len(notReady) == 0, notReady
 }
 
 func isNamespaceReady(namespace *v1.Namespace) bool {
@@ -796,14 +845,14 @@ func isPodReady(pod *v1.Pod) bool {
 	return false
 }
 
-func deploymentsReady(deployments []deployment) bool {
+func deploymentsReady(deployments []deployment) (bool, []string) {
+	var notReady []string
 	for _, v := range deployments {
 		if v.replicaSets.Status.ReadyReplicas < *v.deployment.Spec.Replicas {
-			scope.Infof("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
-			return false
+			notReady = append(notReady, "Deployment/"+v.deployment.Namespace+"/"+v.deployment.Name)
 		}
 	}
-	return true
+	return len(notReady) == 0, notReady
 }
 
 func buildInstallTree() {

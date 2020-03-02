@@ -295,11 +295,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		merged.EdsUpdates = nil
 	}
 
-	if !features.ScopePushes.Get() {
-		// If push scoping is not enabled, we do not care about target namespaces
-		return merged
-	}
-
 	// Merge the target namespaces
 	if len(first.NamespacesUpdated) > 0 && len(other.NamespacesUpdated) > 0 {
 		merged.NamespacesUpdated = make(map[string]struct{})
@@ -984,6 +979,13 @@ func (ps *PushContext) updateContext(
 		case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(),
 			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
 			quotasChanged = true
+		case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
+			virtualServicesChanged = true
+			gatewayChanged = true
 		}
 	}
 
@@ -1477,7 +1479,7 @@ func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *
 			matchedMeta = policiesByPort[i].configMeta
 		}
 
-		if port != nil && port.Match(policyByPort.portSelector) {
+		if port != nil && policyByPort.portSelector != nil && port.Match(policyByPort.portSelector) {
 			matchedPolicy = policiesByPort[i].policy
 			matchedMeta = policiesByPort[i].configMeta
 			break
@@ -1811,4 +1813,33 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 
 func (ps *PushContext) QuotaSpecByDestination(instance *ServiceInstance) []Config {
 	return filterQuotaSpecsByDestination(instance, ps.QuotaSpecBinding, ps.QuotaSpec)
+}
+
+// BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
+// policies (both alpha and beta) in the system. The function always returns MTLSUnknown for external service.
+// The resulst is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
+// to compute the correct service mTLS mode without knowing service to workload binding. For now, this
+// function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
+// This function is used to give a hint for auto-mTLS configuration on client side.
+func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Port) MutualTLSMode {
+	if service.MeshExternal {
+		// Only need the authentication MTLS mode when service is not external.
+		return MTLSUnknown
+	}
+
+	// First , check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
+	// If the mode is not unknown, use it.
+	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
+		return serviceMTLSMode
+	}
+
+	// Namespace/Mesh PeerAuthentication does not exist, check alpha authN policy.
+	policy, _ := ps.AuthenticationPolicyForWorkload(service, port)
+	if policy != nil {
+		// If alpha authN policy exist, used the mode defined by the policy.
+		return v1alpha1PolicyToMutualTLSMode(policy)
+	}
+
+	// When all are failed, default to permissive.
+	return MTLSPermissive
 }

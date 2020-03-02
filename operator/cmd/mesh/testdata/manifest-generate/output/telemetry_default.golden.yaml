@@ -1,6 +1,9 @@
 # AddonComponents grafana component is disabled.
 
 ---
+# AddonComponents istiocoredns component is disabled.
+
+---
 # AddonComponents kiali component is disabled.
 
 ---
@@ -15,9 +18,11 @@
 
 # Cni component is disabled.
 
+# EgressGateways istio-egressgateway component is disabled.
+
 # Galley component is disabled.
 
-# Pilot istio-pilot component is disabled.
+# Pilot istiod component is disabled.
 
 # Policy component is disabled.
 
@@ -1148,6 +1153,19 @@ data:
                       timeout: 0.000s
               stat_prefix: "15004"
             name: envoy.http_connection_manager
+          tls_context:
+            common_tls_context:
+              alpn_protocols:
+              - h2
+              tls_certificates:
+              - certificate_chain:
+                  filename: /etc/certs/cert-chain.pem
+                private_key:
+                  filename: /etc/certs/key.pem
+              validation_context:
+                trusted_ca:
+                  filename: /etc/certs/root-cert.pem
+            require_client_certificate: true
 
       - name: "9091"
         address:
@@ -1320,7 +1338,7 @@ spec:
       - args:
         - --monitoringPort=15014
         - --address
-        - tcp://0.0.0.0:9091
+        - unix:///sock/mixer.socket
         - --log_output_level=default:info
         - --configStoreURL=k8s://
         - --configDefaultNamespace=istio-system
@@ -1355,6 +1373,9 @@ spec:
             cpu: 1000m
             memory: 1G
         securityContext:
+          capabilities:
+            drop:
+            - ALL
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
@@ -1364,6 +1385,55 @@ spec:
         - mountPath: /var/run/secrets/istio.io/telemetry/adapter
           name: telemetry-adapter-secret
           readOnly: true
+      - args:
+        - proxy
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --serviceCluster
+        - istio-telemetry
+        - --templateFile
+        - /var/lib/envoy/envoy.yaml.tmpl
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
+        - --trust-domain=cluster.local
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        image: gcr.io/istio-testing/proxyv2:latest
+        name: istio-proxy
+        ports:
+        - containerPort: 15004
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /var/lib/envoy
+          name: telemetry-envoy-config
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+        - mountPath: /sock
+          name: uds-socket
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-mixer-service-account

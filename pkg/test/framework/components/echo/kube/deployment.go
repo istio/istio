@@ -108,8 +108,10 @@ spec:
 {{- end }}
           - "{{ $p.Port }}"
 {{- end }}
+{{- range $i, $p := .WorkloadOnlyPorts }}
           - --port
-          - "8081"
+          - "{{ $p }}"
+{{- end }}
           - --version
           - "{{ .Version }}"
         ports:
@@ -123,8 +125,8 @@ spec:
           httpGet:
             path: /
             port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 10
+          initialDelaySeconds: 1
+          periodSeconds: 2
           failureThreshold: 10
         livenessProbe:
           tcpSocket:
@@ -196,6 +198,7 @@ func generateYAML(cfg echo.Config) (string, error) {
 		"Locality":            cfg.Locality,
 		"ServiceAccount":      cfg.ServiceAccount,
 		"Ports":               cfg.Ports,
+		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
 		"ContainerPorts":      getContainerPorts(cfg.Ports),
 		"ServiceAnnotations":  serviceAnnotations,
 		"WorkloadAnnotations": workloadAnnotations,

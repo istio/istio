@@ -541,7 +541,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		now := time.Now()
 
 		// Remove stale secrets from cache, this prevent the cache growing indefinitely.
-		if now.After(e.CreatedTime.Add(sc.configOptions.EvictionDuration)) {
+		if sc.configOptions.EvictionDuration != 0 && now.After(e.CreatedTime.Add(sc.configOptions.EvictionDuration)) {
 			sc.secrets.Delete(connKey)
 			return true
 		}
@@ -803,7 +803,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		Token:            token,
 		CreatedTime:      t,
 		ExpireTime:       expireTime,
-		Version:          t.String(),
+		Version:          t.Format("01-02 15:04:05.000"), // Precise enough version based on creation time.
 	}, nil
 }
 
@@ -829,12 +829,15 @@ func (sc *SecretCache) isTokenExpired() bool {
 // Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
 func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 	providedExchangedToken string, connKey ConnKey, isCSR bool) ([]string, error) {
-	sc.randMutex.Lock()
-	randomizedInitialBackOffInMS := sc.rand.Int63n(sc.configOptions.InitialBackoffInMilliSec)
-	sc.randMutex.Unlock()
-	cacheLog.Debugf("Wait for %d millisec for jitter", randomizedInitialBackOffInMS)
-	// Add a jitter to initial CSR to avoid thundering herd problem.
-	time.Sleep(time.Duration(randomizedInitialBackOffInMS) * time.Millisecond)
+
+	if sc.configOptions.InitialBackoffInMilliSec > 0 {
+		sc.randMutex.Lock()
+		randomizedInitialBackOffInMS := sc.rand.Int63n(sc.configOptions.InitialBackoffInMilliSec)
+		sc.randMutex.Unlock()
+		cacheLog.Debugf("Wait for %d millisec for jitter", randomizedInitialBackOffInMS)
+		// Add a jitter to initial CSR to avoid thundering herd problem.
+		time.Sleep(time.Duration(randomizedInitialBackOffInMS) * time.Millisecond)
+	}
 	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
 
 	// Assign a unique request ID for all the retries.

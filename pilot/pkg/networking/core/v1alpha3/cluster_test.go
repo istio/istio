@@ -38,13 +38,14 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
+	authn_beta "istio.io/api/security/v1beta1"
+	selectorpb "istio.io/api/type/v1beta1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -135,12 +136,14 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 func TestCommonHttpProtocolOptions(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	directionInfos := []struct {
+	cases := []struct {
 		direction                  model.TrafficDirection
 		clusterIndex               int
 		useDownStreamProtocol      bool
 		sniffingEnabledForInbound  bool
 		sniffingEnabledForOutbound bool
+		proxyType                  model.NodeType
+		clusters                   int
 	}{
 		{
 			direction:                  model.TrafficDirectionOutbound,
@@ -148,18 +151,24 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			useDownStreamProtocol:      false,
 			sniffingEnabledForInbound:  false,
 			sniffingEnabledForOutbound: true,
+			proxyType:                  model.SidecarProxy,
+			clusters:                   8,
 		}, {
 			direction:                  model.TrafficDirectionInbound,
 			clusterIndex:               4,
 			useDownStreamProtocol:      false,
 			sniffingEnabledForInbound:  false,
 			sniffingEnabledForOutbound: true,
+			proxyType:                  model.SidecarProxy,
+			clusters:                   8,
 		}, {
 			direction:                  model.TrafficDirectionOutbound,
 			clusterIndex:               1,
 			useDownStreamProtocol:      true,
 			sniffingEnabledForInbound:  false,
 			sniffingEnabledForOutbound: true,
+			proxyType:                  model.SidecarProxy,
+			clusters:                   8,
 		},
 		{
 			direction:                  model.TrafficDirectionInbound,
@@ -167,6 +176,17 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			useDownStreamProtocol:      true,
 			sniffingEnabledForInbound:  true,
 			sniffingEnabledForOutbound: true,
+			proxyType:                  model.SidecarProxy,
+			clusters:                   8,
+		},
+		{
+			direction:                  model.TrafficDirectionInbound,
+			clusterIndex:               0,
+			useDownStreamProtocol:      true,
+			sniffingEnabledForInbound:  true,
+			sniffingEnabledForOutbound: true,
+			proxyType:                  model.Router,
+			clusters:                   3,
 		},
 	}
 	settings := &networking.ConnectionPoolSettings{
@@ -176,8 +196,8 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		},
 	}
 
-	for _, directionInfo := range directionInfos {
-		if directionInfo.sniffingEnabledForInbound {
+	for _, tc := range cases {
+		if tc.sniffingEnabledForInbound {
 			_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
 		} else {
 			_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "false")
@@ -187,9 +207,9 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		if settings != nil {
 			settingsName = "override"
 		}
-		testName := fmt.Sprintf("%s-%s", directionInfo.direction, settingsName)
+		testName := fmt.Sprintf("%s-%s", tc.direction, settingsName)
 		t.Run(testName, func(t *testing.T) {
-			clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
+			clusters, err := buildTestClusters("*.example.org", 0, tc.proxyType, nil, testMesh,
 				&networking.DestinationRule{
 					Host: "*.example.org",
 					TrafficPolicy: &networking.TrafficPolicy{
@@ -197,12 +217,12 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 					},
 				})
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(len(clusters)).To(Equal(8))
-			cluster := clusters[directionInfo.clusterIndex]
+			g.Expect(len(clusters)).To(Equal(tc.clusters))
+			cluster := clusters[tc.clusterIndex]
 			g.Expect(cluster.CommonHttpProtocolOptions).To(Not(BeNil()))
 			commonHTTPProtocolOptions := cluster.CommonHttpProtocolOptions
 
-			if directionInfo.useDownStreamProtocol {
+			if tc.useDownStreamProtocol && tc.proxyType == model.SidecarProxy {
 				g.Expect(cluster.ProtocolSelection).To(Equal(apiv2.Cluster_USE_DOWNSTREAM_PROTOCOL))
 			} else {
 				g.Expect(cluster.ProtocolSelection).To(Equal(apiv2.Cluster_USE_CONFIGURED_PROTOCOL))
@@ -227,12 +247,13 @@ func buildTestClusters(serviceHostname string, serviceResolution model.Resolutio
 		mesh,
 		destRule,
 		nil, // authnPolicy
+		nil, // peerAuthn
 	)
 }
 
 func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadata(
 		serviceHostname,
 		serviceResolution,
@@ -242,30 +263,34 @@ func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution 
 		mesh,
 		destRule,
 		authnPolicy,
+		peerAuthn,
 		&model.NodeMetadata{},
 		model.MaxIstioVersion)
 }
 
 func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
+	istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, false /* externalService */, nodeType, locality, mesh, destRule,
-		authnPolicy, &model.NodeMetadata{}, istioVersion)
+		authnPolicy, peerAuthn, &model.NodeMetadata{}, istioVersion)
 }
 
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
+	meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution, externalService,
 		nodeType, locality, mesh,
-		destRule, authnPolicy, meta, istioVersion,
+		destRule, authnPolicy, peerAuthn, meta, istioVersion,
 		// Add default sidecar proxy meta
 		[]string{"6.6.6.6", "::1"})
 }
 
 func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
+	meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
@@ -377,6 +402,22 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 						Spec: authnPolicy,
 					}}, nil
 			}
+			if typ == collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() && peerAuthn != nil {
+				policyName := "default"
+				if peerAuthn.Selector != nil {
+					policyName = "acme"
+				}
+				return []model.Config{
+					{ConfigMeta: model.ConfigMeta{
+						Type:      collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind(),
+						Version:   collections.IstioSecurityV1Beta1Peerauthentications.Resource().Version(),
+						Name:      policyName,
+						Namespace: TestServiceNamespace,
+					},
+						Spec: peerAuthn,
+					}}, nil
+
+			}
 			return nil, nil
 		},
 	}
@@ -422,7 +463,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	ttl := time.Nanosecond * 100
+	ttl := types.Duration{Nanos: 100}
 	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
@@ -456,7 +497,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	ttl := time.Nanosecond * 100
+	ttl := types.Duration{Nanos: 100}
 	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
@@ -562,7 +603,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	}
 
 	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, false, model.SidecarProxy,
-		nil, testMesh, destRule, nil, envoyMetadata, model.MaxIstioVersion)
+		nil, testMesh, destRule, nil, nil, envoyMetadata, model.MaxIstioVersion)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	g.Expect(clusters).To(HaveLen(10))
@@ -620,6 +661,7 @@ func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta 
 			},
 		},
 		nil, // authnPolicy
+		nil, // peerAuthn
 		meta,
 		model.MaxIstioVersion,
 	)
@@ -749,6 +791,7 @@ func TestClusterMetadata(t *testing.T) {
 
 	clustersWithMetadata := 0
 
+	foundSubset := false
 	for _, cluster := range clusters {
 		if strings.HasPrefix(cluster.Name, "outbound") || strings.HasPrefix(cluster.Name, "inbound") {
 			clustersWithMetadata++
@@ -759,16 +802,26 @@ func TestClusterMetadata(t *testing.T) {
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
 			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
+			if strings.Contains(cluster.Name, "Subset") {
+				foundSubset = true
+				sub := istio.Fields["subset"]
+				g.Expect(sub.GetStringValue()).To(HavePrefix("Subset "))
+			} else {
+				_, ok := istio.Fields["subset"]
+				g.Expect(ok).To(Equal(false))
+			}
 		} else {
 			g.Expect(cluster.Metadata).To(BeNil())
 		}
 	}
 
+	g.Expect(foundSubset).To(Equal(true))
 	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets) + 6)) // outbound  outbound subsets  inbound
 
 	sniClusters, err := buildSniDnatTestClustersForGateway("test-sni")
 	g.Expect(err).NotTo(HaveOccurred())
 
+	foundSNISubset := false
 	for _, cluster := range sniClusters {
 		if strings.HasPrefix(cluster.Name, "outbound") {
 			g.Expect(cluster.Metadata).NotTo(BeNil())
@@ -778,10 +831,20 @@ func TestClusterMetadata(t *testing.T) {
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
 			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
+			if strings.Contains(cluster.Name, "foobar") {
+				foundSNISubset = true
+				sub := istio.Fields["subset"]
+				g.Expect(sub.GetStringValue()).To(Equal("foobar"))
+			} else {
+				_, ok := istio.Fields["subset"]
+				g.Expect(ok).To(Equal(false))
+			}
 		} else {
 			g.Expect(cluster.Metadata).To(BeNil())
 		}
 	}
+
+	g.Expect(foundSNISubset).To(Equal(true))
 }
 
 func TestConditionallyConvertToIstioMtls(t *testing.T) {
@@ -1295,6 +1358,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 			},
 		},
 		nil, // authnPolicy
+		nil, // peerAuthn,
 		&model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
 		model.MaxIstioVersion)
 
@@ -1345,6 +1409,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 			},
 		},
 		nil, // authnPolicy
+		nil, // peerAuthn
 		&model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
 		model.MaxIstioVersion)
 
@@ -1553,6 +1618,7 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) 
 			},
 		},
 		nil, // authnPolicy
+		nil, // peerAuthn
 		&model.IstioVersion{Major: 1, Minor: 2})
 
 	g.Expect(err).NotTo(HaveOccurred())
@@ -1708,210 +1774,6 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	}
 }
 
-func TestAltStatName(t *testing.T) {
-	tests := []struct {
-		name        string
-		statPattern string
-		host        string
-		subsetName  string
-		port        *model.Port
-		attributes  model.ServiceAttributes
-		want        string
-	}{
-		{
-			"Service only pattern",
-			"%SERVICE%",
-			"reviews.default.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default",
-		},
-		{
-			"Service only pattern from different namespace",
-			"%SERVICE%",
-			"reviews.namespace1.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "namespace1",
-			},
-			"reviews.namespace1",
-		},
-		{
-			"Service with port pattern from different namespace",
-			"%SERVICE%.%SERVICE_PORT%",
-			"reviews.namespace1.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "namespace1",
-			},
-			"reviews.namespace1.7443",
-		},
-		{
-			"Service from non k8s registry",
-			"%SERVICE%.%SERVICE_PORT%",
-			"reviews.hostname.consul",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Consul),
-				Name:            "foo",
-				Namespace:       "bar",
-			},
-			"reviews.hostname.consul.7443",
-		},
-		{
-			"Service FQDN only pattern",
-			"%SERVICE_FQDN%",
-			"reviews.default.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default.svc.cluster.local",
-		},
-		{
-			"Service With Port pattern",
-			"%SERVICE%_%SERVICE_PORT%",
-			"reviews.default.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default_7443",
-		},
-		{
-			"Service With Port Name pattern",
-			"%SERVICE%_%SERVICE_PORT_NAME%",
-			"reviews.default.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default_grpc-svc",
-		},
-		{
-			"Service With Port and Port Name pattern",
-			"%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
-			"reviews.default.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default_grpc-svc_7443",
-		},
-		{
-			"Service FQDN With Port pattern",
-			"%SERVICE_FQDN%_%SERVICE_PORT%",
-			"reviews.default.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default.svc.cluster.local_7443",
-		},
-		{
-			"Service FQDN With Port Name pattern",
-			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%",
-			"reviews.default.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default.svc.cluster.local_grpc-svc",
-		},
-		{
-			"Service FQDN With Port and Port Name pattern",
-			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
-			"reviews.default.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default.svc.cluster.local_grpc-svc_7443",
-		},
-		{
-			"Service FQDN With Empty Subset, Port and Port Name pattern",
-			"%SERVICE_FQDN%%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
-			"reviews.default.svc.cluster.local",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default.svc.cluster.local_grpc-svc_7443",
-		},
-		{
-			"Service FQDN With Subset, Port and Port Name pattern",
-			"%SERVICE_FQDN%.%SUBSET_NAME%.%SERVICE_PORT_NAME%_%SERVICE_PORT%",
-			"reviews.default.svc.cluster.local",
-			"v1",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default.svc.cluster.local.v1.grpc-svc_7443",
-		},
-		{
-			"Service FQDN With Unknown Pattern",
-			"%SERVICE_FQDN%.%DUMMY%",
-			"reviews.default.svc.cluster.local",
-			"v1",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
-				Name:            "reviews",
-				Namespace:       "default",
-			},
-			"reviews.default.svc.cluster.local.%DUMMY%",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := altStatName(tt.statPattern, tt.host, tt.subsetName, tt.port, tt.attributes)
-			if got != tt.want {
-				t.Errorf("Expected alt statname %s, but got %s", tt.want, got)
-			}
-		})
-	}
-}
-
 func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
 
 	validation := func(clusters []*apiv2.Cluster) []bool {
@@ -1943,6 +1805,7 @@ func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
 				},
 			},
 			nil, // authnPolicy
+			nil, // peerAuthn
 			&model.NodeMetadata{},
 			model.MaxIstioVersion,
 			inAndOut.ips,
@@ -1981,7 +1844,7 @@ func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
 		Peers: []*authn.PeerAuthenticationMethod{},
 	}
 
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy, nil)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// mTLS is disabled by authN policy so autoMTLS does not kick in. No cluster should have TLS context.
@@ -2028,7 +1891,7 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 
 	testMesh.EnableAutoMtls.Value = true
 
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy, nil)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
@@ -2082,7 +1945,17 @@ func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
 		},
 	}
 
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, true, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(
+		TestServiceNHostname,
+		0,
+		true,
+		model.SidecarProxy,
+		nil,
+		testMesh,
+		destRule,
+		authnPolicy,
+		nil, // peerAuthn
+	)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// Service is external, use the TLS settings specified in DR.
@@ -2131,7 +2004,11 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 
 	testMesh.EnableAutoMtls.Value = true
 
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(
+		TestServiceNHostname,
+		0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy,
+		nil, // peerAuthn
+	)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
@@ -2140,6 +2017,126 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, authn policy disable mTLS, so it should not have TLS context.
+	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
+
+	// Sanity check: make sure TLS is not accidentally added to other clusters.
+	for i := 2; i < len(clusters); i++ {
+		cluster := clusters[i]
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
+	}
+}
+
+func TestAutoMTLSClusterWithPeerAuthnStrictMode(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 9090,
+					},
+					Tls: &networking.TLSSettings{
+						Mode: networking.TLSSettings_DISABLE,
+					},
+				},
+			},
+		},
+	}
+
+	// This alpha policy will be ignored.
+	authnPolicy := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{
+			{
+				Params: &authn.PeerAuthenticationMethod_Mtls{
+					Mtls: &authn.MutualTls{
+						Mode: authn.MutualTls_PERMISSIVE,
+					},
+				},
+			},
+		},
+	}
+
+	peerAuthn := &authn_beta.PeerAuthentication{
+		Mtls: &authn_beta.PeerAuthentication_MutualTLS{
+			Mode: authn_beta.PeerAuthentication_MutualTLS_STRICT,
+		},
+	}
+
+	testMesh.EnableAutoMtls.Value = true
+
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy, peerAuthn)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
+	// TlsContext is nil because we use socket match instead
+	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
+
+	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
+	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
+
+	// Sanity check: make sure TLS is not accidentally added to other clusters.
+	for i := 2; i < len(clusters); i++ {
+		cluster := clusters[i]
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
+	}
+}
+
+func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 9090,
+					},
+					Tls: &networking.TLSSettings{
+						Mode: networking.TLSSettings_DISABLE,
+					},
+				},
+			},
+		},
+	}
+
+	// This workload-level beta policy doesn't affect CDS (yet).
+	peerAuthn := &authn_beta.PeerAuthentication{
+		Selector: &selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"version": "v1",
+			},
+		},
+		Mtls: &authn_beta.PeerAuthentication_MutualTLS{
+			Mode: authn_beta.PeerAuthentication_MutualTLS_STRICT,
+		},
+	}
+
+	testMesh.EnableAutoMtls.Value = true
+
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, nil, peerAuthn)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// No policy visible, auto-mTLS should set to PERMISSIVE.
+	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
+	// TlsContext is nil because we use socket match instead
+	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
+
+	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
 	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
 
 	// Sanity check: make sure TLS is not accidentally added to other clusters.

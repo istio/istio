@@ -165,7 +165,6 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 				delete(componentStatus, c)
 			} else {
 				componentStatus[c].Status = status
-				componentStatus[c].StatusString = v1alpha1.InstallStatus_Status_name[int32(status)]
 				if errString != "" {
 					componentStatus[c].Error = errString
 				}
@@ -181,8 +180,28 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 	}
 	wg.Wait()
 
+	// Update overall status
+	// - If all components are HEALTHY, overall status is HEALTHY.
+	// - If one or more components are RECONCILING and others are HEALTHY, overall status is RECONCILING.
+	// - If one or more components are UPDATING and others are HEALTHY, overall status is UPDATING.
+	// - If components are a mix of RECONCILING, UPDATING and HEALTHY, overall status is UPDATING.
+	// - If any component is in ERROR state, overall status is ERROR.
+	overallStatus := v1alpha1.InstallStatus_HEALTHY
+	for _, cs := range componentStatus {
+		if cs.Status == v1alpha1.InstallStatus_ERROR {
+			overallStatus = v1alpha1.InstallStatus_ERROR
+			break
+		} else if cs.Status == v1alpha1.InstallStatus_UPDATING {
+			overallStatus = v1alpha1.InstallStatus_UPDATING
+			break
+		} else if cs.Status == v1alpha1.InstallStatus_RECONCILING {
+			overallStatus = v1alpha1.InstallStatus_RECONCILING
+			break
+		}
+	}
+
 	out := &v1alpha1.InstallStatus{
-		//TODO: add overall status logic
+		Status:          overallStatus,
 		ComponentStatus: componentStatus,
 	}
 

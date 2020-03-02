@@ -19,6 +19,8 @@ import (
 	"net"
 	"time"
 
+	"istio.io/api/networking/v1alpha3"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
@@ -41,7 +43,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		DrainDuration:          types.DurationProto(45 * time.Second),
 		ParentShutdownDuration: types.DurationProto(60 * time.Second),
 		DiscoveryAddress:       constants.DiscoveryPlainAddress,
-		ConnectTimeout:         types.DurationProto(1 * time.Second),
+		ConnectTimeout:         types.DurationProto(10 * time.Second),
 		StatsdUdpAddress:       "",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: ""},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: ""},
@@ -58,6 +60,9 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	proxyConfig := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
+		IngressClass:                      "istio",
+		ReportBatchMaxTime:                types.DurationProto(1 * time.Second),
+		ReportBatchMaxEntries:             100,
 		MixerCheckServer:                  "",
 		MixerReportServer:                 "",
 		DisablePolicyChecks:               true,
@@ -65,7 +70,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		SidecarToTelemetrySessionAffinity: false,
 		RootNamespace:                     constants.IstioSystemNamespace,
 		ProxyListenPort:                   15001,
-		ConnectTimeout:                    types.DurationProto(1 * time.Second),
+		ConnectTimeout:                    types.DurationProto(10 * time.Second),
 		IngressService:                    "istio-ingressgateway",
 		EnableTracing:                     true,
 		AccessLogFile:                     "/dev/stdout",
@@ -73,8 +78,9 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DefaultConfig:                     &proxyConfig,
 		SdsUdsPath:                        "",
 		EnableSdsTokenMount:               false,
-		TrustDomain:                       "",
+		TrustDomain:                       "cluster.local",
 		TrustDomainAliases:                []string{},
+		Certificates:                      []*meshconfig.Certificate{},
 		DefaultServiceExportTo:            []string{"*"},
 		DefaultVirtualServiceExportTo:     []string{"*"},
 		DefaultDestinationRuleExportTo:    []string{"*"},
@@ -83,6 +89,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		ProtocolDetectionTimeout:          types.DurationProto(100 * time.Millisecond),
 		EnableAutoMtls:                    &types.BoolValue{Value: false},
 		ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
+		LocalityLbSetting:                 &v1alpha3.LocalityLoadBalancerSetting{},
 	}
 }
 

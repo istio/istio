@@ -233,6 +233,15 @@ No
 No
 </td>
 </tr>
+<tr id="CNIConfig-chained">
+<td><code>chained</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="CNIConfig-podAnnotations" class="deprecated ">
 <td><code>podAnnotations</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -297,7 +306,7 @@ No
 </tr>
 <tr id="CNIRepairConfig-labelPods">
 <td><code>labelPods</code></td>
-<td><code>string</code></td>
+<td><code>bool</code></td>
 <td>
 <p>Controls whether various repair behaviors are enabled.</p>
 
@@ -306,18 +315,9 @@ No
 No
 </td>
 </tr>
-<tr id="CNIRepairConfig-createEvents">
-<td><code>createEvents</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="CNIRepairConfig-deletePods">
 <td><code>deletePods</code></td>
-<td><code>string</code></td>
+<td><code>bool</code></td>
 <td>
 </td>
 <td>
@@ -344,6 +344,15 @@ No
 </tr>
 <tr id="CNIRepairConfig-initContainerName">
 <td><code>initContainerName</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-createEvents" class="deprecated ">
+<td><code>createEvents</code></td>
 <td><code>string</code></td>
 <td>
 </td>
@@ -1701,7 +1710,7 @@ No
 </tr>
 <tr id="GlobalConfig-imagePullSecrets">
 <td><code>imagePullSecrets</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td><code>string[]</code></td>
 <td>
 </td>
 <td>
@@ -3152,6 +3161,24 @@ No
 <tr id="KialiDashboardConfig-auth">
 <td><code>auth</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-grafanaInClusterURL">
+<td><code>grafanaInClusterURL</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-jaegerInClusterURL">
+<td><code>jaegerInClusterURL</code></td>
+<td><code>string</code></td>
 <td>
 </td>
 <td>
@@ -7983,6 +8010,8 @@ No
 <td><code>version</code></td>
 <td><code>string</code></td>
 <td>
+<p>Deprecated.</p>
+
 </td>
 <td>
 No
@@ -8020,6 +8049,15 @@ No
 <tr id="Values-kustomize">
 <td><code>kustomize</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-revision">
+<td><code>revision</code></td>
+<td><code>string</code></td>
 <td>
 </td>
 <td>

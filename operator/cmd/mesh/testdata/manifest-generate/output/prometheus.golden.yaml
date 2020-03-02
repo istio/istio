@@ -1,6 +1,9 @@
 # AddonComponents grafana component is disabled.
 
 ---
+# AddonComponents istiocoredns component is disabled.
+
+---
 # AddonComponents kiali component is disabled.
 
 ---
@@ -91,7 +94,7 @@ data:
         regex: ([^:]+)(?::\d+)?;(\d+)
         replacement: $1:15090
         target_label: __address__
-      - action: labelmap
+      - action: labeldrop
         regex: __meta_kubernetes_pod_label_(.+)
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -381,8 +384,6 @@ spec:
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --dnsRefreshRate
-            - "300s"
             - --statusPort
             - "15020"
             - --trust-domain=cluster.local
@@ -393,10 +394,10 @@ spec:
             - name: JWT_POLICY
               value: third-party-jwt
             - name: PILOT_CERT_PROVIDER
-              value: citadel
+              value: istiod
             # Temp, pending PR to make it default or based on the istiodAddr env
             - name: CA_ADDR
-              value: istio-pilot.istio-system.svc:15012
+              value: istiod.istio-system.svc:15012
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -439,8 +440,8 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           volumeMounts:
-            - mountPath: /etc/istio/citadel-ca-cert
-              name: citadel-ca-cert
+            - mountPath: /var/run/secrets/istio
+              name: istiod-ca-cert
             - mountPath: /etc/istio/proxy
               name: istio-envoy
             - mountPath: /var/run/secrets/tokens
@@ -466,7 +467,7 @@ spec:
                 path: istio-token
                 expirationSeconds: 43200
                 audience: istio-ca
-      - name: citadel-ca-cert
+      - name: istiod-ca-cert
         configMap:
           defaultMode: 420
           name: istio-ca-root-cert
@@ -546,9 +547,11 @@ metadata:
 
 # Cni component is disabled.
 
+# EgressGateways istio-egressgateway component is disabled.
+
 # Galley component is disabled.
 
-# Pilot istio-pilot component is disabled.
+# Pilot istiod component is disabled.
 
 # Policy component is disabled.
 

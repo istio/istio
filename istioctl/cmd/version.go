@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"istio.io/istio/operator/cmd/mesh"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
 	istioVersion "istio.io/pkg/version"
@@ -34,10 +35,12 @@ type sidecarSyncStatus struct {
 }
 
 func newVersionCommand() *cobra.Command {
+	profileCmd := mesh.ProfileCmd()
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
-		GetRemoteVersion: getRemoteInfo,
+		GetRemoteVersion: getRemoteInfoWrapper(&profileCmd),
 		GetProxyVersions: getProxyInfo,
 	})
+
 	versionCmd.Flags().VisitAll(func(flag *pflag.Flag) {
 		if flag.Name == "short" {
 			err := flag.Value.Set("true")
@@ -62,6 +65,16 @@ func getRemoteInfo() (*istioVersion.MeshInfo, error) {
 	}
 
 	return kubeClient.GetIstioVersions(istioNamespace)
+}
+
+func getRemoteInfoWrapper(pc **cobra.Command) func() (*istioVersion.MeshInfo, error) {
+	return func() (*istioVersion.MeshInfo, error) {
+		remInfo, err := getRemoteInfo()
+		if remInfo == nil {
+			fmt.Fprintf((*pc).OutOrStdout(), "Istio is not present in the cluster with namespace %q\n", istioNamespace)
+		}
+		return remInfo, err
+	}
 }
 
 func getProxyInfo() (*[]istioVersion.ProxyInfo, error) {

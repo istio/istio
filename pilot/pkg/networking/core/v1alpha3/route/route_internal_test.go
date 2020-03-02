@@ -29,6 +29,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/labels"
 )
 
 func TestIsCatchAllMatch(t *testing.T) {
@@ -567,6 +568,66 @@ func TestMirrorPercent(t *testing.T) {
 			mp := mirrorPercent(tt.route)
 			if !reflect.DeepEqual(mp, tt.want) {
 				t.Errorf("Unexpected mirro percent want %v, got %v", tt.want, mp)
+			}
+		})
+	}
+}
+
+func TestSourceMatchHTTP(t *testing.T) {
+	type args struct {
+		match          *networking.HTTPMatchRequest
+		proxyLabels    labels.Collection
+		gatewayNames   map[string]bool
+		proxyNamespace string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			"source namespace match",
+			args{
+				match: &networking.HTTPMatchRequest{
+					SourceNamespace: "foo",
+				},
+				proxyNamespace: "foo",
+			},
+			true,
+		},
+		{
+			"source namespace not match",
+			args{
+				match: &networking.HTTPMatchRequest{
+					SourceNamespace: "foo",
+				},
+				proxyNamespace: "bar",
+			},
+			false,
+		},
+		{
+			"source namespace not match when empty",
+			args{
+				match: &networking.HTTPMatchRequest{
+					SourceNamespace: "foo",
+				},
+				proxyNamespace: "",
+			},
+			false,
+		},
+		{
+			"source namespace any",
+			args{
+				match:          &networking.HTTPMatchRequest{},
+				proxyNamespace: "bar",
+			},
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sourceMatchHTTP(tt.args.match, tt.args.proxyLabels, tt.args.gatewayNames, tt.args.proxyNamespace); got != tt.want {
+				t.Errorf("sourceMatchHTTP() = %v, want %v", got, tt.want)
 			}
 		})
 	}

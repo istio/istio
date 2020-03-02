@@ -265,7 +265,6 @@ buildcache:
 BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pilot/cmd/pilot-agent \
-  ./sidecar-injector/cmd/sidecar-injector \
   ./mixer/cmd/mixs \
   ./mixer/cmd/mixc \
   ./mixer/tools/mixgen \
@@ -281,7 +280,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent istio_ca istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istio_ca istioctl galley sdsclient
 
 .PHONY: build
 build: depend
@@ -327,7 +326,6 @@ lint-go-split:
 	@golangci-lint run -c ./common/config/.golangci.yml ./pkg/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./samples/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./security/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./sidecar-injector/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./operator/...
@@ -336,12 +334,10 @@ lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
 
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
-	@bin/check_helm.sh
 	@bin/check_samples.sh
-	@bin/check_dashboards.sh
 	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
 	@testlinter
-	@envvarlinter galley istioctl mixer pilot security sidecar-injector
+	@envvarlinter galley istioctl mixer pilot security
 
 go-gen:
 	@mkdir -p /tmp/bin
@@ -352,14 +348,20 @@ gen-charts:
 	@operator/scripts/run_update_charts.sh
 
 refresh-goldens:
-	@REFRESH_GOLDENS=true go test ./operator/...
-	@REFRESH_GOLDENS=true go test ./pkg/kube/inject/...
+	@REFRESH_GOLDEN=true go test ./operator/...
+	@REFRESH_GOLDEN=true go test ./pkg/kube/inject/...
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden
+gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden gen-kustomize
 
 gen-check: gen check-clean-repo
+
+# Generate kustomize templates.
+gen-kustomize:
+	helm template -n istio-base manifests/base > manifests/base/files/gen-istio-cluster.yaml
+	helm template -n istio-base --namespace istio-system manifests/istio-control/istio-discovery \
+		-f manifests/global.yaml > manifests/istio-control/istio-discovery/files/gen-istio.yaml
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -624,9 +626,6 @@ show.goenv: ; $(info $(H) go environment...)
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
-
-# Deprecated. This target exists only to satisify old CI tests that cannot be updated atomically, and can be removed.
-localTestEnv:
 
 #-----------------------------------------------------------------------------
 # Target: custom resource definitions

@@ -10,7 +10,7 @@ data:
       configPath: /etc/istio/proxy
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istio-pilot.istio-system.svc:15012
+      discoveryAddress: istiod.istio-system.svc:15012
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
@@ -22,7 +22,7 @@ data:
           address: zipkin.istio-system:9411
     disableMixerHttpReports: true
     disablePolicyChecks: true
-    enableAutoMtls: false
+    enableAutoMtls: true
     enableEnvoyAccessLogService: false
     enableTracing: true
     ingressClass: istio
@@ -82,11 +82,9 @@ data:
         memory: 2048Mi
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
-    sidecar: false
     tag: ""
     tolerations: []
     traceSampling: 1
-    useMCP: false
 kind: ConfigMap
 metadata:
   labels:

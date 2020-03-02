@@ -25,6 +25,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
@@ -58,7 +59,7 @@ func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 	return out
 }
 
-func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.ProbeList, endpoint *model.IstioEndpoint) {
+func buildHealthCheckFilters(filterChain *networking.FilterChain, probes model.ProbeList, endpoint *model.IstioEndpoint) {
 	for _, probe := range probes {
 		// Check that the probe matches the listener port. If not, then the probe will be handled
 		// as a management port and not traced. If the port does match, then we need to add a
@@ -85,7 +86,7 @@ func containsHTTPFilter(array []*http_conn.HttpFilter, elem *http_conn.HttpFilte
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
-func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	// TODO: implementation
 	return nil
 }
@@ -93,7 +94,7 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
-func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Node == nil {
 		return nil
 	}
@@ -112,7 +113,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	}
 
 	for i := range mutable.Listener.FilterChains {
-		if mutable.FilterChains[i].ListenerProtocol == plugin.ListenerProtocolHTTP {
+		if mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
 			for _, ip := range in.Node.IPAddresses {
 				buildHealthCheckFilters(&mutable.FilterChains[i], in.Push.WorkloadHealthCheckInfo(ip),
 					in.ServiceInstance.Endpoint)
@@ -124,7 +125,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 // OnVirtualListener implments the Plugin interface method.
-func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	return nil
 }
 
@@ -145,11 +146,16 @@ func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster)
 }
 
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return nil
 }
 
 // OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
-func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+	return nil
+}
+
+// OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
+func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return nil
 }

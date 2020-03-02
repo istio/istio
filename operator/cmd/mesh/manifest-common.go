@@ -18,14 +18,14 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/operator/pkg/helm"
+
 	"github.com/ghodss/yaml"
 
-	"istio.io/istio/operator/pkg/tpath"
-
-	"istio.io/istio/operator/pkg/validate"
-
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/validate"
 )
 
 var (
@@ -92,4 +92,14 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 		return "", err
 	}
 	return tpath.AddSpecRoot(string(out))
+}
+
+// fetchExtractInstallPackageHTTP downloads installation tar from the URL specified and extracts it to a local
+// filesystem dir. If successful, it returns the path to the filesystem path where the charts were extracted.
+func fetchExtractInstallPackageHTTP(releaseTarURL string) (string, error) {
+	uf := helm.NewURLFetcher(releaseTarURL, "")
+	if err := uf.Fetch(); err != nil {
+		return "", err
+	}
+	return uf.DestDir(), nil
 }

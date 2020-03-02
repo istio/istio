@@ -2897,7 +2897,7 @@ func TestValidateConnectionPool(t *testing.T) {
 }
 
 func TestValidateLoadBalancer(t *testing.T) {
-	duration := time.Hour
+	duration := types.Duration{Seconds: int64(time.Hour / time.Second)}
 	cases := []struct {
 		name  string
 		in    networking.LoadBalancerSettings
@@ -5354,6 +5354,162 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
+		{"ALLOW_ANY sidecar egress policy with no egress proxy ", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"sidecar egress proxy with RESGISTRY_ONLY(default)", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				EgressProxy: &networking.Destination{
+					Host:   "foo.bar",
+					Subset: "shiny",
+					Port: &networking.PortSelector{
+						Number: 5000,
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"sidecar egress proxy with ALLOW_ANY", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+				EgressProxy: &networking.Destination{
+					Host:   "foo.bar",
+					Subset: "shiny",
+					Port: &networking.PortSelector{
+						Number: 5000,
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"sidecar egress proxy with ALLOW_ANY, service hostname invalid fqdn", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+				EgressProxy: &networking.Destination{
+					Host:   "foobar*123",
+					Subset: "shiny",
+					Port: &networking.PortSelector{
+						Number: 5000,
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"sidecar egress proxy(without Port) with ALLOW_ANY", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+				EgressProxy: &networking.Destination{
+					Host:   "foo.bar",
+					Subset: "shiny",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"invalid ingress tls mode", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					InboundTls:      &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_AUTO_PASSTHROUGH},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"invalid ingress with httpsRedirect", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					InboundTls:      &networking.Server_TLSOptions{HttpsRedirect: true},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"valid ingress with tls", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "https",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					InboundTls: &networking.Server_TLSOptions{
+						Mode:              networking.Server_TLSOptions_MUTUAL,
+						ServerCertificate: "/etc/certs/cert",
+						PrivateKey:        "/etc/certs/key",
+						CaCertificates:    "/etc/certs/ca",
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"invalid ingress non tls port with tls", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					InboundTls: &networking.Server_TLSOptions{
+						Mode:              networking.Server_TLSOptions_MUTUAL,
+						ServerCertificate: "/etc/certs/cert",
+						PrivateKey:        "/etc/certs/key",
+						CaCertificates:    "/etc/certs/ca",
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
 	}
 
 	for _, tt := range tests {
@@ -5641,7 +5797,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "empty spec with non default name",
 			configName: someName,
 			in:         &security_beta.RequestAuthentication{},
-			valid:      false,
+			valid:      true,
 		},
 		{
 			name:       "default name with non empty selector",
@@ -5653,11 +5809,11 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name:       "empty jwt rule",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{},
@@ -5667,7 +5823,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		},
 		{
 			name:       "empty issuer",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -5679,7 +5835,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		},
 		{
 			name:       "bad JwksUri - no protocol",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -5692,7 +5848,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		},
 		{
 			name:       "bad JwksUri - invalid port",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -5704,8 +5860,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "bad selector - empy value",
-			configName: constants.DefaultAuthenticationPolicyName,
+			name:       "empy value",
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -5720,11 +5876,11 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name:       "bad selector - empy key",
-			configName: constants.DefaultAuthenticationPolicyName,
+			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -5829,7 +5985,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 			name:       "empty spec with non default name",
 			configName: someName,
 			in:         &security_beta.PeerAuthentication{},
-			valid:      false,
+			valid:      true,
 		},
 		{
 			name:       "default name with non empty selector",
@@ -5841,7 +5997,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name:       "empty port level mtls",

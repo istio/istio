@@ -346,11 +346,6 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 
 func makeInstance(cfg *model.Config, address string, port int,
 	svcPort *networking.Port, svcLabels map[string]string, mtlsReady bool) *model.ServiceInstance {
-	family := model.AddressFamilyTCP
-	if port == 0 {
-		family = model.AddressFamilyUnix
-	}
-
 	services := convertServices(*cfg)
 	svc := services[0] // default
 	for _, s := range services {
@@ -370,7 +365,6 @@ func makeInstance(cfg *model.Config, address string, port int,
 	return &model.ServiceInstance{
 		Service: svc,
 		Endpoint: &model.IstioEndpoint{
-			Family:          family,
 			Address:         address,
 			EndpointPort:    uint32(port),
 			ServicePortName: svcPort.Name,

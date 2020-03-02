@@ -60,7 +60,6 @@ type controller struct {
 	configStoreMu sync.RWMutex
 	// keys [type][namespace][name]
 	configStore   map[resource.GroupVersionKind]map[string]map[string]*model.Config
-	schemas       collection.Schemas
 	options       *Options
 	eventHandlers map[resource.GroupVersionKind][]func(model.Config, model.Config, model.Event)
 	ledger        ledger.Ledger
@@ -71,19 +70,15 @@ type controller struct {
 
 // NewController provides a new Controller controller
 func NewController(options *Options) Controller {
-	//TODO: remove after galley sse is removed
-	// Filter out synthetic service entries.
-	supportedSchemas := collections.Pilot.Remove(collections.IstioNetworkingV1Alpha3SyntheticServiceentries)
 	synced := make(map[string]bool)
 
-	for _, s := range supportedSchemas.All() {
-		synced[s.Name().String()] = false
+	for _, n := range collections.Pilot.CollectionNames() {
+		synced[n.String()] = false
 	}
 
 	return &controller{
 		configStore:   make(map[resource.GroupVersionKind]map[string]map[string]*model.Config),
 		options:       options,
-		schemas:       supportedSchemas,
 		eventHandlers: make(map[resource.GroupVersionKind][]func(model.Config, model.Config, model.Event)),
 		synced:        synced,
 		ledger:        options.ConfigLedger,
@@ -91,13 +86,13 @@ func NewController(options *Options) Controller {
 }
 
 func (c *controller) Schemas() collection.Schemas {
-	return c.schemas
+	return collections.Pilot
 }
 
 // List returns all the config that is stored by type and namespace
 // if namespace is empty string it returns config for all the namespaces
 func (c *controller) List(typ resource.GroupVersionKind, namespace string) (out []model.Config, err error) {
-	_, ok := c.schemas.FindByGroupVersionKind(typ)
+	_, ok := collections.Pilot.FindByGroupVersionKind(typ)
 	if !ok {
 		return nil, fmt.Errorf("list unknown type %s", typ)
 	}
@@ -128,8 +123,8 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) (out 
 // Apply receives changes from MCP server and creates the
 // corresponding config
 func (c *controller) Apply(change *sink.Change) error {
-	s, ok := c.schemas.Find(change.Collection)
-	if !ok || change.Collection == collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String() {
+	s, ok := collections.Pilot.Find(change.Collection)
+	if !ok {
 		return fmt.Errorf("apply type not supported %s", change.Collection)
 	}
 
@@ -244,6 +239,15 @@ func (c *controller) Version() string {
 
 func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return c.ledger.GetPreviousValue(version, key)
+}
+
+func (c *controller) GetLedger() ledger.Ledger {
+	return c.ledger
+}
+
+func (c *controller) SetLedger(l ledger.Ledger) error {
+	c.ledger = l
+	return nil
 }
 
 // Run is not implemented

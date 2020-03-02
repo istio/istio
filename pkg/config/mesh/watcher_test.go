@@ -59,7 +59,7 @@ func TestWatcherShouldNotifyHandlers(t *testing.T) {
 	})
 
 	// Change the file to trigger the update.
-	m.IngressClass = "istio"
+	m.IngressClass = "foo"
 	writeMessage(t, path, &m)
 
 	select {

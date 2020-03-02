@@ -15,22 +15,21 @@
 package bootstrap
 
 import (
+	"fmt"
 	"time"
-
-	"istio.io/istio/pkg/config/constants"
-
-	"istio.io/istio/security/pkg/pki/ca"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apimachinery/pkg/fields"
+	informer "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/security/pkg/listwatch"
-	certutil "istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/queue"
+	certutil "istio.io/istio/security/pkg/util"
 )
 
 const (
@@ -39,81 +38,129 @@ const (
 	// can update its CA certificate in a ConfigMap in every namespace.
 	namespaceResyncPeriod = time.Second * 30
 	// The name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
-	CACertNamespaceConfigMap      = "istio-ca-root-cert"
-	CACertNamespaceInsertInterval = time.Second
-	CACertNamespaceInsertTimeout  = time.Second * 2
+	CACertNamespaceConfigMap = "istio-ca-root-cert"
 )
 
-// NamespaceController manages the CA certificate in each namespace.
+var (
+	configMapLabel = map[string]string{"istio.io/config": "true"}
+)
+
+// NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {
-	ca   *ca.IstioCA
-	core corev1.CoreV1Interface
+	// getData is the function to fetch the data we will insert into the config map
+	getData func() map[string]string
+	client  corev1.CoreV1Interface
+
+	queue queue.Instance
 
 	// Controller and store for namespace objects
 	namespaceController cache.Controller
-	namespaceStore      cache.Store
+	// Controller and store for ConfigMap objects
+	configMapController cache.Controller
 }
 
-// NewNamespaceController returns a pointer to a newly constructed SecretController instance.
-func NewNamespaceController(ca *ca.IstioCA, core corev1.CoreV1Interface) (*NamespaceController, error) {
+// NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
+func NewNamespaceController(data func() map[string]string, kubeClient kubernetes.Interface) *NamespaceController {
 	c := &NamespaceController{
-		ca:   ca,
-		core: core,
+		getData: data,
+		client:  kubeClient.CoreV1(),
+		queue:   queue.NewQueue(time.Second),
 	}
 
-	namespaceLW := listwatch.MultiNamespaceListerWatcher([]string{metav1.NamespaceAll}, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				return core.Namespaces().List(options)
-			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return core.Namespaces().Watch(options)
-			}}
-	})
-	c.namespaceStore, c.namespaceController =
-		cache.NewInformer(namespaceLW, &v1.Namespace{}, namespaceResyncPeriod, cache.ResourceEventHandlerFuncs{
-			UpdateFunc: c.namespaceUpdated,
-			AddFunc:    c.namespaceAdded,
+	configmapInformer := informer.NewFilteredConfigMapInformer(kubeClient, metav1.NamespaceAll, 0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+		func(options *metav1.ListOptions) {
+			options.LabelSelector = fields.SelectorFromSet(configMapLabel).String()
 		})
-	return c, nil
+	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.queue.Push(func() error {
+				return c.configMapChange(newObj)
+			})
+		},
+		DeleteFunc: func(obj interface{}) {
+			cm, ok := obj.(*v1.ConfigMap)
+			if !ok {
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					log.Errorf("error decoding object, invalid type")
+					return
+				}
+				cm, ok = tombstone.Obj.(*v1.ConfigMap)
+				if !ok {
+					log.Errorf("error decoding object tombstone, invalid type")
+					return
+				}
+			}
+			c.queue.Push(func() error {
+				ns, err := kubeClient.CoreV1().Namespaces().Get(cm.Namespace, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				// If the namespace is terminating, we may get into a loop of trying to re-add the configmap back
+				// We should make sure the namespace still exists
+				if ns.Status.Phase != v1.NamespaceTerminating {
+					return c.insertDataForNamespace(cm.Namespace)
+				}
+				return nil
+			})
+		},
+	})
+	c.configMapController = configmapInformer
+
+	namespaceInformer := informer.NewNamespaceInformer(kubeClient, 0, cache.Indexers{})
+	namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.queue.Push(func() error {
+				return c.namespaceChange(obj)
+			})
+		},
+	})
+	c.namespaceController = namespaceInformer
+
+	return c
 }
 
-// When a namespace is created, Citadel adds its public CA certificate
-// to a well known configmap in the namespace.
-func (nc *NamespaceController) namespaceAdded(obj interface{}) {
+// Run starts the NamespaceController until a value is sent to stopCh.
+func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
+	go nc.namespaceController.Run(stopCh)
+	go nc.configMapController.Run(stopCh)
+	cache.WaitForCacheSync(stopCh, nc.namespaceController.HasSynced, nc.configMapController.HasSynced)
+	log.Infof("Namespace controller started")
+	go nc.queue.Run(stopCh)
+}
+
+// insertDataForNamespace will add data into the configmap for the specified namespace
+// If the configmap is not found, it will be created.
+// If you know the current contents of the configmap, using UpdateDataInConfigMap is more efficient.
+func (nc *NamespaceController) insertDataForNamespace(ns string) error {
+	meta := metav1.ObjectMeta{
+		Name:      CACertNamespaceConfigMap,
+		Namespace: ns,
+		Labels:    configMapLabel,
+	}
+	return certutil.InsertDataToConfigMap(nc.client, meta, nc.getData())
+}
+
+// On namespace change, update the config map.
+// If terminating, this will be skipped
+func (nc *NamespaceController) namespaceChange(obj interface{}) error {
 	ns, ok := obj.(*v1.Namespace)
 
-	if ok {
-		rootCert := nc.ca.GetCAKeyCertBundle().GetRootCertPem()
-		err := certutil.InsertDataToConfigMapWithRetry(nc.core, ns.GetName(), string(rootCert), CACertNamespaceConfigMap,
-			constants.CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)
-		if err != nil {
-			log.Errorf("error when inserting CA cert to configmap: %v", err)
-		} else {
-			log.Debugf("inserted CA cert to configmap %v in ns %v",
-				CACertNamespaceConfigMap, ns.GetName())
-		}
+	if ok && ns.Status.Phase != v1.NamespaceTerminating {
+		return nc.insertDataForNamespace(ns.Name)
 	}
+	return nil
 }
 
-func (nc *NamespaceController) namespaceUpdated(oldObj, newObj interface{}) {
-	ns, ok := newObj.(*v1.Namespace)
+// When a config map is changed, merge the data into the configmap
+func (nc *NamespaceController) configMapChange(obj interface{}) error {
+	cm, ok := obj.(*v1.ConfigMap)
 
 	if ok {
-		rootCert := nc.ca.GetCAKeyCertBundle().GetRootCertPem()
-		// Every namespaceResyncPeriod, namespaceUpdated() will be invoked
-		// for every namespace. If a namespace does not have the Citadel CA
-		// certificate or the certificate in a ConfigMap of the namespace is not
-		// up to date, Citadel updates the certificate in the namespace.
-		// For simplifying the implementation and no overhead for reading the certificate from the ConfigMap,
-		// simply updates the ConfigMap to the current Citadel CA certificate.
-		err := certutil.InsertDataToConfigMapWithRetry(nc.core, ns.GetName(), string(rootCert), CACertNamespaceConfigMap,
-			constants.CACertNamespaceConfigMapDataName, CACertNamespaceInsertInterval, CACertNamespaceInsertTimeout)
-		if err != nil {
-			log.Errorf("error when updating CA cert in configmap: %v", err)
-		} else {
-			log.Debugf("updated CA cert in configmap %v in ns %v",
-				CACertNamespaceConfigMap, ns.GetName())
+		if err := certutil.UpdateDataInConfigMap(nc.client, cm.DeepCopy(), nc.getData()); err != nil {
+			return fmt.Errorf("error when inserting CA cert to configmap %v: %v", cm.Name, err)
 		}
 	}
+	return nil
 }

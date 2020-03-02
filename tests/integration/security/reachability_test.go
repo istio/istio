@@ -154,6 +154,57 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 				},
+				{
+					ConfigFile:          "beta-mtls-automtls.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
+						// have proxy neither.
+						if src == rctx.Naked {
+							return opts.Target == rctx.Naked
+						}
+						return true
+					},
+				},
+				{
+					ConfigFile:          "beta-mtls-partial-automtls.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
+						// have proxy or have mTLS disabled
+						if src == rctx.Naked {
+							return opts.Target == rctx.Naked || (opts.Target == rctx.B && opts.PortName != "http")
+
+						}
+						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
+						// will fail on all ports on b, except http port.
+						return opts.Target != rctx.B || opts.PortName == "http"
+					},
+				},
+				{
+					ConfigFile:          "alpha-mtls-automtls.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
+						// have proxy or have mTLS disabled.
+						if src == rctx.Naked {
+							return opts.Target == rctx.Naked || (opts.Target == rctx.B && opts.PortName != "http")
+						}
+						return true
+					},
+				},
 			}
 			rctx.Run(testCases)
 		})

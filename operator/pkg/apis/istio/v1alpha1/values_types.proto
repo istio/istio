@@ -76,6 +76,8 @@ message CNIConfig {
   string logLevel = 12;
 
   CNIRepairConfig repair = 13;
+
+  google.protobuf.BoolValue chained = 14;
 }
 
 message CNIRepairConfig {
@@ -89,18 +91,17 @@ message CNIRepairConfig {
   string image = 4;
 
   // Controls whether various repair behaviors are enabled.
-  string labelPods = 5;
+  bool labelPods = 5;
 
-  string createEvents = 6;
+  string createEvents = 6 [deprecated=true];
 
-  string deletePods = 7;
+  bool deletePods = 7;
 
   string brokenPodLabelKey = 8;
 
   string brokenPodLabelValue = 9;
 
   string initContainerName = 10;
-
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.
@@ -468,7 +469,7 @@ message GlobalConfig {
   string imagePullPolicy = 13;
   // ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
 
-  TypeSliceOfMapStringInterface imagePullSecrets = 37;
+  repeated string imagePullSecrets = 37;
 
   // Specifies the default namespace for the Istio control plane components.
   string istioNamespace = 14;
@@ -2097,6 +2098,10 @@ message KialiDashboardConfig {
   string jaegerURL = 6;
 
   TypeMapStringInterface auth = 7;
+
+  string grafanaInClusterURL = 8;
+
+  string jaegerInClusterURL = 9;
 }
 
 message KialiIngressConfig {
@@ -2216,6 +2221,7 @@ message Values {
 
   KialiConfig kiali = 15;
 
+  // Deprecated.
   string version = 16;
 
   google.protobuf.BoolValue clusterResources = 17;
@@ -2225,6 +2231,9 @@ message Values {
   CNIConfig istio_cni = 19;
 
   google.protobuf.BoolValue kustomize = 20;
+
+  string revision = 21;
+
 }
 
 // GOTYPE: map[string]interface{}
