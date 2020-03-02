@@ -1364,7 +1364,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 		authnDebug, err = getAuthenticationz(kubeClient, pod.ObjectMeta.Name, pod.ObjectMeta.Namespace)
 		if err != nil {
 			// Keep going on error
-			fmt.Fprintf(writer, "%s", err)
+			fmt.Fprintf(writer, "%s\n", err)
 		}
 	}
 
