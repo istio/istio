@@ -202,25 +202,11 @@ var (
 		"If enabled, metadata exchange will be enabled for TCP using ALPN and Network Metadata Exchange filters in Envoy",
 	)
 
-	ScopePushes = env.RegisterBoolVar(
-		"PILOT_SCOPE_PUSHES",
-		true,
-		"If enabled, pilot will attempt to limit unnecessary pushes by determining what proxies "+
-			"a config or endpoint update will impact.",
-	)
-
 	ScopeGatewayToNamespace = env.RegisterBoolVar(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,
 		"If enabled, a gateway workload can only select gateway resources in the same namespace. "+
 			"Gateways with same selectors in different namespaces will not be applicable.",
-	)
-
-	RespectDNSTTL = env.RegisterBoolVar(
-		"PILOT_RESPECT_DNS_TTL",
-		true,
-		"If enabled, DNS based clusters will respect the TTL of the DNS, rather than polling at a fixed rate. "+
-			"This option is only provided for backward compatibility purposes and will be removed in the near future.",
 	)
 
 	InboundProtocolDetectionTimeout = env.RegisterDurationVar(

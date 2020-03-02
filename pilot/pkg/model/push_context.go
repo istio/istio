@@ -295,11 +295,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		merged.EdsUpdates = nil
 	}
 
-	if !features.ScopePushes.Get() {
-		// If push scoping is not enabled, we do not care about target namespaces
-		return merged
-	}
-
 	// Merge the target namespaces
 	if len(first.NamespacesUpdated) > 0 && len(other.NamespacesUpdated) > 0 {
 		merged.NamespacesUpdated = make(map[string]struct{})
