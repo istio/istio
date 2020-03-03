@@ -238,6 +238,9 @@ func runManifestGenerate(iopStr string) (string, error) {
 	testInput := NewIstioRenderingInput(iop)
 
 	mm, err := testReconciler.RenderCharts(testInput)
+	if err != nil {
+		return "", err
+	}
 	var out []string
 	for _, m := range mm {
 		for _, ms := range m {
