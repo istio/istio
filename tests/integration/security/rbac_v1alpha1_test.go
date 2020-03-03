@@ -277,6 +277,7 @@ func TestV1_Path(t *testing.T) {
 				With(&a, echo.Config{
 					Service:   "a",
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
 					Galley:    g,
 					Pilot:     p,
@@ -284,6 +285,7 @@ func TestV1_Path(t *testing.T) {
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
 					Galley:    g,
 					Pilot:     p,

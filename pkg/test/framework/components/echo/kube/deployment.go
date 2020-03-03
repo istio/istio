@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/core/image"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -42,7 +41,7 @@ metadata:
 {{- if .ServiceAnnotations }}
   annotations:
 {{- range $name, $value := .ServiceAnnotations }}
-    {{ $name }}: {{ printf "%q" $value }}
+    {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
 {{- end }}
 spec:
@@ -58,49 +57,49 @@ spec:
   selector:
     app: {{ .Service }}
 ---
+{{$subsets := .Subsets }}
+{{- range $i, $subset := $subsets }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Service }}-{{ .Version }}
+  name: {{ $.Service }}-{{ $subset.Version }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ .Service }}
-      version: {{ .Version }}
-{{- if ne .Locality "" }}
-      istio-locality: {{ .Locality }}
+      app: {{ $.Service }}
+      version: {{ $subset.Version }}
+{{- if ne $.Locality "" }}
+      istio-locality: {{ $.Locality }}
 {{- end }}
   template:
     metadata:
       labels:
-        app: {{ .Service }}
-        version: {{ .Version }}
-{{- if ne .Locality "" }}
-        istio-locality: {{ .Locality }}
+        app: {{ $.Service }}
+        version: {{ $subset.Version }}
+{{- if ne $.Locality "" }}
+        istio-locality: {{ $.Locality }}
 {{- end }}
       annotations:
         foo: bar
-{{- if .WorkloadAnnotations }}
-{{- range $name, $value := .WorkloadAnnotations }}
-        {{ $name }}: {{ printf "%q" $value }}
+{{- range $name, $value := $subset.Annotations }}
+        {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
-{{- end }}
-{{- if .IncludeInboundPorts }}
-        traffic.sidecar.istio.io/includeInboundPorts: "{{ .IncludeInboundPorts }}"
+{{- if $.IncludeInboundPorts }}
+        traffic.sidecar.istio.io/includeInboundPorts: "{{ $.IncludeInboundPorts }}"
 {{- end }}
     spec:
-{{- if .ServiceAccount }}
-      serviceAccountName: {{ .Service }}
+{{- if $.ServiceAccount }}
+      serviceAccountName: {{ $.Service }}
 {{- end }}
       containers:
       - name: app
-        image: {{ .Hub }}/app:{{ .Tag }}
-        imagePullPolicy: {{ .PullPolicy }}
+        image: {{ $.Hub }}/app:{{ $.Tag }}
+        imagePullPolicy: {{ $.PullPolicy }}
         securityContext:
           runAsUser: 1
         args:
-{{- range $i, $p := .ContainerPorts }}
+{{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
           - --grpc
 {{- else }}
@@ -108,14 +107,14 @@ spec:
 {{- end }}
           - "{{ $p.Port }}"
 {{- end }}
-{{- range $i, $p := .WorkloadOnlyPorts }}
+{{- range $i, $p := $.WorkloadOnlyPorts }}
           - --port
           - "{{ $p }}"
 {{- end }}
           - --version
-          - "{{ .Version }}"
+          - "{{ $subset.Version }}"
         ports:
-{{- range $i, $p := .ContainerPorts }}
+{{- range $i, $p := $.ContainerPorts }}
         - containerPort: {{ $p.Port }} 
 {{- if eq .Port 3333 }}
           name: tcp-health-port
@@ -135,6 +134,7 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
 ---
+{{- end}}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -173,18 +173,22 @@ func generateYAML(cfg echo.Config) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return generateYAMLWithSettings(cfg, settings)
+}
 
-	// Separate the annotations.
-	serviceAnnotations := make(map[string]string)
-	workloadAnnotations := make(map[string]string)
-	for k, v := range cfg.Annotations {
-		switch k.Type {
-		case echo.ServiceAnnotation:
-			serviceAnnotations[k.Name] = v.Value
-		case echo.WorkloadAnnotation:
-			workloadAnnotations[k.Name] = v.Value
-		default:
-			scopes.Framework.Warnf("annotation %s with unknown type %s", k.Name, k.Type)
+func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string, error) {
+	// Convert legacy config to workload oritended.
+	if cfg.Subsets == nil {
+		cfg.Subsets = []echo.SubsetConfig{
+			{
+				Version: cfg.Version,
+			},
+		}
+	}
+
+	for i := range cfg.Subsets {
+		if cfg.Subsets[i].Version == "" {
+			cfg.Subsets[i].Version = "v1"
 		}
 	}
 
@@ -200,9 +204,9 @@ func generateYAML(cfg echo.Config) (string, error) {
 		"Ports":               cfg.Ports,
 		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
 		"ContainerPorts":      getContainerPorts(cfg.Ports),
-		"ServiceAnnotations":  serviceAnnotations,
-		"WorkloadAnnotations": workloadAnnotations,
+		"ServiceAnnotations":  cfg.ServiceAnnotations,
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
+		"Subsets":             cfg.Subsets,
 	}
 
 	// Generate the YAML content.

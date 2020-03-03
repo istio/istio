@@ -28,7 +28,12 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 		Namespace:      ns,
 		ServiceAccount: true,
 		Headless:       headless,
-		Annotations:    annos,
+		Subsets: []echo.SubsetConfig{
+			{
+				Version:     "v1",
+				Annotations: annos,
+			},
+		},
 		Ports: []echo.Port{
 			{
 				Name:     "http",
