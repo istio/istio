@@ -50,7 +50,7 @@ func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext) *ClusterBuil
 
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
-func (cb *ClusterBuilder) applyDestinationRule(cluster *apiv2.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
+func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, cluster *apiv2.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
 	proxyNetworkView map[string]bool) []*apiv2.Cluster {
 	destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
@@ -100,7 +100,7 @@ func (cb *ClusterBuilder) applyDestinationRule(cluster *apiv2.Cluster, clusterMo
 		// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
 		if cluster.GetType() != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
-			lbEndpoints = buildLocalityLbEndpoints(cb.push, proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
+			lbEndpoints = buildLocalityLbEndpoints(proxy, cb.push, proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
 		}
 
 		subsetCluster := cb.buildDefaultCluster(subsetClusterName, cluster.GetType(), lbEndpoints,
