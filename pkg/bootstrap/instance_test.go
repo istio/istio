@@ -284,7 +284,7 @@ func TestGolden(t *testing.T) {
 				SDSUDSPath:        c.sdsUDSPath,
 				SDSTokenPath:      c.sdsTokenPath,
 				OutlierLogPath:    "/dev/stdout",
-				PilotCertProvider: "citadel",
+				PilotCertProvider: "istiod",
 			}).CreateFileForEpoch(0)
 			if err != nil {
 				t.Fatal(err)
