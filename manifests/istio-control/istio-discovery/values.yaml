@@ -175,11 +175,11 @@ telemetry:
     # also enable metadata exchange and stats filter.
     enabled: true
     metadataExchange:
-      enableV8: false
+      wasmEnabled: false
     # Indicate if prometheus stats filter is enabled or not
     prometheus:
       enabled: true
-      enableV8: false
+      wasmEnabled: false
     # stackdriver filter settings.
     stackdriver:
       enabled: false

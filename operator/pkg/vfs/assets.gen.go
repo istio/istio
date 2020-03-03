@@ -21278,10 +21278,17 @@ spec:
               config:
                 configuration: envoy.wasm.metadata_exchange
                 vm_config:
+                  {{- if .Values.telemetry.v2.metadataExchange.enabledV8 }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/metadata-exchange-filter.wasm
+                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
+                  {{- end }}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -21379,10 +21386,17 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: envoy.wasm.stats
+                  {{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -21411,10 +21425,17 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_inbound
+                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: envoy.wasm.stats
+                  {{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: GATEWAY
@@ -21443,10 +21464,17 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: envoy.wasm.stats
+                  {{- end }}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -21485,10 +21513,17 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_inbound
+                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: "envoy.wasm.stats"
+                  {{- end }}
     - applyTo: NETWORK_FILTER
       match:
         context: SIDECAR_OUTBOUND
@@ -21515,10 +21550,17 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: "envoy.wasm.stats"
+                  {{- end }}
     - applyTo: NETWORK_FILTER
       match:
         context: GATEWAY
@@ -21545,10 +21587,17 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: "envoy.wasm.stats"
+                  {{- end }}
 ---
 
 {{- end }}
@@ -21859,11 +21908,11 @@ telemetry:
     # also enable metadata exchange and stats filter.
     enabled: true
     metadataExchange:
-      enableV8: false
+      wasmEnabled: false
     # Indicate if prometheus stats filter is enabled or not
     prometheus:
       enabled: true
-      enableV8: false
+      wasmEnabled: false
     # stackdriver filter settings.
     stackdriver:
       enabled: false
@@ -47012,9 +47061,9 @@ spec:
     telemetry:
       v2:
         metadataExchange:
-          enableV8: true
+          wasmEnabled: true
         prometheus:
-          enableV8: true`)
+          wasmEnabled: true`)
 
 func profilesPreviewYamlBytes() ([]byte, error) {
 	return _profilesPreviewYaml, nil
