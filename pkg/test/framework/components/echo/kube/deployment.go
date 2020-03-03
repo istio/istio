@@ -186,15 +186,10 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 		}
 	}
 
-	// Separate the annotations.
-	serviceAnnotations := make(map[string]string)
 	for i := range cfg.Subsets {
 		if cfg.Subsets[i].Version == "" {
 			cfg.Subsets[i].Version = "v1"
 		}
-	}
-	for k, v := range cfg.ServiceAnnotations {
-		serviceAnnotations[k.Name] = v.Value
 	}
 
 	params := map[string]interface{}{
