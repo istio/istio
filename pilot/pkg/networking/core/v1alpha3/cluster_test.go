@@ -328,9 +328,12 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 			Endpoint: &model.IstioEndpoint{
 				Address:      "192.168.1.1",
 				EndpointPort: 10001,
-				Locality:     "region1/zone1/subzone1",
-				LbWeight:     40,
-				TLSMode:      model.IstioMutualTLSModeLabel,
+				Locality: model.Locality{
+					ClusterID: "",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 40,
+				TLSMode:  model.IstioMutualTLSModeLabel,
 			},
 		},
 		{
@@ -339,9 +342,12 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 			Endpoint: &model.IstioEndpoint{
 				Address:      "192.168.1.2",
 				EndpointPort: 10001,
-				Locality:     "region1/zone1/subzone2",
-				LbWeight:     20,
-				TLSMode:      model.IstioMutualTLSModeLabel,
+				Locality: model.Locality{
+					ClusterID: "",
+					Label:     "region1/zone1/subzone2",
+				},
+				LbWeight: 20,
+				TLSMode:  model.IstioMutualTLSModeLabel,
 			},
 		},
 		{
@@ -350,9 +356,12 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 			Endpoint: &model.IstioEndpoint{
 				Address:      "192.168.1.3",
 				EndpointPort: 10001,
-				Locality:     "region2/zone1/subzone1",
-				LbWeight:     40,
-				TLSMode:      model.IstioMutualTLSModeLabel,
+				Locality: model.Locality{
+					ClusterID: "",
+					Label:     "region2/zone1/subzone1",
+				},
+				LbWeight: 40,
+				TLSMode:  model.IstioMutualTLSModeLabel,
 			},
 		},
 		{
@@ -361,9 +370,12 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 			Endpoint: &model.IstioEndpoint{
 				Address:      "192.168.1.1",
 				EndpointPort: 10001,
-				Locality:     "region1/zone1/subzone1",
-				LbWeight:     0,
-				TLSMode:      model.IstioMutualTLSModeLabel,
+				Locality: model.Locality{
+					ClusterID: "",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 0,
+				TLSMode:  model.IstioMutualTLSModeLabel,
 			},
 		},
 	}
@@ -1461,8 +1473,11 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			Endpoint: &model.IstioEndpoint{
 				Address:      "192.168.1.1",
 				EndpointPort: 10001,
-				Locality:     "region1/zone1/subzone1",
-				LbWeight:     30,
+				Locality: model.Locality{
+					ClusterID: "",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 30,
 			},
 		},
 		{
@@ -1471,8 +1486,11 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			Endpoint: &model.IstioEndpoint{
 				Address:      "192.168.1.2",
 				EndpointPort: 10001,
-				Locality:     "region1/zone1/subzone1",
-				LbWeight:     30,
+				Locality: model.Locality{
+					ClusterID: "",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 30,
 			},
 		},
 		{
@@ -1481,8 +1499,11 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			Endpoint: &model.IstioEndpoint{
 				Address:      "192.168.1.3",
 				EndpointPort: 10001,
-				Locality:     "region2/zone1/subzone1",
-				LbWeight:     40,
+				Locality: model.Locality{
+					ClusterID: "",
+					Label:     "region2/zone1/subzone1",
+				},
+				LbWeight: 40,
 			},
 		},
 	}
@@ -1525,8 +1546,11 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 			Endpoint: &model.IstioEndpoint{
 				Address:      "192.168.1.1",
 				EndpointPort: 7443,
-				Locality:     "region1/zone1/subzone1",
-				LbWeight:     30,
+				Locality: model.Locality{
+					ClusterID: "",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 30,
 			},
 		},
 	}
