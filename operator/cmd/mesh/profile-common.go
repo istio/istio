@@ -175,7 +175,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 	}
 
 	// If enablement came from user values overlay (file or --set), translate into addonComponents paths and overlay that.
-	outYAML, err = overlayValuesEnablement(outYAML, fileOverlayYAML, setOverlayYAML)
+	outYAML, err = translate.OverlayValuesEnablement(outYAML, fileOverlayYAML, setOverlayYAML)
 	if err != nil {
 		return "", nil, err
 	}
@@ -306,17 +306,6 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 			"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
 	}
 	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
-}
-
-// overlayValuesEnablement overlays any enablement in values path from the user file overlay or set flag overlay.
-// The overlay is translated from values to the corresponding addonComponents enablement paths.
-func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (string, error) {
-	overlayYAML, err := util.OverlayYAML(fileOverlayYAML, setOverlayYAML)
-	if err != nil {
-		return "", fmt.Errorf("could not overlay user config over base: %s", err)
-	}
-
-	return translate.YAMLTree(overlayYAML, baseYAML, name.ValuesEnablementPathMap)
 }
 
 // unmarshalAndValidateIOPS unmarshals a string containing IstioOperator YAML, validates it, and returns a struct
