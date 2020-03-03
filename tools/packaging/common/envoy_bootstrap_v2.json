@@ -293,7 +293,10 @@
             ],
             "validation_context": {
               "trusted_ca": {
-                {{ if eq .pilot_cert_provider "kubernetes" }}
+                {{ if .output_key_cert_to_dir }}
+                {{ $combine := (printf "%s%s" .output_key_cert_to_dir "/root-cert.pem")}}
+                "filename": "{{ $combine }}"
+                {{ else if eq .pilot_cert_provider "kubernetes" }}
                 "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
                 {{ else if eq .pilot_cert_provider "istiod" }}
                 "filename": "./var/run/secrets/istio/root-cert.pem"

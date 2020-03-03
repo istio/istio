@@ -244,6 +244,10 @@ func PilotCertProvider(value string) Instance {
 	return newOption("pilot_cert_provider", value)
 }
 
+func OutputKeyCertToDir(value string) Instance {
+	return newOption("output_key_cert_to_dir", value)
+}
+
 func STSPort(value int) Instance {
 	return newOption("sts_port", value)
 }

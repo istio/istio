@@ -561,6 +561,7 @@ var (
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
+				OutputKeyCertToDir:  outputKeyCertToDir,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
