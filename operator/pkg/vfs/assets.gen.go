@@ -38056,7 +38056,7 @@ func chartsIstioTelemetryKialiTemplates_affinityTpl() (*asset, error) {
 var _chartsIstioTelemetryKialiTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kiali
+  name: kiali-{{ .Release.Namespace }}
   labels:
     app: kiali
     release: {{ .Release.Name }}
@@ -38099,7 +38099,7 @@ rules:
       - get
       - list
       - watch
-  - apiGroups: 
+  - apiGroups:
     - config.istio.io
     - networking.istio.io
     - authentication.istio.io
@@ -38123,7 +38123,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kiali-viewer
+  name: kiali-viewer-{{ .Release.Namespace }}
   labels:
     app: kiali
     release: {{ .Release.Name }}
@@ -38166,7 +38166,7 @@ rules:
       - get
       - list
       - watch
-  - apiGroups: 
+  - apiGroups:
     - config.istio.io
     - networking.istio.io
     - authentication.istio.io
@@ -38204,14 +38204,14 @@ var _chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml = []byte(`{{- if n
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kiali
+  name: kiali-{{ .Release.Namespace }}
   labels:
     app: kiali
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kiali
+  name: kiali-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: kiali-service-account
@@ -38227,7 +38227,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kiali-viewer
+  name: kiali-viewer-{{ .Release.Namespace }}
 subjects:
 - kind: ServiceAccount
   name: kiali-service-account
