@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/pkg/collateral"
+	"istio.io/pkg/probe"
 	"istio.io/pkg/version"
 )
 
@@ -44,7 +45,7 @@ func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
 	rootCmd.AddCommand(serverCmd(info, adapters, printf, fatalf))
-	rootCmd.AddCommand(probeCmd(printf, fatalf))
+	rootCmd.AddCommand(probe.CobraCommand())
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Mixer Server",

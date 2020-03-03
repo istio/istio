@@ -26,11 +26,11 @@ import (
 
 	istiocmd "istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 	"istio.io/pkg/version"
 )
 
@@ -133,7 +133,7 @@ func init() {
 		Section: "Chiron: Istio Certificate Controller",
 		Manual:  "Chiron: Istio Certificate Controller",
 	}))
-	rootCmd.AddCommand(cmd.NewProbeCmd())
+	rootCmd.AddCommand(probe.CobraCommand())
 
 	opts.logOptions.AttachCobraFlags(rootCmd)
 	opts.ctrlzOptions.AttachCobraFlags(rootCmd)
