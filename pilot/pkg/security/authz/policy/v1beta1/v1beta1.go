@@ -64,6 +64,7 @@ func (g *v1beta1Generator) generatePolicy(policies []model.AuthorizationPolicyCo
 		Action:   action,
 		Policies: map[string]*envoyRbacPb.Policy{},
 	}
+	forDenyPolicy := action == envoyRbacPb.RBAC_DENY
 
 	for _, config := range policies {
 		for i, rule := range config.AuthorizationPolicy.Rules {
@@ -72,18 +73,7 @@ func (g *v1beta1Generator) generatePolicy(policies []model.AuthorizationPolicyCo
 			}
 			m := authzModel.NewModelV1beta1(g.trustDomainBundle, rule)
 			rbacLog.Debugf("constructed internal model: %+v", m)
-			if action == envoyRbacPb.RBAC_DENY && forTCPFilter {
-				if err := m.ValidateForTCPFilter(); err != nil {
-					// The user should fix their deny policy, here we generate a default deny-all
-					// policy to avoid accidentally allowing a request due to the invalid policy.
-					// This is done only for deny policy because the allow policy already has the
-					// deny-by-default behavior.
-					name := fmt.Sprintf("[default-deny-all]-ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
-					rbacLog.Errorf("generated default-deny-all policy for invalid deny policy %s.%s: %v", name, config.Namespace, err)
-					return policy.DefaultDenyAllConfig(name)
-				}
-			}
-			if p := m.Generate(nil, forTCPFilter); p != nil {
+			if p := m.Generate(nil, forTCPFilter, forDenyPolicy); p != nil {
 				name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
 				rbac.Policies[name] = p
 				rbacLog.Debugf("generated policy %s: %+v", name, p)

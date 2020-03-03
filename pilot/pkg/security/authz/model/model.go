@@ -22,10 +22,9 @@ import (
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	security "istio.io/api/security/v1beta1"
-	istiolog "istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
+	istiolog "istio.io/pkg/log"
 )
 
 const (
@@ -294,11 +293,15 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 // in the model for the given service. This function only generates the policy if the constraints
 // and properties specified in the model is matched with the given service. It also validates if the
 // model is valid for TCP filter.
-func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rbac.Policy {
+// When the policy uses HTTP fields for TCP filter (forTCPFilter is true):
+// - If it's allow policy (forDenyPolicy is false), returns nil so that the allow policy is ignored to avoid granting more permissions in this case.
+// - If it's deny policy (forDenyPolicy is true), returns a config that only includes the TCP fields (e.g. port) from the policy. This makes sure
+//   the generated deny policy is more restrictive so that it never grants extra permission in this case.
+func (m *Model) Generate(service *ServiceMetadata, forTCPFilter, forDenyPolicy bool) *envoy_rbac.Policy {
 	policy := &envoy_rbac.Policy{}
 	for _, permission := range m.Permissions {
 		if service == nil || permission.Match(service) {
-			p, err := permission.Generate(forTCPFilter)
+			p, err := permission.Generate(forTCPFilter, forDenyPolicy)
 			if err != nil {
 				rbacLog.Debugf("ignored HTTP permission for TCP service: %v", err)
 				continue
@@ -313,7 +316,7 @@ func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rba
 	}
 
 	for _, principal := range m.Principals {
-		p, err := principal.Generate(forTCPFilter)
+		p, err := principal.Generate(forTCPFilter, forDenyPolicy)
 		if err != nil {
 			rbacLog.Debugf("ignored HTTP principal for TCP service: %v", err)
 			continue
