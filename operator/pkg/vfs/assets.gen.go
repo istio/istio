@@ -17018,7 +17018,7 @@ data:
     cpu:
       targetAverageUtilization: 80
     deploymentLabels: {}
-    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForInbound: true
     enableProtocolSniffingForOutbound: true
     env: {}
     hub: ""
@@ -18003,7 +18003,7 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-            value: "false"
+            value: "true"
           - name: INJECTION_WEBHOOK_CONFIG_NAME
             value: istio-sidecar-injector
           - name: ISTIOD_ADDR
@@ -46389,7 +46389,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       keepaliveMaxServerConnectionAge: 30m
       enableProtocolSniffingForOutbound: true
-      enableProtocolSniffingForInbound: false
+      enableProtocolSniffingForInbound: true
       deploymentLabels:
       meshNetworks:
         networks: {}

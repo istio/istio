@@ -513,7 +513,7 @@ spec:
       configNamespace: istio-config
       cpu:
         targetAverageUtilization: 80
-      enableProtocolSniffingForInbound: false
+      enableProtocolSniffingForInbound: true
       enableProtocolSniffingForOutbound: true
       env: {}
       image: pilot
