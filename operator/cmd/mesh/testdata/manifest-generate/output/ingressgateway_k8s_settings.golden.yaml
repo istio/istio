@@ -27,6 +27,8 @@ spec:
         heritage: Tiller
         release: istio
         chart: gateways
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: latest
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -98,11 +100,11 @@ spec:
           - name: JWT_POLICY
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
-            value: citadel
+            value: istiod
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
-            value: istio-pilot.istio-system.svc:15012
+            value: istiod.istio-system.svc:15012
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -157,8 +159,8 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
@@ -173,7 +175,7 @@ spec:
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
       volumes:
-      - name: citadel-ca-cert
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       - name: podinfo

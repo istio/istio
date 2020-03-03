@@ -306,7 +306,7 @@ No
 </tr>
 <tr id="CNIRepairConfig-labelPods">
 <td><code>labelPods</code></td>
-<td><code>string</code></td>
+<td><code>bool</code></td>
 <td>
 <p>Controls whether various repair behaviors are enabled.</p>
 
@@ -317,7 +317,7 @@ No
 </tr>
 <tr id="CNIRepairConfig-deletePods">
 <td><code>deletePods</code></td>
-<td><code>string</code></td>
+<td><code>bool</code></td>
 <td>
 </td>
 <td>
@@ -1710,7 +1710,7 @@ No
 </tr>
 <tr id="GlobalConfig-imagePullSecrets">
 <td><code>imagePullSecrets</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td><code>string[]</code></td>
 <td>
 </td>
 <td>
@@ -3161,6 +3161,24 @@ No
 <tr id="KialiDashboardConfig-auth">
 <td><code>auth</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-grafanaInClusterURL">
+<td><code>grafanaInClusterURL</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-jaegerInClusterURL">
+<td><code>jaegerInClusterURL</code></td>
+<td><code>string</code></td>
 <td>
 </td>
 <td>
@@ -7709,7 +7727,18 @@ No
 <td><code>probeStartupDelay</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>InitialDelaySeconds of livenessProbe for Zipkin deployment</p>
+<p>InitialDelaySeconds of readiness probe for Zipkin deployment</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingZipkinConfig-livenessProbeStartupDelay">
+<td><code>livenessProbeStartupDelay</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>InitialDelaySeconds of liveness probe for Zipkin deployment</p>
 
 </td>
 <td>

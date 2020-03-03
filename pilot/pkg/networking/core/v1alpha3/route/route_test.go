@@ -15,6 +15,7 @@
 package route_test
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
@@ -71,9 +72,50 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
+		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
+		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
+
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
+		// Validate that when timeout is not specified, we disable it based on default value of flag.
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(0)))
+	})
+
+	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "1s")
+		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		// Validate that when timeout is not specified, we send what is set in the timeout flag.
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(1)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(1)))
+	})
+
+	t.Run("for virtual service with timeout", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeout, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		// Validate that when timeout specified, we send the configured timeout to Envoys.
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(10)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(10)))
+	})
+
+	t.Run("for virtual service with disabled timeout", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeoutDisabled, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(0)))
 	})
 
 	t.Run("for virtual service with catch all route", func(t *testing.T) {
@@ -184,6 +226,29 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		//nolint: staticcheck
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetRegexMatch()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
+	})
+
+	t.Run("for virtual service with source namespace matching", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		fooNode := *node
+		fooNode.Metadata = &model.NodeMetadata{
+			Namespace: "foo",
+		}
+		barNode := *node
+		barNode.Metadata = &model.NodeMetadata{
+			Namespace: "bar",
+		}
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(&fooNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetName()).To(gomega.Equal("foo"))
+
+		routes, err = route.BuildHTTPRoutesForVirtualService(&barNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetName()).To(gomega.Equal("bar"))
 	})
 
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
@@ -587,6 +652,66 @@ var virtualServicePlain = model.Config{
 	},
 }
 
+var virtualServiceWithTimeout = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+				Timeout: &types.Duration{
+					Seconds: 10,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithTimeoutDisabled = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+				Timeout: &types.Duration{
+					Seconds: 0,
+				},
+			},
+		},
+	},
+}
+
 var virtualServiceWithCatchAllRoute = model.Config{
 	ConfigMeta: model.ConfigMeta{
 		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
@@ -940,6 +1065,57 @@ var virtualServiceWithPresentMatchingOnWithoutHeader = model.Config{
 					Uri:          "example.org",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceMatchingOnSourceNamespace = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts: []string{},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "foo",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						SourceNamespace: "foo",
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+			{
+				Name: "bar",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						SourceNamespace: "bar",
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "bar.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
 				},
 			},
 		},

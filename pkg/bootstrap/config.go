@@ -15,7 +15,6 @@
 package bootstrap
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -26,10 +25,11 @@ import (
 	"strings"
 	"time"
 
+	md "cloud.google.com/go/compute/metadata"
+
 	"istio.io/istio/pkg/config/constants"
 
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/oauth2/google"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
@@ -237,7 +237,7 @@ func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interfa
 }
 
 func getLocalityOptions(meta *model.NodeMetadata, platEnv platform.Environment) []option.Instance {
-	l := util.ConvertLocality(model.GetLocalityOrDefault(meta.LocalityLabel, ""))
+	l := util.ConvertLocality(model.GetLocalityLabelOrDefault(meta.LocalityLabel, ""))
 	if l == nil {
 		// Populate the platform locality if available.
 		l = platEnv.Locality()
@@ -281,16 +281,14 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.NodeMeta
 		case *meshAPI.Tracing_Datadog_:
 			opts = append(opts, option.DataDogAddress(tracer.Datadog.Address))
 		case *meshAPI.Tracing_Stackdriver_:
-			var cred *google.Credentials
+			var projectID string
 			var err error
-			// in-cluster credentials are fetched by using the GCE metadata server.
-			// You may also specify environment variable GOOGLE_APPLICATION_CREDENTIALS to point a GCP credentials file.
-			if cred, err = google.FindDefaultCredentials(context.Background()); err != nil {
+			if projectID, err = md.ProjectID(); err != nil {
 				return nil, fmt.Errorf("unable to process Stackdriver tracer: %v", err)
 			}
 
 			opts = append(opts, option.StackDriverEnabled(true),
-				option.StackDriverProjectID(cred.ProjectID),
+				option.StackDriverProjectID(projectID),
 				option.StackDriverDebug(tracer.Stackdriver.Debug),
 				option.StackDriverMaxAnnotations(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfAnnotations, 200)),
 				option.StackDriverMaxAttributes(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfAttributes, 200)),

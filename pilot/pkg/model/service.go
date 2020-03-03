@@ -174,29 +174,6 @@ type Port struct {
 // PortList is a set of ports
 type PortList []*Port
 
-// AddressFamily indicates the kind of transport used to reach an IstioEndpoint
-type AddressFamily int
-
-const (
-	// AddressFamilyTCP represents an address that connects to a TCP endpoint. It consists of an IP address or host and
-	// a port number.
-	AddressFamilyTCP AddressFamily = iota
-	// AddressFamilyUnix represents an address that connects to a Unix Domain Socket. It consists of a socket file path.
-	AddressFamilyUnix
-)
-
-// String converts addressfamily into string (tcp/unix)
-func (f AddressFamily) String() string {
-	switch f {
-	case AddressFamilyTCP:
-		return "tcp"
-	case AddressFamilyUnix:
-		return "unix"
-	default:
-		return fmt.Sprintf("%d", f)
-	}
-}
-
 // TrafficDirection defines whether traffic exists a service instance or enters a service instance
 type TrafficDirection string
 
@@ -245,16 +222,6 @@ type ServiceInstance struct {
 	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
-// GetLocality returns the availability zone from an instance. If service instance label for locality
-// is set we use this. Otherwise, we use the one set by the registry:
-//   - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
-// 	 - consul: defaults to 'instance.Datacenter'
-//
-// This is used by CDS/EDS to group the endpoints by locality.
-func (instance *ServiceInstance) GetLocality() string {
-	return GetLocalityOrDefault(instance.Endpoint.Labels[LocalityLabel], instance.Endpoint.Locality)
-}
-
 // DeepCopy creates a copy of ServiceInstance.
 func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	return &ServiceInstance{
@@ -268,10 +235,10 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	}
 }
 
-// GetLocalityOrDefault returns the locality from the supplied label, or falls back to
+// GetLocalityLabelOrDefault returns the locality from the supplied label, or falls back to
 // the supplied default locality if the supplied label is empty. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
-func GetLocalityOrDefault(label, defaultLocality string) string {
+func GetLocalityLabelOrDefault(label, defaultLabel string) string {
 	if len(label) > 0 {
 		// if there are /'s present we don't need to replace
 		if strings.Contains(label, "/") {
@@ -280,7 +247,16 @@ func GetLocalityOrDefault(label, defaultLocality string) string {
 		// replace "." with "/"
 		return strings.Replace(label, k8sSeparator, "/", -1)
 	}
-	return defaultLocality
+	return defaultLabel
+}
+
+// Locality information for an IstioEndpoint
+type Locality struct {
+	// Label for locality on the endpoint. This is a "/" separated string.
+	Label string
+
+	// ClusterID where the endpoint is located
+	ClusterID string
 }
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
@@ -306,10 +282,6 @@ type IstioEndpoint struct {
 	// Labels points to the workload or deployment labels.
 	Labels labels.Instance
 
-	// Family indicates what type of endpoint, such as TCP or Unix Domain Socket.
-	// Default is TCP.
-	Family AddressFamily
-
 	// Address is the address of the endpoint, using envoy proto.
 	Address string
 
@@ -333,8 +305,8 @@ type IstioEndpoint struct {
 	// Network holds the network where this endpoint is present
 	Network string
 
-	// The locality where the endpoint is present. / separated string
-	Locality string
+	// The locality where the endpoint is present.
+	Locality Locality
 
 	// EndpointPort is the port where the workload is listening, can be different
 	// from the service port.

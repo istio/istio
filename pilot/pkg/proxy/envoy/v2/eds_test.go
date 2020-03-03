@@ -313,7 +313,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			Address:         fmt.Sprintf("10.10.10.10"),
 			ServicePortName: "http",
 			EndpointPort:    80,
-			Locality:        asdcLocality,
+			Locality:        model.Locality{Label: asdcLocality},
 		},
 		ServicePort: &model.Port{
 			Name:     "http",
@@ -326,7 +326,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			Address:         fmt.Sprintf("10.10.10.11"),
 			ServicePortName: "http",
 			EndpointPort:    80,
-			Locality:        asdc2Locality,
+			Locality:        model.Locality{Label: asdc2Locality},
 		},
 		ServicePort: &model.Port{
 			Name:     "http",
@@ -704,11 +704,10 @@ func addUdsEndpoint(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("localuds.cluster.local", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Family:          model.AddressFamilyUnix,
 			Address:         udsPath,
 			EndpointPort:    0,
 			ServicePortName: "grpc",
-			Locality:        "localhost",
+			Locality:        model.Locality{Label: "localhost"},
 			Labels:          map[string]string{"socket": "unix"},
 		},
 		ServicePort: &model.Port{
@@ -745,7 +744,7 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 				Address:         fmt.Sprintf("10.0.0.%v", i),
 				EndpointPort:    80,
 				ServicePortName: "http",
-				Locality:        locality,
+				Locality:        model.Locality{Label: locality},
 			},
 			ServicePort: &model.Port{
 				Name:     "http",

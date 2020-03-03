@@ -18,9 +18,6 @@
 
 set -e
 
-# Before we begin, run the post installation script to finish setting up the system.
-"/usr/local/bin/postinst.sh"
-
 # IF ECHO_ARGS is unset, make it an empty string.
 ECHO_ARGS=${ECHO_ARGS:-}
 # Split ECHO_ARGS by spaces.

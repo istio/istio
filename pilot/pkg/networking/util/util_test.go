@@ -105,37 +105,6 @@ func TestConvertAddressToCidr(t *testing.T) {
 	}
 }
 
-func TestGetEndpointAddress(t *testing.T) {
-	neUnix := &model.IstioEndpoint{
-		Family:  model.AddressFamilyUnix,
-		Address: "/var/run/test/test.sock",
-	}
-	aUnix := GetEndpointAddress(neUnix)
-	if aUnix.GetPipe() == nil {
-		t.Fatalf("GetAddress() => want Pipe, got %s", aUnix.String())
-	}
-	if aUnix.GetPipe().GetPath() != neUnix.Address {
-		t.Fatalf("GetAddress() => want path %s, got %s", neUnix.Address, aUnix.GetPipe().GetPath())
-	}
-
-	neIP := &model.IstioEndpoint{
-		Family:       model.AddressFamilyTCP,
-		Address:      "192.168.10.45",
-		EndpointPort: 4558,
-	}
-	aIP := GetEndpointAddress(neIP)
-	sock := aIP.GetSocketAddress()
-	if sock == nil {
-		t.Fatalf("GetAddress() => want SocketAddress, got %s", aIP.String())
-	}
-	if sock.GetAddress() != neIP.Address {
-		t.Fatalf("GetAddress() => want %s, got %s", neIP.Address, sock.GetAddress())
-	}
-	if sock.GetPortValue() != neIP.EndpointPort {
-		t.Fatalf("GetAddress() => want port %d, got port %d", neIP.EndpointPort, sock.GetPortValue())
-	}
-}
-
 func TestConvertLocality(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -380,6 +349,66 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 	}
 }
 
+func TestAddSubsetToMetadata(t *testing.T) {
+	cases := []struct {
+		name   string
+		in     *core.Metadata
+		subset string
+		want   *core.Metadata
+	}{
+		{
+			"simple subset",
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+								},
+							},
+						},
+					},
+				},
+			},
+			"test-subset",
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+								},
+							},
+							"subset": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "test-subset",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"no metadata",
+			&core.Metadata{},
+			"test-subset",
+			&core.Metadata{},
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			got := AddSubsetToMetadata(v.in, v.subset)
+			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+				tt.Errorf("AddSubsetToMetadata(%v, %s) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, v.subset, got, v.want, diff)
+			}
+		})
+	}
+}
+
 func TestCloneCluster(t *testing.T) {
 	cluster := buildFakeCluster()
 	clone := CloneCluster(cluster)
@@ -456,65 +485,6 @@ func TestIsHTTPFilterChain(t *testing.T) {
 
 	if IsHTTPFilterChain(tcpFilterChain) {
 		t.Errorf("tcp filter chain detected as http filter chain")
-	}
-}
-
-var (
-	listener80 = &v2.Listener{Address: BuildAddress("0.0.0.0", 80)}
-	listener81 = &v2.Listener{Address: BuildAddress("0.0.0.0", 81)}
-	listenerip = &v2.Listener{Address: BuildAddress("1.1.1.1", 80)}
-)
-
-func BenchmarkGetByAddress(b *testing.B) {
-	for n := 0; n < b.N; n++ {
-		GetByAddress([]*v2.Listener{
-			listener80,
-			listener81,
-			listenerip,
-		}, *listenerip.Address)
-	}
-}
-
-func TestGetByAddress(t *testing.T) {
-	tests := []struct {
-		name      string
-		listeners []*v2.Listener
-		address   *core.Address
-		expected  *v2.Listener
-	}{
-		{
-			"no listeners",
-			[]*v2.Listener{},
-			BuildAddress("0.0.0.0", 80),
-			nil,
-		},
-		{
-			"single listener",
-			[]*v2.Listener{
-				listener80,
-			},
-			BuildAddress("0.0.0.0", 80),
-			listener80,
-		},
-		{
-			"multiple listeners",
-			[]*v2.Listener{
-				listener81,
-				listenerip,
-				listener80,
-			},
-			BuildAddress("0.0.0.0", 80),
-			listener80,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := GetByAddress(tt.listeners, *tt.address)
-			if got != tt.expected {
-				t.Errorf("Got %v, expected %v", got, tt.expected)
-			}
-		})
 	}
 }
 
@@ -973,5 +943,77 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestBuildAddress(t *testing.T) {
+	testCases := []struct {
+		name     string
+		addr     string
+		port     uint32
+		expected *core.Address
+	}{
+		{
+			name: "ipv4",
+			addr: "172.10.10.1",
+			port: 8080,
+			expected: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: "172.10.10.1",
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 8080,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "ipv6",
+			addr: "fe80::10e7:52ff:fecd:198b",
+			port: 8080,
+			expected: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: "fe80::10e7:52ff:fecd:198b",
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 8080,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "uds",
+			addr: "/var/run/test/socket",
+			port: 0,
+			expected: &core.Address{
+				Address: &core.Address_Pipe{
+					Pipe: &core.Pipe{
+						Path: "/var/run/test/socket",
+					},
+				},
+			},
+		},
+		{
+			name: "uds with unix prefix",
+			addr: "unix:///var/run/test/socket",
+			port: 0,
+			expected: &core.Address{
+				Address: &core.Address_Pipe{
+					Pipe: &core.Pipe{
+						Path: "/var/run/test/socket",
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			addr := BuildAddress(test.addr, test.port)
+			if !reflect.DeepEqual(addr, test.expected) {
+				t.Errorf("expected add %v, but got %v", test.expected, addr)
+			}
+		})
+	}
 }

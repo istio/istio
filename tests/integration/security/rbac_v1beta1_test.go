@@ -15,11 +15,16 @@
 package security
 
 import (
+	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -348,13 +353,21 @@ func TestV1beta1_Deny(t *testing.T) {
 			}
 			cases := []rbacUtil.TestCase{
 				newTestCase(b, "/deny", false),
+				newTestCase(b, "/deny?param=value", false),
 				newTestCase(b, "/global-deny", false),
+				newTestCase(b, "/global-deny?param=value", false),
 				newTestCase(b, "/other", true),
+				newTestCase(b, "/other?param=value", true),
 				newTestCase(b, "/allow", true),
+				newTestCase(b, "/allow?param=value", true),
 				newTestCase(c, "/allow/admin", false),
+				newTestCase(c, "/allow/admin?param=value", false),
 				newTestCase(c, "/global-deny", false),
+				newTestCase(c, "/global-deny?param=value", false),
 				newTestCase(c, "/other", false),
+				newTestCase(c, "/other?param=value", false),
 				newTestCase(c, "/allow", true),
+				newTestCase(c, "/allow?param=value", true),
 			}
 
 			args := map[string]string{
@@ -549,6 +562,95 @@ func TestV1beta1_IngressGateway(t *testing.T) {
 		})
 }
 
+// TestV1beta1_EgressGateway tests v1beta1 authorization on egress gateway.
+func TestV1beta1_EgressGateway(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-egress-gateway",
+				Inject: true,
+			})
+
+			var a, b echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, echo.Config{
+					Service:   "b",
+					Namespace: ns,
+					Ports: []echo.Port{
+						{
+							Name:        "http",
+							Protocol:    protocol.HTTP,
+							ServicePort: 8090,
+						},
+					},
+					Galley: g,
+					Pilot:  p,
+				}).
+				BuildOrFail(t)
+
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": rootNamespace,
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsStringOrFail(t, "testdata/rbac/v1beta1-egress-gateway.yaml.tmpl"))
+			g.ApplyConfigOrFail(t, nil, policies...)
+			defer g.DeleteConfigOrFail(t, nil, policies...)
+
+			cases := []struct {
+				path string
+				code string
+				body string
+			}{
+				{
+					path: "/allow",
+					code: response.StatusCodeOK,
+					body: "handled-by-egress-gateway",
+				},
+				{
+					path: "/deny",
+					code: response.StatusCodeForbidden,
+					body: "RBAC: access denied",
+				},
+			}
+
+			for _, tc := range cases {
+				from := getWorkload(a, t)
+				request := &epb.ForwardEchoRequest{
+					// Use a fake IP to make sure the request is handled by our test.
+					Url:   fmt.Sprintf("http://10.4.4.4%s", tc.path),
+					Count: 1,
+					Headers: []*epb.Header{
+						{
+							Key:   "Host",
+							Value: "www.company.com",
+						},
+					},
+				}
+				t.Run(tc.path, func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, func() error {
+						responses, err := from.ForwardEcho(context.TODO(), request)
+						if err != nil {
+							return err
+						}
+						if len(responses) < 1 {
+							return fmt.Errorf("received no responses from request to %s", tc.path)
+						}
+						if tc.code != responses[0].Code {
+							return fmt.Errorf("want status %s but got %s", tc.code, responses[0].Code)
+						}
+						if !strings.Contains(responses[0].Body, tc.body) {
+							return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].Body)
+						}
+						return nil
+					}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+				})
+			}
+		})
+}
+
 // TestV1beta1_TCP tests the authorization policy on workloads using the raw TCP protocol.
 func TestV1beta1_TCP(t *testing.T) {
 	framework.NewTest(t).
@@ -667,6 +769,118 @@ func TestV1beta1_TCP(t *testing.T) {
 				newTestCase(c, d, "tcp", true),
 				newTestCase(x, a, "tcp", true),
 				newTestCase(x, d, "tcp", false),
+			}
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestV1beta1_Conditions tests v1beta1 authorization with conditions.
+func TestV1beta1_Conditions(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			nsA := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-conditions-a",
+				Inject: true,
+			})
+			nsB := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-conditions-b",
+				Inject: true,
+			})
+			nsC := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-conditions-c",
+				Inject: true,
+			})
+
+			portC := 8090
+			var a, b, c echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", nsA, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", nsB, false, nil, g, p)).
+				With(&c, echo.Config{
+					Service:   "c",
+					Namespace: nsC,
+					Ports: []echo.Port{
+						{
+							Name:         "http",
+							Protocol:     protocol.HTTP,
+							InstancePort: portC,
+						},
+					},
+					Galley: g,
+					Pilot:  p,
+				}).
+				BuildOrFail(t)
+
+			args := map[string]string{
+				"NamespaceA": nsA.Name(),
+				"NamespaceB": nsB.Name(),
+				"NamespaceC": nsC.Name(),
+				"IpA":        getWorkload(a, t).Address(),
+				"IpB":        getWorkload(b, t).Address(),
+				"IpC":        getWorkload(c, t).Address(),
+				"PortC":      fmt.Sprintf("%d", portC),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/rbac/v1beta1-conditions.yaml.tmpl"))
+			g.ApplyConfigOrFail(t, nil, policies...)
+			defer g.DeleteConfigOrFail(t, nil, policies...)
+
+			newTestCase := func(from echo.Instance, path string, headers map[string]string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: from,
+						Options: echo.CallOptions{
+							Target:   c,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					Headers:       headers,
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase(a, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+				newTestCase(b, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+				newTestCase(a, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+				newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+				newTestCase(a, "/request-headers", nil, false),
+				newTestCase(b, "/request-headers", nil, false),
+
+				newTestCase(a, "/source-ip-a", nil, true),
+				newTestCase(b, "/source-ip-a", nil, false),
+				newTestCase(a, "/source-ip-b", nil, false),
+				newTestCase(b, "/source-ip-b", nil, true),
+
+				newTestCase(a, "/source-namespace-a", nil, true),
+				newTestCase(b, "/source-namespace-a", nil, false),
+				newTestCase(a, "/source-namespace-b", nil, false),
+				newTestCase(b, "/source-namespace-b", nil, true),
+
+				newTestCase(a, "/source-principal-a", nil, true),
+				newTestCase(b, "/source-principal-a", nil, false),
+				newTestCase(a, "/source-principal-b", nil, false),
+				newTestCase(b, "/source-principal-b", nil, true),
+
+				newTestCase(a, "/destination-ip-good", nil, true),
+				newTestCase(b, "/destination-ip-good", nil, true),
+				newTestCase(a, "/destination-ip-bad", nil, false),
+				newTestCase(b, "/destination-ip-bad", nil, false),
+
+				newTestCase(a, "/destination-port-good", nil, true),
+				newTestCase(b, "/destination-port-good", nil, true),
+				newTestCase(a, "/destination-port-bad", nil, false),
+				newTestCase(b, "/destination-port-bad", nil, false),
+
+				newTestCase(a, "/connection-sni-good", nil, true),
+				newTestCase(b, "/connection-sni-good", nil, true),
+				newTestCase(a, "/connection-sni-bad", nil, false),
+				newTestCase(b, "/connection-sni-bad", nil, false),
+
+				newTestCase(a, "/other", nil, false),
+				newTestCase(b, "/other", nil, false),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)

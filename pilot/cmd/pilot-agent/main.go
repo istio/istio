@@ -130,7 +130,7 @@ var (
 		"number of attributes for stackdriver")
 	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
 		"max number of message events for stackdriver")
-	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "citadel",
+	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
@@ -386,11 +386,11 @@ var (
 				}
 				prober := kubeAppProberNameVar.Get()
 				statusServer, err := status.NewServer(status.Config{
-					LocalHostAddr:      localHostAddr,
-					AdminPort:          proxyAdminPort,
-					StatusPort:         statusPort,
-					KubeAppHTTPProbers: prober,
-					NodeType:           role.Type,
+					LocalHostAddr:  localHostAddr,
+					AdminPort:      proxyAdminPort,
+					StatusPort:     statusPort,
+					KubeAppProbers: prober,
+					NodeType:       role.Type,
 				})
 				if err != nil {
 					cancel()
@@ -465,7 +465,7 @@ var (
 func getMeshConfig() (meshconfig.MeshConfig, error) {
 	defaultConfig := mesh.DefaultMeshConfig()
 	if meshConfig != "" {
-		mc, err := mesh.ApplyMeshConfigJSON(meshConfig, defaultConfig)
+		mc, err := mesh.ApplyMeshConfig(meshConfig, defaultConfig)
 		if err != nil || mc == nil {
 			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config [%v]: %v", meshConfig, err)
 		}

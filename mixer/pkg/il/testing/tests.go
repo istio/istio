@@ -1628,7 +1628,7 @@ end
 		I: map[string]interface{}{
 			"as": ":/",
 		},
-		Err: `error converting string to uri ':/': 'parse :/: missing protocol scheme'`,
+		Err: `error converting string to uri`,
 	},
 
 	{

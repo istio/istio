@@ -180,7 +180,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Address:         "127.0.0.1",
 				EndpointPort:    uint32(testEnv.Ports().BackendPort),
 				ServicePortName: "http",
-				Locality:        "az",
+				Locality:        model.Locality{Label: "az"},
 				ServiceAccount:  "hello-sa",
 			},
 			ServicePort: &model.Port{
@@ -210,7 +210,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Address:         localIP,
 				EndpointPort:    uint32(testEnv.Ports().BackendPort),
 				ServicePortName: "http",
-				Locality:        "az",
+				Locality:        model.Locality{Label: "az"},
 			},
 			ServicePort: &model.Port{
 				Name:     "http",
@@ -236,7 +236,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Address:         app3Ip,
 				EndpointPort:    2080,
 				ServicePortName: "http-main",
-				Locality:        "az",
+				Locality:        model.Locality{Label: "az"},
 				Labels:          map[string]string{"version": "v1"},
 			},
 			ServicePort: &model.Port{
@@ -250,7 +250,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Address:         gatewayIP,
 				EndpointPort:    2080,
 				ServicePortName: "http-main",
-				Locality:        "az",
+				Locality:        model.Locality{Label: "az"},
 				Labels:          map[string]string{"version": "v2", "app": "my-gateway-controller"},
 			},
 			ServicePort: &model.Port{
@@ -283,7 +283,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Address:         ingressIP,
 				EndpointPort:    80,
 				ServicePortName: "http",
-				Locality:        "az",
+				Locality:        model.Locality{Label: "az"},
 				Labels:          labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
 			},
 			ServicePort: &model.Port{
@@ -297,7 +297,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Address:         ingressIP,
 				EndpointPort:    443,
 				ServicePortName: "https",
-				Locality:        "az",
+				Locality:        model.Locality{Label: "az"},
 				Labels:          labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
 			},
 			ServicePort: &model.Port{

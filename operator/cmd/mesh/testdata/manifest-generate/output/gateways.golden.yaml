@@ -1,6 +1,9 @@
 # AddonComponents grafana component is disabled.
 
 ---
+# AddonComponents istiocoredns component is disabled.
+
+---
 # AddonComponents kiali component is disabled.
 
 ---
@@ -14,6 +17,8 @@
 # Citadel component is disabled.
 
 # Cni component is disabled.
+
+# EgressGateways istio-egressgateway component is disabled.
 
 # Galley component is disabled.
 
@@ -69,6 +74,8 @@ spec:
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: latest
     spec:
       affinity:
         nodeAffinity:
@@ -135,11 +142,11 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: citadel
+          value: istiod
         - name: ISTIO_META_USER_SDS
           value: "true"
         - name: CA_ADDR
-          value: istio-pilot.istio-system.svc:15012
+          value: istiod.istio-system.svc:15012
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -175,6 +182,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/istio-ingress-1-ns/deployments/istio-ingressgateway
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: ISTIO_AUTO_MTLS_ENABLED
+          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -225,8 +234,8 @@ spec:
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
@@ -244,7 +253,7 @@ spec:
       volumes:
       - configMap:
           name: istio-ca-root-cert
-        name: citadel-ca-cert
+        name: istiod-ca-cert
       - downwardAPI:
           items:
           - fieldRef:
@@ -485,6 +494,8 @@ spec:
         app: istio-ingressgateway
         istio: ingressgateway
         
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: latest
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -556,11 +567,11 @@ spec:
           - name: JWT_POLICY
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
-            value: citadel
+            value: istiod
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
-            value: istio-pilot.istio-system.svc:15012
+            value: istiod.istio-system.svc:15012
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -596,6 +607,8 @@ spec:
             value: kubernetes://apis/apps/v1/namespaces/istio-ingress-2-ns/deployments/istio-ingressgateway
           - name: ISTIO_META_MESH_ID
             value: "cluster.local"
+          - name: ISTIO_AUTO_MTLS_ENABLED
+            value: "true"
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -613,8 +626,8 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
@@ -629,7 +642,7 @@ spec:
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
       volumes:
-      - name: citadel-ca-cert
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       - name: podinfo
@@ -850,7 +863,7 @@ spec:
         - "*/*"
 ---
 
-# Pilot istio-pilot component is disabled.
+# Pilot istiod component is disabled.
 
 # Policy component is disabled.
 

@@ -19,7 +19,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -38,6 +37,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -305,7 +305,7 @@ func BuildHTTPRoutesForVirtualService(
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
 // labels for the proxy or the gateway name for which we are generating a route
-func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Collection, gatewayNames map[string]bool) bool {
+func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Collection, gatewayNames map[string]bool, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -318,7 +318,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Coll
 			}
 		}
 	} else if proxyLabels.IsSupersetOf(match.GetSourceLabels()) {
-		return true
+		return match.SourceNamespace == "" || match.SourceNamespace == proxyNamespace
 	}
 
 	return false
@@ -335,7 +335,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	// resolved Traffic to such clusters will blackhole.
 
 	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames) {
+	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames, node.Metadata.Namespace) {
 		return nil
 	}
 
@@ -390,18 +390,16 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
+		// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
+		var d *duration.Duration
 		if in.Timeout != nil {
-			d := gogo.DurationToProtoDuration(in.Timeout)
-			// timeout
-			action.Timeout = d
-			action.MaxGrpcTimeout = d
+			d = gogo.DurationToProtoDuration(in.Timeout)
 		} else {
-			// if no timeout is specified, disable timeouts. This is easier
-			// to reason about than assuming some defaults.
-			d := ptypes.DurationProto(0 * time.Second)
-			action.Timeout = d
-			action.MaxGrpcTimeout = d
+			d = features.DefaultRequestTimeout()
 		}
+
+		action.Timeout = d
+		action.MaxGrpcTimeout = d
 
 		out.Action = &route.Route_Route{Route: action}
 
@@ -826,7 +824,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
-	notimeout := ptypes.DurationProto(0 * time.Second)
+	notimeout := ptypes.DurationProto(0)
 
 	val := &route.Route{
 		Match: translateRouteMatch(nil, node),

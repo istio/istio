@@ -1,4 +1,4 @@
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   addonComponents:
@@ -6,6 +6,8 @@ spec:
       enabled: false
       k8s:
         replicaCount: 1
+    istiocoredns:
+      enabled: false
     kiali:
       enabled: false
       k8s:
@@ -114,10 +116,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
         strategy:
           rollingUpdate:
             maxSurge: 100%
@@ -215,9 +213,6 @@ spec:
           name: egressgateway-ca-certs
           secretName: istio-egressgateway-ca-certs
         type: ClusterIP
-        zvpn:
-          enabled: true
-          suffix: global
       istio-ingressgateway:
         applicationPorts: ""
         autoscaleEnabled: true
@@ -268,9 +263,6 @@ spec:
           name: ingressgateway-ca-certs
           secretName: istio-ingressgateway-ca-certs
         type: LoadBalancer
-        zvpn:
-          enabled: true
-          suffix: global
     global:
       arch:
         amd64: 2
@@ -320,7 +312,7 @@ spec:
       operatorManageWebhooks: false
       outboundTrafficPolicy:
         mode: ALLOW_ANY
-      pilotCertProvider: citadel
+      pilotCertProvider: istiod
       policyCheckFailOpen: false
       priorityClassName: ""
       proxy:
@@ -445,11 +437,12 @@ spec:
       coreDNSImage: coredns/coredns
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       coreDNSTag: 1.6.2
-      enabled: false
     kiali:
       contextPath: /kiali
       createDemoSecret: false
       dashboard:
+        grafanaInClusterURL: http://grafana:3000
+        jaegerInClusterURL: http://tracing/jaeger
         passphraseKey: passphrase
         secretName: kiali
         usernameKey: username
@@ -466,7 +459,7 @@ spec:
         cert_file: /kiali-cert/cert-chain.pem
         enabled: false
         private_key_file: /kiali-cert/key.pem
-      tag: v1.9
+      tag: v1.14
     mixer:
       adapters:
         kubernetesenv:
@@ -623,15 +616,15 @@ spec:
         maxSpans: 500000
         node:
           cpus: 2
-        probeStartupDelay: 200
+        probeStartupDelay: 10
         queryPort: 9411
         resources:
           limits:
-            cpu: 300m
-            memory: 900Mi
+            cpu: 1000m
+            memory: 2048Mi
           requests:
             cpu: 150m
             memory: 900Mi
-        tag: 2.14.2
+        tag: 2.20.0
     version: ""
 

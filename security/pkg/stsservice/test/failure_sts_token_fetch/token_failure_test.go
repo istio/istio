@@ -28,9 +28,6 @@ import (
 // TestTokenFetchFailureOne verifies when auth backend fails to generate
 // federated token, Envoy fails to start.
 func TestTokenFetchFailureOne(t *testing.T) {
-	// Enable this test when gRPC fix is picked by Istio Proxy
-	// https://github.com/grpc/grpc/pull/21641
-	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
 	setup := stsTest.SetupTest(t, cb, testID.STSFailureTest, false)
@@ -52,16 +49,13 @@ func TestTokenFetchFailureOne(t *testing.T) {
 	g.Expect(numAccessTokenCall).To(gomega.Equal(initialNumAccessTokenCall))
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
-
+	setup.ProxySetup.SilentlyStopProxy(true)
 	setup.TearDown()
 }
 
 // TestTokenFetchFailureTwo verifies when auth backend fails to generate
 // access token, Envoy fails to start.
 func TestTokenFetchFailureTwo(t *testing.T) {
-	// Enable this test when gRPC fix is picked by Istio Proxy
-	// https://github.com/grpc/grpc/pull/21641
-	t.Skip("https://github.com/istio/istio/issues/20133")
 	cb := xdsService.CreateXdsCallback(t)
 	// Start all test servers
 	setup := stsTest.SetupTest(t, cb, testID.STSFailureTest, false)
@@ -83,6 +77,6 @@ func TestTokenFetchFailureTwo(t *testing.T) {
 	g.Expect(numAccessTokenCall).Should(gomega.BeNumerically(">", initialNumAccessTokenCall))
 	g.Expect(cb.NumStream()).To(gomega.Equal(0))
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(0))
-
+	setup.ProxySetup.SilentlyStopProxy(true)
 	setup.TearDown()
 }

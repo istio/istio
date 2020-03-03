@@ -91,11 +91,11 @@ message CNIRepairConfig {
   string image = 4;
 
   // Controls whether various repair behaviors are enabled.
-  string labelPods = 5;
+  bool labelPods = 5;
 
   string createEvents = 6 [deprecated=true];
 
-  string deletePods = 7;
+  bool deletePods = 7;
 
   string brokenPodLabelKey = 8;
 
@@ -469,7 +469,7 @@ message GlobalConfig {
   string imagePullPolicy = 13;
   // ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
 
-  TypeSliceOfMapStringInterface imagePullSecrets = 37;
+  repeated string imagePullSecrets = 37;
 
   // Specifies the default namespace for the Istio control plane components.
   string istioNamespace = 14;
@@ -2042,8 +2042,11 @@ message TracingZipkinConfig {
 
   string image = 9;
 
-  // InitialDelaySeconds of livenessProbe for Zipkin deployment
+  // InitialDelaySeconds of readiness probe for Zipkin deployment
   uint32 probeStartupDelay = 3;
+
+  // InitialDelaySeconds of liveness probe for Zipkin deployment
+  uint32 livenessProbeStartupDelay = 11;
 
   // Container port for Zipkin deployment
   uint32 queryPort = 4;
@@ -2098,6 +2101,10 @@ message KialiDashboardConfig {
   string jaegerURL = 6;
 
   TypeMapStringInterface auth = 7;
+
+  string grafanaInClusterURL = 8;
+
+  string jaegerInClusterURL = 9;
 }
 
 message KialiIngressConfig {

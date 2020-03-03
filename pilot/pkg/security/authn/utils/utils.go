@@ -23,13 +23,13 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	protovalue "istio.io/istio/pkg/proto"
 )
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
-func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
+func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy) []networking.FilterChain {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
 	}
@@ -74,14 +74,14 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 
 	if mTLSMode == model.MTLSStrict {
 		log.Debug("Allow only istio mutual TLS traffic")
-		return []plugin.FilterChain{
+		return []networking.FilterChain{
 			{
 				TLSContext: tls,
 			}}
 	}
 	if mTLSMode == model.MTLSPermissive {
 		log.Debug("Allow both, ALPN istio and legacy traffic")
-		return []plugin.FilterChain{
+		return []networking.FilterChain{
 			{
 				FilterChainMatch: alpnIstioMatch,
 				TLSContext:       tls,

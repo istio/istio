@@ -31,28 +31,30 @@ func TestTcpEchoServer(t *testing.T) {
 	want := prefix + " " + request
 
 	// start the TCP Echo Server
-	os.Args = []string{"main", "9000", prefix}
+	os.Args = []string{"main", "9000,9001", prefix}
 	go main()
 
 	// wait for the TCP Echo Server to start
 	time.Sleep(2 * time.Second)
 
-	// connect to the TCP Echo Server
-	conn, err := net.Dial("tcp", ":9000")
-	if err != nil {
-		t.Fatalf("couldn't connect to the server: %v", err)
-	}
-	defer conn.Close()
+	for _, addr := range []string{":9000", ":9001"} {
+		// connect to the TCP Echo Server
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			t.Fatalf("couldn't connect to the server: %v", err)
+		}
+		defer conn.Close()
 
-	// test the TCP Echo Server output
-	if _, err := conn.Write([]byte(request + "\n")); err != nil {
-		t.Fatalf("couldn't send request: %v", err)
-	} else {
-		reader := bufio.NewReader(conn)
-		if response, err := reader.ReadBytes(byte('\n')); err != nil {
-			t.Fatalf("couldn't read server response: %v", err)
-		} else if !strings.HasPrefix(string(response), want) {
-			t.Errorf("output doesn't match, wanted: %s, got: %s", want, response)
+		// test the TCP Echo Server output
+		if _, err := conn.Write([]byte(request + "\n")); err != nil {
+			t.Fatalf("couldn't send request: %v", err)
+		} else {
+			reader := bufio.NewReader(conn)
+			if response, err := reader.ReadBytes(byte('\n')); err != nil {
+				t.Fatalf("couldn't read server response: %v", err)
+			} else if !strings.HasPrefix(string(response), want) {
+				t.Errorf("output doesn't match, wanted: %s, got: %s", want, response)
+			}
 		}
 	}
 }

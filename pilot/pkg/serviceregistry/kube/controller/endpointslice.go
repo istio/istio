@@ -112,9 +112,12 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 						UID:             uid,
 						ServiceAccount:  sa,
 						Network:         esc.c.endpointNetwork(a),
-						Locality:        locality,
-						Attributes:      model.ServiceAttributes{Name: svcName, Namespace: slice.Namespace},
-						TLSMode:         tlsMode,
+						Locality: model.Locality{
+							Label:     locality,
+							ClusterID: esc.c.clusterID,
+						},
+						Attributes: model.ServiceAttributes{Name: svcName, Namespace: slice.Namespace},
+						TLSMode:    tlsMode,
 					})
 				}
 			}
@@ -247,7 +250,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					sa = kube.SecureNamingSAN(pod)
 					uid = createUID(pod.Name, pod.Namespace)
 				}
-				az := getLocalityFromTopology(e.Topology)
+				locality := getLocalityFromTopology(e.Topology)
 				tlsMode := kube.PodTLSMode(pod)
 
 				// identify the port by name. K8S EndpointPort uses the service port name
@@ -267,10 +270,13 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 								ServicePortName: svcPortEntry.Name,
 								UID:             uid,
 								Network:         c.endpointNetwork(a),
-								Locality:        az,
-								Labels:          podLabels,
-								ServiceAccount:  sa,
-								TLSMode:         tlsMode,
+								Locality: model.Locality{
+									Label:     locality,
+									ClusterID: esc.c.clusterID,
+								},
+								Labels:         podLabels,
+								ServiceAccount: sa,
+								TLSMode:        tlsMode,
 							},
 							ServicePort: svcPortEntry,
 							Service:     svc,

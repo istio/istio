@@ -19,22 +19,21 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/operator/version"
-
-	"istio.io/istio/operator/pkg/translate"
-
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/operator/pkg/name"
-
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/operator/version"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/operator/pkg/translate"
 	pkgversion "istio.io/pkg/version"
 )
 
@@ -69,7 +68,15 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 		profile = psf
 	}
 
-	return genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+	iopsString, iops, err := genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if err := validation.ValidateConfig(false, iops.Values, iops).ToError(); err != nil {
+		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
+	}
+	return iopsString, iops, nil
 }
 
 // parseYAMLFiles parses the given slice of filenames containing YAML and merges them into a single IstioOperator
@@ -93,7 +100,7 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 		}
 		l.logAndErrorf("Validation errors (continuing because of --force):\n%s", err)
 	}
-	if fileOverlayIOP.Spec.Profile != "" {
+	if fileOverlayIOP.Spec != nil && fileOverlayIOP.Spec.Profile != "" {
 		if profile != "" && profile != fileOverlayIOP.Spec.Profile {
 			return "", "", fmt.Errorf("different profiles cannot be overlaid")
 		}
@@ -137,7 +144,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 
 	// To generate the base profileOrPath for overlaying with user values, we need the installPackagePath where the profiles
 	// can be found, and the selected profileOrPath. Both of these can come from either the user overlay file or --set flag.
-	outYAML, err := getProfileYAML(profileOrPath)
+	outYAML, err := getProfileYAML(installPackagePath, profileOrPath)
 	if err != nil {
 		return "", nil, err
 	}
@@ -221,7 +228,11 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 
 // getProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
 // a profile label or a file path.
-func getProfileYAML(profileOrPath string) (string, error) {
+func getProfileYAML(installPackagePath, profileOrPath string) (string, error) {
+	// If charts are a file path and profile is a name like default, transform it to the file path.
+	if installPackagePath != "" && helm.IsBuiltinProfileName(profileOrPath) {
+		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
+	}
 	// This contains the IstioOperator CR.
 	baseCRYAML, err := helm.ReadProfileYAML(profileOrPath)
 	if err != nil {
@@ -285,25 +296,16 @@ func getClusterSpecificValues(config *rest.Config, force bool, l *Logger) (strin
 }
 
 func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
-	d, err := discovery.NewDiscoveryClientForConfig(config)
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}
-	_, s, err := d.ServerGroupsAndResources()
-	if err != nil {
-		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
+	if jwtPolicy == util.FirstPartyJWT {
+		// nolint: lll
+		l.logAndPrint("Detected that your cluster does not support third party JWT authentication. " +
+			"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
 	}
-	for _, res := range s {
-		for _, api := range res.APIResources {
-			// Appearance of this API indicates we do support third party jwt token
-			if api.Name == "serviceaccounts/token" {
-				return "values.global.jwtPolicy=third-party-jwt", nil
-			}
-		}
-	}
-	// TODO link to istio.io doc on how to secure this
-	l.logAndPrint("Detected that your cluster does not support third party JWT authentication. Falling back to less secure first party JWT")
-	return "values.global.jwtPolicy=first-party-jwt", nil
+	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
 }
 
 // overlayValuesEnablement overlays any enablement in values path from the user file overlay or set flag overlay.
@@ -321,15 +323,10 @@ func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (
 // representation if successful. If force is set, validation errors are written to logger rather than causing an
 // error.
 func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
-	iops := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
-		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
-	}
-	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
-		if !force {
-			l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
-			return nil, fmt.Errorf(errs.Error())
-		}
+	iops, err := istio.UnmarshalAndValidateIOPS(iopsYAML)
+	if err != nil && !force {
+		l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
+		return nil, err
 	}
 	return iops, nil
 }

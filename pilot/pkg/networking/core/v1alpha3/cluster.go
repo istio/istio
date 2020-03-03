@@ -281,7 +281,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 
 				updateEds(subsetCluster)
 
-				subsetCluster.Metadata = clusterMetadata
+				subsetCluster.Metadata = util.AddSubsetToMetadata(clusterMetadata, subset.Name)
 				// call plugins
 				for _, p := range configgen.Plugins {
 					p.OnOutboundCluster(inputParams, subsetCluster)
@@ -376,6 +376,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 					updateEds(subsetCluster)
 
 					subsetCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+					subsetCluster.Metadata = util.AddSubsetToMetadata(subsetCluster.Metadata, subset.Name)
 					clusters = append(clusters, subsetCluster)
 				}
 			}
@@ -442,7 +443,7 @@ func buildLocalityLbEndpoints(push *model.PushContext, proxyNetworkView map[stri
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
 		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.Endpoint.TLSMode, push)
-		locality := instance.GetLocality()
+		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
 
@@ -582,13 +583,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 			// by the user and parse it into host:port or a unix domain socket
 			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
 			endpointAddress := actualLocalHost
-			endpointFamily := model.AddressFamilyTCP
 			port := 0
 			var err error
 			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
 				// this is a UDS endpoint. assign it as is
 				endpointAddress = ingressListener.DefaultEndpoint
-				endpointFamily = model.AddressFamilyUnix
 			} else {
 				// parse the ip, port. Validation guarantees presence of :
 				parts := strings.Split(ingressListener.DefaultEndpoint, ":")
@@ -604,7 +603,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 			// for a service instance that matches this ingress port as this will allow us
 			// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
 			instance := configgen.findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Config.Name, sidecarScope.Config.Namespace)
-			instance.Endpoint.Family = endpointFamily
 			instance.Endpoint.Address = endpointAddress
 			instance.ServicePort = listenPort
 			instance.Endpoint.ServicePortName = listenPort.Name
@@ -1295,7 +1293,7 @@ func buildDefaultCluster(push *model.PushContext, name string, discoveryType api
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(push.Mesh.DnsRefreshRate)
 		cluster.DnsRefreshRate = dnsRate
-		if util.IsIstioVersionGE13(proxy) && features.RespectDNSTTL.Get() {
+		if util.IsIstioVersionGE13(proxy) {
 			cluster.RespectDnsTtl = true
 		}
 	}

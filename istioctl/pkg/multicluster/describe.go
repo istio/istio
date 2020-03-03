@@ -44,11 +44,11 @@ const (
 )
 
 func secretStateAndServer(env Environment, srs remoteSecrets, c *Cluster) (remoteSecretStatus, string) {
-	remoteSecret, ok := srs[c.uid]
+	remoteSecret, ok := srs[c.clusterName]
 	if !ok {
 		return rsStatusNotFound, ""
 	}
-	key := string(c.uid)
+	key := c.clusterName
 	kubeconfig, ok := remoteSecret.Data[key]
 	if !ok {
 		return rsStatusConfigMissing, ""
@@ -109,7 +109,7 @@ func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent strin
 	tw := tabwriter.NewWriter(env.Stdout(), 0, 8, 2, '\t', 0)
 	_, _ = fmt.Fprintf(tw, "%vCONTEXT\tUID\tREGISTERED\tMASTER\t\n", indent)
 	for _, other := range mesh.SortedClusters() {
-		if other.uid == c.uid {
+		if other.clusterName == c.clusterName {
 			continue
 		}
 
@@ -118,7 +118,7 @@ func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent strin
 		_, _ = fmt.Fprintf(tw, "%v%v\t%v\t%v\t%v\n",
 			indent,
 			other.Context,
-			other.uid,
+			other.clusterName,
 			secretState,
 			server,
 		)
@@ -144,10 +144,10 @@ func describeIngressGateways(env Environment, c *Cluster, indent string) { // no
 }
 
 func describeCluster(env Environment, mesh *Mesh, c *Cluster) error {
-	env.Printf("%v Context=%v uid=%v network=%v istio=%v %v\n",
+	env.Printf("%v Context=%v clusterName=%v network=%v istio=%v %v\n",
 		strings.Repeat("-", 10),
 		c.Context,
-		c.uid,
+		c.clusterName,
 		c.Network,
 		c.installed,
 		strings.Repeat("-", 10))
