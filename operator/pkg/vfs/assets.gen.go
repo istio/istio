@@ -19741,18 +19741,13 @@ data:
         {{- end }}
       {{- end }}
 
-    {{- if not (eq .Values.revision "") }}
-    {{- $defPilotHostname := printf "istiod-%s.%s.svc" .Values.revision .Release.Namespace }}
-    {{- else }}
-    {{- $defPilotHostname := printf "istiod.%s.svc" .Release.Namespace }}
-    {{- end }}
-    {{- $defPilotHostname := printf "istiod%s.%s.svc" .Values.revision .Release.Namespace }}
-    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
-
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: {{ $pilotAddress }}:15012
-
+      {{- if .Values.global.remotePilotAddress }}
+      discoveryAddress: {{ .Values.global.remotePilotAddress }}
+      {{- else }}
+      discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
+      {{- end }}
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
       #
@@ -47760,7 +47755,7 @@ var _translateconfigTranslateconfig15Yaml = []byte(`apiMapping:
   MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
   Revision:
-    outPath: "global.revision"
+    outPath: "revision"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
@@ -47938,7 +47933,7 @@ var _translateconfigTranslateconfig16Yaml = []byte(`apiMapping:
   MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
   Revision:
-    outPath: "global.revision"
+    outPath: "revision"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"

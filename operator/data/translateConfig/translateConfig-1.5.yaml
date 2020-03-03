@@ -8,7 +8,7 @@ apiMapping:
   MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
   Revision:
-    outPath: "global.revision"
+    outPath: "revision"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
