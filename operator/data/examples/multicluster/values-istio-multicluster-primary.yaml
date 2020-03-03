@@ -2,8 +2,6 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   values:
-    security:
-      selfSigned: false
     gateways:
       istio-ingressgateway:
         env:
