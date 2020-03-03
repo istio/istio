@@ -13563,7 +13563,7 @@ pilot:
   # if protocol sniffing is enabled for outbound
   enableProtocolSniffingForOutbound: true
   # if protocol sniffing is enabled for inbound
-  enableProtocolSniffingForInbound: false
+  enableProtocolSniffingForInbound: true
 
   nodeSelector: {}
   tolerations: []
