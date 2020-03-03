@@ -38,6 +38,13 @@ type HelmReconciler struct {
 	needUpdateAndPrune bool
 }
 
+// NewHelmReconciler creates a HelmReconciler and returns a ptr to it.
+func NewHelmReconciler(instance *iop.IstioOperator) *HelmReconciler {
+	return &HelmReconciler{
+		instance: instance,
+	}
+}
+
 // Factory is a factory for creating HelmReconciler objects using the specified CustomizerFactory.
 type Factory struct {
 	// CustomizerFactory is a factory for creating the Customizer object for the HelmReconciler.
@@ -95,7 +102,7 @@ func (h *HelmReconciler) Reconcile() error {
 	}
 
 	// render charts
-	manifestMap, err := h.renderCharts(h.customizer.Input())
+	manifestMap, err := h.RenderCharts(h.customizer.Input())
 	if err != nil {
 		// TODO: this needs to update status to RECONCILING.
 		return err

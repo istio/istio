@@ -38,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
@@ -77,7 +77,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource IstioOperator
-	err = c.Watch(&source.Kind{Type: &iop.IstioOperator{}}, &handler.EnqueueRequestForObject{}, getPredicateForIstioOperator())
+	err = c.Watch(&source.Kind{Type: &iopv1alpha1.IstioOperator{}}, &handler.EnqueueRequestForObject{}, getPredicateForIstioOperator())
 	if err != nil {
 		return err
 	}
@@ -99,12 +99,12 @@ func getPredicateForIstioOperator() predicate.Funcs {
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldIOP, ok := e.ObjectOld.(*iop.IstioOperator)
+			oldIOP, ok := e.ObjectOld.(*iopv1alpha1.IstioOperator)
 			if !ok {
 				log.Error("failed to get old IstioOperator")
 				return false
 			}
-			newIOP := e.ObjectNew.(*iop.IstioOperator)
+			newIOP := e.ObjectNew.(*iopv1alpha1.IstioOperator)
 			if !ok {
 				log.Error("failed to get new IstioOperator")
 				return false
@@ -150,7 +150,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		Namespace: ns,
 	}
 	// declare read-only iop instance to create the reconciler
-	iop := &iop.IstioOperator{}
+	iop := &iopv1alpha1.IstioOperator{}
 	if err := r.client.Get(context.TODO(), reqNamespacedName, iop); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -229,8 +229,9 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 
 	log.Info("Updating IstioOperator")
 	var err error
-	iopMerged := *iop
-	iopMerged.Spec, err = helmreconciler.MergeIOPSWithProfile(iop.Spec)
+	iopMerged := &iopv1alpha1.IstioOperator{}
+	*iopMerged = *iop
+	iopMerged.Spec, err = helmreconciler.MergeIOPSWithProfile(iopMerged)
 
 	if err != nil {
 		log.Errorf("failed to generate IstioOperator spec, %v", err)
@@ -253,7 +254,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		}
 		globalValues["jwtPolicy"] = string(jwtPolicy)
 	}
-	reconciler, err := r.getOrCreateReconciler(&iopMerged)
+	reconciler, err := r.getOrCreateReconciler(iopMerged)
 	if err == nil {
 		err = reconciler.Reconcile()
 		if err != nil {
@@ -271,7 +272,7 @@ var (
 	reconcilers = map[string]*helmreconciler.HelmReconciler{}
 )
 
-func reconcilersMapKey(iop *iop.IstioOperator) string {
+func reconcilersMapKey(iop *iopv1alpha1.IstioOperator) string {
 	return fmt.Sprintf("%s/%s", iop.Namespace, iop.Name)
 }
 
@@ -301,7 +302,7 @@ var ownedResourcePredicates = predicate.Funcs{
 	},
 }
 
-func (r *ReconcileIstioOperator) getOrCreateReconciler(iop *iop.IstioOperator) (*helmreconciler.HelmReconciler, error) {
+func (r *ReconcileIstioOperator) getOrCreateReconciler(iop *iopv1alpha1.IstioOperator) (*helmreconciler.HelmReconciler, error) {
 	key := reconcilersMapKey(iop)
 	var err error
 	var reconciler *helmreconciler.HelmReconciler
