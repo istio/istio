@@ -25,8 +25,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -204,7 +202,6 @@ func SendRequest(ing ingress.Instance, host string, path string, callType ingres
 			Address:    endpointAddress,
 			Timeout:    time.Second,
 		})
-		log.Errorf("howardjohn: call got %v %v for  %v", response, err, tlsCtx.Cert)
 		errorMatch := true
 		if err != nil {
 			if !strings.Contains(err.Error(), exRsp.ErrorMessage) {
@@ -271,13 +268,10 @@ func updateSecret(ingressType ingress.CallType, scrt *v1.Secret, ic IngressCrede
 }
 
 func SetupTest(ctx framework.TestContext, g galley.Instance) namespace.Instance {
-	serverNs, err := namespace.New(ctx, namespace.Config{
+	serverNs := namespace.NewOrFail(ctx, ctx, namespace.Config{
 		Prefix: "ingress",
 		Inject: true,
 	})
-	if err != nil {
-		ctx.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
-	}
 	var a echo.Instance
 	echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&a, echo.Config{
