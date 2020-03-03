@@ -80,8 +80,8 @@ func validateValues(node interface{}, path util.Path) (errs util.Errors) {
 
 // GenValidateError generates error with helpful message when input fails values.yaml schema validation
 func GenValidateError(mvs version.MinorVersion, err error) error {
-	vs := fmt.Sprintf("releaese-%s.%d", mvs.MajorVersion, mvs.Minor)
+	vs := fmt.Sprintf("release-%s.%d", mvs.MajorVersion, mvs.Minor)
 	return fmt.Errorf("the input values.yaml fail validation: %v\n"+
-		"check against https://github.com/istio/istio/blob/master/operator/pkg/apis/istio/v1alpha1/values_types.proto for schema\n"+
-		"or run the command with --force flag to ignore the error", err, vs)
+		"check against https://github.com/istio/istio/blob/%s/operator/pkg/apis/istio/v1alpha1/values_types.proto for schema\n"+
+		"or run the command with --force flag to ignore the error: %v\n", vs, vs, err)
 }
