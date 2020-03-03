@@ -519,44 +519,65 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 			Bind:                       matchingIP,
 			InboundClusterName:         clusterName,
 		}
+		var allChains []istionetworking.FilterChain
+		for _, p := range configgen.Plugins {
+			chains := p.OnInboundPassthroughFilterChains(in)
+			allChains = append(allChains, chains...)
+		}
+		if len(allChains) == 0 {
+			// Add one empty entry to the list if none of the plugins are interested in updating the filter chains.
+			allChains = []istionetworking.FilterChain{{}}
+		}
+
+		// Override the filter chain match to make sure the pass through filter chain captures the pass through traffic.
+		for i := range allChains {
+			chain := &allChains[i]
+			if chain.FilterChainMatch == nil {
+				chain.FilterChainMatch = &listener.FilterChainMatch{}
+			}
+			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{
+				util.ConvertAddressToCidr(matchingIP),
+			}
+			chain.FilterChainMatch.ApplicationProtocols = plaintextHTTPALPNs
+			chain.ListenerProtocol = istionetworking.ListenerProtocolHTTP
+		}
+
 		mutable := &istionetworking.MutableObjects{
-			FilterChains: []istionetworking.FilterChain{
-				{
-					ListenerProtocol: istionetworking.ListenerProtocolHTTP,
-				},
-			},
+			FilterChains: allChains,
 		}
 		for _, p := range configgen.Plugins {
 			if err := p.OnInboundPassthrough(in, mutable); err != nil {
 				log.Errorf("Build inbound passthrough filter chains error: %v", err)
 			}
 		}
-		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in)
-		httpOpts.statPrefix = clusterName
-		connectionManager := buildHTTPConnectionManager(in, httpOpts, mutable.FilterChains[0].HTTP)
 
-		filter := &listener.Filter{
-			Name:       xdsutil.HTTPConnectionManager,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
+		// Construct the actual filter chains for each of the filter chain from the plugin.
+		for _, chain := range allChains {
+			httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in)
+			httpOpts.statPrefix = clusterName
+			connectionManager := buildHTTPConnectionManager(in, httpOpts, chain.HTTP)
+
+			filter := &listener.Filter{
+				Name:       xdsutil.HTTPConnectionManager,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
+			}
+
+			filterChain := &listener.FilterChain{
+				FilterChainMatch: chain.FilterChainMatch,
+				Filters:          append(chain.TCP, filter),
+			}
+			if chain.TLSContext != nil {
+				filterChain.FilterChainMatch.ApplicationProtocols =
+					append(filterChain.FilterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
+				// Update transport socket from the TLS context configured by the plugin.
+				filterChain.TransportSocket = &core.TransportSocket{
+					Name:       util.EnvoyTLSSocketName,
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(chain.TLSContext)},
+				}
+			}
+			filterChain.Name = VirtualInboundListenerName
+			filterChains = append(filterChains, filterChain)
 		}
-
-		filterChainMatch := listener.FilterChainMatch{
-			// Port : EMPTY to match all ports
-			PrefixRanges: []*core.CidrRange{
-				util.ConvertAddressToCidr(matchingIP),
-			},
-			ApplicationProtocols: plaintextHTTPALPNs,
-		}
-
-		filterChain := &listener.FilterChain{
-			Name:             VirtualInboundListenerName,
-			FilterChainMatch: &filterChainMatch,
-			Filters: []*listener.Filter{
-				filter,
-			},
-		}
-
-		filterChains = append(filterChains, filterChain)
 	}
 
 	return filterChains
