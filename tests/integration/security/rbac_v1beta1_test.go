@@ -752,7 +752,7 @@ func TestV1beta1_TCP(t *testing.T) {
 				// The policy on workload b denies request with path "/data" to port 8090:
 				// - request to port http-8090 should be denied because both path and port are matched.
 				// - request to port http-8091 should be allowed because the port is not matched.
-				// - request to port tcp should be denied because the port is not matched.
+				// - request to port tcp should be allowed because the port is not matched.
 				newTestCase(a, b, "http-8090", false),
 				newTestCase(a, b, "http-8091", true),
 				newTestCase(a, b, "tcp", true),

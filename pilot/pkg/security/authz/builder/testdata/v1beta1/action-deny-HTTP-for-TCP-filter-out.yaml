@@ -32,6 +32,32 @@ rules:
       permissions:
       - andRules:
           rules:
+          - any: true
+      principals:
+      - andIds:
+          ids:
+          - orIds:
+              ids:
+              - authenticated:
+                  principalName:
+                    safeRegex:
+                      googleRe2: {}
+                      regex: .*/ns/ns-1/.*
+    ns[foo]-policy[httpbin-deny]-rule[4]:
+      permissions:
+      - andRules:
+          rules:
+          - orRules:
+              rules:
+              - destinationPort: 80
+      principals:
+      - andIds:
+          ids:
+          - any: true
+    ns[foo]-policy[httpbin-deny]-rule[5]:
+      permissions:
+      - andRules:
+          rules:
           - orRules:
               rules:
               - destinationPort: 80
@@ -45,7 +71,27 @@ rules:
                     safeRegex:
                       googleRe2: {}
                       regex: .*/ns/ns-1/.*
-    ns[foo]-policy[httpbin-deny]-rule[4]:
+    ns[foo]-policy[httpbin-deny]-rule[6]:
+      permissions:
+      - andRules:
+          rules:
+          - any: true
+      principals:
+      - andIds:
+          ids:
+          - any: true
+    ns[foo]-policy[httpbin-deny]-rule[7]:
+      permissions:
+      - andRules:
+          rules:
+          - orRules:
+              rules:
+              - destinationPort: 80
+      principals:
+      - andIds:
+          ids:
+          - any: true
+    ns[foo]-policy[httpbin-deny]-rule[8]:
       permissions:
       - andRules:
           rules:
