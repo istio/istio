@@ -20804,7 +20804,7 @@ spec:
               config:
                 configuration: envoy.wasm.metadata_exchange
                 vm_config:
-                  {{- if .Values.telemetry.v2.metadataExchange.enabledV8 }}
+                  {{- if .Values.telemetry.v2.metadataExchange.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -20912,7 +20912,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -20951,7 +20951,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_inbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -20990,7 +20990,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -21039,7 +21039,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_inbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -21076,7 +21076,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -21113,7 +21113,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -21289,7 +21289,7 @@ spec:
               config:
                 configuration: envoy.wasm.metadata_exchange
                 vm_config:
-                  {{- if .Values.telemetry.v2.metadataExchange.enabledV8 }}
+                  {{- if .Values.telemetry.v2.metadataExchange.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -21397,7 +21397,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -21436,7 +21436,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_inbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -21475,7 +21475,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -21524,7 +21524,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_inbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -21561,7 +21561,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
@@ -21598,7 +21598,7 @@ spec:
                   }
                 vm_config:
                   vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.enabledV8 }}
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
