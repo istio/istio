@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/istio/operator/pkg/tpath"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,7 +37,6 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
@@ -65,17 +66,17 @@ func FlushObjectCaches() {
 	objectCaches = make(map[string]*ObjectCache)
 }
 
-func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, error) {
+func (h *HelmReconciler) RenderCharts(in RenderingInput) (ChartManifestsMap, error) {
 	iop, ok := in.GetInputConfig().(*valuesv1alpha1.IstioOperator)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type %T in renderCharts", in.GetInputConfig())
+		return nil, fmt.Errorf("unexpected type %T in RenderCharts", in.GetInputConfig())
 	}
 	iopSpec := iop.Spec
 	if err := validate.CheckIstioOperatorSpec(iopSpec, false); err != nil {
 		return nil, err
 	}
 
-	mergedIOPS, err := MergeIOPSWithProfile(iopSpec)
+	mergedIOPS, err := MergeIOPSWithProfile(iop)
 	if err != nil {
 		return nil, err
 	}
@@ -103,8 +104,8 @@ func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, err
 
 // MergeIOPSWithProfile overlays the values in iop on top of the defaults for the profile given by iop.profile and
 // returns the merged result.
-func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOperatorSpec, error) {
-	profile := iop.Profile
+func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOperatorSpec, error) {
+	profile := iop.Spec.Profile
 
 	// This contains the IstioOperator CR.
 	baseIOPYAML, err := helm.ReadProfileYAML(profile)
@@ -147,17 +148,22 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 	if err != nil {
 		return nil, err
 	}
-	baseYAML, err := tpath.GetSpecSubtree(baseIOPYAML)
+
+	mergedYAML, err := util.OverlayYAML(baseIOPYAML, overlayYAML)
 	if err != nil {
 		return nil, err
 	}
 
-	// Merge base and overlay.
-	mergedYAML, err := util.OverlayYAML(baseYAML, overlayYAML)
+	mergedYAML, err = translate.OverlayValuesEnablement(mergedYAML, overlayYAML, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not overlay user config over base: %s", err)
+		return nil, err
 	}
-	return unmarshalAndValidateIOPSpec(mergedYAML)
+	mergedYAMLSpec, err := tpath.GetSpecSubtree(mergedYAML)
+	if err != nil {
+		return nil, err
+	}
+
+	return unmarshalAndValidateIOPSpec(mergedYAMLSpec)
 }
 
 // unmarshalAndValidateIOPSpec unmarshals the IstioOperatorSpec in the iopsYAML string and validates it.
