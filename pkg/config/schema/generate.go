@@ -32,8 +32,3 @@ package schema
 // nolint: lll
 //go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/snapshots.main.go snapshots metadata.yaml "$REPO_ROOT/pkg/config/schema/snapshots/snapshots.gen.go"
 
-//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/collections/collections.gen.go"
-//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/snapshots/snapshots.gen.go"
-//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/staticinit.gen.go"
-//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/collections/staticinit.gen.go"
-//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/snapshots/staticinit.gen.go"
