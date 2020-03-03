@@ -767,8 +767,8 @@ func TestPermission_Generate(t *testing.T) {
 				Methods: []string{"GET"},
 				Constraints: []KeyValues{
 					{
-						attrDestIP: Values{
-							Values: []string{"1.2.3.4", "5.6.7.8"},
+						"request.headers[:foo]": Values{
+							Values: []string{"bar"},
 						},
 					},
 				},
@@ -784,12 +784,24 @@ func TestPermission_Generate(t *testing.T) {
                   name: :method
           - orRules:
               rules:
-              - destinationIp:
-                  addressPrefix: 1.2.3.4
-                  prefixLen: 32
-              - destinationIp:
-                  addressPrefix: 5.6.7.8
-                  prefixLen: 32`,
+              - header:
+                  exactMatch: bar
+                  name: :foo`,
+		},
+		{
+			name: "permission with forTCP",
+			permission: &Permission{
+				Methods: []string{"GET"},
+				Constraints: []KeyValues{
+					{
+						"request.headers[:foo]": Values{
+							Values: []string{"bar"},
+						},
+					},
+				},
+			},
+			forTCPFilter: true,
+			wantError:    "methods([GET])",
 		},
 		{
 			name: "permission with forTCP and forDeny",
