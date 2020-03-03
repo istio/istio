@@ -139,7 +139,9 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
+          {{- if .Values.global.remotePilotAddress }}
+          - {{ .Values.global.remotePilotAddress }}:15012
+          {{- else if .Values.global.configNamespace }}
           - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
           - istio-pilot.istio-system.svc:15012
