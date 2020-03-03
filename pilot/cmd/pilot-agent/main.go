@@ -506,11 +506,11 @@ var (
 				}
 				prober := kubeAppProberNameVar.Get()
 				statusServer, err := status.NewServer(status.Config{
-					LocalHostAddr:      localHostAddr,
-					AdminPort:          proxyAdminPort,
-					StatusPort:         statusPort,
-					KubeAppHTTPProbers: prober,
-					NodeType:           role.Type,
+					LocalHostAddr:  localHostAddr,
+					AdminPort:      proxyAdminPort,
+					StatusPort:     statusPort,
+					KubeAppProbers: prober,
+					NodeType:       role.Type,
 				})
 				if err != nil {
 					cancel()

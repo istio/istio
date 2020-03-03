@@ -147,7 +147,7 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: ISTIO_KUBE_APP_PROBERS
-          value: '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
+          value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333}},"/app-health/world/livez":{"httpGet":{"port":90}}}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
