@@ -89,7 +89,7 @@ spec:
 	}
 	// Negative test, we expect the health check fails, so set a timeout duration.
 	if !rewrite {
-		cfg.ReadinessTimeout = time.Second * 40
+		cfg.ReadinessTimeout = time.Second * 15
 	}
 	err := echoboot.NewBuilderOrFail(t, ctx).
 		With(&healthcheck, cfg).
