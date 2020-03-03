@@ -281,6 +281,18 @@ var (
 	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
 
+	// Default request timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero
+	// which disables timeout when it is not configured, to preserve the current behavior.
+	defaultRequestTimeoutVar = env.RegisterDurationVar(
+		"ISTIO_DEFAULT_REQUEST_TIMEOUT",
+		0*time.Millisecond,
+		"Default Http and gRPC Request timeout",
+	)
+
+	DefaultRequestTimeout = func() *duration.Duration {
+		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
+	}
+
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
 			" be enabled. This feature is currently experimental, and is off by default.").Get()
