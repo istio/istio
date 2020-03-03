@@ -203,6 +203,7 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
+        "caAddress": "",
         "certificates": [],
         "configNamespace": "istio-system",
         "configRootNamespace": "istio-system",

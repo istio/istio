@@ -14536,8 +14536,10 @@ spec:
           - name: CA_ADDR
           {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
-          {{- else }}
+          {{- else if .Values.global.configNamespace }}
             value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          {{- else }}
+            value: istiod.istio-system.svc:15012
           {{- end }}
           - name: NODE_NAME
             valueFrom:
