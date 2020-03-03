@@ -110,8 +110,8 @@ func getPredicateForIstioOperator() predicate.Funcs {
 				return false
 			}
 			if !reflect.DeepEqual(oldIOP.Spec, newIOP.Spec) ||
-					oldIOP.GetDeletionTimestamp() != newIOP.GetDeletionTimestamp() ||
-					oldIOP.GetGeneration() != newIOP.GetGeneration() {
+				oldIOP.GetDeletionTimestamp() != newIOP.GetDeletionTimestamp() ||
+				oldIOP.GetGeneration() != newIOP.GetGeneration() {
 				return true
 			}
 			return false
