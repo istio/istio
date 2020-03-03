@@ -231,9 +231,6 @@ spec:
           port: 853
           targetPort: 8853
         ports:
-        - name: status-port
-          port: 15020
-          targetPort: 15020
         - name: http2
           port: 80
           targetPort: 8080

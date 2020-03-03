@@ -732,7 +732,6 @@ spec:
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
-        - containerPort: 15020
         - containerPort: 8080
         - containerPort: 8443
         - containerPort: 15029
@@ -911,10 +910,6 @@ spec:
     istio: ingressgateway
     
   ports:
-    -
-      name: status-port
-      port: 15020
-      targetPort: 15020
     -
       name: http2
       port: 80

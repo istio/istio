@@ -46506,9 +46506,6 @@ spec:
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
-          - port: 15020
-            targetPort: 15020
-            name: status-port
           - port: 80
             targetPort: 8080
             name: http2
@@ -46841,9 +46838,6 @@ spec:
         # Note that AWS ELB will by default perform health checks on the first port
         # on this list. Setting this to the health check port will ensure that health
         # checks always work. https://github.com/istio/istio/issues/12503
-        - port: 15020
-          targetPort: 15020
-          name: status-port
         - port: 80
           targetPort: 8080
           name: http2

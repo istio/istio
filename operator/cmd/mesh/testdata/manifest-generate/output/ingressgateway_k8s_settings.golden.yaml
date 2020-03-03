@@ -37,7 +37,6 @@ spec:
         - name: istio-proxy
           image: "gcr.io/istio-testing/proxyv2:latest"
           ports:
-            - containerPort: 15020
             - containerPort: 8080
             - containerPort: 8443
             - containerPort: 15029
@@ -260,9 +259,6 @@ spec:
   - name: foo
     port: 1234
     targetPort: 1234
-  - name: status-port
-    port: 15020
-    targetPort: 15020
   - name: http2
     port: 80
     targetPort: 8080
