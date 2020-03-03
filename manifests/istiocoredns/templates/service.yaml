@@ -16,3 +16,6 @@ spec:
   - name: dns-tcp
     port: 53
     protocol: TCP
+  {{- if .Values.clusterIP }}
+  clusterIP: "{{ .Values.clusterIP }}"
+  {{- end }}
