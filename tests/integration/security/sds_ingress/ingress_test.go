@@ -16,7 +16,6 @@ package sdsingress
 
 import (
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -61,26 +60,32 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 
 			var (
-				credName = []string{"bookinfo-credential-1"}
+				credName = "bookinfo-credential-1"
 				host     = "bookinfo1.example.com"
 			)
 			// Add kubernetes secret to provision key/cert for ingress gateway.
-			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.TLS, ingressutil.IngressCredentialA)
-			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credName)
-			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleTLSGateway)
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA)
+			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName})
+
+			ns := ingressutil.SetupTest(t, ctx, g)
+			ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
+				Mode:           "SIMPLE",
+				CredentialName: credName,
+				Host:           host,
+			})
 
 			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 			tlsContext := ingressutil.TLSContext{CaCert: ingressutil.CaCertA}
-			err := ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 30*time.Second,
+			err := ingressutil.SendRequest(ingA, host, credName, ingress.TLS, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
 			}
 
 			// key/cert rotation
-			ingressutil.RotateSecrets(t, ctx, credName, ingress.TLS, ingressutil.IngressCredentialB)
+			ingressutil.RotateSecrets(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialB)
 			// Client use old server CA cert to set up SSL connection would fail.
-			err = ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 30*time.Second,
+			err = ingressutil.SendRequest(ingA, host, credName, ingress.TLS, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
 			if err != nil {
 				t.Fatalf("unable to retrieve 404 from product page at host %s: %v", host, err)
@@ -89,7 +94,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			// Client use new server CA cert to set up SSL connection.
 			tlsContext = ingressutil.TLSContext{CaCert: ingressutil.CaCertB}
 			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-			err = ingressutil.VisitProductPage(ingB, host, ingress.TLS, tlsContext, 30*time.Second,
+			err = ingressutil.SendRequest(ingB, host, credName, ingress.TLS, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
@@ -117,7 +122,13 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 				credCaName = []string{"bookinfo-credential-1-cacert"}
 				host       = "bookinfo1.example.com"
 			)
-			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleMTLSGateway)
+
+			ns := ingressutil.SetupTest(t, ctx, g)
+			ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
+				Mode:           "MUTUAL",
+				CredentialName: credName[0],
+				Host:           host,
+			})
 
 			// Add two kubernetes secrets to provision server key/cert and client CA cert for ingress gateway.
 			ingressutil.CreateIngressKubeSecret(t, ctx, credCaName, ingress.Mtls, ingressutil.IngressCredentialCaCertA)
@@ -132,7 +143,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 				PrivateKey: ingressutil.TLSClientKeyA,
 				Cert:       ingressutil.TLSClientCertA,
 			}
-			err := ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 30*time.Second,
+			err := ingressutil.SendRequest(ingA, host, credName[0], ingress.Mtls, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Fatalf("unable to retrieve code 200 from product page at host %s: %v", host, err)
@@ -142,7 +153,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			// at client side.
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertB)
 			// Client uses old server CA cert to set up SSL connection would fail.
-			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 30*time.Second,
+			err = ingressutil.SendRequest(ingA, host, credName[0], ingress.Mtls, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
 			if err != nil {
 				t.Fatalf("unable to retrieve 0 from product page at host %s: %v", host, err)
@@ -152,7 +163,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			// validation at client side.
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertA)
 			// Use old CA cert to set up SSL connection would succeed this time.
-			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 30*time.Second,
+			err = ingressutil.SendRequest(ingA, host, credName[0], ingress.Mtls, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Fatalf("unable to retrieve code 200 from product page at host %s: %v", host, err)
@@ -179,7 +190,13 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 			// Add kubernetes secret to provision key/cert for ingress gateway.
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credName)
-			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleMTLSGateway)
+
+			ns := ingressutil.SetupTest(t, ctx, g)
+			ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
+				Mode:           "MUTUAL",
+				CredentialName: credName[0],
+				Host:           host,
+			})
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 			tlsContext := ingressutil.TLSContext{
@@ -187,7 +204,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 				PrivateKey: ingressutil.TLSClientKeyA,
 				Cert:       ingressutil.TLSClientCertA,
 			}
-			err := ingressutil.VisitProductPage(ing, host, ingress.Mtls, tlsContext, 30*time.Second,
+			err := ingressutil.SendRequest(ing, host, credName[0], ingress.Mtls, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
@@ -196,7 +213,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 			// key/cert rotation
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialB)
 			// Use old server CA cert to set up SSL connection would fail.
-			err = ingressutil.VisitProductPage(ing, host, ingress.Mtls, tlsContext, 30*time.Second,
+			err = ingressutil.SendRequest(ing, host, credName[0], ingress.Mtls, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
 			if err != nil {
 				t.Fatalf("unable to retrieve 404 from product page at host %s: %v", host, err)
@@ -208,7 +225,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 				PrivateKey: ingressutil.TLSClientKeyB,
 				Cert:       ingressutil.TLSClientCertB,
 			}
-			err = ingressutil.VisitProductPage(ing, host, ingress.Mtls, tlsContext, 30*time.Second,
+			err = ingressutil.SendRequest(ing, host, credName[0], ingress.Mtls, tlsContext,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", host, err)
@@ -241,7 +258,8 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
+
+			ns := ingressutil.SetupTest(t, ctx, g)
 
 			testCase := []struct {
 				name                     string
@@ -357,12 +375,18 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 			}
 
 			for _, c := range testCase {
-				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					ingressutil.CreateIngressKubeSecret(ctx, ctx, []string{c.secretName}, ingress.TLS,
 						c.ingressGatewayCredential)
 					defer ingressutil.DeleteIngressKubeSecret(ctx, ctx, []string{c.secretName})
 					ing := ingress.NewOrFail(ctx, ctx, c.ingressConfig)
-					err := ingressutil.VisitProductPage(ing, c.hostName, c.callType, c.tlsContext, 30*time.Second, c.expectedResponse, t)
+
+					ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
+						Mode:           "SIMPLE",
+						CredentialName: c.secretName,
+						Host:           c.hostName,
+					})
+					err := ingressutil.SendRequest(ing, c.hostName, c.secretName, c.callType, c.tlsContext, c.expectedResponse, t)
 					if err != nil {
 						ctx.Fatalf("unable to retrieve %d from product page at host %s: %v", c.expectedResponse.ResponseCode, c.hostName, err)
 					}
@@ -378,7 +402,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiMTLSGateway)
+			ns := ingressutil.SetupTest(t, ctx, g)
 
 			testCase := []struct {
 				name                     string
@@ -468,8 +492,14 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					ingressutil.CreateIngressKubeSecret(t, ctx, []string{c.secretName}, ingress.Mtls,
 						c.ingressGatewayCredential)
 					defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{c.secretName})
+
+					ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
+						Mode:           "MUTUAL",
+						CredentialName: c.secretName,
+						Host:           c.hostName,
+					})
 					ing := ingress.NewOrFail(t, ctx, c.ingressConfig)
-					err := ingressutil.VisitProductPage(ing, c.hostName, c.callType, c.tlsContext, 30*time.Second, c.expectedResponse, t)
+					err := ingressutil.SendRequest(ing, c.hostName, c.secretName, c.callType, c.tlsContext, c.expectedResponse, t)
 					if err != nil {
 						ctx.Fatalf("unable to retrieve %d from product page at host %s: %v", c.expectedResponse.ResponseCode, c.hostName, err)
 					}

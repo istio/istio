@@ -15,22 +15,22 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
-	"path"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/util/retry"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -87,16 +87,6 @@ var IngressCredentialServerKeyCertB = IngressCredential{
 	PrivateKey: TLSServerKeyB,
 	ServerCert: TLSServerCertB,
 }
-var IngressCredentialCaCertB = IngressCredential{
-	CaCert: CaCertB,
-}
-
-var (
-	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
-		"bookinfo-credential-4", "bookinfo-credential-5"}
-	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
-		"bookinfo4.example.com", "bookinfo5.example.com"}
-)
 
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
 // and creates K8s secrets for ingress gateway.
@@ -197,20 +187,20 @@ type TLSContext struct {
 	Cert string
 }
 
-// VisitProductPage makes HTTPS request to ingress gateway to visit product page
-func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallType, tlsCtx TLSContext,
-	timeout time.Duration, exRsp ExpectedResponse, t *testing.T) error {
+// SendRequest makes HTTPS request to ingress gateway to visit product page
+func SendRequest(ing ingress.Instance, host string, path string, callType ingress.CallType, tlsCtx TLSContext, exRsp ExpectedResponse, t test.Failer) error {
 	t.Helper()
 	endpointAddress := ing.HTTPSAddress()
 	return retry.UntilSuccess(func() error {
 		response, err := ing.Call(ingress.CallOptions{
 			Host:       host,
-			Path:       "/backend",
+			Path:       fmt.Sprintf("/%s", path),
 			CaCert:     tlsCtx.CaCert,
 			PrivateKey: tlsCtx.PrivateKey,
 			Cert:       tlsCtx.Cert,
 			CallType:   callType,
 			Address:    endpointAddress,
+			Timeout:    time.Second,
 		})
 		errorMatch := true
 		if err != nil {
@@ -227,9 +217,8 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 		} else {
 			return fmt.Errorf("expected response error message %s but got %s", exRsp.ErrorMessage, err.Error())
 		}
-
-		return nil
-	}, retry.Delay(time.Second))
+		// Certs occasionally take quite a while to become active in Envoy, so retry for a long time (2min)
+	}, retry.Delay(time.Second), retry.Timeout(time.Minute*2))
 }
 
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
@@ -278,9 +267,7 @@ func updateSecret(ingressType ingress.CallType, scrt *v1.Secret, ic IngressCrede
 	return scrt
 }
 
-// DeployBookinfo deploys bookinfo application, and deploys gateway with various type.
-// nolint: interfacer
-func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, gatewayType GatewayType) {
+func SetupTest(t *testing.T, ctx framework.TestContext, g galley.Instance) namespace.Instance {
 	serverNs, err := namespace.New(ctx, namespace.Config{
 		Prefix: "ingress",
 		Inject: true,
@@ -304,44 +291,78 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 			Galley: g,
 		}).
 		BuildOrFail(ctx)
+	return serverNs
+}
 
-	// Backup the original bookinfo root.
-	originBookInfoRoot := env.BookInfoRoot
-	env.BookInfoRoot = path.Join(env.IstioSrc, "tests/integration/security/sds_ingress/")
-	var gatewayPath, virtualSvcPath, destRulePath bookinfo.ConfigFile
-	switch gatewayType {
-	case SingleTLSGateway:
-		gatewayPath = "testdata/bookinfo-single-tls-gateway.yaml"
-		virtualSvcPath = "testdata/bookinfo-single-virtualservice.yaml"
-		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
-	case SingleMTLSGateway:
-		gatewayPath = "testdata/bookinfo-single-mtls-gateway.yaml"
-		virtualSvcPath = "testdata/bookinfo-single-virtualservice.yaml"
-		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
-	case MultiTLSGateway:
-		gatewayPath = "testdata/bookinfo-multiple-tls-gateways.yaml"
-		virtualSvcPath = "testdata/bookinfo-multiple-virtualservices.yaml"
-		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
-	case MultiMTLSGateway:
-		gatewayPath = "testdata/bookinfo-multiple-mtls-gateways.yaml"
-		virtualSvcPath = "testdata/bookinfo-multiple-virtualservices.yaml"
-		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
-	default:
-		t.Fatalf("Invalid gateway type for bookinfo")
+type TestConfig struct {
+	Mode           string
+	CredentialName string
+	Host           string
+}
+
+const vsTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{.CredentialName}}
+spec:
+  hosts:
+  - "{{.Host}}"
+  gateways:
+  - {{.CredentialName}}
+  http:
+  - match:
+    - uri:
+        exact: /{{.CredentialName}}
+    route:
+    - destination:
+        host: server
+        port:
+          number: 80
+`
+
+const gwTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: {{.CredentialName}}
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: {{.Mode}}
+      credentialName: "{{.CredentialName}}"
+    hosts:
+    - "{{.Host}}"
+`
+
+func runTemplate(t test.Failer, tmpl string, params interface{}) string {
+	tm, err := template.New("").Parse(tmpl)
+	if err != nil {
+		t.Fatalf("failed to render template: %v", err)
 	}
 
-	g.ApplyConfigOrFail(
-		t,
-		serverNs,
-		gatewayPath.LoadGatewayFileWithNamespaceOrFail(t, serverNs.Name()))
+	var buf bytes.Buffer
+	if err := tm.Execute(&buf, params); err != nil {
+		t.Fatal(err)
+	}
+	return buf.String()
+}
 
-	g.ApplyConfigOrFail(
-		t,
-		serverNs,
-		destRulePath.LoadWithNamespaceOrFail(t, serverNs.Name()),
-		virtualSvcPath.LoadWithNamespaceOrFail(t, serverNs.Name()))
-	// Restore the bookinfo root to original value.
-	env.BookInfoRoot = originBookInfoRoot
+func SetupConfig(t test.Failer, g galley.Instance, ns namespace.Instance, config ...TestConfig) func() {
+	var apply []string
+	for _, c := range config {
+		apply = append(apply, runTemplate(t, vsTemplate, c), runTemplate(t, gwTemplate, c))
+	}
+	g.ApplyConfigOrFail(t, ns, apply...)
+	return func() {
+		g.DeleteConfigOrFail(t, ns, apply...)
+	}
 }
 
 // RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
@@ -349,12 +370,21 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 // mTLS connections successfully.
 func RunTestMultiMtlsGateways(t *testing.T, ctx framework.TestContext,
 	inst istio.Instance, g galley.Instance) { // nolint:interfacer
-	t.Helper()
-
+	var credNames []string
+	var tests []TestConfig
+	for i := 1; i < 6; i++ {
+		cred := fmt.Sprintf("bookinfo-credential-%d", i)
+		tests = append(tests, TestConfig{
+			Mode:           "MUTUAL",
+			CredentialName: cred,
+			Host:           fmt.Sprintf("bookinfo%d.example.com", i),
+		})
+		credNames = append(credNames, cred)
+	}
 	CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, IngressCredentialA)
 	defer DeleteIngressKubeSecret(t, ctx, credNames)
-	DeployBookinfo(t, ctx, g, MultiMTLSGateway)
-
+	ns := SetupTest(t, ctx, g)
+	SetupConfig(t, g, ns, tests...)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{
 		Istio: inst,
 	})
@@ -365,12 +395,14 @@ func RunTestMultiMtlsGateways(t *testing.T, ctx framework.TestContext,
 	}
 	callType := ingress.Mtls
 
-	for _, h := range hosts {
-		err := VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
-			ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
-		if err != nil {
-			t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
-		}
+	for _, h := range tests {
+		ctx.NewSubTest(h.Host).Run(func(ctx framework.TestContext) {
+			err := SendRequest(ing, h.Host, h.CredentialName, callType, tlsContext,
+				ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, ctx)
+			if err != nil {
+				ctx.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
+			}
+		})
 	}
 }
 
@@ -379,23 +411,36 @@ func RunTestMultiMtlsGateways(t *testing.T, ctx framework.TestContext,
 // SSL connections successfully.
 func RunTestMultiTLSGateways(t *testing.T, ctx framework.TestContext,
 	inst istio.Instance, g galley.Instance) { // nolint:interfacer
-	t.Helper()
-
-	CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, IngressCredentialA)
+	var credNames []string
+	var tests []TestConfig
+	for i := 1; i < 6; i++ {
+		cred := fmt.Sprintf("bookinfo-credential-%d", i)
+		tests = append(tests, TestConfig{
+			Mode:           "MUTUAL",
+			CredentialName: cred,
+			Host:           fmt.Sprintf("bookinfo%d.example.com", i),
+		})
+		credNames = append(credNames, cred)
+	}
+	CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, IngressCredentialA)
 	defer DeleteIngressKubeSecret(t, ctx, credNames)
-	DeployBookinfo(t, ctx, g, MultiTLSGateway)
-
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+	ns := SetupTest(t, ctx, g)
+	SetupConfig(t, g, ns, tests...)
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{
+		Istio: inst,
+	})
 	tlsContext := TLSContext{
 		CaCert: CaCertA,
 	}
 	callType := ingress.TLS
 
-	for _, h := range hosts {
-		err := VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
-			ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
-		if err != nil {
-			t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
-		}
+	for _, h := range tests {
+		ctx.NewSubTest(h.Host).Run(func(ctx framework.TestContext) {
+			err := SendRequest(ing, h.Host, h.CredentialName, callType, tlsContext,
+				ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+			if err != nil {
+				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
+			}
+		})
 	}
 }
