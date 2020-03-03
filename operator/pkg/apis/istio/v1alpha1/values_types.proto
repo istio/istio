@@ -1311,15 +1311,25 @@ message TelemetryV2Config {
   // Controls whether pilot will configure telemetry v2.
   google.protobuf.BoolValue enabled = 1;
 
+  TelemetryV2MetadataExchangeConfig metadata_exchange = 4;
+
   TelemetryV2PrometheusConfig prometheus = 2;
 
   TelemetryV2StackDriverConfig stackdriver = 3;
+}
+
+message TelemetryV2MetadataExchangeConfig {
+  // Controls whether enabled v8 runtime for metadata exchange filter.
+  google.protobuf.BoolValue enableV8 = 2;
 }
 
 // Conrols telemetry v2 prometheus settings.
 message TelemetryV2PrometheusConfig {
   // Controls whether stats envoyfilter would be enabled or not.
   google.protobuf.BoolValue enabled = 1;
+
+  // Controls whether enabled v8 runtime for stats filter.
+  google.protobuf.BoolValue enableV8 = 2;
 }
 
 // Conrols telemetry v2 stackdriver settings.
