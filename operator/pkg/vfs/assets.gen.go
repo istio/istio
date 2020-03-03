@@ -12851,38 +12851,7 @@ func chartsBaseTemplatesServiceaccountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesServicesYaml = []byte(`{{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-pilot
-  namespace: {{ .Values.global.istioNamespace }}
-spec:
-  ports:
-  - port: 15010
-    name: grpc-xds # direct
-  - port: 15011
-    name: https-xds # mTLS or non-mTLS depending on auth setting
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15012
-    name: http-istiod    
-  - port: 15014
-    name: http-monitoring
-  clusterIP: None
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: istiod
-  namespace: {{ .Release.Namespace }}
-spec:
-  ports:
-  - port: 15012
-    name: http-istiod
----
-{{- end }}
-{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
+var _chartsBaseTemplatesServicesYaml = []byte(`{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -20431,8 +20400,7 @@ func chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-
+var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{- if or (eq .Values.revision "") (not .Values.clusterResources) }}
 apiVersion: v1
 kind: Service
 metadata:
