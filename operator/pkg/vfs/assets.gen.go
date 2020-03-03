@@ -45494,8 +45494,6 @@ var _examplesMulticlusterValuesIstioMulticlusterPrimaryYaml = []byte(`apiVersion
 kind: IstioOperator
 spec:
   values:
-    security:
-      selfSigned: false
     gateways:
       istio-ingressgateway:
         env:
