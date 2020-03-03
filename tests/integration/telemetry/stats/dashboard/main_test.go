@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package telemetry
+package dashboard
 
 import (
 	"testing"
@@ -40,10 +40,15 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
-			cfg.Values["grafana.enabled"] = "true"
-			// TODO remove once https://github.com/istio/istio/issues/20137 is fixed
+
 			cfg.ControlPlaneValues = `
-addonComponents:
+values:
+  global:
+    proxy:
+      accessLogFile: "/dev/stdout"
+  prometheus:
+    enabled: true
+    scrapeInterval: 5s
   grafana:
     enabled: true`
 		})).
