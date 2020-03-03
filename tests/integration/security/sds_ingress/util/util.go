@@ -25,6 +25,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -202,6 +204,7 @@ func SendRequest(ing ingress.Instance, host string, path string, callType ingres
 			Address:    endpointAddress,
 			Timeout:    time.Second,
 		})
+		log.Errorf("howardjohn: call got %v %v for  %v", response, err, tlsCtx.Cert)
 		errorMatch := true
 		if err != nil {
 			if !strings.Contains(err.Error(), exRsp.ErrorMessage) {
@@ -267,13 +270,13 @@ func updateSecret(ingressType ingress.CallType, scrt *v1.Secret, ic IngressCrede
 	return scrt
 }
 
-func SetupTest(t *testing.T, ctx framework.TestContext, g galley.Instance) namespace.Instance {
+func SetupTest(ctx framework.TestContext, g galley.Instance) namespace.Instance {
 	serverNs, err := namespace.New(ctx, namespace.Config{
 		Prefix: "ingress",
 		Inject: true,
 	})
 	if err != nil {
-		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
+		ctx.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
 	}
 	var a echo.Instance
 	echoboot.NewBuilderOrFail(ctx, ctx).
@@ -368,7 +371,7 @@ func SetupConfig(t test.Failer, g galley.Instance, ns namespace.Instance, config
 // RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
 // private key, server certificate and CA certificate for each mTLS gateway. Verifies that all gateways are able to terminate
 // mTLS connections successfully.
-func RunTestMultiMtlsGateways(t *testing.T, ctx framework.TestContext,
+func RunTestMultiMtlsGateways(ctx framework.TestContext,
 	inst istio.Instance, g galley.Instance) { // nolint:interfacer
 	var credNames []string
 	var tests []TestConfig
@@ -381,11 +384,11 @@ func RunTestMultiMtlsGateways(t *testing.T, ctx framework.TestContext,
 		})
 		credNames = append(credNames, cred)
 	}
-	CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, IngressCredentialA)
-	defer DeleteIngressKubeSecret(t, ctx, credNames)
-	ns := SetupTest(t, ctx, g)
-	SetupConfig(t, g, ns, tests...)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{
+	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA)
+	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
+	ns := SetupTest(ctx, g)
+	SetupConfig(ctx, g, ns, tests...)
+	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
 		Istio: inst,
 	})
 	tlsContext := TLSContext{
@@ -409,24 +412,24 @@ func RunTestMultiMtlsGateways(t *testing.T, ctx framework.TestContext,
 // RunTestMultiTLSGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
 // private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
 // SSL connections successfully.
-func RunTestMultiTLSGateways(t *testing.T, ctx framework.TestContext,
+func RunTestMultiTLSGateways(ctx framework.TestContext,
 	inst istio.Instance, g galley.Instance) { // nolint:interfacer
 	var credNames []string
 	var tests []TestConfig
 	for i := 1; i < 6; i++ {
 		cred := fmt.Sprintf("bookinfo-credential-%d", i)
 		tests = append(tests, TestConfig{
-			Mode:           "MUTUAL",
+			Mode:           "SIMPLE",
 			CredentialName: cred,
 			Host:           fmt.Sprintf("bookinfo%d.example.com", i),
 		})
 		credNames = append(credNames, cred)
 	}
-	CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, IngressCredentialA)
-	defer DeleteIngressKubeSecret(t, ctx, credNames)
-	ns := SetupTest(t, ctx, g)
-	SetupConfig(t, g, ns, tests...)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{
+	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA)
+	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
+	ns := SetupTest(ctx, g)
+	SetupConfig(ctx, g, ns, tests...)
+	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
 		Istio: inst,
 	})
 	tlsContext := TLSContext{
@@ -437,9 +440,9 @@ func RunTestMultiTLSGateways(t *testing.T, ctx framework.TestContext,
 	for _, h := range tests {
 		ctx.NewSubTest(h.Host).Run(func(ctx framework.TestContext) {
 			err := SendRequest(ing, h.Host, h.CredentialName, callType, tlsContext,
-				ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+				ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, ctx)
 			if err != nil {
-				t.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
+				ctx.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
 			}
 		})
 	}

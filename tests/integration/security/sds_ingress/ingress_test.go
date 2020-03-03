@@ -67,7 +67,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName})
 
-			ns := ingressutil.SetupTest(t, ctx, g)
+			ns := ingressutil.SetupTest(ctx, g)
 			ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
 				Mode:           "SIMPLE",
 				CredentialName: credName,
@@ -123,7 +123,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 				host       = "bookinfo1.example.com"
 			)
 
-			ns := ingressutil.SetupTest(t, ctx, g)
+			ns := ingressutil.SetupTest(ctx, g)
 			ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
 				Mode:           "MUTUAL",
 				CredentialName: credName[0],
@@ -191,7 +191,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credName)
 
-			ns := ingressutil.SetupTest(t, ctx, g)
+			ns := ingressutil.SetupTest(ctx, g)
 			ingressutil.SetupConfig(t, g, ns, ingressutil.TestConfig{
 				Mode:           "MUTUAL",
 				CredentialName: credName[0],
@@ -238,7 +238,7 @@ func TestTlsGateways(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ingressutil.RunTestMultiTLSGateways(t, ctx, inst, g)
+			ingressutil.RunTestMultiTLSGateways(ctx, inst, g)
 		})
 }
 
@@ -247,7 +247,7 @@ func TestMtlsGateways(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ingressutil.RunTestMultiMtlsGateways(t, ctx, inst, g)
+			ingressutil.RunTestMultiMtlsGateways(ctx, inst, g)
 		})
 }
 
@@ -259,7 +259,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			ns := ingressutil.SetupTest(t, ctx, g)
+			ns := ingressutil.SetupTest(ctx, g)
 
 			testCase := []struct {
 				name                     string
@@ -402,7 +402,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ns := ingressutil.SetupTest(t, ctx, g)
+			ns := ingressutil.SetupTest(ctx, g)
 
 			testCase := []struct {
 				name                     string

@@ -65,7 +65,7 @@ func TestMtlsGatewaysK8sca(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiMtlsGateways(t, ctx, inst, g)
+			util.RunTestMultiMtlsGateways(ctx, inst, g)
 		})
 }
 
@@ -74,6 +74,6 @@ func TestTlsGatewaysK8sca(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			util.RunTestMultiTLSGateways(t, ctx, inst, g)
+			util.RunTestMultiTLSGateways(ctx, inst, g)
 		})
 }
