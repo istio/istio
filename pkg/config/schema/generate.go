@@ -31,4 +31,3 @@ package schema
 // Create snapshot constants
 // nolint: lll
 //go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/snapshots.main.go snapshots metadata.yaml "$REPO_ROOT/pkg/config/schema/snapshots/snapshots.gen.go"
-
