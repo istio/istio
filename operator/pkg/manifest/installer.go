@@ -28,7 +28,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	goversion "github.com/hashicorp/go-version"
-	"istio.io/istio/pilot/pkg/model"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -41,6 +40,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+
+	"istio.io/istio/pilot/pkg/model"
 
 	// For GCP auth functionality.
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
