@@ -109,7 +109,7 @@ func TestConvertInstance(t *testing.T) {
 		t.Errorf("convertInstance() => %v, want %v", out.ServicePort.Port, port)
 	}
 
-	if out.Endpoint.Locality != dc {
+	if out.Endpoint.Locality.Label != dc {
 		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.Locality, dc)
 	}
 
