@@ -635,6 +635,11 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_validationOrder.patch",
 			templateFile: "TestWebhookInject_validationOrder_template.yaml",
 		},
+		{
+			inputFile:    "TestWebhookInject_probe_rewrite_timeout_retention.yaml",
+			wantFile:     "TestWebhookInject_probe_rewrite_timeout_retention.patch",
+			templateFile: "TestWebhookInject_probe_rewrite_timeout_retention_template.yaml",
+		},
 	}
 
 	for i, c := range cases {

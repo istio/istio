@@ -443,7 +443,7 @@ func buildLocalityLbEndpoints(push *model.PushContext, proxyNetworkView map[stri
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
 		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.Endpoint.TLSMode, push)
-		locality := instance.GetLocality()
+		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
 

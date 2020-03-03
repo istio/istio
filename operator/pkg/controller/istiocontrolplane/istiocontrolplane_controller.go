@@ -17,6 +17,7 @@ package istiocontrolplane
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -76,7 +77,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource IstioOperator
-	err = c.Watch(&source.Kind{Type: &iopv1alpha1.IstioOperator{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &iopv1alpha1.IstioOperator{}}, &handler.EnqueueRequestForObject{}, getPredicateForIstioOperator())
 	if err != nil {
 		return err
 	}
@@ -87,6 +88,35 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 	log.Info("Controller added")
 	return nil
+}
+
+func getPredicateForIstioOperator() predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldIOP, ok := e.ObjectOld.(*iopv1alpha1.IstioOperator)
+			if !ok {
+				log.Error("failed to get old IstioOperator")
+				return false
+			}
+			newIOP := e.ObjectNew.(*iopv1alpha1.IstioOperator)
+			if !ok {
+				log.Error("failed to get new IstioOperator")
+				return false
+			}
+			if !reflect.DeepEqual(oldIOP.Spec, newIOP.Spec) ||
+				oldIOP.GetDeletionTimestamp() != newIOP.GetDeletionTimestamp() ||
+				oldIOP.GetGeneration() != newIOP.GetGeneration() {
+				return true
+			}
+			return false
+		},
+	}
 }
 
 var _ reconcile.Reconciler = &ReconcileIstioOperator{}

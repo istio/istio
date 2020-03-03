@@ -14534,7 +14534,13 @@ spec:
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
+          {{- if .Values.global.caAddress }}
+            value: {{ .Values.global.caAddress }}
+          {{- else if .Values.global.configNamespace }}
             value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          {{- else }}
+            value: istiod.istio-system.svc:15012
+          {{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -17174,6 +17180,7 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
+        "caAddress": "",
         "certificates": [],
         "configNamespace": "istio-system",
         "configRootNamespace": "istio-system",
@@ -17553,7 +17560,9 @@ data:
           value: {{ .Values.global.pilotCertProvider }}
         # Temp, pending PR to make it default or based on the istiodAddr env
         - name: CA_ADDR
-        {{- if .Values.global.configNamespace }}
+        {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+        {{- else if .Values.global.configNamespace }}
           value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
           value: istiod.istio-system.svc:15012
@@ -19042,7 +19051,9 @@ template: |
       value: {{ .Values.global.pilotCertProvider }}
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
-    {{- if .Values.global.configNamespace }}
+    {{- if .Values.global.caAddress }}
+      value: {{ .Values.global.caAddress }}
+    {{- else if .Values.global.configNamespace }}
       value: istiod.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
       value: istiod.istio-system.svc:15012
@@ -42317,9 +42328,11 @@ spec:
               value: {{ .Values.global.pilotCertProvider }}
             # Temp, pending PR to make it default or based on the istiodAddr env
             - name: CA_ADDR
-                {{- if .Values.global.configNamespace }}
+              {{- if .Values.global.caAddress }}
+              value: {{ .Values.global.caAddress }}
+              {{- else if .Values.global.configNamespace }}
               value: istiod.{{ .Values.global.configNamespace }}.svc:15012
-                {{- else }}
+              {{- else }}
               value: istiod.istio-system.svc:15012
               {{- end }}
             - name: POD_NAME
@@ -45494,8 +45507,6 @@ var _examplesMulticlusterValuesIstioMulticlusterPrimaryYaml = []byte(`apiVersion
 kind: IstioOperator
 spec:
   values:
-    security:
-      selfSigned: false
     gateways:
       istio-ingressgateway:
         env:

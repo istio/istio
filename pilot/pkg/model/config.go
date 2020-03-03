@@ -352,10 +352,19 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 // MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
 // matching the needle, or false if no element in the stack matches the needle.
 func MostSpecificHostMatch(needle host.Name, stack []host.Name) (host.Name, bool) {
+	matches := []host.Name{}
 	for _, h := range stack {
-		if needle.Matches(h) {
-			return h, true
+		if needle == h {
+			// exact match, return immediately
+			return needle, true
 		}
+		if needle.Matches(h) {
+			matches = append(matches, h)
+		}
+	}
+	if len(matches) > 0 {
+		// TODO: return closest match out of all non-exact matching hosts
+		return matches[0], true
 	}
 	return "", false
 }

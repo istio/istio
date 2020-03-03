@@ -84,6 +84,7 @@ func TestIngress(t *testing.T) {
 				With(&instance, echo.Config{
 					Service:   "server",
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
 					Galley:    g,
 					Ports: []echo.Port{

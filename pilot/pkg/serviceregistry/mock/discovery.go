@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package mock
 
 import (
 	"fmt"
@@ -29,6 +29,12 @@ import (
 var (
 	// PortHTTPName is the HTTP port name
 	PortHTTPName = "http"
+
+	// Locality for mock endpoints
+	Locality = model.Locality{
+		Label:     "region/zone",
+		ClusterID: "",
+	}
 )
 
 // NewDiscovery builds a memory ServiceDiscovery
@@ -105,8 +111,8 @@ func MakeExternalHTTPSService(hostname host.Name, isMeshExternal bool, address s
 	}
 }
 
-// MakeInstance creates a memory instance, version enumerates endpoints
-func MakeInstance(service *model.Service, port *model.Port, version int, az string) *model.ServiceInstance {
+// newServiceInstance creates a memory instance, version enumerates endpoints
+func newServiceInstance(service *model.Service, port *model.Port, version int, locality model.Locality) *model.ServiceInstance {
 	if service.External() {
 		return nil
 	}
@@ -123,7 +129,7 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 			EndpointPort:    uint32(target),
 			ServicePortName: port.Name,
 			Labels:          map[string]string{"version": fmt.Sprintf("v%d", version)},
-			Locality:        az,
+			Locality:        locality,
 			Attributes: model.ServiceAttributes{
 				Name:      service.Attributes.Name,
 				Namespace: service.Attributes.Namespace,
@@ -207,7 +213,7 @@ func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int,
 	if port, ok := svc.Ports.GetByPort(num); ok {
 		for v := 0; v < sd.versions; v++ {
 			if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
-				out = append(out, MakeInstance(svc, port, v, "zone/region"))
+				out = append(out, newServiceInstance(svc, port, v, Locality))
 			}
 		}
 	}
@@ -229,7 +235,7 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 				// Only one IP for memory discovery?
 				if node.IPAddresses[0] == MakeIP(service, v) {
 					for _, port := range service.Ports {
-						out = append(out, MakeInstance(service, port, v, "region/zone"))
+						out = append(out, newServiceInstance(service, port, v, Locality))
 					}
 				}
 			}
@@ -243,7 +249,7 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 	if sd.GetProxyServiceInstancesError != nil {
 		return nil, sd.GetProxyServiceInstancesError
 	}
-	// no useful labels from the ServiceInstances created by MakeInstance()
+	// no useful labels from the ServiceInstances created by newServiceInstance()
 	return nil, nil
 }
 
@@ -276,14 +282,14 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 	return make([]string, 0)
 }
 
-type MockController struct{}
+type Controller struct{}
 
-func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	return nil
 }
 
-func (c *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	return nil
 }
 
-func (c *MockController) Run(<-chan struct{}) {}
+func (c *Controller) Run(<-chan struct{}) {}

@@ -22,6 +22,9 @@ spec:
   ports:
   - name: tcp
     port: 9000
+  - name: tcp-other
+    port: 9001
+  # Port 9002 is omitted intentionally for testing the pass through filter chain.
   selector:
     app: tcp-echo
 ---
@@ -43,11 +46,12 @@ spec:
     spec:
       containers:
       - name: tcp-echo
-        image: docker.io/istio/tcp-echo-server:1.1
+        image: docker.io/istio/tcp-echo-server:1.2
         imagePullPolicy: IfNotPresent
-        args: [ "9000", "one" ]
+        args: [ "9000,9001,9002", "one" ]
         ports:
         - containerPort: 9000
+        - containerPort: 9001
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -67,8 +71,9 @@ spec:
     spec:
       containers:
       - name: tcp-echo
-        image: docker.io/istio/tcp-echo-server:1.1
+        image: docker.io/istio/tcp-echo-server:1.2
         imagePullPolicy: IfNotPresent
-        args: [ "9000", "two" ]
+        args: [ "9000,9001,9002", "two" ]
         ports:
         - containerPort: 9000
+        - containerPort: 9001
