@@ -41,7 +41,7 @@ metadata:
 {{- if .ServiceAnnotations }}
   annotations:
 {{- range $name, $value := .ServiceAnnotations }}
-    {{ $name }}: {{ printf "%q" $value }}
+    {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
 {{- end }}
 spec:
@@ -82,8 +82,8 @@ spec:
 {{- end }}
       annotations:
         foo: bar
-{{- range $name, $value := index $.WorkloadAnnotations $subset.Version }}
-        {{ $name }}: {{ printf "%q" $value }}
+{{- range $name, $value := $subset.Annotations }}
+        {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
 {{- if $.IncludeInboundPorts }}
         traffic.sidecar.istio.io/includeInboundPorts: "{{ $.IncludeInboundPorts }}"
@@ -188,18 +188,9 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 
 	// Separate the annotations.
 	serviceAnnotations := make(map[string]string)
-	wlas := make(map[string]map[string]string)
 	for i := range cfg.Subsets {
-		w := &cfg.Subsets[i]
 		if cfg.Subsets[i].Version == "" {
 			cfg.Subsets[i].Version = "v1"
-		}
-		wlas[w.Version] = map[string]string{}
-		if cfg.Subsets[i].Version == "" {
-			cfg.Subsets[i].Version = cfg.Version
-		}
-		for k, val := range w.Annotations {
-			wlas[w.Version][k.Name] = val.Value
 		}
 	}
 	for k, v := range cfg.ServiceAnnotations {
@@ -218,8 +209,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 		"Ports":               cfg.Ports,
 		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
 		"ContainerPorts":      getContainerPorts(cfg.Ports),
-		"ServiceAnnotations":  serviceAnnotations,
-		"WorkloadAnnotations": wlas,
+		"ServiceAnnotations":  cfg.ServiceAnnotations,
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 		"Subsets":             cfg.Subsets,
 	}
