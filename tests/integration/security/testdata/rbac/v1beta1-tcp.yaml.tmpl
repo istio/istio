@@ -54,3 +54,21 @@ spec:
     - source:
         namespaces: ["{{ .Namespace2 }}"]
 ---
+
+# The following policy denies request with path "/other" for workload e
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-e-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "e"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/other"]
+---
