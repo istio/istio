@@ -11,7 +11,7 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
-  class: gatewayclass
+  class: istio
   listeners:
   - name: primary
     address:
