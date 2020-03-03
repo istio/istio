@@ -29,7 +29,7 @@
       "env": [
         {
           "name": "ISTIO_KUBE_APP_PROBERS",
-          "value": "{\"/app-health/hello/livez\":{\"httpGet\":{\"path\":\"/live\",\"port\":80}},\"/app-health/hello/readyz\":{\"httpGet\":{\"path\":\"/ready\",\"port\":3333}},\"/app-health/second/livez\":{\"httpGet\":{\"port\":9000}}}"
+          "value": "{\"/app-health/hello/livez\":{\"httpGet\":{\"path\":\"/live\",\"port\":80},\"timeoutSeconds\":5},\"/app-health/hello/readyz\":{\"httpGet\":{\"path\":\"/ready\",\"port\":3333},\"timeoutSeconds\":5},\"/app-health/second/livez\":{\"httpGet\":{\"port\":9000},\"timeoutSeconds\":5}}"
         }
       ],
       "resources": {}
@@ -66,8 +66,10 @@
   },
   {
     "op": "add",
-    "path": "/metadata/annotations/sidecar.istio.io~1status",
-    "value": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+    "path": "/metadata/annotations",
+    "value": {
+      "sidecar.istio.io/status": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+    }
   },
   {
     "op": "add",
@@ -93,7 +95,8 @@
       "httpGet": {
         "path": "/app-health/hello/readyz",
         "port": 15020
-      }
+      },
+      "timeoutSeconds": 5
     }
   },
   {
@@ -103,7 +106,8 @@
       "httpGet": {
         "path": "/app-health/hello/livez",
         "port": 15020
-      }
+      },
+      "timeoutSeconds": 5
     }
   },
   {
@@ -113,7 +117,8 @@
       "httpGet": {
         "path": "/app-health/second/livez",
         "port": 15020
-      }
+      },
+      "timeoutSeconds": 5
     }
   }
 ]

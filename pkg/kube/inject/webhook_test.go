@@ -630,6 +630,11 @@ func TestWebhookInject(t *testing.T) {
 			inputFile: "TestWebhookInject_mtls_not_ready.yaml",
 			wantFile:  "TestWebhookInject_mtls_not_ready.patch",
 		},
+		{
+			inputFile:    "TestWebhookInject_probe_rewrite_timeout_retention.yaml",
+			wantFile:     "TestWebhookInject_probe_rewrite_timeout_retention.patch",
+			templateFile: "TestWebhookInject_probe_rewrite_timeout_retention_template.yaml",
+		},
 	}
 
 	for i, c := range cases {
