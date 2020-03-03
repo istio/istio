@@ -14471,7 +14471,9 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
+          {{- if .Values.global.remotePilotAddress }}
+          - {{ .Values.global.remotePilotAddress }}:15012
+          {{- else if .Values.global.configNamespace }}
           - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
           - istio-pilot.istio-system.svc:15012
@@ -17831,7 +17833,6 @@ rules:
 ---
 # Source: istio-discovery/templates/service.yaml
 
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -19829,16 +19830,16 @@ data:
       {{- end }}
 
     {{- if not (eq .Values.revision "") }}
-    {{- $defPilotHostname := printf "istiod-%s.%s" .Values.revision .Release.Namespace }}
+    {{- $defPilotHostname := printf "istiod-%s.%s.svc" .Values.revision .Release.Namespace }}
     {{- else }}
-    {{- $defPilotHostname := printf "istiod.%s"  .Release.Namespace }}
+    {{- $defPilotHostname := printf "istiod.%s.svc" .Release.Namespace }}
     {{- end }}
-    {{- $defPilotHostname := printf "istiod%s.%s" .Values.revision .Release.Namespace }}
+    {{- $defPilotHostname := printf "istiod%s.%s.svc" .Values.revision .Release.Namespace }}
     {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: {{ $defPilotHostname }}.svc:15012
+      discoveryAddress: {{ $pilotAddress }}:15012
 
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}

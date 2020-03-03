@@ -258,6 +258,7 @@ data:
     {{- else }}
     {{- $defPilotHostname := printf "istiod.%s.svc" .Release.Namespace }}
     {{- end }}
+    {{- $defPilotHostname := printf "istiod%s.%s.svc" .Values.revision .Release.Namespace }}
     {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
