@@ -73,13 +73,13 @@ func findByName(name, namespace string, cfgs []model.Config) *model.Config {
 	return nil
 }
 
-func convertResources(r *KubernetesResources) (IstioResources, error) {
+func convertResources(r *KubernetesResources) IstioResources {
 	result := IstioResources{}
 	gw, routeMap := convertGateway(r)
 	vs := convertVirtualService(r, routeMap)
 	result.Gateway = gw
 	result.VirtualService = vs
-	return result, nil
+	return result
 }
 
 func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSpec][]string) []model.Config {

@@ -93,10 +93,7 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 		TCPRoute:     tcpRoute,
 		TrafficSplit: trafficSplit,
 	}
-	output, err := convertResources(input)
-	if err != nil {
-		return nil, err
-	}
+	output := convertResources(input)
 
 	switch typ {
 	case gatewayType.GroupVersionKind():
