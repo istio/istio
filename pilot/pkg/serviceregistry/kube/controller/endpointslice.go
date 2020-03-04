@@ -174,6 +174,9 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 	if svc == nil {
 		return out
 	}
+	podIP := proxy.IPAddresses[0]
+	pod := c.pods.getPodByIP(podIP)
+	initEndpoint := c.newIstioEndpoint(pod)
 
 	for _, port := range ep.Ports {
 		if port.Name == nil || port.Port == nil {
@@ -184,14 +187,12 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 			continue
 		}
 
-		podIP := proxy.IPAddresses[0]
-
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
 			for _, ep := range ep.Endpoints {
 				for _, a := range ep.Addresses {
 					if a == ip {
-						out = append(out, c.getEndpoints(podIP, ip, *port.Port, svcPort, svc))
+						c.completeIstioEndpoint(initEndpoint, ip, *port.Port, svcPort.Name, svc)
 						// If the endpoint isn't ready, report this
 						if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.metrics != nil {
 							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")

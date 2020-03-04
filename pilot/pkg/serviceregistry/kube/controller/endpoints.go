@@ -107,6 +107,10 @@ func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1
 	c.RUnlock()
 
 	if svc != nil {
+		podIP := proxy.IPAddresses[0]
+		pod := c.pods.getPodByIP(podIP)
+		initEndpoint := c.newIstioEndpoint(pod)
+
 		for _, ss := range endpoints.Subsets {
 			for _, port := range ss.Ports {
 				svcPort, exists := svc.Ports.Get(port.Name)
@@ -114,16 +118,18 @@ func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1
 					continue
 				}
 
-				podIP := proxy.IPAddresses[0]
-
 				// consider multiple IP scenarios
 				for _, ip := range proxy.IPAddresses {
-					if hasProxyIP(ss.Addresses, ip) {
-						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
+					if hasProxyIP(ss.Addresses, ip) || hasProxyIP(ss.NotReadyAddresses, ip) {
+						istioEndpoint := c.completeIstioEndpoint(initEndpoint, ip, port.Port, svcPort.Name, svc)
+						out = append(out, &model.ServiceInstance{
+							Endpoint:    istioEndpoint,
+							ServicePort: svcPort,
+							Service:     svc,
+						})
 					}
 
 					if hasProxyIP(ss.NotReadyAddresses, ip) {
-						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
 						if c.metrics != nil {
 							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
 						}

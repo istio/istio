@@ -703,7 +703,6 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 		return out
 	}
 
-	podIP := proxy.IPAddresses[0]
 	tps := make(map[model.Port]*model.Port)
 	for _, port := range service.Spec.Ports {
 		svcPort, exists := svc.Ports.Get(port.Name)
@@ -728,10 +727,16 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 		}
 	}
 
+	initEndpoint := c.newIstioEndpoint(pod)
 	for tp, svcPort := range tps {
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
-			out = append(out, c.getEndpoints(podIP, ip, int32(tp.Port), svcPort, svc))
+			istioEndpoint := c.completeIstioEndpoint(initEndpoint, ip, int32(tp.Port), svcPort.Name, svc)
+			out = append(out, &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: svcPort,
+				Endpoint:    istioEndpoint,
+			})
 		}
 	}
 	return out
@@ -746,17 +751,6 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 		return labels.Collection{pod.Labels}, nil
 	}
 	return nil, nil
-}
-
-func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
-	pod := c.pods.getPodByIP(podIP)
-	ep := c.newIstioEndpoint(pod)
-	istioEndpoint := c.completeIstioEndpoint(ep, address, endpointPort, svcPort.Name, svc)
-	return &model.ServiceInstance{
-		Service:     svc,
-		ServicePort: svcPort,
-		Endpoint:    istioEndpoint,
-	}
 }
 
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
