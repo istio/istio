@@ -215,7 +215,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	}
 
 	// Allow authorization with a previously issued certificate, for VMs
-	// Will return a caller with identities extracted from the SAN, should be a spifee identity.
+	// Will return a caller with identities extracted from the SAN, should be a SPIFFE identity.
 	caServer.Authenticators = append(caServer.Authenticators, &authenticate.ClientCertAuthenticator{})
 
 	if serverErr := caServer.Run(); serverErr != nil {
@@ -231,7 +231,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 			return map[string]string{
 				constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
 			}
-		}, s.kubeClient.CoreV1())
+		}, s.kubeClient)
 		if err != nil {
 			log.Warnf("failed to start istiod namespace controller, error: %v", err)
 		} else {
@@ -239,7 +239,11 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 				nc.Run(stop)
 			})
 		}
+		s.leaderElection.AddRunFunction(func(_ <-chan struct{}) {
+			nc.Run(stopCh)
+		})
 	}
+
 }
 
 type jwtAuthenticator struct {
@@ -465,7 +469,7 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 			opts.Namespace, -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
-			return nil, fmt.Errorf("failed to create a self-signed Citadel: %v", err)
+			return nil, fmt.Errorf("failed to create a self-signed istiod CA: %v", err)
 		}
 	} else {
 		log.Info("Use local CA certificate")
@@ -480,13 +484,13 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
 			rootCertFile, workloadCertTTL.Get(), maxCertTTL, opts.Namespace, client)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create an Citadel: %v", err)
+			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
 	}
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create an Citadel: %v", err)
+		return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 	}
 
 	// TODO: provide an endpoint returning all the roots. SDS can only pull a single root in current impl.

@@ -27,15 +27,17 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -418,9 +420,9 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 		in := &plugin.InputParams{
 			Node:             node,
 			Push:             push,
-			ListenerProtocol: plugin.ListenerProtocolTCP,
+			ListenerProtocol: istionetworking.ListenerProtocolTCP,
 		}
-		var allChains []plugin.FilterChain
+		var allChains []istionetworking.FilterChain
 		for _, p := range configgen.Plugins {
 			chains := p.OnInboundPassthroughFilterChains(in)
 			allChains = append(allChains, chains...)
@@ -428,7 +430,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 
 		if len(allChains) == 0 {
 			// Add one empty entry to the list if none of the plugins are interested in updating the filter chains.
-			allChains = []plugin.FilterChain{{}}
+			allChains = []istionetworking.FilterChain{{}}
 		}
 		// Override the filter chain match to make sure the pass through filter chain captures the pass through traffic.
 		for i := range allChains {
@@ -441,10 +443,10 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{
 				util.ConvertAddressToCidr(matchingIP),
 			}
-			chain.ListenerProtocol = plugin.ListenerProtocolTCP
+			chain.ListenerProtocol = istionetworking.ListenerProtocolTCP
 		}
 
-		mutable := &plugin.MutableObjects{
+		mutable := &istionetworking.MutableObjects{
 			FilterChains: allChains,
 		}
 		for _, p := range configgen.Plugins {
@@ -508,7 +510,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 		}
 
 		in := &plugin.InputParams{
-			ListenerProtocol:           plugin.ListenerProtocolHTTP,
+			ListenerProtocol:           istionetworking.ListenerProtocolHTTP,
 			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 			Node:                       node,
 			ServiceInstance:            dummyServiceInstance,
@@ -517,10 +519,10 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 			Bind:                       matchingIP,
 			InboundClusterName:         clusterName,
 		}
-		mutable := &plugin.MutableObjects{
-			FilterChains: []plugin.FilterChain{
+		mutable := &istionetworking.MutableObjects{
+			FilterChains: []istionetworking.FilterChain{
 				{
-					ListenerProtocol: plugin.ListenerProtocolHTTP,
+					ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 				},
 			},
 		}

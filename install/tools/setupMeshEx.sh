@@ -43,24 +43,23 @@
 # ISTIO_CP - command to use to copy files to the VM.
 # ISTIO_RUN - command to use to run a command on the VM.
 
-# Generate a 'kubedns' Dnsmasq config file using the internal load balancer.
+# Generate a coredns config file using the internal load balancer.
 # It will need to be installed on each machine expanding the mesh.
 function istioDnsmasq() {
   local NS=${ISTIO_NAMESPACE:-istio-system}
   # Multiple tries, it may take some time until the controllers generate the IPs
   for _ in {1..20}; do
-    PILOT_IP=$(kubectl get -n "$NS" service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    PILOT_IP=$(kubectl get -n "$NS" service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-    if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] ; then
-      echo "Waiting for ILBs, pilot=$PILOT_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n "$NS" service)"
+    if [ "${PILOT_IP}" == "" ] ; then
+      echo "Waiting for ILBs, pilot=$PILOT_IP"
       sleep 30
     else
       break
     fi
   done
 
-  if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] ; then
+  if [ "${PILOT_IP}" == "" ] ; then
     echo "Failed to create ILBs"
     exit 1
   fi

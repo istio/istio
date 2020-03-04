@@ -153,7 +153,7 @@ func setupPodConfigdumpWriter(podName, podNamespace string, out io.Writer) (*con
 	path := "config_dump"
 	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute command on sidecar: %v", err)
+		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
 	}
 	return setupConfigdumpEnvoyConfigWriter(debug, out)
 }

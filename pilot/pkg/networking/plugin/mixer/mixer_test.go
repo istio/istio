@@ -27,6 +27,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pkg/config/mesh"
@@ -140,7 +141,7 @@ func TestOnOutboundListener(t *testing.T) {
 		MixerReportServer: "mixer.istio-system",
 	}
 	inputParams := &plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolTCP,
+		ListenerProtocol: istionetworking.ListenerProtocolTCP,
 		Push: &model.PushContext{
 			Mesh: meshConfig,
 		},
@@ -152,7 +153,7 @@ func TestOnOutboundListener(t *testing.T) {
 	tests := []struct {
 		name           string
 		sidecarScope   *model.SidecarScope
-		mutableObjects *plugin.MutableObjects
+		mutableObjects *istionetworking.MutableObjects
 		hostname       string
 	}{
 		{
@@ -162,9 +163,9 @@ func TestOnOutboundListener(t *testing.T) {
 					Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
 				},
 			},
-			mutableObjects: &plugin.MutableObjects{
+			mutableObjects: &istionetworking.MutableObjects{
 				Listener: &xdsapi.Listener{},
-				FilterChains: []plugin.FilterChain{
+				FilterChains: []istionetworking.FilterChain{
 					{
 						IsFallThrough: false,
 					},
@@ -182,9 +183,9 @@ func TestOnOutboundListener(t *testing.T) {
 					Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
 				},
 			},
-			mutableObjects: &plugin.MutableObjects{
+			mutableObjects: &istionetworking.MutableObjects{
 				Listener: &xdsapi.Listener{},
-				FilterChains: []plugin.FilterChain{
+				FilterChains: []istionetworking.FilterChain{
 					{
 						IsFallThrough: false,
 					},
@@ -248,7 +249,7 @@ func TestOnOutboundListenerSkipMixer(t *testing.T) {
 			mcfg.MixerCheckServer = "mixer"
 			mcfg.MixerReportServer = "mixer"
 			inputParams := &plugin.InputParams{
-				ListenerProtocol: plugin.ListenerProtocolHTTP,
+				ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 				Push: &model.PushContext{
 					Mesh: v.meshconfig,
 				},
@@ -258,7 +259,7 @@ func TestOnOutboundListenerSkipMixer(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			}
-			mutable := &plugin.MutableObjects{Listener: &xdsapi.Listener{}, FilterChains: []plugin.FilterChain{{}}}
+			mutable := &istionetworking.MutableObjects{Listener: &xdsapi.Listener{}, FilterChains: []istionetworking.FilterChain{{}}}
 			_ = mp.OnOutboundListener(inputParams, mutable)
 			for _, chain := range mutable.FilterChains {
 				if got := len(chain.HTTP); got != v.wantFilters {
@@ -311,7 +312,7 @@ func TestOnInboundListenerSkipMixer(t *testing.T) {
 			mcfg.MixerCheckServer = "mixer"
 			mcfg.MixerReportServer = "mixer"
 			inputParams := &plugin.InputParams{
-				ListenerProtocol: plugin.ListenerProtocolHTTP,
+				ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 				Push: &model.PushContext{
 					Mesh: v.meshconfig,
 				},
@@ -321,7 +322,7 @@ func TestOnInboundListenerSkipMixer(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			}
-			mutable := &plugin.MutableObjects{Listener: &xdsapi.Listener{Address: testAddress()}, FilterChains: []plugin.FilterChain{{}}}
+			mutable := &istionetworking.MutableObjects{Listener: &xdsapi.Listener{Address: testAddress()}, FilterChains: []istionetworking.FilterChain{{}}}
 			_ = mp.OnInboundListener(inputParams, mutable)
 			for _, chain := range mutable.FilterChains {
 				if got := len(chain.HTTP); got != v.wantFilters {

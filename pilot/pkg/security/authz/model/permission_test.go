@@ -249,6 +249,7 @@ func TestPermission_Generate(t *testing.T) {
 		name         string
 		permission   *Permission
 		forTCPFilter bool
+		forDeny      bool
 		wantYAML     string
 		wantError    string
 	}{
@@ -354,12 +355,12 @@ func TestPermission_Generate(t *testing.T) {
           rules:
           - orRules:
               rules:
-              - header:
-                  exactMatch: /hello
-                  name: :path
-              - header:
-                  exactMatch: /world
-                  name: :path`,
+              - urlPath:
+                  path:
+                    exact: /hello
+              - urlPath:
+                  path:
+                    exact: /world`,
 		},
 		{
 			name: "permission with notPaths",
@@ -372,12 +373,12 @@ func TestPermission_Generate(t *testing.T) {
           - notRule:
               orRules:
                 rules:
-                - header:
-                    exactMatch: /hello
-                    name: :path
-                - header:
-                    exactMatch: /world
-                    name: :path`,
+                - urlPath:
+                    path:
+                      exact: /hello
+                - urlPath:
+                    path:
+                      exact: /world`,
 		},
 		{
 			name: "permission with ports",
@@ -449,11 +450,11 @@ func TestPermission_Generate(t *testing.T) {
               - destinationPort: 9000`,
 		},
 		{
-			name: "permission with constraint pathHeader",
+			name: "permission with constraint request.headers[:path]",
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						pathHeader: Values{
+						"request.headers[:path]": Values{
 							Values: []string{"/hello", "/world"},
 						},
 					},
@@ -472,11 +473,11 @@ func TestPermission_Generate(t *testing.T) {
                   name: :path`,
 		},
 		{
-			name: "permission with constraint methodHeader",
+			name: "permission with constraint request.headers[:method]",
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						methodHeader: Values{
+						"request.headers[:method]": Values{
 							Values: []string{"GET", "POST"},
 						},
 					},
@@ -495,11 +496,11 @@ func TestPermission_Generate(t *testing.T) {
                   name: :method`,
 		},
 		{
-			name: "permission with constraint hostHeader",
+			name: "permission with constraint request.headers[:authority]",
 			permission: &Permission{
 				Constraints: []KeyValues{
 					{
-						hostHeader: Values{
+						"request.headers[:authority]": Values{
 							Values: []string{"istio.io", "github.com"},
 						},
 					},
@@ -719,10 +720,10 @@ func TestPermission_Generate(t *testing.T) {
 						},
 					},
 					{
-						pathHeader: Values{
+						"request.headers[:path]": Values{
 							Values: []string{"/hello", "/world"},
 						},
-						methodHeader: Values{
+						"request.headers[:method]": Values{
 							Values: []string{"GET", "POST"},
 						},
 					},
@@ -761,6 +762,96 @@ func TestPermission_Generate(t *testing.T) {
                   name: :path`,
 		},
 		{
+			name: "permission with forDeny",
+			permission: &Permission{
+				Methods: []string{"GET"},
+				Constraints: []KeyValues{
+					{
+						"request.headers[:foo]": Values{
+							Values: []string{"bar"},
+						},
+					},
+				},
+			},
+			forDeny: true,
+			wantYAML: `
+        andRules:
+          rules:
+          - orRules:
+              rules:
+              - header:
+                  exactMatch: GET
+                  name: :method
+          - orRules:
+              rules:
+              - header:
+                  exactMatch: bar
+                  name: :foo`,
+		},
+		{
+			name: "permission with forTCP",
+			permission: &Permission{
+				Methods: []string{"GET"},
+				Constraints: []KeyValues{
+					{
+						"request.headers[:foo]": Values{
+							Values: []string{"bar"},
+						},
+					},
+				},
+			},
+			forTCPFilter: true,
+			wantError:    "methods([GET])",
+		},
+		{
+			name: "permission with forTCP and forDeny",
+			permission: &Permission{
+				Methods:    []string{"GET"},
+				NotMethods: []string{"POST"},
+				Paths:      []string{"/abc"},
+				NotPaths:   []string{"/xyz"},
+				Ports:      []string{"80"},
+				NotPorts:   []string{"81"},
+				Hosts:      []string{"host.com"},
+				NotHosts:   []string{"other.com"},
+				Constraints: []KeyValues{
+					{
+						attrDestIP: Values{
+							Values: []string{"1.2.3.4"},
+						},
+						attrDestPort: Values{
+							Values:    []string{"90"},
+							NotValues: []string{"91"},
+						},
+					},
+				},
+			},
+			forTCPFilter: true,
+			forDeny:      true,
+			wantYAML: `
+        andRules:
+          rules:
+          - orRules:
+              rules:
+              - destinationPort: 80
+          - notRule:
+              orRules:
+                rules:
+                - destinationPort: 81
+          - orRules:
+              rules:
+              - destinationIp:
+                  addressPrefix: 1.2.3.4
+                  prefixLen: 32
+          - orRules:
+              rules:
+              - destinationPort: 90
+          - notRule:
+              orRules:
+                rules:
+                - destinationPort: 91`,
+		},
+		{
 			name: "permission invalid for TCP",
 			permission: &Permission{
 				Hosts: []string{"host-1"},
@@ -771,7 +862,7 @@ func TestPermission_Generate(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		got, err := tc.permission.Generate(tc.forTCPFilter)
+		got, err := tc.permission.Generate(tc.forTCPFilter, tc.forDeny)
 		if tc.wantError != "" {
 			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
 				t.Errorf("%s: got error %q but want error %q", tc.name, err, tc.wantError)

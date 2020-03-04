@@ -141,6 +141,7 @@ type fakeControllerOptions struct {
 	serviceHandler  func(service *model.Service, event model.Event)
 	instanceHandler func(instance *model.ServiceInstance, event model.Event)
 	mode            EndpointMode
+	clusterID       string
 }
 
 func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *FakeXdsUpdater) {
@@ -155,6 +156,7 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 		Metrics:          &model.Environment{},
 		NetworksWatcher:  opts.networksWatcher,
 		EndpointMode:     opts.mode,
+		ClusterID:        opts.clusterID,
 	})
 
 	if opts.instanceHandler != nil {
@@ -411,7 +413,7 @@ func TestController_GetPodLocality(t *testing.T) {
 
 			// Verify expected existing pod AZs
 			for pod, wantAZ := range c.wantAZ {
-				az := controller.GetPodLocality(pod)
+				az := controller.getPodLocality(pod)
 				if wantAZ != "" {
 					if !reflect.DeepEqual(az, wantAZ) {
 						t.Fatalf("Wanted az: %s, got: %s", wantAZ, az)
@@ -428,10 +430,14 @@ func TestController_GetPodLocality(t *testing.T) {
 }
 
 func TestGetProxyServiceInstances(t *testing.T) {
+	clusterID := "fakeCluster"
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
-			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
+			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{
+				mode:      mode,
+				clusterID: clusterID,
+			})
 			defer controller.Stop()
 			p := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 			addPods(t, controller, p)
@@ -506,6 +512,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					ClusterID: clusterID,
 					Labels: map[string]string{
 						"app": "prod-app",
 					}},
@@ -533,7 +540,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Address:         "1.1.1.1",
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
-					Locality:        "r/z",
+					Locality: model.Locality{
+						Label:     "r/z",
+						ClusterID: clusterID,
+					},
 					Attributes: model.ServiceAttributes{
 						Name:      "svc1",
 						Namespace: "nsa",
@@ -566,6 +576,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					ClusterID: clusterID,
 					Labels: map[string]string{
 						"app": "prod-app",
 					}},
@@ -592,7 +603,11 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Address:         "129.0.0.1",
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
-					Locality:        "region1/zone1/subzone1", Labels: labels.Instance{"app": "prod-app"},
+					Locality: model.Locality{
+						Label:     "region1/zone1/subzone1",
+						ClusterID: clusterID,
+					},
+					Labels:         labels.Instance{"app": "prod-app"},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod2.nsa",
 					Attributes: model.ServiceAttributes{
@@ -622,6 +637,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					ClusterID: clusterID,
 					Labels: map[string]string{
 						"app": "prod-app",
 					}},
@@ -648,7 +664,11 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Address:         "129.0.0.2",
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
-					Locality:        "region/zone", Labels: labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
+					Locality: model.Locality{
+						Label:     "region/zone",
+						ClusterID: clusterID,
+					},
+					Labels:         labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod3.nsa",
 					Attributes: model.ServiceAttributes{

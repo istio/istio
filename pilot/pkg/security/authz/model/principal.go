@@ -72,9 +72,7 @@ func (principal *Principal) ValidateForTCP(forTCP bool) error {
 
 	for _, p := range principal.Properties {
 		for key := range p {
-			// The "request.auth.*" and "request.headers" attributes are only available for HTTP.
-			// See https://istio.io/docs/reference/config/security/conditions/.
-			if strings.HasPrefix(key, "request.") || key == attrSrcUser {
+			if !validPropertyForTCP(key) {
 				return fmt.Errorf("property(%v)", p)
 			}
 		}
@@ -82,23 +80,41 @@ func (principal *Principal) ValidateForTCP(forTCP bool) error {
 	return nil
 }
 
-func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, error) {
+func validPropertyForTCP(p string) bool {
+	// The "request.auth.*" and "request.headers" attributes are only available for HTTP.
+	// See https://istio.io/docs/reference/config/security/conditions/.
+	return !strings.HasPrefix(p, "request.") && p != attrSrcUser
+}
+
+// Generate generates the RBAC filter config for the given principal.
+// When the policy uses HTTP fields for TCP filter (forTCPFilter is true):
+// - If it's allow policy (forDenyPolicy is false), returns nil so that the allow policy is ignored to avoid granting more permissions in this case.
+// - If it's deny policy (forDenyPolicy is true), returns a config that only includes the TCP fields (e.g. source.principal). This makes sure
+//   the generated deny policy is more restrictive so that it never grants any extra permission in this case.
+func (principal *Principal) Generate(forTCPFilter, forDenyPolicy bool) (*envoy_rbac.Principal, error) {
 	if principal == nil {
 		return nil, nil
 	}
 
+	// When true, the function will only handle the TCP fields in the principal.
+	onlyTCPFields := false
 	if err := principal.ValidateForTCP(forTCPFilter); err != nil {
-		return nil, err
+		if !forDenyPolicy {
+			return nil, err
+		}
+		// Set onlyTCPFields to true if the deny policy is using HTTP fields so that
+		// we generate a deny policy with only TCP fields.
+		onlyTCPFields = true
 	}
 
 	pg := principalGenerator{}
 
 	if principal.AllowAll {
-		pg.append(principalAny(true))
+		pg.append(principalAny())
 		return pg.andPrincipals(), nil
 	}
 
-	if len(principal.Users) != 0 {
+	if !onlyTCPFields && len(principal.Users) != 0 {
 		principal := principal.forKeyValues(attrSrcPrincipal, principal.Users, forTCPFilter)
 		pg.append(principal)
 	}
@@ -113,30 +129,32 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 		pg.append(principalNot(principal))
 	}
 
-	if len(principal.RequestPrincipals) > 0 {
-		principal := principal.forKeyValues(attrRequestPrincipal, principal.RequestPrincipals, forTCPFilter)
-		pg.append(principal)
-	}
+	if !onlyTCPFields {
+		if len(principal.RequestPrincipals) > 0 {
+			principal := principal.forKeyValues(attrRequestPrincipal, principal.RequestPrincipals, forTCPFilter)
+			pg.append(principal)
+		}
 
-	if len(principal.NotRequestPrincipals) > 0 {
-		principal := principal.forKeyValues(attrRequestPrincipal, principal.NotRequestPrincipals, forTCPFilter)
-		pg.append(principalNot(principal))
-	}
+		if len(principal.NotRequestPrincipals) > 0 {
+			principal := principal.forKeyValues(attrRequestPrincipal, principal.NotRequestPrincipals, forTCPFilter)
+			pg.append(principalNot(principal))
+		}
 
-	if principal.Group != "" {
-		principal := principal.forKeyValue(attrRequestClaimGroups, principal.Group, forTCPFilter)
-		pg.append(principal)
-	}
+		if principal.Group != "" {
+			principal := principal.forKeyValue(attrRequestClaimGroups, principal.Group, forTCPFilter)
+			pg.append(principal)
+		}
 
-	if len(principal.Groups) > 0 {
-		// TODO: Validate attrRequestClaimGroups and principal.Groups are not used at the same time.
-		principal := principal.forKeyValues(attrRequestClaimGroups, principal.Groups, forTCPFilter)
-		pg.append(principal)
-	}
+		if len(principal.Groups) > 0 {
+			// TODO: Validate attrRequestClaimGroups and principal.Groups are not used at the same time.
+			principal := principal.forKeyValues(attrRequestClaimGroups, principal.Groups, forTCPFilter)
+			pg.append(principal)
+		}
 
-	if len(principal.NotGroups) > 0 {
-		principal := principal.forKeyValues(attrRequestClaimGroups, principal.NotGroups, forTCPFilter)
-		pg.append(principalNot(principal))
+		if len(principal.NotGroups) > 0 {
+			principal := principal.forKeyValues(attrRequestClaimGroups, principal.NotGroups, forTCPFilter)
+			pg.append(principalNot(principal))
+		}
 	}
 
 	if len(principal.Namespaces) > 0 {
@@ -164,7 +182,9 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 		// config is stable.
 		var keys []string
 		for key := range p {
-			keys = append(keys, key)
+			if !onlyTCPFields || validPropertyForTCP(key) {
+				keys = append(keys, key)
+			}
 		}
 		sort.Strings(keys)
 
@@ -182,8 +202,14 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	}
 
 	if pg.isEmpty() {
-		// None of above principal satisfied means nobody has the permission.
-		principal := principalNot(principalAny(true))
+		var principal *envoy_rbac.Principal
+		if forDenyPolicy {
+			// Deny everything
+			principal = principalAny()
+		} else {
+			// None of above principal satisfied means nobody has the permission.
+			principal = principalNot(principalAny())
+		}
 		pg.append(principal)
 	}
 
@@ -242,7 +268,7 @@ func (principal *Principal) forKeyValue(key, value string, forTCPFilter bool) *e
 		if !principal.v1beta1 {
 			// Legacy support for the v1alpha1 policy. The v1beta1 doesn't support these.
 			if value == allUsers || value == "*" {
-				return principalAny(true)
+				return principalAny()
 			}
 			// We don't allow users to use "*" in names or not_names. However, we will use "*" internally to
 			// refer to authenticated users, since existing code using regex to map "*" to all authenticated
@@ -332,10 +358,10 @@ func (pg *principalGenerator) orPrincipals() *envoy_rbac.Principal {
 	}
 }
 
-func principalAny(any bool) *envoy_rbac.Principal {
+func principalAny() *envoy_rbac.Principal {
 	return &envoy_rbac.Principal{
 		Identifier: &envoy_rbac.Principal_Any{
-			Any: any,
+			Any: true,
 		},
 	}
 }

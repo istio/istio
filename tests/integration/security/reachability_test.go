@@ -205,6 +205,45 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 				},
+				{
+					ConfigFile:          "global-mtls-on-no-dr.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the headless service.
+						// Auto mtls does not apply to headless service, because for headless service
+						// the cluster discovery type is ORIGINAL_DST, and it will not apply upstream tls setting
+						return opts.Target != rctx.Headless
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
+						// be the same as having global DR rule.
+						if opts.Target == rctx.Naked {
+							// calls to naked should always succeed.
+							return true
+						}
+
+						// If source is naked, and destination is not, expect failure.
+						return !(src == rctx.Naked && opts.Target != rctx.Naked)
+					},
+				},
+				{
+					ConfigFile:          "global-plaintext.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the headless TCP port.
+						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
+							return false
+						}
+
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// When mTLS is disabled, all traffic should work.
+						return true
+					},
+				},
 			}
 			rctx.Run(testCases)
 		})
