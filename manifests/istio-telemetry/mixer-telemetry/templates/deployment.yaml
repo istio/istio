@@ -36,6 +36,20 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+{{- end }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
       - name: istio-certs
         secret:
           secretName: istio.istio-mixer-service-account
@@ -202,6 +216,20 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
+        - name: JWT_POLICY
+          value: {{ .Values.global.jwtPolicy }}
+        - name: PILOT_CERT_PROVIDER
+          value: {{ .Values.global.pilotCertProvider }}
+        - name: "ISTIO_META_USER_SDS"
+          value: "true"
+        - name: CA_ADDR
+          {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+          {{- else if .Values.global.configNamespace }}
+          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          {{- else }}
+          value: istiod.istio-system.svc:15012
+      {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
@@ -209,11 +237,17 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        {{- end }}
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
+          readOnly: true
+        {{- end }}
         - name: telemetry-envoy-config
           mountPath: /var/lib/envoy
-        - name: istio-certs
-          mountPath: /etc/certs
-          readOnly: true
         - name: uds-socket
           mountPath: /sock
 {{- end }}

@@ -44,6 +44,16 @@ static_resources:
         path: /sock/mixer.socket
     http2_protocol_options: {}
     name: inbound_9092
+
+  - name: sds-grpc
+    type: STATIC
+    http2_protocol_options: {}
+    connect_timeout: 0.250s
+    lb_policy: ROUND_ROBIN
+    hosts:
+    - pipe:
+        path: "/etc/istio/proxy/SDS"
+
   - circuit_breakers:
       thresholds:
       - max_connections: 100000
