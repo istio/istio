@@ -59,7 +59,7 @@ test.integration.%.local: | $(JUNIT_REPORT)
 
 # Generate presubmit integration test targets for each component in kubernetes environment
 test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/stackdriver/... -timeout 30m \
+	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	--istio.test.select -postsubmit,-flaky \
 	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} \
