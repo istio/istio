@@ -658,7 +658,8 @@ func applyH2Upgrade(opts buildClusterOpts, connectionPool *networking.Connection
 }
 
 // shouldH2Upgrade function returns true if the cluster  should be upgraded to http2.
-func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port *model.Port, mesh *meshconfig.MeshConfig, connectionPool *networking.ConnectionPoolSettings) bool {
+func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port *model.Port, mesh *meshconfig.MeshConfig,
+	connectionPool *networking.ConnectionPoolSettings) bool {
 	if direction != model.TrafficDirectionOutbound {
 		return false
 	}
@@ -680,7 +681,7 @@ func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port 
 		override = connectionPool.Http.H2UpgradePolicy
 	}
 
-	if ! h2UpgradeMap[upgradeTuple{mesh.H2UpgradePolicy, override}] {
+	if !h2UpgradeMap[upgradeTuple{mesh.H2UpgradePolicy, override}] {
 		log.Debugf("Not upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
 		return false
 	}
