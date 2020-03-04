@@ -280,7 +280,6 @@ func (c *kubeComponent) createRequest(options CallOptions) (*http.Request, error
 	if options.Headers != nil {
 		req.Header = options.Headers.Clone()
 	}
-	req.Close = true
 
 	scopes.Framework.Debugf("Created a request to send %v", req)
 	return req, nil
