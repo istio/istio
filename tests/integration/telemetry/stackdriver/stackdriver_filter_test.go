@@ -205,18 +205,26 @@ func testSetup(ctx resource.Context) (err error) {
 			Service:   "clt",
 			Namespace: getEchoNamespaceInstance(),
 			Galley:    getGalInstance(),
-			Annotations: map[echo.Annotation]*echo.AnnotationValue{
-				echo.SidecarBootstrapOverride: {
-					Value: sdBootstrapConfigMap,
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarBootstrapOverride: {
+							Value: sdBootstrapConfigMap,
+						},
+					},
 				},
 			}}).
 		With(&srv, echo.Config{
 			Service:   "srv",
 			Namespace: getEchoNamespaceInstance(),
 			Galley:    getGalInstance(),
-			Annotations: map[echo.Annotation]*echo.AnnotationValue{
-				echo.SidecarBootstrapOverride: {
-					Value: sdBootstrapConfigMap,
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarBootstrapOverride: {
+							Value: sdBootstrapConfigMap,
+						},
+					},
 				},
 			}}).
 		Build()
