@@ -45,7 +45,7 @@ const (
 	quitPath = "/quitquitquit"
 	// KubeAppProberEnvName is the name of the command line flag for pilot agent to pass app prober config.
 	// The json encoded string to pass app HTTP probe information from injector(istioctl or webhook).
-	// For example, ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}.
+	// For example, ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"httpGet":{"path": "/hello", "port": 8080}}.
 	// indicates that httpbin container liveness prober port is 8080 and probing path is /hello.
 	// This environment variable should never be set manually.
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
@@ -57,18 +57,24 @@ var (
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
 // It's a map from the prober URL path to the Kubernetes Prober config.
-// For example, "/app-health/hello-world/livez" entry contains livenss prober config for
+// For example, "/app-health/hello-world/livez" entry contains liveness prober config for
 // container "hello-world".
-type KubeAppProbers map[string]*corev1.HTTPGetAction
+type KubeAppProbers map[string]*Prober
+
+// Prober represents a single container prober
+type Prober struct {
+	HTTPGet        *corev1.HTTPGetAction `json:"httpGet"`
+	TimeoutSeconds int32                 `json:"timeoutSeconds,omitempty"`
+}
 
 // Config for the status server.
 type Config struct {
 	LocalHostAddr string
-	// KubeAppHTTPProbers is a json with Kubernetes application HTTP prober config encoded.
-	KubeAppHTTPProbers string
-	NodeType           model.NodeType
-	StatusPort         uint16
-	AdminPort          uint16
+	// KubeAppProbers is a json with Kubernetes application prober config encoded.
+	KubeAppProbers string
+	NodeType       model.NodeType
+	StatusPort     uint16
+	AdminPort      uint16
 }
 
 // Server provides an endpoint for handling status probes.
@@ -90,18 +96,21 @@ func NewServer(config Config) (*Server, error) {
 			NodeType:      config.NodeType,
 		},
 	}
-	if config.KubeAppHTTPProbers == "" {
+	if config.KubeAppProbers == "" {
 		return s, nil
 	}
-	if err := json.Unmarshal([]byte(config.KubeAppHTTPProbers), &s.appKubeProbers); err != nil {
-		return nil, fmt.Errorf("failed to decode app http prober err = %v, json string = %v", err, config.KubeAppHTTPProbers)
+	if err := json.Unmarshal([]byte(config.KubeAppProbers), &s.appKubeProbers); err != nil {
+		return nil, fmt.Errorf("failed to decode app prober err = %v, json string = %v", err, config.KubeAppProbers)
 	}
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
 		if !appProberPattern.Match([]byte(path)) {
 			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern ^/app-health/[^\/]+/(livez|readyz)$`)
 		}
-		if prober.Port.Type != intstr.Int {
+		if prober.HTTPGet == nil {
+			return nil, fmt.Errorf(`invalid prober type, must be of type httpGet`)
+		}
+		if prober.HTTPGet.Port.Type != intstr.Int {
 			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 		}
 	}
@@ -216,8 +225,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 
 	// Construct a request sent to the application.
 	httpClient := &http.Client{
-		// TODO: figure out the appropriate timeout?
-		Timeout: 10 * time.Second,
+		Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
 		// We skip the verification since kubelet skips the verification for HTTPS prober as well
 		// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
 		Transport: &http.Transport{
@@ -225,10 +233,10 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		},
 	}
 	var url string
-	if prober.Scheme == corev1.URISchemeHTTPS {
-		url = fmt.Sprintf("https://localhost:%v%s", prober.Port.IntValue(), prober.Path)
+	if prober.HTTPGet.Scheme == corev1.URISchemeHTTPS {
+		url = fmt.Sprintf("https://localhost:%v%s", prober.HTTPGet.Port.IntValue(), prober.HTTPGet.Path)
 	} else {
-		url = fmt.Sprintf("http://localhost:%v%s", prober.Port.IntValue(), prober.Path)
+		url = fmt.Sprintf("http://localhost:%v%s", prober.HTTPGet.Port.IntValue(), prober.HTTPGet.Path)
 	}
 	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -244,7 +252,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		appReq.Header[name] = newValues
 	}
 
-	for _, h := range prober.HTTPHeaders {
+	for _, h := range prober.HTTPGet.HTTPHeaders {
 		if h.Name == "Host" || h.Name == ":authority" {
 			// Probe has specific host header override; honor it
 			appReq.Host = h.Value
@@ -255,7 +263,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	// Send the request.
 	response, err := httpClient.Do(appReq)
 	if err != nil {
-		log.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, prober.Path)
+		log.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, prober.HTTPGet.Path)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

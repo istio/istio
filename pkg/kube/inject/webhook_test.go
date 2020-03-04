@@ -549,10 +549,6 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:  "TestWebhookInject_no_volumes_imagePullSecrets.patch",
 		},
 		{
-			inputFile: "TestWebhookInject_no_containers_volumes_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_containers_volumes_imagePullSecrets.patch",
-		},
-		{
 			inputFile: "TestWebhookInject_no_containers_volumes.yaml",
 			wantFile:  "TestWebhookInject_no_containers_volumes.patch",
 		},
@@ -638,6 +634,11 @@ func TestWebhookInject(t *testing.T) {
 			inputFile:    "TestWebhookInject_validationOrder.yaml",
 			wantFile:     "TestWebhookInject_validationOrder.patch",
 			templateFile: "TestWebhookInject_validationOrder_template.yaml",
+		},
+		{
+			inputFile:    "TestWebhookInject_probe_rewrite_timeout_retention.yaml",
+			wantFile:     "TestWebhookInject_probe_rewrite_timeout_retention.patch",
+			templateFile: "TestWebhookInject_probe_rewrite_timeout_retention_template.yaml",
 		},
 	}
 

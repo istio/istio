@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"sort"
+	"strings"
 
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube/inject"
@@ -89,8 +90,12 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 
 const (
 	// configNameNotApplicable is used to represent the name of the authentication policy or
-	// destination rule when they are not specified.
+	// destination rule when they are not specified and AutoMTLS is enabled
 	configNameNotApplicable = "-"
+
+	// noConfigConfigured is used when the authentication policy or destination rule
+	// are not specified
+	noConfigConfigured = "None"
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
@@ -423,7 +428,7 @@ func configName(config *model.ConfigMeta) string {
 	if config != nil {
 		return fmt.Sprintf("%s/%s", config.Namespace, config.Name)
 	}
-	return configNameNotApplicable
+	return noConfigConfigured
 }
 
 // Authenticationz dumps the authn tls-check info.
@@ -434,38 +439,27 @@ func configName(config *model.ConfigMeta) string {
 func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		s.adsClientsMutex.RLock()
-		defer s.adsClientsMutex.RUnlock()
-
-		connections, ok := s.adsSidecarIDConnectionsMap[proxyID]
-		if !ok {
+		con := s.getProxyConnection(proxyID)
+		if con == nil {
 			w.WriteHeader(http.StatusNotFound)
 			// Need to dump an empty JSON array so istioctl can peacefully ignore.
 			_, _ = fmt.Fprintf(w, "\n[\n]")
 			return
 		}
-
-		var mostRecentProxy *model.Proxy
-		mostRecent := ""
-		for key := range connections {
-			if mostRecent == "" || key > mostRecent {
-				mostRecent = key
-			}
-		}
-		mostRecentProxy = connections[mostRecent].node
-		svc, _ := s.Env.ServiceDiscovery.Services()
+		pushContext := s.globalPushContext()
+		svcs := pushContext.Services(con.node)
 		meshConfig := s.Env.Mesh()
 		autoMTLSEnabled := meshConfig.GetEnableAutoMtls() != nil && meshConfig.GetEnableAutoMtls().Value
 		info := make([]*AuthenticationDebug, 0)
-		for _, ss := range svc {
-			if ss.MeshExternal {
+		for _, svc := range svcs {
+			if svc.MeshExternal {
 				// Skip external services
 				continue
 			}
-			for _, p := range ss.Ports {
-				authnPolicy, authnMeta := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
-				destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
-				info = append(info, AnalyzeMTLSSettings(autoMTLSEnabled, ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
+			for _, p := range svc.Ports {
+				authnPolicy, authnMeta := pushContext.AuthenticationPolicyForWorkload(svc, p)
+				destConfig := pushContext.DestinationRule(con.node, svc)
+				info = append(info, AnalyzeMTLSSettings(autoMTLSEnabled, svc.Hostname, p, authnPolicy, authnMeta, destConfig)...)
 			}
 		}
 		if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
@@ -505,11 +499,11 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 		Port:                     port.Port,
 		AuthenticationPolicyName: authnPolicyName,
 		ServerProtocol:           serverMTLSMode.String(),
-		ClientProtocol:           configNameNotApplicable,
+		ClientProtocol:           noConfigConfigured,
 	}
 
 	var rule *networking.DestinationRule
-	destinationRuleName := configNameNotApplicable
+	destinationRuleName := noConfigConfigured
 
 	if destConfig != nil {
 		rule = destConfig.Spec.(*networking.DestinationRule)
@@ -531,6 +525,9 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 		info.DestinationRuleName = destinationRuleName
 		if c != nil {
 			info.ClientProtocol = c.GetMode().String()
+		} else if autoMTLSEnabled {
+			info.ClientProtocol = configNameNotApplicable
+			info.DestinationRuleName = configNameNotApplicable
 		}
 		if ss == "" {
 			info.Host = string(hostname)
@@ -618,23 +615,15 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 // should look like according to Pilot vs what it currently does look like.
 func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		s.adsClientsMutex.RLock()
-		defer s.adsClientsMutex.RUnlock()
-		connections, ok := s.adsSidecarIDConnectionsMap[proxyID]
-		if !ok || len(connections) == 0 {
+		con := s.getProxyConnection(proxyID)
+		if con == nil {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance"))
 			return
 		}
 
 		jsonm := &jsonpb.Marshaler{Indent: "    "}
-		mostRecent := ""
-		for key := range connections {
-			if mostRecent == "" || key > mostRecent {
-				mostRecent = key
-			}
-		}
-		dump, err := s.configDump(connections[mostRecent])
+		dump, err := s.configDump(con)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(err.Error()))
@@ -680,6 +669,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 			return nil, err
 		}
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
+			Name:        cs.Name,
 			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener}})
 	}
 	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
@@ -785,24 +775,14 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	}
 	var con *XdsConnection
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		s.adsClientsMutex.RLock()
-		defer s.adsClientsMutex.RUnlock()
-		connections, ok := s.adsSidecarIDConnectionsMap[proxyID]
+		con = s.getProxyConnection(proxyID)
 		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
 		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
-		if !ok || len(connections) == 0 {
+		if con == nil {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
 			return
 		}
-
-		mostRecent := ""
-		for key := range connections {
-			if mostRecent == "" || key > mostRecent {
-				mostRecent = key
-			}
-		}
-		con = connections[mostRecent]
 	}
 
 	edsClusterMutex.RLock()
@@ -928,4 +908,17 @@ func printRoutes(w io.Writer, c *XdsConnection) {
 			return
 		}
 	}
+}
+
+func (s *DiscoveryServer) getProxyConnection(proxyID string) *XdsConnection {
+	s.adsClientsMutex.RLock()
+	defer s.adsClientsMutex.RUnlock()
+
+	for conID := range s.adsClients {
+		if strings.Contains(conID, proxyID) {
+			return s.adsClients[conID]
+		}
+	}
+
+	return nil
 }

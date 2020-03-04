@@ -230,3 +230,16 @@ messages:
         type: string
       - name: targetPort
         type: string
+
+  - name: "PolicyResourceIsDeprecated"
+    code: IST0120
+    level: Info
+    description: "The Policy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
+    template: "The Policy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
+
+  - name: "MeshPolicyResourceIsDeprecated"
+    code: IST0121
+    level: Info
+    description: "The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
+    template: "The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
+

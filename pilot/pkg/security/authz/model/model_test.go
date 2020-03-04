@@ -537,6 +537,7 @@ func TestModel_Generate(t *testing.T) {
 		permissions    []Permission
 		principals     []Principal
 		forTCPFilter   bool
+		forDeny        bool
 		wantPermission []string
 		wantPrincipal  []string
 	}{
@@ -598,6 +599,23 @@ func TestModel_Generate(t *testing.T) {
 			},
 			forTCPFilter: true,
 		},
+		{
+			name: "forTCPFilter and forDeny: permission and principal",
+			permissions: []Permission{
+				simplePermission(serviceFoo, "perm-1"),
+			},
+			principals: []Principal{
+				simplePrincipal("id-1"),
+			},
+			wantPermission: []string{
+				"any",
+			},
+			wantPrincipal: []string{
+				principalTag("id-1"),
+			},
+			forTCPFilter: true,
+			forDeny:      true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -605,7 +623,7 @@ func TestModel_Generate(t *testing.T) {
 			Permissions: tc.permissions,
 			Principals:  tc.principals,
 		}
-		got := m.Generate(serviceMetadata, tc.forTCPFilter)
+		got := m.Generate(serviceMetadata, tc.forTCPFilter, tc.forDeny)
 		if len(tc.wantPermission) == 0 || len(tc.wantPrincipal) == 0 {
 			if got != nil {
 				t.Errorf("%s: got %v but want nil", tc.name, *got)

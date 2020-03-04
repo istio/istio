@@ -407,11 +407,11 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	return c.servicesMap[hostname], nil
 }
 
-// GetPodLocality retrieves the locality for a pod.
-func (c *Controller) GetPodLocality(pod *v1.Pod) string {
+// getPodLocality retrieves the locality for a pod.
+func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	// if pod has `istio-locality` label, skip below ops
 	if len(pod.Labels[model.LocalityLabel]) > 0 {
-		return model.GetLocalityOrDefault(pod.Labels[model.LocalityLabel], "")
+		return model.GetLocalityLabelOrDefault(pod.Labels[model.LocalityLabel], "")
 	}
 
 	// NodeName is set by the scheduler after the pod is created
@@ -566,7 +566,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			// attempt to read the real pod.
 			out, err = c.getProxyServiceInstancesFromMetadata(proxy)
 			if err != nil {
-				log.Warnf("getProxyServiceInstancesFromMetadata failed: %v", err)
+				log.Warnf("getProxyServiceInstancesFromMetadata for %v failed: %v", proxy.ID, err)
 			}
 		}
 	}
@@ -659,8 +659,11 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 						Labels:         proxy.Metadata.Labels,
 						ServiceAccount: svcAccount,
 						Network:        c.endpointNetwork(ip),
-						Locality:       util.LocalityToString(proxy.Locality),
-						Attributes:     model.ServiceAttributes{Name: svc.Name, Namespace: svc.Namespace},
+						Locality: model.Locality{
+							Label:     util.LocalityToString(proxy.Locality),
+							ClusterID: c.clusterID,
+						},
+						Attributes: model.ServiceAttributes{Name: svc.Name, Namespace: svc.Namespace},
 					},
 				})
 			}
@@ -751,7 +754,7 @@ func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svc
 	pod := c.pods.getPodByIP(podIP)
 	locality, sa, uid := "", "", ""
 	if pod != nil {
-		locality = c.GetPodLocality(pod)
+		locality = c.getPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod)
 		uid = createUID(pod.Name, pod.Namespace)
 	}
@@ -766,9 +769,12 @@ func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svc
 			UID:             uid,
 			ServiceAccount:  sa,
 			Network:         c.endpointNetwork(address),
-			Locality:        locality,
-			Attributes:      model.ServiceAttributes{Name: svc.Attributes.Name, Namespace: svc.Attributes.Namespace},
-			TLSMode:         kube.PodTLSMode(pod),
+			Locality: model.Locality{
+				Label:     locality,
+				ClusterID: c.clusterID,
+			},
+			Attributes: model.ServiceAttributes{Name: svc.Attributes.Name, Namespace: svc.Attributes.Namespace},
+			TLSMode:    kube.PodTLSMode(pod),
 		},
 	}
 }
@@ -850,7 +856,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				var labelMap map[string]string
 				locality, sa, uid := "", "", ""
 				if pod != nil {
-					locality = c.GetPodLocality(pod)
+					locality = c.getPodLocality(pod)
 					sa = kube.SecureNamingSAN(pod)
 					uid = createUID(pod.Name, pod.Namespace)
 					labelMap = configKube.ConvertLabels(pod.ObjectMeta)
@@ -869,9 +875,12 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						UID:             uid,
 						ServiceAccount:  sa,
 						Network:         c.endpointNetwork(ea.IP),
-						Locality:        locality,
-						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
-						TLSMode:         tlsMode,
+						Locality: model.Locality{
+							Label:     locality,
+							ClusterID: c.clusterID,
+						},
+						Attributes: model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
+						TLSMode:    tlsMode,
 					})
 				}
 			}

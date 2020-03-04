@@ -2205,6 +2205,17 @@ No
 No
 </td>
 </tr>
+<tr id="GlobalConfig-caAddress">
+<td><code>caAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>The address of the CA for CSR.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="GlobalConfig-defaultNodeSelector" class="deprecated ">
 <td><code>defaultNodeSelector</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -3167,8 +3178,8 @@ No
 No
 </td>
 </tr>
-<tr id="KialiDashboardConfig-inclustergrafanaURL">
-<td><code>inclustergrafanaURL</code></td>
+<tr id="KialiDashboardConfig-grafanaInClusterURL">
+<td><code>grafanaInClusterURL</code></td>
 <td><code>string</code></td>
 <td>
 </td>
@@ -3176,8 +3187,8 @@ No
 No
 </td>
 </tr>
-<tr id="KialiDashboardConfig-inclusterjaegerURL">
-<td><code>inclusterjaegerURL</code></td>
+<tr id="KialiDashboardConfig-jaegerInClusterURL">
+<td><code>jaegerInClusterURL</code></td>
 <td><code>string</code></td>
 <td>
 </td>
@@ -7727,7 +7738,18 @@ No
 <td><code>probeStartupDelay</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>InitialDelaySeconds of livenessProbe for Zipkin deployment</p>
+<p>InitialDelaySeconds of readiness probe for Zipkin deployment</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingZipkinConfig-livenessProbeStartupDelay">
+<td><code>livenessProbeStartupDelay</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>InitialDelaySeconds of liveness probe for Zipkin deployment</p>
 
 </td>
 <td>

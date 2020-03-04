@@ -20,16 +20,26 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 )
 
 // main serves as the program entry point
 func main() {
 	// obtain the port and prefix via program arguments
-	port := fmt.Sprintf(":%s", os.Args[1])
+	ports := strings.Split(os.Args[1], ",")
 	prefix := os.Args[2]
+	for _, port := range ports {
+		addr := fmt.Sprintf(":%s", port)
+		go serve(addr, prefix)
+	}
+	ch := make(chan struct{})
+	<-ch
+}
 
+// serve starts serving on a given address
+func serve(addr, prefix string) {
 	// create a tcp listener on the given port
-	listener, err := net.Listen("tcp", port)
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("failed to create listener, err:", err)
 		os.Exit(1)

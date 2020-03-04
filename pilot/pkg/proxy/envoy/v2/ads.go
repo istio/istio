@@ -452,7 +452,7 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality. So its enough to look at the first instance
 	if len(proxy.ServiceInstances) > 0 {
-		proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].GetLocality())
+		proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
 	}
 
 	// If there is no locality in the registry then use the one sent as part of the discovery request.
@@ -473,7 +473,7 @@ func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContex
 		// Get the locality from the proxy's service instances.
 		// We expect all instances to have the same locality. So its enough to look at the first instance
 		if len(proxy.ServiceInstances) > 0 {
-			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].GetLocality())
+			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
 		}
 	}
 
@@ -685,15 +685,6 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	defer s.adsClientsMutex.Unlock()
 	s.adsClients[conID] = con
 	xdsClients.Record(float64(len(s.adsClients)))
-	if con.node != nil {
-		node := con.node
-
-		if _, ok := s.adsSidecarIDConnectionsMap[node.ID]; !ok {
-			s.adsSidecarIDConnectionsMap[node.ID] = map[string]*XdsConnection{conID: con}
-		} else {
-			s.adsSidecarIDConnectionsMap[node.ID][conID] = con
-		}
-	}
 }
 
 func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
@@ -712,13 +703,6 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 
 	xdsClients.Record(float64(len(s.adsClients)))
-	if con.node != nil {
-		node := con.node
-		delete(s.adsSidecarIDConnectionsMap[node.ID], conID)
-		if len(s.adsSidecarIDConnectionsMap[node.ID]) == 0 {
-			delete(s.adsSidecarIDConnectionsMap, node.ID)
-		}
-	}
 }
 
 // Send with timeout

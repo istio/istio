@@ -15,7 +15,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -48,7 +48,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -76,7 +76,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -104,7 +104,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -146,7 +146,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -175,7 +175,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -204,7 +204,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:

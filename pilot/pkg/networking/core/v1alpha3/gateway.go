@@ -32,6 +32,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -88,13 +89,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		p := protocol.Parse(servers[0].Port.Protocol)
-		listenerProtocol := plugin.ModelProtocolToListenerProtocol(node, p, core.TrafficDirection_OUTBOUND)
+		listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(node, p, core.TrafficDirection_OUTBOUND)
+		filterChains := make([]istionetworking.FilterChain, 0)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
 			routeName := mergedGateway.RouteNamesByServer[servers[0]]
 			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(node, servers[0], routeName, "")}
+			filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolHTTP})
 		} else {
 			// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
 			// build listener with tcp proxy, with or without TLS context, for TCP servers
@@ -108,10 +111,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 					routeName := mergedGateway.RouteNamesByServer[server]
 					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName, push.Mesh.SdsUdsPath))
+					filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolHTTP})
 				} else {
 					// passthrough or tcp, yields multiple filter chains
-					filterChainOpts = append(filterChainOpts, configgen.createGatewayTCPFilterChainOpts(node, push,
-						server, map[string]bool{mergedGateway.GatewayNameForServer[server]: true})...)
+					tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(node, push,
+						server, map[string]bool{mergedGateway.GatewayNameForServer[server]: true})
+					filterChainOpts = append(filterChainOpts, tcpChainOpts...)
+					for i := 0; i < len(tcpChainOpts); i++ {
+						filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolTCP})
+					}
 				}
 			}
 			opts.filterChainOpts = filterChainOpts
@@ -120,27 +128,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		l := buildListener(opts)
 		l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
-		mutable := &plugin.MutableObjects{
+		mutable := &istionetworking.MutableObjects{
 			Listener: l,
 			// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
 			// this is for.
-			FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
+			FilterChains: filterChains,
 		}
-
-		// Begin shady logic
-		// buildListener builds an empty array of filters in the listener struct
-		// mutable object above has a FilterChains field that has same number of empty structs (matching number of
-		// filter chains). All plugins iterate over this array, and fill up the HTTP or TCP part of the
-		// plugin.FilterChain struct.
-		// TODO: need a cleaner way of communicating this info
-		for i := range mutable.FilterChains {
-			if opts.filterChainOpts[i].httpOpts != nil {
-				mutable.FilterChains[i].ListenerProtocol = plugin.ListenerProtocolHTTP
-			} else {
-				mutable.FilterChains[i].ListenerProtocol = plugin.ListenerProtocolTCP
-			}
-		}
-		// end shady logic
 
 		pluginParams := &plugin.InputParams{
 			ListenerProtocol:           listenerProtocol,
@@ -260,7 +253,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				} else {
 					newVHost := &route.VirtualHost{
 						Name:    fmt.Sprintf("%s:%d", hostname, port),
-						Domains: []string{string(hostname), fmt.Sprintf("%s:%d", hostname, port)},
+						Domains: buildGatewayVirtualHostDomains(string(hostname)),
 						Routes:  routes,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -312,7 +305,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	}
 
 	in := &plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 		ListenerCategory: networking.EnvoyFilter_GATEWAY,
 		Node:             node,
 		Push:             push,
@@ -678,6 +671,7 @@ func convertTLSMatchToL4Match(tlsMatch *networking.TLSMatchAttributes) *networki
 		Port:               tlsMatch.Port,
 		SourceLabels:       tlsMatch.SourceLabels,
 		Gateways:           tlsMatch.Gateways,
+		SourceNamespace:    tlsMatch.SourceNamespace,
 	}
 }
 
@@ -741,4 +735,14 @@ func getSNIHostsForServer(server *networking.Server) []string {
 	sort.Strings(sniHostsSlice)
 
 	return sniHostsSlice
+}
+
+func buildGatewayVirtualHostDomains(hostname string) []string {
+	domains := []string{hostname}
+	if hostname == "*" {
+		return domains
+	}
+	// To support gateway behind a LB with unknown port.
+	domains = append(domains, hostname+":*")
+	return domains
 }

@@ -20,7 +20,11 @@ unknown field "badKey" in v1alpha1.GlobalConfig
 
 # Cni component is disabled.
 
+# EgressGateways istio-egressgateway component is disabled.
+
 # Galley component is disabled.
+
+# Resources for Pilot component
 
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
@@ -97,205 +101,19 @@ rules:
 ---
 
 
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-  verbs: ["get", "watch", "list"]
-  resources: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["certificates.k8s.io"]
-  resources:
-    - "certificatesigningrequests"
-    - "certificatesigningrequests/approval"
-    - "certificatesigningrequests/status"
-  verbs: ["update", "create", "get", "delete", "watch"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istiod-istio-system
-  labels:
-    app: istiod
-    release: istio
-rules:
-  # sidecar injection controller
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["mutatingwebhookconfigurations"]
-    verbs: ["get", "list", "watch", "patch"]
-
-  # configuration validation webhook controller
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["validatingwebhookconfigurations"]
-    verbs: ["get", "list", "watch", "update"]
-
-  # permissions to verify the webhook is ready and rejecting
-  # invalid config. We use --server-dry-run so no config is persisted.
-  - apiGroups: ["networking.istio.io"]
-    verbs: ["create"]
-    resources: ["gateways"]
-
-  # istio configuration
-  - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-    verbs: ["get", "watch", "list"]
-    resources: ["*"]
-
-  # auto-detect installed CRD definitions
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch"]
-
-  # discovery and routing
-  - apiGroups: ["extensions","apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["discovery.k8s.io"]
-    resources: ["endpointslices"]
-    verbs: ["get", "list", "watch"]
-
-  # ingress controller
-  - apiGroups: ["extensions"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses/status"]
-    verbs: ["*"]
-
-  # required for CA's namespace controller
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["create", "get", "list", "watch", "update"]
-
-  # Istiod and bootstrap.
-  - apiGroups: ["certificates.k8s.io"]
-    resources:
-      - "certificatesigningrequests"
-      - "certificatesigningrequests/approval"
-      - "certificatesigningrequests/status"
-    verbs: ["update", "create", "get", "delete", "watch"]
-  # Used by Istiod to verify the JWT tokens
-  - apiGroups: ["authentication.k8s.io"]
-    resources: ["tokenreviews"]
-    verbs: ["create"]
-
-  # TODO: remove, no longer needed at cluster
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["create", "get", "watch", "list", "update", "delete"]
-  - apiGroups: [""]
-    resources: ["serviceaccounts"]
-    verbs: ["get", "watch", "list"]
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istiod-service-account
-    namespace: istio-system
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istiod-istio-system
-  labels:
-    app: istiod
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istiod-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istiod-service-account
-    namespace: istio-system
----
-
-
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: istio-system
+  labels:
+    release: istio
 data:
-  mesh: |-
-    accessLogEncoding: TEXT
-    accessLogFile: ""
-    accessLogFormat: ""
-    certificates: []
-    defaultConfig:
-      concurrency: 2
-      configPath: /etc/istio/proxy
-      connectTimeout: 10s
-      controlPlaneAuthPolicy: NONE
-      discoveryAddress: istiod.istio-system.svc:15012
-      drainDuration: 45s
-      parentShutdownDuration: 1m0s
-      proxyAdminPort: 15000
-      serviceCluster: istio-proxy
-      tracing:
-        zipkin:
-          address: zipkin.istio-system:9411
-    disableMixerHttpReports: true
-    disablePolicyChecks: true
-    enableAutoMtls: false
-    enableEnvoyAccessLogService: false
-    enableTracing: true
-    ingressClass: istio
-    ingressControllerMode: STRICT
-    ingressService: istio-ingressgateway
-    localityLbSetting:
-      enabled: true
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY
-    protocolDetectionTimeout: 100ms
-    reportBatchMaxEntries: 100
-    reportBatchMaxTime: 1s
-    rootNamespace: istio-system
-    sdsUdsPath: unix:/etc/istio/proxy/SDS
-    trustDomain: cluster.local
-    trustDomainAliases: null
-  meshNetworks: 'networks: {}'
+
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
+  meshNetworks: |-
+    networks: {}
+
   values.yaml: |-
     appNamespaces: []
     autoscaleEnabled: true
@@ -337,18 +155,114 @@ data:
         memory: 2048Mi
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
-    sidecar: false
     tag: ""
     tolerations: []
     traceSampling: 1
-    useMCP: false
-kind: ConfigMap
-metadata:
-  labels:
-    release: istio
-  name: istio
-  namespace: istio-system
 
+  mesh: |-
+    # Set enableTracing to false to disable request tracing.
+    enableTracing: true
+
+    # Set accessLogFile to empty string to disable access log.
+    accessLogFile: ""
+
+    accessLogFormat: ""
+
+    accessLogEncoding: 'TEXT'
+
+    enableEnvoyAccessLogService: false
+    # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
+    reportBatchMaxEntries: 100
+    # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
+    reportBatchMaxTime: 1s
+    disableMixerHttpReports: true
+
+    # Set the following variable to true to disable policy checks by the Mixer.
+    # Note that metrics will still be reported to the Mixer.
+    disablePolicyChecks: true
+
+    # Automatic protocol detection uses a set of heuristics to
+    # determine whether the connection is using TLS or not (on the
+    # server side), as well as the application protocol being used
+    # (e.g., http vs tcp). These heuristics rely on the client sending
+    # the first bits of data. For server first protocols like MySQL,
+    # MongoDB, etc., Envoy will timeout on the protocol detection after
+    # the specified period, defaulting to non mTLS plain TCP
+    # traffic. Set this field to tweak the period that Envoy will wait
+    # for the client to send the first bits of data. (MUST BE >=1ms)
+    protocolDetectionTimeout: 100ms
+
+    # This is the k8s ingress service name, update if you used a different name
+    ingressService: "istio-ingressgateway"
+    ingressControllerMode: "STRICT"
+    ingressClass: "istio"
+
+    # The trust domain corresponds to the trust root of a system.
+    # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+    trustDomain: "cluster.local"
+
+    #  The trust domain aliases represent the aliases of trust_domain.
+    #  For example, if we have
+    #  trustDomain: td1
+    #  trustDomainAliases: [“td2”, "td3"]
+    #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
+    #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
+    trustDomainAliases:
+
+    # Used by pilot-agent
+    sdsUdsPath: "unix:/etc/istio/proxy/SDS"
+
+    # If true, automatically configure client side mTLS settings to match the corresponding service's
+    # server side mTLS authentication policy, when destination rule for that service does not specify
+    # TLS settings.
+    enableAutoMtls: true
+
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    localityLbSetting:
+      enabled: true
+
+    # Configures DNS certificates provisioned through Chiron linked into Pilot.
+    # The DNS certificate provisioning is enabled by default now so it get tested.
+    # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
+    certificates:
+      []
+
+    defaultConfig:
+      #
+      # TCP connection timeout between Envoy & the application, and between Envoys.
+      connectTimeout: 10s
+      #
+      ### ADVANCED SETTINGS #############
+      # Where should envoy's configuration be stored in the istio-proxy container
+      configPath: "/etc/istio/proxy"
+      # The pseudo service name used for Envoy.
+      serviceCluster: istio-proxy
+      # These settings that determine how long an old Envoy
+      # process should be kept alive after an occasional reload.
+      drainDuration: 45s
+      parentShutdownDuration: 1m0s
+      #
+      # Port where Envoy listens (on local host) for admin commands
+      # You can exec into the istio-proxy container in a pod and
+      # curl the admin port (curl http://localhost:15000/) to obtain
+      # diagnostic information from Envoy. See
+      # https://lyft.github.io/envoy/docs/operations/admin.html
+      # for more details
+      proxyAdminPort: 15000
+      #
+      # Set concurrency to a specific number to control the number of Proxy worker threads.
+      # If set to 0 (default), then start worker thread for each CPU thread/core.
+      concurrency: 2
+      #
+      tracing:
+        zipkin:
+          # Address of the Zipkin collector
+          address: zipkin.istio-system:9411
+
+      # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
+      controlPlaneAuthPolicy: NONE
+      discoveryAddress: istiod.istio-system.svc:15012
 ---
 
 
@@ -417,7 +331,7 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr=
+        - --secureGrpcAddr=:15011
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
@@ -426,7 +340,7 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: citadel
+          value: istiod
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -503,7 +417,7 @@ spec:
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istiod-service-account
+      serviceAccountName: istio-pilot-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -530,6 +444,7 @@ spec:
       - configMap:
           name: istio
         name: config-volume
+
 ---
 
 
@@ -554,7 +469,7 @@ data:
         "certificates": [],
         "configNamespace": "istio-system",
         "configValidation": true,
-        "controlPlaneSecurityEnabled": false,
+        "controlPlaneSecurityEnabled": true,
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
           "enabled": true
@@ -595,7 +510,7 @@ data:
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "mtls": {
-          "auto": false,
+          "auto": true,
           "enabled": false
         },
         "multiCluster": {
@@ -610,7 +525,7 @@ data:
         "outboundTrafficPolicy": {
           "mode": "ALLOW_ANY"
         },
-        "pilotCertProvider": "citadel",
+        "pilotCertProvider": "istiod",
         "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
@@ -903,10 +818,12 @@ data:
           value: {{ .Values.global.pilotCertProvider }}
         # Temp, pending PR to make it default or based on the istiodAddr env
         - name: CA_ADDR
-        {{- if .Values.global.configNamespace }}
-          value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+        {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+        {{- else if .Values.global.configNamespace }}
+          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istio-pilot.istio-system.svc:15012
+          value: istiod.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -1044,9 +961,9 @@ data:
       {{- end }}
         {{  end -}}
         volumeMounts:
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         {{- end }}
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
@@ -1106,8 +1023,8 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       {{- end }}
@@ -1185,7 +1102,7 @@ webhooks:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istiod-
+  name: istiod
   namespace: istio-system
   labels:
     app: istiod
@@ -1253,17 +1170,6 @@ spec:
 ---
 
 
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istiod-service-account
-  namespace: istio-system
-  labels:
-    app: istiod
-    release: istio
----
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1275,7 +1181,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -1305,7 +1211,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -1333,7 +1239,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -1361,7 +1267,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -1399,7 +1305,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1433,7 +1339,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -1445,7 +1351,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1461,7 +1367,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1487,7 +1393,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1519,7 +1425,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1551,7 +1457,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1593,7 +1499,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1623,7 +1529,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1653,7 +1559,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1693,7 +1599,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1727,7 +1633,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -1739,7 +1645,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1755,7 +1661,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1781,7 +1687,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1813,7 +1719,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1845,7 +1751,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1887,7 +1793,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1917,7 +1823,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1947,7 +1853,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1973,57 +1879,6 @@ spec:
                   code:
                     local:
                       inline_string: "envoy.wasm.stats"
----
-
-
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istiod-istio-system
-  labels:
-    app: istiod
-    release: istio
-    istio: istiod
-webhooks:
-  - name: validation.istio.io
-    clientConfig:
-      service:
-        name: istiod
-        namespace: istio-system
-        path: "/validate"
-      caBundle: "" # patched at runtime when the webhook is ready.
-    rules:
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
-        - config.istio.io
-        - rbac.istio.io
-        - security.istio.io
-        - authentication.istio.io
-        - networking.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-    # Fail open until the validation webhook is ready. The webhook controller
-    # will update this to `Fail` and patch in the `caBundle` when the webhook
-    # endpoint is ready.
-    failurePolicy: Ignore
-    sideEffects: None
----
-
-
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  namespace: istio-system
-  labels:
-    app: galley
-    release: istio
-    istio: galley
-webhooks:
 ---
 
 # Policy component is disabled.

@@ -237,7 +237,7 @@ func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interfa
 }
 
 func getLocalityOptions(meta *model.NodeMetadata, platEnv platform.Environment) []option.Instance {
-	l := util.ConvertLocality(model.GetLocalityOrDefault(meta.LocalityLabel, ""))
+	l := util.ConvertLocality(model.GetLocalityLabelOrDefault(meta.LocalityLabel, ""))
 	if l == nil {
 		// Populate the platform locality if available.
 		l = platEnv.Locality()

@@ -168,9 +168,9 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 				continue
 			}
 
-			az, sa, uid := "", "", ""
+			locality, sa, uid := "", "", ""
 			if pod != nil {
-				az = c.GetPodLocality(pod)
+				locality = c.getPodLocality(pod)
 				sa = kube.SecureNamingSAN(pod)
 				uid = createUID(pod.Name, pod.Namespace)
 			}
@@ -188,10 +188,13 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 							ServicePortName: svcPortEntry.Name,
 							UID:             uid,
 							Network:         c.endpointNetwork(ea.IP),
-							Locality:        az,
-							Labels:          podLabels,
-							ServiceAccount:  sa,
-							TLSMode:         tlsMode,
+							Locality: model.Locality{
+								Label:     locality,
+								ClusterID: c.clusterID,
+							},
+							Labels:         podLabels,
+							ServiceAccount: sa,
+							TLSMode:        tlsMode,
 						},
 						ServicePort: svcPortEntry,
 						Service:     svc,
