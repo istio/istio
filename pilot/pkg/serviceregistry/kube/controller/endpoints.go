@@ -25,7 +25,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -149,7 +148,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	}
 
 	// Locate all ports in the actual service
-	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
+	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
 		return nil, nil
 	}
@@ -160,7 +159,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 			var podLabels labels.Instance
 			pod := c.pods.getPodByIP(ea.IP)
 			if pod != nil {
-				podLabels = configKube.ConvertLabels(pod.ObjectMeta)
+				podLabels = pod.Labels
 			}
 
 			// check that one of the input labels is a subset of the labels
@@ -168,35 +167,17 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 				continue
 			}
 
-			locality, sa, uid := "", "", ""
-			if pod != nil {
-				locality = c.getPodLocality(pod)
-				sa = kube.SecureNamingSAN(pod)
-				uid = createUID(pod.Name, pod.Namespace)
-			}
-			tlsMode := kube.PodTLSMode(pod)
+			initEndpoint := c.newIstioEndpoint(pod)
 
 			// identify the port by name. K8S EndpointPort uses the service port name
 			for _, port := range ss.Ports {
 				if port.Name == "" || // 'name optional if single port is defined'
-					svcPortEntry.Name == port.Name {
+					svcPort.Name == port.Name {
 
+					istioEndpoint := c.completeIstioEndpoint(initEndpoint, ea.IP, port.Port, svcPort.Name, svc)
 					out = append(out, &model.ServiceInstance{
-						Endpoint: &model.IstioEndpoint{
-							Address:         ea.IP,
-							EndpointPort:    uint32(port.Port),
-							ServicePortName: svcPortEntry.Name,
-							UID:             uid,
-							Network:         c.endpointNetwork(ea.IP),
-							Locality: model.Locality{
-								Label:     locality,
-								ClusterID: c.clusterID,
-							},
-							Labels:         podLabels,
-							ServiceAccount: sa,
-							TLSMode:        tlsMode,
-						},
-						ServicePort: svcPortEntry,
+						Endpoint:    istioEndpoint,
+						ServicePort: svcPort,
 						Service:     svc,
 					})
 				}

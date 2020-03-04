@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
-	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/queue"
@@ -750,32 +749,13 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 }
 
 func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
-	podLabels, _ := c.pods.labelsByIP(podIP)
 	pod := c.pods.getPodByIP(podIP)
-	locality, sa, uid := "", "", ""
-	if pod != nil {
-		locality = c.getPodLocality(pod)
-		sa = kube.SecureNamingSAN(pod)
-		uid = createUID(pod.Name, pod.Namespace)
-	}
+	ep := c.newIstioEndpoint(pod)
+	istioEndpoint := c.completeIstioEndpoint(ep, address, endpointPort, svcPort.Name, svc)
 	return &model.ServiceInstance{
 		Service:     svc,
 		ServicePort: svcPort,
-		Endpoint: &model.IstioEndpoint{
-			Address:         address,
-			EndpointPort:    uint32(endpointPort),
-			ServicePortName: svcPort.Name,
-			Labels:          podLabels,
-			UID:             uid,
-			ServiceAccount:  sa,
-			Network:         c.endpointNetwork(address),
-			Locality: model.Locality{
-				Label:     locality,
-				ClusterID: c.clusterID,
-			},
-			Attributes: model.ServiceAttributes{Name: svc.Attributes.Name, Namespace: svc.Attributes.Namespace},
-			TLSMode:    kube.PodTLSMode(pod),
-		},
+		Endpoint:    istioEndpoint,
 	}
 }
 
@@ -790,12 +770,12 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	for _, port := range ports {
-		svcinstances, err := c.InstancesByPort(svc, port, labels.Collection{})
+		svcInstances, err := c.InstancesByPort(svc, port, labels.Collection{})
 		if err != nil {
 			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
 			return nil
 		}
-		instances = append(instances, svcinstances...)
+		instances = append(instances, svcInstances...)
 	}
 
 	for _, si := range instances {
@@ -842,7 +822,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
 						pod = c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
 						if pod == nil {
-							// If pod is still not availalable, this an unuusual case.
+							// If pod is still not available, this an unusual case.
 							endpointsWithNoPods.Increment()
 							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
 							if c.metrics != nil {
@@ -853,35 +833,17 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					}
 				}
 
-				var labelMap map[string]string
-				locality, sa, uid := "", "", ""
-				if pod != nil {
-					locality = c.getPodLocality(pod)
-					sa = kube.SecureNamingSAN(pod)
-					uid = createUID(pod.Name, pod.Namespace)
-					labelMap = configKube.ConvertLabels(pod.ObjectMeta)
-				}
-
-				tlsMode := kube.PodTLSMode(pod)
+				initEndpoint := c.newIstioEndpoint(pod)
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range ss.Ports {
-					endpoints = append(endpoints, &model.IstioEndpoint{
-						Address:         ea.IP,
-						EndpointPort:    uint32(port.Port),
-						ServicePortName: port.Name,
-						Labels:          labelMap,
-						UID:             uid,
-						ServiceAccount:  sa,
-						Network:         c.endpointNetwork(ea.IP),
-						Locality: model.Locality{
-							Label:     locality,
-							ClusterID: c.clusterID,
-						},
-						Attributes: model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
-						TLSMode:    tlsMode,
-					})
+					dummySvc := &model.Service{Attributes: model.ServiceAttributes{
+						Name:      ep.Name,
+						Namespace: ep.Namespace,
+					}}
+					istioEndpoint := c.completeIstioEndpoint(initEndpoint, ea.IP, port.Port, port.Name, dummySvc)
+					endpoints = append(endpoints, istioEndpoint)
 				}
 			}
 		}
@@ -988,4 +950,42 @@ func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
 
 func createUID(podName, namespace string) string {
 	return "kubernetes://" + podName + "." + namespace
+}
+
+func (c *Controller) newIstioEndpoint(pod *v1.Pod) model.IstioEndpoint {
+	locality, sa, uid := "", "", ""
+	var podLabels labels.Instance
+	if pod != nil {
+		locality = c.getPodLocality(pod)
+		sa = kube.SecureNamingSAN(pod)
+		uid = createUID(pod.Name, pod.Namespace)
+		podLabels = pod.Labels
+	}
+
+	return model.IstioEndpoint{
+		Labels:         podLabels,
+		UID:            uid,
+		ServiceAccount: sa,
+		Locality: model.Locality{
+			Label:     locality,
+			ClusterID: c.clusterID,
+		},
+		TLSMode: kube.PodTLSMode(pod),
+	}
+}
+
+func (c *Controller) completeIstioEndpoint(
+	ep model.IstioEndpoint,
+	address string,
+	endpointPort int32,
+	svcPortName string,
+	svc *model.Service) *model.IstioEndpoint {
+
+	ep.Address = address
+	ep.EndpointPort = uint32(endpointPort)
+	ep.ServicePortName = svcPortName
+	ep.Network = c.endpointNetwork(address)
+	ep.Attributes = svc.Attributes
+
+	return &ep
 }
