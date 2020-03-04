@@ -12271,6 +12271,11 @@ rules:
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["get", "watch", "list"]
+
+  # Use for Kubernetes Service APIs
+  - apiGroups: ["networking.x.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
