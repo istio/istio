@@ -111,6 +111,7 @@ func TestPrincipal_Generate(t *testing.T) {
 		name         string
 		principal    *Principal
 		forTCPFilter bool
+		forDeny      bool
 		wantYAML     string
 		wantError    string
 	}{
@@ -1086,11 +1087,92 @@ func TestPrincipal_Generate(t *testing.T) {
                         stringMatch:
                           exact: id-2`,
 		},
+		{
+			name:    "principal with forDeny",
+			forDeny: true,
+			principal: &Principal{
+				Names:             []string{"principal"},
+				RequestPrincipals: []string{"request"},
+				Properties: []KeyValues{
+					{
+						"request.headers[:method]": Values{
+							Values: []string{"GET"},
+						},
+					},
+				},
+			},
+			wantYAML: `
+            andIds:
+              ids:
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: principal
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.principal
+                      value:
+                        stringMatch:
+                          exact: request
+              - orIds:
+                  ids:
+                  - header:
+                      exactMatch: GET
+                      name: :method
+`,
+		},
+		{
+			name:         "principal with forTCP and forDeny",
+			forTCPFilter: true,
+			forDeny:      true,
+			principal: &Principal{
+				Names:             []string{"principal"},
+				RequestPrincipals: []string{"request"},
+				Namespaces:        []string{"namespace"},
+				IPs:               []string{"1.2.3.4"},
+				Properties: []KeyValues{
+					{
+						"request.headers[:method]": Values{
+							Values: []string{"GET"},
+						},
+					},
+				},
+			},
+			wantYAML: `
+            andIds:
+              ids:
+              - orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://principal
+              - orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/namespace/.*
+              - orIds:
+                  ids:
+                  - sourceIp:
+                      addressPrefix: 1.2.3.4
+                      prefixLen: 32
+`,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := tc.principal.Generate(tc.forTCPFilter)
+			got, err := tc.principal.Generate(tc.forTCPFilter, tc.forDeny)
 			if tc.wantError != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantError) {
 					t.Errorf("%s: got error %q but want error %q", tc.name, err, tc.wantError)
