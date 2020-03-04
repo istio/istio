@@ -490,19 +490,19 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			svcNode.ID = "pod1.nsa"
 			svcNode.DNSDomain = "nsa.svc.cluster.local"
 			svcNode.Metadata = &model.NodeMetadata{Namespace: "nsa"}
-			services, err := controller.GetProxyServiceInstances(&svcNode)
+			serviceInstances, err := controller.GetProxyServiceInstances(&svcNode)
 			if err != nil {
 				t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
 			}
 
-			if len(services) != 1 {
-				t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %d, want %d", len(services), fakeSvcCounts+1)
+			if len(serviceInstances) != 1 {
+				t.Fatalf("GetProxyServiceInstances() expected 1 instance, got %d", len(serviceInstances))
 			}
 
 			hostname := kube.ServiceHostname("svc1", "nsa", domainSuffix)
-			if services[0].Service.Hostname != hostname {
+			if serviceInstances[0].Service.Hostname != hostname {
 				t.Fatalf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
-					services[0].Service.Hostname, hostname)
+					serviceInstances[0].Service.Hostname, hostname)
 			}
 
 			// Test that we can look up instances just by Proxy metadata
@@ -611,9 +611,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod2.nsa",
 					Attributes: model.ServiceAttributes{
-						Name:      "svc1",
-						Namespace: "nsa",
-					},
+						ServiceRegistry: string(serviceregistry.Kubernetes),
+						Name:            "svc1",
+						Namespace:       "nsa",
+						UID:             "istio://nsa/services/svc1"},
 				},
 			}
 			if len(podServices) != 1 {
@@ -672,9 +673,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod3.nsa",
 					Attributes: model.ServiceAttributes{
-						Name:      "svc1",
-						Namespace: "nsa",
-					},
+						ServiceRegistry: string(serviceregistry.Kubernetes),
+						Name:            "svc1",
+						Namespace:       "nsa",
+						UID:             "istio://nsa/services/svc1"},
 				},
 			}
 			if len(podServices) != 1 {

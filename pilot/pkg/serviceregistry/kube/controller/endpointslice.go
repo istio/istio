@@ -87,7 +87,8 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 					// Respect pod "istio-locality" label
 					if pod.Labels[model.LocalityLabel] == "" {
 						locality := getLocalityFromTopology(e.Topology)
-						podCopy.Labels[model.LocalityLabel] = locality
+						// mutate the labels, only need `istio-locality`
+						podCopy.Labels = map[string]string{model.LocalityLabel: locality}
 					}
 					initEndpoint = esc.c.newIstioEndpoint(&podCopy)
 				} else {
@@ -174,6 +175,7 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 	if svc == nil {
 		return out
 	}
+
 	podIP := proxy.IPAddresses[0]
 	pod := c.pods.getPodByIP(podIP)
 	initEndpoint := c.newIstioEndpoint(pod)
@@ -192,7 +194,12 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 			for _, ep := range ep.Endpoints {
 				for _, a := range ep.Addresses {
 					if a == ip {
-						c.completeIstioEndpoint(initEndpoint, ip, *port.Port, svcPort.Name, svc)
+						istioEndpoint := c.completeIstioEndpoint(initEndpoint, ip, *port.Port, svcPort.Name, svc)
+						out = append(out, &model.ServiceInstance{
+							Endpoint:    istioEndpoint,
+							ServicePort: svcPort,
+							Service:     svc,
+						})
 						// If the endpoint isn't ready, report this
 						if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.metrics != nil {
 							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
@@ -245,7 +252,8 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					// Respect pod "istio-locality" label
 					if pod.Labels[model.LocalityLabel] == "" {
 						locality := getLocalityFromTopology(e.Topology)
-						podCopy.Labels[model.LocalityLabel] = locality
+						// mutate the labels, only need `istio-locality`
+						podCopy.Labels = map[string]string{model.LocalityLabel: locality}
 					}
 					initEndpoint = esc.c.newIstioEndpoint(&podCopy)
 				} else {
