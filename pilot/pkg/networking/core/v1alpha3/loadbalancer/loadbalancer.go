@@ -31,11 +31,18 @@ func GetLocalityLbSetting(
 	mesh *v1alpha3.LocalityLoadBalancerSetting,
 	destrule *v1alpha3.LocalityLoadBalancerSetting,
 ) *v1alpha3.LocalityLoadBalancerSetting {
-	// Locality lb is enabled if its defined in mesh config
-	enabled := mesh != nil
+	var enabled bool
+	// Locality lb is enabled if its not explicitly disabled in mesh global config
+	if mesh != nil && (mesh.Enabled == nil || mesh.Enabled.Value) {
+		enabled = true
+	}
 	// Unless we explicitly override this in destination rule
-	if destrule != nil && destrule.Enabled != nil {
-		enabled = destrule.Enabled.GetValue()
+	if destrule != nil {
+		if destrule.Enabled != nil && !destrule.Enabled.Value {
+			enabled = false
+		} else {
+			enabled = true
+		}
 	}
 	if !enabled {
 		return nil
