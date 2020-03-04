@@ -16170,6 +16170,15 @@ data:
             max_requests: 100000
             max_retries: 3
 
+      - name: sds-grpc
+        type: STATIC
+        http2_protocol_options: {}
+        connect_timeout: 0.250s
+        lb_policy: ROUND_ROBIN
+        hosts:
+        - pipe:
+            path: "/etc/istio/proxy/SDS"
+
       listeners:
       - name: "15019"
         address:
@@ -16211,16 +16220,22 @@ data:
                       timeout: 0.000s
           tls_context:
             common_tls_context:
-              alpn_protocols:
-              - h2
-              tls_certificates:
-              - certificate_chain:
-                  filename: /etc/certs/cert-chain.pem
-                private_key:
-                  filename: /etc/certs/key.pem
-              validation_context:
-                trusted_ca:
-                  filename: /etc/certs/root-cert.pem
+              tls_certificate_sds_secret_configs:
+              - name: default
+                sds_config:
+                  api_config_source:
+                    api_type: GRPC
+                    grpc_services:
+                    - envoy_grpc:
+                        cluster_name: sds-grpc
+              validation_context_sds_secret_config:
+                name: ROOTCA
+                sds_config:
+                  api_config_source:
+                    api_type: GRPC
+                    grpc_services:
+                    - envoy_grpc:
+                        cluster_name: sds-grpc
             require_client_certificate: true
 {{- end }}
 ---
@@ -16454,6 +16469,20 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
+          - name: "ISTIO_META_USER_SDS"
+            value: "true"
+          - name: CA_ADDR
+            {{- if .Values.global.caAddress }}
+            value: {{ .Values.global.caAddress }}
+            {{- else if .Values.global.configNamespace }}
+            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+            {{- else }}
+            value: istiod.istio-system.svc:15012
+            {{- end }}
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
@@ -16461,9 +16490,15 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           volumeMounts:
-          - name: istio-certs
-            mountPath: /etc/certs
+          {{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
+          {{- end }}
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
             readOnly: true
+          {{- end }}
           - name: envoy-config
             mountPath: /var/lib/istio/galley/envoy
 {{- end }}
@@ -16474,6 +16509,20 @@ spec:
       - name: envoy-config
         configMap:
           name: galley-envoy-config
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      {{- end }}
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
   {{- end }}
       # Different config map from pilot, to allow independent config and rollout.
       # Both are derived from values.yaml.
@@ -22448,6 +22497,7 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
+{{- if .Values.global.controlPlaneSecurityEnabled }}
       {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
         configMap:
@@ -22462,6 +22512,7 @@ spec:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
+{{- end }}
       - name: istio-certs
         secret:
           secretName: istio.istio-policy-service-account
@@ -40223,6 +40274,7 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
+{{- if .Values.global.controlPlaneSecurityEnabled }}
 {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
         configMap:
@@ -40236,6 +40288,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
 {{- end }}
       - name: istio-certs
         secret:

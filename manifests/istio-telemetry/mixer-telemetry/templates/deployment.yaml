@@ -36,6 +36,7 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
+{{- if .Values.global.controlPlaneSecurityEnabled }}
 {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
         configMap:
@@ -49,6 +50,7 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
 {{- end }}
       - name: istio-certs
         secret:

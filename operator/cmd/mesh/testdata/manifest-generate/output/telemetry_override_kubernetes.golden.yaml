@@ -350,6 +350,14 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: istiod
+        - name: ISTIO_META_USER_SDS
+          value: "true"
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
@@ -365,17 +373,29 @@ spec:
             cpu: 100m
             memory: 128Mi
         volumeMounts:
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+          readOnly: true
         - mountPath: /var/lib/envoy
           name: telemetry-envoy-config
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
         - mountPath: /sock
           name: uds-socket
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-mixer-service-account
       volumes:
+      - configMap:
+          name: istio-ca-root-cert
+        name: istiod-ca-cert
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
       - name: istio-certs
         secret:
           optional: true
