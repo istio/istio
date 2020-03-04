@@ -60,6 +60,9 @@ type upgradeArgs struct {
 	context string
 	// wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
+	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
+	// value to set the node at that path to.
+	set []string
 	// skipConfirmation means skipping the prompting confirmation for value changes in this upgrade.
 	skipConfirmation bool
 	// force means directly applying the upgrade without eligibility checks.
@@ -120,8 +123,12 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
+	ysf, err := yamlFromSetFlags(args.set, args.force, l)
+	if err != nil {
+		return err
+	}
 	// Generate IOPS objects
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, "", args.force, nil, l)
+	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, ysf, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilenames, err)
 	}
