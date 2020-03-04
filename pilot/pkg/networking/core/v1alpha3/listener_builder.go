@@ -567,6 +567,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 				Filters:          append(chain.TCP, filter),
 			}
 			if chain.TLSContext != nil {
+				filterChain.FilterChainMatch.TransportProtocol = "tls"
 				filterChain.FilterChainMatch.ApplicationProtocols =
 					append(filterChain.FilterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
 				// Update transport socket from the TLS context configured by the plugin.
