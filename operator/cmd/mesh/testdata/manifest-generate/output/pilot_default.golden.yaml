@@ -265,7 +265,7 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: citadel
+          value: istiod
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -448,7 +448,7 @@ data:
         "outboundTrafficPolicy": {
           "mode": "ALLOW_ANY"
         },
-        "pilotCertProvider": "citadel",
+        "pilotCertProvider": "istiod",
         "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
@@ -741,10 +741,12 @@ data:
           value: {{ .Values.global.pilotCertProvider }}
         # Temp, pending PR to make it default or based on the istiodAddr env
         - name: CA_ADDR
-        {{- if .Values.global.configNamespace }}
-          value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+        {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+        {{- else if .Values.global.configNamespace }}
+          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istio-pilot.istio-system.svc:15012
+          value: istiod.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -882,9 +884,9 @@ data:
       {{- end }}
         {{  end -}}
         volumeMounts:
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         {{- end }}
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
@@ -944,8 +946,8 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       {{- end }}
@@ -1102,7 +1104,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -1132,7 +1134,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -1160,7 +1162,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -1188,7 +1190,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -1226,7 +1228,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1260,7 +1262,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -1272,7 +1274,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1288,7 +1290,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1314,7 +1316,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1346,7 +1348,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1378,7 +1380,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1420,7 +1422,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1450,7 +1452,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1480,7 +1482,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -1520,7 +1522,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1554,7 +1556,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -1566,7 +1568,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1582,7 +1584,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -1608,7 +1610,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1640,7 +1642,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1672,7 +1674,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1714,7 +1716,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1744,7 +1746,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -1774,7 +1776,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:

@@ -13547,9 +13547,9 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          {{- if eq .Values.global.pilotCertProvider "citadel" }}
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          {{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
           {{- end }}
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
@@ -13573,8 +13573,8 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       {{- end }}
@@ -14534,7 +14534,13 @@ spec:
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
-            value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          {{- if .Values.global.caAddress }}
+            value: {{ .Values.global.caAddress }}
+          {{- else if .Values.global.configNamespace }}
+            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          {{- else }}
+            value: istiod.istio-system.svc:15012
+          {{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -14607,9 +14613,9 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-{{- if eq .Values.global.pilotCertProvider "citadel" }}
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
 {{- end }}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
@@ -14635,8 +14641,8 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-{{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
 {{- end }}
@@ -17174,6 +17180,7 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
+        "caAddress": "",
         "certificates": [],
         "configNamespace": "istio-system",
         "configRootNamespace": "istio-system",
@@ -17237,7 +17244,7 @@ data:
         "outboundTrafficPolicy": {
           "mode": "ALLOW_ANY"
         },
-        "pilotCertProvider": "citadel",
+        "pilotCertProvider": "istiod",
         "policyCheckFailOpen": false,
         "policyNamespace": "istio-system",
         "priorityClassName": "",
@@ -17553,10 +17560,12 @@ data:
           value: {{ .Values.global.pilotCertProvider }}
         # Temp, pending PR to make it default or based on the istiodAddr env
         - name: CA_ADDR
-        {{- if .Values.global.configNamespace }}
-          value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+        {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+        {{- else if .Values.global.configNamespace }}
+          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istio-pilot.istio-system.svc:15012
+          value: istiod.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -17694,9 +17703,9 @@ data:
       {{- end }}
         {{  end -}}
         volumeMounts:
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         {{- end }}
         {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
         - mountPath: /etc/istio/custom-bootstrap
@@ -17756,8 +17765,8 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
-      {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
       {{- end }}
@@ -17980,7 +17989,7 @@ spec:
           - name: JWT_POLICY
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
-            value: citadel
+            value: istiod
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -18142,7 +18151,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -18170,7 +18179,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -18198,7 +18207,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -18226,7 +18235,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -18266,7 +18275,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -18298,7 +18307,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -18310,7 +18319,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -18326,7 +18335,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -18350,7 +18359,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -18382,7 +18391,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -18414,7 +18423,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -18454,7 +18463,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -18484,7 +18493,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -18514,7 +18523,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -18556,7 +18565,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -18588,7 +18597,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -18600,7 +18609,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -18616,7 +18625,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -18640,7 +18649,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -18672,7 +18681,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -18704,7 +18713,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -18744,7 +18753,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -18774,7 +18783,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -18804,7 +18813,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -19042,10 +19051,12 @@ template: |
       value: {{ .Values.global.pilotCertProvider }}
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
-    {{- if .Values.global.configNamespace }}
-      value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+    {{- if .Values.global.caAddress }}
+      value: {{ .Values.global.caAddress }}
+    {{- else if .Values.global.configNamespace }}
+      value: istiod.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
-      value: istio-pilot.istio-system.svc:15012
+      value: istiod.istio-system.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -19183,9 +19194,9 @@ template: |
   {{- end }}
     {{  end -}}
     volumeMounts:
-    {{- if eq .Values.global.pilotCertProvider "citadel" }}
-    - mountPath: /etc/istio/citadel-ca-cert
-      name: citadel-ca-cert
+    {{- if eq .Values.global.pilotCertProvider "istiod" }}
+    - mountPath: /var/run/secrets/istio
+      name: istiod-ca-cert
     {{- end }}
     {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
     - mountPath: /etc/istio/custom-bootstrap
@@ -19245,8 +19256,8 @@ template: |
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
   {{- end }}
-  {{- if eq .Values.global.pilotCertProvider "citadel" }}
-  - name: citadel-ca-cert
+  {{- if eq .Values.global.pilotCertProvider "istiod" }}
+  - name: istiod-ca-cert
     configMap:
       name: istio-ca-root-cert
   {{- end }}
@@ -20525,7 +20536,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -20558,7 +20569,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -20586,7 +20597,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -20614,7 +20625,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -20656,7 +20667,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -20685,7 +20696,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -20714,7 +20725,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.4.*'
+          proxyVersion: '^1\.4.*'
         listener:
           filterChain:
             filter:
@@ -20777,7 +20788,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -20813,7 +20824,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -20825,7 +20836,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -20841,7 +20852,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -20870,7 +20881,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -20902,7 +20913,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -20934,7 +20945,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -20978,7 +20989,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -21008,7 +21019,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -21038,7 +21049,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -21083,7 +21094,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -21115,7 +21126,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -21147,7 +21158,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.5.*'
+          proxyVersion: '^1\.5.*'
         listener:
           filterChain:
             filter:
@@ -21213,7 +21224,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -21249,7 +21260,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -21261,7 +21272,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -21277,7 +21288,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -21306,7 +21317,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -21338,7 +21349,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -21370,7 +21381,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -21414,7 +21425,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -21444,7 +21455,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -21474,7 +21485,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -21520,7 +21531,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -21552,7 +21563,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -21584,7 +21595,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '1\.6.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -38286,14 +38297,10 @@ data:
         url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
-{{- if .Values.kiali.dashboard.inclusterjaegerURL }}
-        in_cluster_url: {{ .Values.kiali.dashboard.inclusterjaegerURL }}
-{{- end }}
+        in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
-{{- if .Values.kiali.dashboard.inclustergrafanaURL }}
-        in_cluster_url: {{ .Values.kiali.dashboard.inclustergrafanaURL }}
-{{- end }}
+        in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
       prometheus:
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
@@ -38608,9 +38615,9 @@ kiali:
     viewOnlyMode: false # Bind the service account to a role with only read access
 
     grafanaURL: "" # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
-    inclustergrafanaURL: "" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
+    grafanaInClusterURL: "http://grafana:3000" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
     jaegerURL: "" # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
-    inclusterjaegerURL: "" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
+    jaegerInClusterURL: "http://tracing/jaeger" # If you have Jaeger installed and accessible from Kiali pod (typically in cluster), then set this property to enable more tracing charts within Kiali.
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
@@ -42321,10 +42328,12 @@ spec:
               value: {{ .Values.global.pilotCertProvider }}
             # Temp, pending PR to make it default or based on the istiodAddr env
             - name: CA_ADDR
-                {{- if .Values.global.configNamespace }}
-              value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-                {{- else }}
-              value: istio-pilot.istio-system.svc:15012
+              {{- if .Values.global.caAddress }}
+              value: {{ .Values.global.caAddress }}
+              {{- else if .Values.global.configNamespace }}
+              value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+              {{- else }}
+              value: istiod.istio-system.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -42377,9 +42386,9 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           volumeMounts:
-              {{- if eq .Values.global.pilotCertProvider "citadel" }}
-            - mountPath: /etc/istio/citadel-ca-cert
-              name: citadel-ca-cert
+              {{- if eq .Values.global.pilotCertProvider "istiod" }}
+            - mountPath: /var/run/secrets/istio
+              name: istiod-ca-cert
               {{- end }}
             - mountPath: /etc/istio/proxy
               name: istio-envoy
@@ -42424,8 +42433,8 @@ spec:
                 expirationSeconds: 43200
                 audience: {{ .Values.global.sds.token.aud }}
         {{- end }}
-        {{- if eq .Values.global.pilotCertProvider "citadel" }}
-      - name: citadel-ca-cert
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
         configMap:
           defaultMode: 420
           name: istio-ca-root-cert
@@ -43863,7 +43872,7 @@ spec:
           ports:
             - containerPort: {{ .Values.tracing.zipkin.queryPort }}
           livenessProbe:
-            initialDelaySeconds: {{ .Values.tracing.zipkin.probeStartupDelay }}
+            initialDelaySeconds: {{ .Values.tracing.zipkin.livenessProbeStartupDelay }}
             tcpSocket:
               port: {{ .Values.tracing.zipkin.queryPort }}
           readinessProbe:
@@ -44179,14 +44188,15 @@ tracing:
 
   zipkin:
     hub: docker.io/openzipkin
-    image: zipkin
-    tag: 2.14.2
-    probeStartupDelay: 200
+    image: zipkin-slim
+    tag: 2.20.0
+    probeStartupDelay: 10
+    livenessProbeStartupDelay: 200
     queryPort: 9411
     resources:
       limits:
-        cpu: 300m
-        memory: 900Mi
+        cpu: 1000m
+        memory: 2048Mi
       requests:
         cpu: 150m
         memory: 900Mi
@@ -45497,8 +45507,6 @@ var _examplesMulticlusterValuesIstioMulticlusterPrimaryYaml = []byte(`apiVersion
 kind: IstioOperator
 spec:
   values:
-    security:
-      selfSigned: false
     gateways:
       istio-ingressgateway:
         env:
@@ -45924,7 +45932,7 @@ spec:
               memory: 128Mi
           env:
             - name: WATCH_NAMESPACE
-              value: {{.Values.operatorNamespace}}
+              value: {{.Values.istioNamespace}}
             - name: LEADER_ELECTION_NAMESPACE
               value: {{.Values.operatorNamespace}}
             - name: POD_NAME
@@ -46247,7 +46255,7 @@ spec:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
-      pilotCertProvider: citadel
+      pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
@@ -46643,13 +46651,13 @@ spec:
         accessMode: ReadWriteMany
       zipkin:
         hub: docker.io/openzipkin
-        tag: 2.14.2
-        probeStartupDelay: 200
+        tag: 2.20.0
+        probeStartupDelay: 10
         queryPort: 9411
         resources:
           limits:
-            cpu: 300m
-            memory: 900Mi
+            cpu: 1000m
+            memory: 2048Mi
           requests:
             cpu: 150m
             memory: 900Mi
@@ -46704,7 +46712,9 @@ spec:
         passphraseKey: passphrase
         viewOnlyMode: false
         grafanaURL:
+        grafanaInClusterURL: http://grafana:3000
         jaegerURL:
+        jaegerInClusterURL: http://tracing/jaeger
       prometheusNamespace:
       createDemoSecret: false
       security:

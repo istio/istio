@@ -639,7 +639,10 @@ message GlobalConfig {
 
   // Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.
   google.protobuf.BoolValue mountMtlsCerts = 60;
-  // The next available key is 61
+
+  // The address of the CA for CSR.
+  string caAddress = 61;
+  // The next available key is 62
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -2042,8 +2045,11 @@ message TracingZipkinConfig {
 
   string image = 9;
 
-  // InitialDelaySeconds of livenessProbe for Zipkin deployment
+  // InitialDelaySeconds of readiness probe for Zipkin deployment
   uint32 probeStartupDelay = 3;
+
+  // InitialDelaySeconds of liveness probe for Zipkin deployment
+  uint32 livenessProbeStartupDelay = 11;
 
   // Container port for Zipkin deployment
   uint32 queryPort = 4;
@@ -2099,9 +2105,9 @@ message KialiDashboardConfig {
 
   TypeMapStringInterface auth = 7;
 
-  string inclustergrafanaURL = 8;
+  string grafanaInClusterURL = 8;
 
-  string inclusterjaegerURL = 9;
+  string jaegerInClusterURL = 9;
 }
 
 message KialiIngressConfig {

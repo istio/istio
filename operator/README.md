@@ -102,7 +102,8 @@ the file deploy/operator.yaml to point to your docker hub:
 Install the controller manifest and example IstioOperator CR:
 
 ```bash
-istioctl operator init
+istioctl operator init --hub docker.io/<your-account> --tag latest
+kubectl create ns istio-system
 kubectl apply -f operator/deploy/crds/istio_v1alpha1_istiooperator_cr.yaml
 ```
 
@@ -118,7 +119,7 @@ the Istio control plane into the istio-system namespace by default.
 
 #### Controller (running locally)
 
-1. Set env $WATCH_NAMESPACE and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
+1. Set env $WATCH_NAMESPACE (default value is "istio-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
 
 1. From the operator repo root directory, run `go run ./cmd/manager/*.go server`
 

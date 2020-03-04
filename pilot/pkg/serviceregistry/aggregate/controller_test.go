@@ -22,38 +22,38 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
 
-var discovery1 *memory.ServiceDiscovery
-var discovery2 *memory.ServiceDiscovery
+var discovery1 *mock.ServiceDiscovery
+var discovery2 *mock.ServiceDiscovery
 
 func buildMockController() *Controller {
-	discovery1 = memory.NewDiscovery(
+	discovery1 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			memory.HelloService.Hostname:   memory.HelloService,
-			memory.ExtHTTPService.Hostname: memory.ExtHTTPService,
+			mock.HelloService.Hostname:   mock.HelloService,
+			mock.ExtHTTPService.Hostname: mock.ExtHTTPService,
 		}, 2)
 
-	discovery2 = memory.NewDiscovery(
+	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			memory.WorldService.Hostname:    memory.WorldService,
-			memory.ExtHTTPSService.Hostname: memory.ExtHTTPSService,
+			mock.WorldService.Hostname:    mock.WorldService,
+			mock.ExtHTTPSService.Hostname: mock.ExtHTTPSService,
 		}, 2)
 
 	registry1 := serviceregistry.Simple{
 		ProviderID:       serviceregistry.ProviderID("mockAdapter1"),
 		ServiceDiscovery: discovery1,
-		Controller:       &memory.MockController{},
+		Controller:       &mock.Controller{},
 	}
 
 	registry2 := serviceregistry.Simple{
 		ProviderID:       serviceregistry.ProviderID("mockAdapter2"),
 		ServiceDiscovery: discovery2,
-		Controller:       &memory.MockController{},
+		Controller:       &mock.Controller{},
 	}
 
 	ctls := NewController()
@@ -64,29 +64,29 @@ func buildMockController() *Controller {
 }
 
 func buildMockControllerForMultiCluster() *Controller {
-	discovery1 = memory.NewDiscovery(
+	discovery1 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			memory.HelloService.Hostname: memory.MakeService("hello.default.svc.cluster.local", "10.1.1.0"),
+			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0"),
 		}, 2)
 
-	discovery2 = memory.NewDiscovery(
+	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			memory.HelloService.Hostname: memory.MakeService("hello.default.svc.cluster.local", "10.1.2.0"),
-			memory.WorldService.Hostname: memory.WorldService,
+			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0"),
+			mock.WorldService.Hostname: mock.WorldService,
 		}, 2)
 
 	registry1 := serviceregistry.Simple{
 		ProviderID:       serviceregistry.ProviderID("mockAdapter1"),
 		ClusterID:        "cluster-1",
 		ServiceDiscovery: discovery1,
-		Controller:       &memory.MockController{},
+		Controller:       &mock.Controller{},
 	}
 
 	registry2 := serviceregistry.Simple{
 		ProviderID:       serviceregistry.ProviderID("mockAdapter2"),
 		ClusterID:        "cluster-2",
 		ServiceDiscovery: discovery2,
-		Controller:       &memory.MockController{},
+		Controller:       &mock.Controller{},
 	}
 
 	ctls := NewController()
@@ -117,8 +117,8 @@ func TestServicesForMultiCluster(t *testing.T) {
 
 	// Set up ground truth hostname values
 	serviceMap := map[host.Name]bool{
-		memory.HelloService.Hostname: false,
-		memory.WorldService.Hostname: false,
+		mock.HelloService.Hostname: false,
+		mock.WorldService.Hostname: false,
 	}
 
 	svcCount := 0
@@ -136,11 +136,11 @@ func TestServicesForMultiCluster(t *testing.T) {
 
 	//Now verify ClusterVIPs for each service
 	ClusterVIPs := map[host.Name]map[string]string{
-		memory.HelloService.Hostname: {
+		mock.HelloService.Hostname: {
 			"cluster-1": "10.1.1.0",
 			"cluster-2": "10.1.2.0",
 		},
-		memory.WorldService.Hostname: {
+		mock.WorldService.Hostname: {
 			"cluster-2": "10.2.0.0",
 		},
 	}
@@ -159,10 +159,10 @@ func TestServices(t *testing.T) {
 
 	// Set up ground truth hostname values
 	serviceMap := map[host.Name]bool{
-		memory.HelloService.Hostname:    false,
-		memory.ExtHTTPService.Hostname:  false,
-		memory.WorldService.Hostname:    false,
-		memory.ExtHTTPSService.Hostname: false,
+		mock.HelloService.Hostname:    false,
+		mock.ExtHTTPService.Hostname:  false,
+		mock.WorldService.Hostname:    false,
+		mock.ExtHTTPSService.Hostname: false,
 	}
 
 	if err != nil {
@@ -187,26 +187,26 @@ func TestGetService(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get service from mockAdapter1
-	svc, err := aggregateCtl.GetService(memory.HelloService.Hostname)
+	svc, err := aggregateCtl.GetService(mock.HelloService.Hostname)
 	if err != nil {
 		t.Fatalf("GetService() encountered unexpected error: %v", err)
 	}
 	if svc == nil {
 		t.Fatal("Fail to get service")
 	}
-	if svc.Hostname != memory.HelloService.Hostname {
+	if svc.Hostname != mock.HelloService.Hostname {
 		t.Fatal("Returned service is incorrect")
 	}
 
 	// Get service from mockAdapter2
-	svc, err = aggregateCtl.GetService(memory.WorldService.Hostname)
+	svc, err = aggregateCtl.GetService(mock.WorldService.Hostname)
 	if err != nil {
 		t.Fatalf("GetService() encountered unexpected error: %v", err)
 	}
 	if svc == nil {
 		t.Fatal("Fail to get service")
 	}
-	if svc.Hostname != memory.WorldService.Hostname {
+	if svc.Hostname != mock.WorldService.Hostname {
 		t.Fatal("Returned service is incorrect")
 	}
 }
@@ -217,7 +217,7 @@ func TestGetServiceError(t *testing.T) {
 	discovery1.GetServiceError = errors.New("mock GetService() error")
 
 	// Get service from client with error
-	svc, err := aggregateCtl.GetService(memory.HelloService.Hostname)
+	svc, err := aggregateCtl.GetService(mock.HelloService.Hostname)
 	if err == nil {
 		fmt.Println(svc)
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
@@ -228,14 +228,14 @@ func TestGetServiceError(t *testing.T) {
 	}
 
 	// Get service from client without error
-	svc, err = aggregateCtl.GetService(memory.WorldService.Hostname)
+	svc, err = aggregateCtl.GetService(mock.WorldService.Hostname)
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if service is found")
 	}
 	if svc == nil {
 		t.Fatal("Fail to get service")
 	}
-	if svc.Hostname != memory.WorldService.Hostname {
+	if svc.Hostname != mock.WorldService.Hostname {
 		t.Fatal("Returned service is incorrect")
 	}
 }
@@ -244,7 +244,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{memory.HelloInstanceV0}})
+	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if err != nil {
 		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
@@ -252,13 +252,13 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
-		if inst.Service.Hostname != memory.HelloService.Hostname {
+		if inst.Service.Hostname != mock.HelloService.Hostname {
 			t.Fatal("Returned Instance is incorrect")
 		}
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{memory.MakeIP(memory.WorldService, 1)}})
+	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
 	if err != nil {
 		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
-		if inst.Service.Hostname != memory.WorldService.Hostname {
+		if inst.Service.Hostname != mock.WorldService.Hostname {
 			t.Fatal("Returned Instance is incorrect")
 		}
 	}
@@ -277,7 +277,7 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 	// This ensures callers can distinguish between no labels, and labels not found.
 	aggregateCtl := buildMockController()
 
-	instances, err := aggregateCtl.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: []string{memory.HelloInstanceV0}})
+	instances, err := aggregateCtl.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if err != nil {
 		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
@@ -292,7 +292,7 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	discovery1.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 
 	// Get Instances from client with error
-	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{memory.HelloInstanceV0}})
+	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
 			"error and no instances are found")
@@ -302,7 +302,7 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{memory.MakeIP(memory.WorldService, 1)}})
+	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if instances are found")
 	}
@@ -310,7 +310,7 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
-		if inst.Service.Hostname != memory.WorldService.Hostname {
+		if inst.Service.Hostname != mock.WorldService.Hostname {
 			t.Fatal("Returned Instance is incorrect")
 		}
 	}
@@ -320,7 +320,7 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.InstancesByPort(memory.HelloService,
+	instances, err := aggregateCtl.InstancesByPort(mock.HelloService,
 		80,
 		labels.Collection{})
 	if err != nil {
@@ -330,16 +330,16 @@ func TestInstances(t *testing.T) {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
 	for _, instance := range instances {
-		if instance.Service.Hostname != memory.HelloService.Hostname {
+		if instance.Service.Hostname != mock.HelloService.Hostname {
 			t.Fatal("Returned instance's hostname does not match desired value")
 		}
-		if _, ok := instance.Service.Ports.Get(memory.PortHTTPName); !ok {
+		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.InstancesByPort(memory.WorldService,
+	instances, err = aggregateCtl.InstancesByPort(mock.WorldService,
 		80,
 		labels.Collection{})
 	if err != nil {
@@ -349,10 +349,10 @@ func TestInstances(t *testing.T) {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
 	for _, instance := range instances {
-		if instance.Service.Hostname != memory.WorldService.Hostname {
+		if instance.Service.Hostname != mock.WorldService.Hostname {
 			t.Fatal("Returned instance's hostname does not match desired value")
 		}
-		if _, ok := instance.Service.Ports.Get(memory.PortHTTPName); !ok {
+		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
 	}
@@ -364,7 +364,7 @@ func TestInstancesError(t *testing.T) {
 	discovery1.InstancesError = errors.New("mock Instances() error")
 
 	// Get Instances from client with error
-	instances, err := aggregateCtl.InstancesByPort(memory.HelloService,
+	instances, err := aggregateCtl.InstancesByPort(mock.HelloService,
 		80,
 		labels.Collection{})
 	if err == nil {
@@ -376,7 +376,7 @@ func TestInstancesError(t *testing.T) {
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.InstancesByPort(memory.WorldService,
+	instances, err = aggregateCtl.InstancesByPort(mock.WorldService,
 		80,
 		labels.Collection{})
 	if err != nil {
@@ -386,10 +386,10 @@ func TestInstancesError(t *testing.T) {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
 	for _, instance := range instances {
-		if instance.Service.Hostname != memory.WorldService.Hostname {
+		if instance.Service.Hostname != mock.WorldService.Hostname {
 			t.Fatal("Returned instance's hostname does not match desired value")
 		}
-		if _, ok := instance.Service.Ports.Get(memory.PortHTTPName); !ok {
+		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
 	}
@@ -399,7 +399,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get accounts from mockAdapter1
-	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService, []int{})
+	accounts := aggregateCtl.GetIstioServiceAccounts(mock.HelloService, []int{})
 	expected := make([]string, 0)
 
 	if len(accounts) != len(expected) {
@@ -413,7 +413,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	}
 
 	// Get accounts from mockAdapter2
-	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService, []int{})
+	accounts = aggregateCtl.GetIstioServiceAccounts(mock.WorldService, []int{})
 	expected = []string{
 		"spiffe://cluster.local/ns/default/sa/serviceaccount1",
 		"spiffe://cluster.local/ns/default/sa/serviceaccount2",
@@ -443,7 +443,7 @@ func TestManagementPorts(t *testing.T) {
 	}}
 
 	// Get management ports from mockAdapter1
-	ports := aggregateCtl.ManagementPorts(memory.HelloInstanceV0)
+	ports := aggregateCtl.ManagementPorts(mock.HelloInstanceV0)
 	if len(ports) != 2 {
 		t.Fatal("Returned wrong number of ports from controller")
 	}
@@ -455,7 +455,7 @@ func TestManagementPorts(t *testing.T) {
 	}
 
 	// Get management ports from mockAdapter2
-	ports = aggregateCtl.ManagementPorts(memory.MakeIP(memory.WorldService, 0))
+	ports = aggregateCtl.ManagementPorts(mock.MakeIP(mock.WorldService, 0))
 	if len(ports) != len(expected) {
 		t.Fatal("Returned wrong number of ports from controller")
 	}

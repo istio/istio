@@ -1762,6 +1762,11 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	return
 }
 
+// ValidateAccept always returns true
+func ValidateAccept(_, _ string, _ proto.Message) error {
+	return nil
+}
+
 // ValidatePeerAuthentication checks that peer authentication spec is well-formed.
 var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthentication",
 	func(name, namespace string, msg proto.Message) error {

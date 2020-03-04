@@ -73,19 +73,4 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["global.enableTracing"] = "true"
 	cfg.Values["global.disablePolicyChecks"] = "true"
 	cfg.Values["pilot.traceSampling"] = "100.0"
-
-	// TODO not needed once https://github.com/istio/istio/issues/20137 is in
-	cfg.ControlPlaneValues = `
-addonComponents:
-  tracing:
-    enabled: true
-values:
-  tracing:
-    provider: zipkin
-  global:
-    enableTracing: true
-    disablePolicyChecks: true
-  pilot:
-    traceSampling: "100.0"
-`
 }

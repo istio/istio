@@ -112,7 +112,7 @@ func (permission *Permission) ValidateForTCP(forTCP bool) error {
 	}
 	for _, constraint := range permission.Constraints {
 		for k := range constraint {
-			if strings.HasPrefix(k, attrRequestHeader) {
+			if !validConditionForTCP(k) {
 				return fmt.Errorf("constraint(%v)", constraint)
 			}
 		}
@@ -120,49 +120,67 @@ func (permission *Permission) ValidateForTCP(forTCP bool) error {
 	return nil
 }
 
-func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permission, error) {
+func validConditionForTCP(k string) bool {
+	return !strings.HasPrefix(k, attrRequestHeader)
+}
+
+// Generate generates the RBAC filter config for the given permission.
+// When the policy uses HTTP fields for TCP filter (forTCPFilter is true):
+// - If it's allow policy (forDenyPolicy is false), returns nil so that the allow policy is ignored to avoid granting more permissions in this case.
+// - If it's deny policy (forDenyPolicy is true), returns a config that only includes the TCP fields (e.g. port) from the policy. This makes sure
+//   the generated deny policy is more restrictive so that it never grants extra permission in this case.
+func (permission *Permission) Generate(forTCPFilter, forDenyPolicy bool) (*envoy_rbac.Permission, error) {
 	if permission == nil {
 		return nil, nil
 	}
 
+	// When true, the function will only handle the TCP fields in the permission.
+	onlyTCPFields := false
 	if err := permission.ValidateForTCP(forTCPFilter); err != nil {
-		return nil, err
+		if !forDenyPolicy {
+			return nil, err
+		}
+		// Set onlyTCPFields to true if the deny policy is using HTTP fields so that
+		// we generate a deny policy with only TCP fields.
+		onlyTCPFields = true
 	}
 	pg := permissionGenerator{}
 
 	if permission.AllowAll {
-		pg.append(permissionAny(true))
+		pg.append(permissionAny())
 		return pg.andPermissions(), nil
 	}
 
-	if len(permission.Hosts) > 0 {
-		permission := permission.forKeyValues(hostHeader, permission.Hosts)
-		pg.append(permission)
-	}
+	if !onlyTCPFields {
+		if len(permission.Hosts) > 0 {
+			permission := permission.forKeyValues(hostHeader, permission.Hosts)
+			pg.append(permission)
+		}
 
-	if len(permission.NotHosts) > 0 {
-		permission := permission.forKeyValues(hostHeader, permission.NotHosts)
-		pg.append(permissionNot(permission))
-	}
+		if len(permission.NotHosts) > 0 {
+			permission := permission.forKeyValues(hostHeader, permission.NotHosts)
+			pg.append(permissionNot(permission))
+		}
 
-	if len(permission.Methods) > 0 {
-		permission := permission.forKeyValues(methodHeader, permission.Methods)
-		pg.append(permission)
-	}
+		if len(permission.Methods) > 0 {
+			permission := permission.forKeyValues(methodHeader, permission.Methods)
+			pg.append(permission)
+		}
 
-	if len(permission.NotMethods) > 0 {
-		permission := permission.forKeyValues(methodHeader, permission.NotMethods)
-		pg.append(permissionNot(permission))
-	}
+		if len(permission.NotMethods) > 0 {
+			permission := permission.forKeyValues(methodHeader, permission.NotMethods)
+			pg.append(permissionNot(permission))
+		}
 
-	if len(permission.Paths) > 0 {
-		permission := permission.forKeyValues(pathHeader, permission.Paths)
-		pg.append(permission)
-	}
+		if len(permission.Paths) > 0 {
+			permission := permission.forKeyValues(pathMatcher, permission.Paths)
+			pg.append(permission)
+		}
 
-	if len(permission.NotPaths) > 0 {
-		permission := permission.forKeyValues(pathHeader, permission.NotPaths)
-		pg.append(permissionNot(permission))
+		if len(permission.NotPaths) > 0 {
+			permission := permission.forKeyValues(pathMatcher, permission.NotPaths)
+			pg.append(permissionNot(permission))
+		}
 	}
 
 	if len(permission.Ports) > 0 {
@@ -181,7 +199,9 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 		for _, constraint := range permission.Constraints {
 			var keys []string
 			for key := range constraint {
-				keys = append(keys, key)
+				if !onlyTCPFields || validConditionForTCP(key) {
+					keys = append(keys, key)
+				}
 			}
 			sort.Strings(keys)
 
@@ -200,7 +220,7 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 
 	if pg.isEmpty() {
 		// None of above permission satisfied means the permission applies to all paths/methods/constraints.
-		pg.append(permissionAny(true))
+		pg.append(permissionAny())
 	}
 
 	return pg.andPermissions(), nil
@@ -211,7 +231,6 @@ func isSupportedPermission(key string) bool {
 	switch {
 	case key == attrDestIP:
 	case key == attrDestPort:
-	case key == pathHeader || key == methodHeader || key == hostHeader:
 	case key == attrConnSNI:
 	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
 	default:
@@ -242,7 +261,12 @@ func (permission *Permission) forKeyValues(key string, values []string) *envoy_r
 			}
 			return permissionDestinationPort(portValue), nil
 		}
-	case key == pathHeader || key == methodHeader || key == hostHeader:
+	case key == pathMatcher:
+		converter = func(v string) (*envoy_rbac.Permission, error) {
+			m := matcher.PathMatcher(v)
+			return permissionPath(m), nil
+		}
+	case key == methodHeader || key == hostHeader:
 		converter = func(v string) (*envoy_rbac.Permission, error) {
 			m := matcher.HeaderMatcher(key, v)
 			return permissionHeader(m), nil
@@ -340,10 +364,10 @@ func (pg *permissionGenerator) orPermissions() *envoy_rbac.Permission {
 	}
 }
 
-func permissionAny(any bool) *envoy_rbac.Permission {
+func permissionAny() *envoy_rbac.Permission {
 	return &envoy_rbac.Permission{
 		Rule: &envoy_rbac.Permission_Any{
-			Any: any,
+			Any: true,
 		},
 	}
 }
@@ -392,6 +416,14 @@ func permissionHeader(header *route.HeaderMatcher) *envoy_rbac.Permission {
 	return &envoy_rbac.Permission{
 		Rule: &envoy_rbac.Permission_Header{
 			Header: header,
+		},
+	}
+}
+
+func permissionPath(path *envoy_matcher.PathMatcher) *envoy_rbac.Permission {
+	return &envoy_rbac.Permission{
+		Rule: &envoy_rbac.Permission_UrlPath{
+			UrlPath: path,
 		},
 	}
 }

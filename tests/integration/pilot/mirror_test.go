@@ -392,7 +392,7 @@ func verifyTrafficMirror(instances [3]echo.Instance, tc testCaseMirror, testID s
 func logCount(instance echo.Instance, testID string) (float64, error) {
 	workloads, err := instance.Workloads()
 	if err != nil {
-		return -1, fmt.Errorf("failed to get workloads: %v", err)
+		return -1, fmt.Errorf("failed to get Subsets: %v", err)
 	}
 
 	var logs string

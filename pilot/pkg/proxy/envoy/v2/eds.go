@@ -244,6 +244,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 			}
 
+			// TODO(nmittler): Should we get the cluster from the endpoints instead? May require organizing endpoints by cluster first.
 			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, endpoints, true)
 		}
 	}
@@ -494,7 +495,7 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance, push *
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
 		lbEp := buildEnvoyLbEndpoint(instance.Endpoint, push)
-		locality := instance.GetLocality()
+		locality := instance.Endpoint.Locality.Label
 		locLbEps, found := localityEpMap[locality]
 		if !found {
 			locLbEps = &endpoint.LocalityLbEndpoints{
@@ -851,13 +852,13 @@ func buildLocalityLbEndpointsFromShards(
 				continue
 			}
 
-			locLbEps, found := localityEpMap[ep.Locality]
+			locLbEps, found := localityEpMap[ep.Locality.Label]
 			if !found {
 				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality:    util.ConvertLocality(ep.Locality),
+					Locality:    util.ConvertLocality(ep.Locality.Label),
 					LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
 				}
-				localityEpMap[ep.Locality] = locLbEps
+				localityEpMap[ep.Locality.Label] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, push)

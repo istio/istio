@@ -63,8 +63,8 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 		Example: `  # Generate a default Istio installation
   istioctl manifest generate
 
-  # Enable security
-  istioctl manifest generate --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true
+  # Enable grafana dashboard
+  istioctl manifest generate --set values.grafana.enabled=true
 
   # Generate the demo profile
   istioctl manifest generate --set profile=demo
