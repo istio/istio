@@ -179,7 +179,6 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 			for _, port := range ss.Ports {
 				if port.Name == "" || // 'name optional if single port is defined'
 					svcPort.Name == port.Name {
-
 					istioEndpoint := c.completeIstioEndpoint(initEndpoint, ea.IP, port.Port, svcPort.Name, svc)
 					out = append(out, &model.ServiceInstance{
 						Endpoint:    istioEndpoint,

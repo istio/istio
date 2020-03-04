@@ -946,6 +946,7 @@ func createUID(podName, namespace string) string {
 	return "kubernetes://" + podName + "." + namespace
 }
 
+// first phase of instantiating IstioEndpoint
 func (c *Controller) newIstioEndpoint(pod *v1.Pod) model.IstioEndpoint {
 	locality, sa, uid := "", "", ""
 	var podLabels labels.Instance
@@ -968,6 +969,7 @@ func (c *Controller) newIstioEndpoint(pod *v1.Pod) model.IstioEndpoint {
 	}
 }
 
+// second phase: complete IstioEndpoint
 func (c *Controller) completeIstioEndpoint(
 	ep model.IstioEndpoint,
 	address string,
