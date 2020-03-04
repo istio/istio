@@ -671,7 +671,7 @@ func TestV1beta1_TCP(t *testing.T) {
 			g.ApplyConfigOrFail(t, nil, policy...)
 			defer g.DeleteConfigOrFail(t, nil, policy...)
 
-			var a, b, c, d, x echo.Instance
+			var a, b, c, d, e, x echo.Instance
 			ports := []echo.Port{
 				{
 					Name:         "http-8090",
@@ -723,6 +723,14 @@ func TestV1beta1_TCP(t *testing.T) {
 					Ports:          ports,
 					ServiceAccount: true,
 				}).
+				With(&e, echo.Config{
+					Namespace:      ns,
+					Galley:         g,
+					Pilot:          p,
+					Service:        "e",
+					Ports:          ports,
+					ServiceAccount: true,
+				}).
 				BuildOrFail(t)
 
 			newTestCase := func(from, target echo.Instance, port string, expectAllowed bool) rbacUtil.TestCase {
@@ -744,11 +752,10 @@ func TestV1beta1_TCP(t *testing.T) {
 				// The policy on workload b denies request with path "/data" to port 8090:
 				// - request to port http-8090 should be denied because both path and port are matched.
 				// - request to port http-8091 should be allowed because the port is not matched.
-				// - request to port tcp should be denied because a default deny-all policy should
-				//   be generated when HTTP field (i.e. path) is used on TCP port.
+				// - request to port tcp should be allowed because the port is not matched.
 				newTestCase(a, b, "http-8090", false),
 				newTestCase(a, b, "http-8091", true),
-				newTestCase(a, b, "tcp", false),
+				newTestCase(a, b, "tcp", true),
 
 				// The policy on workload c denies request to port 8090:
 				// - request to port http-8090 should be denied because the port is matched.
@@ -769,6 +776,14 @@ func TestV1beta1_TCP(t *testing.T) {
 				newTestCase(c, d, "tcp", true),
 				newTestCase(x, a, "tcp", true),
 				newTestCase(x, d, "tcp", false),
+
+				// The policy on workload e denies request with path "/other":
+				// - request to port http-8090 should be allowed because the path is not matched.
+				// - request to port http-8091 should be allowed because the path is not matched.
+				// - request to port tcp should be denied because policy uses HTTP fields.
+				newTestCase(a, e, "http-8090", true),
+				newTestCase(a, e, "http-8091", true),
+				newTestCase(a, e, "tcp", false),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
